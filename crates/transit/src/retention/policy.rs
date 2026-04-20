@@ -1,203 +1,181 @@
-//! Pinning policy engine for usenet-ipfs-transit.
-//!
-//! `PolicyEngine::should_pin` evaluates configured rules against article
-//! metadata. Rules are AND'd: the article must pass ALL applicable checks.
+use serde::Deserialize;
 
-/// Article metadata for policy evaluation (decoupled from IPLD schema).
-#[derive(Debug, Clone)]
-pub struct ArticleInfo {
-    /// Group name (e.g. "comp.lang.rust").
+/// Metadata about an article used to evaluate pinning policy rules.
+pub struct ArticleMeta {
     pub group: String,
-    /// Article post date as Unix timestamp milliseconds.
-    pub date_ms: u64,
-    /// Article total byte count.
-    pub byte_count: u64,
+    pub size_bytes: usize,
+    /// Days elapsed since the article's Date header.
+    pub age_days: u64,
 }
 
-/// Configuration for the pinning policy engine.
-#[derive(Debug, Clone)]
+/// A single pinning policy rule, deserializable from TOML.
+///
+/// Rules are evaluated in order by [`PinPolicy::should_pin`]. The first rule
+/// whose conditions all match determines the outcome. Unknown `action` values
+/// are treated as no-match (rule is skipped) rather than panicking.
+#[derive(Debug, Deserialize, Clone)]
+pub struct PinRule {
+    /// Glob pattern for group names. `"all"` matches every group.
+    /// `"comp.*"` matches any group whose name begins with `"comp."`.
+    /// `"comp.**"` is an explicit any-depth variant with identical behavior.
+    /// Exact names such as `"comp.lang.rust"` match only that group.
+    pub groups: String,
+    /// If `Some`, only articles no older than this many days match this rule.
+    pub max_age_days: Option<u64>,
+    /// If `Some`, only articles no larger than this many bytes match this rule.
+    pub max_article_bytes: Option<usize>,
+    /// `"pin"` to pin matching articles; `"skip"` to leave them unpinned.
+    pub action: String,
+}
+
+/// Ordered list of pinning rules evaluated against each incoming article.
+///
+/// Rules are checked in declaration order; the first matching rule wins.
+/// If no rule matches the article, `should_pin` returns `false` — pinning
+/// is explicit opt-in, not opt-out.
 pub struct PinPolicy {
-    /// If true, pin all articles regardless of other rules.
-    pub pin_all_groups: bool,
-    /// If non-empty and `pin_all_groups` is false, only pin articles
-    /// whose group is in this list.
-    pub pin_groups: Vec<String>,
-    /// If Some, reject articles older than this many days.
-    /// `None` means no age limit.
-    pub max_age_days: Option<u32>,
-    /// If Some, reject articles larger than this many bytes.
-    /// `None` means no size limit.
-    pub max_size_bytes: Option<u64>,
+    rules: Vec<PinRule>,
 }
 
-impl Default for PinPolicy {
-    fn default() -> Self {
-        Self {
-            pin_all_groups: true,
-            pin_groups: vec![],
-            max_age_days: None,
-            max_size_bytes: None,
-        }
-    }
-}
-
-/// Policy engine that evaluates `PinPolicy` against article metadata.
-pub struct PolicyEngine {
-    policy: PinPolicy,
-    /// Current Unix timestamp in milliseconds (injected for testability).
-    now_ms: u64,
-}
-
-impl PolicyEngine {
-    pub fn new(policy: PinPolicy, now_ms: u64) -> Self {
-        Self { policy, now_ms }
+impl PinPolicy {
+    pub fn new(rules: Vec<PinRule>) -> Self {
+        Self { rules }
     }
 
-    /// Decide whether to pin the given article.
+    /// Returns `true` if the article described by `meta` should be pinned.
     ///
-    /// Rules applied in order (all must pass):
-    /// 1. Group filter: if `pin_all_groups=false` and `pin_groups` is non-empty,
-    ///    the article's group must be in the list.
-    /// 2. Age filter: if `max_age_days` is set, reject articles older than that.
-    ///    Age is computed from `article.date_ms` (Unix ms) against `now_ms`.
-    /// 3. Size filter: if `max_size_bytes` is set, reject larger articles.
-    ///    Size is computed from `article.byte_count`.
-    pub fn should_pin(&self, article: &ArticleInfo) -> bool {
-        // Rule 1: group filter.
-        // When pin_all_groups is false, the article's group must appear in
-        // pin_groups. An empty pin_groups list matches nothing.
-        if !self.policy.pin_all_groups
-            && !self.policy.pin_groups.iter().any(|g| g == &article.group)
-        {
+    /// Evaluates rules in order. The first rule whose group pattern and all
+    /// optional constraints match determines the outcome: `"pin"` → `true`,
+    /// `"skip"` → `false`. If no rule matches, returns `false`.
+    pub fn should_pin(&self, meta: &ArticleMeta) -> bool {
+        for rule in &self.rules {
+            if Self::matches_rule(rule, meta) {
+                return rule.action == "pin";
+            }
+        }
+        false
+    }
+
+    fn matches_rule(rule: &PinRule, meta: &ArticleMeta) -> bool {
+        if !matches_group_glob(&rule.groups, &meta.group) {
             return false;
         }
-
-        // Rule 2: age filter.
-        if let Some(max_days) = self.policy.max_age_days {
-            let max_age_ms = (max_days as u64) * 24 * 60 * 60 * 1000;
-            if article.date_ms + max_age_ms < self.now_ms {
+        if let Some(max_age) = rule.max_age_days {
+            if meta.age_days > max_age {
                 return false;
             }
         }
-
-        // Rule 3: size filter.
-        if let Some(max_bytes) = self.policy.max_size_bytes {
-            if article.byte_count > max_bytes {
+        if let Some(max_bytes) = rule.max_article_bytes {
+            if meta.size_bytes > max_bytes {
                 return false;
             }
         }
-
         true
     }
+}
+
+/// Returns `true` if `group` matches the glob `pattern`.
+///
+/// Matching rules (evaluated in order):
+/// - `"all"` matches any group name.
+/// - A pattern ending in `".**"` or `".*"` matches any group whose name
+///   starts with the prefix before the wildcard suffix (e.g. `"comp.*"`
+///   matches `"comp.lang.rust"`).
+/// - Any other pattern is an exact, case-sensitive comparison.
+pub fn matches_group_glob(pattern: &str, group: &str) -> bool {
+    if pattern == "all" {
+        return true;
+    }
+    if let Some(prefix) = pattern.strip_suffix(".**") {
+        let expected_start = format!("{}.", prefix);
+        return group.starts_with(&expected_start);
+    }
+    if let Some(prefix) = pattern.strip_suffix(".*") {
+        let expected_start = format!("{}.", prefix);
+        return group.starts_with(&expected_start);
+    }
+    pattern == group
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const NOW_MS: u64 = 1_700_000_000_000u64; // arbitrary "now"
-
-    fn make_info(group: &str, age_days: u64, byte_count: u64) -> ArticleInfo {
-        let age_ms = age_days * 24 * 60 * 60 * 1000;
-        ArticleInfo {
+    fn meta(group: &str, age_days: u64, size_bytes: usize) -> ArticleMeta {
+        ArticleMeta {
             group: group.to_string(),
-            date_ms: NOW_MS.saturating_sub(age_ms),
-            byte_count,
+            age_days,
+            size_bytes,
         }
     }
 
-    fn engine(policy: PinPolicy) -> PolicyEngine {
-        PolicyEngine::new(policy, NOW_MS)
+    fn pin_rule(
+        groups: &str,
+        max_age_days: Option<u64>,
+        max_article_bytes: Option<usize>,
+        action: &str,
+    ) -> PinRule {
+        PinRule {
+            groups: groups.to_string(),
+            max_age_days,
+            max_article_bytes,
+            action: action.to_string(),
+        }
     }
 
     #[test]
-    fn pin_all_groups_pins_everything() {
-        let eng = engine(PinPolicy { pin_all_groups: true, ..Default::default() });
-        let art = make_info("comp.lang.rust", 0, 1024);
-        assert!(eng.should_pin(&art));
+    fn pin_rule_matches_all_groups() {
+        let policy = PinPolicy::new(vec![pin_rule("all", None, None, "pin")]);
+        assert!(policy.should_pin(&meta("comp.lang.rust", 1, 512)));
+        assert!(policy.should_pin(&meta("alt.test", 1, 512)));
     }
 
     #[test]
-    fn pin_specific_group_allows_matching() {
-        let policy = PinPolicy {
-            pin_all_groups: false,
-            pin_groups: vec!["comp.lang.rust".to_string()],
-            ..Default::default()
-        };
-        let eng = engine(policy);
-        assert!(eng.should_pin(&make_info("comp.lang.rust", 0, 1024)));
-        assert!(!eng.should_pin(&make_info("sci.math", 0, 1024)));
+    fn skip_rule_matches_specific_group() {
+        let policy = PinPolicy::new(vec![pin_rule("comp.lang.rust", None, None, "skip")]);
+        assert!(!policy.should_pin(&meta("comp.lang.rust", 1, 512)));
     }
 
     #[test]
-    fn max_age_days_rejects_old_articles() {
-        let policy = PinPolicy {
-            pin_all_groups: true,
-            max_age_days: Some(30),
-            ..Default::default()
-        };
-        let eng = engine(policy);
-        assert!(eng.should_pin(&make_info("comp.lang.rust", 29, 1024)));
-        assert!(!eng.should_pin(&make_info("comp.lang.rust", 31, 1024)));
+    fn max_age_excludes_old_article() {
+        let policy = PinPolicy::new(vec![pin_rule("all", Some(30), None, "pin")]);
+        assert!(!policy.should_pin(&meta("comp.lang.rust", 60, 512)));
     }
 
     #[test]
-    fn max_size_bytes_rejects_large_articles() {
-        let policy = PinPolicy {
-            pin_all_groups: true,
-            max_size_bytes: Some(1_048_576), // 1 MiB
-            ..Default::default()
-        };
-        let eng = engine(policy);
-        assert!(eng.should_pin(&make_info("comp.lang.rust", 0, 512)));
-        assert!(!eng.should_pin(&make_info("comp.lang.rust", 0, 2_097_152)));
+    fn max_age_includes_new_article() {
+        let policy = PinPolicy::new(vec![pin_rule("all", Some(30), None, "pin")]);
+        assert!(policy.should_pin(&meta("comp.lang.rust", 5, 512)));
     }
 
     #[test]
-    fn rules_are_anded_group_and_age() {
-        let policy = PinPolicy {
-            pin_all_groups: false,
-            pin_groups: vec!["comp.lang.rust".to_string()],
-            max_age_days: Some(30),
-            max_size_bytes: None,
-        };
-        let eng = engine(policy);
-        // Right group, right age: pin.
-        assert!(eng.should_pin(&make_info("comp.lang.rust", 10, 1024)));
-        // Right group, too old: don't pin.
-        assert!(!eng.should_pin(&make_info("comp.lang.rust", 60, 1024)));
-        // Wrong group, right age: don't pin.
-        assert!(!eng.should_pin(&make_info("sci.math", 10, 1024)));
+    fn max_bytes_excludes_large_article() {
+        let policy = PinPolicy::new(vec![pin_rule("all", None, Some(1024), "pin")]);
+        assert!(!policy.should_pin(&meta("comp.lang.rust", 1, 2048)));
     }
 
     #[test]
-    fn rules_are_anded_all_three() {
-        let policy = PinPolicy {
-            pin_all_groups: false,
-            pin_groups: vec!["comp.lang.rust".to_string()],
-            max_age_days: Some(30),
-            max_size_bytes: Some(1_048_576),
-        };
-        let eng = engine(policy);
-        // All rules satisfied.
-        assert!(eng.should_pin(&make_info("comp.lang.rust", 10, 512)));
-        // Fails size only.
-        assert!(!eng.should_pin(&make_info("comp.lang.rust", 10, 2_097_152)));
-        // Fails age only.
-        assert!(!eng.should_pin(&make_info("comp.lang.rust", 60, 512)));
-        // Fails group only.
-        assert!(!eng.should_pin(&make_info("sci.math", 10, 512)));
+    fn glob_comp_star_matches_subgroup() {
+        assert!(matches_group_glob("comp.*", "comp.lang.rust"));
     }
 
     #[test]
-    fn empty_pin_groups_with_pin_all_false_pins_nothing() {
-        // If pin_all_groups=false but pin_groups is empty, nothing matches.
-        let policy = PinPolicy {
-            pin_all_groups: false,
-            pin_groups: vec![],
-            ..Default::default()
-        };
-        let eng = engine(policy);
-        assert!(!eng.should_pin(&make_info("comp.lang.rust", 0, 1024)));
+    fn glob_comp_star_no_match_alt() {
+        assert!(!matches_group_glob("comp.*", "alt.test"));
+    }
+
+    #[test]
+    fn no_matching_rule_returns_false() {
+        let policy = PinPolicy::new(vec![]);
+        assert!(!policy.should_pin(&meta("comp.lang.rust", 1, 512)));
+    }
+
+    #[test]
+    fn first_matching_rule_wins() {
+        let policy = PinPolicy::new(vec![
+            pin_rule("all", None, None, "pin"),
+            pin_rule("all", None, None, "skip"),
+        ]);
+        assert!(policy.should_pin(&meta("comp.lang.rust", 1, 512)));
     }
 }

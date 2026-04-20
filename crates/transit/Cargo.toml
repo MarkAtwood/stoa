@@ -18,7 +18,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "0.8"
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 usenet-ipfs-core = { path = "../core" }
 libp2p = { version = "0.54", features = ["tokio", "tcp", "noise", "yamux", "gossipsub", "identify", "macros", "kad"] }
 sha2 = "0.10"

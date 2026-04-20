@@ -56,3 +56,11 @@ nextest:
 # Check for compilation errors without building
 check:
     cargo check --workspace --all-features
+
+# Watch for changes and re-run tests (install cargo-watch: cargo install cargo-watch)
+watch:
+    cargo watch -x "test --workspace"
+
+# Watch for changes and re-run check only (faster feedback)
+watch-check:
+    cargo watch -x "check --workspace --all-features"

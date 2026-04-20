@@ -1,6 +1,6 @@
 use usenet_ipfs_transit::config::{check_admin_addr, Config};
 use std::path::PathBuf;
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 
 fn parse_args() -> PathBuf {
     let args: Vec<String> = std::env::args().collect();
@@ -21,22 +21,29 @@ fn parse_args() -> PathBuf {
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
-        )
-        .init();
-
     let config_path = parse_args();
 
     let config = match Config::from_file(&config_path) {
         Ok(c) => c,
         Err(e) => {
-            error!("failed to load config from {}: {}", config_path.display(), e);
+            eprintln!("error: failed to load config from {}: {}", config_path.display(), e);
             std::process::exit(1);
         }
     };
+
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(&config.log.level));
+
+    if config.log.format == "json" {
+        tracing_subscriber::fmt()
+            .json()
+            .with_env_filter(filter)
+            .init();
+    } else {
+        tracing_subscriber::fmt()
+            .with_env_filter(filter)
+            .init();
+    }
 
     info!(
         listen_addr = %config.listen.addr,

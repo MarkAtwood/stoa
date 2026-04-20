@@ -8,7 +8,7 @@ use sqlx::SqlitePool;
 use usenet_ipfs_core::error::StorageError;
 
 use crate::cli::peers::OutputFormat;
-use crate::retention::policy::{ArticleInfo, PinPolicy, PolicyEngine};
+use crate::retention::policy::{ArticleMeta, PinPolicy};
 
 /// Print daemon status: peer count, article count from msgid_map, pinned CID count.
 ///
@@ -96,8 +96,8 @@ pub async fn cmd_unpin(pool: &SqlitePool, cid_str: &str) -> Result<String, Stora
 
 /// Run a GC cycle immediately using the given policy.
 ///
-/// Scans all entries in `pinned_cids`, evaluates each against the policy engine
-/// (using a dummy `ArticleInfo` since article metadata is not stored in that table),
+/// Scans all entries in `pinned_cids`, evaluates each against the policy
+/// (using a dummy `ArticleMeta` since article metadata is not stored in that table),
 /// and removes those that fail the policy check.
 ///
 /// Returns a summary string of the form `"gc-run: {scanned} scanned, {unpinned} unpinned\n"`.
@@ -110,18 +110,15 @@ pub async fn cmd_gc_run(pool: &SqlitePool, policy: &PinPolicy) -> Result<String,
         .map_err(|e| StorageError::Database(e.to_string()))?;
 
     let scanned = rows.len();
-    let now_ms_val = now_ms() as u64;
-    let engine = PolicyEngine::new(policy.clone(), now_ms_val);
-
-    let dummy_info = ArticleInfo {
+    let dummy_meta = ArticleMeta {
         group: "unknown".to_string(),
-        date_ms: now_ms_val,
-        byte_count: 0,
+        size_bytes: 0,
+        age_days: 0,
     };
 
     let mut unpinned = 0usize;
     for cid_str in &rows {
-        if !engine.should_pin(&dummy_info) {
+        if !policy.should_pin(&dummy_meta) {
             sqlx::query("DELETE FROM pinned_cids WHERE cid = ?1")
                 .bind(cid_str)
                 .execute(pool)
@@ -172,6 +169,7 @@ fn now_ms() -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::retention::policy::PinRule;
     use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
     use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -250,12 +248,7 @@ mod tests {
     #[tokio::test]
     async fn gc_run_empty() {
         let pool = make_pool().await;
-        let policy = PinPolicy {
-            pin_all_groups: false,
-            pin_groups: vec![],
-            max_age_days: None,
-            max_size_bytes: None,
-        };
+        let policy = PinPolicy::new(vec![]);
         let result = cmd_gc_run(&pool, &policy).await.unwrap();
         assert!(result.contains("gc-run"), "gc result: {result}");
         assert!(
@@ -270,12 +263,7 @@ mod tests {
         let cid_str = "bafyreigdmqpykrgxyaxtlafqpqhzrfegdmqivsfeq7clzqya3oqpjzxnkm";
         cmd_pin(&pool, cid_str).await.unwrap();
 
-        let policy = PinPolicy {
-            pin_all_groups: false,
-            pin_groups: vec![],
-            max_age_days: None,
-            max_size_bytes: None,
-        };
+        let policy = PinPolicy::new(vec![]);
         let result = cmd_gc_run(&pool, &policy).await.unwrap();
         assert!(result.contains("1 scanned"), "should be 1 scanned: {result}");
         assert!(
@@ -290,12 +278,12 @@ mod tests {
         let cid_str = "bafyreigdmqpykrgxyaxtlafqpqhzrfegdmqivsfeq7clzqya3oqpjzxnkm";
         cmd_pin(&pool, cid_str).await.unwrap();
 
-        let policy = PinPolicy {
-            pin_all_groups: true,
-            pin_groups: vec![],
+        let policy = PinPolicy::new(vec![PinRule {
+            groups: "all".to_string(),
             max_age_days: None,
-            max_size_bytes: None,
-        };
+            max_article_bytes: None,
+            action: "pin".to_string(),
+        }]);
         let result = cmd_gc_run(&pool, &policy).await.unwrap();
         assert!(result.contains("1 scanned"), "should be 1 scanned: {result}");
         assert!(

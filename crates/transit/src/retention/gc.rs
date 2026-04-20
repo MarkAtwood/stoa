@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::retention::pin_client::PinClient;
-use crate::retention::policy::{ArticleInfo, PolicyEngine, PinPolicy};
+use crate::retention::policy::{ArticleMeta, PinPolicy};
 
 /// Metrics for the GC run.
 #[derive(Debug, Default)]
@@ -33,8 +33,12 @@ impl GcMetrics {
 pub struct GcCandidate {
     /// Content identifier.
     pub cid: Cid,
-    /// Article metadata for policy evaluation.
-    pub info: ArticleInfo,
+    /// Newsgroup the article belongs to.
+    pub group: String,
+    /// Unix timestamp in milliseconds from the article's Date header.
+    pub date_ms: u64,
+    /// Article size in bytes.
+    pub byte_count: usize,
 }
 
 /// GC runner that evaluates candidates against the policy and unpins rejects.
@@ -62,16 +66,25 @@ impl<P: PinClient> GcRunner<P> {
     /// Returns the count of articles unpinned in this run.
     pub async fn run_once(&self, candidates: &[GcCandidate], now_ms: u64) -> u64 {
         let start = std::time::Instant::now();
-        let engine = PolicyEngine::new(self.policy.clone(), now_ms);
+        let ms_per_day = 24u64 * 60 * 60 * 1000;
         let mut unpinned = 0u64;
 
         for candidate in candidates {
-            if !engine.should_pin(&candidate.info) {
+            let age_days = now_ms
+                .saturating_sub(candidate.date_ms)
+                .checked_div(ms_per_day)
+                .unwrap_or(0);
+            let meta = ArticleMeta {
+                group: candidate.group.clone(),
+                size_bytes: candidate.byte_count,
+                age_days,
+            };
+            if !self.policy.should_pin(&meta) {
                 match self.pin_client.unpin(&candidate.cid).await {
                     Ok(()) => {
                         tracing::info!(
                             cid = %candidate.cid,
-                            group = %candidate.info.group,
+                            group = %candidate.group,
                             "GC: unpinned article"
                         );
                         unpinned += 1;
@@ -149,7 +162,7 @@ pub async fn start_gc_scheduler<P, F, Fut>(
 mod tests {
     use super::*;
     use crate::retention::pin_client::MemPinClient;
-    use crate::retention::policy::{ArticleInfo, PinPolicy};
+    use crate::retention::policy::{PinPolicy, PinRule};
     use cid::Cid;
     use multihash_codetable::{Code, MultihashDigest};
 
@@ -163,19 +176,33 @@ mod tests {
         let age_ms = age_days * 24 * 60 * 60 * 1000;
         GcCandidate {
             cid: make_cid(&[n]),
-            info: ArticleInfo {
-                group: group.to_string(),
-                date_ms: NOW_MS.saturating_sub(age_ms),
-                byte_count: 1024,
-            },
+            group: group.to_string(),
+            date_ms: NOW_MS.saturating_sub(age_ms),
+            byte_count: 1024,
         }
+    }
+
+    fn pin_sci_math() -> PinPolicy {
+        PinPolicy::new(vec![PinRule {
+            groups: "sci.math".to_string(),
+            max_age_days: None,
+            max_article_bytes: None,
+            action: "pin".to_string(),
+        }])
+    }
+
+    fn pin_all() -> PinPolicy {
+        PinPolicy::new(vec![PinRule {
+            groups: "all".to_string(),
+            max_age_days: None,
+            max_article_bytes: None,
+            action: "pin".to_string(),
+        }])
     }
 
     #[tokio::test]
     async fn gc_unpins_articles_not_in_policy() {
         let pin_client = MemPinClient::new();
-
-        // Pre-pin all 5 articles.
         let candidates: Vec<GcCandidate> = (0..5)
             .map(|i| make_candidate(i, "comp.lang.rust", 0))
             .collect();
@@ -183,30 +210,18 @@ mod tests {
             pin_client.pin(&c.cid).await.unwrap();
         }
 
-        // Policy: only pin articles from "sci.math". All 5 are in comp.lang.rust → all should be unpinned.
-        let policy = PinPolicy {
-            pin_all_groups: false,
-            pin_groups: vec!["sci.math".to_string()],
-            max_age_days: None,
-            max_size_bytes: None,
-        };
-
+        // Policy: only pin sci.math. All 5 are comp.lang.rust → all unpinned.
         let metrics = GcMetrics::new();
-        let runner = GcRunner::new(pin_client, policy, metrics.clone());
+        let runner = GcRunner::new(pin_client, pin_sci_math(), metrics.clone());
         let unpinned = runner.run_once(&candidates, NOW_MS).await;
 
         assert_eq!(unpinned, 5, "all 5 should be unpinned");
-        assert_eq!(
-            metrics.gc_articles_unpinned_total.load(Ordering::Relaxed),
-            5
-        );
+        assert_eq!(metrics.gc_articles_unpinned_total.load(Ordering::Relaxed), 5);
     }
 
     #[tokio::test]
     async fn gc_preserves_pinned_articles() {
         let pin_client = MemPinClient::new();
-
-        // 5 candidates: 2 in "sci.math" (keep), 3 in "comp.lang.rust" (unpin).
         let candidates = vec![
             make_candidate(0, "sci.math", 0),
             make_candidate(1, "sci.math", 0),
@@ -214,18 +229,12 @@ mod tests {
             make_candidate(3, "comp.lang.rust", 0),
             make_candidate(4, "comp.lang.rust", 0),
         ];
-
         for c in &candidates {
             pin_client.pin(&c.cid).await.unwrap();
         }
 
-        let policy = PinPolicy {
-            pin_all_groups: false,
-            pin_groups: vec!["sci.math".to_string()],
-            ..Default::default()
-        };
         let metrics = GcMetrics::new();
-        let runner = GcRunner::new(pin_client, policy, metrics.clone());
+        let runner = GcRunner::new(pin_client, pin_sci_math(), metrics.clone());
         let unpinned = runner.run_once(&candidates, NOW_MS).await;
 
         assert_eq!(unpinned, 3, "only 3 comp.lang.rust articles should be unpinned");
@@ -241,22 +250,17 @@ mod tests {
             pin_client.pin(&c.cid).await.unwrap();
         }
 
-        let policy = PinPolicy {
-            pin_all_groups: true,
-            ..Default::default()
-        };
         let metrics = GcMetrics::new();
-        let runner = GcRunner::new(pin_client, policy, metrics.clone());
+        let runner = GcRunner::new(pin_client, pin_all(), metrics.clone());
         let unpinned = runner.run_once(&candidates, NOW_MS).await;
 
-        assert_eq!(unpinned, 0, "pin_all_groups=true means nothing is unpinned");
+        assert_eq!(unpinned, 0, "pin all means nothing is unpinned");
     }
 
     #[test]
     fn prometheus_text_contains_metric_names() {
-        let policy = PinPolicy::default();
         let metrics = GcMetrics::new();
-        let runner = GcRunner::new(MemPinClient::new(), policy, metrics);
+        let runner = GcRunner::new(MemPinClient::new(), PinPolicy::new(vec![]), metrics);
         let text = runner.prometheus_text();
         assert!(text.contains("gc_articles_unpinned_total"));
         assert!(text.contains("gc_last_run_duration_ms"));

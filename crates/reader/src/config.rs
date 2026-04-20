@@ -11,6 +11,8 @@ pub struct Config {
     pub tls: TlsConfig,
     #[serde(default)]
     pub admin: AdminConfig,
+    #[serde(default)]
+    pub log: LogConfig,
 }
 
 #[derive(Debug, Deserialize)]
@@ -67,6 +69,34 @@ impl Default for AdminConfig {
         Self {
             addr: default_admin_addr(),
             allow_non_loopback: false,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LogConfig {
+    /// Log level filter (e.g. "info", "debug", "usenet_ipfs_reader=debug").
+    /// Defaults to "info". Also overridden by the RUST_LOG env var.
+    #[serde(default = "default_log_level")]
+    pub level: String,
+    /// Output format: "text" (human-readable) or "json" (structured).
+    #[serde(default = "default_log_format")]
+    pub format: String,
+}
+
+fn default_log_level() -> String {
+    "info".to_string()
+}
+
+fn default_log_format() -> String {
+    "json".to_string()
+}
+
+impl Default for LogConfig {
+    fn default() -> Self {
+        Self {
+            level: default_log_level(),
+            format: default_log_format(),
         }
     }
 }
