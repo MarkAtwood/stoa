@@ -4,7 +4,11 @@ use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
 use tracing::{error, info, warn};
 
-use usenet_ipfs_reader::{config::Config, session::lifecycle::run_session};
+use usenet_ipfs_reader::{
+    config::Config,
+    session::lifecycle::run_session,
+    store::server_stores::ServerStores,
+};
 
 fn parse_args() -> PathBuf {
     let args: Vec<String> = std::env::args().collect();
@@ -65,9 +69,10 @@ async fn main() {
 
     let semaphore = Arc::new(Semaphore::new(config.limits.max_connections));
     let config = Arc::new(config);
+    let stores = Arc::new(ServerStores::new_mem().await);
 
     tokio::select! {
-        _ = accept_loop(listener, semaphore, config) => {}
+        _ = accept_loop(listener, semaphore, config, stores) => {}
         _ = tokio::signal::ctrl_c() => {
             info!("received CTRL-C, shutting down");
         }
@@ -79,7 +84,12 @@ async fn main() {
     info!("usenet-ipfs-reader stopped");
 }
 
-async fn accept_loop(listener: TcpListener, semaphore: Arc<Semaphore>, config: Arc<Config>) {
+async fn accept_loop(
+    listener: TcpListener,
+    semaphore: Arc<Semaphore>,
+    config: Arc<Config>,
+    stores: Arc<ServerStores>,
+) {
     loop {
         let permit = match semaphore.clone().acquire_owned().await {
             Ok(p) => p,
@@ -99,9 +109,10 @@ async fn accept_loop(listener: TcpListener, semaphore: Arc<Semaphore>, config: A
         };
 
         let config = config.clone();
+        let stores = stores.clone();
         tokio::spawn(async move {
             let _permit = permit; // released when session task ends
-            run_session(stream, &config).await;
+            run_session(stream, &config, stores).await;
             info!(%peer_addr, "connection closed");
         });
     }

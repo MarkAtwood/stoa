@@ -1,4 +1,5 @@
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
@@ -6,13 +7,23 @@ use tracing::{debug, info, warn};
 
 use crate::{
     config::Config,
+    post::{
+        ipfs_write::write_article_to_ipfs,
+        log_append::append_to_groups,
+        pipeline::check_duplicate_msgid,
+        sign::sign_article,
+    },
     session::{
-        command::{parse_command, Command},
-        commands::post::{complete_post, read_dot_terminated, DEFAULT_MAX_ARTICLE_BYTES},
+        command::{parse_command, ArticleRef, Command},
+        commands::{
+            fetch::{article_response, ArticleContent},
+            post::{complete_post, read_dot_terminated, DEFAULT_MAX_ARTICLE_BYTES},
+        },
         context::SessionContext,
         dispatch::dispatch,
         response::Response,
     },
+    store::server_stores::ServerStores,
 };
 
 /// Run a complete NNTP session on the given TCP stream.
@@ -22,7 +33,7 @@ use crate::{
 /// supports STARTTLS in-session upgrade: when the client sends STARTTLS
 /// the plain loop exits, the stream is upgraded, and the command loop
 /// continues on the TLS stream.
-pub async fn run_session(stream: TcpStream, config: &Config) {
+pub async fn run_session(stream: TcpStream, config: &Config, stores: Arc<ServerStores>) {
     let peer_addr = match stream.peer_addr() {
         Ok(addr) => addr,
         Err(e) => {
@@ -46,7 +57,7 @@ pub async fn run_session(stream: TcpStream, config: &Config) {
         match crate::tls::accept_tls(&acceptor, stream).await {
             Ok(tls_stream) => {
                 // Already TLS; STARTTLS not available.
-                run_session_io(tls_stream, peer_addr, config, false).await;
+                run_session_io(tls_stream, peer_addr, config, false, stores).await;
             }
             Err(e) => {
                 warn!(peer = %peer_addr, "TLS handshake failed: {e}");
@@ -55,8 +66,9 @@ pub async fn run_session(stream: TcpStream, config: &Config) {
     } else {
         // Plain-text session. STARTTLS not available (no TLS configured).
         // run_plain_session returns Some(stream) if STARTTLS was requested,
-        // but that cannot happen here since starttls_available will be false.
-        let _ = run_plain_session(stream, peer_addr, config).await;
+        // but that cannot happen here since starttls_available will be false
+        // in the context and dispatch will return 580.
+        let _ = run_plain_session(stream, peer_addr, config, stores).await;
     }
 }
 
@@ -72,6 +84,7 @@ async fn run_plain_session(
     stream: TcpStream,
     peer_addr: SocketAddr,
     config: &Config,
+    stores: Arc<ServerStores>,
 ) -> Option<TcpStream> {
     info!(peer = %peer_addr, "plain session started");
     let start = std::time::Instant::now();
@@ -131,6 +144,15 @@ async fn run_plain_session(
             }
         };
 
+        // ARTICLE <msgid>: resolve from stores before dispatching.
+        if let Command::Article(Some(ArticleRef::MessageId(ref msgid))) = cmd {
+            let resp = lookup_article_by_msgid(&stores, msgid).await;
+            if write_half.write_all(resp.to_string().as_bytes()).await.is_err() {
+                break;
+            }
+            continue;
+        }
+
         let is_quit = matches!(cmd, Command::Quit);
         let is_post = matches!(cmd, Command::Post);
         let is_starttls = matches!(cmd, Command::StartTls);
@@ -164,7 +186,7 @@ async fn run_plain_session(
                     break;
                 }
             };
-            let final_resp = complete_post(&article_bytes, DEFAULT_MAX_ARTICLE_BYTES, None);
+            let final_resp = run_post_pipeline(&article_bytes, &stores).await;
             if write_half.write_all(final_resp.to_string().as_bytes()).await.is_err() {
                 break;
             }
@@ -197,6 +219,7 @@ async fn run_session_io<S>(
     peer_addr: SocketAddr,
     config: &Config,
     starttls_available: bool,
+    stores: Arc<ServerStores>,
 ) where
     S: AsyncRead + AsyncWrite + Unpin + Send,
 {
@@ -251,6 +274,15 @@ async fn run_session_io<S>(
             }
         };
 
+        // ARTICLE <msgid>: resolve from stores before dispatching.
+        if let Command::Article(Some(ArticleRef::MessageId(ref msgid))) = cmd {
+            let resp = lookup_article_by_msgid(&stores, msgid).await;
+            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                break;
+            }
+            continue;
+        }
+
         let is_quit = matches!(cmd, Command::Quit);
         let is_post = matches!(cmd, Command::Post);
         let cmd_label = line.split_whitespace().next().unwrap_or("UNKNOWN").to_uppercase();
@@ -279,7 +311,7 @@ async fn run_session_io<S>(
                 }
             };
 
-            let final_resp = complete_post(&article_bytes, DEFAULT_MAX_ARTICLE_BYTES, None);
+            let final_resp = run_post_pipeline(&article_bytes, &stores).await;
             if writer.write_all(final_resp.to_string().as_bytes()).await.is_err() {
                 break;
             }
@@ -288,4 +320,179 @@ async fn run_session_io<S>(
 
     let elapsed = start.elapsed();
     info!(peer = %peer_addr, elapsed_ms = elapsed.as_millis(), "session ended");
+}
+
+/// Validate and store a POSTed article through the full pipeline.
+///
+/// Steps:
+/// 1. Validate headers via `complete_post` (sync).
+/// 2. Check for duplicate message-id.
+/// 3. Sign the article with the operator key.
+/// 4. Write signed bytes to IPFS and record in msgid_map.
+/// 5. Append to group logs and assign local article numbers.
+///
+/// Returns 240 on success or a 441 error response on failure.
+async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Response {
+    // Step 1: Validate headers.
+    let validation = complete_post(article_bytes, DEFAULT_MAX_ARTICLE_BYTES, None);
+    if validation.code != 240 {
+        return validation;
+    }
+
+    // Extract Message-ID and Newsgroups from the article headers.
+    let (message_id, newsgroups) = match extract_post_metadata(article_bytes) {
+        Ok(meta) => meta,
+        Err(resp) => return resp,
+    };
+
+    // Step 2: Duplicate check.
+    if let Err(resp) = check_duplicate_msgid(&stores.msgid_map, &message_id).await {
+        return resp;
+    }
+
+    // Step 3: Sign the article.
+    let signed_bytes = sign_article(&stores.signing_key, article_bytes);
+
+    // Step 4: Write to IPFS and record msgid → CID.
+    let cid = match write_article_to_ipfs(
+        stores.ipfs_store.as_ref(),
+        &stores.msgid_map,
+        &signed_bytes,
+        &message_id,
+    )
+    .await
+    {
+        Ok(cid) => cid,
+        Err(resp) => return resp,
+    };
+
+    // Step 5: Append to group logs and assign article numbers.
+    let mut clock = stores.clock.lock().await;
+    if let Err(resp) = append_to_groups(
+        stores.log_storage.as_ref(),
+        &stores.article_numbers,
+        &mut clock,
+        &cid,
+        &[],
+        &newsgroups,
+    )
+    .await
+    {
+        return resp;
+    }
+    drop(clock);
+
+    Response::new(240, "Article received OK")
+}
+
+/// Look up an article by Message-ID from stores and return a 220/430 response.
+async fn lookup_article_by_msgid(stores: &ServerStores, msgid: &str) -> Response {
+    let cid = match stores.msgid_map.lookup_by_msgid(msgid).await {
+        Ok(Some(c)) => c,
+        Ok(None) => return Response::no_article_with_message_id(),
+        Err(e) => {
+            warn!("msgid_map lookup error for {msgid}: {e}");
+            return Response::new(500, "Internal error: storage lookup failed");
+        }
+    };
+
+    let raw_bytes = match stores.ipfs_store.get_raw_block(&cid).await {
+        Ok(b) => b,
+        Err(e) => {
+            warn!("IPFS get_raw_block error for cid {cid}: {e}");
+            return Response::new(500, "Internal error: IPFS retrieval failed");
+        }
+    };
+
+    // Split the stored bytes into header and body sections.
+    let (header_bytes, body_bytes) = split_article(&raw_bytes);
+
+    let content = ArticleContent {
+        article_number: 0,
+        message_id: msgid.to_string(),
+        header_bytes,
+        body_bytes,
+    };
+
+    article_response(&content)
+}
+
+/// Split raw article bytes at the blank-line separator.
+///
+/// Returns `(header_bytes, body_bytes)`. Both slices exclude the blank line
+/// itself. If no separator is found, the entire input is treated as headers.
+fn split_article(bytes: &[u8]) -> (Vec<u8>, Vec<u8>) {
+    // Look for \r\n\r\n first (canonical NNTP), then \n\n.
+    for i in 0..bytes.len().saturating_sub(3) {
+        if bytes[i..].starts_with(b"\r\n\r\n") {
+            return (bytes[..i].to_vec(), bytes[i + 4..].to_vec());
+        }
+    }
+    for i in 0..bytes.len().saturating_sub(1) {
+        if bytes[i..].starts_with(b"\n\n") {
+            return (bytes[..i].to_vec(), bytes[i + 2..].to_vec());
+        }
+    }
+    (bytes.to_vec(), vec![])
+}
+
+/// Extract `Message-ID` and `Newsgroups` from article header bytes.
+///
+/// Returns `Err(441 response)` if either field is missing or invalid.
+fn extract_post_metadata(
+    article_bytes: &[u8],
+) -> Result<(String, Vec<usenet_ipfs_core::article::GroupName>), Response> {
+    // Find the header section.
+    let header_end = find_header_end(article_bytes).unwrap_or(article_bytes.len());
+    let header_section = &article_bytes[..header_end];
+    let headers = String::from_utf8_lossy(header_section);
+
+    let message_id = extract_header_value(&headers, "Message-ID")
+        .ok_or_else(|| Response::new(441, "441 Missing Message-ID header"))?;
+
+    let newsgroups_val = extract_header_value(&headers, "Newsgroups")
+        .ok_or_else(|| Response::new(441, "441 Missing Newsgroups header"))?;
+
+    let newsgroups: Vec<usenet_ipfs_core::article::GroupName> = newsgroups_val
+        .split(',')
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| {
+            usenet_ipfs_core::article::GroupName::new(s)
+                .map_err(|_| Response::new(441, format!("441 Invalid group name: {s}")))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    if newsgroups.is_empty() {
+        return Err(Response::new(441, "441 Newsgroups header is empty"));
+    }
+
+    Ok((message_id, newsgroups))
+}
+
+/// Return the byte offset of the start of the blank line that separates
+/// headers from body (`\r\n\r\n` or `\n\n`).
+fn find_header_end(bytes: &[u8]) -> Option<usize> {
+    for i in 0..bytes.len().saturating_sub(1) {
+        if bytes[i..].starts_with(b"\r\n\r\n") {
+            return Some(i + 2);
+        }
+        if bytes[i..].starts_with(b"\n\n") {
+            return Some(i + 1);
+        }
+    }
+    None
+}
+
+/// Extract the trimmed value of the first matching header field, or `None`.
+fn extract_header_value(headers: &str, name: &str) -> Option<String> {
+    let prefix_colon = format!("{}:", name.to_ascii_lowercase());
+    for line in headers.lines() {
+        let lower = line.to_ascii_lowercase();
+        if lower.starts_with(&prefix_colon) {
+            let value = line[prefix_colon.len()..].trim().to_string();
+            return Some(value);
+        }
+    }
+    None
 }
