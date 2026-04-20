@@ -1,0 +1,485 @@
+//! Article ingress validation.
+//!
+//! Entry points:
+//! - [`validate_article_ingress`] — all structural checks for POST/IHAVE
+//! - [`check_duplicate`] — Message-ID deduplication against storage
+
+use crate::article::Article;
+use crate::error::{ProtocolError, ValidationError};
+
+// ── Configuration ─────────────────────────────────────────────────────────────
+
+/// Configuration for article ingress validation.
+pub struct ValidationConfig {
+    /// Maximum article body size in bytes. Default: 1 MiB.
+    pub max_article_bytes: usize,
+    /// If Some, only articles destined for these groups are accepted.
+    /// If None, all valid group names are accepted.
+    pub allowed_groups: Option<Vec<crate::article::GroupName>>,
+}
+
+impl Default for ValidationConfig {
+    fn default() -> Self {
+        Self {
+            max_article_bytes: 1024 * 1024, // 1 MiB
+            allowed_groups: None,
+        }
+    }
+}
+
+// ── Message-ID format check ───────────────────────────────────────────────────
+
+/// Returns `true` if `id` is a well-formed Message-ID.
+///
+/// Rules (pure string; no regex):
+/// - Starts with `<`, ends with `>`
+/// - Exactly one `@` between the angle brackets
+/// - Local part (before `@`) non-empty, no whitespace, no `<` or `>`
+/// - Domain part (after `@`) non-empty, no whitespace, no `<` or `>`
+fn is_valid_message_id(id: &str) -> bool {
+    let inner = match id.strip_prefix('<').and_then(|s| s.strip_suffix('>')) {
+        Some(s) => s,
+        None => return false,
+    };
+
+    let at_count = inner.chars().filter(|&c| c == '@').count();
+    if at_count != 1 {
+        return false;
+    }
+
+    let (local, domain) = inner.split_once('@').expect("one @ confirmed above");
+
+    if local.is_empty() || domain.is_empty() {
+        return false;
+    }
+
+    let forbidden = |c: char| c.is_whitespace() || c == '<' || c == '>';
+
+    if local.chars().any(forbidden) || domain.chars().any(forbidden) {
+        return false;
+    }
+
+    true
+}
+
+// ── validate_article_ingress ──────────────────────────────────────────────────
+
+/// Validate an Article at the NNTP ingress boundary (POST or IHAVE).
+///
+/// This is the single validation point called by both the POST and IHAVE
+/// handlers. Returns `Ok(())` if the article passes all checks, or the first
+/// `ProtocolError` encountered.
+///
+/// # Checks (in order)
+/// 1. All 6 mandatory RFC 5536 headers present and non-empty
+/// 2. Message-ID format valid: must match `<local@domain>` with no whitespace
+/// 3. Newsgroups not empty
+/// 4. All group names in Newsgroups are valid RFC 3977 group names
+/// 5. If `config.allowed_groups` is `Some`, all groups must be in the allowed set
+/// 6. All header field values ≤ 998 bytes (RFC 5322 §2.1.1)
+/// 7. Article body size ≤ `config.max_article_bytes`
+pub fn validate_article_ingress(
+    article: &Article,
+    config: &ValidationConfig,
+) -> Result<(), ProtocolError> {
+    let h = &article.header;
+
+    // 1. Mandatory headers present and non-empty.
+    if h.from.is_empty() {
+        return Err(ValidationError::MissingMandatoryHeader("From".into()).into());
+    }
+    if h.date.is_empty() {
+        return Err(ValidationError::MissingMandatoryHeader("Date".into()).into());
+    }
+    if h.message_id.is_empty() {
+        return Err(ValidationError::MissingMandatoryHeader("Message-ID".into()).into());
+    }
+    if h.subject.is_empty() {
+        return Err(ValidationError::MissingMandatoryHeader("Subject".into()).into());
+    }
+    if h.path.is_empty() {
+        return Err(ValidationError::MissingMandatoryHeader("Path".into()).into());
+    }
+
+    // 2. Message-ID format.
+    if !is_valid_message_id(&h.message_id) {
+        return Err(ValidationError::InvalidMessageId(h.message_id.clone()).into());
+    }
+
+    // 3. Newsgroups not empty.
+    if h.newsgroups.is_empty() {
+        return Err(ValidationError::EmptyNewsgroups.into());
+    }
+
+    // 4. Group names valid (GroupName::new already validates; the vec only
+    //    holds GroupName values so this check is structurally guaranteed).
+    //    We leave this comment as a reminder that the type system enforces it.
+
+    // 5. If allowed_groups filter is active, all destination groups must be listed.
+    if let Some(ref allowed) = config.allowed_groups {
+        for group in &h.newsgroups {
+            if !allowed.contains(group) {
+                return Err(
+                    ValidationError::InvalidGroupInNewsgroups(group.as_str().into()).into(),
+                );
+            }
+        }
+    }
+
+    // 6. Header field values ≤ 998 bytes (RFC 5322 §2.1.1).
+    const MAX_HEADER_VALUE: usize = 998;
+
+    let mandatory_fields = [
+        ("From", h.from.as_str()),
+        ("Date", h.date.as_str()),
+        ("Message-ID", h.message_id.as_str()),
+        ("Subject", h.subject.as_str()),
+        ("Path", h.path.as_str()),
+    ];
+    for (name, value) in mandatory_fields {
+        if value.len() > MAX_HEADER_VALUE {
+            return Err(ValidationError::HeaderFieldTooLong {
+                field: name.into(),
+                len: value.len(),
+                limit: MAX_HEADER_VALUE,
+            }
+            .into());
+        }
+    }
+    for (name, value) in &h.extra_headers {
+        if value.len() > MAX_HEADER_VALUE {
+            return Err(ValidationError::HeaderFieldTooLong {
+                field: name.clone(),
+                len: value.len(),
+                limit: MAX_HEADER_VALUE,
+            }
+            .into());
+        }
+    }
+
+    // 7. Body size limit.
+    let body_len = article.body.bytes.len();
+    if body_len > config.max_article_bytes {
+        return Err(ValidationError::ArticleTooBig {
+            size: body_len,
+            limit: config.max_article_bytes,
+        }
+        .into());
+    }
+
+    Ok(())
+}
+
+// ── MsgIdStorage + check_duplicate ───────────────────────────────────────────
+
+/// Minimal storage interface for Message-ID deduplication checks.
+/// A subset of the full Message-ID→CID map, kept separate for testability.
+pub trait MsgIdStorage {
+    /// Returns true if the given Message-ID is already known.
+    fn contains(&self, message_id: &str) -> bool;
+}
+
+/// Check whether a Message-ID is already present in storage.
+///
+/// Returns [`ProtocolError::DuplicateMessageId`] if the article is already
+/// known. Called before any signing or IPFS operations.
+pub fn check_duplicate(
+    message_id: &str,
+    storage: &dyn MsgIdStorage,
+) -> Result<(), ProtocolError> {
+    if storage.contains(message_id) {
+        return Err(ProtocolError::DuplicateMessageId(message_id.into()));
+    }
+    Ok(())
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::article::{Article, ArticleBody, ArticleHeader, GroupName};
+    use std::collections::HashSet;
+
+    struct InMemoryMsgIdStore(HashSet<String>);
+    impl MsgIdStorage for InMemoryMsgIdStore {
+        fn contains(&self, id: &str) -> bool {
+            self.0.contains(id)
+        }
+    }
+
+    fn make_valid_article() -> Article {
+        Article {
+            header: ArticleHeader {
+                from: "user@example.com".into(),
+                date: "Mon, 01 Jan 2024 00:00:00 +0000".into(),
+                message_id: "<abc123@example.com>".into(),
+                newsgroups: vec![GroupName::new("comp.lang.rust").unwrap()],
+                subject: "Test subject".into(),
+                path: "news.example.com!user".into(),
+                extra_headers: vec![],
+            },
+            body: ArticleBody::from_text("Body text.\r\n"),
+        }
+    }
+
+    // ── valid article ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_valid_article_passes() {
+        let article = make_valid_article();
+        let config = ValidationConfig::default();
+        assert!(validate_article_ingress(&article, &config).is_ok());
+    }
+
+    // ── missing mandatory headers ─────────────────────────────────────────────
+
+    #[test]
+    fn test_missing_from_fails() {
+        let mut article = make_valid_article();
+        article.header.from = String::new();
+        let err = validate_article_ingress(&article, &ValidationConfig::default()).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                ProtocolError::ValidationFailed(ValidationError::MissingMandatoryHeader(ref h))
+                if h == "From"
+            ),
+            "unexpected error: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_missing_date_fails() {
+        let mut article = make_valid_article();
+        article.header.date = String::new();
+        let err = validate_article_ingress(&article, &ValidationConfig::default()).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                ProtocolError::ValidationFailed(ValidationError::MissingMandatoryHeader(ref h))
+                if h == "Date"
+            ),
+            "unexpected error: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_missing_message_id_fails() {
+        let mut article = make_valid_article();
+        article.header.message_id = String::new();
+        let err = validate_article_ingress(&article, &ValidationConfig::default()).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                ProtocolError::ValidationFailed(ValidationError::MissingMandatoryHeader(ref h))
+                if h == "Message-ID"
+            ),
+            "unexpected error: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_missing_newsgroups_fails() {
+        let mut article = make_valid_article();
+        article.header.newsgroups = vec![];
+        let err = validate_article_ingress(&article, &ValidationConfig::default()).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                ProtocolError::ValidationFailed(ValidationError::EmptyNewsgroups)
+            ),
+            "unexpected error: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_missing_subject_fails() {
+        let mut article = make_valid_article();
+        article.header.subject = String::new();
+        let err = validate_article_ingress(&article, &ValidationConfig::default()).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                ProtocolError::ValidationFailed(ValidationError::MissingMandatoryHeader(ref h))
+                if h == "Subject"
+            ),
+            "unexpected error: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_missing_path_fails() {
+        let mut article = make_valid_article();
+        article.header.path = String::new();
+        let err = validate_article_ingress(&article, &ValidationConfig::default()).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                ProtocolError::ValidationFailed(ValidationError::MissingMandatoryHeader(ref h))
+                if h == "Path"
+            ),
+            "unexpected error: {err:?}"
+        );
+    }
+
+    // ── Message-ID format ─────────────────────────────────────────────────────
+
+    #[test]
+    fn test_invalid_message_id_no_brackets() {
+        let mut article = make_valid_article();
+        article.header.message_id = "test@example.com".into();
+        let err = validate_article_ingress(&article, &ValidationConfig::default()).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                ProtocolError::ValidationFailed(ValidationError::InvalidMessageId(_))
+            ),
+            "unexpected error: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_invalid_message_id_no_at() {
+        let mut article = make_valid_article();
+        article.header.message_id = "<testexample.com>".into();
+        let err = validate_article_ingress(&article, &ValidationConfig::default()).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                ProtocolError::ValidationFailed(ValidationError::InvalidMessageId(_))
+            ),
+            "unexpected error: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_invalid_message_id_space() {
+        let mut article = make_valid_article();
+        article.header.message_id = "<te st@example.com>".into();
+        let err = validate_article_ingress(&article, &ValidationConfig::default()).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                ProtocolError::ValidationFailed(ValidationError::InvalidMessageId(_))
+            ),
+            "unexpected error: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_valid_message_id() {
+        let mut article = make_valid_article();
+        article.header.message_id = "<abc123@example.com>".into();
+        assert!(validate_article_ingress(&article, &ValidationConfig::default()).is_ok());
+    }
+
+    // ── Header field length ───────────────────────────────────────────────────
+
+    #[test]
+    fn test_header_field_too_long() {
+        let mut article = make_valid_article();
+        article.header.subject = "x".repeat(999);
+        let err = validate_article_ingress(&article, &ValidationConfig::default()).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                ProtocolError::ValidationFailed(ValidationError::HeaderFieldTooLong { ref field, len: 999, limit: 998 })
+                if field == "Subject"
+            ),
+            "unexpected error: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_header_field_exactly_998_ok() {
+        let mut article = make_valid_article();
+        article.header.subject = "x".repeat(998);
+        assert!(validate_article_ingress(&article, &ValidationConfig::default()).is_ok());
+    }
+
+    // ── Body size limit ───────────────────────────────────────────────────────
+
+    #[test]
+    fn test_body_too_big() {
+        let mut article = make_valid_article();
+        let limit = 16;
+        article.body.bytes = vec![b'x'; limit + 1];
+        let config = ValidationConfig {
+            max_article_bytes: limit,
+            allowed_groups: None,
+        };
+        let err = validate_article_ingress(&article, &config).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                ProtocolError::ValidationFailed(ValidationError::ArticleTooBig {
+                    size,
+                    limit: lim,
+                }) if size == limit + 1 && lim == limit
+            ),
+            "unexpected error: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_body_exactly_at_limit_ok() {
+        let mut article = make_valid_article();
+        let limit = 16;
+        article.body.bytes = vec![b'x'; limit];
+        let config = ValidationConfig {
+            max_article_bytes: limit,
+            allowed_groups: None,
+        };
+        assert!(validate_article_ingress(&article, &config).is_ok());
+    }
+
+    // ── allowed_groups filter ─────────────────────────────────────────────────
+
+    #[test]
+    fn test_allowed_groups_accepts_member() {
+        let article = make_valid_article();
+        let config = ValidationConfig {
+            max_article_bytes: 1024 * 1024,
+            allowed_groups: Some(vec![GroupName::new("comp.lang.rust").unwrap()]),
+        };
+        assert!(validate_article_ingress(&article, &config).is_ok());
+    }
+
+    #[test]
+    fn test_allowed_groups_rejects_non_member() {
+        let article = make_valid_article();
+        let config = ValidationConfig {
+            max_article_bytes: 1024 * 1024,
+            allowed_groups: Some(vec![GroupName::new("alt.test").unwrap()]),
+        };
+        let err = validate_article_ingress(&article, &config).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                ProtocolError::ValidationFailed(ValidationError::InvalidGroupInNewsgroups(_))
+            ),
+            "unexpected error: {err:?}"
+        );
+    }
+
+    // ── check_duplicate ───────────────────────────────────────────────────────
+
+    #[test]
+    fn test_check_duplicate_returns_error_for_known() {
+        let store = InMemoryMsgIdStore(
+            ["<abc123@example.com>".to_string()].into_iter().collect(),
+        );
+        let err = check_duplicate("<abc123@example.com>", &store).unwrap_err();
+        assert!(
+            matches!(err, ProtocolError::DuplicateMessageId(ref id) if id == "<abc123@example.com>"),
+            "unexpected error: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_check_duplicate_returns_ok_for_unknown() {
+        let store = InMemoryMsgIdStore(HashSet::new());
+        assert!(check_duplicate("<new@example.com>", &store).is_ok());
+    }
+}
