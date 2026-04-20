@@ -1,6 +1,4 @@
-mod config;
-
-use config::Config;
+use usenet_ipfs_transit::config::Config;
 use std::path::PathBuf;
 use tracing::{error, info};
 

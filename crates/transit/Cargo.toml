@@ -3,6 +3,10 @@ name = "usenet-ipfs-transit"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "usenet_ipfs_transit"
+path = "src/lib.rs"
+
 [[bin]]
 name = "usenet-ipfs-transit"
 path = "src/main.rs"
@@ -14,6 +18,12 @@ toml = "0.8"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 usenet-ipfs-core = { path = "../core" }
+libp2p = { version = "0.54", features = ["tokio", "tcp", "noise", "yamux", "gossipsub", "identify", "macros"] }
+rand = "0.8"
 
 [dev-dependencies]
 tempfile = "3"
+sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio-rustls", "macros", "migrate"] }
+tokio = { version = "1", features = ["full", "macros", "rt-multi-thread"] }
+cid = "0.11"
+multihash-codetable = { version = "0.2", features = ["sha2"] }
