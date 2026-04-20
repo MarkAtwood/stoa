@@ -3984,6 +3984,7 @@ dependencies = [
  "sqlx",
  "tempfile",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -4020,6 +4021,7 @@ dependencies = [
  "libp2p",
  "multihash-codetable",
  "prometheus",
+ "proptest",
  "rand 0.8.6",
  "serde",
  "serde_json",

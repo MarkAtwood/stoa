@@ -169,6 +169,124 @@ proptest! {
     }
 }
 
+fn n_entries() -> impl Strategy<Value = usize> {
+    1usize..=20usize
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(200))]
+
+    /// Two partitioned nodes with disjoint entries converge after reconciliation rounds.
+    ///
+    /// Node A holds entries with even seeds; Node B holds entries with odd seeds.
+    /// Rounds of reconcile-then-transfer must drain both `want` sets within a
+    /// bounded number of iterations, leaving identical tip sets on both sides.
+    #[test]
+    fn convergence_after_partition(n in n_entries()) {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let violation = rt.block_on(async {
+            let storage_a = MemLogStorage::new();
+            let storage_b = MemLogStorage::new();
+            let group = test_group();
+
+            // Node A gets n entries with even seeds.
+            let mut tips_a = Vec::new();
+            for i in 0..n {
+                let seed = (i * 2) as u8;
+                let id = make_entry_id(seed);
+                storage_a.insert_entry(id.clone(), make_entry(i as u64)).await.unwrap();
+                tips_a.push(id);
+            }
+            if !tips_a.is_empty() {
+                storage_a.set_tips(&group, &tips_a).await.unwrap();
+            }
+
+            // Node B gets n entries with odd seeds.
+            let mut tips_b = Vec::new();
+            for i in 0..n {
+                let seed = (i * 2 + 1) as u8;
+                let id = make_entry_id(seed);
+                storage_b.insert_entry(id.clone(), make_entry(i as u64)).await.unwrap();
+                tips_b.push(id);
+            }
+            if !tips_b.is_empty() {
+                storage_b.set_tips(&group, &tips_b).await.unwrap();
+            }
+
+            // Simulate reconciliation rounds until both want sets are empty.
+            let max_rounds = n + 5;
+            for _round in 0..max_rounds {
+                let curr_tips_a = storage_a.list_tips(&group).await.unwrap();
+                let curr_tips_b = storage_b.list_tips(&group).await.unwrap();
+
+                let result_a = reconcile(&storage_a, &group, &curr_tips_b).await.unwrap();
+                let result_b = reconcile(&storage_b, &group, &curr_tips_a).await.unwrap();
+
+                if result_a.want.is_empty() && result_b.want.is_empty() {
+                    break;
+                }
+
+                // Transfer: A fetches what it wants from B.
+                for id in &result_a.want {
+                    if let Ok(Some(entry)) = storage_b.get_entry(id).await {
+                        let _ = storage_a.insert_entry(id.clone(), entry).await;
+                    }
+                }
+
+                // Transfer: B fetches what it wants from A.
+                for id in &result_b.want {
+                    if let Ok(Some(entry)) = storage_a.get_entry(id).await {
+                        let _ = storage_b.insert_entry(id.clone(), entry).await;
+                    }
+                }
+
+                // Update A's tip set to include newly received entries.
+                let mut new_tips_a = storage_a.list_tips(&group).await.unwrap();
+                for id in &result_a.want {
+                    if storage_a.has_entry(id).await.unwrap_or(false) && !new_tips_a.contains(id) {
+                        new_tips_a.push(id.clone());
+                    }
+                }
+                if !new_tips_a.is_empty() {
+                    storage_a.set_tips(&group, &new_tips_a).await.unwrap();
+                }
+
+                // Update B's tip set to include newly received entries.
+                let mut new_tips_b = storage_b.list_tips(&group).await.unwrap();
+                for id in &result_b.want {
+                    if storage_b.has_entry(id).await.unwrap_or(false) && !new_tips_b.contains(id) {
+                        new_tips_b.push(id.clone());
+                    }
+                }
+                if !new_tips_b.is_empty() {
+                    storage_b.set_tips(&group, &new_tips_b).await.unwrap();
+                }
+            }
+
+            // Final check: both nodes must have empty want sets.
+            let final_tips_a = storage_a.list_tips(&group).await.unwrap();
+            let final_tips_b = storage_b.list_tips(&group).await.unwrap();
+            let final_result_a = reconcile(&storage_a, &group, &final_tips_b).await.unwrap();
+            let final_result_b = reconcile(&storage_b, &group, &final_tips_a).await.unwrap();
+
+            if !final_result_a.want.is_empty() {
+                Some(format!(
+                    "A still wants {:?} after reconciliation",
+                    final_result_a.want
+                ))
+            } else if !final_result_b.want.is_empty() {
+                Some(format!(
+                    "B still wants {:?} after reconciliation",
+                    final_result_b.want
+                ))
+            } else {
+                None
+            }
+        });
+        prop_assert!(violation.is_none(), "convergence failed: {:?}", violation);
+    }
+}
+
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(200))]
 
