@@ -20,6 +20,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 usenet-ipfs-core = { path = "../core" }
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio-rustls", "macros", "migrate"] }
 cid = { version = "0.11", features = ["serde-codec"] }
+mailparse = "0.15"
 
 [dev-dependencies]
 tempfile = "3"

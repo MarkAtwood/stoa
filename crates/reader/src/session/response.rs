@@ -78,6 +78,21 @@ impl Response {
     pub fn information_follows() -> Self {
         Self::new(215, "Information follows")
     }
+    pub fn list_active(body: Vec<String>) -> Self {
+        Self::new_multiline(215, "list of newsgroups follows", body)
+    }
+    pub fn list_newsgroups(body: Vec<String>) -> Self {
+        Self::new_multiline(215, "descriptions of newsgroups follow", body)
+    }
+    pub fn newgroups(body: Vec<String>) -> Self {
+        Self::new_multiline(231, "list of new newsgroups follows", body)
+    }
+    pub fn newnews(body: Vec<String>) -> Self {
+        Self::new_multiline(230, "list of new articles follows", body)
+    }
+    pub fn article_exists(number: u64, msgid: &str) -> Self {
+        Self::new(223, format!("{number} {msgid} Article exists"))
+    }
     pub fn article_follows() -> Self {
         Self::new(220, "Article follows")
     }
@@ -208,6 +223,7 @@ mod tests {
         assert_eq!(Response::service_available_no_posting().code, 201);
         assert_eq!(Response::closing_connection().code, 205);
         assert_eq!(Response::information_follows().code, 215);
+        assert_eq!(Response::article_exists(1, "<x@y>").code, 223);
         assert_eq!(Response::article_follows().code, 220);
         assert_eq!(Response::headers_follow().code, 221);
         assert_eq!(Response::body_follows().code, 222);

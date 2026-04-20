@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use usenet_ipfs_core::article::GroupName;
 
-use crate::session::state::SessionState;
+use crate::session::{commands::list::GroupInfo, state::SessionState};
 
 /// All per-connection state for one NNTP session.
 ///
@@ -22,6 +22,11 @@ pub struct SessionContext {
     pub peer_addr: SocketAddr,
     /// Whether posting is permitted on this server.
     pub posting_allowed: bool,
+    /// Known newsgroups served by this instance.
+    ///
+    /// Populated at server startup from configuration. Empty until storage
+    /// integration is wired in by a later epic.
+    pub known_groups: Vec<GroupInfo>,
 }
 
 impl SessionContext {
@@ -41,6 +46,7 @@ impl SessionContext {
             current_article_number: None,
             peer_addr,
             posting_allowed,
+            known_groups: vec![],
         }
     }
 }

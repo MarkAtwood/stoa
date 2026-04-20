@@ -1,0 +1,245 @@
+use crate::session::response::Response;
+
+/// Information about a single newsgroup, passed to LIST handlers.
+pub struct GroupInfo {
+    pub name: String,
+    pub high: u64,
+    pub low: u64,
+    pub posting_allowed: bool,
+    pub description: String,
+}
+
+/// Returns true if `name` matches `pattern` using wildmat rules:
+/// `*` matches any sequence of characters, `?` matches any single character.
+/// Comparison is case-insensitive.
+pub fn matches_wildmat(name: &str, pattern: &str) -> bool {
+    let name = name.to_ascii_lowercase();
+    let pattern = pattern.to_ascii_lowercase();
+    wildmat_match(name.as_bytes(), pattern.as_bytes())
+}
+
+fn wildmat_match(text: &[u8], pattern: &[u8]) -> bool {
+    match (text, pattern) {
+        (_, []) => text.is_empty(),
+        (_, [b'*', rest @ ..]) => {
+            // Try matching the star against 0..=text.len() characters.
+            for i in 0..=text.len() {
+                if wildmat_match(&text[i..], rest) {
+                    return true;
+                }
+            }
+            false
+        }
+        ([], _) => false,
+        ([_tc, trest @ ..], [b'?', prest @ ..]) => wildmat_match(trest, prest),
+        ([tc, trest @ ..], [pc, prest @ ..]) => tc == pc && wildmat_match(trest, prest),
+    }
+}
+
+/// LIST ACTIVE [wildmat]: returns one line per matching group.
+///
+/// Format per RFC 3977 §7.6.3: `name high low flag`
+/// Flag: `y` if posting allowed, `n` if not.
+pub fn list_active(groups: &[GroupInfo], wildmat: Option<&str>) -> Response {
+    let mut body = Vec::new();
+    for g in groups {
+        if let Some(pat) = wildmat {
+            if !matches_wildmat(&g.name, pat) {
+                continue;
+            }
+        }
+        let flag = if g.posting_allowed { 'y' } else { 'n' };
+        body.push(format!("{} {} {} {}", g.name, g.high, g.low, flag));
+    }
+    Response::list_active(body)
+}
+
+/// LIST NEWSGROUPS [wildmat]: returns one line per matching group.
+///
+/// Format per RFC 3977 §7.6.6: `name description`
+pub fn list_newsgroups(groups: &[GroupInfo], wildmat: Option<&str>) -> Response {
+    let mut body = Vec::new();
+    for g in groups {
+        if let Some(pat) = wildmat {
+            if !matches_wildmat(&g.name, pat) {
+                continue;
+            }
+        }
+        body.push(format!("{} {}", g.name, g.description));
+    }
+    Response::list_newsgroups(body)
+}
+
+/// NEWGROUPS date time: groups created after the given timestamp.
+///
+/// V1 conservative behaviour: return all groups, since we have no creation
+/// timestamps. Better to return too many than too few.
+pub fn newgroups(groups: &[GroupInfo], _since_timestamp: u64) -> Response {
+    let body: Vec<String> = groups
+        .iter()
+        .map(|g| {
+            let flag = if g.posting_allowed { 'y' } else { 'n' };
+            format!("{} {} {} {}", g.name, g.high, g.low, flag)
+        })
+        .collect();
+    Response::newgroups(body)
+}
+
+/// NEWNEWS wildmat date time: Message-IDs of articles newer than timestamp.
+///
+/// V1 conservative behaviour: return empty list. Clients will catch up via
+/// GROUP/ARTICLE once they select a group.
+pub fn newnews(
+    _groups: &[GroupInfo],
+    _since_timestamp: u64,
+    _wildmat: Option<&str>,
+) -> Response {
+    Response::newnews(vec![])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_groups() -> Vec<GroupInfo> {
+        vec![
+            GroupInfo {
+                name: "comp.lang.rust".into(),
+                high: 100,
+                low: 1,
+                posting_allowed: true,
+                description: "The Rust programming language".into(),
+            },
+            GroupInfo {
+                name: "alt.test".into(),
+                high: 50,
+                low: 1,
+                posting_allowed: false,
+                description: "Testing only".into(),
+            },
+        ]
+    }
+
+    // ---- list_active ----
+
+    #[test]
+    fn list_active_empty() {
+        let resp = list_active(&[], None);
+        assert_eq!(resp.code, 215);
+        assert!(resp.body.is_empty());
+    }
+
+    #[test]
+    fn list_active_with_groups() {
+        let groups = sample_groups();
+        let resp = list_active(&groups, None);
+        assert_eq!(resp.code, 215);
+        assert_eq!(resp.body.len(), 2);
+        assert!(resp.body[0].contains("comp.lang.rust"));
+        assert!(resp.body[0].ends_with(" y"));
+        assert!(resp.body[1].contains("alt.test"));
+        assert!(resp.body[1].ends_with(" n"));
+    }
+
+    #[test]
+    fn list_active_wildmat_filter() {
+        let groups = sample_groups();
+        let resp = list_active(&groups, Some("comp.*"));
+        assert_eq!(resp.code, 215);
+        assert_eq!(resp.body.len(), 1);
+        assert!(resp.body[0].starts_with("comp.lang.rust "));
+    }
+
+    #[test]
+    fn list_active_format_fields() {
+        let groups = vec![GroupInfo {
+            name: "misc.test".into(),
+            high: 42,
+            low: 7,
+            posting_allowed: true,
+            description: "".into(),
+        }];
+        let resp = list_active(&groups, None);
+        assert_eq!(resp.body[0], "misc.test 42 7 y");
+    }
+
+    // ---- list_newsgroups ----
+
+    #[test]
+    fn list_newsgroups_format() {
+        let groups = sample_groups();
+        let resp = list_newsgroups(&groups, None);
+        assert_eq!(resp.code, 215);
+        assert_eq!(resp.body.len(), 2);
+        assert_eq!(resp.body[0], "comp.lang.rust The Rust programming language");
+        assert_eq!(resp.body[1], "alt.test Testing only");
+    }
+
+    #[test]
+    fn list_newsgroups_wildmat_filter() {
+        let groups = sample_groups();
+        let resp = list_newsgroups(&groups, Some("alt.*"));
+        assert_eq!(resp.code, 215);
+        assert_eq!(resp.body.len(), 1);
+        assert!(resp.body[0].starts_with("alt.test "));
+    }
+
+    // ---- newgroups ----
+
+    #[test]
+    fn newgroups_returns_all() {
+        let groups = sample_groups();
+        let resp = newgroups(&groups, 0);
+        assert_eq!(resp.code, 231);
+        assert_eq!(resp.body.len(), 2);
+    }
+
+    #[test]
+    fn newgroups_empty() {
+        let resp = newgroups(&[], 0);
+        assert_eq!(resp.code, 231);
+        assert!(resp.body.is_empty());
+    }
+
+    // ---- newnews ----
+
+    #[test]
+    fn newnews_returns_empty() {
+        let groups = sample_groups();
+        let resp = newnews(&groups, 0, None);
+        assert_eq!(resp.code, 230);
+        assert!(resp.body.is_empty());
+    }
+
+    // ---- matches_wildmat ----
+
+    #[test]
+    fn wildmat_star_matches_hierarchy() {
+        assert!(matches_wildmat("comp.lang.rust", "comp.*"));
+        assert!(!matches_wildmat("alt.test", "comp.*"));
+    }
+
+    #[test]
+    fn wildmat_question_mark() {
+        assert!(matches_wildmat("alt.x", "alt.?"));
+        assert!(!matches_wildmat("alt.xy", "alt.?"));
+    }
+
+    #[test]
+    fn wildmat_case_insensitive() {
+        assert!(matches_wildmat("COMP.LANG.RUST", "comp.*"));
+        assert!(matches_wildmat("comp.lang.rust", "COMP.*"));
+    }
+
+    #[test]
+    fn wildmat_exact_match() {
+        assert!(matches_wildmat("alt.test", "alt.test"));
+        assert!(!matches_wildmat("alt.test2", "alt.test"));
+    }
+
+    #[test]
+    fn wildmat_star_only() {
+        assert!(matches_wildmat("anything.goes", "*"));
+        assert!(matches_wildmat("", "*"));
+    }
+}

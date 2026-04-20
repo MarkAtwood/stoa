@@ -2,5 +2,6 @@
 
 pub mod config;
 pub mod migrations;
+pub mod post;
 pub mod session;
 pub mod store;
