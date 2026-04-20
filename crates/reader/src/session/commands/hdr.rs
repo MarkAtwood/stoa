@@ -6,15 +6,25 @@ pub struct HdrRecord {
     pub value: String,
 }
 
+/// Build the shared body lines for HDR and XHDR responses.
+///
+/// Returns one `"{number} {value}"` string per record.
+fn hdr_body(records: &[HdrRecord]) -> Vec<String> {
+    records.iter().map(|r| format!("{} {}", r.article_number, r.value)).collect()
+}
+
 /// Format HDR response per RFC 3977 §8.5.
 ///
 /// Returns 225 with one line per article `{number} {value}`, dot-terminated.
 pub fn hdr_response(records: &[HdrRecord]) -> Response {
-    let body: Vec<String> = records
-        .iter()
-        .map(|r| format!("{} {}", r.article_number, r.value))
-        .collect();
-    Response::hdr_follows(body)
+    Response::hdr_follows(hdr_body(records))
+}
+
+/// Format XHDR response (RFC 2980 legacy predecessor to HDR).
+///
+/// Identical to HDR but returns code 221. Not advertised in CAPABILITIES.
+pub fn xhdr_response(records: &[HdrRecord]) -> Response {
+    Response::xhdr_follows(hdr_body(records))
 }
 
 /// Extract a named field from an `OverviewRecord`.
@@ -95,5 +105,30 @@ mod tests {
     fn extract_unknown_field_returns_none() {
         let rec = sample_record();
         assert_eq!(extract_field(&rec, "X-Foo"), None);
+    }
+
+    #[test]
+    fn xhdr_response_code_is_221() {
+        let records = vec![HdrRecord { article_number: 1, value: "hello".to_string() }];
+        assert_eq!(xhdr_response(&records).code, 221);
+    }
+
+    #[test]
+    fn xhdr_response_has_same_body_as_hdr() {
+        let records = vec![
+            HdrRecord { article_number: 10, value: "foo".to_string() },
+            HdrRecord { article_number: 11, value: "bar".to_string() },
+        ];
+        let hdr = hdr_response(&records);
+        let xhdr = xhdr_response(&records);
+        assert_eq!(hdr.body, xhdr.body);
+        assert_ne!(hdr.code, xhdr.code);
+    }
+
+    #[test]
+    fn xhdr_empty_records() {
+        let resp = xhdr_response(&[]);
+        assert_eq!(resp.code, 221);
+        assert!(resp.body.is_empty());
     }
 }

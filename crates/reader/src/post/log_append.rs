@@ -1,0 +1,236 @@
+use cid::Cid;
+use multihash_codetable::Multihash;
+use usenet_ipfs_core::article::GroupName;
+use usenet_ipfs_core::group_log::append::append as crdt_append;
+use usenet_ipfs_core::group_log::types::{LogEntry, LogEntryId};
+use usenet_ipfs_core::group_log::LogStorage;
+use usenet_ipfs_core::hlc::HlcClock;
+
+use crate::session::response::Response;
+use crate::store::article_numbers::ArticleNumberStore;
+
+/// Result of appending an article to the group logs.
+pub struct AppendResult {
+    /// `(group_name, article_number)` for each group the article was appended to.
+    pub assignments: Vec<(String, u64)>,
+}
+
+/// Convert a `LogEntryId` to a `Cid` suitable for use as a `parent_cid` in a
+/// subsequent log entry.
+///
+/// The CID uses DAG-CBOR codec (0x71) and wraps the 32-byte entry ID as a
+/// SHA2-256 multihash, matching the convention in `append::compute_entry_id`.
+fn entry_id_to_cid(id: &LogEntryId) -> Cid {
+    let mh = Multihash::wrap(0x12, id.as_bytes()).expect("32-byte SHA2-256 multihash is always valid");
+    Cid::new_v1(0x71, mh)
+}
+
+/// Append `article_cid` to the log for each group in `newsgroups`, assigning
+/// a local article number in each group.
+///
+/// Steps for each group:
+/// 1. Get current tips from storage → parent CIDs.
+/// 2. Build a `LogEntry` with the HLC timestamp, article CID, operator
+///    signature, and parent CIDs.
+/// 3. Call `crdt_append` to persist the entry.
+/// 4. Call `article_numbers.assign_number` to get the local article number.
+/// 5. Collect `(group_name, article_number)` pairs.
+///
+/// If any step fails for any group, returns `Err(441 Posting failed)`.
+pub async fn append_to_groups<S: LogStorage>(
+    log_storage: &S,
+    article_numbers: &ArticleNumberStore,
+    clock: &mut HlcClock,
+    article_cid: &Cid,
+    operator_signature: &[u8],
+    newsgroups: &[GroupName],
+) -> Result<AppendResult, Response> {
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64;
+
+    let mut assignments = Vec::with_capacity(newsgroups.len());
+
+    for group in newsgroups {
+        let current_tips = log_storage
+            .list_tips(group)
+            .await
+            .map_err(|e| Response::new(441, format!("storage error listing tips: {e}")))?;
+
+        let parent_cids: Vec<Cid> = current_tips.iter().map(entry_id_to_cid).collect();
+
+        let hlc_ts = clock.send(now_ms);
+
+        let entry = LogEntry {
+            hlc_timestamp: hlc_ts.wall_ms,
+            article_cid: *article_cid,
+            operator_signature: operator_signature.to_vec(),
+            parent_cids,
+        };
+
+        crdt_append(log_storage, group, entry)
+            .await
+            .map_err(|e| Response::new(441, format!("log append failed for {group}: {e}")))?;
+
+        let article_number = article_numbers
+            .assign_number(group.as_str(), article_cid)
+            .await
+            .map_err(|e| Response::new(441, format!("article number assignment failed: {e}")))?;
+
+        assignments.push((group.as_str().to_owned(), article_number));
+    }
+
+    Ok(AppendResult { assignments })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use multihash_codetable::{Code, MultihashDigest};
+    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+    use std::str::FromStr as _;
+    use usenet_ipfs_core::group_log::MemLogStorage;
+
+    fn test_cid(data: &[u8]) -> Cid {
+        Cid::new_v1(0x71, Code::Sha2_256.digest(data))
+    }
+
+    fn test_clock() -> HlcClock {
+        HlcClock::new([0x01; 8], 1_000_000)
+    }
+
+    async fn make_article_numbers() -> (ArticleNumberStore, tempfile::TempPath) {
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        let opts = SqliteConnectOptions::from_str(&url)
+            .unwrap()
+            .create_if_missing(true);
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(opts)
+            .await
+            .unwrap();
+        crate::migrations::run_migrations(&pool).await.unwrap();
+        (ArticleNumberStore::new(pool), tmp)
+    }
+
+    #[tokio::test]
+    async fn append_to_single_group() {
+        let log_storage = MemLogStorage::new();
+        let (article_numbers, _tmp) = make_article_numbers().await;
+        let mut clock = test_clock();
+        let cid = test_cid(b"article-single");
+        let groups = vec![GroupName::new("comp.lang.rust").unwrap()];
+
+        let result = append_to_groups(
+            &log_storage,
+            &article_numbers,
+            &mut clock,
+            &cid,
+            &[0xaa, 0xbb],
+            &groups,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result.assignments.len(), 1);
+        assert_eq!(result.assignments[0].0, "comp.lang.rust");
+        assert_eq!(result.assignments[0].1, 1);
+    }
+
+    #[tokio::test]
+    async fn append_to_three_groups() {
+        let log_storage = MemLogStorage::new();
+        let (article_numbers, _tmp) = make_article_numbers().await;
+        let mut clock = test_clock();
+        let cid = test_cid(b"article-three-groups");
+        let groups = vec![
+            GroupName::new("comp.lang.rust").unwrap(),
+            GroupName::new("comp.lang.python").unwrap(),
+            GroupName::new("alt.test").unwrap(),
+        ];
+
+        let result = append_to_groups(
+            &log_storage,
+            &article_numbers,
+            &mut clock,
+            &cid,
+            &[0x01],
+            &groups,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result.assignments.len(), 3);
+
+        let group_names: Vec<&str> =
+            result.assignments.iter().map(|(g, _)| g.as_str()).collect();
+        assert!(group_names.contains(&"comp.lang.rust"));
+        assert!(group_names.contains(&"comp.lang.python"));
+        assert!(group_names.contains(&"alt.test"));
+
+        for (_, num) in &result.assignments {
+            assert_eq!(*num, 1, "each group should start at article number 1");
+        }
+    }
+
+    #[tokio::test]
+    async fn sequential_appends_increment_numbers() {
+        let log_storage = MemLogStorage::new();
+        let (article_numbers, _tmp) = make_article_numbers().await;
+        let mut clock = test_clock();
+        let group = vec![GroupName::new("comp.lang.rust").unwrap()];
+
+        let cid1 = test_cid(b"article-seq-1");
+        let r1 = append_to_groups(
+            &log_storage,
+            &article_numbers,
+            &mut clock,
+            &cid1,
+            &[0x01],
+            &group,
+        )
+        .await
+        .unwrap();
+
+        let cid2 = test_cid(b"article-seq-2");
+        let r2 = append_to_groups(
+            &log_storage,
+            &article_numbers,
+            &mut clock,
+            &cid2,
+            &[0x02],
+            &group,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(r1.assignments[0].1, 1);
+        assert_eq!(r2.assignments[0].1, 2);
+    }
+
+    #[tokio::test]
+    async fn log_entry_in_storage() {
+        let log_storage = MemLogStorage::new();
+        let (article_numbers, _tmp) = make_article_numbers().await;
+        let mut clock = test_clock();
+        let cid = test_cid(b"article-log-check");
+        let group_name = GroupName::new("comp.lang.rust").unwrap();
+        let groups = vec![group_name.clone()];
+
+        append_to_groups(
+            &log_storage,
+            &article_numbers,
+            &mut clock,
+            &cid,
+            &[0xcc],
+            &groups,
+        )
+        .await
+        .unwrap();
+
+        let tips = log_storage.list_tips(&group_name).await.unwrap();
+        assert!(!tips.is_empty(), "log_storage must have at least one tip after append");
+    }
+}

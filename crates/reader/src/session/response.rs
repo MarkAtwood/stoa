@@ -108,6 +108,9 @@ impl Response {
     pub fn hdr_follows(body: Vec<String>) -> Self {
         Self::new_multiline(225, "headers follow", body)
     }
+    pub fn xhdr_follows(body: Vec<String>) -> Self {
+        Self::new_multiline(221, "Headers follow", body)
+    }
     pub fn list_overview_fmt(body: Vec<String>) -> Self {
         Self::new_multiline(215, "Order of fields in overview database.", body)
     }
