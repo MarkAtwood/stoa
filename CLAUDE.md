@@ -16,7 +16,7 @@ Articles are stored as IPLD blocks addressed by CID. A `message_id → CID` mapp
 
 These are non-negotiable. Do not relitigate them. Raising an exception requires explicit user approval.
 
-1. **Reader server speaks RFC 3977 verbatim.** No protocol extensions. `LIST`, `GROUP`, `ARTICLE`, `HEAD`, `BODY`, `OVER`/`XOVER`, `POST`, `IHAVE`, `NEWGROUPS`, `NEWNEWS`, `CAPABILITIES`, `AUTHINFO`, `STARTTLS` must work with unmodified newsreader clients.
+1. **Reader server speaks RFC 3977 plus standard IANA-registered extensions.** All RFC 3977 commands must work with unmodified newsreader clients (`LIST`, `GROUP`, `ARTICLE`, `HEAD`, `BODY`, `OVER`/`XOVER`, `POST`, `IHAVE`, `NEWGROUPS`, `NEWNEWS`, `CAPABILITIES`, `AUTHINFO`, `STARTTLS`). Standard additive extensions are permitted — `HDR` (RFC 3977 §8.5), `LIST OVERVIEW.FMT` (RFC 6048), `MODE STREAM`/`CHECK`/`TAKETHIS` (RFC 4644) — because clients probe via `CAPABILITIES` and degrade gracefully. No custom or proprietary extensions. No extensions that expose CIDs, peer topology, or IPFS internals to clients.
 2. **v1 is text-only.** Binary groups and yEnc are out of scope. One deferred epic covers the future CID manifest approach. Do not implement or design yEnc/NZB in any active issue.
 3. **No moderation in v1.** No cancel messages, no NoCeM, no curation feeds. Filter nothing, moderate nothing.
 4. **Gossipsub topics are per-hierarchy, not per-group.** `comp.*` is one topic; `comp.lang.rust` is filtered inside it. Per-group topics do not scale past low hundreds of groups per peer.

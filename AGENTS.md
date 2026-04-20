@@ -58,7 +58,7 @@ For any task touching more than 3 files or requiring more than a few steps:
 
 Before implementing anything, verify it does not violate these:
 
-- Reader binary speaks RFC 3977 verbatim — no extensions
+- Reader speaks RFC 3977 plus standard IANA-registered extensions only — `HDR`, `LIST OVERVIEW.FMT`, `MODE STREAM`/`CHECK`/`TAKETHIS` are in scope; no custom extensions; nothing that exposes CIDs or IPFS internals to clients
 - v1 is text-only — no binary groups, no yEnc, no NZB
 - Gossipsub topics are per-hierarchy, not per-group
 - Article numbers are local and synthetic per `(group, reader_server)` — never network-stable
