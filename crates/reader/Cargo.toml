@@ -30,7 +30,7 @@ multihash-codetable = { version = "0.2", features = ["sha2"] }
 rustls = { version = "0.23", default-features = false, features = ["std", "tls12"] }
 rustls-pemfile = "2"
 tokio-rustls = "0.26"
-prometheus = "0.13"
+prometheus = "0.14"
 lazy_static = "1.5.0"
 
 [[bench]]
