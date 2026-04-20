@@ -18,7 +18,9 @@ pub fn dispatch(ctx: &mut SessionContext, cmd: Command) -> Response {
     // Precondition: Authenticating state — only auth/setup commands allowed.
     if ctx.state == SessionState::Authenticating {
         return match cmd {
-            Command::Capabilities => Response::capabilities(),
+            Command::Capabilities => {
+                Response::capabilities_with_ctx(ctx.posting_allowed, true)
+            }
             Command::Quit => Response::closing_connection(),
             Command::AuthinfoUser(_) | Command::AuthinfoPass(_) => {
                 // Stub: accept any credentials.
@@ -36,7 +38,9 @@ pub fn dispatch(ctx: &mut SessionContext, cmd: Command) -> Response {
 
     // Normal dispatch (Active or GroupSelected).
     match cmd {
-        Command::Capabilities => Response::capabilities(),
+        Command::Capabilities => {
+            Response::capabilities_with_ctx(ctx.posting_allowed, false)
+        }
         Command::ModeReader => {
             if ctx.posting_allowed {
                 Response::service_available_posting_allowed()
@@ -176,5 +180,48 @@ mod tests {
 
         let mut ctx_c = ctx_group_selected();
         assert_eq!(dispatch(&mut ctx_c, Command::Capabilities).code, 101);
+    }
+
+    #[test]
+    fn test_capabilities_active_contains_version_2() {
+        let mut ctx = ctx_active();
+        let resp = dispatch(&mut ctx, Command::Capabilities);
+        assert_eq!(resp.code, 101);
+        assert!(resp.body.iter().any(|l| l == "VERSION 2"));
+    }
+
+    #[test]
+    fn test_capabilities_posting_allowed_includes_post() {
+        let mut ctx = ctx_active(); // posting_allowed = true
+        let resp = dispatch(&mut ctx, Command::Capabilities);
+        assert!(resp.body.iter().any(|l| l == "POST"));
+    }
+
+    #[test]
+    fn test_capabilities_posting_not_allowed_excludes_post() {
+        let mut ctx = SessionContext::new(test_addr(), false, false);
+        let resp = dispatch(&mut ctx, Command::Capabilities);
+        assert!(!resp.body.iter().any(|l| l == "POST"));
+    }
+
+    #[test]
+    fn test_mode_reader_posting_allowed_returns_200() {
+        let mut ctx = ctx_active(); // posting_allowed = true
+        let resp = dispatch(&mut ctx, Command::ModeReader);
+        assert_eq!(resp.code, 200);
+    }
+
+    #[test]
+    fn test_mode_reader_posting_not_allowed_returns_201() {
+        let mut ctx = SessionContext::new(test_addr(), false, false);
+        let resp = dispatch(&mut ctx, Command::ModeReader);
+        assert_eq!(resp.code, 201);
+    }
+
+    #[test]
+    fn test_quit_returns_205() {
+        let mut ctx = ctx_active();
+        let resp = dispatch(&mut ctx, Command::Quit);
+        assert_eq!(resp.code, 205);
     }
 }

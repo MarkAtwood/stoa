@@ -1,17 +1,26 @@
 use std::fmt;
 
-/// An NNTP response with a numeric code and a text message.
+/// An NNTP response with a numeric code, a text message, and an optional
+/// multi-line body.
 ///
-/// `Display` formats the response as `"NNN text\r\n"` per RFC 3977.
+/// `Display` formats as `"NNN text\r\n"` for single-line responses, or
+/// `"NNN text\r\n<body lines>\r\n.\r\n"` for multi-line responses, per
+/// RFC 3977 §3.2.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Response {
     pub code: u16,
     pub text: String,
+    /// Multi-line body lines (without CRLF). Empty means single-line response.
+    pub body: Vec<String>,
 }
 
 impl Response {
     pub fn new(code: u16, text: impl Into<String>) -> Self {
-        Self { code, text: text.into() }
+        Self { code, text: text.into(), body: vec![] }
+    }
+
+    fn new_multiline(code: u16, text: impl Into<String>, body: Vec<String>) -> Self {
+        Self { code, text: text.into(), body }
     }
 
     // --- RFC 3977 standard responses ---
@@ -28,8 +37,31 @@ impl Response {
     pub fn service_available_posting_prohibited() -> Self {
         Self::service_available_no_posting()
     }
+    /// Returns a CAPABILITIES response with only the VERSION 2 line.
+    /// Use `capabilities_with_ctx` to build the full list from session state.
     pub fn capabilities() -> Self {
         Self::new(101, "Capability list follows")
+    }
+
+    /// Returns a fully-populated CAPABILITIES response per RFC 3977 §5.2.
+    ///
+    /// `posting_allowed`: include `POST` capability.
+    /// `auth_required`: include `AUTHINFO USER` capability.
+    pub fn capabilities_with_ctx(posting_allowed: bool, auth_required: bool) -> Self {
+        let mut caps = vec![
+            "VERSION 2".to_string(),
+            "READER".to_string(),
+            "OVER".to_string(),
+            "HDR".to_string(),
+            "LIST ACTIVE NEWSGROUPS".to_string(),
+        ];
+        if posting_allowed {
+            caps.push("POST".to_string());
+        }
+        if auth_required {
+            caps.push("AUTHINFO USER".to_string());
+        }
+        Self::new_multiline(101, "Capability list follows", caps)
     }
     pub fn tls_proceed() -> Self {
         Self::new(382, "Continue with TLS negotiation")
@@ -128,7 +160,14 @@ impl Response {
 
 impl fmt::Display for Response {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} {}\r\n", self.code, self.text)
+        write!(f, "{} {}\r\n", self.code, self.text)?;
+        for line in &self.body {
+            write!(f, "{line}\r\n")?;
+        }
+        if !self.body.is_empty() {
+            write!(f, ".\r\n")?;
+        }
+        Ok(())
     }
 }
 
@@ -146,6 +185,21 @@ mod tests {
     fn group_selected_format() {
         let r = Response::group_selected("comp.lang.rust", 42, 1, 42);
         assert_eq!(r.to_string(), "211 42 1 42 comp.lang.rust\r\n");
+    }
+
+    #[test]
+    fn capabilities_with_ctx_code_is_101() {
+        assert_eq!(Response::capabilities_with_ctx(true, false).code, 101);
+        assert_eq!(Response::capabilities_with_ctx(false, true).code, 101);
+    }
+
+    #[test]
+    fn capabilities_with_ctx_multiline_display() {
+        let r = Response::capabilities_with_ctx(false, false);
+        let s = r.to_string();
+        assert!(s.starts_with("101 Capability list follows\r\n"));
+        assert!(s.contains("VERSION 2\r\n"));
+        assert!(s.ends_with(".\r\n"));
     }
 
     #[test]
