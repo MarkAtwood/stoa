@@ -98,7 +98,7 @@ impl PeerRegistry {
     pub async fn record_rejected(&self, peer_id: &str, now_ms: i64) -> Result<(), StorageError> {
         sqlx::query(
             "UPDATE peers SET articles_rejected = articles_rejected + 1, \
-             consecutive_failures = consecutive_failures + 1, last_seen = ?1 WHERE peer_id = ?2",
+             consecutive_failures = MIN(consecutive_failures + 1, 20), last_seen = ?1 WHERE peer_id = ?2",
         )
         .bind(now_ms)
         .bind(peer_id)
@@ -136,6 +136,38 @@ impl PeerRegistry {
             })
             .collect())
     }
+}
+
+/// Maximum consecutive failures before the score bottoms out.
+/// Prevents score calculation from being affected by unbounded counter growth.
+pub const MAX_CONSECUTIVE_FAILURES: i64 = 20;
+
+/// Compute a health score for a peer record.
+///
+/// Score formula:
+/// - Start at 1.0 (perfect health)
+/// - Reduce by accept_rate penalty: if total articles > 0, accept_rate = accepted / (accepted + rejected)
+///   penalty = (1.0 - accept_rate) * 0.5  (a peer with 0% accept rate loses 0.5 points)
+/// - Reduce by consecutive failures: penalty = min(consecutive_failures, MAX_CONSECUTIVE_FAILURES)
+///   / MAX_CONSECUTIVE_FAILURES * 0.5
+/// - Clamp result to [0.0, 1.0]
+///
+/// If no articles have been exchanged (both accepted and rejected == 0),
+/// the accept_rate component is 0 (no penalty from accept rate).
+pub fn peer_score(record: &PeerRecord) -> f64 {
+    let total = record.articles_accepted + record.articles_rejected;
+
+    let accept_penalty = if total > 0 {
+        let accept_rate = record.articles_accepted as f64 / total as f64;
+        (1.0 - accept_rate) * 0.5
+    } else {
+        0.0
+    };
+
+    let failures_capped = record.consecutive_failures.min(MAX_CONSECUTIVE_FAILURES);
+    let failure_penalty = (failures_capped as f64 / MAX_CONSECUTIVE_FAILURES as f64) * 0.5;
+
+    (1.0 - accept_penalty - failure_penalty).max(0.0)
 }
 
 #[cfg(test)]
@@ -234,5 +266,88 @@ mod tests {
         reg.upsert(&record).await.unwrap();
         let got = reg.get("peer1").await.unwrap().unwrap();
         assert_eq!(got.articles_accepted, 99);
+    }
+
+    #[test]
+    fn peer_score_perfect_health() {
+        let mut record = make_record("peer1");
+        record.articles_accepted = 100;
+        record.articles_rejected = 0;
+        record.consecutive_failures = 0;
+        let score = peer_score(&record);
+        assert!((score - 1.0).abs() < 0.01, "perfect peer should score ~1.0, got {score}");
+    }
+
+    #[test]
+    fn peer_score_zero_accept_rate_loses_half() {
+        let mut record = make_record("peer1");
+        record.articles_accepted = 0;
+        record.articles_rejected = 100;
+        record.consecutive_failures = 0;
+        let score = peer_score(&record);
+        // accept_penalty = (1.0 - 0.0) * 0.5 = 0.5; failure_penalty = 0 → score = 0.5
+        assert!((score - 0.5).abs() < 0.01, "0% accept rate should score 0.5, got {score}");
+    }
+
+    #[test]
+    fn peer_score_max_failures_loses_half() {
+        let mut record = make_record("peer1");
+        record.articles_accepted = 100;
+        record.articles_rejected = 0;
+        record.consecutive_failures = MAX_CONSECUTIVE_FAILURES;
+        let score = peer_score(&record);
+        // accept_penalty = 0.0; failure_penalty = 1.0 * 0.5 = 0.5 → score = 0.5
+        assert!((score - 0.5).abs() < 0.01, "max failures should score 0.5, got {score}");
+    }
+
+    #[test]
+    fn peer_score_zero_accepts_max_failures_scores_zero() {
+        let mut record = make_record("peer1");
+        record.articles_accepted = 0;
+        record.articles_rejected = 100;
+        record.consecutive_failures = MAX_CONSECUTIVE_FAILURES;
+        let score = peer_score(&record);
+        assert!(score <= 0.01, "worst peer should score ~0.0, got {score}");
+    }
+
+    #[test]
+    fn peer_score_high_accept_beats_low_accept() {
+        let mut high = make_record("high");
+        high.articles_accepted = 100;
+        high.articles_rejected = 0;
+
+        let mut low = make_record("low");
+        low.articles_accepted = 50;
+        low.articles_rejected = 50;
+
+        assert!(
+            peer_score(&high) > peer_score(&low),
+            "100% accept rate should score higher than 50%: {} vs {}",
+            peer_score(&high),
+            peer_score(&low)
+        );
+    }
+
+    #[test]
+    fn peer_score_no_articles_not_penalized() {
+        let record = make_record("new_peer");
+        // No articles exchanged: no accept_rate penalty.
+        let score = peer_score(&record);
+        assert!((score - 1.0).abs() < 0.01, "new peer with no history should score 1.0, got {score}");
+    }
+
+    #[test]
+    fn consecutive_failures_capped_at_max() {
+        let mut record = make_record("peer1");
+        record.consecutive_failures = MAX_CONSECUTIVE_FAILURES + 100; // way over cap
+        let score = peer_score(&record);
+        // Should be treated the same as MAX_CONSECUTIVE_FAILURES.
+        let mut record2 = make_record("peer2");
+        record2.consecutive_failures = MAX_CONSECUTIVE_FAILURES;
+        let score2 = peer_score(&record2);
+        assert!(
+            (score - score2).abs() < 0.001,
+            "scores should be identical when failures exceed cap: {score} vs {score2}"
+        );
     }
 }
