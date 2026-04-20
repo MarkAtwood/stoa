@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "usenet_ipfs",
+  "project_id": "3a347f51-45a3-4321-815c-d6d916b818d0"
+}
