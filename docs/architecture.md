@@ -193,7 +193,7 @@ For commands that accept a `<message-id>` argument, `MsgIdMap::lookup_by_msgid` 
 
 ### Reader fetches the block from IPFS
 
-The CID is passed to `rust-ipfs` to retrieve the DAG-CBOR `ArticleRootNode` block. Sub-block CIDs (`header_cid`, `body_cid`) are followed to reconstruct the article wire form. `ARTICLE` returns both headers and body; `HEAD` returns only the header block; `BODY` returns only the body block.
+The CID is passed to `rust-ipfs` to retrieve the DAG-CBOR `ArticleRootNode` block. Sub-block CIDs (`header_cid`, `body_cid`) are followed to reconstruct the article wire form. `ARTICLE` returns both headers and body; `HEAD` returns only the header block; `BODY` returns only the body block. When returning `ARTICLE` or `HEAD` responses, the session layer also injects an `X-Usenet-IPFS-CID` header giving the canonical article CID (RAW codec, §12 of the wire format spec). For multi-block DAG articles (v2+), an `X-Usenet-IPFS-Root-CID` header is also injected.
 
 ### Reader synthesizes the article number
 
@@ -219,6 +219,54 @@ article_numbers (
 Assignment is sequential (MAX + 1, starting at 1) and wrapped in a SQLite transaction so it is serialized. The `group_range` method returns `(1, 0)` for an empty group, which is the RFC 3977 sentinel for an empty group (`low > high`).
 
 Two reader instances serving the same group from the same IPFS+gossipsub state will independently assign different article numbers to the same articles. Clients should use `Message-ID` for cross-server identity; local numbers exist only for the `GROUP`/`ARTICLE`/`OVER` protocol mechanics.
+
+---
+
+## NNTP CID Extensions
+
+The reader exposes five additive extensions that let CID-aware tools (archival
+scripts, Corundum indexer, IPFS pinning automation) access content-addressing
+metadata over standard NNTP. Standard newsreader clients see no change.
+
+All five are advertised in the `CAPABILITIES` response. The full wire protocol
+for each extension is specified in §12 of `docs/wire_format.md`.
+
+### Passive Headers
+
+Two headers are injected into `ARTICLE` and `HEAD` responses without requiring
+any client action:
+
+| Header | Value | When present |
+|--------|-------|--------------|
+| `X-Usenet-IPFS-CID` | Canonical article CID (RAW codec `0x55`) | Whenever CID is in `msgid_map` |
+| `X-Usenet-IPFS-Root-CID` | IPLD DAG root CID (DAG-CBOR `0x71`) | Multi-block articles only (v2+); absent for all v1 text articles |
+
+Headers are injected at the session serialisation layer (`session/lifecycle.rs`),
+not stored in the IPFS header block.
+
+### Active X-Commands
+
+Three commands are available to clients that confirm capability via `CAPABILITIES`:
+
+**`XCID [<message-id>]`** — returns response code `290 <cid>` for the current
+article or any named article. Same missing-context error codes as `STAT` (412,
+423, 430).
+
+**`XVERIFY <message-id> <expected-cid> [SIG]`** — verifies the stored CID
+matches `expected-cid` and optionally re-verifies the operator ed25519
+signature. Responses: `291` (verified), `541` (not found or CID mismatch),
+`542` (signature failure). CID re-derivation fetches raw block bytes from IPFS
+and recomputes the SHA-256 independently.
+
+**`ARTICLE cid:<cidv1>` (and `HEAD cid:...`, `BODY cid:...`)**  — accepts a
+`cid:` prefixed CIDv1 locator as an alternative to `<message-id>` and article
+number forms. Looks up directly in the IPFS block store, bypassing `msgid_map`.
+
+### Invariant
+
+A standard newsreader that never sends an `X` command and never reads
+`X-Usenet-IPFS-*` headers must have an identical session experience to a server
+without these extensions. This is enforced by the CLAUDE.md design invariant.
 
 ---
 

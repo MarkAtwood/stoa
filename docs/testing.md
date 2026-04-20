@@ -360,6 +360,46 @@ Notes:
   free-text after the code.
 - Cite the RFC section in the assertion message.
 
+### Testing CID Extensions
+
+The five NNTP CID extensions each have distinct test concerns:
+
+**`X-Usenet-IPFS-CID` header** — POST an article, then `ARTICLE <msgid>`.
+Assert the header is present in the response, parse the CID string, and
+cross-validate it against the Python oracle:
+
+```python
+# Oracle: recompute CID from canonical bytes independently.
+import hashlib, multihash, cid as cid_lib
+digest = hashlib.sha256(canonical_bytes).digest()
+mh = multihash.encode(digest, "sha2-256")
+expected = cid_lib.CIDv1("raw", mh).encode("base32").decode()
+assert header_value == expected
+```
+
+**`XCID` command** — confirm `XCID` appears in `CAPABILITIES`, then select a
+group, `STAT` to an article, send `XCID` with no argument, assert `290`. Send
+`XCID <msgid>` without selecting a group, assert `290`. Assert the CID value
+matches the one from `X-Usenet-IPFS-CID` header for the same article.
+
+**`XVERIFY` command** — assert `291` when correct CID supplied, `541` when CID
+is wrong, `541` when message-id is unknown, and `542` when `SIG` is appended
+and the article has a valid CID but the signature test is forced to fail (if
+testable via a test signing key). Cite RFC 3977 §7.2 in comments.
+
+**`ARTICLE cid:` locator** — confirm `X-CID-LOCATOR` in `CAPABILITIES`. POST
+an article, capture its CID from the `X-Usenet-IPFS-CID` header. Then send
+`ARTICLE cid:<that-cid>` and assert `220`. Assert `430` for an unknown CID.
+Assert `501` for `ARTICLE cid:notacid`.
+
+**`X-Usenet-IPFS-Root-CID` header** — assert the header is **absent** for all
+v1 single-block text articles (its presence for single-block articles would be
+a bug). This header is only present for future multi-block DAG articles.
+
+For all extension tests: connect with `tokio::net::TcpStream` against a live
+reader process (same as other conformance tests). Do not mock the server.
+Assert response codes with `starts_with("NNN")`, not exact equality.
+
 ---
 
 ## 5. Async Test Patterns

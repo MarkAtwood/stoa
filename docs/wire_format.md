@@ -19,6 +19,7 @@ exact names used in the Rust structs in `crates/core/src/` and
 9. [Message-ID Format and Validation](#9-message-id-format-and-validation)
 10. [Gossipsub Topic Naming](#10-gossipsub-topic-naming)
 11. [Worked Examples](#11-worked-examples)
+12. [NNTP CID Extension Protocol](#12-nntp-cid-extension-protocol)
 
 ---
 
@@ -666,3 +667,216 @@ block.
 | Max Message-ID bytes | `998`  | RFC 5322 §2.1.1 |
 | Max header value     | `998`  | RFC 5322 §2.1.1, per field |
 | Default max body     | `1 MiB`| `ValidationConfig::default()` |
+
+---
+
+## 12. NNTP CID Extension Protocol
+
+These extensions are implemented in `usenet-ipfs-reader`. They are purely
+additive: a standard newsreader that never sends an `X` command and never
+reads `X-Usenet-IPFS-*` headers sees zero behaviour change. All five are
+advertised in the `CAPABILITIES` response.
+
+All CID values in extension responses and headers use multibase base32upper
+(`b`-prefixed) CIDv1 string encoding as defined in §1.
+
+---
+
+### 12.1 `X-Usenet-IPFS-CID` Header
+
+Injected into `ARTICLE` and `HEAD` responses. Value is the canonical article
+CID stored in the `msgid_map` table (RAW codec `0x55`, SHA-256 of the
+canonical bytes defined in §3).
+
+**Wire format:**
+
+```
+X-Usenet-IPFS-CID: <cidv1-base32upper-string>
+```
+
+Rules:
+
+- Present whenever the article's CID is in the `msgid_map` table.
+- Absent for articles ingested via legacy import paths that did not record a CID.
+- The header is injected at the reader session layer during response
+  serialisation; it is **not** stored in the raw header block in IPFS.
+- The value is the canonical article CID (RAW codec `0x55`), not the IPFS DAG
+  root CID (DAG-CBOR `0x71`). Use `X-Usenet-IPFS-Root-CID` (§12.2) for the DAG root.
+
+---
+
+### 12.2 `X-Usenet-IPFS-Root-CID` Header
+
+Injected into `ARTICLE` and `HEAD` responses for articles stored as multi-block
+IPLD DAGs. Absent for all v1 single-block text articles.
+
+**Wire format:**
+
+```
+X-Usenet-IPFS-Root-CID: <cidv1-base32upper-string>
+```
+
+Rules:
+
+- **Absent** for all v1 text articles (single-block storage; root CID equals
+  canonical CID, so the header would be redundant).
+- **Present** in v2+ when the article is a DAG root (DAG-CBOR CIDv1, codec
+  `0x71`) that links to multiple content blocks per §4.
+- When present, the value is IPLD-traversable to all content blocks via
+  `ArticleRootNode` links.
+
+---
+
+### 12.3 `XCID` Command
+
+Returns the CID for the current article or a named article. Per RFC 3977
+§7.2, `X`-prefixed commands are experimental; clients must confirm the
+`XCID` keyword in `CAPABILITIES` before sending.
+
+**Syntax:**
+
+```
+XCID [<message-id>]
+```
+
+- **No argument:** returns the CID of the current article (requires a group
+  selected and a current article pointer set by a prior `ARTICLE`, `HEAD`,
+  `BODY`, or `STAT`).
+- **With `<message-id>`** (angle-bracket form): returns the CID for the named
+  article regardless of current group context.
+
+**Responses:**
+
+| Code | Meaning |
+|------|---------|
+| `290 <cid>` | CID found; CIDv1 base32upper string follows the space on the same line. |
+| `412` | No newsgroup selected (no-argument form only). |
+| `423` | No current article (no-argument form; group selected but no current article pointer). |
+| `430` | No article with that message-id (message-id form). |
+| `501` | Syntax error (argument present but not a valid angle-bracket message-id). |
+
+Example:
+
+```
+C: GROUP comp.lang.rust
+S: 211 42 1 42 comp.lang.rust
+C: ARTICLE 1
+S: 220 1 <hello@example.com> Article follows
+S: (headers and body)
+S: .
+C: XCID
+S: 290 bafkreiexamplecidstringhere...
+```
+
+**`CAPABILITIES` keyword:** `XCID`
+
+---
+
+### 12.4 `XVERIFY` Command
+
+Verifies that this server holds an article with the given message-id and that
+its stored CID matches the supplied expected CID. Optionally re-verifies the
+operator ed25519 signature.
+
+**Syntax:**
+
+```
+XVERIFY <message-id> <expected-cid> [SIG]
+```
+
+- `<message-id>`: angle-bracket form (e.g. `<foo@example.com>`).
+- `<expected-cid>`: CIDv1 base32upper string to compare against.
+- `SIG` (optional keyword, literal): if present, additionally re-verifies
+  the operator ed25519 signature over the article's canonical bytes.
+
+**Verification procedure:**
+
+1. Look up `<message-id>` in `msgid_map`; if not found → `541`.
+2. Compare stored CID to `<expected-cid>`; if mismatch → `541`.
+3. Fetch block bytes from IPFS, re-derive SHA-256 CIDv1 RAW independently of
+   the stored CID; if the re-derived CID does not match the stored CID → `541`
+   (local storage corruption indicator).
+4. If `SIG` keyword is present: deserialize canonical bytes from the block,
+   call `core::signing::verify()` with the operator's public key; if the
+   signature fails → `542`.
+5. All checks passed → `291`.
+
+Step 3 is an independent recomputation — it reads raw block bytes and hashes
+from scratch, making it a genuine integrity check rather than a metadata lookup.
+
+**Responses:**
+
+| Code | Meaning |
+|------|---------|
+| `291 Verified` | All requested checks passed. |
+| `501` | Syntax error (malformed message-id or CID string, or unknown keyword). |
+| `541 Not found or CID mismatch` | Article not found in `msgid_map`, stored CID differs from `expected-cid`, or local block re-hash failed. |
+| `542 Signature verification failed` | CID verified, but the ed25519 signature is invalid (only possible when `SIG` is specified). |
+
+**`CAPABILITIES` keyword:** `XVERIFY`
+
+---
+
+### 12.5 `ARTICLE cid:` Locator Form
+
+The `ARTICLE`, `HEAD`, and `BODY` commands accept a `cid:` prefixed locator as
+an alternative to the `<message-id>` (angle-bracket) form and article number
+(integer) form.
+
+**Syntax:**
+
+```
+ARTICLE cid:<cidv1-string>
+HEAD    cid:<cidv1-string>
+BODY    cid:<cidv1-string>
+```
+
+The `cid:` prefix (case-insensitive) is unambiguous: message-ids start with
+`<`, article numbers are integers, and neither can start with `cid:`.
+
+Lookup procedure:
+
+1. Strip the `cid:` prefix; attempt to parse the remainder as a CIDv1 string.
+   If parsing fails → `501`.
+2. Look up the CID directly in the IPFS block store (bypasses `msgid_map`).
+   If not found → `430`.
+3. Reconstruct the article from the block; return `220` / `221` / `222` as
+   for the standard command form.
+
+An article returned via `cid:` locator may or may not appear in `msgid_map`
+(e.g. an article fetched from a peer but not yet indexed returns successfully
+via its CID).
+
+**Response codes:** same as the standard `ARTICLE` (`220`), `HEAD` (`221`),
+and `BODY` (`222`) forms on success. `430` for unknown CID. `501` for
+malformed CID string.
+
+**`CAPABILITIES` keyword:** `X-CID-LOCATOR`
+
+---
+
+### 12.6 `CAPABILITIES` Advertisement
+
+The reader advertises all five extensions in `CAPABILITIES`. A client SHOULD
+check `CAPABILITIES` before sending any `X` command or before relying on
+`X-Usenet-IPFS-*` headers.
+
+```
+101 Capability list:
+VERSION 2
+READER
+IHAVE
+POST
+HDR
+LIST ACTIVE NEWSGROUPS OVERVIEW.FMT
+OVER
+MODE-READER
+XCID
+XVERIFY
+X-CID-LOCATOR
+STARTTLS
+.
+```
+
+Standard newsreaders that do not inspect `CAPABILITIES` for these keywords
+and never send `XCID` or `XVERIFY` see no change in behaviour.

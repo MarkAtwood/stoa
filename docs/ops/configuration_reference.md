@@ -227,6 +227,12 @@ Required sections: `[listen]`, `[limits]`, `[auth]`, `[tls]`
 
 Optional sections: `[admin]`, `[log]`
 
+**Note on CID extensions:** The five NNTP CID extensions (`X-Usenet-IPFS-CID`
+header, `X-Usenet-IPFS-Root-CID` header, `XCID` command, `XVERIFY` command,
+`ARTICLE cid:` locator) are always enabled and require no configuration.
+They are advertised in `CAPABILITIES` automatically. See `docs/wire_format.md`
+§12 for the full protocol specification.
+
 ### `[listen]`
 
 Controls the NNTP client-facing listener.
