@@ -11,6 +11,35 @@ pub struct Config {
     pub ipfs: IpfsConfig,
     pub pinning: PinningConfig,
     pub gc: GcConfig,
+    #[serde(default)]
+    pub admin: AdminConfig,
+}
+
+// AdminConfig fields will be used by the admin HTTP endpoint (not yet implemented).
+#[allow(dead_code)]
+#[derive(Debug, Deserialize)]
+pub struct AdminConfig {
+    /// Address to bind the admin HTTP endpoint.
+    /// Default: 127.0.0.1:9090 (loopback-only).
+    /// Setting to a non-loopback address without authentication is warned at startup.
+    #[serde(default = "default_admin_addr")]
+    pub addr: String,
+    /// If true, suppress the non-loopback warning (use only if you know what you're doing).
+    #[serde(default)]
+    pub allow_non_loopback: bool,
+}
+
+fn default_admin_addr() -> String {
+    "127.0.0.1:9090".to_string()
+}
+
+impl Default for AdminConfig {
+    fn default() -> Self {
+        Self {
+            addr: default_admin_addr(),
+            allow_non_loopback: false,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -91,6 +120,35 @@ impl Config {
             validate_group_name(name)?;
         }
         Ok(())
+    }
+}
+
+/// Returns true if the given bind address is a loopback address.
+pub fn is_loopback_addr(addr: &str) -> bool {
+    // Parse host from "host:port"
+    let host = addr.rsplit_once(':').map(|(h, _)| h).unwrap_or(addr);
+    // Strip brackets from IPv6 [::1]
+    let host = host.trim_start_matches('[').trim_end_matches(']');
+    match host.parse::<std::net::IpAddr>() {
+        Ok(ip) => ip.is_loopback(),
+        Err(_) => host == "localhost",
+    }
+}
+
+/// Check admin configuration and emit a warning if admin is bound non-locally.
+///
+/// Returns Some(warning_message) if the admin address is not loopback and
+/// allow_non_loopback is not set. Returns None if the configuration is safe.
+pub fn check_admin_addr(admin: &AdminConfig) -> Option<String> {
+    if !is_loopback_addr(&admin.addr) && !admin.allow_non_loopback {
+        Some(format!(
+            "WARNING: admin endpoint bound to non-loopback address '{}' \
+             without authentication. Set admin.allow_non_loopback = true in \
+             config to suppress this warning, or bind to 127.0.0.1.",
+            admin.addr
+        ))
+    } else {
+        None
     }
 }
 
@@ -274,5 +332,47 @@ max_age_days = 30
         let err = Config::from_file(Path::new("/nonexistent/path/config.toml"))
             .expect_err("should fail");
         assert!(matches!(err, ConfigError::Io(_)));
+    }
+
+    #[test]
+    fn loopback_127_is_safe() {
+        assert!(is_loopback_addr("127.0.0.1:9090"));
+    }
+
+    #[test]
+    fn loopback_localhost_is_safe() {
+        assert!(is_loopback_addr("localhost:9090"));
+    }
+
+    #[test]
+    fn ipv6_loopback_is_safe() {
+        assert!(is_loopback_addr("[::1]:9090"));
+    }
+
+    #[test]
+    fn non_loopback_triggers_warning() {
+        let admin = AdminConfig {
+            addr: "0.0.0.0:9090".to_string(),
+            allow_non_loopback: false,
+        };
+        let warning = check_admin_addr(&admin);
+        assert!(warning.is_some(), "non-loopback should trigger warning");
+        assert!(warning.unwrap().contains("WARNING"), "warning should say WARNING");
+    }
+
+    #[test]
+    fn non_loopback_with_flag_no_warning() {
+        let admin = AdminConfig {
+            addr: "0.0.0.0:9090".to_string(),
+            allow_non_loopback: true,
+        };
+        assert!(check_admin_addr(&admin).is_none(), "allow_non_loopback should suppress warning");
+    }
+
+    #[test]
+    fn default_addr_is_loopback() {
+        let admin = AdminConfig::default();
+        assert!(is_loopback_addr(&admin.addr), "default addr must be loopback");
+        assert!(check_admin_addr(&admin).is_none(), "default config must not warn");
     }
 }

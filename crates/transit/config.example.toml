@@ -25,3 +25,7 @@ rules = [
 [gc]
 schedule = "0 3 * * *"
 max_age_days = 90
+
+[admin]
+addr = "127.0.0.1:9090"
+# allow_non_loopback = false  # uncomment to suppress non-loopback warning

@@ -11,3 +11,7 @@ required = false
 [tls]
 cert_path = "/etc/ssl/certs/server.pem"
 key_path = "/etc/ssl/private/server.key"
+
+[admin]
+addr = "127.0.0.1:9090"
+# allow_non_loopback = false  # uncomment to suppress non-loopback warning

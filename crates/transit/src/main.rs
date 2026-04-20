@@ -1,6 +1,6 @@
-use usenet_ipfs_transit::config::Config;
+use usenet_ipfs_transit::config::{check_admin_addr, Config};
 use std::path::PathBuf;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 fn parse_args() -> PathBuf {
     let args: Vec<String> = std::env::args().collect();
@@ -44,6 +44,10 @@ async fn main() {
         group_count = config.groups.names.len(),
         "usenet-ipfs-transit starting"
     );
+
+    if let Some(warning) = check_admin_addr(&config.admin) {
+        warn!("{}", warning);
+    }
 
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {
