@@ -25,7 +25,7 @@ pub fn authinfo_response(
     if success {
         "281 Authentication accepted\r\n"
     } else {
-        "482 Authentication rejected\r\n"
+        "481 Authentication failed\r\n"
     }
 }
 
@@ -40,8 +40,8 @@ mod tests {
     }
 
     #[test]
-    fn auth_failure_returns_482() {
+    fn auth_failure_returns_481() {
         let resp = authinfo_response("baduser", "1.2.3.4:50001", false, None);
-        assert!(resp.starts_with("482"), "failure should give 482: {resp}");
+        assert!(resp.starts_with("481"), "failure should give 481: {resp}");
     }
 }

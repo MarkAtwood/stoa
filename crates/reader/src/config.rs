@@ -33,11 +33,22 @@ fn default_max_connections() -> usize {
     100
 }
 
-// AuthConfig fields will be used by the AUTHINFO command handler (not yet implemented).
-#[allow(dead_code)]
+#[derive(Debug, Deserialize)]
+pub struct UserCredential {
+    pub username: String,
+    pub password: String,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct AuthConfig {
     pub required: bool,
+    /// User accounts for AUTHINFO USER/PASS authentication.
+    ///
+    /// If empty and `required = false`, all credential attempts succeed
+    /// (development mode). If `required = true` and this list is non-empty,
+    /// credentials are validated against it.
+    #[serde(default)]
+    pub users: Vec<UserCredential>,
 }
 
 #[derive(Debug, Deserialize)]

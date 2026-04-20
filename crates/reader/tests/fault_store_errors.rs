@@ -26,7 +26,7 @@ fn peer_addr() -> SocketAddr {
 }
 
 fn active_ctx() -> SessionContext {
-    SessionContext::new(peer_addr(), false, true)
+    SessionContext::new(peer_addr(), false, true, false)
 }
 
 fn make_group(name: &str, numbers: Vec<u64>) -> GroupData {

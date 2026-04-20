@@ -182,6 +182,9 @@ where
         {
             tracing::warn!("log append failed for group {group_name_str}: {e}");
         } else {
+            crate::metrics::ARTICLES_INGESTED_GROUP_TOTAL
+                .with_label_values(&[group_name_str])
+                .inc();
             appended_groups.push(group_name_str.clone());
         }
     }

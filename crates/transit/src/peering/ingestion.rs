@@ -35,6 +35,9 @@ pub async fn check_ingest(
 ) -> IngestResult {
     // 1. Message-ID format.
     if let Err(e) = validate_message_id(message_id) {
+        crate::metrics::ARTICLES_REJECTED_TOTAL
+            .with_label_values(&["malformed"])
+            .inc();
         return IngestResult::Rejected(format!("invalid Message-ID format: {e}"));
     }
 
@@ -44,6 +47,9 @@ pub async fn check_ingest(
             return IngestResult::TransientError(format!("storage error during duplicate check: {e}"));
         }
         Ok(Some(_)) => {
+            crate::metrics::ARTICLES_REJECTED_TOTAL
+                .with_label_values(&["duplicate"])
+                .inc();
             return IngestResult::Duplicate;
         }
         Ok(None) => {}
@@ -51,6 +57,9 @@ pub async fn check_ingest(
 
     // 3. Size limit.
     if article_bytes.len() > MAX_ARTICLE_BYTES {
+        crate::metrics::ARTICLES_REJECTED_TOTAL
+            .with_label_values(&["size_exceeded"])
+            .inc();
         return IngestResult::Rejected(format!(
             "article too large: {} bytes (limit {})",
             article_bytes.len(),
@@ -62,6 +71,9 @@ pub async fn check_ingest(
     const MANDATORY: &[&str] = &["From", "Date", "Message-ID", "Newsgroups", "Subject"];
     for name in MANDATORY {
         if !has_header(article_bytes, name) {
+            crate::metrics::ARTICLES_REJECTED_TOTAL
+                .with_label_values(&["malformed"])
+                .inc();
             return IngestResult::Rejected(format!("missing mandatory header: {name}"));
         }
     }

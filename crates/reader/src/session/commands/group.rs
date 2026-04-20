@@ -147,6 +147,7 @@ mod tests {
             SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 1234),
             false,
             true,
+            false,
         )
     }
 

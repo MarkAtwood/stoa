@@ -14,6 +14,13 @@ pub struct SessionContext {
     pub authenticated_user: Option<String>,
     /// Whether the connection has been upgraded to TLS.
     pub tls_active: bool,
+    /// Whether STARTTLS is available on this connection.
+    ///
+    /// True for plain-text connections when TLS is configured. Set to false
+    /// once TLS is active (no double-upgrade) or when TLS is not configured.
+    pub starttls_available: bool,
+    /// Username received from AUTHINFO USER, waiting for AUTHINFO PASS.
+    pub pending_auth_user: Option<String>,
     /// Currently selected newsgroup.
     pub current_group: Option<GroupName>,
     /// Article pointer within the current group (1-based, per RFC 3977 §6.1.1).
@@ -33,7 +40,13 @@ impl SessionContext {
     /// Create a new session context for an incoming connection.
     ///
     /// `auth_required`: if true, start in Authenticating state.
-    pub fn new(peer_addr: SocketAddr, auth_required: bool, posting_allowed: bool) -> Self {
+    /// `starttls_available`: true for plain-text connections when TLS is configured.
+    pub fn new(
+        peer_addr: SocketAddr,
+        auth_required: bool,
+        posting_allowed: bool,
+        starttls_available: bool,
+    ) -> Self {
         Self {
             state: if auth_required {
                 SessionState::Authenticating
@@ -42,6 +55,8 @@ impl SessionContext {
             },
             authenticated_user: None,
             tls_active: false,
+            starttls_available,
+            pending_auth_user: None,
             current_group: None,
             current_article_number: None,
             peer_addr,
@@ -62,27 +77,35 @@ mod tests {
 
     #[test]
     fn test_initial_state_auth_required() {
-        let ctx = SessionContext::new(test_addr(), true, true);
+        let ctx = SessionContext::new(test_addr(), true, true, false);
         assert_eq!(ctx.state, SessionState::Authenticating);
     }
 
     #[test]
     fn test_initial_state_no_auth() {
-        let ctx = SessionContext::new(test_addr(), false, true);
+        let ctx = SessionContext::new(test_addr(), false, true, false);
         assert_eq!(ctx.state, SessionState::Active);
     }
 
     #[test]
     fn test_initial_no_group() {
-        let ctx = SessionContext::new(test_addr(), false, true);
+        let ctx = SessionContext::new(test_addr(), false, true, false);
         assert!(ctx.current_group.is_none());
     }
 
     #[test]
     fn test_posting_allowed_flag() {
-        let ctx_allowed = SessionContext::new(test_addr(), false, true);
+        let ctx_allowed = SessionContext::new(test_addr(), false, true, false);
         assert!(ctx_allowed.posting_allowed);
-        let ctx_denied = SessionContext::new(test_addr(), false, false);
+        let ctx_denied = SessionContext::new(test_addr(), false, false, false);
         assert!(!ctx_denied.posting_allowed);
+    }
+
+    #[test]
+    fn test_starttls_available_flag() {
+        let ctx_plain = SessionContext::new(test_addr(), false, true, true);
+        assert!(ctx_plain.starttls_available);
+        let ctx_tls = SessionContext::new(test_addr(), false, true, false);
+        assert!(!ctx_tls.starttls_available);
     }
 }

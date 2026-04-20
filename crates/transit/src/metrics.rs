@@ -1,6 +1,9 @@
 //! Prometheus metrics for the transit daemon.
 
-use prometheus::{register_histogram, register_histogram_vec, register_int_counter, register_int_gauge};
+use prometheus::{
+    register_counter_vec, register_histogram, register_histogram_vec, register_int_counter,
+    register_int_gauge,
+};
 
 lazy_static::lazy_static! {
     pub static ref ARTICLES_INGESTED_TOTAL: prometheus::IntCounter =
@@ -75,6 +78,22 @@ lazy_static::lazy_static! {
             vec![0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0]
         )
         .expect("failed to register nntp_command_duration_seconds");
+
+    pub static ref ARTICLES_INGESTED_GROUP_TOTAL: prometheus::CounterVec =
+        register_counter_vec!(
+            "articles_ingested_group_total",
+            "Articles ingested, labeled by newsgroup",
+            &["group"]
+        )
+        .expect("failed to register articles_ingested_group_total");
+
+    pub static ref ARTICLES_REJECTED_TOTAL: prometheus::CounterVec =
+        register_counter_vec!(
+            "articles_rejected_total",
+            "Articles rejected during ingestion, labeled by reason",
+            &["reason"]
+        )
+        .expect("failed to register articles_rejected_total");
 }
 
 /// Returns all metrics in Prometheus text format.
@@ -90,6 +109,8 @@ pub fn gather_metrics() -> String {
     lazy_static::initialize(&GROUPS_SERVED);
     lazy_static::initialize(&PINNED_ARTICLES_TOTAL);
     lazy_static::initialize(&NNTP_COMMAND_DURATION_SECONDS);
+    lazy_static::initialize(&ARTICLES_INGESTED_GROUP_TOTAL);
+    lazy_static::initialize(&ARTICLES_REJECTED_TOTAL);
 
     use prometheus::Encoder;
     let encoder = prometheus::TextEncoder::new();
@@ -224,5 +245,19 @@ mod tests {
         NNTP_COMMAND_DURATION_SECONDS.with_label_values(&["GROUP"]).observe(0.01);
         let output = gather_metrics();
         assert!(output.contains("nntp_command_duration_seconds"));
+    }
+
+    #[test]
+    fn group_counter_increments() {
+        ARTICLES_INGESTED_GROUP_TOTAL.with_label_values(&["comp.lang.rust"]).inc();
+        let output = gather_metrics();
+        assert!(output.contains("articles_ingested_group_total"));
+    }
+
+    #[test]
+    fn rejected_counter_increments() {
+        ARTICLES_REJECTED_TOTAL.with_label_values(&["duplicate"]).inc();
+        let output = gather_metrics();
+        assert!(output.contains("articles_rejected_total"));
     }
 }
