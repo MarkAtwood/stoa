@@ -1,0 +1,28 @@
+# cargo-nextest configuration for usenet-ipfs workspace.
+# https://nexte.st/docs/configuration
+
+[profile.default]
+# Run tests with all CPUs. nextest auto-detects; this is explicit.
+test-threads = "num-cpus"
+
+# Per-test timeout. Most unit tests are instant; integration tests that spin
+# up libp2p swarms may take up to 10 seconds. 60s is a safe upper bound.
+slow-timeout = { period = "10s", terminate-after = 1 }
+
+# Test output: print on failure
+failure-output = "immediate-final"
+success-output = "never"
+
+# JUnit XML output for CI (written to target/nextest/default/junit.xml)
+[profile.default.junit]
+path = "junit.xml"
+
+[profile.ci]
+# CI profile: no retries, strict timeouts, full output on failure
+test-threads = "num-cpus"
+slow-timeout = { period = "10s", terminate-after = 1 }
+failure-output = "immediate-final"
+success-output = "never"
+
+[profile.ci.junit]
+path = "junit.xml"

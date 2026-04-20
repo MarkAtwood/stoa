@@ -129,6 +129,47 @@ proptest! {
 }
 
 proptest! {
+    #![proptest_config(ProptestConfig::with_cases(500))]
+
+    /// Setting the same tip ID twice leaves exactly one copy in the tip list.
+    ///
+    /// `set_tips` is a replace-not-append operation, so calling it with
+    /// `[id]` twice must produce the same single-element result as calling it
+    /// once.  This guards against accidental accumulation.
+    #[test]
+    fn set_tips_idempotent(seed in 0u8..=127u8) {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let (tips_after_one, tips_after_two) = rt.block_on(async {
+            let storage = MemLogStorage::new();
+            let group = test_group();
+            let id = make_entry_id(seed);
+            storage.insert_entry(id.clone(), make_entry(seed as u64)).await.unwrap();
+
+            storage.set_tips(&group, &[id.clone()]).await.unwrap();
+            let tips_after_one = storage.list_tips(&group).await.unwrap();
+
+            storage.set_tips(&group, &[id.clone()]).await.unwrap();
+            let tips_after_two = storage.list_tips(&group).await.unwrap();
+
+            (tips_after_one, tips_after_two)
+        });
+        prop_assert_eq!(
+            tips_after_one.len(),
+            tips_after_two.len(),
+            "tip count changed after setting the same tip twice: {} vs {}",
+            tips_after_one.len(),
+            tips_after_two.len(),
+        );
+        prop_assert_eq!(
+            tips_after_two.len(),
+            1,
+            "expected exactly one tip, got {}",
+            tips_after_two.len(),
+        );
+    }
+}
+
+proptest! {
     #![proptest_config(ProptestConfig::with_cases(200))]
 
     /// Reconciling a node against its own tip set produces empty want and have.

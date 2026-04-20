@@ -11,7 +11,7 @@ list:
 build:
     cargo build --workspace
 
-# Run all tests
+# Run all tests (use `just nextest` for faster parallel runs with cargo-nextest)
 test:
     cargo test --workspace
 
@@ -49,7 +49,7 @@ key:
         exit 1
     fi
 
-# Run tests with cargo-nextest (if installed)
+# Run tests with cargo-nextest (install with: cargo install cargo-nextest)
 nextest:
     cargo nextest run --workspace
 
