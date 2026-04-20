@@ -1,0 +1,127 @@
+name: Benchmarks
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  bench:
+    name: Run benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-bench-
+
+      - name: Install critcmp
+        run: cargo install critcmp --locked
+
+      - name: Run benchmarks
+        run: cargo bench --workspace 2>&1 | tee bench_output.txt
+
+      - name: Upload criterion results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-results
+          path: target/criterion/
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Upload raw output
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-raw
+          path: bench_output.txt
+          retention-days: 90
+
+  bench-compare:
+    # Runs on pull requests only.
+    # Posts current PR benchmark output as a PR comment.
+    # Full baseline comparison via critcmp requires the bench workflow to have
+    # completed successfully on main first, and artifact download across workflow
+    # runs requires known run-id — not automated here. To compare manually:
+    #   1. Download bench-results artifact from the latest main run.
+    #   2. Download bench-results artifact from the PR run.
+    #   3. Run: critcmp <main-criterion-dir> <pr-criterion-dir>
+    name: Compare benchmarks
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-bench-
+
+      - name: Run benchmarks
+        id: run-benchmarks
+        run: cargo bench --workspace 2>&1 | tee pr_bench.txt
+
+      - name: Read bench output for comment
+        id: read-bench
+        run: |
+          # Truncate to avoid GitHub comment size limits (65536 chars max)
+          output=$(head -c 60000 pr_bench.txt)
+          {
+            echo 'bench_output<<BENCH_EOF'
+            echo "$output"
+            echo 'BENCH_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Post benchmark results as PR comment
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ## Benchmark results for this PR
+
+            <details>
+            <summary>Raw cargo bench output</summary>
+
+            ```
+            ${{ steps.read-bench.outputs.bench_output }}
+            ```
+
+            </details>
+
+            > **Note:** This is the raw output for this PR's branch. To compare against
+            > the main branch baseline, download the `bench-results` artifact from the
+            > latest successful `bench` workflow run on `main` and run `critcmp` locally.
+          comment-tag: bench-results

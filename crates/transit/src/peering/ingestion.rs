@@ -1,5 +1,6 @@
 use crate::peering::mode_stream::PeeringMode;
 use usenet_ipfs_core::msgid_map::MsgIdMap;
+use usenet_ipfs_core::validation::validate_message_id;
 
 /// Maximum article size for v1 text-only mode: 1 MiB.
 pub const MAX_ARTICLE_BYTES: usize = 1_048_576;
@@ -33,8 +34,8 @@ pub async fn check_ingest(
     msgid_map: &MsgIdMap,
 ) -> IngestResult {
     // 1. Message-ID format.
-    if !validate_msgid_format(message_id) {
-        return IngestResult::Rejected(format!("invalid Message-ID format: {message_id:?}"));
+    if let Err(e) = validate_message_id(message_id) {
+        return IngestResult::Rejected(format!("invalid Message-ID format: {e}"));
     }
 
     // 2. Duplicate check.
@@ -134,23 +135,6 @@ pub fn check_mode_guard(mode: PeeringMode) -> Option<&'static str> {
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
-
-/// Returns `true` if `msgid` is a well-formed Message-ID.
-///
-/// Rules: starts with `<`, ends with `>`, contains exactly one `@`,
-/// local and domain parts non-empty, total length > 3.
-fn validate_msgid_format(msgid: &str) -> bool {
-    if msgid.len() <= 3 {
-        return false;
-    }
-    if !msgid.starts_with('<') || !msgid.ends_with('>') {
-        return false;
-    }
-    if !msgid.contains('@') {
-        return false;
-    }
-    true
-}
 
 /// Returns `true` if the raw article bytes contain a header named `name`.
 ///

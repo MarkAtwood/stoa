@@ -62,6 +62,29 @@ fn is_valid_message_id(id: &str) -> bool {
     true
 }
 
+/// Validate a Message-ID string at an NNTP ingress boundary.
+///
+/// Checks (in order):
+/// 1. Length ≤ 998 bytes (RFC 5322 §2.1.1)
+/// 2. Starts with `<`, ends with `>` — exactly one `@` inside
+/// 3. Local part (before `@`) non-empty, no whitespace, no angle brackets
+/// 4. Domain part (after `@`) non-empty, no whitespace, no angle brackets
+///
+/// Returns `Ok(())` on success, or `Err(ValidationError::InvalidMessageId(…))`
+/// on failure.  This is the canonical validation entry point for all code
+/// that receives a raw Message-ID string from the network (IHAVE, ARTICLE
+/// <msgid>, TAKETHIS).
+pub fn validate_message_id(id: &str) -> Result<(), ValidationError> {
+    const MAX_MSGID_BYTES: usize = 998;
+    if id.len() > MAX_MSGID_BYTES {
+        return Err(ValidationError::InvalidMessageId(id.to_owned()));
+    }
+    if !is_valid_message_id(id) {
+        return Err(ValidationError::InvalidMessageId(id.to_owned()));
+    }
+    Ok(())
+}
+
 // ── validate_article_ingress ──────────────────────────────────────────────────
 
 /// Validate an Article at the NNTP ingress boundary (POST or IHAVE).
@@ -461,6 +484,25 @@ mod tests {
             ),
             "unexpected error: {err:?}"
         );
+    }
+
+    // ── validate_message_id ───────────────────────────────────────────────────
+
+    #[test]
+    fn validate_message_id_tests() {
+        assert!(validate_message_id("<local@domain>").is_ok());
+        assert!(validate_message_id("<a@b.c>").is_ok());
+
+        assert!(validate_message_id("no-angles@example.com").is_err());
+        assert!(validate_message_id("<no-at>").is_err());
+        assert!(validate_message_id("<@empty-local>").is_err());
+        assert!(validate_message_id("<local@>").is_err());
+        assert!(validate_message_id("<has white space@example.com>").is_err());
+
+        // 999 bytes: '<' + 997 'x' chars + '>' — exceeds the 998-byte limit.
+        let long = format!("<{}@x>", "x".repeat(995));
+        assert_eq!(long.len(), 999);
+        assert!(validate_message_id(&long).is_err());
     }
 
     // ── check_duplicate ───────────────────────────────────────────────────────
