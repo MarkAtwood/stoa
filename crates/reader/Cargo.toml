@@ -1,0 +1,23 @@
+[package]
+name = "usenet-ipfs-reader"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "usenet_ipfs_reader"
+path = "src/lib.rs"
+
+[[bin]]
+name = "usenet-ipfs-reader"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+usenet-ipfs-core = { path = "../core" }
+
+[dev-dependencies]
+tempfile = "3"

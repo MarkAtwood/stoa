@@ -1,0 +1,13 @@
+[listen]
+addr = "0.0.0.0:119"
+
+[limits]
+max_connections = 100
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+cert_path = "/etc/ssl/certs/server.pem"
+key_path = "/etc/ssl/private/server.key"

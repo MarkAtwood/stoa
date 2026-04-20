@@ -1,0 +1,169 @@
+use std::fmt;
+
+/// An NNTP response with a numeric code and a text message.
+///
+/// `Display` formats the response as `"NNN text\r\n"` per RFC 3977.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Response {
+    pub code: u16,
+    pub text: String,
+}
+
+impl Response {
+    pub fn new(code: u16, text: impl Into<String>) -> Self {
+        Self { code, text: text.into() }
+    }
+
+    // --- RFC 3977 standard responses ---
+
+    pub fn service_available_posting() -> Self {
+        Self::new(200, "Service available, posting allowed")
+    }
+    pub fn service_available_no_posting() -> Self {
+        Self::new(201, "Service available, posting prohibited")
+    }
+    pub fn closing_connection() -> Self {
+        Self::new(205, "Closing connection")
+    }
+    pub fn group_selected(group: &str, count: u64, low: u64, high: u64) -> Self {
+        Self::new(211, format!("{count} {low} {high} {group}"))
+    }
+    pub fn information_follows() -> Self {
+        Self::new(215, "Information follows")
+    }
+    pub fn article_follows() -> Self {
+        Self::new(220, "Article follows")
+    }
+    pub fn headers_follow() -> Self {
+        Self::new(221, "Headers follow")
+    }
+    pub fn body_follows() -> Self {
+        Self::new(222, "Body follows")
+    }
+    pub fn overview_follows() -> Self {
+        Self::new(224, "Overview info follows")
+    }
+    pub fn authentication_accepted() -> Self {
+        Self::new(281, "Authentication accepted")
+    }
+    pub fn send_article() -> Self {
+        Self::new(340, "Send article to be posted")
+    }
+    pub fn enter_password() -> Self {
+        Self::new(381, "Enter password")
+    }
+    pub fn service_unavailable() -> Self {
+        Self::new(400, "Service temporarily unavailable")
+    }
+    pub fn no_such_newsgroup() -> Self {
+        Self::new(411, "No such newsgroup")
+    }
+    pub fn no_newsgroup_selected() -> Self {
+        Self::new(412, "No newsgroup selected")
+    }
+    pub fn current_article_invalid() -> Self {
+        Self::new(420, "Current article number is invalid")
+    }
+    pub fn no_next_article() -> Self {
+        Self::new(421, "No next article")
+    }
+    pub fn no_previous_article() -> Self {
+        Self::new(422, "No previous article")
+    }
+    pub fn no_article_with_number() -> Self {
+        Self::new(423, "No article with that number")
+    }
+    pub fn no_article_with_message_id() -> Self {
+        Self::new(430, "No article with that message-ID")
+    }
+    pub fn article_not_wanted() -> Self {
+        Self::new(435, "Article not wanted")
+    }
+    pub fn transfer_not_possible() -> Self {
+        Self::new(436, "Transfer not possible")
+    }
+    pub fn posting_not_permitted() -> Self {
+        Self::new(440, "Posting not permitted")
+    }
+    pub fn posting_failed() -> Self {
+        Self::new(441, "Posting failed")
+    }
+    pub fn authentication_required() -> Self {
+        Self::new(480, "Authentication required")
+    }
+    pub fn authentication_failed() -> Self {
+        Self::new(481, "Authentication failed")
+    }
+    pub fn authentication_out_of_sequence() -> Self {
+        Self::new(482, "Authentication commands issued out of sequence")
+    }
+    pub fn unknown_command() -> Self {
+        Self::new(500, "Unknown command")
+    }
+    pub fn syntax_error() -> Self {
+        Self::new(501, "Syntax error in command")
+    }
+    pub fn command_unavailable() -> Self {
+        Self::new(502, "Command unavailable")
+    }
+    pub fn program_fault() -> Self {
+        Self::new(503, "Program fault")
+    }
+}
+
+impl fmt::Display for Response {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} {}\r\n", self.code, self.text)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn display_formats_with_crlf() {
+        let r = Response::new(200, "Service available, posting allowed");
+        assert_eq!(r.to_string(), "200 Service available, posting allowed\r\n");
+    }
+
+    #[test]
+    fn group_selected_format() {
+        let r = Response::group_selected("comp.lang.rust", 42, 1, 42);
+        assert_eq!(r.to_string(), "211 42 1 42 comp.lang.rust\r\n");
+    }
+
+    #[test]
+    fn all_constructor_codes() {
+        assert_eq!(Response::service_available_posting().code, 200);
+        assert_eq!(Response::service_available_no_posting().code, 201);
+        assert_eq!(Response::closing_connection().code, 205);
+        assert_eq!(Response::information_follows().code, 215);
+        assert_eq!(Response::article_follows().code, 220);
+        assert_eq!(Response::headers_follow().code, 221);
+        assert_eq!(Response::body_follows().code, 222);
+        assert_eq!(Response::overview_follows().code, 224);
+        assert_eq!(Response::authentication_accepted().code, 281);
+        assert_eq!(Response::send_article().code, 340);
+        assert_eq!(Response::enter_password().code, 381);
+        assert_eq!(Response::service_unavailable().code, 400);
+        assert_eq!(Response::no_such_newsgroup().code, 411);
+        assert_eq!(Response::no_newsgroup_selected().code, 412);
+        assert_eq!(Response::current_article_invalid().code, 420);
+        assert_eq!(Response::no_next_article().code, 421);
+        assert_eq!(Response::no_previous_article().code, 422);
+        assert_eq!(Response::no_article_with_number().code, 423);
+        assert_eq!(Response::no_article_with_message_id().code, 430);
+        assert_eq!(Response::article_not_wanted().code, 435);
+        assert_eq!(Response::transfer_not_possible().code, 436);
+        assert_eq!(Response::posting_not_permitted().code, 440);
+        assert_eq!(Response::posting_failed().code, 441);
+        assert_eq!(Response::authentication_required().code, 480);
+        assert_eq!(Response::authentication_failed().code, 481);
+        assert_eq!(Response::authentication_out_of_sequence().code, 482);
+        assert_eq!(Response::unknown_command().code, 500);
+        assert_eq!(Response::syntax_error().code, 501);
+        assert_eq!(Response::command_unavailable().code, 502);
+        assert_eq!(Response::program_fault().code, 503);
+    }
+}

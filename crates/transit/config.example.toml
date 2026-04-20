@@ -1,0 +1,27 @@
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = [
+    "192.0.2.10:119",
+    "192.0.2.20:119",
+]
+
+[groups]
+names = [
+    "comp.lang.rust",
+    "comp.lang.c",
+    "alt.test",
+]
+
+[ipfs]
+api_url = "http://127.0.0.1:5001"
+
+[pinning]
+rules = [
+    "pin-all-ingress",
+]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 90
