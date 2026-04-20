@@ -1,0 +1,453 @@
+//! Store-and-forward pipeline for the transit daemon.
+//!
+//! After an article passes `check_ingest`, `run_pipeline` writes it to IPFS,
+//! records the Message-ID → CID mapping, appends to each group log, and
+//! publishes tip advertisements via gossipsub.
+
+use async_trait::async_trait;
+use cid::Cid;
+use multihash_codetable::{Code, MultihashDigest};
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
+use std::time::Instant;
+use tokio::sync::mpsc;
+use usenet_ipfs_core::{
+    article::GroupName,
+    group_log::{storage::LogStorage, types::LogEntry},
+    hlc::HlcTimestamp,
+    msgid_map::MsgIdMap,
+};
+
+// ── IPFS abstraction ──────────────────────────────────────────────────────────
+
+/// Error returned by [`IpfsStore::put_raw`].
+#[derive(Debug)]
+pub enum IpfsError {
+    WriteFailed(String),
+}
+
+impl std::fmt::Display for IpfsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IpfsError::WriteFailed(m) => write!(f, "IPFS write failed: {m}"),
+        }
+    }
+}
+
+impl std::error::Error for IpfsError {}
+
+/// Abstraction over IPFS raw block storage.
+///
+/// The trait is object-safe and mockable; production code will implement it
+/// against `rust-ipfs` 0.15; tests use [`MemIpfsStore`].
+#[async_trait]
+pub trait IpfsStore: Send + Sync {
+    /// Write `data` to IPFS. Returns the CID of the stored block.
+    async fn put_raw(&self, data: &[u8]) -> Result<Cid, IpfsError>;
+}
+
+// ── In-memory IPFS store for tests ───────────────────────────────────────────
+
+/// In-memory IPFS block store for tests.
+pub struct MemIpfsStore {
+    blocks: Arc<RwLock<HashMap<String, Vec<u8>>>>,
+}
+
+impl MemIpfsStore {
+    pub fn new() -> Self {
+        Self {
+            blocks: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+}
+
+impl Default for MemIpfsStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait]
+impl IpfsStore for MemIpfsStore {
+    async fn put_raw(&self, data: &[u8]) -> Result<Cid, IpfsError> {
+        let digest = Code::Sha2_256.digest(data);
+        // Raw codec (0x55) — article bytes are opaque blobs at the block layer.
+        let cid = Cid::new_v1(0x55, digest);
+        self.blocks
+            .write()
+            .unwrap()
+            .insert(cid.to_string(), data.to_vec());
+        Ok(cid)
+    }
+}
+
+// ── Pipeline context and result types ────────────────────────────────────────
+
+/// Per-invocation context for `run_pipeline`.
+///
+/// Groups the parameters that vary per article ingestion event, keeping the
+/// pipeline function signature under the clippy argument-count limit.
+pub struct PipelineCtx<'a> {
+    /// HLC timestamp to stamp the log entry with.
+    pub timestamp: HlcTimestamp,
+    /// Operator Ed25519 signature over this article.
+    pub operator_signature: ed25519_dalek::Signature,
+    /// Optional gossipsub send channel; `None` disables tip publication.
+    pub gossip_tx: Option<&'a mpsc::Sender<(String, Vec<u8>)>>,
+    /// Sending peer's identity string, embedded in tip advertisements.
+    pub sender_peer_id: &'a str,
+}
+
+/// Result of running the store-and-forward pipeline.
+#[derive(Debug)]
+pub struct PipelineResult {
+    /// CID of the stored article block.
+    pub cid: Cid,
+    /// Groups the article was appended to (successfully validated group names).
+    pub groups: Vec<String>,
+}
+
+/// Counters produced by a single pipeline run.
+#[derive(Debug, Default)]
+pub struct PipelineMetrics {
+    pub articles_ingested_total: u64,
+    pub ipfs_write_latency_ms: u64,
+}
+
+// ── Pipeline ──────────────────────────────────────────────────────────────────
+
+/// Run the store-and-forward pipeline for a single article.
+///
+/// Steps:
+/// 1. Write article bytes to IPFS → CID.
+/// 2. Insert Message-ID → CID in `msgid_map`.
+/// 3. Append a [`LogEntry`] to each group named in `Newsgroups:`.
+/// 4. Publish a [`TipAdvertisement`] for each group via `ctx.gossip_tx` (best-effort).
+///
+/// Returns `Err` immediately if the IPFS write fails — nothing is committed.
+/// Log-append failures are logged as warnings but do not abort the pipeline.
+/// Gossipsub publish failures are logged but not propagated.
+pub async fn run_pipeline<I, S>(
+    article_bytes: &[u8],
+    ipfs: &I,
+    msgid_map: &MsgIdMap,
+    log_storage: &S,
+    ctx: PipelineCtx<'_>,
+) -> Result<(PipelineResult, PipelineMetrics), String>
+where
+    I: IpfsStore,
+    S: LogStorage,
+{
+    use crate::gossip::tip_advert::TipAdvertisement;
+
+    // 1. Write to IPFS.
+    let t0 = Instant::now();
+    let cid = ipfs
+        .put_raw(article_bytes)
+        .await
+        .map_err(|e| format!("IPFS write failed: {e}"))?;
+    let ipfs_write_latency_ms = t0.elapsed().as_millis() as u64;
+
+    // 2. Message-ID → CID.
+    let message_id = extract_message_id(article_bytes)
+        .ok_or_else(|| "missing Message-ID header".to_string())?;
+    msgid_map
+        .insert(&message_id, &cid)
+        .await
+        .map_err(|e| format!("msgid insert failed: {e}"))?;
+
+    // 3. Parse Newsgroups: and append a log entry to each valid group.
+    let group_name_strs = parse_newsgroups(article_bytes);
+    let sig_bytes = ctx.operator_signature.to_bytes().to_vec();
+
+    let mut appended_groups: Vec<String> = Vec::new();
+    for group_name_str in &group_name_strs {
+        let group = match GroupName::new(group_name_str.clone()) {
+            Ok(g) => g,
+            Err(_) => {
+                tracing::warn!("invalid group name in Newsgroups: {group_name_str:?}");
+                continue;
+            }
+        };
+        let entry = LogEntry {
+            // LogEntry.hlc_timestamp is u64 wall-clock milliseconds.
+            hlc_timestamp: ctx.timestamp.wall_ms,
+            article_cid: cid,
+            operator_signature: sig_bytes.clone(),
+            // Genesis entry: no parent chain; peers reconcile via CRDT.
+            parent_cids: vec![],
+        };
+        if let Err(e) =
+            usenet_ipfs_core::group_log::append::append(log_storage, &group, entry).await
+        {
+            tracing::warn!("log append failed for group {group_name_str}: {e}");
+        } else {
+            appended_groups.push(group_name_str.clone());
+        }
+    }
+
+    // 4. Publish tip advertisements (best-effort).
+    if let Some(tx) = ctx.gossip_tx {
+        for group_name_str in &group_name_strs {
+            // Build the advertisement using the existing TipAdvertisement type
+            // so the wire format stays consistent with handle_tip_advertisement.
+            let advert = TipAdvertisement {
+                group_name: group_name_str.clone(),
+                tip_cids: vec![cid.to_string()],
+                hlc_ms: ctx.timestamp.wall_ms,
+                hlc_logical: ctx.timestamp.logical,
+                hlc_node_id: hex::encode(ctx.timestamp.node_id),
+                sender_peer_id: ctx.sender_peer_id.to_owned(),
+            };
+            let hierarchy = group_name_str.split('.').next().unwrap_or(group_name_str);
+            let topic = format!("usenet.hier.{hierarchy}");
+            let bytes = advert.to_bytes();
+            if let Err(e) = tx.send((topic, bytes)).await {
+                tracing::warn!("gossip tip publish failed for {group_name_str}: {e}");
+            }
+        }
+    }
+
+    Ok((
+        PipelineResult {
+            cid,
+            groups: appended_groups,
+        },
+        PipelineMetrics {
+            articles_ingested_total: 1,
+            ipfs_write_latency_ms,
+        },
+    ))
+}
+
+// ── Header extraction helpers ─────────────────────────────────────────────────
+
+/// Extract the value of a header field from raw article bytes.
+///
+/// Scans the header section (lines before the first blank line) for
+/// `name:` (case-insensitive). Returns the trimmed value, or `None` if
+/// not found or the bytes are not valid UTF-8 on that line.
+fn extract_header<'a>(article_bytes: &'a [u8], name: &str) -> Option<&'a str> {
+    let name_lower = name.to_ascii_lowercase();
+    let needle = format!("{name_lower}:");
+
+    for line in article_bytes.split(|&b| b == b'\n') {
+        let trimmed = if line.last() == Some(&b'\r') {
+            &line[..line.len() - 1]
+        } else {
+            line
+        };
+        if trimmed.is_empty() {
+            break;
+        }
+        let s = std::str::from_utf8(trimmed).ok()?;
+        if s.to_ascii_lowercase().starts_with(&needle) {
+            return Some(s[needle.len()..].trim());
+        }
+    }
+    None
+}
+
+/// Parse the `Newsgroups:` header into a list of group name strings.
+fn parse_newsgroups(article_bytes: &[u8]) -> Vec<String> {
+    let value = match extract_header(article_bytes, "Newsgroups") {
+        Some(v) => v,
+        None => return vec![],
+    };
+    value
+        .split(',')
+        .map(|s| s.trim().to_owned())
+        .filter(|s| !s.is_empty())
+        .collect()
+}
+
+/// Extract the `Message-ID:` value from article bytes.
+fn extract_message_id(article_bytes: &[u8]) -> Option<String> {
+    extract_header(article_bytes, "Message-ID").map(|s| s.to_owned())
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ed25519_dalek::SigningKey;
+    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+    use std::str::FromStr as _;
+
+    async fn make_msgid_map() -> (MsgIdMap, tempfile::TempPath) {
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        let opts = SqliteConnectOptions::from_str(&url)
+            .unwrap()
+            .create_if_missing(true);
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(opts)
+            .await
+            .unwrap();
+        usenet_ipfs_core::migrations::run_migrations(&pool)
+            .await
+            .unwrap();
+        (MsgIdMap::new(pool), tmp)
+    }
+
+    fn make_signing_key() -> SigningKey {
+        SigningKey::from_bytes(&[0x42u8; 32])
+    }
+
+    fn make_timestamp() -> HlcTimestamp {
+        HlcTimestamp {
+            wall_ms: 1_700_000_000_000,
+            logical: 0,
+            node_id: [1, 2, 3, 4, 5, 6, 7, 8],
+        }
+    }
+
+    fn make_ctx(key: &SigningKey, ts: HlcTimestamp) -> PipelineCtx<'static> {
+        PipelineCtx {
+            timestamp: ts,
+            operator_signature: ed25519_dalek::Signer::sign(key, b""),
+            gossip_tx: None,
+            sender_peer_id: "peer1",
+        }
+    }
+
+    fn make_article(msgid: &str, newsgroups: &str) -> Vec<u8> {
+        format!(
+            "From: sender@example.com\r\n\
+             Date: Mon, 01 Jan 2024 00:00:00 +0000\r\n\
+             Message-ID: {msgid}\r\n\
+             Newsgroups: {newsgroups}\r\n\
+             Subject: Test Article\r\n\
+             \r\n\
+             This is the body.\r\n"
+        )
+        .into_bytes()
+    }
+
+    #[tokio::test]
+    async fn pipeline_success_records_cid() {
+        let ipfs = MemIpfsStore::new();
+        let (msgid_map, _tmp) = make_msgid_map().await;
+        let storage = usenet_ipfs_core::group_log::MemLogStorage::new();
+        let key = make_signing_key();
+        let article = make_article("<test@example.com>", "comp.lang.rust");
+
+        let result = run_pipeline(
+            &article,
+            &ipfs,
+            &msgid_map,
+            &storage,
+            make_ctx(&key, make_timestamp()),
+        )
+        .await;
+
+        assert!(result.is_ok(), "pipeline should succeed: {result:?}");
+        let (pr, _metrics) = result.unwrap();
+        assert_eq!(pr.groups, vec!["comp.lang.rust"]);
+
+        // CID must be recorded in msgid_map.
+        let cid = msgid_map
+            .lookup_by_msgid("<test@example.com>")
+            .await
+            .unwrap();
+        assert!(cid.is_some(), "CID must be recorded in msgid_map");
+        assert_eq!(cid.unwrap(), pr.cid);
+    }
+
+    #[tokio::test]
+    async fn pipeline_publishes_gossip_tip() {
+        let ipfs = MemIpfsStore::new();
+        let (msgid_map, _tmp) = make_msgid_map().await;
+        let storage = usenet_ipfs_core::group_log::MemLogStorage::new();
+        let key = make_signing_key();
+        let article = make_article("<gossip@example.com>", "comp.lang.rust");
+
+        let (tx, mut rx) = tokio::sync::mpsc::channel(10);
+        let ctx = PipelineCtx {
+            timestamp: make_timestamp(),
+            operator_signature: ed25519_dalek::Signer::sign(&key, b""),
+            gossip_tx: Some(&tx),
+            sender_peer_id: "peer1",
+        };
+        let result = run_pipeline(&article, &ipfs, &msgid_map, &storage, ctx).await;
+        assert!(result.is_ok(), "pipeline should succeed: {result:?}");
+
+        // Should have received a gossip message.
+        let (topic, bytes) = rx.try_recv().expect("should have gossip message");
+        assert_eq!(topic, "usenet.hier.comp");
+        let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(v["group_name"], "comp.lang.rust");
+    }
+
+    #[test]
+    fn parse_newsgroups_single() {
+        let article = b"Newsgroups: comp.lang.rust\r\n\r\n";
+        assert_eq!(parse_newsgroups(article), vec!["comp.lang.rust"]);
+    }
+
+    #[test]
+    fn parse_newsgroups_multiple() {
+        let article = b"Newsgroups: comp.lang.rust,sci.math\r\n\r\n";
+        let groups = parse_newsgroups(article);
+        assert_eq!(groups.len(), 2);
+        assert!(groups.contains(&"comp.lang.rust".to_string()));
+        assert!(groups.contains(&"sci.math".to_string()));
+    }
+
+    #[test]
+    fn extract_message_id_found() {
+        let article = b"Message-ID: <abc@example.com>\r\n\r\n";
+        assert_eq!(
+            extract_message_id(article),
+            Some("<abc@example.com>".to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn pipeline_missing_message_id_returns_err() {
+        let ipfs = MemIpfsStore::new();
+        let (msgid_map, _tmp) = make_msgid_map().await;
+        let storage = usenet_ipfs_core::group_log::MemLogStorage::new();
+        let key = make_signing_key();
+        // Article with no Message-ID header.
+        let article = b"From: x@example.com\r\nNewsgroups: alt.test\r\n\r\nBody.\r\n";
+
+        let result = run_pipeline(
+            article,
+            &ipfs,
+            &msgid_map,
+            &storage,
+            make_ctx(&key, make_timestamp()),
+        )
+        .await;
+        assert!(result.is_err(), "missing Message-ID must return Err");
+        assert!(result.unwrap_err().contains("Message-ID"));
+    }
+
+    #[tokio::test]
+    async fn pipeline_metrics_latency_set() {
+        let ipfs = MemIpfsStore::new();
+        let (msgid_map, _tmp) = make_msgid_map().await;
+        let storage = usenet_ipfs_core::group_log::MemLogStorage::new();
+        let key = make_signing_key();
+        let article = make_article("<metrics@example.com>", "alt.test");
+
+        let (_pr, metrics) = run_pipeline(
+            &article,
+            &ipfs,
+            &msgid_map,
+            &storage,
+            make_ctx(&key, make_timestamp()),
+        )
+        .await
+        .unwrap();
+        assert_eq!(metrics.articles_ingested_total, 1);
+        // Latency is in ms; MemIpfsStore is effectively instant so it should be very low.
+        assert!(
+            metrics.ipfs_write_latency_ms < 1000,
+            "latency should be sub-second"
+        );
+    }
+}

@@ -3873,7 +3873,9 @@ dependencies = [
 name = "usenet-ipfs-transit"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "cid",
+ "ed25519-dalek",
  "hex",
  "libp2p",
  "multihash-codetable",
