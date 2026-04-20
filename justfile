@@ -1,0 +1,58 @@
+# usenet-ipfs development tasks
+# Run `just --list` to see all available recipes.
+
+default: list
+
+# List all available recipes
+list:
+    @just --list
+
+# Build all workspace crates
+build:
+    cargo build --workspace
+
+# Run all tests
+test:
+    cargo test --workspace
+
+# Run clippy lints (fail on warnings)
+lint:
+    cargo fmt --all -- --check
+    cargo clippy --workspace --all-features -- -D warnings
+
+# Auto-fix formatting
+fmt:
+    cargo fmt --all
+
+# Run benchmarks
+bench:
+    cargo bench --workspace
+
+# Remove build artifacts
+clean:
+    cargo clean
+
+# Build and open documentation
+doc:
+    cargo doc --workspace --open
+
+# Generate a test operator key pair in /tmp/
+key:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    KEYFILE=/tmp/usenet-ipfs-test-key.json
+    if command -v openssl &>/dev/null; then
+        openssl genpkey -algorithm ed25519 -out /tmp/usenet-ipfs-test-key.pem 2>/dev/null
+        echo "Ed25519 private key written to /tmp/usenet-ipfs-test-key.pem"
+    else
+        echo "openssl not found; skipping key generation"
+        exit 1
+    fi
+
+# Run tests with cargo-nextest (if installed)
+nextest:
+    cargo nextest run --workspace
+
+# Check for compilation errors without building
+check:
+    cargo check --workspace --all-features
