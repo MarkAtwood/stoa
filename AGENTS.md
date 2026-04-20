@@ -34,7 +34,86 @@ cp -rf source dest          # NOT: cp -r source dest
 - `scp` - use `-o BatchMode=yes` for non-interactive
 - `ssh` - use `-o BatchMode=yes` to fail instead of prompting
 - `apt-get` - use `-y` flag
-- `brew` - use `HOMEBREW_NO_AUTO_UPDATE=1` env var
+
+## Before Writing Code
+
+For any task touching more than 3 files or requiring more than a few steps:
+1. File a Beads epic and break it into issues
+2. Write a plan and get user approval before touching code
+3. Work through issues one at a time, using parallel subagents within each issue
+
+**Spike issues must land before implementation.** The IPFS client library selection (`iroh` vs `rust-ipfs` vs raw `libp2p`) must be resolved in a dedicated spike issue before any dependent implementation issues are started. `ed25519-dalek` is the fixed signing library — no spike needed.
+
+## Planned Crate Boundaries
+
+| Crate | What belongs here |
+|---|---|
+| `core` | Article types, CID scheme, Message-ID↔CID mapping, group log (Merkle-CRDT), signing, canonical serialization, error types |
+| `transit` | Peering config, store-and-forward, pinning policy, GC semantics, metrics, operator CLI |
+| `reader` | RFC 3977 NNTP protocol layer, article number synthesis, overview index, POST path |
+
+**No SQL outside store modules. No NNTP parsing outside `reader`. No gossipsub code outside `transit`.**
+
+## Architectural Non-Negotiables
+
+Before implementing anything, verify it does not violate these:
+
+- Reader binary speaks RFC 3977 verbatim — no extensions
+- v1 is text-only — no binary groups, no yEnc, no NZB
+- Gossipsub topics are per-hierarchy, not per-group
+- Article numbers are local and synthetic per `(group, reader_server)` — never network-stable
+- No moderation in v1 — no curation feeds, no cancel messages, no NoCeM
+
+If an issue description, PR, or design conflicts with any of these, stop and flag it to the user before proceeding.
+
+## Issue Tagging
+
+Every issue must carry one or more of these tags:
+`core`, `transit`, `reader`, `protocol`, `ipfs`, `libp2p`, `identity`, `ops`, `interop`, `security`, `spike`, `doc`, `deferred`
+
+## Priority Guide
+
+| Priority | What it covers |
+|---|---|
+| P0 | Core crate, reader protocol minimum-viable path |
+| P1 | Transit daemon, gossipsub topology |
+| P2 | Import/archival/packaging/observability |
+| P3 | Deferred (binary groups, Filecoin deal impl) |
+
+## Quality Gate (run before every commit)
+
+```bash
+cargo fmt --all
+cargo clippy --workspace --all-features -- -D warnings
+cargo test --workspace
+```
+
+All three must pass clean. If `cargo fmt` changes files, stage and include those changes in the commit.
+
+## Agent Interaction Rules
+
+**Fail fast, report up.** If a shell command fails twice with the same error, stop and report the exact error to the user with context. Do not try variants. A repeated failure means your model of the problem is wrong.
+
+**Map once, then act.** Use `Glob`/`Grep` to find files before editing. Do not re-explore the same area once you have a plan.
+
+**Confirm scope for multi-file changes.** Before touching more than three files, state which files will change and why.
+
+## Session Completion
+
+**Mandatory sequence** when ending a session:
+
+```bash
+# If code changed:
+cargo fmt --all && cargo clippy --workspace -- -D warnings && cargo test --workspace
+# Always:
+bd close <completed-ids>
+git pull --rebase
+bd dolt push
+git push
+git status  # must show "up to date with origin"
+```
+
+git commit and git push require explicit user approval — report what is ready and wait.
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
 ## Beads Issue Tracker
