@@ -63,6 +63,9 @@ usenet-ipfs/
 - **Cargo features are additive.** Never enable an algorithm or capability unconditionally in `Cargo.toml`.
 - **Error types live in `core`.** Other crates import from there.
 - **Gossipsub topic naming:** `usenet.hier.<hierarchy>` (e.g. `usenet.hier.comp`). In-topic filtering by group name.
+- **Canonical serialization:** RFC 8785 canonical JSON + Corundum Chapter 31 conventions (sorted keys, NFKC normalization, UTC timestamps with `Z` suffix, no whitespace, trailing zeros stripped from fractional seconds). All signed or hashed objects must serialize deterministically. Test vectors must come from an independent reference implementation (Python `canonicaljson`, js `dag-json`, or equivalent).
+- **IPLD codec:** DAG-CBOR planned for article root node storage. Corundum uses DAG-JSON for its MVP. Codec choice is a forward-compatibility decision point — different codecs produce different CIDs for the same logical content. A spike must resolve this before `l62.2.9.8` (root node builder) is implemented. Do not assume DAG-CBOR is final.
+- **Future Corundum integration (not v1):** Corundum will define an `rfc822+mime` activity type whose content reference is a usenet-ipfs article root CID. The article IPLD schema must be traversable by standard IPLD tooling and rich enough (message_id, newsgroups, content_type_summary in metadata) for Corundum to render a preview. Design choices made now must not foreclose this extension.
 
 ## Test Integrity
 
