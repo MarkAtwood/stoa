@@ -36,10 +36,17 @@ pub struct AdminConfig {
     /// Set to a strong random string in production.
     #[serde(default)]
     pub bearer_token: Option<String>,
+    /// Maximum requests per minute per IP (default 60). 0 = unlimited.
+    #[serde(default = "default_rate_limit_rpm")]
+    pub rate_limit_rpm: u32,
 }
 
 fn default_admin_addr() -> String {
     "127.0.0.1:9090".to_string()
+}
+
+fn default_rate_limit_rpm() -> u32 {
+    60
 }
 
 impl Default for AdminConfig {
@@ -48,6 +55,7 @@ impl Default for AdminConfig {
             addr: default_admin_addr(),
             allow_non_loopback: false,
             bearer_token: None,
+            rate_limit_rpm: default_rate_limit_rpm(),
         }
     }
 }
@@ -408,6 +416,7 @@ max_age_days = 30
             addr: "0.0.0.0:9090".to_string(),
             allow_non_loopback: false,
             bearer_token: None,
+            rate_limit_rpm: 60,
         };
         let warning = check_admin_addr(&admin);
         assert!(warning.is_some(), "non-loopback should trigger warning");
@@ -420,6 +429,7 @@ max_age_days = 30
             addr: "0.0.0.0:9090".to_string(),
             allow_non_loopback: true,
             bearer_token: None,
+            rate_limit_rpm: 60,
         };
         assert!(check_admin_addr(&admin).is_none(), "allow_non_loopback should suppress warning");
     }

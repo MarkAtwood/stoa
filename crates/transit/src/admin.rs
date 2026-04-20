@@ -11,22 +11,75 @@
 //! - `GET /peers`            — list of active (non-blacklisted) peers
 //! - `GET /metrics`          — Prometheus text format (delegates to [`crate::metrics`])
 
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::net::IpAddr;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use sqlx::SqlitePool;
 
+struct RateLimitState {
+    /// Tokens available (fractional).
+    tokens: f64,
+    /// Last refill time.
+    last_refill: Instant,
+}
+
+pub(crate) struct RateLimiter {
+    /// Max requests per minute.
+    rpm: u32,
+    /// Per-IP state.
+    state: Mutex<HashMap<IpAddr, RateLimitState>>,
+}
+
+impl RateLimiter {
+    pub(crate) fn new(rpm: u32) -> Self {
+        Self {
+            rpm,
+            state: Mutex::new(HashMap::new()),
+        }
+    }
+
+    /// Returns true if the request is allowed, false if rate-limited.
+    /// Always returns true if rpm == 0.
+    pub(crate) fn check_and_consume(&self, ip: IpAddr) -> bool {
+        if self.rpm == 0 {
+            return true;
+        }
+        let mut state = self.state.lock().unwrap();
+        let tokens_per_sec = self.rpm as f64 / 60.0;
+        let max_tokens = self.rpm as f64;
+        let entry = state.entry(ip).or_insert(RateLimitState {
+            tokens: max_tokens,
+            last_refill: Instant::now(),
+        });
+        let now = Instant::now();
+        let elapsed = now.duration_since(entry.last_refill).as_secs_f64();
+        entry.tokens = (entry.tokens + elapsed * tokens_per_sec).min(max_tokens);
+        entry.last_refill = now;
+        if entry.tokens >= 1.0 {
+            entry.tokens -= 1.0;
+            true
+        } else {
+            false
+        }
+    }
+}
+
 /// Start the admin HTTP server on the given address.
 ///
-/// Accepts `SqlitePool` for live stats queries and an optional bearer token for
-/// authentication. Spawns a background tokio task. Returns immediately.
+/// Accepts `SqlitePool` for live stats queries, an optional bearer token for
+/// authentication, and a per-IP rate limit in requests per minute (0 = unlimited).
+/// Spawns a background tokio task. Returns immediately.
 pub fn start_admin_server(
     addr: std::net::SocketAddr,
     pool: Arc<SqlitePool>,
     start_time: Instant,
     bearer_token: Option<String>,
+    rate_limit_rpm: u32,
 ) {
     let bearer_token = Arc::new(bearer_token);
+    let rate_limiter = Arc::new(RateLimiter::new(rate_limit_rpm));
     tokio::spawn(async move {
         let listener = match tokio::net::TcpListener::bind(addr).await {
             Ok(l) => l,
@@ -41,8 +94,17 @@ pub fn start_admin_server(
                 Ok((stream, peer)) => {
                     let pool = Arc::clone(&pool);
                     let bearer_token = Arc::clone(&bearer_token);
+                    let rate_limiter = Arc::clone(&rate_limiter);
                     tokio::spawn(async move {
-                        if let Err(e) = handle_admin_connection(stream, &pool, start_time, bearer_token.as_deref()).await {
+                        if let Err(e) = handle_admin_connection(
+                            stream,
+                            &pool,
+                            start_time,
+                            bearer_token.as_deref(),
+                            &rate_limiter,
+                        )
+                        .await
+                        {
                             tracing::warn!("admin connection error from {peer}: {e}");
                         }
                     });
@@ -60,7 +122,9 @@ async fn handle_admin_connection(
     pool: &SqlitePool,
     start_time: Instant,
     bearer_token: Option<&str>,
+    rate_limiter: &RateLimiter,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let peer_ip = stream.peer_addr()?.ip();
     let mut reader = BufReader::new(stream);
 
     // Read request line.
@@ -70,6 +134,12 @@ async fn handle_admin_connection(
     let mut parts = request_line.splitn(3, ' ');
     let method = parts.next().unwrap_or("");
     let path_and_query = parts.next().unwrap_or("");
+
+    // Split path from query string (needed before rate-limit check for /metrics exemption).
+    let (path, query) = match path_and_query.split_once('?') {
+        Some((p, q)) => (p, q),
+        None => (path_and_query, ""),
+    };
 
     // Read and parse remaining headers until empty line.
     let mut auth_header: Option<String> = None;
@@ -88,11 +158,19 @@ async fn handle_admin_connection(
     // Extract the underlying stream for writing responses.
     let mut writer = reader.into_inner();
 
-    // Split path from query string.
-    let (path, query) = match path_and_query.split_once('?') {
-        Some((p, q)) => (p, q),
-        None => (path_and_query, ""),
-    };
+    // Apply per-IP rate limiting. /metrics is exempt (polled frequently by Prometheus).
+    if path != "/metrics" && !rate_limiter.check_and_consume(peer_ip) {
+        tracing::debug!("admin request rate-limited from {peer_ip}");
+        let rpm = rate_limiter.rpm;
+        let retry_after = if rpm > 0 { (60u32 / rpm).min(60) } else { 60 };
+        let body = r#"{"error":"rate limit exceeded"}"#;
+        let content_length = body.len();
+        let response = format!(
+            "HTTP/1.1 429 Too Many Requests\r\nContent-Type: application/json\r\nRetry-After: {retry_after}\r\nContent-Length: {content_length}\r\n\r\n{body}"
+        );
+        writer.write_all(response.as_bytes()).await?;
+        return Ok(());
+    }
 
     // Check bearer token if configured.
     // Note: string comparison is not constant-time; this is intentional for v1
@@ -382,5 +460,41 @@ mod tests {
     fn no_token_configured_always_passes() {
         assert!(check_bearer_token(None, None));
         assert!(check_bearer_token(Some("anything"), None));
+    }
+
+    #[test]
+    fn rate_limiter_allows_under_limit() {
+        let limiter = RateLimiter::new(60);
+        let ip: IpAddr = "127.0.0.1".parse().unwrap();
+        // First request should be allowed (starts with full bucket)
+        assert!(limiter.check_and_consume(ip));
+    }
+
+    #[test]
+    fn rate_limiter_blocks_when_exhausted() {
+        let limiter = RateLimiter::new(2); // 2 rpm = 2 tokens max
+        let ip: IpAddr = "127.0.0.1".parse().unwrap();
+        assert!(limiter.check_and_consume(ip)); // token 1
+        assert!(limiter.check_and_consume(ip)); // token 2
+        assert!(!limiter.check_and_consume(ip)); // exhausted → 429
+    }
+
+    #[test]
+    fn rate_limiter_zero_means_unlimited() {
+        let limiter = RateLimiter::new(0);
+        let ip: IpAddr = "10.0.0.1".parse().unwrap();
+        for _ in 0..1000 {
+            assert!(limiter.check_and_consume(ip));
+        }
+    }
+
+    #[test]
+    fn rate_limiter_different_ips_independent() {
+        let limiter = RateLimiter::new(1); // 1 rpm = 1 token
+        let ip1: IpAddr = "1.1.1.1".parse().unwrap();
+        let ip2: IpAddr = "2.2.2.2".parse().unwrap();
+        assert!(limiter.check_and_consume(ip1));
+        assert!(!limiter.check_and_consume(ip1)); // ip1 exhausted
+        assert!(limiter.check_and_consume(ip2)); // ip2 still has token
     }
 }
