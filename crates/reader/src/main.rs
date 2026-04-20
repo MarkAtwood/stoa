@@ -4,8 +4,7 @@ use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
 use tracing::{error, info, warn};
 
-mod config;
-use config::Config;
+use usenet_ipfs_reader::{config::Config, session::lifecycle::run_session};
 
 fn parse_args() -> PathBuf {
     let args: Vec<String> = std::env::args().collect();
@@ -58,9 +57,10 @@ async fn main() {
     );
 
     let semaphore = Arc::new(Semaphore::new(config.limits.max_connections));
+    let config = Arc::new(config);
 
     tokio::select! {
-        _ = accept_loop(listener, semaphore) => {}
+        _ = accept_loop(listener, semaphore, config) => {}
         _ = tokio::signal::ctrl_c() => {
             info!("received CTRL-C, shutting down");
         }
@@ -72,7 +72,7 @@ async fn main() {
     info!("usenet-ipfs-reader stopped");
 }
 
-async fn accept_loop(listener: TcpListener, semaphore: Arc<Semaphore>) {
+async fn accept_loop(listener: TcpListener, semaphore: Arc<Semaphore>, config: Arc<Config>) {
     loop {
         let permit = match semaphore.clone().acquire_owned().await {
             Ok(p) => p,
@@ -91,12 +91,11 @@ async fn accept_loop(listener: TcpListener, semaphore: Arc<Semaphore>) {
             }
         };
 
+        let config = config.clone();
         tokio::spawn(async move {
             let _permit = permit; // released when session task ends
-            info!(%peer_addr, "session started");
-            // Session stub: log and drop — full NNTP state machine is future work.
-            drop(stream);
-            info!(%peer_addr, "session ended");
+            run_session(stream, &config).await;
+            info!(%peer_addr, "connection closed");
         });
     }
 }

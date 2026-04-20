@@ -19,8 +19,23 @@ impl Response {
     pub fn service_available_posting() -> Self {
         Self::new(200, "Service available, posting allowed")
     }
+    pub fn service_available_posting_allowed() -> Self {
+        Self::service_available_posting()
+    }
     pub fn service_available_no_posting() -> Self {
         Self::new(201, "Service available, posting prohibited")
+    }
+    pub fn service_available_posting_prohibited() -> Self {
+        Self::service_available_no_posting()
+    }
+    pub fn capabilities() -> Self {
+        Self::new(101, "Capability list follows")
+    }
+    pub fn tls_proceed() -> Self {
+        Self::new(382, "Continue with TLS negotiation")
+    }
+    pub fn no_group_selected() -> Self {
+        Self::no_newsgroup_selected()
     }
     pub fn closing_connection() -> Self {
         Self::new(205, "Closing connection")
