@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 pub mod config;
+pub mod metrics;
 pub mod migrations;
 pub mod post;
 pub mod session;

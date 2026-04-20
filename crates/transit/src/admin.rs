@@ -1,8 +1,8 @@
 //! Admin HTTP server for the transit daemon.
 //!
 //! Listens on a configurable address and serves a small set of JSON endpoints
-//! for operator inspection. No authentication; bind to loopback only in
-//! production (see [`crate::config::AdminConfig`]).
+//! for operator inspection. Optionally requires a bearer token; bind to
+//! loopback only in production (see [`crate::config::AdminConfig`]).
 //!
 //! Endpoints:
 //! - `GET /health`           — liveness check with uptime
@@ -13,18 +13,20 @@
 
 use std::sync::Arc;
 use std::time::Instant;
-use tokio::io::{AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use sqlx::SqlitePool;
 
 /// Start the admin HTTP server on the given address.
 ///
-/// Accepts `SqlitePool` for live stats queries. Spawns a background tokio task.
-/// Returns immediately.
+/// Accepts `SqlitePool` for live stats queries and an optional bearer token for
+/// authentication. Spawns a background tokio task. Returns immediately.
 pub fn start_admin_server(
     addr: std::net::SocketAddr,
     pool: Arc<SqlitePool>,
     start_time: Instant,
+    bearer_token: Option<String>,
 ) {
+    let bearer_token = Arc::new(bearer_token);
     tokio::spawn(async move {
         let listener = match tokio::net::TcpListener::bind(addr).await {
             Ok(l) => l,
@@ -38,8 +40,9 @@ pub fn start_admin_server(
             match listener.accept().await {
                 Ok((stream, peer)) => {
                     let pool = Arc::clone(&pool);
+                    let bearer_token = Arc::clone(&bearer_token);
                     tokio::spawn(async move {
-                        if let Err(e) = handle_admin_connection(stream, &pool, start_time).await {
+                        if let Err(e) = handle_admin_connection(stream, &pool, start_time, bearer_token.as_deref()).await {
                             tracing::warn!("admin connection error from {peer}: {e}");
                         }
                     });
@@ -53,18 +56,37 @@ pub fn start_admin_server(
 }
 
 async fn handle_admin_connection(
-    mut stream: tokio::net::TcpStream,
+    stream: tokio::net::TcpStream,
     pool: &SqlitePool,
     start_time: Instant,
+    bearer_token: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let mut buf = [0u8; 4096];
-    let n = stream.read(&mut buf).await?;
-    let request = std::str::from_utf8(&buf[..n]).unwrap_or("");
+    let mut reader = BufReader::new(stream);
 
-    let request_line = request.lines().next().unwrap_or("");
+    // Read request line.
+    let mut request_line = String::new();
+    reader.read_line(&mut request_line).await?;
+    let request_line = request_line.trim_end_matches(['\r', '\n']);
     let mut parts = request_line.splitn(3, ' ');
     let method = parts.next().unwrap_or("");
     let path_and_query = parts.next().unwrap_or("");
+
+    // Read and parse remaining headers until empty line.
+    let mut auth_header: Option<String> = None;
+    loop {
+        let mut line = String::new();
+        reader.read_line(&mut line).await?;
+        let line = line.trim_end_matches(['\r', '\n']);
+        if line.is_empty() {
+            break;
+        }
+        if let Some(val) = line.strip_prefix("Authorization: ") {
+            auth_header = Some(val.to_string());
+        }
+    }
+
+    // Extract the underlying stream for writing responses.
+    let mut writer = reader.into_inner();
 
     // Split path from query string.
     let (path, query) = match path_and_query.split_once('?') {
@@ -72,22 +94,36 @@ async fn handle_admin_connection(
         None => (path_and_query, ""),
     };
 
+    // Check bearer token if configured.
+    // Note: string comparison is not constant-time; this is intentional for v1
+    // (ops/dev use only). Upgrade to a constant-time comparison before exposing
+    // this endpoint to the public internet.
+    if !check_bearer_token(auth_header.as_deref(), bearer_token) {
+        tracing::debug!("admin request rejected: missing or invalid bearer token");
+        write_json(&mut writer, 401, "Unauthorized", r#"{"error":"unauthorized"}"#).await?;
+        return Ok(());
+    }
+
+    if bearer_token.is_none() {
+        tracing::debug!("admin request accepted: no bearer token configured");
+    }
+
     if method != "GET" {
-        write_json(&mut stream, 405, "Method Not Allowed", r#"{"error":"method not allowed"}"#).await?;
+        write_json(&mut writer, 405, "Method Not Allowed", r#"{"error":"method not allowed"}"#).await?;
         return Ok(());
     }
 
     match path {
         "/health" => {
             let body = build_health_json(start_time);
-            write_json(&mut stream, 200, "OK", &body).await?;
+            write_json(&mut writer, 200, "OK", &body).await?;
         }
         "/stats" => {
             match build_stats_json(pool).await {
-                Ok(body) => write_json(&mut stream, 200, "OK", &body).await?,
+                Ok(body) => write_json(&mut writer, 200, "OK", &body).await?,
                 Err(e) => {
                     tracing::warn!("admin /stats error: {e}");
-                    write_json(&mut stream, 500, "Internal Server Error", r#"{"error":"internal server error"}"#).await?;
+                    write_json(&mut writer, 500, "Internal Server Error", r#"{"error":"internal server error"}"#).await?;
                 }
             }
         }
@@ -95,22 +131,22 @@ async fn handle_admin_connection(
             let group = extract_query_param(query, "group");
             match group {
                 None => {
-                    write_json(&mut stream, 400, "Bad Request", r#"{"error":"missing group parameter"}"#).await?;
+                    write_json(&mut writer, 400, "Bad Request", r#"{"error":"missing group parameter"}"#).await?;
                 }
                 Some(g) => {
                     match build_log_tip_json(pool, &g).await {
-                        Some(body) => write_json(&mut stream, 200, "OK", &body).await?,
-                        None => write_json(&mut stream, 404, "Not Found", r#"{"error":"group not found"}"#).await?,
+                        Some(body) => write_json(&mut writer, 200, "OK", &body).await?,
+                        None => write_json(&mut writer, 404, "Not Found", r#"{"error":"group not found"}"#).await?,
                     }
                 }
             }
         }
         "/peers" => {
             match build_peers_json(pool).await {
-                Ok(body) => write_json(&mut stream, 200, "OK", &body).await?,
+                Ok(body) => write_json(&mut writer, 200, "OK", &body).await?,
                 Err(e) => {
                     tracing::warn!("admin /peers error: {e}");
-                    write_json(&mut stream, 500, "Internal Server Error", r#"{"error":"internal server error"}"#).await?;
+                    write_json(&mut writer, 500, "Internal Server Error", r#"{"error":"internal server error"}"#).await?;
                 }
             }
         }
@@ -120,14 +156,31 @@ async fn handle_admin_connection(
             let response = format!(
                 "HTTP/1.1 200 OK\r\nContent-Type: text/plain; version=0.0.4\r\nContent-Length: {content_length}\r\n\r\n{body}"
             );
-            stream.write_all(response.as_bytes()).await?;
+            writer.write_all(response.as_bytes()).await?;
         }
         _ => {
-            write_json(&mut stream, 404, "Not Found", r#"{"error":"not found"}"#).await?;
+            write_json(&mut writer, 404, "Not Found", r#"{"error":"not found"}"#).await?;
         }
     }
 
     Ok(())
+}
+
+/// Check whether an Authorization header satisfies the configured bearer token.
+///
+/// Returns `true` if:
+/// - No token is configured (`bearer_token` is `None`), or
+/// - The header is present and exactly matches `"Bearer <token>"`.
+///
+/// Returns `false` if a token is configured and the header is missing or incorrect.
+pub(crate) fn check_bearer_token(auth_header: Option<&str>, bearer_token: Option<&str>) -> bool {
+    match bearer_token {
+        None => true,
+        Some(token) => {
+            let expected = format!("Bearer {token}");
+            auth_header == Some(expected.as_str())
+        }
+    }
 }
 
 /// Extract the value of a named query parameter from a URL query string.
@@ -308,5 +361,26 @@ mod tests {
         let json = build_health_json(start_time);
         let v: serde_json::Value = serde_json::from_str(&json).unwrap();
         assert!(v["uptime_secs"].as_u64().is_some(), "uptime_secs must be a non-negative integer");
+    }
+
+    #[test]
+    fn bearer_token_correct_returns_true() {
+        assert!(check_bearer_token(Some("Bearer secret123"), Some("secret123")));
+    }
+
+    #[test]
+    fn bearer_token_wrong_returns_false() {
+        assert!(!check_bearer_token(Some("Bearer wrong"), Some("secret123")));
+    }
+
+    #[test]
+    fn bearer_token_missing_returns_false() {
+        assert!(!check_bearer_token(None, Some("secret123")));
+    }
+
+    #[test]
+    fn no_token_configured_always_passes() {
+        assert!(check_bearer_token(None, None));
+        assert!(check_bearer_token(Some("anything"), None));
     }
 }

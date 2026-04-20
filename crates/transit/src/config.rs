@@ -31,6 +31,11 @@ pub struct AdminConfig {
     /// If true, suppress the non-loopback warning (use only if you know what you're doing).
     #[serde(default)]
     pub allow_non_loopback: bool,
+    /// Optional bearer token for admin endpoint authentication.
+    /// If None, the endpoint is unauthenticated (development mode).
+    /// Set to a strong random string in production.
+    #[serde(default)]
+    pub bearer_token: Option<String>,
 }
 
 fn default_admin_addr() -> String {
@@ -42,6 +47,7 @@ impl Default for AdminConfig {
         Self {
             addr: default_admin_addr(),
             allow_non_loopback: false,
+            bearer_token: None,
         }
     }
 }
@@ -178,7 +184,15 @@ pub fn is_loopback_addr(addr: &str) -> bool {
 ///
 /// Returns Some(warning_message) if the admin address is not loopback and
 /// allow_non_loopback is not set. Returns None if the configuration is safe.
+///
+/// Also emits a `tracing::warn!` if the endpoint is bound to a non-loopback
+/// address without a bearer token configured.
 pub fn check_admin_addr(admin: &AdminConfig) -> Option<String> {
+    if !is_loopback_addr(&admin.addr) && admin.allow_non_loopback && admin.bearer_token.is_none() {
+        tracing::warn!(
+            "admin endpoint bound to non-loopback address without bearer token — unauthenticated!"
+        );
+    }
     if !is_loopback_addr(&admin.addr) && !admin.allow_non_loopback {
         Some(format!(
             "WARNING: admin endpoint bound to non-loopback address '{}' \
@@ -393,6 +407,7 @@ max_age_days = 30
         let admin = AdminConfig {
             addr: "0.0.0.0:9090".to_string(),
             allow_non_loopback: false,
+            bearer_token: None,
         };
         let warning = check_admin_addr(&admin);
         assert!(warning.is_some(), "non-loopback should trigger warning");
@@ -404,6 +419,7 @@ max_age_days = 30
         let admin = AdminConfig {
             addr: "0.0.0.0:9090".to_string(),
             allow_non_loopback: true,
+            bearer_token: None,
         };
         assert!(check_admin_addr(&admin).is_none(), "allow_non_loopback should suppress warning");
     }

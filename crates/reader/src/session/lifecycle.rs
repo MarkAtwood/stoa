@@ -134,7 +134,12 @@ async fn run_plain_session(
         let is_quit = matches!(cmd, Command::Quit);
         let is_post = matches!(cmd, Command::Post);
         let is_starttls = matches!(cmd, Command::StartTls);
+        let cmd_label = line.split_whitespace().next().unwrap_or("UNKNOWN").to_uppercase();
+        let cmd_start = std::time::Instant::now();
         let resp = dispatch(&mut ctx, cmd, &config.auth, None);
+        crate::metrics::NNTP_COMMAND_DURATION_SECONDS
+            .with_label_values(&[cmd_label.as_str()])
+            .observe(cmd_start.elapsed().as_secs_f64());
         let resp_code = resp.code;
 
         if write_half.write_all(resp.to_string().as_bytes()).await.is_err() {
@@ -248,7 +253,12 @@ async fn run_session_io<S>(
 
         let is_quit = matches!(cmd, Command::Quit);
         let is_post = matches!(cmd, Command::Post);
+        let cmd_label = line.split_whitespace().next().unwrap_or("UNKNOWN").to_uppercase();
+        let cmd_start = std::time::Instant::now();
         let resp = dispatch(&mut ctx, cmd, &config.auth, None);
+        crate::metrics::NNTP_COMMAND_DURATION_SECONDS
+            .with_label_values(&[cmd_label.as_str()])
+            .observe(cmd_start.elapsed().as_secs_f64());
         let resp_code = resp.code;
 
         if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
