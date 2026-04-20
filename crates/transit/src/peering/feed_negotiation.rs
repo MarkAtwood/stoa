@@ -110,9 +110,10 @@ mod tests {
     async fn make_pool() -> SqlitePool {
         // Use a unique named in-memory database per test to prevent cross-test
         // migration conflicts when tests run in parallel.
+        use rand_core::{OsRng, RngCore};
         let db_name = format!(
             "file:feed_neg_{}?mode=memory&cache=shared",
-            rand::random::<u64>()
+            OsRng.next_u64()
         );
         let opts = SqliteConnectOptions::from_str(&db_name).unwrap();
         let pool = SqlitePoolOptions::new()

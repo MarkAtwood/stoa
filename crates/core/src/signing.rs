@@ -32,7 +32,7 @@ pub fn verify(
 
 #[cfg(test)]
 mod tests {
-    use rand::rngs::OsRng;
+    use rand_core::OsRng;
 
     use super::*;
 

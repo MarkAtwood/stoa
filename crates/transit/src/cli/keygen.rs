@@ -44,7 +44,7 @@ pub fn generate_keypair(
         }
     }
 
-    let signing_key = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let signing_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
     let verifying_key = signing_key.verifying_key();
 
     // PKCS#8 v1 DER for ed25519 private key:
