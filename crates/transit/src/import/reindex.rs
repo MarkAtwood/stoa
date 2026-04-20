@@ -1,0 +1,259 @@
+//! Message-ID to CID reindex tool.
+//!
+//! Rebuilds the msgid_map SQLite table from raw article content.
+//! Used for disaster recovery when SQLite state is lost but article
+//! content is still available (e.g., from IPFS block store walk).
+
+use cid::Cid;
+use sqlx::SqlitePool;
+use usenet_ipfs_core::error::StorageError;
+
+/// Result of a reindex run.
+#[derive(Debug, Default)]
+pub struct ReindexSummary {
+    pub total_scanned: usize,
+    pub indexed: usize,
+    pub skipped_not_article: usize,
+    pub skipped_duplicate: usize,
+    pub dry_run: bool,
+}
+
+impl std::fmt::Display for ReindexSummary {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mode = if self.dry_run { "DRY RUN " } else { "" };
+        write!(
+            f,
+            "{mode}scanned: {}, indexed: {}, skipped(not_article): {}, skipped(duplicate): {}",
+            self.total_scanned, self.indexed, self.skipped_not_article, self.skipped_duplicate
+        )
+    }
+}
+
+/// Reindex configuration.
+#[derive(Debug, Clone)]
+pub struct ReindexConfig {
+    /// If true, report what would be indexed but don't write to SQLite.
+    pub dry_run: bool,
+    /// Log progress every N blocks.
+    pub progress_interval: usize,
+}
+
+impl Default for ReindexConfig {
+    fn default() -> Self {
+        Self {
+            dry_run: false,
+            progress_interval: 1000,
+        }
+    }
+}
+
+/// Run a reindex pass over the provided articles.
+///
+/// For each `(cid, raw_bytes)` pair:
+/// - Attempt to extract the Message-ID header from `raw_bytes`
+/// - If found and not already in msgid_map: insert `(message_id, cid_str)` into msgid_map
+/// - If not found: count as skipped_not_article
+/// - If already present: count as skipped_duplicate
+///
+/// Logs progress every `config.progress_interval` items.
+pub async fn run_reindex<I>(
+    articles: I,
+    pool: &SqlitePool,
+    config: &ReindexConfig,
+) -> Result<ReindexSummary, StorageError>
+where
+    I: IntoIterator<Item = (Cid, Vec<u8>)>,
+{
+    ensure_msgid_map(pool).await?;
+    let mut summary = ReindexSummary {
+        dry_run: config.dry_run,
+        ..Default::default()
+    };
+
+    for (cid, raw) in articles {
+        summary.total_scanned += 1;
+        if summary.total_scanned % config.progress_interval == 0 {
+            tracing::info!(count = summary.total_scanned, "reindex progress");
+        }
+
+        let msg_id = match extract_message_id_bytes(&raw) {
+            Some(id) => id,
+            None => {
+                summary.skipped_not_article += 1;
+                continue;
+            }
+        };
+
+        if config.dry_run {
+            tracing::debug!(msg_id, cid = %cid, "dry-run: would index");
+            summary.indexed += 1;
+            continue;
+        }
+
+        // Insert, skipping if already present
+        let cid_str = cid.to_string();
+        let result = sqlx::query(
+            "INSERT OR IGNORE INTO msgid_map (message_id, cid) VALUES (?1, ?2)",
+        )
+        .bind(&msg_id)
+        .bind(&cid_str)
+        .execute(pool)
+        .await
+        .map_err(|e| StorageError::Database(e.to_string()))?;
+
+        if result.rows_affected() == 0 {
+            summary.skipped_duplicate += 1;
+        } else {
+            summary.indexed += 1;
+        }
+    }
+
+    tracing::info!(
+        total = summary.total_scanned,
+        indexed = summary.indexed,
+        "reindex complete"
+    );
+    Ok(summary)
+}
+
+/// Ensure the msgid_map table exists (idempotent).
+async fn ensure_msgid_map(pool: &SqlitePool) -> Result<(), StorageError> {
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS msgid_map (\
+            message_id TEXT PRIMARY KEY NOT NULL,\
+            cid TEXT NOT NULL\
+        )",
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| StorageError::Database(e.to_string()))?;
+    Ok(())
+}
+
+/// Extract Message-ID from raw article bytes.
+/// Looks for `Message-ID:` header in the headers section (before first blank line).
+pub(crate) fn extract_message_id_bytes(raw: &[u8]) -> Option<String> {
+    let text = String::from_utf8_lossy(raw);
+    for line in text.lines() {
+        if line.is_empty() {
+            break;
+        }
+        if let Some(rest) = line
+            .strip_prefix("Message-ID:")
+            .or_else(|| line.strip_prefix("Message-Id:"))
+        {
+            let id = rest.trim();
+            if !id.is_empty() {
+                return Some(id.to_string());
+            }
+        }
+    }
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cid::Cid;
+    use multihash_codetable::{Code, MultihashDigest};
+    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+    fn make_cid(data: &[u8]) -> Cid {
+        Cid::new_v1(0x71, Code::Sha2_256.digest(data))
+    }
+
+    async fn make_pool() -> sqlx::SqlitePool {
+        let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let url = format!("file:reindex_{n}?mode=memory&cache=shared");
+        let opts = SqliteConnectOptions::new()
+            .filename(&url)
+            .create_if_missing(true);
+        SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(opts)
+            .await
+            .unwrap()
+    }
+
+    fn make_article(n: u8, msgid: &str) -> (Cid, Vec<u8>) {
+        let raw = format!(
+            "From: test@example.com\r\nMessage-ID: {msgid}\r\nNewsgroups: comp.test\r\n\r\nBody {n}\r\n"
+        );
+        (make_cid(&[n]), raw.into_bytes())
+    }
+
+    #[tokio::test]
+    async fn reindex_20_articles_all_indexed() {
+        let pool = make_pool().await;
+        let articles: Vec<(Cid, Vec<u8>)> = (0u8..20)
+            .map(|i| make_article(i, &format!("<msg{i}@test.com>")))
+            .collect();
+        let config = ReindexConfig::default();
+        let summary = run_reindex(articles, &pool, &config).await.unwrap();
+        assert_eq!(summary.total_scanned, 20);
+        assert_eq!(summary.indexed, 20);
+        assert_eq!(summary.skipped_not_article, 0);
+        assert_eq!(summary.skipped_duplicate, 0);
+    }
+
+    #[tokio::test]
+    async fn reindex_skips_non_articles() {
+        let pool = make_pool().await;
+        let raw = b"Content-Type: application/octet-stream\r\n\r\nBinary data".to_vec();
+        let articles = vec![(make_cid(b"binary"), raw)];
+        let config = ReindexConfig::default();
+        let summary = run_reindex(articles, &pool, &config).await.unwrap();
+        assert_eq!(summary.skipped_not_article, 1);
+        assert_eq!(summary.indexed, 0);
+    }
+
+    #[tokio::test]
+    async fn reindex_skips_duplicates() {
+        let pool = make_pool().await;
+        let article = make_article(0, "<dup@test.com>");
+        let config = ReindexConfig::default();
+        run_reindex(vec![article.clone()], &pool, &config).await.unwrap();
+        let summary = run_reindex(vec![article], &pool, &config).await.unwrap();
+        assert_eq!(summary.skipped_duplicate, 1);
+        assert_eq!(summary.indexed, 0);
+    }
+
+    #[tokio::test]
+    async fn reindex_dry_run_does_not_write() {
+        let pool = make_pool().await;
+        let articles: Vec<(Cid, Vec<u8>)> = (0u8..5)
+            .map(|i| make_article(i, &format!("<dry{i}@test.com>")))
+            .collect();
+        let config = ReindexConfig {
+            dry_run: true,
+            progress_interval: 1000,
+        };
+        let summary = run_reindex(articles, &pool, &config).await.unwrap();
+        assert!(summary.dry_run);
+        assert_eq!(summary.indexed, 5, "dry_run counts as 'would index'");
+        let _ = ensure_msgid_map(&pool).await.unwrap();
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM msgid_map")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(count, 0, "dry_run should not write to DB");
+    }
+
+    #[test]
+    fn extract_message_id_bytes_finds_header() {
+        let raw = b"From: a@b.com\r\nMessage-ID: <abc@test.com>\r\n\r\nBody\r\n";
+        assert_eq!(
+            extract_message_id_bytes(raw).as_deref(),
+            Some("<abc@test.com>")
+        );
+    }
+
+    #[test]
+    fn extract_message_id_bytes_returns_none_when_missing() {
+        let raw = b"From: a@b.com\r\nSubject: No ID\r\n\r\nBody\r\n";
+        assert_eq!(extract_message_id_bytes(raw), None);
+    }
+}
