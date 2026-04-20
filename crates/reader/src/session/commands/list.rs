@@ -85,6 +85,24 @@ pub fn newgroups(groups: &[GroupInfo], _since_timestamp: u64) -> Response {
     Response::newgroups(body)
 }
 
+/// LIST OVERVIEW.FMT: return the static list of overview fields in order.
+///
+/// RFC 6048 §2.1 — fields are in the order: Subject, From, Date, Message-ID,
+/// References, :bytes, :lines. The colon prefix means "not a real header name
+/// but a computed value".
+pub fn list_overview_fmt() -> Response {
+    let body = vec![
+        "Subject:".to_string(),
+        "From:".to_string(),
+        "Date:".to_string(),
+        "Message-ID:".to_string(),
+        "References:".to_string(),
+        ":bytes".to_string(),
+        ":lines".to_string(),
+    ];
+    Response::list_overview_fmt(body)
+}
+
 /// NEWNEWS wildmat date time: Message-IDs of articles newer than timestamp.
 ///
 /// V1 conservative behaviour: return empty list. Clients will catch up via
@@ -209,6 +227,26 @@ mod tests {
         let resp = newnews(&groups, 0, None);
         assert_eq!(resp.code, 230);
         assert!(resp.body.is_empty());
+    }
+
+    // ---- list_overview_fmt ----
+
+    #[test]
+    fn list_overview_fmt_code() {
+        let resp = list_overview_fmt();
+        assert_eq!(resp.code, 215);
+    }
+
+    #[test]
+    fn list_overview_fmt_contains_subject() {
+        let resp = list_overview_fmt();
+        assert!(resp.body.iter().any(|l| l == "Subject:"));
+    }
+
+    #[test]
+    fn list_overview_fmt_contains_bytes() {
+        let resp = list_overview_fmt();
+        assert!(resp.body.iter().any(|l| l == ":bytes"));
     }
 
     // ---- matches_wildmat ----

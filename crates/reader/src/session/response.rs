@@ -105,6 +105,12 @@ impl Response {
     pub fn overview_follows() -> Self {
         Self::new(224, "Overview info follows")
     }
+    pub fn hdr_follows(body: Vec<String>) -> Self {
+        Self::new_multiline(225, "headers follow", body)
+    }
+    pub fn list_overview_fmt(body: Vec<String>) -> Self {
+        Self::new_multiline(215, "Order of fields in overview database.", body)
+    }
     pub fn authentication_accepted() -> Self {
         Self::new(281, "Authentication accepted")
     }

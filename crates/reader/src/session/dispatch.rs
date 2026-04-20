@@ -1,6 +1,6 @@
 use crate::session::{
     command::{Command, ListSubcommand, OverArg},
-    commands::list::{list_active, list_newsgroups, newgroups, newnews},
+    commands::list::{list_active, list_newsgroups, list_overview_fmt, newgroups, newnews},
     context::SessionContext,
     response::Response,
     state::SessionState,
@@ -96,7 +96,7 @@ pub fn dispatch(ctx: &mut SessionContext, cmd: Command) -> Response {
         Command::List(sub) => match sub {
             ListSubcommand::Active => list_active(&ctx.known_groups, None),
             ListSubcommand::Newsgroups => list_newsgroups(&ctx.known_groups, None),
-            ListSubcommand::OverviewFmt => Response::information_follows(),
+            ListSubcommand::OverviewFmt => list_overview_fmt(),
         },
         Command::Newgroups { .. } => newgroups(&ctx.known_groups, 0),
         Command::Newnews { wildmat, .. } => newnews(&ctx.known_groups, 0, Some(&wildmat)),

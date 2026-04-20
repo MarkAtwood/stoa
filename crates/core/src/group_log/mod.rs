@@ -1,4 +1,5 @@
 pub mod append;
+pub mod backfill;
 pub mod mem_storage;
 pub mod reconcile;
 pub mod sqlite_storage;
@@ -7,6 +8,7 @@ pub mod storage_tests;
 pub mod types;
 pub mod verify;
 
+pub use backfill::{backfill, BackfillError};
 pub use mem_storage::MemLogStorage;
 pub use reconcile::{reconcile, ReconcileResult};
 pub use sqlite_storage::SqliteLogStorage;
