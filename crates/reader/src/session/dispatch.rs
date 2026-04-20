@@ -3,7 +3,7 @@ use usenet_ipfs_core::audit::AuditLoggerHandle;
 use crate::{
     config::AuthConfig,
     session::{
-        command::{Command, ListSubcommand, OverArg},
+        command::{ArticleRef, Command, ListSubcommand, OverArg},
         commands::{
             auth::authinfo_response,
             list::{list_active, list_newsgroups, list_overview_fmt, newgroups, newnews},
@@ -85,6 +85,9 @@ pub fn dispatch(
         }
         Command::Quit => Response::closing_connection(),
         Command::Group(name) => {
+            if !ctx.known_groups.iter().any(|g| g.name == name) {
+                return Response::no_such_newsgroup();
+            }
             ctx.current_group = usenet_ipfs_core::article::GroupName::new(name).ok();
             ctx.current_article_number = Some(0);
             ctx.state = SessionState::GroupSelected;
@@ -143,6 +146,18 @@ pub fn dispatch(
         },
         Command::Newgroups { .. } => newgroups(&ctx.known_groups, 0),
         Command::Newnews { wildmat, .. } => newnews(&ctx.known_groups, 0, Some(&wildmat)),
+        Command::Article(arg) | Command::Head(arg) | Command::Body(arg) | Command::Stat(arg) => {
+            match arg {
+                Some(ArticleRef::MessageId(_)) => Response::no_article_with_message_id(),
+                _ => {
+                    if !ctx.state.group_selected() {
+                        Response::no_newsgroup_selected()
+                    } else {
+                        Response::no_article_with_number()
+                    }
+                }
+            }
+        }
         _ => Response::information_follows(),
     }
 }
@@ -198,6 +213,13 @@ mod tests {
 
     fn ctx_group_selected() -> SessionContext {
         let mut ctx = SessionContext::new(test_addr(), false, true, false);
+        ctx.known_groups.push(crate::session::commands::list::GroupInfo {
+            name: "comp.lang.rust".into(),
+            high: 0,
+            low: 0,
+            posting_allowed: true,
+            description: String::new(),
+        });
         dispatch(&mut ctx, Command::Group("comp.lang.rust".into()), &empty_auth(), None);
         ctx
     }
@@ -384,5 +406,94 @@ mod tests {
         let mut ctx = ctx_active();
         let resp = dispatch(&mut ctx, Command::Capabilities, &empty_auth(), None);
         assert!(!resp.body.iter().any(|l| l == "STARTTLS"));
+    }
+
+    #[test]
+    fn group_unknown_returns_411() {
+        let mut ctx = ctx_active();
+        let resp = dispatch(&mut ctx, Command::Group("no.such.group".into()), &empty_auth(), None);
+        assert_eq!(resp.code, 411);
+    }
+
+    #[test]
+    fn group_known_returns_211() {
+        let mut ctx = ctx_active();
+        ctx.known_groups.push(crate::session::commands::list::GroupInfo {
+            name: "comp.lang.rust".into(),
+            high: 0,
+            low: 0,
+            posting_allowed: true,
+            description: String::new(),
+        });
+        let resp = dispatch(&mut ctx, Command::Group("comp.lang.rust".into()), &empty_auth(), None);
+        assert_eq!(resp.code, 211);
+    }
+
+    #[test]
+    fn article_number_without_group_returns_412() {
+        let mut ctx = ctx_active();
+        let resp = dispatch(
+            &mut ctx,
+            Command::Article(Some(crate::session::command::ArticleRef::Number(1))),
+            &empty_auth(),
+            None,
+        );
+        assert_eq!(resp.code, 412);
+    }
+
+    #[test]
+    fn article_msgid_unknown_returns_430() {
+        let mut ctx = ctx_active();
+        let resp = dispatch(
+            &mut ctx,
+            Command::Article(Some(crate::session::command::ArticleRef::MessageId(
+                "<x@example.com>".into(),
+            ))),
+            &empty_auth(),
+            None,
+        );
+        assert_eq!(resp.code, 430);
+    }
+
+    #[test]
+    fn head_msgid_unknown_returns_430() {
+        let mut ctx = ctx_active();
+        let resp = dispatch(
+            &mut ctx,
+            Command::Head(Some(crate::session::command::ArticleRef::MessageId(
+                "<x@example.com>".into(),
+            ))),
+            &empty_auth(),
+            None,
+        );
+        assert_eq!(resp.code, 430);
+    }
+
+    #[test]
+    fn body_msgid_unknown_returns_430() {
+        let mut ctx = ctx_active();
+        let resp = dispatch(
+            &mut ctx,
+            Command::Body(Some(crate::session::command::ArticleRef::MessageId(
+                "<x@example.com>".into(),
+            ))),
+            &empty_auth(),
+            None,
+        );
+        assert_eq!(resp.code, 430);
+    }
+
+    #[test]
+    fn stat_msgid_unknown_returns_430() {
+        let mut ctx = ctx_active();
+        let resp = dispatch(
+            &mut ctx,
+            Command::Stat(Some(crate::session::command::ArticleRef::MessageId(
+                "<x@example.com>".into(),
+            ))),
+            &empty_auth(),
+            None,
+        );
+        assert_eq!(resp.code, 430);
     }
 }

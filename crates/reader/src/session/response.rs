@@ -6,21 +6,27 @@ use std::fmt;
 /// `Display` formats as `"NNN text\r\n"` for single-line responses, or
 /// `"NNN text\r\n<body lines>\r\n.\r\n"` for multi-line responses, per
 /// RFC 3977 §3.2.
+///
+/// `multiline` must be `true` whenever the RFC requires a dot-terminated
+/// body, including when that body is empty (e.g. LIST ACTIVE on a server
+/// with no groups). Single-line responses leave it `false`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Response {
     pub code: u16,
     pub text: String,
-    /// Multi-line body lines (without CRLF). Empty means single-line response.
+    /// Multi-line body lines (without CRLF).
     pub body: Vec<String>,
+    /// True iff the response uses dot-termination per RFC 3977 §3.2.
+    pub multiline: bool,
 }
 
 impl Response {
     pub fn new(code: u16, text: impl Into<String>) -> Self {
-        Self { code, text: text.into(), body: vec![] }
+        Self { code, text: text.into(), body: vec![], multiline: false }
     }
 
     fn new_multiline(code: u16, text: impl Into<String>, body: Vec<String>) -> Self {
-        Self { code, text: text.into(), body }
+        Self { code, text: text.into(), body, multiline: true }
     }
 
     // --- RFC 3977 standard responses ---
@@ -212,7 +218,7 @@ impl fmt::Display for Response {
         for line in &self.body {
             write!(f, "{line}\r\n")?;
         }
-        if !self.body.is_empty() {
+        if self.multiline {
             write!(f, ".\r\n")?;
         }
         Ok(())

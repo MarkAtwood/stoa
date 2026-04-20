@@ -33,6 +33,10 @@ tokio-rustls = "0.26"
 prometheus = "0.13"
 lazy_static = "1.5.0"
 
+[[bench]]
+name = "nntp_latency"
+harness = false
+
 [dev-dependencies]
 tempfile = "3"
 tokio = { version = "1", features = ["full", "macros", "rt-multi-thread"] }

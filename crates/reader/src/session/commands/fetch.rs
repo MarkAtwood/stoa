@@ -77,6 +77,7 @@ pub fn article_response(content: &ArticleContent) -> Response {
         code: 220,
         text: format!("{} {} Article follows", content.article_number, content.message_id),
         body,
+        multiline: true,
     }
 }
 
@@ -87,6 +88,7 @@ pub fn head_response(content: &ArticleContent) -> Response {
         code: 221,
         text: format!("{} {} Headers follow", content.article_number, content.message_id),
         body: bytes_to_lines(&content.header_bytes),
+        multiline: true,
     }
 }
 
@@ -97,6 +99,7 @@ pub fn body_response(content: &ArticleContent) -> Response {
         code: 222,
         text: format!("{} {} Body follows", content.article_number, content.message_id),
         body: dot_stuffed_lines(&content.body_bytes),
+        multiline: true,
     }
 }
 

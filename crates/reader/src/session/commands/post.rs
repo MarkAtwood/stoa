@@ -2,6 +2,7 @@ use tokio::io::{AsyncBufRead, AsyncBufReadExt};
 
 use usenet_ipfs_core::audit::{AuditEvent, AuditLoggerHandle};
 
+use crate::post::validate_headers::validate_post_headers;
 use crate::session::response::Response;
 
 /// Default maximum article size (1 MiB) used when no config value is available.
@@ -73,8 +74,7 @@ where
 /// Returns:
 /// - `240 Article received OK` on success
 /// - `441 Article too large` if the article exceeds `max_article_bytes`
-/// - `441 Missing Newsgroups header` if the `Newsgroups:` header is absent
-/// - `441 Missing From header` if the `From:` header is absent
+/// - `441` with RFC 5536 error detail if any mandatory header is missing or invalid
 pub fn complete_post(
     article_bytes: &[u8],
     max_article_bytes: usize,
@@ -93,15 +93,11 @@ pub fn complete_post(
         article_bytes
     };
 
+    if let Err(resp) = validate_post_headers(header_bytes) {
+        return resp;
+    }
+
     let headers = String::from_utf8_lossy(header_bytes);
-
-    if !has_header(&headers, "Newsgroups") {
-        return Response::new(441, "Missing Newsgroups header");
-    }
-
-    if !has_header(&headers, "From") {
-        return Response::new(441, "Missing From header");
-    }
 
     if let Some(logger) = audit_logger {
         let message_id = extract_header_value(&headers, "Message-ID")
@@ -134,22 +130,6 @@ fn find_header_end(bytes: &[u8]) -> Option<usize> {
     None
 }
 
-/// Check whether `headers` contains a header field named `name`.
-///
-/// Matches case-insensitively and accepts both `Name:` (no space) and
-/// `Name: value` forms.  Folded headers (RFC 5322 §2.2.3) are not unfolded
-/// here because we only check for presence, not value.
-fn has_header(headers: &str, name: &str) -> bool {
-    let prefix_colon = format!("{}:", name.to_ascii_lowercase());
-    for line in headers.lines() {
-        let lower = line.to_ascii_lowercase();
-        if lower.starts_with(&prefix_colon) {
-            return true;
-        }
-    }
-    false
-}
-
 /// Extract the trimmed value of the first matching header field, or `None`.
 ///
 /// Matches case-insensitively.  Returns the raw value string as-is; no
@@ -169,6 +149,36 @@ fn extract_header_value(headers: &str, name: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    /// Format a Unix timestamp (seconds) as an RFC 2822 date string accepted by mailparse.
+    fn epoch_to_rfc2822(secs: i64) -> String {
+        const DAYS: [&str; 7] = ["Thu", "Fri", "Sat", "Sun", "Mon", "Tue", "Wed"];
+        const MONTHS: [&str; 12] = [
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+        ];
+        let s = secs;
+        let sec = (s % 60) as u32;
+        let min = ((s / 60) % 60) as u32;
+        let hour = ((s / 3600) % 24) as u32;
+        let days_since_epoch = s / 86400;
+        let wday = ((days_since_epoch % 7 + 7) % 7) as usize;
+        let z = days_since_epoch + 719_468;
+        let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+        let doe = z - era * 146_097;
+        let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146_096) / 365;
+        let y = yoe + era * 400;
+        let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+        let mp = (5 * doy + 2) / 153;
+        let d = doy - (153 * mp + 2) / 5 + 1;
+        let m = if mp < 10 { mp + 3 } else { mp - 9 };
+        let y = if m <= 2 { y + 1 } else { y };
+        format!(
+            "{}, {:02} {} {} {:02}:{:02}:{:02} +0000",
+            DAYS[wday], d, MONTHS[(m - 1) as usize], y, hour, min, sec
+        )
+    }
 
     // ----- dot_unstuff -----
 
@@ -202,6 +212,11 @@ mod tests {
     // ----- complete_post -----
 
     fn minimal_article(newsgroups: Option<&str>, from: Option<&str>) -> Vec<u8> {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+        let date_str = epoch_to_rfc2822(now);
         let mut headers = String::new();
         if let Some(ng) = newsgroups {
             headers.push_str(&format!("Newsgroups: {ng}\r\n"));
@@ -210,6 +225,8 @@ mod tests {
             headers.push_str(&format!("From: {f}\r\n"));
         }
         headers.push_str("Subject: test\r\n");
+        headers.push_str(&format!("Date: {date_str}\r\n"));
+        headers.push_str("Message-ID: <test@example.com>\r\n");
         headers.push_str("\r\n");
         headers.push_str("Body text.\r\n");
         headers.into_bytes()
@@ -235,7 +252,7 @@ mod tests {
         let article = minimal_article(None, Some("user@example.com"));
         let resp = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES, None);
         assert_eq!(resp.code, 441);
-        assert!(resp.text.contains("Newsgroups"));
+        assert!(resp.text.contains("Newsgroups"), "expected 'Newsgroups' in: {}", resp.text);
     }
 
     #[test]
@@ -243,15 +260,17 @@ mod tests {
         let article = minimal_article(Some("comp.lang.rust"), None);
         let resp = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES, None);
         assert_eq!(resp.code, 441);
-        assert!(resp.text.contains("From"));
+        assert!(resp.text.contains("From"), "expected 'From' in: {}", resp.text);
     }
 
     #[test]
-    fn complete_post_missing_both_headers_reports_newsgroups_first() {
+    fn complete_post_missing_both_headers_reports_from_first() {
+        // validate_post_headers checks mandatory headers in order:
+        // From, Date, Message-ID, Newsgroups, Subject — so From is reported first.
         let article = minimal_article(None, None);
         let resp = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES, None);
         assert_eq!(resp.code, 441);
-        assert!(resp.text.contains("Newsgroups"));
+        assert!(resp.text.contains("From"), "expected 'From' in: {}", resp.text);
     }
 
     // ----- read_dot_terminated -----

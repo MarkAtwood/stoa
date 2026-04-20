@@ -6,6 +6,7 @@
 //! layer would hit when a storage lookup returns nothing or fails.
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use usenet_ipfs_reader::session::{
     commands::{
@@ -33,6 +34,59 @@ fn make_group(name: &str, numbers: Vec<u64>) -> GroupData {
     let low = numbers.first().copied().unwrap_or(1);
     let high = numbers.last().copied().unwrap_or(0);
     GroupData { name: name.into(), count: numbers.len() as u64, low, high, article_numbers: numbers }
+}
+
+/// Format a Unix timestamp (seconds) as an RFC 2822 date string.
+fn epoch_to_rfc2822(secs: i64) -> String {
+    const DAYS: [&str; 7] = ["Thu", "Fri", "Sat", "Sun", "Mon", "Tue", "Wed"];
+    const MONTHS: [&str; 12] = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+    let s = secs;
+    let sec = (s % 60) as u32;
+    let min = ((s / 60) % 60) as u32;
+    let hour = ((s / 3600) % 24) as u32;
+    let days_since_epoch = s / 86400;
+    let wday = ((days_since_epoch % 7 + 7) % 7) as usize;
+    let z = days_since_epoch + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146_096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+    format!(
+        "{}, {:02} {} {} {:02}:{:02}:{:02} +0000",
+        DAYS[wday], d, MONTHS[(m - 1) as usize], y, hour, min, sec
+    )
+}
+
+/// Build a minimal RFC 5536-compliant article with the given optional headers.
+/// Always includes Subject, a current-time Date, and Message-ID.
+/// Pass `newsgroups` and `from` as `Some(value)` to include them.
+fn make_article(newsgroups: Option<&str>, from: Option<&str>) -> Vec<u8> {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64;
+    let date_str = epoch_to_rfc2822(now);
+    let mut out = String::new();
+    if let Some(ng) = newsgroups {
+        out.push_str(&format!("Newsgroups: {ng}\r\n"));
+    }
+    if let Some(f) = from {
+        out.push_str(&format!("From: {f}\r\n"));
+    }
+    out.push_str("Subject: test\r\n");
+    out.push_str(&format!("Date: {date_str}\r\n"));
+    out.push_str("Message-ID: <test@example.com>\r\n");
+    out.push_str("\r\n");
+    out.push_str("Body text.\r\n");
+    out.into_bytes()
 }
 
 // ── fetch error paths ─────────────────────────────────────────────────────────
@@ -300,11 +354,13 @@ fn post_oversized_article_returns_441() {
 }
 
 /// POST: article missing the Newsgroups header must return 441 per RFC 3977
-/// §6.3.1.
+/// §6.3.1.  The article contains all other mandatory headers (From, Date,
+/// Message-ID, Subject) so that validate_post_headers reaches the Newsgroups
+/// check and returns its specific error.
 #[test]
 fn post_missing_newsgroups_header_returns_441() {
-    let article = b"From: user@example.com\r\nSubject: x\r\n\r\nbody\r\n";
-    let resp = complete_post(article, 1_048_576, None);
+    let article = make_article(None, Some("user@example.com"));
+    let resp = complete_post(&article, 1_048_576, None);
     assert_eq!(resp.code, 441, "RFC 3977 §6.3.1: missing Newsgroups must yield 441");
     assert!(resp.text.contains("Newsgroups"), "error text must identify missing header");
 }
@@ -312,19 +368,18 @@ fn post_missing_newsgroups_header_returns_441() {
 /// POST: article missing the From header must return 441 per RFC 3977 §6.3.1.
 #[test]
 fn post_missing_from_header_returns_441() {
-    let article = b"Newsgroups: comp.lang.rust\r\nSubject: x\r\n\r\nbody\r\n";
-    let resp = complete_post(article, 1_048_576, None);
+    let article = make_article(Some("comp.lang.rust"), None);
+    let resp = complete_post(&article, 1_048_576, None);
     assert_eq!(resp.code, 441, "RFC 3977 §6.3.1: missing From must yield 441");
     assert!(resp.text.contains("From"), "error text must identify missing header");
 }
 
-/// POST: valid article with all required headers and within size limit must
-/// return 240 per RFC 3977 §6.3.1.  Confirms the success path.
+/// POST: valid article with all required RFC 5536 headers and within size
+/// limit must return 240 per RFC 3977 §6.3.1.  Confirms the success path.
 #[test]
 fn post_valid_article_returns_240() {
-    let article =
-        b"Newsgroups: comp.lang.rust\r\nFrom: user@example.com\r\nSubject: x\r\n\r\nbody\r\n";
-    let resp = complete_post(article, 1_048_576, None);
+    let article = make_article(Some("comp.lang.rust"), Some("user@example.com"));
+    let resp = complete_post(&article, 1_048_576, None);
     assert_eq!(resp.code, 240, "RFC 3977 §6.3.1: valid POST must yield 240");
 }
 

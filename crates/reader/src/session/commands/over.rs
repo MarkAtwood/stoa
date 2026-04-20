@@ -32,6 +32,7 @@ pub fn over_response(records: impl IntoIterator<Item = OverviewRecord>) -> Respo
         code: 224,
         text: "Overview information follows".to_string(),
         body,
+        multiline: true,
     }
 }
 
@@ -92,8 +93,8 @@ mod tests {
         assert!(resp.body.is_empty());
         let rendered = resp.to_string();
         assert!(rendered.starts_with("224 "));
-        // No body lines; Display does not emit ".\r\n" for empty body.
-        assert!(!rendered.contains(".\r\n"));
+        // RFC 3977 §3.2: multi-line responses terminate with ".\r\n" even when empty.
+        assert!(rendered.ends_with(".\r\n"));
     }
 
     #[test]
