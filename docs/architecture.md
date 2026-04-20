@@ -340,12 +340,14 @@ Article content lives in IPFS, not in SQLite. Each article is stored as a DAG-CB
 
 ```
 ArticleRootNode (codec 0x71, SHA-256 CIDv1)
-├── header_cid  → raw block (RFC 5536 header bytes)
-├── body_cid    → raw block (article body bytes)
-├── mime_cid    → MIME parsed sub-tree (optional)
-└── metadata    → inline: message_id, newsgroups, hlc_timestamp,
-                          operator_signature, byte_count, line_count,
-                          content_type_summary
+├── header_cid      → raw block (RFC 5536 header bytes, verbatim)
+├── header_map_cid  → DAG-CBOR block (HeaderMapNode: lowercased header map,
+│                     RFC 2047 decoded, dates as RFC 3339)
+├── body_cid        → raw block (article body bytes)
+├── mime_cid        → MIME parsed sub-tree (optional)
+└── metadata        → inline: message_id, newsgroups, hlc_timestamp,
+                              operator_signature, byte_count, line_count,
+                              content_type_summary
 ```
 
 The metadata fields are embedded in the root node so that Corundum (future integration) and other consumers can render a preview without fetching sub-blocks.

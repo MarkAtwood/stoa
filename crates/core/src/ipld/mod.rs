@@ -6,6 +6,7 @@
 
 pub mod blocks;
 pub mod builder;
+pub mod header_map;
 pub mod metadata;
 pub mod mime;
 pub mod mime_parser;
@@ -14,6 +15,7 @@ pub mod test_vectors;
 
 pub use blocks::{body_block, header_block};
 pub use builder::{build_article, BuildError, BuiltArticle};
+pub use header_map::{HeaderMapNode, HeaderValue};
 pub use metadata::{compute_byte_count, compute_line_count, compute_metadata, extract_content_type_summary};
 pub use mime::MimeNode;
 pub use mime_parser::{parse_mime, ParsedMime};

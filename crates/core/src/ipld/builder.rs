@@ -3,6 +3,7 @@ use multihash_codetable::{Code, MultihashDigest};
 
 use crate::ipld::{
     blocks::{body_block, header_block},
+    header_map::build_header_map,
     mime_parser::parse_mime,
     metadata::compute_metadata,
     root_node::{ArticleRootNode, SCHEMA_VERSION},
@@ -61,6 +62,11 @@ pub fn build_article(
     let (header_cid, header_block_bytes) = header_block(header_bytes);
     let (body_cid, body_block_bytes) = body_block(body_bytes);
 
+    let header_map = build_header_map(header_bytes);
+    let header_map_bytes = serde_ipld_dagcbor::to_vec(&header_map)
+        .map_err(|e| BuildError::CborEncode(e.to_string()))?;
+    let header_map_cid = dag_cbor_cid(&header_map_bytes);
+
     let parsed = parse_mime(header_bytes, body_bytes);
 
     let (mime_cid, mime_blocks) = match parsed {
@@ -86,6 +92,7 @@ pub fn build_article(
     let root_node = ArticleRootNode {
         schema_version: SCHEMA_VERSION,
         header_cid,
+        header_map_cid: Some(header_map_cid),
         body_cid,
         mime_cid,
         metadata,
@@ -98,6 +105,7 @@ pub fn build_article(
     let mut blocks = vec![
         (root_cid, root_bytes),
         (header_cid, header_block_bytes),
+        (header_map_cid, header_map_bytes),
         (body_cid, body_block_bytes),
     ];
     blocks.extend(mime_blocks);

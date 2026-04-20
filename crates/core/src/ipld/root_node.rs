@@ -21,6 +21,11 @@ pub struct ArticleRootNode {
     pub schema_version: u32,
     /// CID of the raw block containing verbatim RFC 5536 wire headers.
     pub header_cid: Cid,
+    /// CID of the DAG-CBOR block containing the structured header map
+    /// (`HeaderMapNode`). Enables `ipfs dag get <root>/header_map_cid/<name>`
+    /// for per-header IPLD traversal. `None` only for legacy articles that
+    /// predate this field.
+    pub header_map_cid: Option<Cid>,
     /// CID of the raw block containing verbatim NNTP body bytes.
     pub body_cid: Cid,
     /// CID of the MIME parsed node, or None if MIME parsing was skipped.
@@ -85,6 +90,7 @@ mod tests {
         ArticleRootNode {
             schema_version: SCHEMA_VERSION,
             header_cid: test_cid(b"header bytes"),
+            header_map_cid: Some(test_cid(b"header map")),
             body_cid: test_cid(b"body bytes"),
             mime_cid: Some(test_cid(b"mime node")),
             metadata: ArticleMetadata {

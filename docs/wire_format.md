@@ -174,6 +174,7 @@ DAG-CBOR encoding of a map with these fields in declaration order:
 |----------------------|-------------------|-------------|
 | `schema_version`     | uint (u32)        | Schema version; currently `1`.  Consumers must reject root nodes with `schema_version` greater than the maximum they know. |
 | `header_cid`         | CID link          | CID of the RAW block holding verbatim RFC 5536 wire headers. |
+| `header_map_cid`     | CID link or null  | CID of the DAG-CBOR block holding the structured header map (`HeaderMapNode`). Enables `ipfs dag get <root>/header_map_cid/<name>` for per-header IPLD traversal. Null/absent only for legacy articles that predate this field. |
 | `body_cid`           | CID link          | CID of the RAW block holding verbatim NNTP body bytes (after dot-unstuffing). |
 | `mime_cid`           | CID link or null  | CID of the MIME node block (DAG-CBOR), or null/absent if MIME parsing was skipped (no `Content-Type` header present). |
 | `metadata`           | map (inline)      | `ArticleMetadata` struct, encoded as an inline DAG-CBOR map. |
@@ -552,8 +553,8 @@ content_type_summary: "text/plain"    (default; no Content-Type header)
 **Step 6: ArticleRootNode DAG-CBOR**
 
 The root node is serialized to DAG-CBOR as a map with fields in this order:
-`schema_version (1)`, `header_cid`, `body_cid`, `mime_cid (null)`,
-`metadata (inline map)`.
+`schema_version (1)`, `header_cid`, `header_map_cid`, `body_cid`,
+`mime_cid (null)`, `metadata (inline map)`.
 
 **Step 7: Root CID**
 

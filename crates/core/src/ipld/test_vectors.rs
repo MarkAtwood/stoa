@@ -53,7 +53,7 @@ mod tests {
     /// Oracle: stability value recorded from `build_article` on first run.
     /// Any change here means the DAG-CBOR encoding or ArticleRootNode schema changed.
     const TV1_EXPECTED_ROOT_CID: &str =
-        "bafyreihv47lkxiaysp7lcdvimct2bdreounj2jtzgj5pn7yabkfxzanlci";
+        "bafyreihtsj5m7rkyqkj64blmobrwkmbbkxsfyiaixuobo6m62mkggb3oay";
 
     #[test]
     fn tv1_header_cid_matches_sha256_oracle() {
@@ -149,7 +149,7 @@ mod tests {
 
     /// Oracle: stability value recorded from `build_article` on first run.
     const TV2_EXPECTED_ROOT_CID: &str =
-        "bafyreiatc5gntevglwlwx3lz5wcob52dwn3almk3wgx3qaqjuagpmsjhfq";
+        "bafyreiabc2zc2btteudfjmyayx4ktxeimi7rgbi5h7yd3c5k2vhhpmukuy";
 
     #[test]
     fn tv2_header_cid_matches_sha256_oracle() {
@@ -279,7 +279,7 @@ mod tests {
 
     /// Oracle: stability value recorded from `build_article` on first run.
     const TV3_EXPECTED_ROOT_CID: &str =
-        "bafyreicsgh7qmgot2qdrzbiwgs2pvjpmwavyyea3ank73mlty65myphlbi";
+        "bafyreieg6lcrb66rolidzba5st64jrmkaqksynwcix74vf7d3gd2unideu";
 
     /// Oracle: Python `hashlib.sha256(b"Part one body.").digest()` → CIDv1 RAW base32.
     /// Note: `trim_trailing_crlf` in the MIME parser strips the trailing \r\n from
@@ -448,7 +448,7 @@ mod tests {
 
     /// Oracle: stability value recorded from `build_article` on first run.
     const TV4_EXPECTED_ROOT_CID: &str =
-        "bafyreidna36s7kr5h7zeei7ccyqdvxhngndn7b3r5i2uemgumrlut3tbt4";
+        "bafyreifselmwgbbnelg7plz4fsfkcll7qlj2ubvpu2ibktm2quotdsscbq";
 
     #[test]
     fn tv4_header_cid_matches_sha256_oracle() {
