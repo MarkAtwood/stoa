@@ -3872,10 +3872,12 @@ name = "usenet-ipfs-transit"
 version = "0.1.0"
 dependencies = [
  "cid",
+ "hex",
  "libp2p",
  "multihash-codetable",
  "rand 0.8.6",
  "serde",
+ "serde_json",
  "sqlx",
  "tempfile",
  "tokio",

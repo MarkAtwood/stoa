@@ -19,12 +19,15 @@ pub fn format_overview_line(record: &OverviewRecord) -> String {
     )
 }
 
-/// OVER [range]: return overview for the given pre-fetched records.
+/// OVER [range]: return overview for the given records.
 ///
 /// Responds with code 224 and one tab-separated line per article.
-/// An empty slice produces a 224 response with no body lines.
-pub fn over_response(records: &[OverviewRecord]) -> Response {
-    let body = records.iter().map(format_overview_line).collect();
+/// An empty iterator produces a 224 response with no body lines.
+/// Accepts any `IntoIterator<Item = OverviewRecord>`, so callers can
+/// stream records from a database cursor without pre-fetching the full
+/// range into memory.
+pub fn over_response(records: impl IntoIterator<Item = OverviewRecord>) -> Response {
+    let body = records.into_iter().map(|r| format_overview_line(&r)).collect();
     Response {
         code: 224,
         text: "Overview information follows".to_string(),
@@ -33,7 +36,7 @@ pub fn over_response(records: &[OverviewRecord]) -> Response {
 }
 
 /// XOVER [range]: legacy alias for OVER; identical response format and code.
-pub fn xover_response(records: &[OverviewRecord]) -> Response {
+pub fn xover_response(records: impl IntoIterator<Item = OverviewRecord>) -> Response {
     over_response(records)
 }
 
@@ -71,20 +74,20 @@ mod tests {
     #[test]
     fn over_response_code_224() {
         let records = vec![make_record(1, "Hello")];
-        let resp = over_response(&records);
+        let resp = over_response(records);
         assert_eq!(resp.code, 224);
     }
 
     #[test]
     fn xover_response_code_224() {
         let records = vec![make_record(1, "Hello")];
-        let resp = xover_response(&records);
+        let resp = xover_response(records);
         assert_eq!(resp.code, 224);
     }
 
     #[test]
     fn over_response_empty() {
-        let resp = over_response(&[]);
+        let resp = over_response(std::iter::empty::<OverviewRecord>());
         assert_eq!(resp.code, 224);
         assert!(resp.body.is_empty());
         let rendered = resp.to_string();
@@ -100,7 +103,7 @@ mod tests {
             make_record(2, "Second"),
             make_record(3, "Third"),
         ];
-        let resp = over_response(&records);
+        let resp = over_response(records);
         assert_eq!(resp.code, 224);
         assert_eq!(resp.body.len(), 3);
         let rendered = resp.to_string();
@@ -109,7 +112,20 @@ mod tests {
 
     #[test]
     fn xover_same_as_over() {
-        let records = vec![make_record(7, "Same"), make_record(8, "Output")];
-        assert_eq!(over_response(&records), xover_response(&records));
+        let over_records = vec![make_record(7, "Same"), make_record(8, "Output")];
+        let xover_records = vec![make_record(7, "Same"), make_record(8, "Output")];
+        assert_eq!(over_response(over_records), xover_response(xover_records));
+    }
+
+    #[test]
+    fn over_response_accepts_iterator() {
+        // Demonstrates that a lazy iterator (e.g. from database cursor) works
+        // without materializing a full Vec of records first.
+        let records_iter = (1u64..=5).map(|n| make_record(n, &format!("Subject {n}")));
+        let resp = over_response(records_iter);
+        assert_eq!(resp.code, 224);
+        assert_eq!(resp.body.len(), 5);
+        assert!(resp.body[0].starts_with("1\t"));
+        assert!(resp.body[4].starts_with("5\t"));
     }
 }
