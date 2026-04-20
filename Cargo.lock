@@ -2233,6 +2233,7 @@ dependencies = [
 name = "usenet-ipfs-reader"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "cid",
  "mailparse",
  "multihash-codetable",

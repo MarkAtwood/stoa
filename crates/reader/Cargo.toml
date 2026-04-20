@@ -18,6 +18,7 @@ toml = "0.8"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 usenet-ipfs-core = { path = "../core" }
+base64 = "0.22"
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio-rustls", "macros", "migrate"] }
 cid = { version = "0.11", features = ["serde-codec"] }
 mailparse = "0.15"

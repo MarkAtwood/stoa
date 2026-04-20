@@ -1,0 +1,335 @@
+//! SQLite-backed overview index for OVER/XOVER.
+//!
+//! Stores the 7 RFC 3977 required overview fields per article, keyed by
+//! `(group_name, article_number)`.
+
+use sqlx::SqlitePool;
+
+/// SQLite row returned by `query_range`; mapped to `OverviewRecord`.
+#[derive(sqlx::FromRow)]
+struct OverviewRow {
+    article_number: i64,
+    subject: String,
+    from_header: String,
+    date_header: String,
+    message_id: String,
+    references_header: String,
+    byte_count: i64,
+    line_count: i64,
+}
+
+/// The 7 RFC 3977 overview fields for one article.
+#[derive(Debug, Clone)]
+pub struct OverviewRecord {
+    pub article_number: u64,
+    pub subject: String,
+    pub from: String,
+    pub date: String,
+    pub message_id: String,
+    pub references: String,
+    pub byte_count: u64,
+    pub line_count: u64,
+}
+
+/// Stores and retrieves overview records from SQLite.
+pub struct OverviewStore {
+    pool: SqlitePool,
+}
+
+impl OverviewStore {
+    pub fn new(pool: SqlitePool) -> Self {
+        Self { pool }
+    }
+
+    /// Insert an overview record.
+    ///
+    /// Idempotent: if `(group, article_number)` already exists, does nothing.
+    pub async fn insert(&self, group: &str, record: &OverviewRecord) -> Result<(), sqlx::Error> {
+        let article_number = record.article_number as i64;
+        let byte_count = record.byte_count as i64;
+        let line_count = record.line_count as i64;
+
+        sqlx::query(
+            "INSERT OR IGNORE INTO overview \
+             (group_name, article_number, subject, from_header, date_header, \
+              message_id, references_header, byte_count, line_count) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(group)
+        .bind(article_number)
+        .bind(&record.subject)
+        .bind(&record.from)
+        .bind(&record.date)
+        .bind(&record.message_id)
+        .bind(&record.references)
+        .bind(byte_count)
+        .bind(line_count)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    /// Query overview records for a range of article numbers (inclusive).
+    ///
+    /// Returns records in ascending `article_number` order. Article numbers
+    /// within the range that have no record are silently skipped.
+    pub async fn query_range(
+        &self,
+        group: &str,
+        low: u64,
+        high: u64,
+    ) -> Result<Vec<OverviewRecord>, sqlx::Error> {
+        let low = low as i64;
+        let high = high as i64;
+
+        let rows: Vec<OverviewRow> = sqlx::query_as(
+            "SELECT article_number, subject, from_header, date_header, \
+              message_id, references_header, byte_count, line_count \
+             FROM overview \
+             WHERE group_name = ? AND article_number >= ? AND article_number <= ? \
+             ORDER BY article_number ASC",
+        )
+        .bind(group)
+        .bind(low)
+        .bind(high)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|row| OverviewRecord {
+                article_number: row.article_number as u64,
+                subject: row.subject,
+                from: row.from_header,
+                date: row.date_header,
+                message_id: row.message_id,
+                references: row.references_header,
+                byte_count: row.byte_count as u64,
+                line_count: row.line_count as u64,
+            })
+            .collect())
+    }
+}
+
+/// Extract the 7 overview fields from raw header bytes and a body.
+///
+/// Returns an `OverviewRecord` with `article_number` set to 0; the caller is
+/// responsible for setting the correct local article number before storing.
+///
+/// Missing header fields default to an empty string.
+/// `byte_count` is `body_bytes.len()`.
+/// `line_count` is the count of `\n` bytes in `body_bytes`.
+pub fn extract_overview(header_bytes: &[u8], body_bytes: &[u8]) -> OverviewRecord {
+    let header_text = String::from_utf8_lossy(header_bytes);
+
+    let mut subject = String::new();
+    let mut from = String::new();
+    let mut date = String::new();
+    let mut message_id = String::new();
+    let mut references = String::new();
+
+    // Unfold continuation lines (RFC 5322 §2.2.3): a line beginning with
+    // whitespace is a continuation of the previous header.
+    let mut lines: Vec<String> = Vec::new();
+    for raw in header_text.split('\n') {
+        let raw = raw.trim_end_matches('\r');
+        if raw.starts_with(' ') || raw.starts_with('\t') {
+            if let Some(last) = lines.last_mut() {
+                last.push(' ');
+                last.push_str(raw.trim_start());
+            }
+        } else {
+            lines.push(raw.to_owned());
+        }
+    }
+
+    for line in &lines {
+        if let Some(value) = strip_header_name(line, "Subject") {
+            subject = value.to_owned();
+        } else if let Some(value) = strip_header_name(line, "From") {
+            from = value.to_owned();
+        } else if let Some(value) = strip_header_name(line, "Date") {
+            date = value.to_owned();
+        } else if let Some(value) = strip_header_name(line, "Message-ID") {
+            message_id = value.to_owned();
+        } else if let Some(value) = strip_header_name(line, "References") {
+            references = value.to_owned();
+        }
+    }
+
+    let byte_count = body_bytes.len() as u64;
+    let line_count = body_bytes.iter().filter(|&&b| b == b'\n').count() as u64;
+
+    OverviewRecord {
+        article_number: 0,
+        subject,
+        from,
+        date,
+        message_id,
+        references,
+        byte_count,
+        line_count,
+    }
+}
+
+/// Return the trimmed value after `Name:` in `line`, case-insensitively.
+///
+/// Returns `None` if the line does not start with `name` (followed by `:`).
+fn strip_header_name<'a>(line: &'a str, name: &str) -> Option<&'a str> {
+    let prefix = line.get(..name.len())?;
+    if !prefix.eq_ignore_ascii_case(name) {
+        return None;
+    }
+    let rest = line.get(name.len()..)?;
+    let rest = rest.strip_prefix(':')?;
+    Some(rest.trim())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+    use std::str::FromStr as _;
+
+    async fn make_store() -> (OverviewStore, tempfile::TempPath) {
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        let opts = SqliteConnectOptions::from_str(&url)
+            .unwrap()
+            .create_if_missing(true);
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(opts)
+            .await
+            .unwrap();
+        crate::migrations::run_migrations(&pool).await.unwrap();
+        (OverviewStore::new(pool), tmp)
+    }
+
+    fn sample_record(n: u64) -> OverviewRecord {
+        OverviewRecord {
+            article_number: n,
+            subject: format!("Subject {n}"),
+            from: format!("user{n}@example.com"),
+            date: "Sat, 01 Jan 2026 00:00:00 +0000".to_owned(),
+            message_id: format!("<{n}@example.com>"),
+            references: String::new(),
+            byte_count: 100,
+            line_count: 5,
+        }
+    }
+
+    #[tokio::test]
+    async fn insert_and_query_single() {
+        let (store, _tmp) = make_store().await;
+        store.insert("comp.lang.rust", &sample_record(1)).await.unwrap();
+        let results = store.query_range("comp.lang.rust", 1, 1).await.unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].article_number, 1);
+        assert_eq!(results[0].subject, "Subject 1");
+    }
+
+    #[tokio::test]
+    async fn query_range_returns_ordered() {
+        let (store, _tmp) = make_store().await;
+        store.insert("comp.lang.rust", &sample_record(5)).await.unwrap();
+        store.insert("comp.lang.rust", &sample_record(1)).await.unwrap();
+        store.insert("comp.lang.rust", &sample_record(3)).await.unwrap();
+        let results = store.query_range("comp.lang.rust", 1, 5).await.unwrap();
+        assert_eq!(results.len(), 3);
+        assert_eq!(results[0].article_number, 1);
+        assert_eq!(results[1].article_number, 3);
+        assert_eq!(results[2].article_number, 5);
+    }
+
+    #[tokio::test]
+    async fn query_range_skips_missing() {
+        let (store, _tmp) = make_store().await;
+        store.insert("comp.lang.rust", &sample_record(1)).await.unwrap();
+        store.insert("comp.lang.rust", &sample_record(3)).await.unwrap();
+        let results = store.query_range("comp.lang.rust", 1, 5).await.unwrap();
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].article_number, 1);
+        assert_eq!(results[1].article_number, 3);
+    }
+
+    #[tokio::test]
+    async fn insert_idempotent() {
+        let (store, _tmp) = make_store().await;
+        store.insert("comp.lang.rust", &sample_record(1)).await.unwrap();
+        store.insert("comp.lang.rust", &sample_record(1)).await.unwrap();
+        let results = store.query_range("comp.lang.rust", 1, 1).await.unwrap();
+        assert_eq!(results.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn multi_group_isolation() {
+        let (store, _tmp) = make_store().await;
+        store.insert("comp.lang.rust", &sample_record(1)).await.unwrap();
+        store.insert("alt.test", &sample_record(1)).await.unwrap();
+
+        let rust = store.query_range("comp.lang.rust", 1, 1).await.unwrap();
+        let alt = store.query_range("alt.test", 1, 1).await.unwrap();
+
+        assert_eq!(rust.len(), 1);
+        assert_eq!(alt.len(), 1);
+        assert_eq!(rust[0].subject, "Subject 1");
+        assert_eq!(alt[0].subject, "Subject 1");
+
+        // A third group has no records.
+        let none = store.query_range("sci.math", 1, 1).await.unwrap();
+        assert_eq!(none.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn extract_overview_parses_headers() {
+        let headers = b"Subject: Hello World\r\n\
+                        From: Alice <alice@example.com>\r\n\
+                        Date: Sat, 01 Jan 2026 00:00:00 +0000\r\n\
+                        Message-ID: <abc123@example.com>\r\n\
+                        References: <prev@example.com>\r\n";
+        let body = b"Line one\nLine two\nLine three\n";
+
+        let rec = extract_overview(headers, body);
+
+        assert_eq!(rec.subject, "Hello World");
+        assert_eq!(rec.from, "Alice <alice@example.com>");
+        assert_eq!(rec.date, "Sat, 01 Jan 2026 00:00:00 +0000");
+        assert_eq!(rec.message_id, "<abc123@example.com>");
+        assert_eq!(rec.references, "<prev@example.com>");
+        assert_eq!(rec.byte_count, body.len() as u64);
+        assert_eq!(rec.line_count, 3);
+        assert_eq!(rec.article_number, 0);
+    }
+
+    #[tokio::test]
+    async fn extract_overview_missing_fields_are_empty() {
+        // Only Subject is present; all other fields should be empty.
+        let headers = b"Subject: Only Subject\r\n";
+        let body = b"";
+
+        let rec = extract_overview(headers, body);
+
+        assert_eq!(rec.subject, "Only Subject");
+        assert_eq!(rec.from, "");
+        assert_eq!(rec.date, "");
+        assert_eq!(rec.message_id, "");
+        assert_eq!(rec.references, "");
+        assert_eq!(rec.byte_count, 0);
+        assert_eq!(rec.line_count, 0);
+    }
+
+    #[tokio::test]
+    async fn insert_50_articles() {
+        let (store, _tmp) = make_store().await;
+        for n in 1u64..=50 {
+            store.insert("comp.lang.rust", &sample_record(n)).await.unwrap();
+        }
+        let results = store.query_range("comp.lang.rust", 1, 50).await.unwrap();
+        assert_eq!(results.len(), 50);
+        for (i, rec) in results.iter().enumerate() {
+            assert_eq!(rec.article_number, (i + 1) as u64);
+        }
+    }
+}
