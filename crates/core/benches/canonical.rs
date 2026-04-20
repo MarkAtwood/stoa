@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use usenet_ipfs_core::article::{Article, ArticleBody, ArticleHeader, GroupName};
 use usenet_ipfs_core::canonical::canonical_bytes;
 
@@ -25,6 +25,27 @@ fn make_article(n: usize) -> Article {
              \r\n\
              Best regards,\r\nThe Author\r\n",
         ),
+    }
+}
+
+fn make_article_with_body_size(target_size: usize) -> Article {
+    Article {
+        header: ArticleHeader {
+            from: "author@example.com".to_string(),
+            date: "Mon, 01 Jan 2024 00:00:00 +0000".to_string(),
+            message_id: "<bench-body-size@example.com>".to_string(),
+            newsgroups: vec![
+                GroupName::new("comp.lang.rust").unwrap(),
+                GroupName::new("comp.test").unwrap(),
+            ],
+            subject: "Benchmark article body size".to_string(),
+            path: "news.example.com".to_string(),
+            extra_headers: vec![
+                ("X-Custom".to_string(), "header-value".to_string()),
+                ("References".to_string(), "<ref@example.com>".to_string()),
+            ],
+        },
+        body: ArticleBody::from_text(&"x".repeat(target_size)),
     }
 }
 
@@ -62,10 +83,25 @@ fn bench_canonicalize_by_header_count(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_canonicalize_by_body_size(c: &mut Criterion) {
+    let mut group = c.benchmark_group("canonicalize_by_body_size");
+    for size in [100usize, 1024, 10240] {
+        let article = make_article_with_body_size(size);
+        group.throughput(Throughput::Bytes(size as u64));
+        group.bench_with_input(
+            BenchmarkId::from_parameter(size),
+            &article,
+            |b, a| b.iter(|| canonical_bytes(black_box(a))),
+        );
+    }
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_canonicalize_single,
     bench_canonicalize_1000,
     bench_canonicalize_by_header_count,
+    bench_canonicalize_by_body_size,
 );
 criterion_main!(benches);
