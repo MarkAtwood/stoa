@@ -1,4 +1,6 @@
 pub mod backpressure;
+pub mod blacklist;
+pub mod feed_negotiation;
 pub mod ingestion;
 pub mod ingestion_queue;
 pub mod mode_stream;
