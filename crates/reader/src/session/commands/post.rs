@@ -1,5 +1,7 @@
 use tokio::io::{AsyncBufRead, AsyncBufReadExt};
 
+use usenet_ipfs_core::audit::{AuditEvent, AuditLoggerHandle};
+
 use crate::session::response::Response;
 
 /// Default maximum article size (1 MiB) used when no config value is available.
@@ -64,12 +66,20 @@ where
 /// `article_bytes`.  This function is pure (no I/O) so it can be tested
 /// directly without a network connection.
 ///
+/// If `audit_logger` is provided, an `ArticleSigned` event is emitted when the
+/// article passes all validation.  The CID and key fingerprint use placeholder
+/// values until IPFS writing and operator signing are wired in by a later epic.
+///
 /// Returns:
 /// - `240 Article received OK` on success
 /// - `441 Article too large` if the article exceeds `max_article_bytes`
 /// - `441 Missing Newsgroups header` if the `Newsgroups:` header is absent
 /// - `441 Missing From header` if the `From:` header is absent
-pub fn complete_post(article_bytes: &[u8], max_article_bytes: usize) -> Response {
+pub fn complete_post(
+    article_bytes: &[u8],
+    max_article_bytes: usize,
+    audit_logger: Option<&AuditLoggerHandle>,
+) -> Response {
     if article_bytes.len() > max_article_bytes {
         return Response::new(441, "Article too large");
     }
@@ -91,6 +101,16 @@ pub fn complete_post(article_bytes: &[u8], max_article_bytes: usize) -> Response
 
     if !has_header(&headers, "From") {
         return Response::new(441, "Missing From header");
+    }
+
+    if let Some(logger) = audit_logger {
+        let message_id = extract_header_value(&headers, "Message-ID")
+            .unwrap_or_else(|| "missing".to_string());
+        logger.log(AuditEvent::ArticleSigned {
+            message_id,
+            cid: "not-yet-stored".to_string(),
+            key_fingerprint: "not-yet-signed".to_string(),
+        });
     }
 
     Response::new(240, "Article received OK")
@@ -128,6 +148,22 @@ fn has_header(headers: &str, name: &str) -> bool {
         }
     }
     false
+}
+
+/// Extract the trimmed value of the first matching header field, or `None`.
+///
+/// Matches case-insensitively.  Returns the raw value string as-is; no
+/// unfolding or RFC 2047 decoding is performed.
+fn extract_header_value(headers: &str, name: &str) -> Option<String> {
+    let prefix_colon = format!("{}:", name.to_ascii_lowercase());
+    for line in headers.lines() {
+        let lower = line.to_ascii_lowercase();
+        if lower.starts_with(&prefix_colon) {
+            let value = line[prefix_colon.len()..].trim().to_string();
+            return Some(value);
+        }
+    }
+    None
 }
 
 #[cfg(test)]
@@ -182,14 +218,14 @@ mod tests {
     #[test]
     fn complete_post_valid_article_returns_240() {
         let article = minimal_article(Some("comp.lang.rust"), Some("user@example.com"));
-        let resp = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES);
+        let resp = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES, None);
         assert_eq!(resp.code, 240);
     }
 
     #[test]
     fn complete_post_oversized_returns_441_too_large() {
         let article = minimal_article(Some("comp.lang.rust"), Some("user@example.com"));
-        let resp = complete_post(&article, 1); // limit of 1 byte
+        let resp = complete_post(&article, 1, None); // limit of 1 byte
         assert_eq!(resp.code, 441);
         assert!(resp.text.contains("too large"));
     }
@@ -197,7 +233,7 @@ mod tests {
     #[test]
     fn complete_post_missing_newsgroups_returns_441() {
         let article = minimal_article(None, Some("user@example.com"));
-        let resp = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES);
+        let resp = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES, None);
         assert_eq!(resp.code, 441);
         assert!(resp.text.contains("Newsgroups"));
     }
@@ -205,7 +241,7 @@ mod tests {
     #[test]
     fn complete_post_missing_from_returns_441() {
         let article = minimal_article(Some("comp.lang.rust"), None);
-        let resp = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES);
+        let resp = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES, None);
         assert_eq!(resp.code, 441);
         assert!(resp.text.contains("From"));
     }
@@ -213,7 +249,7 @@ mod tests {
     #[test]
     fn complete_post_missing_both_headers_reports_newsgroups_first() {
         let article = minimal_article(None, None);
-        let resp = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES);
+        let resp = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES, None);
         assert_eq!(resp.code, 441);
         assert!(resp.text.contains("Newsgroups"));
     }

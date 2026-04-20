@@ -83,7 +83,7 @@ pub async fn run_session(stream: TcpStream, config: &Config) {
 
         let is_quit = matches!(cmd, crate::session::command::Command::Quit);
         let is_post = matches!(cmd, crate::session::command::Command::Post);
-        let resp = dispatch(&mut ctx, cmd);
+        let resp = dispatch(&mut ctx, cmd, None);
         let resp_code = resp.code;
 
         if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
@@ -104,7 +104,7 @@ pub async fn run_session(stream: TcpStream, config: &Config) {
                 }
             };
 
-            let final_resp = complete_post(&article_bytes, DEFAULT_MAX_ARTICLE_BYTES);
+            let final_resp = complete_post(&article_bytes, DEFAULT_MAX_ARTICLE_BYTES, None);
             if writer.write_all(final_resp.to_string().as_bytes()).await.is_err() {
                 break;
             }

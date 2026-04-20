@@ -1,3 +1,4 @@
+pub mod auth;
 pub mod fetch;
 pub mod group;
 pub mod hdr;

@@ -1,6 +1,11 @@
+use usenet_ipfs_core::audit::AuditLoggerHandle;
+
 use crate::session::{
     command::{Command, ListSubcommand, OverArg},
-    commands::list::{list_active, list_newsgroups, list_overview_fmt, newgroups, newnews},
+    commands::{
+        auth::authinfo_response,
+        list::{list_active, list_newsgroups, list_overview_fmt, newgroups, newnews},
+    },
     context::SessionContext,
     response::Response,
     state::SessionState,
@@ -11,11 +16,20 @@ use crate::session::{
 /// Returns a `Response` to send to the client. Updates `ctx` for state-
 /// changing commands (GROUP, AUTHINFO, STARTTLS, QUIT).
 ///
+/// If `audit_logger` is provided, `AuthAttempt` events are emitted for
+/// every AUTHINFO command.
+///
 /// # No business logic
 /// The dispatcher only routes and checks preconditions. All actual data
 /// retrieval (article lookup, group listing, etc.) returns stub responses
 /// until the relevant store modules are wired in by later epics.
-pub fn dispatch(ctx: &mut SessionContext, cmd: Command) -> Response {
+pub fn dispatch(
+    ctx: &mut SessionContext,
+    cmd: Command,
+    audit_logger: Option<&AuditLoggerHandle>,
+) -> Response {
+    let peer_addr = ctx.peer_addr.to_string();
+
     // Precondition: Authenticating state — only auth/setup commands allowed.
     if ctx.state == SessionState::Authenticating {
         return match cmd {
@@ -23,10 +37,11 @@ pub fn dispatch(ctx: &mut SessionContext, cmd: Command) -> Response {
                 Response::capabilities_with_ctx(ctx.posting_allowed, true)
             }
             Command::Quit => Response::closing_connection(),
-            Command::AuthinfoUser(_) | Command::AuthinfoPass(_) => {
+            Command::AuthinfoUser(ref username) | Command::AuthinfoPass(ref username) => {
                 // Stub: accept any credentials.
                 ctx.state = SessionState::Active;
                 ctx.authenticated_user = Some("anonymous".into());
+                authinfo_response(username, &peer_addr, true, audit_logger);
                 Response::authentication_accepted()
             }
             Command::StartTls => {
@@ -85,8 +100,9 @@ pub fn dispatch(ctx: &mut SessionContext, cmd: Command) -> Response {
                 Response::send_article()
             }
         }
-        Command::AuthinfoUser(_) | Command::AuthinfoPass(_) => {
-            // Already authenticated; re-auth is a no-op stub.
+        Command::AuthinfoUser(ref username) | Command::AuthinfoPass(ref username) => {
+            // Already authenticated; re-auth is a no-op stub (always accepted).
+            authinfo_response(username, &peer_addr, true, audit_logger);
             Response::authentication_accepted()
         }
         Command::StartTls => {
@@ -124,28 +140,28 @@ mod tests {
 
     fn ctx_group_selected() -> SessionContext {
         let mut ctx = SessionContext::new(test_addr(), false, true);
-        dispatch(&mut ctx, Command::Group("comp.lang.rust".into()));
+        dispatch(&mut ctx, Command::Group("comp.lang.rust".into()), None);
         ctx
     }
 
     #[test]
     fn test_authenticating_unknown_command_gets_480() {
         let mut ctx = ctx_authenticating();
-        let resp = dispatch(&mut ctx, Command::List(crate::session::command::ListSubcommand::Active));
+        let resp = dispatch(&mut ctx, Command::List(crate::session::command::ListSubcommand::Active), None);
         assert_eq!(resp.code, 480);
     }
 
     #[test]
     fn test_authenticating_quit_allowed() {
         let mut ctx = ctx_authenticating();
-        let resp = dispatch(&mut ctx, Command::Quit);
+        let resp = dispatch(&mut ctx, Command::Quit, None);
         assert_eq!(resp.code, 205);
     }
 
     #[test]
     fn test_authenticating_authinfo_transitions() {
         let mut ctx = ctx_authenticating();
-        let resp = dispatch(&mut ctx, Command::AuthinfoUser("alice".into()));
+        let resp = dispatch(&mut ctx, Command::AuthinfoUser("alice".into()), None);
         assert_eq!(resp.code, 281);
         assert_eq!(ctx.state, SessionState::Active);
     }
@@ -153,47 +169,47 @@ mod tests {
     #[test]
     fn test_active_next_without_group_gets_412() {
         let mut ctx = ctx_active();
-        let resp = dispatch(&mut ctx, Command::Next);
+        let resp = dispatch(&mut ctx, Command::Next, None);
         assert_eq!(resp.code, 412);
     }
 
     #[test]
     fn test_group_selected_next_returns_stub() {
         let mut ctx = ctx_group_selected();
-        let resp = dispatch(&mut ctx, Command::Next);
+        let resp = dispatch(&mut ctx, Command::Next, None);
         assert_eq!(resp.code, 423);
     }
 
     #[test]
     fn test_post_not_permitted() {
         let mut ctx = SessionContext::new(test_addr(), false, false);
-        let resp = dispatch(&mut ctx, Command::Post);
+        let resp = dispatch(&mut ctx, Command::Post, None);
         assert_eq!(resp.code, 440);
     }
 
     #[test]
     fn test_post_permitted_stub() {
         let mut ctx = ctx_active();
-        let resp = dispatch(&mut ctx, Command::Post);
+        let resp = dispatch(&mut ctx, Command::Post, None);
         assert_eq!(resp.code, 340);
     }
 
     #[test]
     fn test_capabilities_always_works() {
         let mut ctx_a = ctx_authenticating();
-        assert_eq!(dispatch(&mut ctx_a, Command::Capabilities).code, 101);
+        assert_eq!(dispatch(&mut ctx_a, Command::Capabilities, None).code, 101);
 
         let mut ctx_b = ctx_active();
-        assert_eq!(dispatch(&mut ctx_b, Command::Capabilities).code, 101);
+        assert_eq!(dispatch(&mut ctx_b, Command::Capabilities, None).code, 101);
 
         let mut ctx_c = ctx_group_selected();
-        assert_eq!(dispatch(&mut ctx_c, Command::Capabilities).code, 101);
+        assert_eq!(dispatch(&mut ctx_c, Command::Capabilities, None).code, 101);
     }
 
     #[test]
     fn test_capabilities_active_contains_version_2() {
         let mut ctx = ctx_active();
-        let resp = dispatch(&mut ctx, Command::Capabilities);
+        let resp = dispatch(&mut ctx, Command::Capabilities, None);
         assert_eq!(resp.code, 101);
         assert!(resp.body.iter().any(|l| l == "VERSION 2"));
     }
@@ -201,35 +217,35 @@ mod tests {
     #[test]
     fn test_capabilities_posting_allowed_includes_post() {
         let mut ctx = ctx_active(); // posting_allowed = true
-        let resp = dispatch(&mut ctx, Command::Capabilities);
+        let resp = dispatch(&mut ctx, Command::Capabilities, None);
         assert!(resp.body.iter().any(|l| l == "POST"));
     }
 
     #[test]
     fn test_capabilities_posting_not_allowed_excludes_post() {
         let mut ctx = SessionContext::new(test_addr(), false, false);
-        let resp = dispatch(&mut ctx, Command::Capabilities);
+        let resp = dispatch(&mut ctx, Command::Capabilities, None);
         assert!(!resp.body.iter().any(|l| l == "POST"));
     }
 
     #[test]
     fn test_mode_reader_posting_allowed_returns_200() {
         let mut ctx = ctx_active(); // posting_allowed = true
-        let resp = dispatch(&mut ctx, Command::ModeReader);
+        let resp = dispatch(&mut ctx, Command::ModeReader, None);
         assert_eq!(resp.code, 200);
     }
 
     #[test]
     fn test_mode_reader_posting_not_allowed_returns_201() {
         let mut ctx = SessionContext::new(test_addr(), false, false);
-        let resp = dispatch(&mut ctx, Command::ModeReader);
+        let resp = dispatch(&mut ctx, Command::ModeReader, None);
         assert_eq!(resp.code, 201);
     }
 
     #[test]
     fn test_quit_returns_205() {
         let mut ctx = ctx_active();
-        let resp = dispatch(&mut ctx, Command::Quit);
+        let resp = dispatch(&mut ctx, Command::Quit, None);
         assert_eq!(resp.code, 205);
     }
 }

@@ -295,7 +295,7 @@ fn newnews_returns_230_empty() {
 #[test]
 fn post_oversized_article_returns_441() {
     let article = b"Newsgroups: comp.lang.rust\r\nFrom: user@example.com\r\nSubject: x\r\n\r\nbody\r\n";
-    let resp = complete_post(article, 1); // limit of 1 byte forces rejection
+    let resp = complete_post(article, 1, None); // limit of 1 byte forces rejection
     assert_eq!(resp.code, 441, "RFC 3977 §6.3.1: oversized article must yield 441");
 }
 
@@ -304,7 +304,7 @@ fn post_oversized_article_returns_441() {
 #[test]
 fn post_missing_newsgroups_header_returns_441() {
     let article = b"From: user@example.com\r\nSubject: x\r\n\r\nbody\r\n";
-    let resp = complete_post(article, 1_048_576);
+    let resp = complete_post(article, 1_048_576, None);
     assert_eq!(resp.code, 441, "RFC 3977 §6.3.1: missing Newsgroups must yield 441");
     assert!(resp.text.contains("Newsgroups"), "error text must identify missing header");
 }
@@ -313,7 +313,7 @@ fn post_missing_newsgroups_header_returns_441() {
 #[test]
 fn post_missing_from_header_returns_441() {
     let article = b"Newsgroups: comp.lang.rust\r\nSubject: x\r\n\r\nbody\r\n";
-    let resp = complete_post(article, 1_048_576);
+    let resp = complete_post(article, 1_048_576, None);
     assert_eq!(resp.code, 441, "RFC 3977 §6.3.1: missing From must yield 441");
     assert!(resp.text.contains("From"), "error text must identify missing header");
 }
@@ -324,7 +324,7 @@ fn post_missing_from_header_returns_441() {
 fn post_valid_article_returns_240() {
     let article =
         b"Newsgroups: comp.lang.rust\r\nFrom: user@example.com\r\nSubject: x\r\n\r\nbody\r\n";
-    let resp = complete_post(article, 1_048_576);
+    let resp = complete_post(article, 1_048_576, None);
     assert_eq!(resp.code, 240, "RFC 3977 §6.3.1: valid POST must yield 240");
 }
 
