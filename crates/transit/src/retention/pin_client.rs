@@ -40,6 +40,9 @@ pub trait PinClient: Send + Sync {
 
     /// Return true if the CID is currently pinned.
     async fn is_pinned(&self, cid: &Cid) -> Result<bool, PinError>;
+
+    /// Return all currently pinned CIDs.
+    async fn list_pinned(&self) -> Result<Vec<Cid>, PinError>;
 }
 
 /// Retry `op` up to `max_attempts` times with exponential backoff.
@@ -131,6 +134,120 @@ impl PinClient for MemPinClient {
         }
         Ok(self.pinned.read().unwrap().contains(&cid.to_string()))
     }
+
+    async fn list_pinned(&self) -> Result<Vec<Cid>, PinError> {
+        if let Some(e) = self.check_force_error() {
+            return Err(e);
+        }
+        let guard = self.pinned.read().unwrap();
+        let mut strings: Vec<&str> = guard.iter().map(|s| s.as_str()).collect();
+        strings.sort_unstable();
+        let cids = strings
+            .iter()
+            .map(|s| {
+                s.parse::<Cid>()
+                    .map_err(|e| PinError::Failed(format!("invalid CID in store: {e}")))
+            })
+            .collect::<Result<Vec<Cid>, PinError>>()?;
+        Ok(cids)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// HTTP implementation (Kubo-compatible IPFS HTTP API)
+// ---------------------------------------------------------------------------
+
+/// Production PinClient that talks to a Kubo-compatible IPFS HTTP API.
+pub struct HttpPinClient {
+    client: reqwest::Client,
+    base_url: String,
+}
+
+impl HttpPinClient {
+    /// Create a new HttpPinClient.
+    ///
+    /// `base_url` should be the IPFS API root, e.g. `"http://127.0.0.1:5001"`.
+    pub fn new(base_url: impl Into<String>) -> Self {
+        Self {
+            client: reqwest::Client::new(),
+            base_url: base_url.into(),
+        }
+    }
+}
+
+#[async_trait]
+impl PinClient for HttpPinClient {
+    async fn pin(&self, cid: &Cid) -> Result<(), PinError> {
+        let url = format!("{}/api/v0/pin/add?arg={}", self.base_url, cid);
+        self.client
+            .post(&url)
+            .send()
+            .await
+            .map_err(|e| PinError::Unreachable(e.to_string()))?
+            .error_for_status()
+            .map_err(|e| PinError::Failed(e.to_string()))?;
+        Ok(())
+    }
+
+    async fn unpin(&self, cid: &Cid) -> Result<(), PinError> {
+        let url = format!("{}/api/v0/pin/rm?arg={}", self.base_url, cid);
+        self.client
+            .post(&url)
+            .send()
+            .await
+            .map_err(|e| PinError::Unreachable(e.to_string()))?
+            .error_for_status()
+            .map_err(|e| PinError::Failed(e.to_string()))?;
+        Ok(())
+    }
+
+    async fn is_pinned(&self, cid: &Cid) -> Result<bool, PinError> {
+        let url = format!(
+            "{}/api/v0/pin/ls?type=recursive&arg={}",
+            self.base_url, cid
+        );
+        let resp = self
+            .client
+            .post(&url)
+            .send()
+            .await
+            .map_err(|e| PinError::Unreachable(e.to_string()))?;
+        if resp.status() == reqwest::StatusCode::INTERNAL_SERVER_ERROR {
+            return Ok(false);
+        }
+        resp.error_for_status()
+            .map_err(|e| PinError::Failed(e.to_string()))?;
+        Ok(true)
+    }
+
+    async fn list_pinned(&self) -> Result<Vec<Cid>, PinError> {
+        let url = format!("{}/api/v0/pin/ls?type=recursive", self.base_url);
+        let resp = self
+            .client
+            .post(&url)
+            .send()
+            .await
+            .map_err(|e| PinError::Unreachable(e.to_string()))?
+            .error_for_status()
+            .map_err(|e| PinError::Failed(e.to_string()))?;
+        let body: serde_json::Value = resp
+            .json()
+            .await
+            .map_err(|e| PinError::Failed(format!("failed to parse pin/ls response: {e}")))?;
+        let keys = body
+            .get("Keys")
+            .and_then(|v| v.as_object())
+            .ok_or_else(|| PinError::Failed("missing Keys object in pin/ls response".to_string()))?;
+        let mut cids = keys
+            .keys()
+            .map(|s| {
+                s.parse::<Cid>()
+                    .map_err(|e| PinError::Failed(format!("invalid CID in pin/ls response: {e}")))
+            })
+            .collect::<Result<Vec<Cid>, PinError>>()?;
+        cids.sort_by_key(|c| c.to_string());
+        Ok(cids)
+    }
 }
 
 /// Retry wrapper: wraps any `PinClient` implementation with 3-attempt retry.
@@ -168,6 +285,10 @@ impl<P: PinClient + Sync> PinClient for RetryPinClient<P> {
 
     async fn is_pinned(&self, cid: &Cid) -> Result<bool, PinError> {
         with_retry(|| self.inner.is_pinned(cid), self.max_attempts).await
+    }
+
+    async fn list_pinned(&self) -> Result<Vec<Cid>, PinError> {
+        with_retry(|| self.inner.list_pinned(), self.max_attempts).await
     }
 }
 
@@ -240,5 +361,21 @@ mod tests {
         let cid = make_cid(b"no-error-article");
         assert!(client.pin(&cid).await.is_ok());
         assert!(client.is_pinned(&cid).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn list_pinned_returns_all_pinned_cids() {
+        let client = MemPinClient::new();
+        let cid_a = make_cid(b"list-article-a");
+        let cid_b = make_cid(b"list-article-b");
+        let cid_c = make_cid(b"list-article-c");
+        client.pin(&cid_a).await.unwrap();
+        client.pin(&cid_b).await.unwrap();
+        client.pin(&cid_c).await.unwrap();
+        let result = client.list_pinned().await.unwrap();
+        assert_eq!(result.len(), 3);
+        assert!(result.contains(&cid_a));
+        assert!(result.contains(&cid_b));
+        assert!(result.contains(&cid_c));
     }
 }

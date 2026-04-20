@@ -33,3 +33,7 @@ harness = false
 [[bench]]
 name = "sqlite_storage"
 harness = false
+
+[[bench]]
+name = "reconcile"
+harness = false
