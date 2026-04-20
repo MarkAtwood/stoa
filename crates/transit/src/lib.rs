@@ -1,6 +1,7 @@
 pub mod cli;
 pub mod config;
 pub mod gossip;
+pub mod import;
 pub mod metrics;
 pub mod migrations;
 pub mod peering;

@@ -5,3 +5,4 @@ pub mod migrations;
 pub mod post;
 pub mod session;
 pub mod store;
+pub mod tls;

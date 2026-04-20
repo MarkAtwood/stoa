@@ -1,5 +1,31 @@
 use serde::Deserialize;
 
+/// Errors returned by [`PinPolicy::validate`].
+#[derive(Debug)]
+pub enum PolicyValidationError {
+    EmptyPolicy,
+    InvalidGroupPattern(String),
+    UselessRule { rule_index: usize, reason: String },
+}
+
+impl std::fmt::Display for PolicyValidationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PolicyValidationError::EmptyPolicy => {
+                write!(f, "retention policy has no rules; at least one rule is required")
+            }
+            PolicyValidationError::InvalidGroupPattern(p) => {
+                write!(f, "invalid group pattern: '{p}'")
+            }
+            PolicyValidationError::UselessRule { rule_index, reason } => {
+                write!(f, "rule at index {rule_index} is useless: {reason}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for PolicyValidationError {}
+
 /// Metadata about an article used to evaluate pinning policy rules.
 pub struct ArticleMeta {
     pub group: String,
@@ -56,6 +82,49 @@ impl PinPolicy {
         false
     }
 
+    /// Validates the policy rules for correctness.
+    ///
+    /// Returns an error for:
+    /// - An empty policy (no rules).
+    /// - Any rule whose `groups` field is not a recognised pattern.
+    /// - Any rule that can never match an article (`max_age_days=0` with `groups="all"`).
+    ///
+    /// Emits a [`tracing::warn!`] (not an error) when the same `groups` pattern
+    /// appears on more than one rule.
+    pub fn validate(&self) -> Result<(), PolicyValidationError> {
+        if self.rules.is_empty() {
+            return Err(PolicyValidationError::EmptyPolicy);
+        }
+        for (i, rule) in self.rules.iter().enumerate() {
+            if !is_valid_group_pattern(&rule.groups) {
+                return Err(PolicyValidationError::InvalidGroupPattern(
+                    rule.groups.clone(),
+                ));
+            }
+            if rule.max_age_days == Some(0) && rule.groups == "all" {
+                return Err(PolicyValidationError::UselessRule {
+                    rule_index: i,
+                    reason: "max_age_days=0 matches no articles".to_string(),
+                });
+            }
+        }
+        // Warn on duplicate group patterns (not an error).
+        let mut seen: Vec<&str> = Vec::new();
+        let mut warned: Vec<&str> = Vec::new();
+        for rule in &self.rules {
+            if seen.contains(&rule.groups.as_str()) && !warned.contains(&rule.groups.as_str()) {
+                tracing::warn!(
+                    pattern = %rule.groups,
+                    "retention policy: group pattern appears in multiple rules; \
+                     only the first matching rule takes effect"
+                );
+                warned.push(&rule.groups);
+            }
+            seen.push(&rule.groups);
+        }
+        Ok(())
+    }
+
     fn matches_rule(rule: &PinRule, meta: &ArticleMeta) -> bool {
         if !matches_group_glob(&rule.groups, &meta.group) {
             return false;
@@ -95,6 +164,51 @@ pub fn matches_group_glob(pattern: &str, group: &str) -> bool {
         return group.starts_with(&expected_start);
     }
     pattern == group
+}
+
+/// Returns `true` if `pattern` is a syntactically valid group pattern for a
+/// [`PinRule`].
+///
+/// Valid forms:
+/// - `"all"` — matches every group.
+/// - A dotted name followed by `".*"` or `".**"` — glob prefix.
+/// - An exact dotted name — matches only that group.
+///
+/// Each dotted-name component must match `[a-zA-Z][a-zA-Z0-9]*`.
+fn is_valid_group_pattern(pattern: &str) -> bool {
+    if pattern == "all" {
+        return true;
+    }
+    let base = if let Some(p) = pattern.strip_suffix(".**") {
+        p
+    } else if let Some(p) = pattern.strip_suffix(".*") {
+        p
+    } else {
+        pattern
+    };
+    is_valid_dotted_name(base)
+}
+
+/// Returns `true` if `s` is a non-empty dot-separated sequence of components
+/// where every component matches `[a-zA-Z][a-zA-Z0-9]*`.
+fn is_valid_dotted_name(s: &str) -> bool {
+    if s.is_empty() {
+        return false;
+    }
+    for component in s.split('.') {
+        if component.is_empty() {
+            return false;
+        }
+        let mut chars = component.chars();
+        let first = chars.next().unwrap();
+        if !first.is_ascii_alphabetic() {
+            return false;
+        }
+        if !chars.all(|c| c.is_ascii_alphanumeric()) {
+            return false;
+        }
+    }
+    true
 }
 
 #[cfg(test)]
@@ -177,5 +291,55 @@ mod tests {
             pin_rule("all", None, None, "skip"),
         ]);
         assert!(policy.should_pin(&meta("comp.lang.rust", 1, 512)));
+    }
+
+    #[test]
+    fn validate_empty_policy_returns_error() {
+        let policy = PinPolicy::new(vec![]);
+        let err = policy.validate().expect_err("empty policy must be invalid");
+        assert!(matches!(err, PolicyValidationError::EmptyPolicy));
+    }
+
+    #[test]
+    fn validate_single_valid_rule_ok() {
+        let policy = PinPolicy::new(vec![pin_rule("comp.lang.rust", Some(30), None, "pin")]);
+        assert!(policy.validate().is_ok());
+    }
+
+    #[test]
+    fn validate_invalid_group_pattern_returns_error() {
+        for bad in &["123abc", "comp..lang", ".leading-dot", ""] {
+            let policy = PinPolicy::new(vec![pin_rule(bad, None, None, "pin")]);
+            let err = policy
+                .validate()
+                .expect_err(&format!("pattern '{}' must be invalid", bad));
+            assert!(
+                matches!(err, PolicyValidationError::InvalidGroupPattern(_)),
+                "expected InvalidGroupPattern for '{}'",
+                bad
+            );
+        }
+    }
+
+    #[test]
+    fn validate_useless_rule_zero_max_age_all_groups() {
+        let policy = PinPolicy::new(vec![pin_rule("all", Some(0), None, "pin")]);
+        let err = policy.validate().expect_err("max_age_days=0 with groups=all must be invalid");
+        assert!(matches!(
+            err,
+            PolicyValidationError::UselessRule { rule_index: 0, .. }
+        ));
+    }
+
+    #[test]
+    fn validate_overlapping_rules_warns_not_errors() {
+        let policy = PinPolicy::new(vec![
+            pin_rule("comp.*", Some(30), None, "pin"),
+            pin_rule("comp.*", None, None, "skip"),
+        ]);
+        assert!(
+            policy.validate().is_ok(),
+            "duplicate group pattern should warn, not error"
+        );
     }
 }

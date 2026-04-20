@@ -1,6 +1,8 @@
 use serde::Deserialize;
 use std::path::Path;
 
+use crate::retention::policy::{PinPolicy, PolicyValidationError};
+
 // Config fields are read from TOML; server logic will consume them as epics are implemented.
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
@@ -151,6 +153,13 @@ impl Config {
         }
         Ok(())
     }
+}
+
+/// Validates a [`PinPolicy`] at startup, returning an error if the policy is
+/// malformed. This is a thin wrapper around [`PinPolicy::validate`] so that
+/// startup code can call a single named function.
+pub fn validate_retention_policy(policy: &PinPolicy) -> Result<(), PolicyValidationError> {
+    policy.validate()
 }
 
 /// Returns true if the given bind address is a loopback address.

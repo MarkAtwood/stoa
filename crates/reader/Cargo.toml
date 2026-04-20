@@ -27,6 +27,9 @@ hex = "0.4"
 mailparse = "0.15"
 async-trait = "0.1"
 multihash-codetable = { version = "0.2", features = ["sha2"] }
+rustls = { version = "0.23", default-features = false, features = ["std", "tls12"] }
+rustls-pemfile = "2"
+tokio-rustls = "0.26"
 
 [dev-dependencies]
 tempfile = "3"

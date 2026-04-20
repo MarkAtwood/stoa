@@ -1,4 +1,6 @@
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use std::net::SocketAddr;
+
+use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tracing::{debug, info, warn};
 
@@ -15,12 +17,13 @@ use crate::{
 
 /// Run a complete NNTP session on the given TCP stream.
 ///
-/// # Flow
-/// 1. Send 200/201 greeting
-/// 2. Command loop: read line, parse, dispatch, write response
-/// 3. For POST with 340 response: read dot-terminated article, validate, write final response
-/// 4. Exit on QUIT (205) or connection close
-/// 5. Log session end with duration
+/// Accepts a `TcpStream` and upgrades it to TLS if `config.tls` is configured.
+/// Delegates to `run_session_io` for the protocol loop.
+///
+/// STARTTLS in-session upgrade would be integrated here (see issue l62.6.2.4):
+/// after the session is running plain-text, a STARTTLS command would trigger
+/// a mid-session TLS upgrade of the underlying stream before continuing the
+/// command loop.
 pub async fn run_session(stream: TcpStream, config: &Config) {
     let peer_addr = match stream.peer_addr() {
         Ok(addr) => addr,
@@ -30,6 +33,38 @@ pub async fn run_session(stream: TcpStream, config: &Config) {
         }
     };
 
+    match (&config.tls.cert_path, &config.tls.key_path) {
+        (Some(cert), Some(key)) => {
+            let acceptor = match crate::tls::load_tls_acceptor(cert, key) {
+                Ok(a) => a,
+                Err(e) => {
+                    warn!(peer = %peer_addr, "TLS acceptor setup failed: {e}");
+                    return;
+                }
+            };
+            match crate::tls::accept_tls(&acceptor, stream).await {
+                Ok(tls_stream) => {
+                    run_session_io(tls_stream, peer_addr, config).await;
+                }
+                Err(e) => {
+                    warn!(peer = %peer_addr, "TLS handshake failed: {e}");
+                }
+            }
+        }
+        _ => {
+            run_session_io(stream, peer_addr, config).await;
+        }
+    }
+}
+
+/// Run the NNTP protocol loop on a generic async I/O stream.
+///
+/// Separated from `run_session` so that both plain TCP and TLS streams can
+/// share the same command-dispatch logic without duplicating code.
+async fn run_session_io<S>(stream: S, peer_addr: SocketAddr, config: &Config)
+where
+    S: AsyncRead + AsyncWrite + Unpin + Send,
+{
     info!(peer = %peer_addr, "session started");
     let start = std::time::Instant::now();
 
@@ -37,7 +72,7 @@ pub async fn run_session(stream: TcpStream, config: &Config) {
     let posting_allowed = true;
     let mut ctx = SessionContext::new(peer_addr, auth_required, posting_allowed);
 
-    let (reader, mut writer) = stream.into_split();
+    let (reader, mut writer) = tokio::io::split(stream);
     let mut reader = BufReader::new(reader);
 
     let greeting = if posting_allowed {
