@@ -1,0 +1,16 @@
+[workspace]
+
+[package]
+name = "rust-ipfs-bench"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "bench"
+path = "src/main.rs"
+
+[dependencies]
+rust-ipfs = "0.15"
+ipld-core = "0.4"
+multihash-codetable = { version = "0.2", features = ["sha2"] }
+tokio = { version = "1", features = ["full"] }

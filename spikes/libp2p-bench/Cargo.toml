@@ -1,0 +1,23 @@
+[workspace]
+
+[package]
+name = "libp2p-bench"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "libp2p-bench"
+path = "src/main.rs"
+
+[dependencies]
+libp2p = { version = "0.56", features = ["request-response", "tokio", "noise", "yamux", "tcp"] }
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+sha2 = "0.10"
+async-trait = "0.1"
+# RSS measurement
+sysinfo = "0.33"
+
+[profile.release]
+opt-level = 3
+debug = false

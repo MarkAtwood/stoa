@@ -1,0 +1,16 @@
+[workspace]
+
+[package]
+name = "iroh-bench"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "iroh-bench"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+iroh-blobs = { version = "0.99", default-features = false }
+tokio = { version = "1", features = ["full"] }
+bytes = "1"
