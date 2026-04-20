@@ -10,6 +10,21 @@ pub struct GroupData {
     pub article_numbers: Vec<u64>,
 }
 
+/// Convert a cache entry into the GroupData expected by group handlers.
+/// `article_numbers` is provided by the caller (from the article number store).
+pub fn group_data_from_cache(
+    meta: &crate::store::group_cache::GroupMetadata,
+    article_numbers: Vec<u64>,
+) -> GroupData {
+    GroupData {
+        name: meta.name.clone(),
+        count: meta.count,
+        low: meta.low,
+        high: meta.high,
+        article_numbers,
+    }
+}
+
 /// GROUP groupname: select a group and return its stats.
 ///
 /// On success: updates `ctx.current_group` and `ctx.current_article_number`
@@ -145,6 +160,27 @@ mod tests {
             high,
             article_numbers: numbers,
         }
+    }
+
+    // ---- group_data_from_cache ----
+
+    #[test]
+    fn group_data_from_cache_maps_fields() {
+        use crate::store::group_cache::GroupMetadata;
+        let meta = GroupMetadata {
+            name: "comp.lang.rust".to_string(),
+            count: 42,
+            low: 1,
+            high: 42,
+            description: "Rust".to_string(),
+        };
+        let nums = vec![1u64, 2, 3, 42];
+        let gd = group_data_from_cache(&meta, nums.clone());
+        assert_eq!(gd.name, "comp.lang.rust");
+        assert_eq!(gd.count, 42);
+        assert_eq!(gd.low, 1);
+        assert_eq!(gd.high, 42);
+        assert_eq!(gd.article_numbers, nums);
     }
 
     #[test]

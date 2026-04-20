@@ -103,6 +103,18 @@ pub fn list_overview_fmt() -> Response {
     Response::list_overview_fmt(body)
 }
 
+/// Convert a cache entry into the GroupInfo expected by list handlers.
+/// `posting_allowed` defaults to `true` (conservative: allow posting).
+pub fn group_info_from_cache(meta: &crate::store::group_cache::GroupMetadata) -> GroupInfo {
+    GroupInfo {
+        name: meta.name.clone(),
+        high: meta.high,
+        low: meta.low,
+        posting_allowed: true,
+        description: meta.description.clone(),
+    }
+}
+
 /// NEWNEWS wildmat date time: Message-IDs of articles newer than timestamp.
 ///
 /// V1 conservative behaviour: return empty list. Clients will catch up via
@@ -247,6 +259,26 @@ mod tests {
     fn list_overview_fmt_contains_bytes() {
         let resp = list_overview_fmt();
         assert!(resp.body.iter().any(|l| l == ":bytes"));
+    }
+
+    // ---- group_info_from_cache ----
+
+    #[test]
+    fn group_info_from_cache_maps_fields() {
+        use crate::store::group_cache::GroupMetadata;
+        let meta = GroupMetadata {
+            name: "comp.lang.rust".to_string(),
+            count: 100,
+            low: 1,
+            high: 100,
+            description: "Rust programming language".to_string(),
+        };
+        let info = group_info_from_cache(&meta);
+        assert_eq!(info.name, "comp.lang.rust");
+        assert_eq!(info.high, 100);
+        assert_eq!(info.low, 1);
+        assert!(info.posting_allowed);
+        assert_eq!(info.description, "Rust programming language");
     }
 
     // ---- matches_wildmat ----

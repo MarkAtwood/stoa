@@ -1,3 +1,4 @@
+use crate::peering::mode_stream::PeeringMode;
 use usenet_ipfs_core::msgid_map::MsgIdMap;
 
 /// Maximum article size for v1 text-only mode: 1 MiB.
@@ -98,6 +99,37 @@ pub fn takethis_response(result: &IngestResult) -> &'static str {
         IngestResult::Duplicate => "438 Already have it\r\n",
         IngestResult::Rejected(_) => "439 Article not wanted\r\n",
         IngestResult::TransientError(_) => "431 Try sending it again later\r\n",
+    }
+}
+
+/// Format the NNTP response line for a CHECK result (RFC 4644).
+///
+/// | Result          | Code |
+/// |-----------------|------|
+/// | Accepted        | 238  |
+/// | Duplicate       | 438  |
+/// | Rejected        | 438  |
+/// | TransientError  | 431  |
+pub fn check_response(result: &IngestResult) -> &'static str {
+    match result {
+        IngestResult::Accepted => "238 Send it\r\n",
+        IngestResult::Duplicate => "438 Already have it\r\n",
+        IngestResult::Rejected(_) => "438 Article not wanted\r\n",
+        IngestResult::TransientError(_) => "431 Try sending it again later\r\n",
+    }
+}
+
+/// Guard for the CHECK command: CHECK is only valid in streaming mode.
+///
+/// Returns `None` if `mode` is [`PeeringMode::Streaming`] (CHECK allowed),
+/// or `Some(response)` with a 401 error line if the mode is
+/// [`PeeringMode::Ihave`] (CHECK not permitted).
+pub fn check_mode_guard(mode: PeeringMode) -> Option<&'static str> {
+    match mode {
+        PeeringMode::Streaming => None,
+        PeeringMode::Ihave => {
+            Some("401 This command is only allowed in streaming mode\r\n")
+        }
     }
 }
 
@@ -265,5 +297,24 @@ mod tests {
         assert!(takethis_response(&IngestResult::Duplicate).starts_with("438"));
         assert!(takethis_response(&IngestResult::Rejected("x".into())).starts_with("439"));
         assert!(takethis_response(&IngestResult::TransientError("x".into())).starts_with("431"));
+    }
+
+    #[test]
+    fn check_response_codes() {
+        assert!(check_response(&IngestResult::Accepted).starts_with("238"));
+        assert!(check_response(&IngestResult::Duplicate).starts_with("438"));
+        assert!(check_response(&IngestResult::Rejected("x".into())).starts_with("438"));
+        assert!(check_response(&IngestResult::TransientError("x".into())).starts_with("431"));
+    }
+
+    #[test]
+    fn check_mode_guard_streaming_allows() {
+        assert!(check_mode_guard(PeeringMode::Streaming).is_none());
+    }
+
+    #[test]
+    fn check_mode_guard_ihave_blocks() {
+        let resp = check_mode_guard(PeeringMode::Ihave).expect("should return Some");
+        assert!(resp.starts_with("401"));
     }
 }
