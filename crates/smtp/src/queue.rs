@@ -18,19 +18,34 @@ pub struct IncomingMessage {
 
 /// Sender half of the inbound message queue.
 #[derive(Clone)]
-pub struct MessageQueue(mpsc::UnboundedSender<IncomingMessage>);
+pub struct MessageQueue(mpsc::Sender<IncomingMessage>);
 
 impl MessageQueue {
-    /// Create a new queue. Returns the sender (MessageQueue) and receiver.
-    pub fn new() -> (MessageQueue, mpsc::UnboundedReceiver<IncomingMessage>) {
-        let (tx, rx) = mpsc::unbounded_channel();
+    /// Create a new bounded queue.  Returns the sender (MessageQueue) and receiver.
+    ///
+    /// `capacity` sets the maximum number of in-flight messages.  When the
+    /// queue is full, [`enqueue`](Self::enqueue) returns `false` so the caller
+    /// can issue a 452 transient error and let the sending MTA retry.
+    pub fn new(capacity: usize) -> (MessageQueue, mpsc::Receiver<IncomingMessage>) {
+        let (tx, rx) = mpsc::channel(capacity);
         (MessageQueue(tx), rx)
     }
 
-    /// Enqueue a message. Logs a warning if the receiver has been dropped.
-    pub fn enqueue(&self, msg: IncomingMessage) {
-        if self.0.send(msg).is_err() {
-            tracing::warn!("smtp: message queue receiver dropped — message lost");
+    /// Try to enqueue a message.
+    ///
+    /// Returns `true` if the message was accepted, `false` if the queue is
+    /// full or the receiver has been dropped.  Logs a warning on failure.
+    pub fn enqueue(&self, msg: IncomingMessage) -> bool {
+        match self.0.try_send(msg) {
+            Ok(()) => true,
+            Err(mpsc::error::TrySendError::Full(_)) => {
+                tracing::warn!("smtp: message queue full — rejecting message with 452");
+                false
+            }
+            Err(mpsc::error::TrySendError::Closed(_)) => {
+                tracing::warn!("smtp: message queue receiver dropped — message lost");
+                false
+            }
         }
     }
 }
@@ -51,17 +66,24 @@ mod tests {
 
     #[tokio::test]
     async fn enqueue_and_receive_message() {
-        let (queue, mut rx) = MessageQueue::new();
-        queue.enqueue(sample_message("sender@example.com"));
+        let (queue, mut rx) = MessageQueue::new(10);
+        assert!(queue.enqueue(sample_message("sender@example.com")));
         let received = rx.recv().await.expect("should receive message");
         assert_eq!(received.envelope_from, "sender@example.com");
     }
 
     #[tokio::test]
-    async fn enqueue_after_receiver_dropped_does_not_panic() {
-        let (queue, rx) = MessageQueue::new();
+    async fn enqueue_returns_false_when_full() {
+        let (queue, _rx) = MessageQueue::new(2);
+        assert!(queue.enqueue(sample_message("a@example.com")));
+        assert!(queue.enqueue(sample_message("b@example.com")));
+        assert!(!queue.enqueue(sample_message("c@example.com")));
+    }
+
+    #[tokio::test]
+    async fn enqueue_after_receiver_dropped_returns_false() {
+        let (queue, rx) = MessageQueue::new(10);
         drop(rx);
-        // Must not panic; warning is logged but we cannot assert on it without tracing-test.
-        queue.enqueue(sample_message("sender@example.com"));
+        assert!(!queue.enqueue(sample_message("sender@example.com")));
     }
 }

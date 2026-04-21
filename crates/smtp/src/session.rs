@@ -286,10 +286,22 @@ pub async fn run_session(
                     break;
                 }
 
-                // Read dot-terminated message body.
+                // Read dot-terminated message body (with timeout).
                 let max_bytes = config.limits.max_message_bytes;
-                let (mut raw_bytes, too_large) =
-                    read_data_body(&mut reader, max_bytes).await;
+                let data_result = tokio::time::timeout(
+                    Duration::from_secs(config.limits.command_timeout_secs),
+                    read_data_body(&mut reader, max_bytes),
+                )
+                .await;
+                let (mut raw_bytes, too_large) = match data_result {
+                    Ok(result) => result,
+                    Err(_) => {
+                        let _ = write_half
+                            .write_all(b"421 4.4.2 Timeout - closing connection\r\n")
+                            .await;
+                        break;
+                    }
+                };
 
                 if too_large {
                     if write_half
@@ -457,9 +469,12 @@ pub async fn run_session(
                     received_at: SystemTime::now(),
                     peer_addr: peer_addr.clone(),
                 };
-                queue.enqueue(msg);
-
-                if write_half.write_all(b"250 OK\r\n").await.is_err() {
+                let reply = if queue.enqueue(msg) {
+                    b"250 OK\r\n" as &[u8]
+                } else {
+                    b"452 4.3.1 Message queue full - try again later\r\n"
+                };
+                if write_half.write_all(reply).await.is_err() {
                     break;
                 }
                 state = SessionState::Greeted { ehlo_domain };
@@ -666,6 +681,7 @@ mod tests {
                 max_recipients: 10,
                 command_timeout_secs: 300,
                 max_connections: 10,
+                queue_capacity: 100,
             },
             log: LogConfig {
                 level: "info".to_string(),
@@ -676,6 +692,7 @@ mod tests {
             users: vec![],
             database: DatabaseConfig::default(),
             sieve_admin: SieveAdminConfig::default(),
+            dns_resolver: "system".to_string(),
         })
     }
 
@@ -692,6 +709,7 @@ mod tests {
                 max_recipients: 10,
                 command_timeout_secs: 300,
                 max_connections: 10,
+                queue_capacity: 100,
             },
             log: LogConfig { level: "info".to_string(), format: "json".to_string() },
             reader: ReaderConfig::default(),
@@ -699,6 +717,7 @@ mod tests {
             users,
             database: DatabaseConfig::default(),
             sieve_admin: SieveAdminConfig::default(),
+            dns_resolver: "system".to_string(),
         })
     }
 
@@ -714,7 +733,7 @@ mod tests {
         config: Arc<Config>,
         pool: Option<SqlitePool>,
     ) -> (String, Option<IncomingMessage>) {
-        let (queue, mut rx) = MessageQueue::new();
+        let (queue, mut rx) = MessageQueue::new(100);
 
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await
@@ -852,7 +871,7 @@ mod tests {
         );
 
         let config = test_config();
-        let (queue, mut rx) = MessageQueue::new();
+        let (queue, mut rx) = MessageQueue::new(100);
 
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
@@ -1100,6 +1119,7 @@ mod tests {
                 max_recipients: 10,
                 command_timeout_secs: 300,
                 max_connections: 10,
+                queue_capacity: 100,
             },
             log: LogConfig { level: "info".to_string(), format: "json".to_string() },
             reader: ReaderConfig::default(),
@@ -1107,6 +1127,7 @@ mod tests {
             users: vec![],
             database: DatabaseConfig::default(),
             sieve_admin: SieveAdminConfig::default(),
+            dns_resolver: "system".to_string(),
         });
 
         let client = b"EHLO client.example.com\r\nQUIT\r\n";
@@ -1138,6 +1159,7 @@ mod tests {
                 max_recipients: 10,
                 command_timeout_secs: 1, // 1-second timeout for this test
                 max_connections: 10,
+                queue_capacity: 100,
             },
             log: LogConfig { level: "info".to_string(), format: "json".to_string() },
             reader: ReaderConfig::default(),
@@ -1145,9 +1167,10 @@ mod tests {
             users: vec![],
             database: DatabaseConfig::default(),
             sieve_admin: SieveAdminConfig::default(),
+            dns_resolver: "system".to_string(),
         });
 
-        let (queue, _rx) = MessageQueue::new();
+        let (queue, _rx) = MessageQueue::new(100);
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
 

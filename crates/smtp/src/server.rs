@@ -20,17 +20,24 @@ pub async fn run_server(
     queue: MessageQueue,
     pool: Option<SqlitePool>,
 ) {
-    let auth: Option<Arc<MessageAuthenticator>> =
-        match MessageAuthenticator::new_cloudflare() {
+    let auth: Option<Arc<MessageAuthenticator>> = {
+        let result = match config.dns_resolver.as_str() {
+            "cloudflare" => MessageAuthenticator::new_cloudflare(),
+            "google" => MessageAuthenticator::new_google(),
+            "quad9" => MessageAuthenticator::new_quad9(),
+            _ => MessageAuthenticator::new_system_conf(),
+        };
+        match result {
             Ok(a) => {
-                info!("inbound auth (SPF/DKIM/DMARC/ARC) enabled via Cloudflare DNS");
+                info!(resolver = %config.dns_resolver, "inbound auth (SPF/DKIM/DMARC/ARC) enabled");
                 Some(Arc::new(a))
             }
             Err(e) => {
                 warn!("failed to create DNS resolver — inbound auth disabled: {e}");
                 None
             }
-        };
+        }
+    };
 
     let semaphore = Arc::new(Semaphore::new(config.limits.max_connections));
 
@@ -97,6 +104,7 @@ mod tests {
                 max_recipients: 10,
                 command_timeout_secs: 300,
                 max_connections: 10,
+                queue_capacity: 100,
             },
             log: LogConfig {
                 level: "info".to_string(),
@@ -107,6 +115,7 @@ mod tests {
             users: vec![],
             database: DatabaseConfig::default(),
             sieve_admin: SieveAdminConfig::default(),
+            dns_resolver: "system".to_string(),
         })
     }
 
@@ -118,7 +127,7 @@ mod tests {
         let addr_25 = listener_25.local_addr().unwrap();
 
         let config = test_config();
-        let (queue, _rx) = MessageQueue::new();
+        let (queue, _rx) = MessageQueue::new(100);
 
         tokio::spawn(run_server(listener_25, listener_587, config, queue, None));
 
@@ -142,7 +151,7 @@ mod tests {
         let addr_587 = listener_587.local_addr().unwrap();
 
         let config = test_config();
-        let (queue, _rx) = MessageQueue::new();
+        let (queue, _rx) = MessageQueue::new(100);
 
         tokio::spawn(run_server(listener_25, listener_587, config, queue, None));
 

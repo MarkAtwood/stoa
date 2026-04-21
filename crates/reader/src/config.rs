@@ -20,8 +20,6 @@ pub struct ListenConfig {
     pub addr: String,
 }
 
-// command_timeout_secs will be used by the session command reader (not yet implemented).
-#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct LimitsConfig {
     #[serde(default = "default_max_connections")]

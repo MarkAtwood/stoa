@@ -197,6 +197,9 @@ async fn main() {
 
                 // Backfill missing entries.
                 // v1: peer block fetch is not yet implemented; log and move on.
+                // When this stub is replaced with a real fetch, the callback
+                // MUST call verify_entry() on each received entry before returning
+                // it — see the security note on backfill() in core::group_log::backfill.
                 for entry_id in &result.want {
                     let fetch = |_: LogEntryId| async {
                         Err::<LogEntry, String>(

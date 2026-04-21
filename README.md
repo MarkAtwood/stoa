@@ -66,6 +66,9 @@ Not yet implemented (tracked as open issues):
 - GC policy enforcement
 - Binary groups, yEnc (deferred)
 
+Known operator limitations (usenet-ipfs-smtp):
+- **Mailing lists with DMARC policy=reject may be rejected.** ARC chain validation is performed but a passing ARC seal does not yet excuse a DMARC `policy=reject` failure. High-volume mailing list providers (Google Groups, Yahoo Groups, Mailman with ARC signing) that break DKIM during forwarding will be rejected if the sending domain uses `p=reject`. Workaround: use a DMARC quarantine or none policy at the sending domain, or configure a per-domain allowlist. Fix is tracked.
+
 ## Design invariants
 
 These are non-negotiable. Any issue, PR, or design that conflicts with them must be flagged before proceeding.
@@ -116,4 +119,9 @@ The project uses [Beads](https://github.com/beads-dev/beads) for issue tracking.
 
 ## License
 
-MIT
+MIT, with one important exception: the `usenet-ipfs-sieve` crate and the
+`usenet-ipfs-smtp` binary that links it depend on
+[`sieve-rs`](https://crates.io/crates/sieve-rs), which is **AGPL-3.0-only**.
+Any operator running `usenet-ipfs-smtp` as a network service is required by
+the AGPL to make the complete corresponding source code available to users of
+that service.

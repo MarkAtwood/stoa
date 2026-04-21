@@ -73,14 +73,6 @@ fn push_header(out: &mut Vec<u8>, name: &str, value: &str) {
     out.extend_from_slice(b"\r\n");
 }
 
-/// Placeholder for future log-entry canonical serialization.
-///
-/// Will serialize a `LogEntry` to deterministic bytes for CID computation.
-/// Not yet implemented; returns an empty `Vec` as a stub.
-pub fn canonical_bytes_for_log_entry(_entry: &crate::group_log::types::LogEntry) -> Vec<u8> {
-    // TODO(l62.3.x): implement when log-entry CID computation is scoped.
-    Vec::new()
-}
 
 #[cfg(test)]
 mod tests {
@@ -172,26 +164,7 @@ mod tests {
             .contains("Newsgroups: alt.atheism,sci.skeptic,talk.origins\r\n"));
     }
 
-    /// Log-entry stub returns empty bytes (not yet implemented).
-    #[test]
-    fn log_entry_stub_returns_empty() {
-        use crate::group_log::types::LogEntry;
-        use cid::Cid;
-        use multihash_codetable::{Code, MultihashDigest};
-
-        let digest = Code::Sha2_256.digest(b"stub");
-        // RAW codec = 0x55
-        let cid = Cid::new_v1(0x55, digest);
-        let entry = LogEntry {
-            hlc_timestamp: 0,
-            article_cid: cid,
-            operator_signature: vec![],
-            parent_cids: vec![],
-        };
-        assert_eq!(canonical_bytes_for_log_entry(&entry), Vec::<u8>::new());
-    }
-
-    /// Roundtrip consistency: canonical_bytes called twice on the same article
+/// Roundtrip consistency: canonical_bytes called twice on the same article
     /// must return identical results (idempotency).
     #[test]
     fn canonical_bytes_idempotent() {

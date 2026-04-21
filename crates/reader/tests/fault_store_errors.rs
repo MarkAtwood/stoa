@@ -441,9 +441,9 @@ fn newnews_returns_230_empty() {
 fn post_oversized_article_returns_441() {
     let article =
         b"Newsgroups: comp.lang.rust\r\nFrom: user@example.com\r\nSubject: x\r\n\r\nbody\r\n";
-    let resp = complete_post(article, 1, None); // limit of 1 byte forces rejection
+    let err = complete_post(article, 1, None).unwrap_err(); // limit of 1 byte forces rejection
     assert_eq!(
-        resp.code, 441,
+        err.code, 441,
         "RFC 3977 §6.3.1: oversized article must yield 441"
     );
 }
@@ -455,13 +455,13 @@ fn post_oversized_article_returns_441() {
 #[test]
 fn post_missing_newsgroups_header_returns_441() {
     let article = make_article(None, Some("user@example.com"));
-    let resp = complete_post(&article, 1_048_576, None);
+    let err = complete_post(&article, 1_048_576, None).unwrap_err();
     assert_eq!(
-        resp.code, 441,
+        err.code, 441,
         "RFC 3977 §6.3.1: missing Newsgroups must yield 441"
     );
     assert!(
-        resp.text.contains("Newsgroups"),
+        err.text.contains("Newsgroups"),
         "error text must identify missing header"
     );
 }
@@ -470,24 +470,26 @@ fn post_missing_newsgroups_header_returns_441() {
 #[test]
 fn post_missing_from_header_returns_441() {
     let article = make_article(Some("comp.lang.rust"), None);
-    let resp = complete_post(&article, 1_048_576, None);
+    let err = complete_post(&article, 1_048_576, None).unwrap_err();
     assert_eq!(
-        resp.code, 441,
+        err.code, 441,
         "RFC 3977 §6.3.1: missing From must yield 441"
     );
     assert!(
-        resp.text.contains("From"),
+        err.text.contains("From"),
         "error text must identify missing header"
     );
 }
 
 /// POST: valid article with all required RFC 5536 headers and within size
-/// limit must return 240 per RFC 3977 §6.3.1.  Confirms the success path.
+/// limit must be accepted.
 #[test]
 fn post_valid_article_returns_240() {
     let article = make_article(Some("comp.lang.rust"), Some("user@example.com"));
-    let resp = complete_post(&article, 1_048_576, None);
-    assert_eq!(resp.code, 240, "RFC 3977 §6.3.1: valid POST must yield 240");
+    assert!(
+        complete_post(&article, 1_048_576, None).is_ok(),
+        "RFC 3977 §6.3.1: valid POST must pass validation"
+    );
 }
 
 // ── Response builder — storage-failure-mapped codes ──────────────────────────

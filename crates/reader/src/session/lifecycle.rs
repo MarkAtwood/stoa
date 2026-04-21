@@ -2,6 +2,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use cid::Cid;
+use mailparse::parse_headers;
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tracing::{debug, info, warn};
@@ -122,22 +123,64 @@ async fn run_plain_session(
         return None;
     }
 
+    let do_starttls =
+        run_command_loop(&mut reader, &mut write_half, &mut ctx, peer_addr, config, &stores).await;
+
+    let elapsed = start.elapsed();
+    info!(peer = %peer_addr, elapsed_ms = elapsed.as_millis(), "plain session ended");
+
+    if do_starttls {
+        let read_half = reader.into_inner();
+        match write_half.reunite(read_half) {
+            Ok(stream) => Some(stream),
+            Err(e) => {
+                warn!(peer = %peer_addr, "stream reunite failed: {e}");
+                None
+            }
+        }
+    } else {
+        None
+    }
+}
+
+/// Execute the NNTP command loop on a generic async read/write pair.
+///
+/// Returns `true` if the client successfully negotiated STARTTLS (response
+/// code 382) so the caller can upgrade the stream. Returns `false` for all
+/// normal session ends: QUIT, EOF, read/write error, or idle timeout.
+async fn run_command_loop<R, W>(
+    reader: &mut BufReader<R>,
+    writer: &mut W,
+    ctx: &mut SessionContext,
+    peer_addr: SocketAddr,
+    config: &Config,
+    stores: &ServerStores,
+) -> bool
+where
+    R: AsyncRead + Unpin,
+    W: AsyncWrite + Unpin,
+{
     let mut line_buf = String::new();
-    let mut do_starttls = false;
+    let cmd_timeout = std::time::Duration::from_secs(config.limits.command_timeout_secs);
 
     loop {
         line_buf.clear();
-        let n = match reader.read_line(&mut line_buf).await {
-            Ok(n) => n,
-            Err(e) => {
+        let n = match tokio::time::timeout(cmd_timeout, reader.read_line(&mut line_buf)).await {
+            Ok(Ok(n)) => n,
+            Ok(Err(e)) => {
                 warn!(peer = %peer_addr, "read error: {e}");
-                break;
+                return false;
+            }
+            Err(_) => {
+                let resp = Response::new(400, "Timeout - closing connection");
+                let _ = writer.write_all(resp.to_string().as_bytes()).await;
+                return false;
             }
         };
 
         if n == 0 {
             debug!(peer = %peer_addr, "client disconnected");
-            break;
+            return false;
         }
 
         let line = line_buf.trim_end_matches(['\r', '\n']);
@@ -147,12 +190,8 @@ async fn run_plain_session(
             Ok(c) => c,
             Err(_) => {
                 let resp = Response::unknown_command();
-                if write_half
-                    .write_all(resp.to_string().as_bytes())
-                    .await
-                    .is_err()
-                {
-                    break;
+                if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                    return false;
                 }
                 continue;
             }
@@ -160,26 +199,18 @@ async fn run_plain_session(
 
         // ARTICLE <msgid>: resolve from stores before dispatching.
         if let Command::Article(Some(ArticleRef::MessageId(ref msgid))) = cmd {
-            let resp = lookup_article_by_msgid(&stores, msgid).await;
-            if write_half
-                .write_all(resp.to_string().as_bytes())
-                .await
-                .is_err()
-            {
-                break;
+            let resp = lookup_article_by_msgid(stores, msgid).await;
+            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                return false;
             }
             continue;
         }
 
         // ARTICLE cid:<cid>: fetch directly by CID (ADR-0007).
         if let Command::Article(Some(ArticleRef::Cid(ref cid_str))) = cmd {
-            let resp = lookup_article_by_cid(&stores, cid_str).await;
-            if write_half
-                .write_all(resp.to_string().as_bytes())
-                .await
-                .is_err()
-            {
-                break;
+            let resp = lookup_article_by_cid(stores, cid_str).await;
+            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                return false;
             }
             continue;
         }
@@ -187,18 +218,14 @@ async fn run_plain_session(
         // XCID: return CID for current or named article (ADR-0007).
         if let Command::Xcid(ref arg) = cmd {
             let resp = handle_xcid(
-                &stores,
+                stores,
                 arg.as_deref(),
                 ctx.current_group.as_ref().map(|g| g.as_str()),
                 ctx.current_article_number,
             )
             .await;
-            if write_half
-                .write_all(resp.to_string().as_bytes())
-                .await
-                .is_err()
-            {
-                break;
+            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                return false;
             }
             continue;
         }
@@ -210,52 +237,36 @@ async fn run_plain_session(
             verify_sig,
         } = cmd
         {
-            let resp = handle_xverify(&stores, message_id, expected_cid, verify_sig).await;
-            if write_half
-                .write_all(resp.to_string().as_bytes())
-                .await
-                .is_err()
-            {
-                break;
+            let resp = handle_xverify(stores, message_id, expected_cid, verify_sig).await;
+            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                return false;
             }
             continue;
         }
 
         // GROUP: serve live article count/range from article_numbers store.
         if let Command::Group(ref name) = cmd {
-            let resp = handle_group_live(&stores, &mut ctx, name).await;
-            if write_half
-                .write_all(resp.to_string().as_bytes())
-                .await
-                .is_err()
-            {
-                break;
+            let resp = handle_group_live(stores, ctx, name).await;
+            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                return false;
             }
             continue;
         }
 
         // LIST ACTIVE: serve live article ranges for all configured groups.
         if let Command::List(ListSubcommand::Active) = cmd {
-            let resp = handle_list_active_live(&stores, &ctx).await;
-            if write_half
-                .write_all(resp.to_string().as_bytes())
-                .await
-                .is_err()
-            {
-                break;
+            let resp = handle_list_active_live(stores, ctx).await;
+            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                return false;
             }
             continue;
         }
 
         // OVER/XOVER: serve overview records from the overview index.
         if let Command::Over(ref arg) = cmd {
-            let resp = handle_over_live(&stores, &ctx, arg.as_ref()).await;
-            if write_half
-                .write_all(resp.to_string().as_bytes())
-                .await
-                .is_err()
-            {
-                break;
+            let resp = handle_over_live(stores, ctx, arg.as_ref()).await;
+            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                return false;
             }
             continue;
         }
@@ -266,12 +277,8 @@ async fn run_plain_session(
                 Some(u) => u,
                 None => {
                     let resp = Response::authentication_out_of_sequence();
-                    if write_half
-                        .write_all(resp.to_string().as_bytes())
-                        .await
-                        .is_err()
-                    {
-                        break;
+                    if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                        return false;
                     }
                     continue;
                 }
@@ -290,12 +297,8 @@ async fn run_plain_session(
             } else {
                 Response::authentication_failed()
             };
-            if write_half
-                .write_all(resp.to_string().as_bytes())
-                .await
-                .is_err()
-            {
-                break;
+            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                return false;
             }
             continue;
         }
@@ -309,63 +312,44 @@ async fn run_plain_session(
             .unwrap_or("UNKNOWN")
             .to_uppercase();
         let cmd_start = std::time::Instant::now();
-        let resp = dispatch(&mut ctx, cmd, &config.auth, None);
+        let resp = dispatch(ctx, cmd, &config.auth, None);
         crate::metrics::NNTP_COMMAND_DURATION_SECONDS
             .with_label_values(&[cmd_label.as_str()])
             .observe(cmd_start.elapsed().as_secs_f64());
         let resp_code = resp.code;
 
-        if write_half
-            .write_all(resp.to_string().as_bytes())
-            .await
-            .is_err()
-        {
-            break;
+        if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+            return false;
         }
 
         if is_quit {
-            break;
+            return false;
         }
 
-        // 382 means TLS upgrade was accepted; exit the plain loop.
+        // STARTTLS upgrade: signal caller to wrap the stream in TLS.
         if is_starttls && resp_code == 382 {
-            do_starttls = true;
-            break;
+            return true;
         }
 
+        // POST two-phase completion: if dispatch returned 340, read the article.
         if is_post && resp_code == 340 {
-            let article_bytes = match read_dot_terminated(&mut reader).await {
+            let article_bytes = match read_dot_terminated(reader).await {
                 Ok(bytes) => bytes,
                 Err(e) => {
                     warn!(peer = %peer_addr, "post read error: {e}");
-                    break;
+                    return false;
                 }
             };
-            let final_resp = run_post_pipeline(&article_bytes, &stores).await;
-            if write_half
+
+            let final_resp = run_post_pipeline(&article_bytes, stores).await;
+            if writer
                 .write_all(final_resp.to_string().as_bytes())
                 .await
                 .is_err()
             {
-                break;
+                return false;
             }
         }
-    }
-
-    let elapsed = start.elapsed();
-    info!(peer = %peer_addr, elapsed_ms = elapsed.as_millis(), "plain session ended");
-
-    if do_starttls {
-        let read_half = reader.into_inner();
-        match write_half.reunite(read_half) {
-            Ok(stream) => Some(stream),
-            Err(e) => {
-                warn!(peer = %peer_addr, "stream reunite failed: {e}");
-                None
-            }
-        }
-    } else {
-        None
     }
 }
 
@@ -410,185 +394,7 @@ async fn run_session_io<S>(
         return;
     }
 
-    let mut line_buf = String::new();
-
-    loop {
-        line_buf.clear();
-        let n = match reader.read_line(&mut line_buf).await {
-            Ok(n) => n,
-            Err(e) => {
-                warn!(peer = %peer_addr, "read error: {e}");
-                break;
-            }
-        };
-
-        if n == 0 {
-            debug!(peer = %peer_addr, "client disconnected");
-            break;
-        }
-
-        let line = line_buf.trim_end_matches(['\r', '\n']);
-        debug!(peer = %peer_addr, cmd = %line, "received");
-
-        let cmd = match parse_command(line) {
-            Ok(c) => c,
-            Err(_) => {
-                let resp = Response::unknown_command();
-                if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                    break;
-                }
-                continue;
-            }
-        };
-
-        // ARTICLE <msgid>: resolve from stores before dispatching.
-        if let Command::Article(Some(ArticleRef::MessageId(ref msgid))) = cmd {
-            let resp = lookup_article_by_msgid(&stores, msgid).await;
-            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                break;
-            }
-            continue;
-        }
-
-        // ARTICLE cid:<cid>: fetch directly by CID (ADR-0007).
-        if let Command::Article(Some(ArticleRef::Cid(ref cid_str))) = cmd {
-            let resp = lookup_article_by_cid(&stores, cid_str).await;
-            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                break;
-            }
-            continue;
-        }
-
-        // XCID: return CID for current or named article (ADR-0007).
-        if let Command::Xcid(ref arg) = cmd {
-            let resp = handle_xcid(
-                &stores,
-                arg.as_deref(),
-                ctx.current_group.as_ref().map(|g| g.as_str()),
-                ctx.current_article_number,
-            )
-            .await;
-            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                break;
-            }
-            continue;
-        }
-
-        // XVERIFY: verify stored CID and optionally signature (ADR-0007).
-        if let Command::Xverify {
-            ref message_id,
-            ref expected_cid,
-            verify_sig,
-        } = cmd
-        {
-            let resp = handle_xverify(&stores, message_id, expected_cid, verify_sig).await;
-            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                break;
-            }
-            continue;
-        }
-
-        // GROUP: serve live article count/range from article_numbers store.
-        if let Command::Group(ref name) = cmd {
-            let resp = handle_group_live(&stores, &mut ctx, name).await;
-            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                break;
-            }
-            continue;
-        }
-
-        // LIST ACTIVE: serve live article ranges for all configured groups.
-        if let Command::List(ListSubcommand::Active) = cmd {
-            let resp = handle_list_active_live(&stores, &ctx).await;
-            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                break;
-            }
-            continue;
-        }
-
-        // OVER/XOVER: serve overview records from the overview index.
-        if let Command::Over(ref arg) = cmd {
-            let resp = handle_over_live(&stores, &ctx, arg.as_ref()).await;
-            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                break;
-            }
-            continue;
-        }
-
-        // AUTHINFO PASS: async bcrypt credential check via CredentialStore.
-        if let Command::AuthinfoPass(ref password) = cmd {
-            let username = match ctx.pending_auth_user.take() {
-                Some(u) => u,
-                None => {
-                    let resp = Response::authentication_out_of_sequence();
-                    if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                        break;
-                    }
-                    continue;
-                }
-            };
-            let accepted = if config.auth.is_dev_mode() {
-                true
-            } else {
-                stores.credential_store.check(&username, password).await
-            };
-            if accepted {
-                ctx.state = SessionState::Active;
-                ctx.authenticated_user = Some(username);
-            }
-            let resp = if accepted {
-                Response::authentication_accepted()
-            } else {
-                Response::authentication_failed()
-            };
-            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                break;
-            }
-            continue;
-        }
-
-        let is_quit = matches!(cmd, Command::Quit);
-        let is_post = matches!(cmd, Command::Post);
-        let cmd_label = line
-            .split_whitespace()
-            .next()
-            .unwrap_or("UNKNOWN")
-            .to_uppercase();
-        let cmd_start = std::time::Instant::now();
-        let resp = dispatch(&mut ctx, cmd, &config.auth, None);
-        crate::metrics::NNTP_COMMAND_DURATION_SECONDS
-            .with_label_values(&[cmd_label.as_str()])
-            .observe(cmd_start.elapsed().as_secs_f64());
-        let resp_code = resp.code;
-
-        if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-            break;
-        }
-
-        if is_quit {
-            break;
-        }
-
-        // POST two-phase completion: if dispatch returned 340, read the article.
-        if is_post && resp_code == 340 {
-            let article_bytes = match read_dot_terminated(&mut reader).await {
-                Ok(bytes) => bytes,
-                Err(e) => {
-                    warn!(peer = %peer_addr, "post read error: {e}");
-                    break;
-                }
-            };
-
-            let final_resp = run_post_pipeline(&article_bytes, &stores).await;
-            if writer
-                .write_all(final_resp.to_string().as_bytes())
-                .await
-                .is_err()
-            {
-                break;
-            }
-        }
-    }
+    run_command_loop(&mut reader, &mut writer, &mut ctx, peer_addr, config, &stores).await;
 
     let elapsed = start.elapsed();
     info!(peer = %peer_addr, elapsed_ms = elapsed.as_millis(), "session ended");
@@ -606,9 +412,8 @@ async fn run_session_io<S>(
 /// Returns 240 on success or a 441 error response on failure.
 async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Response {
     // Step 1: Validate headers.
-    let validation = complete_post(article_bytes, DEFAULT_MAX_ARTICLE_BYTES, None);
-    if validation.code != 240 {
-        return validation;
+    if let Err(resp) = complete_post(article_bytes, DEFAULT_MAX_ARTICLE_BYTES, None) {
+        return resp;
     }
 
     // Extract Message-ID and Newsgroups from the article headers.
@@ -675,7 +480,7 @@ async fn lookup_article_by_msgid(stores: &ServerStores, msgid: &str) -> Response
         Ok(None) => return Response::no_article_with_message_id(),
         Err(e) => {
             warn!("msgid_map lookup error for {msgid}: {e}");
-            return Response::new(500, "Internal error: storage lookup failed");
+            return Response::program_fault();
         }
     };
 
@@ -683,7 +488,7 @@ async fn lookup_article_by_msgid(stores: &ServerStores, msgid: &str) -> Response
         Ok(b) => b,
         Err(e) => {
             warn!("IPFS get_raw_block error for cid {cid}: {e}");
-            return Response::new(500, "Internal error: IPFS retrieval failed");
+            return Response::program_fault();
         }
     };
 
@@ -722,20 +527,34 @@ fn split_article(bytes: &[u8]) -> (Vec<u8>, Vec<u8>) {
 
 /// Extract `Message-ID` and `Newsgroups` from article header bytes.
 ///
+/// Uses `mailparse::parse_headers` so that RFC 5322 folded header values
+/// (continuation lines starting with whitespace) are unfolded correctly.
+///
 /// Returns `Err(441 response)` if either field is missing or invalid.
 fn extract_post_metadata(
     article_bytes: &[u8],
 ) -> Result<(String, Vec<usenet_ipfs_core::article::GroupName>), Response> {
-    // Find the header section.
     let header_end = find_header_end(article_bytes).unwrap_or(article_bytes.len());
     let header_section = &article_bytes[..header_end];
-    let headers = String::from_utf8_lossy(header_section);
 
-    let message_id = extract_header_value(&headers, "Message-ID")
-        .ok_or_else(|| Response::new(441, "441 Missing Message-ID header"))?;
+    let (parsed, _) = parse_headers(header_section)
+        .map_err(|_| Response::new(441, "Could not parse article headers"))?;
 
-    let newsgroups_val = extract_header_value(&headers, "Newsgroups")
-        .ok_or_else(|| Response::new(441, "441 Missing Newsgroups header"))?;
+    let mut message_id: Option<String> = None;
+    let mut newsgroups_val: Option<String> = None;
+    for hdr in &parsed {
+        let key = hdr.get_key().to_ascii_lowercase();
+        if key == "message-id" && message_id.is_none() {
+            message_id = Some(hdr.get_value());
+        } else if key == "newsgroups" && newsgroups_val.is_none() {
+            newsgroups_val = Some(hdr.get_value());
+        }
+    }
+
+    let message_id =
+        message_id.ok_or_else(|| Response::new(441, "Missing Message-ID header"))?;
+    let newsgroups_val =
+        newsgroups_val.ok_or_else(|| Response::new(441, "Missing Newsgroups header"))?;
 
     let newsgroups: Vec<usenet_ipfs_core::article::GroupName> = newsgroups_val
         .split(',')
@@ -743,12 +562,12 @@ fn extract_post_metadata(
         .filter(|s| !s.is_empty())
         .map(|s| {
             usenet_ipfs_core::article::GroupName::new(s)
-                .map_err(|_| Response::new(441, format!("441 Invalid group name: {s}")))
+                .map_err(|_| Response::new(441, format!("Invalid group name: {s}")))
         })
         .collect::<Result<Vec<_>, _>>()?;
 
     if newsgroups.is_empty() {
-        return Err(Response::new(441, "441 Newsgroups header is empty"));
+        return Err(Response::new(441, "Newsgroups header is empty"));
     }
 
     Ok((message_id, newsgroups))
@@ -994,13 +813,52 @@ async fn lookup_article_by_cid(stores: &ServerStores, cid_str: &str) -> Response
 mod tests {
     use super::*;
     use crate::store::server_stores::ServerStores;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    /// Return the current time formatted as RFC 2822 (e.g. `Mon, 20 Apr 2026 12:00:00 +0000`).
+    fn now_rfc2822() -> String {
+        const DAYS: [&str; 7] = ["Thu", "Fri", "Sat", "Sun", "Mon", "Tue", "Wed"];
+        const MONTHS: [&str; 12] = [
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+        ];
+        let s = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock before epoch")
+            .as_secs() as i64;
+        let sec = (s % 60) as u32;
+        let min = ((s / 60) % 60) as u32;
+        let hour = ((s / 3600) % 24) as u32;
+        let days_since_epoch = s / 86400;
+        let wday = ((days_since_epoch % 7 + 7) % 7) as usize;
+        let z = days_since_epoch + 719_468;
+        let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+        let doe = z - era * 146_097;
+        let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146_096) / 365;
+        let y = yoe + era * 400;
+        let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+        let mp = (5 * doy + 2) / 153;
+        let d = doy - (153 * mp + 2) / 5 + 1;
+        let m = if mp < 10 { mp + 3 } else { mp - 9 };
+        let y = if m <= 2 { y + 1 } else { y };
+        format!(
+            "{}, {:02} {} {} {:02}:{:02}:{:02} +0000",
+            DAYS[wday],
+            d,
+            MONTHS[(m - 1) as usize],
+            y,
+            hour,
+            min,
+            sec
+        )
+    }
 
     fn minimal_article(newsgroups: &str, subject: &str, msgid: &str) -> Vec<u8> {
+        let date = now_rfc2822();
         format!(
             "Newsgroups: {newsgroups}\r\n\
              From: poster@example.com\r\n\
              Subject: {subject}\r\n\
-             Date: Mon, 20 Apr 2026 12:00:00 +0000\r\n\
+             Date: {date}\r\n\
              Message-ID: {msgid}\r\n\
              \r\n\
              Article body.\r\n"

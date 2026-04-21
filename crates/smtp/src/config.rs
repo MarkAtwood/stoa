@@ -24,6 +24,17 @@ pub struct Config {
     pub database: DatabaseConfig,
     #[serde(default)]
     pub sieve_admin: SieveAdminConfig,
+    /// DNS resolver to use for SPF/DKIM/DMARC/ARC lookups.
+    ///
+    /// Valid values: `"system"` (reads `/etc/resolv.conf`), `"cloudflare"`,
+    /// `"google"`, `"quad9"`.  Defaults to `"system"` so that split-horizon
+    /// DNS and air-gapped deployments work correctly out of the box.
+    #[serde(default = "default_dns_resolver")]
+    pub dns_resolver: String,
+}
+
+fn default_dns_resolver() -> String {
+    "system".to_string()
 }
 
 /// A local mailbox user.  `email` is matched against RCPT TO addresses.
@@ -62,7 +73,10 @@ fn default_max_script_bytes() -> u64 {
 ///
 /// The API listens on `bind` (default `127.0.0.1:4190`) and requires no
 /// credentials — access control is enforced by the bind address.
-/// **Do not bind to a non-loopback address in production.**
+/// Binding to a non-loopback address without additional network-level
+/// protection (firewall, VPN) exposes script read/write to any host with
+/// HTTP access.  A warning is logged at startup unless
+/// `allow_non_loopback = true` is set explicitly.
 #[derive(Debug, Deserialize)]
 pub struct SieveAdminConfig {
     #[serde(default = "default_sieve_admin_bind")]
@@ -70,6 +84,11 @@ pub struct SieveAdminConfig {
     /// Maximum size of a Sieve script in bytes (default 64 KiB).
     #[serde(default = "default_max_script_bytes")]
     pub max_script_bytes: u64,
+    /// Suppress the non-loopback warning.  Set to `true` only when you have
+    /// verified that the admin API is protected by a firewall or reverse proxy
+    /// with its own authentication.
+    #[serde(default)]
+    pub allow_non_loopback: bool,
 }
 
 impl Default for SieveAdminConfig {
@@ -77,6 +96,7 @@ impl Default for SieveAdminConfig {
         Self {
             bind: default_sieve_admin_bind(),
             max_script_bytes: default_max_script_bytes(),
+            allow_non_loopback: false,
         }
     }
 }
@@ -127,6 +147,10 @@ fn default_max_connections() -> usize {
     100
 }
 
+fn default_queue_capacity() -> usize {
+    1_000
+}
+
 #[derive(Debug, Deserialize)]
 pub struct LimitsConfig {
     #[serde(default = "default_max_message_bytes")]
@@ -137,6 +161,12 @@ pub struct LimitsConfig {
     pub command_timeout_secs: u64,
     #[serde(default = "default_max_connections")]
     pub max_connections: usize,
+    /// Maximum number of messages held in the in-process queue awaiting
+    /// delivery to the NNTP reader.  When the queue is full, new DATA
+    /// submissions are rejected with a 452 transient error so the sending
+    /// MTA will retry later.  Defaults to 1000.
+    #[serde(default = "default_queue_capacity")]
+    pub queue_capacity: usize,
 }
 
 impl Default for LimitsConfig {
@@ -146,6 +176,7 @@ impl Default for LimitsConfig {
             max_recipients: default_max_recipients(),
             command_timeout_secs: default_command_timeout_secs(),
             max_connections: default_max_connections(),
+            queue_capacity: default_queue_capacity(),
         }
     }
 }
@@ -231,6 +262,14 @@ impl Config {
                 ));
             }
             _ => {}
+        }
+        match self.dns_resolver.as_str() {
+            "system" | "cloudflare" | "google" | "quad9" => {}
+            other => {
+                return Err(ConfigError::Validation(format!(
+                    "unknown dns_resolver '{other}'; valid values: system, cloudflare, google, quad9"
+                )));
+            }
         }
         Ok(())
     }

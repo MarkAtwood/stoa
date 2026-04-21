@@ -46,6 +46,15 @@ impl From<StorageError> for BackfillError {
 /// If `want_id` is already present in local storage the function returns
 /// `Ok(0)` immediately without issuing any fetch calls.
 ///
+/// # Security requirement for remote fetch
+///
+/// This function inserts whatever the `fetch` callback returns.  When `fetch`
+/// retrieves entries from an untrusted remote peer, the callback **must** call
+/// [`crate::group_log::verify::verify_entry`] on each entry before returning
+/// it.  Skipping that call means forged or tampered log entries — including
+/// ones with invalid operator signatures or phantom parent chains — can enter
+/// local storage undetected and be propagated to other peers.
+///
 /// Algorithm (BFS):
 /// 1. If `want_id` already in storage: return `Ok(0)`.
 /// 2. Add `want_id` to the queue.

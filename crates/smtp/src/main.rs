@@ -95,7 +95,7 @@ async fn main() {
     );
 
     let config = Arc::new(config);
-    let (queue, mut rx) = MessageQueue::new();
+    let (queue, mut rx) = MessageQueue::new(config.limits.queue_capacity);
 
     let routing_config = Arc::clone(&config);
     tokio::spawn(async move {

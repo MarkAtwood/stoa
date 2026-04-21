@@ -110,6 +110,7 @@ mod tests {
             users: vec![],
             database: DatabaseConfig::default(),
             sieve_admin: crate::config::SieveAdminConfig::default(),
+            dns_resolver: "system".to_string(),
         };
         assert!(tls_configured(&cfg));
     }
@@ -136,6 +137,7 @@ mod tests {
             users: vec![],
             database: DatabaseConfig::default(),
             sieve_admin: crate::config::SieveAdminConfig::default(),
+            dns_resolver: "system".to_string(),
         };
         assert!(!tls_configured(&cfg));
     }

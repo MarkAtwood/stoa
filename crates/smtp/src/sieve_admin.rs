@@ -26,10 +26,20 @@ use axum::{
 };
 use sqlx::SqlitePool;
 use tokio::net::TcpListener;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::config::Config;
 use crate::store;
+
+/// Returns `true` if `addr` resolves to a loopback address.
+fn is_loopback_addr(addr: &str) -> bool {
+    let host = addr.rsplit_once(':').map(|(h, _)| h).unwrap_or(addr);
+    let host = host.trim_start_matches('[').trim_end_matches(']');
+    match host.parse::<std::net::IpAddr>() {
+        Ok(ip) => ip.is_loopback(),
+        Err(_) => host == "localhost",
+    }
+}
 
 #[derive(Clone)]
 struct AdminState {
@@ -49,6 +59,17 @@ fn valid_script_name(name: &str) -> bool {
 /// Start the Sieve admin HTTP server.  Runs until the listener is closed.
 pub async fn run_admin_server(config: Arc<Config>, pool: SqlitePool) {
     let bind = &config.sieve_admin.bind;
+
+    if !is_loopback_addr(bind) && !config.sieve_admin.allow_non_loopback {
+        warn!(
+            bind,
+            "WARNING: Sieve admin API bound to non-loopback address without authentication. \
+             Any host with HTTP access can read and write Sieve scripts for all users. \
+             Set sieve_admin.allow_non_loopback = true in config to suppress this warning, \
+             or bind to 127.0.0.1."
+        );
+    }
+
     let listener = match TcpListener::bind(bind).await {
         Ok(l) => {
             info!(%bind, "Sieve admin API listening");
@@ -231,6 +252,7 @@ mod tests {
             users,
             database: DatabaseConfig::default(),
             sieve_admin: crate::config::SieveAdminConfig::default(),
+            dns_resolver: "system".to_string(),
         })
     }
 

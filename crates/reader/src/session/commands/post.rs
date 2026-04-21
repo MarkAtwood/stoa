@@ -79,9 +79,9 @@ pub fn complete_post(
     article_bytes: &[u8],
     max_article_bytes: usize,
     audit_logger: Option<&AuditLoggerHandle>,
-) -> Response {
+) -> Result<(), Response> {
     if article_bytes.len() > max_article_bytes {
-        return Response::new(441, "Article too large");
+        return Err(Response::new(441, "Article too large"));
     }
 
     // Split at the first blank line to separate headers from body.
@@ -93,9 +93,7 @@ pub fn complete_post(
         article_bytes
     };
 
-    if let Err(resp) = validate_post_headers(header_bytes) {
-        return resp;
-    }
+    validate_post_headers(header_bytes)?;
 
     let headers = String::from_utf8_lossy(header_bytes);
 
@@ -109,7 +107,7 @@ pub fn complete_post(
         });
     }
 
-    Response::new(240, "Article received OK")
+    Ok(())
 }
 
 /// Find the byte offset of the start of the blank line that separates
@@ -240,39 +238,38 @@ mod tests {
     #[test]
     fn complete_post_valid_article_returns_240() {
         let article = minimal_article(Some("comp.lang.rust"), Some("user@example.com"));
-        let resp = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES, None);
-        assert_eq!(resp.code, 240);
+        assert!(complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES, None).is_ok());
     }
 
     #[test]
     fn complete_post_oversized_returns_441_too_large() {
         let article = minimal_article(Some("comp.lang.rust"), Some("user@example.com"));
-        let resp = complete_post(&article, 1, None); // limit of 1 byte
-        assert_eq!(resp.code, 441);
-        assert!(resp.text.contains("too large"));
+        let err = complete_post(&article, 1, None).unwrap_err(); // limit of 1 byte
+        assert_eq!(err.code, 441);
+        assert!(err.text.contains("too large"));
     }
 
     #[test]
     fn complete_post_missing_newsgroups_returns_441() {
         let article = minimal_article(None, Some("user@example.com"));
-        let resp = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES, None);
-        assert_eq!(resp.code, 441);
+        let err = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES, None).unwrap_err();
+        assert_eq!(err.code, 441);
         assert!(
-            resp.text.contains("Newsgroups"),
+            err.text.contains("Newsgroups"),
             "expected 'Newsgroups' in: {}",
-            resp.text
+            err.text
         );
     }
 
     #[test]
     fn complete_post_missing_from_returns_441() {
         let article = minimal_article(Some("comp.lang.rust"), None);
-        let resp = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES, None);
-        assert_eq!(resp.code, 441);
+        let err = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES, None).unwrap_err();
+        assert_eq!(err.code, 441);
         assert!(
-            resp.text.contains("From"),
+            err.text.contains("From"),
             "expected 'From' in: {}",
-            resp.text
+            err.text
         );
     }
 
@@ -281,12 +278,12 @@ mod tests {
         // validate_post_headers checks mandatory headers in order:
         // From, Date, Message-ID, Newsgroups, Subject — so From is reported first.
         let article = minimal_article(None, None);
-        let resp = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES, None);
-        assert_eq!(resp.code, 441);
+        let err = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES, None).unwrap_err();
+        assert_eq!(err.code, 441);
         assert!(
-            resp.text.contains("From"),
+            err.text.contains("From"),
             "expected 'From' in: {}",
-            resp.text
+            err.text
         );
     }
 
