@@ -897,20 +897,19 @@ async fn handle_group_live(
     Response::group_selected(name, count, low, high)
 }
 
-/// LIST ACTIVE: return live article ranges for all configured groups.
-async fn handle_list_active_live(stores: &ServerStores, ctx: &SessionContext) -> Response {
-    let mut body = Vec::with_capacity(ctx.known_groups.len());
-    for group_info in &ctx.known_groups {
-        let (low, high) = match stores.article_numbers.group_range(&group_info.name).await {
-            Ok(r) => r,
-            Err(e) => {
-                warn!("group_range error for {}: {e}", group_info.name);
-                (1, 0)
-            }
-        };
-        let flag = if group_info.posting_allowed { 'y' } else { 'n' };
-        body.push(format!("{} {} {} {}", group_info.name, high, low, flag));
-    }
+/// LIST ACTIVE: return live article ranges for all groups that have articles.
+async fn handle_list_active_live(stores: &ServerStores, _ctx: &SessionContext) -> Response {
+    let groups = match stores.article_numbers.list_groups().await {
+        Ok(g) => g,
+        Err(e) => {
+            warn!("list_groups error: {e}");
+            return Response::program_fault();
+        }
+    };
+    let body: Vec<String> = groups
+        .into_iter()
+        .map(|(name, low, high)| format!("{} {} {} y", name, high, low))
+        .collect();
     Response::list_active(body)
 }
 

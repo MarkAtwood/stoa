@@ -1,13 +1,20 @@
-use std::{collections::HashSet, path::PathBuf, sync::Arc};
+use std::{collections::HashSet, path::PathBuf, sync::Arc, time::Instant};
 
+use cid::Cid;
 use ed25519_dalek::Signer as _;
 use rand_core::OsRng;
 use tokio::{net::TcpListener, sync::Mutex};
 use tracing::{info, warn};
-use usenet_ipfs_core::{group_log::SqliteLogStorage, hlc::HlcClock, msgid_map::MsgIdMap};
+use usenet_ipfs_core::{
+    GroupName,
+    group_log::{backfill, reconcile, LogEntry, LogEntryId, SqliteLogStorage},
+    hlc::HlcClock,
+    msgid_map::MsgIdMap,
+};
 use usenet_ipfs_transit::{
+    admin::start_admin_server,
     config::{check_admin_addr, Config},
-    gossip::swarm::start_swarm,
+    gossip::{swarm::start_swarm, tip_advert::handle_tip_advertisement},
     peering::{
         ingestion_queue::ingestion_queue,
         pipeline::{run_pipeline, PipelineCtx, RustIpfsStore},
@@ -34,6 +41,7 @@ fn parse_args() -> PathBuf {
 
 #[tokio::main]
 async fn main() {
+    let start_time = Instant::now();
     let config_path = parse_args();
 
     let config = match Config::from_file(&config_path) {
@@ -81,12 +89,11 @@ async fn main() {
     let msgid_map = Arc::new(MsgIdMap::new(core_pool.clone()));
     let log_storage = Arc::new(SqliteLogStorage::new(core_pool));
 
-    let transit_pool = open_pool(&config.database.path).await;
+    let transit_pool = Arc::new(open_pool(&config.database.path).await);
     if let Err(e) = usenet_ipfs_transit::migrations::run_migrations(&transit_pool).await {
         eprintln!("error: transit database migration failed: {e}");
         std::process::exit(1);
     }
-    drop(transit_pool); // transit-specific tables wired in future epics
 
     // ── rust-ipfs node (y3o) ──────────────────────────────────────────────────
 
@@ -131,12 +138,84 @@ async fn main() {
         }
     }
 
-    // Keep gossip rx alive; inbound tips are wired in usenet-ipfs-3m7.
+    // Wire inbound gossip tips → group-log reconciliation.
     let gossip_tx = gossip_handle.tx;
     let mut gossip_rx = gossip_handle.rx;
-    tokio::spawn(async move {
-        while gossip_rx.recv().await.is_some() {}
-    });
+    {
+        let log_storage_gossip = Arc::clone(&log_storage);
+        tokio::spawn(async move {
+            while let Some((_topic, data)) = gossip_rx.recv().await {
+                let Some(advert) = handle_tip_advertisement(&data) else {
+                    continue;
+                };
+
+                let group = match GroupName::new(&advert.group_name) {
+                    Ok(g) => g,
+                    Err(_) => {
+                        warn!(group = %advert.group_name, "gossip: invalid group name");
+                        continue;
+                    }
+                };
+
+                // Convert tip CID strings → LogEntryIds via their multihash digest.
+                let mut remote_tips: Vec<LogEntryId> = Vec::new();
+                for cid_str in &advert.tip_cids {
+                    let cid = match Cid::try_from(cid_str.as_str()) {
+                        Ok(c) => c,
+                        Err(_) => {
+                            warn!(group = %group, cid = %cid_str, "gossip: unparseable tip CID");
+                            continue;
+                        }
+                    };
+                    match <[u8; 32]>::try_from(cid.hash().digest()) {
+                        Ok(raw) => remote_tips.push(LogEntryId::from_bytes(raw)),
+                        Err(_) => {
+                            warn!(group = %group, "gossip: tip CID digest is not 32 bytes");
+                        }
+                    }
+                }
+
+                let result = match reconcile(&*log_storage_gossip, &group, &remote_tips).await {
+                    Ok(r) => r,
+                    Err(e) => {
+                        warn!(group = %group, "gossip: reconcile error: {e}");
+                        continue;
+                    }
+                };
+
+                if result.want.is_empty() && result.have.is_empty() {
+                    continue;
+                }
+
+                info!(
+                    group = %group,
+                    want = result.want.len(),
+                    have = result.have.len(),
+                    sender = %advert.sender_peer_id,
+                    "gossip: reconcile result"
+                );
+
+                // Backfill missing entries.
+                // v1: peer block fetch is not yet implemented; log and move on.
+                for entry_id in &result.want {
+                    let fetch = |_: LogEntryId| async {
+                        Err::<LogEntry, String>(
+                            "v1: peer block fetch not yet implemented".to_string(),
+                        )
+                    };
+                    match backfill(&*log_storage_gossip, entry_id.clone(), fetch).await {
+                        Ok(n) if n > 0 => {
+                            info!(group = %group, fetched = n, "gossip: backfilled entries");
+                        }
+                        Ok(_) => {}
+                        Err(e) => {
+                            warn!(group = %group, entry = %entry_id, "gossip: backfill failed: {e}");
+                        }
+                    }
+                }
+            }
+        });
+    }
 
     // ── HLC clock and ingestion queue ─────────────────────────────────────────
 
@@ -230,6 +309,24 @@ async fn main() {
         }
     };
     info!(addr = %config.listen.addr, "peering TCP listener bound");
+
+    // ── Admin HTTP server (5vc) ───────────────────────────────────────────────
+
+    match config.admin.addr.parse::<std::net::SocketAddr>() {
+        Ok(admin_addr) => {
+            start_admin_server(
+                admin_addr,
+                Arc::clone(&transit_pool),
+                start_time,
+                config.admin.bearer_token.clone(),
+                config.admin.rate_limit_rpm,
+            );
+        }
+        Err(e) => {
+            eprintln!("error: invalid admin addr '{}': {e}", config.admin.addr);
+            std::process::exit(1);
+        }
+    }
 
     // ── Shutdown ──────────────────────────────────────────────────────────────
 

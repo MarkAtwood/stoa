@@ -113,6 +113,34 @@ impl ArticleNumberStore {
             .collect()
     }
 
+    /// Return all distinct group names that have at least one article,
+    /// with their `(group_name, low, high)` article number ranges.
+    ///
+    /// Used by `LIST ACTIVE` to enumerate every group the server carries.
+    pub async fn list_groups(&self) -> Result<Vec<(String, u64, u64)>, sqlx::Error> {
+        #[derive(sqlx::FromRow)]
+        struct Row {
+            group_name: String,
+            low: i64,
+            high: i64,
+        }
+        let rows: Vec<Row> = sqlx::query_as(
+            "SELECT group_name, \
+                    MIN(article_number) AS low, \
+                    MAX(article_number) AS high \
+             FROM article_numbers \
+             GROUP BY group_name \
+             ORDER BY group_name",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| (r.group_name, r.low as u64, r.high as u64))
+            .collect())
+    }
+
     /// Return the `(low, high)` article number range for a group.
     ///
     /// Returns `(1, 0)` for an empty group (RFC 3977 convention: `low > high`
