@@ -70,9 +70,12 @@ pub async fn run_admin_server(config: Arc<Config>, pool: SqlitePool) {
         .route("/admin/sieve/check", post(check_script))
         .with_state(state);
 
-    axum::serve(listener, app)
-        .await
-        .expect("Sieve admin server error");
+    if let Err(e) = axum::serve(listener, app).await {
+        // Log the error but do not panic — a panic in a spawned task is caught
+        // by the tokio runtime and silently aborts only that task, so the
+        // operator would have no indication the admin API has stopped.
+        tracing::error!("Sieve admin server stopped with error: {e}");
+    }
 }
 
 /// GET /admin/sieve/{username}

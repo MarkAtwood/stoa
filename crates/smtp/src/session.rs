@@ -1,10 +1,10 @@
 use std::net::IpAddr;
 use std::sync::Arc;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 use mail_auth::MessageAuthenticator;
 use sqlx::SqlitePool;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tracing::{debug, info, warn};
 
@@ -14,6 +14,62 @@ use crate::queue::{IncomingMessage, MessageQueue};
 use crate::{routing, store};
 
 const MAX_LINE_BYTES: usize = 4096;
+
+/// Result of reading one SMTP command line.
+enum CmdLine {
+    /// A complete line, including the trailing `\n`.
+    Line(String),
+    /// Client closed the connection (EOF) before a full line arrived.
+    Eof,
+    /// The line exceeded `MAX_LINE_BYTES`.  The remainder has been drained.
+    TooLong,
+    /// No data was received within the configured command timeout.
+    Timeout,
+}
+
+/// Read one SMTP command line with length and timeout enforcement.
+///
+/// Reads byte-by-byte via the `BufReader` internal buffer — no extra syscall
+/// per byte because `BufReader` fills its buffer in chunks.  Returns when
+/// `\n` is found, the byte limit is exceeded (and drained), the timeout
+/// fires, or EOF.
+async fn read_command_line<R>(
+    reader: &mut BufReader<R>,
+    max_bytes: usize,
+    timeout_secs: u64,
+) -> CmdLine
+where
+    R: tokio::io::AsyncRead + Unpin,
+{
+    tokio::time::timeout(Duration::from_secs(timeout_secs), async {
+        let mut buf: Vec<u8> = Vec::with_capacity(128);
+        let mut byte = [0u8; 1];
+        loop {
+            match reader.read(&mut byte).await {
+                Ok(0) | Err(_) => return CmdLine::Eof,
+                Ok(_) => {
+                    buf.push(byte[0]);
+                    if byte[0] == b'\n' {
+                        return CmdLine::Line(String::from_utf8_lossy(&buf).into_owned());
+                    }
+                    if buf.len() > max_bytes {
+                        // Line is too long — drain the rest without buffering
+                        // so the session can send 500 and remain coherent.
+                        loop {
+                            match reader.read(&mut byte).await {
+                                Ok(0) | Err(_) => return CmdLine::Eof,
+                                Ok(_) if byte[0] == b'\n' => return CmdLine::TooLong,
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    })
+    .await
+    .unwrap_or(CmdLine::Timeout)
+}
 
 #[derive(Debug)]
 enum SessionState {
@@ -61,26 +117,30 @@ pub async fn run_session(
     let mut state = SessionState::Fresh;
 
     loop {
-        let mut line_buf = String::new();
-        let n = match reader.read_line(&mut line_buf).await {
-            Ok(n) => n,
-            Err(e) => {
-                warn!(peer = %peer_addr, "read error: {e}");
+        let line_buf = match read_command_line(
+            &mut reader,
+            MAX_LINE_BYTES,
+            config.limits.command_timeout_secs,
+        )
+        .await
+        {
+            CmdLine::Line(s) => s,
+            CmdLine::Eof => {
+                debug!(peer = %peer_addr, "client disconnected");
+                break;
+            }
+            CmdLine::TooLong => {
+                let _ = write_half.write_all(b"500 Line too long\r\n").await;
+                break;
+            }
+            CmdLine::Timeout => {
+                // RFC 5321 §4.2: use 421 when closing due to timeout.
+                let _ = write_half
+                    .write_all(b"421 4.4.2 Timeout - closing connection\r\n")
+                    .await;
                 break;
             }
         };
-
-        if n == 0 {
-            debug!(peer = %peer_addr, "client disconnected");
-            break;
-        }
-
-        if line_buf.len() > MAX_LINE_BYTES {
-            let _ = write_half
-                .write_all(b"500 Line too long\r\n")
-                .await;
-            break;
-        }
 
         // Strip trailing CRLF or LF.
         let line = line_buf.trim_end_matches(['\r', '\n']);
@@ -94,16 +154,14 @@ pub async fn run_session(
 
         match verb.as_str() {
             "EHLO" => {
-                let tls_configured =
-                    config.tls.cert_path.is_some() && config.tls.key_path.is_some();
-                let mut resp = format!(
-                    "250-{}\r\n250-SIZE {}\r\n250-8BITMIME\r\n250-SMTPUTF8\r\n250-PIPELINING\r\n",
+                // STARTTLS is not advertised here because the upgrade path is
+                // not yet implemented (usenet-ipfs-ryw.3).  Advertising an
+                // extension we cannot complete causes MTAs that enforce
+                // STARTTLS-policy to fail delivery with a confusing error.
+                let resp = format!(
+                    "250-{}\r\n250-SIZE {}\r\n250-8BITMIME\r\n250-SMTPUTF8\r\n250-PIPELINING\r\n250 OK\r\n",
                     config.hostname, config.limits.max_message_bytes
                 );
-                if tls_configured {
-                    resp.push_str("250-STARTTLS\r\n");
-                }
-                resp.push_str("250 OK\r\n");
                 if write_half.write_all(resp.as_bytes()).await.is_err() {
                     break;
                 }
@@ -485,6 +543,10 @@ async fn sieve_for_user(
 /// Read the RFC 5321 DATA body: accumulate dot-unstuffed lines until a lone
 /// `".\r\n"` terminator is received.
 ///
+/// Reads byte-by-byte via the `BufReader` internal buffer so that a single
+/// line longer than `max_bytes` cannot exhaust heap — it is detected early
+/// and the rest of that line is drained before continuing.
+///
 /// Returns `(accumulated_bytes, too_large)`.  If the body exceeds
 /// `max_bytes`, we continue reading and discarding until the terminator so
 /// the session can continue (RFC 5321 §4.5.3.1).
@@ -494,29 +556,55 @@ where
 {
     let mut body: Vec<u8> = Vec::new();
     let mut too_large = false;
+    let max_bytes_usize = max_bytes as usize;
+    let mut byte = [0u8; 1];
+    let mut line_buf: Vec<u8> = Vec::new();
 
-    loop {
-        let mut line_buf = String::new();
-        match reader.read_line(&mut line_buf).await {
-            Ok(0) | Err(_) => break,
-            Ok(_) => {}
+    'outer: loop {
+        // Read one line byte-by-byte, bounded to max_bytes_usize per line.
+        // A single body line longer than max_bytes means the message is
+        // already over the limit; drain that line and mark too_large.
+        line_buf.clear();
+        loop {
+            match reader.read(&mut byte).await {
+                Ok(0) | Err(_) => break 'outer,
+                Ok(_) => {
+                    line_buf.push(byte[0]);
+                    if byte[0] == b'\n' {
+                        break; // Full line read — process below.
+                    }
+                    if line_buf.len() > max_bytes_usize {
+                        too_large = true;
+                        body.clear();
+                        // Drain rest of the overlong line without buffering.
+                        loop {
+                            match reader.read(&mut byte).await {
+                                Ok(0) | Err(_) => break 'outer,
+                                Ok(_) if byte[0] == b'\n' => break,
+                                _ => {}
+                            }
+                        }
+                        continue 'outer;
+                    }
+                }
+            }
         }
 
         // Terminator: a lone dot followed by CRLF.
-        if line_buf == ".\r\n" || line_buf == ".\n" {
+        if line_buf == b".\r\n" || line_buf == b".\n" {
             break;
         }
 
         // Dot-unstuffing: RFC 5321 §4.5.2 — a line beginning with ".." has
         // the leading dot removed.
-        let unstuffed: &str = if line_buf.starts_with("..") {
+        let unstuffed: &[u8] = if line_buf.starts_with(b"..") {
             &line_buf[1..]
         } else {
             &line_buf
         };
 
         if !too_large {
-            body.extend_from_slice(unstuffed.as_bytes());
+            body.extend_from_slice(unstuffed);
             if body.len() as u64 > max_bytes {
                 too_large = true;
                 // Drop the accumulated body; keep reading until terminator.
@@ -528,9 +616,13 @@ where
     (body, too_large)
 }
 
-/// Extract the address from an angle-addr argument like `FROM:<addr>` or
-/// `TO:<addr>`.  Returns the content between `<` and `>`, or the raw
-/// argument if no angle brackets are present.
+/// Extract the address from an SMTP MAIL FROM or RCPT TO argument.
+///
+/// Handles ESMTP parameters that follow the angle-bracket pair — for example
+/// `MAIL FROM:<sender@example.com> SIZE=12345` or
+/// `RCPT TO:<user@example.com> ORCPT=rfc822;user@example.com`.
+/// Returns only the content between `<` and the first `>` after it.
+/// Returns the trimmed argument as-is when no angle brackets are present.
 fn parse_angle_addr(args: &str) -> String {
     // Skip the `FROM:` / `TO:` keyword prefix (case-insensitive).
     let after_colon = if let Some(pos) = args.find(':') {
@@ -539,11 +631,14 @@ fn parse_angle_addr(args: &str) -> String {
         args
     };
     let trimmed = after_colon.trim();
-    if let Some(inner) = trimmed.strip_prefix('<').and_then(|s| s.strip_suffix('>')) {
-        inner.to_string()
-    } else {
-        trimmed.to_string()
+    // Locate the angle-bracket pair and return only what is inside it.
+    // Everything after the closing `>` (ESMTP params) is intentionally ignored.
+    if let Some(open) = trimmed.find('<') {
+        if let Some(rel_close) = trimmed[open + 1..].find('>') {
+            return trimmed[open + 1..open + 1 + rel_close].to_string();
+        }
     }
+    trimmed.to_string()
 }
 
 #[cfg(test)]
@@ -921,5 +1016,168 @@ mod tests {
         assert!(response.contains("550"), "expected 550, got: {response}");
         let count = crate::store::count_messages(&pool, "alice", "INBOX").await;
         assert_eq!(count, 0, "expected 0 messages — message was rejected");
+    }
+
+    // ── ryw.2: parse_angle_addr unit tests ───────────────────────────────────
+
+    #[test]
+    fn parse_angle_addr_simple() {
+        assert_eq!(parse_angle_addr("FROM:<foo@bar.com>"), "foo@bar.com");
+    }
+
+    #[test]
+    fn parse_angle_addr_with_size_param() {
+        // Modern MTAs send SIZE on MAIL FROM; the address must not include it.
+        assert_eq!(parse_angle_addr("FROM:<foo@bar.com> SIZE=12345"), "foo@bar.com");
+    }
+
+    #[test]
+    fn parse_angle_addr_with_orcpt_param() {
+        // RFC 3461 DSN: ORCPT may follow RCPT TO.
+        assert_eq!(
+            parse_angle_addr("TO:<alice@example.com> ORCPT=rfc822;alice@example.com"),
+            "alice@example.com"
+        );
+    }
+
+    #[test]
+    fn parse_angle_addr_null_sender() {
+        // Null sender (<>) used for bounce messages.
+        assert_eq!(parse_angle_addr("FROM:<>"), "");
+    }
+
+    #[test]
+    fn parse_angle_addr_no_brackets() {
+        assert_eq!(parse_angle_addr("foo@bar.com"), "foo@bar.com");
+    }
+
+    // ── ryw.2: integration — MAIL FROM with SIZE must not corrupt envelope ───
+
+    #[tokio::test]
+    async fn test_mail_from_with_size_param_accepted() {
+        // A real MTA sends MAIL FROM:<addr> SIZE=nnn.  The session must
+        // accept it and record the address without the SIZE suffix.
+        let client = b"EHLO client.example.com\r\n\
+            MAIL FROM:<sender@example.com> SIZE=1024\r\n\
+            RCPT TO:<rcpt@example.com>\r\n\
+            DATA\r\n\
+            Subject: Size test\r\n\
+            \r\n\
+            Body.\r\n\
+            .\r\n\
+            QUIT\r\n";
+
+        let (response, msg) = drive_session(client).await;
+        assert!(response.contains("250 OK"), "expected 250 after DATA: {response}");
+
+        let msg = msg.expect("message must be queued");
+        assert_eq!(
+            msg.envelope_from, "sender@example.com",
+            "envelope_from must not include SIZE param: {:?}",
+            msg.envelope_from
+        );
+    }
+
+    // ── ryw.3: STARTTLS must not appear in EHLO even when TLS is configured ──
+
+    #[tokio::test]
+    async fn test_ehlo_no_starttls_even_when_tls_configured() {
+        // STARTTLS upgrade is not yet implemented; advertising it would break
+        // MTAs that enforce STARTTLS-policy (they would connect, see STARTTLS
+        // in EHLO, send STARTTLS, get 454, and fail delivery).
+        let config = Arc::new(Config {
+            hostname: "test.example.com".to_string(),
+            listen: ListenConfig {
+                port_25: "127.0.0.1:0".to_string(),
+                port_587: "127.0.0.1:0".to_string(),
+            },
+            tls: TlsConfig {
+                cert_path: Some("/etc/ssl/cert.pem".into()),
+                key_path: Some("/etc/ssl/key.pem".into()),
+            },
+            limits: LimitsConfig {
+                max_message_bytes: 1_048_576,
+                max_recipients: 10,
+                command_timeout_secs: 300,
+                max_connections: 10,
+            },
+            log: LogConfig { level: "info".to_string(), format: "json".to_string() },
+            reader: ReaderConfig::default(),
+            list_routing: vec![],
+            users: vec![],
+            database: DatabaseConfig::default(),
+            sieve_admin: SieveAdminConfig::default(),
+        });
+
+        let client = b"EHLO client.example.com\r\nQUIT\r\n";
+        let (response, _) = drive_session_ext(client, config, None).await;
+
+        assert!(
+            !response.contains("STARTTLS"),
+            "STARTTLS must not appear in EHLO until implemented: {response}"
+        );
+        assert!(response.contains("250"), "expected 250 EHLO response: {response}");
+    }
+
+    // ── ryw.1 + ryw.4: timeout test ──────────────────────────────────────────
+
+    #[tokio::test]
+    async fn test_command_timeout_sends_421() {
+        // Use tokio's simulated time so the test does not sleep for real.
+        tokio::time::pause();
+
+        let config = Arc::new(Config {
+            hostname: "test.example.com".to_string(),
+            listen: ListenConfig {
+                port_25: "127.0.0.1:0".to_string(),
+                port_587: "127.0.0.1:0".to_string(),
+            },
+            tls: TlsConfig { cert_path: None, key_path: None },
+            limits: LimitsConfig {
+                max_message_bytes: 1_048_576,
+                max_recipients: 10,
+                command_timeout_secs: 1, // 1-second timeout for this test
+                max_connections: 10,
+            },
+            log: LogConfig { level: "info".to_string(), format: "json".to_string() },
+            reader: ReaderConfig::default(),
+            list_routing: vec![],
+            users: vec![],
+            database: DatabaseConfig::default(),
+            sieve_admin: SieveAdminConfig::default(),
+        });
+
+        let (queue, _rx) = MessageQueue::new();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        let config2 = config.clone();
+        let queue2 = queue.clone();
+        let server_task = tokio::spawn(async move {
+            let (stream, peer) = listener.accept().await.unwrap();
+            run_session(stream, peer.to_string(), config2, queue2, None, None).await;
+        });
+
+        let mut client = tokio::net::TcpStream::connect(addr).await.unwrap();
+
+        // Advance simulated time past the 1-second command timeout.
+        tokio::time::advance(Duration::from_secs(2)).await;
+
+        // After the timeout fires, the server sends 421 and closes the write half.
+        // read_to_string completes once the write half is dropped.
+        let mut response = String::new();
+        tokio::io::AsyncReadExt::read_to_string(&mut client, &mut response)
+            .await
+            .unwrap();
+        server_task.await.unwrap();
+
+        assert!(
+            response.starts_with("220 "),
+            "expected greeting before timeout: {response:?}"
+        );
+        assert!(
+            response.contains("421"),
+            "expected 421 timeout response, got: {response:?}"
+        );
     }
 }

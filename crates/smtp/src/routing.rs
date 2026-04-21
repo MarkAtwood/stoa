@@ -72,12 +72,6 @@ pub fn add_newsgroups_header(raw_message: &[u8], newsgroup: &str) -> Vec<u8> {
     result
 }
 
-/// Extract the Message-ID header value from raw message bytes.
-pub fn extract_message_id(raw_message: &[u8]) -> Option<String> {
-    let msg = MessageParser::default().parse(raw_message)?;
-    let value = msg.message_id()?;
-    Some(value.to_string())
-}
 
 #[cfg(test)]
 mod tests {
@@ -249,20 +243,4 @@ mod tests {
         assert_eq!(result.len(), header.len() + msg.len());
     }
 
-    // --- extract_message_id ---
-
-    #[test]
-    fn extract_message_id_present() {
-        let msg = b"Message-ID: <abc123@example.com>\r\nFrom: a@b.com\r\n\r\nbody\r\n";
-        assert_eq!(
-            extract_message_id(msg),
-            Some("abc123@example.com".to_string())
-        );
-    }
-
-    #[test]
-    fn extract_message_id_absent() {
-        let msg = b"From: a@b.com\r\nSubject: no msgid\r\n\r\nbody\r\n";
-        assert_eq!(extract_message_id(msg), None);
-    }
 }

@@ -27,3 +27,8 @@ axum = "0.8"
 usenet-ipfs-sieve = { path = "../sieve" }
 tempfile = "3"
 tower = { version = "0.5", features = ["util"] }
+
+[dev-dependencies]
+# test-util enables tokio::time::pause() and tokio::time::advance() for
+# deterministic timeout testing without real sleeps.
+tokio = { version = "1", features = ["test-util"] }
