@@ -5406,6 +5406,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "usenet-ipfs-integration-tests"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "cid",
+ "ed25519-dalek",
+ "multihash-codetable",
+ "sqlx",
+ "tempfile",
+ "tokio",
+ "toml",
+ "usenet-ipfs-core",
+ "usenet-ipfs-reader",
+ "usenet-ipfs-transit",
+]
+
+[[package]]
 name = "usenet-ipfs-reader"
 version = "0.1.0"
 dependencies = [

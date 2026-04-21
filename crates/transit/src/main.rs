@@ -71,37 +71,22 @@ async fn main() {
         warn!("{}", warning);
     }
 
-    // ── SQLite database ───────────────────────────────────────────────────────
+    // ── SQLite databases (two separate pools: core schema + transit schema) ───
 
-    let db_url = format!("sqlite://{}", config.database.path);
-    let db_opts = match <sqlx::sqlite::SqliteConnectOptions as std::str::FromStr>::from_str(&db_url)
-    {
-        Ok(o) => o.create_if_missing(true),
-        Err(e) => {
-            eprintln!(
-                "error: invalid database path '{}': {e}",
-                config.database.path
-            );
-            std::process::exit(1);
-        }
-    };
-    let pool = match sqlx::sqlite::SqlitePoolOptions::new()
-        .max_connections(8)
-        .connect_with(db_opts)
-        .await
-    {
-        Ok(p) => p,
-        Err(e) => {
-            eprintln!("error: failed to open database: {e}");
-            std::process::exit(1);
-        }
-    };
-    if let Err(e) = usenet_ipfs_transit::migrations::run_migrations(&pool).await {
-        eprintln!("error: database migration failed: {e}");
+    let core_pool = open_pool(&config.database.core_path).await;
+    if let Err(e) = usenet_ipfs_core::migrations::run_migrations(&core_pool).await {
+        eprintln!("error: core database migration failed: {e}");
         std::process::exit(1);
     }
-    let msgid_map = Arc::new(MsgIdMap::new(pool.clone()));
-    let log_storage = Arc::new(SqliteLogStorage::new(pool));
+    let msgid_map = Arc::new(MsgIdMap::new(core_pool.clone()));
+    let log_storage = Arc::new(SqliteLogStorage::new(core_pool));
+
+    let transit_pool = open_pool(&config.database.path).await;
+    if let Err(e) = usenet_ipfs_transit::migrations::run_migrations(&transit_pool).await {
+        eprintln!("error: transit database migration failed: {e}");
+        std::process::exit(1);
+    }
+    drop(transit_pool); // transit-specific tables wired in future epics
 
     // ── rust-ipfs node (y3o) ──────────────────────────────────────────────────
 
@@ -273,6 +258,28 @@ async fn accept_loop(listener: TcpListener, shared: Arc<PeeringShared>) -> std::
         tokio::spawn(async move {
             run_peering_session(stream, shared).await;
         });
+    }
+}
+
+async fn open_pool(path: &str) -> sqlx::SqlitePool {
+    let url = format!("sqlite://{path}");
+    let opts = match <sqlx::sqlite::SqliteConnectOptions as std::str::FromStr>::from_str(&url) {
+        Ok(o) => o.create_if_missing(true),
+        Err(e) => {
+            eprintln!("error: invalid database path '{path}': {e}");
+            std::process::exit(1);
+        }
+    };
+    match sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(8)
+        .connect_with(opts)
+        .await
+    {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("error: failed to open database '{path}': {e}");
+            std::process::exit(1);
+        }
     }
 }
 

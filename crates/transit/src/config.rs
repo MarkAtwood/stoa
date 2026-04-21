@@ -22,11 +22,24 @@ pub struct Config {
 }
 
 /// SQLite database configuration.
+///
+/// Two separate SQLite files are required because `sqlx` validates that every
+/// previously-applied migration is still present in the migrator; mixing core
+/// and transit migrations in a single pool would cause `VersionMissing` errors.
 #[derive(Debug, Deserialize)]
 pub struct DatabaseConfig {
-    /// Path to the SQLite database file. Created if it does not exist.
+    /// Path for the core-schema database (msgid_map, group_log).
+    /// Created if it does not exist. Default: `transit_core.db`.
+    #[serde(default = "default_core_db_path")]
+    pub core_path: String,
+    /// Path for the transit-schema database (peers, peer_groups, articles).
+    /// Created if it does not exist. Default: `transit.db`.
     #[serde(default = "default_db_path")]
     pub path: String,
+}
+
+fn default_core_db_path() -> String {
+    "transit_core.db".to_string()
 }
 
 fn default_db_path() -> String {
@@ -36,6 +49,7 @@ fn default_db_path() -> String {
 impl Default for DatabaseConfig {
     fn default() -> Self {
         Self {
+            core_path: default_core_db_path(),
             path: default_db_path(),
         }
     }
