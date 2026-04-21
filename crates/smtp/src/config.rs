@@ -1,8 +1,8 @@
 use serde::Deserialize;
 use std::path::Path;
 
-// Config fields are read from TOML; server logic will consume them as epics are implemented.
-#[allow(dead_code)]
+use crate::routing::ListRoutingRule;
+
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub listen: ListenConfig,
@@ -14,6 +14,28 @@ pub struct Config {
     pub limits: LimitsConfig,
     #[serde(default)]
     pub log: LogConfig,
+    #[serde(default)]
+    pub reader: ReaderConfig,
+    #[serde(default)]
+    pub list_routing: Vec<ListRoutingRule>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct ReaderConfig {
+    #[serde(default = "default_nntp_addr")]
+    pub nntp_addr: String,
+}
+
+fn default_nntp_addr() -> String {
+    "127.0.0.1:119".to_string()
+}
+
+impl Default for ReaderConfig {
+    fn default() -> Self {
+        Self {
+            nntp_addr: default_nntp_addr(),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]

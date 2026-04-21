@@ -396,7 +396,7 @@ fn parse_angle_addr(args: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{LimitsConfig, ListenConfig, LogConfig, TlsConfig};
+    use crate::config::{LimitsConfig, ListenConfig, LogConfig, ReaderConfig, TlsConfig};
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     fn test_config() -> Arc<Config> {
@@ -420,6 +420,8 @@ mod tests {
                 level: "info".to_string(),
                 format: "json".to_string(),
             },
+            reader: ReaderConfig::default(),
+            list_routing: vec![],
         })
     }
 

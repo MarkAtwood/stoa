@@ -3,7 +3,12 @@ use std::{path::PathBuf, sync::Arc};
 use tokio::net::TcpListener;
 use tracing::{error, info, warn};
 
-use usenet_ipfs_smtp::{config::Config, queue::MessageQueue, server::run_server};
+use usenet_ipfs_smtp::{
+    config::Config,
+    nntp_client, routing,
+    queue::{IncomingMessage, MessageQueue},
+    server::run_server,
+};
 
 fn parse_args() -> PathBuf {
     let args: Vec<String> = std::env::args().collect();
@@ -76,16 +81,10 @@ async fn main() {
     let config = Arc::new(config);
     let (queue, mut rx) = MessageQueue::new();
 
-    // Drain the incoming message queue.  In v1 we log each message; routing to
-    // newsgroups / JMAP mailboxes is implemented in the zzo.3 / zzo.5 epics.
+    let routing_config = Arc::clone(&config);
     tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
-            warn!(
-                from = %msg.envelope_from,
-                to = ?msg.envelope_to,
-                bytes = msg.raw_bytes.len(),
-                "queued message (delivery not yet implemented)"
-            );
+            route_message(msg, &routing_config).await;
         }
     });
 
@@ -106,4 +105,26 @@ async fn sigterm() {
     use tokio::signal::unix::{signal, SignalKind};
     let mut stream = signal(SignalKind::terminate()).expect("failed to install SIGTERM handler");
     stream.recv().await;
+}
+
+async fn route_message(msg: IncomingMessage, config: &Config) {
+    if let Some(list_id) = routing::extract_list_id(&msg.raw_bytes) {
+        if let Some(newsgroup) = routing::apply_routing_rules(&list_id, &config.list_routing) {
+            let article = routing::add_newsgroups_header(&msg.raw_bytes, &newsgroup);
+            match nntp_client::post_article(&config.reader.nntp_addr, &article).await {
+                Ok(()) => {
+                    info!(list_id = %list_id, newsgroup = %newsgroup, "routed to newsgroup");
+                }
+                Err(e) => {
+                    warn!(list_id = %list_id, newsgroup = %newsgroup, "NNTP POST failed: {e}");
+                }
+            }
+            return;
+        }
+    }
+    warn!(
+        from = %msg.envelope_from,
+        to = ?msg.envelope_to,
+        "no routing rule matched — message dropped (Sieve delivery not yet implemented)"
+    );
 }

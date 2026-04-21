@@ -90,7 +90,7 @@ mod tests {
 
     #[test]
     fn tls_configured_both_set() {
-        use crate::config::{Config, LimitsConfig, ListenConfig, LogConfig, TlsConfig};
+        use crate::config::{Config, LimitsConfig, ListenConfig, LogConfig, ReaderConfig, TlsConfig};
         let cfg = Config {
             listen: ListenConfig {
                 port_25: "0.0.0.0:25".into(),
@@ -103,13 +103,15 @@ mod tests {
             },
             limits: LimitsConfig::default(),
             log: LogConfig::default(),
+            reader: ReaderConfig::default(),
+            list_routing: vec![],
         };
         assert!(tls_configured(&cfg));
     }
 
     #[test]
     fn tls_configured_neither_set() {
-        use crate::config::{Config, LimitsConfig, ListenConfig, LogConfig, TlsConfig};
+        use crate::config::{Config, LimitsConfig, ListenConfig, LogConfig, ReaderConfig, TlsConfig};
         let cfg = Config {
             listen: ListenConfig {
                 port_25: "0.0.0.0:25".into(),
@@ -122,6 +124,8 @@ mod tests {
             },
             limits: LimitsConfig::default(),
             log: LogConfig::default(),
+            reader: ReaderConfig::default(),
+            list_routing: vec![],
         };
         assert!(!tls_configured(&cfg));
     }
