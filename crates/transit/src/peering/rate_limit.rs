@@ -100,6 +100,9 @@ impl PeerRateLimiter {
 
     /// Check and consume one article slot for the given peer.
     /// Creates a new bucket for the peer if not seen before.
+    ///
+    /// Evicts fully-refilled buckets from other peers on each call to bound
+    /// the HashMap to only actively-rate-limited peers.
     pub fn check(&mut self, peer_addr: &str) -> Option<RateLimitResult> {
         let rate = self.rate;
         let capacity = self.capacity;
@@ -108,7 +111,15 @@ impl PeerRateLimiter {
             .buckets
             .entry(peer_addr.to_owned())
             .or_insert_with(|| TokenBucket::new(rate, capacity, action));
-        bucket.check_and_consume()
+        let result = bucket.check_and_consume();
+        // Evict buckets that have fully refilled — they impose no rate constraint
+        // and retaining them wastes memory. A fresh full bucket is equivalent.
+        let cap = capacity as f64;
+        self.buckets.retain(|_, b| {
+            b.refill();
+            b.tokens < cap
+        });
+        result
     }
 
     /// Remove the bucket for a peer (e.g. on disconnect).

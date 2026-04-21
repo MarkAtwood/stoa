@@ -188,15 +188,36 @@ fn get_single(hm: &HeaderMapNode, key: &str) -> Option<String> {
     }
 }
 
-/// Parse a comma-separated address list into EmailAddress structs.
+/// Parse a comma-separated RFC 5322 address list into EmailAddress structs.
 ///
-/// Returns a vec with a single entry where the raw string is the email field.
-/// Full RFC 5322 parsing is deferred.
+/// Handles display names (`Name <addr@example.com>`) and bare addresses
+/// (`addr@example.com`). Silently ignores group addresses and unparseable
+/// entries rather than returning a single opaque raw string.
 fn parse_addresses(raw: &str) -> Vec<EmailAddress> {
-    vec![EmailAddress {
-        name: None,
-        email: raw.to_string(),
-    }]
+    let parsed = match mailparse::addrparse(raw) {
+        Ok(list) => list,
+        Err(_) => return vec![],
+    };
+    let mut out = Vec::new();
+    for entry in parsed.iter() {
+        match entry {
+            mailparse::MailAddr::Single(info) => {
+                out.push(EmailAddress {
+                    name: info.display_name.clone(),
+                    email: info.addr.clone(),
+                });
+            }
+            mailparse::MailAddr::Group(group) => {
+                for info in &group.addrs {
+                    out.push(EmailAddress {
+                        name: info.display_name.clone(),
+                        email: info.addr.clone(),
+                    });
+                }
+            }
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -281,5 +302,35 @@ mod tests {
         );
         let email = Email::from_root_node(&cid, &root, Some(&hm), HashMap::new(), None);
         assert_eq!(email.subject, Some("Test Subject".to_string()));
+    }
+
+    #[test]
+    fn parse_addresses_bare_addr() {
+        let addrs = parse_addresses("alice@example.com");
+        assert_eq!(addrs.len(), 1);
+        assert_eq!(addrs[0].email, "alice@example.com");
+        assert_eq!(addrs[0].name, None);
+    }
+
+    #[test]
+    fn parse_addresses_display_name_and_angle_addr() {
+        let addrs = parse_addresses("Alice Smith <alice@example.com>");
+        assert_eq!(addrs.len(), 1);
+        assert_eq!(addrs[0].email, "alice@example.com");
+        assert_eq!(addrs[0].name, Some("Alice Smith".to_string()));
+    }
+
+    #[test]
+    fn parse_addresses_comma_separated_list() {
+        let addrs = parse_addresses("alice@example.com, Bob <bob@example.com>");
+        assert_eq!(addrs.len(), 2);
+        assert_eq!(addrs[0].email, "alice@example.com");
+        assert_eq!(addrs[1].email, "bob@example.com");
+        assert_eq!(addrs[1].name, Some("Bob".to_string()));
+    }
+
+    #[test]
+    fn parse_addresses_empty_returns_empty() {
+        assert!(parse_addresses("").is_empty());
     }
 }

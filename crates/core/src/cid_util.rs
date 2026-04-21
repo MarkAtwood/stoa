@@ -15,9 +15,7 @@ use multihash_codetable::{Code, MultihashDigest};
 
 use crate::article::Article;
 use crate::canonical::canonical_bytes;
-
-/// RAW IPLD codec (codec table entry 0x55).
-const RAW: u64 = 0x55;
+use crate::ipld::codec::CODEC_RAW;
 
 /// Compute a CIDv1 RAW SHA2-256 content address for `article`.
 ///
@@ -27,7 +25,7 @@ const RAW: u64 = 0x55;
 pub fn cid_for_article(article: &Article) -> Cid {
     let bytes = canonical_bytes(article);
     let digest = Code::Sha2_256.digest(&bytes);
-    Cid::new_v1(RAW, digest)
+    Cid::new_v1(CODEC_RAW, digest)
 }
 
 #[cfg(test)]
@@ -78,7 +76,7 @@ mod tests {
         let cid = cid_for_article(&article);
 
         // Codec must be RAW (0x55).
-        assert_eq!(cid.codec(), RAW, "codec must be RAW (0x55)");
+        assert_eq!(cid.codec(), CODEC_RAW, "codec must be RAW (0x55)");
 
         // Hash must be SHA2-256.
         assert_eq!(

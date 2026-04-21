@@ -15,15 +15,15 @@ base64 = "0.22"
 quoted_printable = "0.5"
 chrono = "0.4"
 ed25519-dalek = { version = "2", features = ["rand_core"] }
+rand_core = { version = "0.6", features = ["getrandom"] }
 serde_json = "1"
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio-rustls", "macros", "migrate"] }
-tokio = { version = "1", features = ["sync", "time", "rt"] }
+tokio = { version = "1", features = ["sync", "time", "rt", "macros"] }
 tracing = "0.1"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 proptest = "1"
-rand_core = { version = "0.6", features = ["getrandom"] }
 tempfile = "3"
 tokio = { version = "1", features = ["full", "macros", "rt-multi-thread"] }
 

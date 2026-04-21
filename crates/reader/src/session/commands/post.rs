@@ -27,20 +27,28 @@ pub fn dot_unstuff(line: &str) -> &str {
 /// Returns the reassembled article bytes (with `\r\n` line endings, terminator
 /// removed).
 ///
+/// If accumulating the article would exceed `max_bytes`, this function switches
+/// to drain mode: it continues reading until the dot-terminator (keeping the
+/// NNTP connection valid) but discards all content, then returns
+/// `Err(ErrorKind::InvalidData)`.  The caller should send a 441 response and
+/// continue accepting commands — the connection is still usable.
+///
 /// Generic over `AsyncBufRead` so that unit tests can supply a `BufReader<&[u8]>`
 /// instead of a live TCP stream.
-pub async fn read_dot_terminated<R>(reader: &mut R) -> std::io::Result<Vec<u8>>
+pub async fn read_dot_terminated<R>(reader: &mut R, max_bytes: usize) -> std::io::Result<Vec<u8>>
 where
     R: AsyncBufRead + Unpin,
 {
     let mut article = Vec::new();
     let mut line_buf = String::new();
+    // Once true, we stop accumulating but keep reading until the terminator.
+    let mut too_large = false;
 
     loop {
         line_buf.clear();
         let n = reader.read_line(&mut line_buf).await?;
         if n == 0 {
-            // EOF before terminator — return what we have.
+            // EOF before terminator — return what we have (or the error).
             break;
         }
 
@@ -52,10 +60,28 @@ where
             break;
         }
 
+        if too_large {
+            // Drain mode: discard content, keep reading for the terminator.
+            continue;
+        }
+
         // Dot-unstuff and write canonical CRLF line into output.
         let content = dot_unstuff(bare);
+        // +2 accounts for the CRLF we are about to append.
+        if article.len() + content.len() + 2 > max_bytes {
+            // Switch to drain mode.  Do not accumulate this line.
+            too_large = true;
+            continue;
+        }
         article.extend_from_slice(content.as_bytes());
         article.extend_from_slice(b"\r\n");
+    }
+
+    if too_large {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "article too large",
+        ));
     }
 
     Ok(article)
@@ -291,7 +317,7 @@ mod tests {
 
     async fn read_article(input: &[u8]) -> Vec<u8> {
         let mut reader = tokio::io::BufReader::new(input);
-        read_dot_terminated(&mut reader).await.unwrap()
+        read_dot_terminated(&mut reader, DEFAULT_MAX_ARTICLE_BYTES).await.unwrap()
     }
 
     #[tokio::test]
@@ -323,5 +349,31 @@ mod tests {
         let input = b"partial line\r\n";
         let result = read_article(input).await;
         assert_eq!(result, b"partial line\r\n");
+    }
+
+    #[tokio::test]
+    async fn read_dot_terminated_too_large_returns_invalid_data() {
+        // Content is 22 bytes ("0123456789abcdefghij\r\n"), limit is 10.
+        // Expects Err(InvalidData) after draining to the terminator.
+        let input = b"0123456789abcdefghij\r\n.\r\n";
+        let mut reader = tokio::io::BufReader::new(input.as_ref());
+        let result = read_dot_terminated(&mut reader, 10).await;
+        assert!(result.is_err(), "expected Err for oversized article");
+        assert_eq!(
+            result.unwrap_err().kind(),
+            std::io::ErrorKind::InvalidData,
+            "must be InvalidData so caller can send 441 and keep connection"
+        );
+    }
+
+    #[tokio::test]
+    async fn read_dot_terminated_exactly_at_limit_succeeds() {
+        // 5-byte content ("hi\r\n" = 4 bytes + planned CRLF → effectively "hi\r\n").
+        // Limit is 4 — exactly fits.
+        let input = b"hi\r\n.\r\n";
+        let mut reader = tokio::io::BufReader::new(input.as_ref());
+        let result = read_dot_terminated(&mut reader, 4).await;
+        assert!(result.is_ok(), "exactly at limit must succeed");
+        assert_eq!(result.unwrap(), b"hi\r\n");
     }
 }

@@ -22,8 +22,8 @@ pub enum IngestResult {
 ///
 /// Checks (in order):
 /// 1. Message-ID format valid (angle brackets, single `@`, non-empty parts)
-/// 2. Duplicate check via `msgid_map`
-/// 3. Article size ≤ [`MAX_ARTICLE_BYTES`]
+/// 2. Article size ≤ [`MAX_ARTICLE_BYTES`]  — cheap array-len check before any I/O
+/// 3. Duplicate check via `msgid_map`       — DB round-trip only for plausible articles
 /// 4. Mandatory headers present (`From`, `Date`, `Message-ID`, `Newsgroups`, `Subject`)
 ///
 /// Returns [`IngestResult`] without storing anything — the caller is
@@ -41,7 +41,21 @@ pub async fn check_ingest(
         return IngestResult::Rejected(format!("invalid Message-ID format: {e}"));
     }
 
-    // 2. Duplicate check.
+    // 2. Size limit — O(1) check before the DB round-trip below.
+    // A peer sending oversized articles should be rejected immediately without
+    // paying the cost of a duplicate lookup.
+    if article_bytes.len() > MAX_ARTICLE_BYTES {
+        crate::metrics::ARTICLES_REJECTED_TOTAL
+            .with_label_values(&["size_exceeded"])
+            .inc();
+        return IngestResult::Rejected(format!(
+            "article too large: {} bytes (limit {})",
+            article_bytes.len(),
+            MAX_ARTICLE_BYTES
+        ));
+    }
+
+    // 3. Duplicate check.
     match msgid_map.lookup_by_msgid(message_id).await {
         Err(e) => {
             return IngestResult::TransientError(format!(
@@ -55,18 +69,6 @@ pub async fn check_ingest(
             return IngestResult::Duplicate;
         }
         Ok(None) => {}
-    }
-
-    // 3. Size limit.
-    if article_bytes.len() > MAX_ARTICLE_BYTES {
-        crate::metrics::ARTICLES_REJECTED_TOTAL
-            .with_label_values(&["size_exceeded"])
-            .inc();
-        return IngestResult::Rejected(format!(
-            "article too large: {} bytes (limit {})",
-            article_bytes.len(),
-            MAX_ARTICLE_BYTES
-        ));
     }
 
     // 4. Mandatory headers.

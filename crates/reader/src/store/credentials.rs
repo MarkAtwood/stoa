@@ -96,6 +96,11 @@ impl CredentialStore {
     ///
     /// Returns `false` on any error (unknown user, wrong password, malformed hash).
     pub async fn check(&self, username: &str, password: &str) -> bool {
+        // Always run bcrypt::verify even for unknown usernames.  Without this,
+        // a user-not-found path completes in microseconds while a known-username
+        // path takes ~100ms (bcrypt work factor), leaking the username set via
+        // timing measurement.  dummy_hash() returns a precomputed hash at the
+        // same cost factor so verify() always performs a full computation.
         let hash = self
             .entries
             .get(&username.to_ascii_lowercase())

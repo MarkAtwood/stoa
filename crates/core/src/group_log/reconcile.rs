@@ -5,12 +5,18 @@ use crate::error::StorageError;
 use crate::group_log::storage::LogStorage;
 use crate::group_log::types::LogEntryId;
 
+/// Maximum number of entries returned in the `have` list per reconciliation
+/// round.  Groups with more divergent history converge over multiple rounds.
+/// Bounds memory and gossipsub message size regardless of group log depth.
+const MAX_HAVE: usize = 1000;
+
 /// Result of reconciling two tip sets.
 #[derive(Debug, Clone)]
 pub struct ReconcileResult {
     /// Entry IDs we want from the remote (remote has them, we don't).
     pub want: Vec<LogEntryId>,
     /// Entry IDs we have to offer the remote (we have them, remote doesn't).
+    /// Capped at [`MAX_HAVE`] entries; further convergence happens in subsequent rounds.
     pub have: Vec<LogEntryId>,
 }
 
@@ -55,6 +61,9 @@ pub async fn reconcile<S: LogStorage>(
 
         if !remote_set.contains(&key) {
             have.push(entry_id.clone());
+            if have.len() >= MAX_HAVE {
+                break;
+            }
         }
 
         if let Some(entry) = storage.get_entry(&entry_id).await? {

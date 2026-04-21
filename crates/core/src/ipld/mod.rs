@@ -6,6 +6,7 @@
 
 pub mod blocks;
 pub mod builder;
+pub mod codec;
 pub mod header_map;
 pub mod metadata;
 pub mod mime;

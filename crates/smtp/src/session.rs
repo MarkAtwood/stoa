@@ -350,11 +350,13 @@ pub async fn run_session(
                     }
 
                     // Prepend Authentication-Results header to the message.
-                    let header_line =
-                        format!("Authentication-Results: {}\r\n", result.header);
-                    let mut prefixed = header_line.into_bytes();
-                    prefixed.extend_from_slice(&raw_bytes);
-                    raw_bytes = prefixed;
+                    // Rotate in-place to avoid a second full-body allocation.
+                    let header_bytes =
+                        format!("Authentication-Results: {}\r\n", result.header).into_bytes();
+                    let header_len = header_bytes.len();
+                    raw_bytes.resize(raw_bytes.len() + header_len, 0);
+                    raw_bytes.rotate_right(header_len);
+                    raw_bytes[..header_len].copy_from_slice(&header_bytes);
                 }
 
                 // ─── Inline Sieve delivery for non-list mail ─────────────────
@@ -405,7 +407,10 @@ pub async fn run_session(
                     }
 
                     if let Some(reason) = reject_reason {
-                        // Strip control characters and cap length for safety.
+                        // Filter to printable ASCII + space only.  is_ascii_graphic()
+                        // excludes CR (0x0d) and LF (0x0a), preventing a malicious
+                        // Sieve script from injecting additional SMTP response lines
+                        // via embedded CRLF sequences in the 550 response text.
                         let safe: String = reason
                             .chars()
                             .filter(|c| c.is_ascii_graphic() || *c == ' ')

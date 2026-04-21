@@ -4,7 +4,6 @@ use usenet_ipfs_core::article::GroupName;
 use usenet_ipfs_core::group_log::append::append as crdt_append;
 use usenet_ipfs_core::group_log::types::{LogEntry, LogEntryId};
 use usenet_ipfs_core::group_log::LogStorage;
-use usenet_ipfs_core::hlc::HlcClock;
 
 use crate::session::response::Response;
 use crate::store::article_numbers::ArticleNumberStore;
@@ -29,6 +28,11 @@ fn entry_id_to_cid(id: &LogEntryId) -> Cid {
 /// Append `article_cid` to the log for each group in `newsgroups`, assigning
 /// a local article number in each group.
 ///
+/// `hlc_timestamps` must have one pre-computed HLC wall_ms value per entry in
+/// `newsgroups`.  The caller is responsible for generating these under the HLC
+/// clock mutex (and releasing the mutex before calling this function) so that
+/// the mutex is not held across async I/O operations.
+///
 /// Steps for each group:
 /// 1. Get current tips from storage → parent CIDs.
 /// 2. Build a `LogEntry` with the HLC timestamp, article CID, operator
@@ -41,19 +45,20 @@ fn entry_id_to_cid(id: &LogEntryId) -> Cid {
 pub async fn append_to_groups<S: LogStorage>(
     log_storage: &S,
     article_numbers: &ArticleNumberStore,
-    clock: &mut HlcClock,
+    hlc_timestamps: &[u64],
     article_cid: &Cid,
     operator_signature: &[u8],
     newsgroups: &[GroupName],
 ) -> Result<AppendResult, Response> {
-    let now_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as u64;
+    debug_assert_eq!(
+        hlc_timestamps.len(),
+        newsgroups.len(),
+        "one HLC timestamp required per newsgroup"
+    );
 
     let mut assignments = Vec::with_capacity(newsgroups.len());
 
-    for group in newsgroups {
+    for (group, &hlc_ts) in newsgroups.iter().zip(hlc_timestamps.iter()) {
         let current_tips = log_storage
             .list_tips(group)
             .await
@@ -61,10 +66,8 @@ pub async fn append_to_groups<S: LogStorage>(
 
         let parent_cids: Vec<Cid> = current_tips.iter().map(entry_id_to_cid).collect();
 
-        let hlc_ts = clock.send(now_ms);
-
         let entry = LogEntry {
-            hlc_timestamp: hlc_ts.wall_ms,
+            hlc_timestamp: hlc_ts,
             article_cid: *article_cid,
             operator_signature: operator_signature.to_vec(),
             parent_cids,
@@ -92,13 +95,16 @@ mod tests {
     use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
     use std::str::FromStr as _;
     use usenet_ipfs_core::group_log::MemLogStorage;
+    use usenet_ipfs_core::hlc::HlcClock;
 
     fn test_cid(data: &[u8]) -> Cid {
         Cid::new_v1(0x71, Code::Sha2_256.digest(data))
     }
 
-    fn test_clock() -> HlcClock {
-        HlcClock::new([0x01; 8], 1_000_000)
+    /// Generate `n` HLC timestamps using a fixed test clock.
+    fn test_timestamps(n: usize) -> Vec<u64> {
+        let mut clock = HlcClock::new([0x01; 8], 1_000_000);
+        (0..n).map(|_| clock.send(1_000_000).wall_ms).collect()
     }
 
     async fn make_article_numbers() -> (ArticleNumberStore, tempfile::TempPath) {
@@ -120,14 +126,14 @@ mod tests {
     async fn append_to_single_group() {
         let log_storage = MemLogStorage::new();
         let (article_numbers, _tmp) = make_article_numbers().await;
-        let mut clock = test_clock();
         let cid = test_cid(b"article-single");
         let groups = vec![GroupName::new("comp.lang.rust").unwrap()];
+        let timestamps = test_timestamps(groups.len());
 
         let result = append_to_groups(
             &log_storage,
             &article_numbers,
-            &mut clock,
+            &timestamps,
             &cid,
             &[0xaa, 0xbb],
             &groups,
@@ -144,18 +150,18 @@ mod tests {
     async fn append_to_three_groups() {
         let log_storage = MemLogStorage::new();
         let (article_numbers, _tmp) = make_article_numbers().await;
-        let mut clock = test_clock();
         let cid = test_cid(b"article-three-groups");
         let groups = vec![
             GroupName::new("comp.lang.rust").unwrap(),
             GroupName::new("comp.lang.python").unwrap(),
             GroupName::new("alt.test").unwrap(),
         ];
+        let timestamps = test_timestamps(groups.len());
 
         let result = append_to_groups(
             &log_storage,
             &article_numbers,
-            &mut clock,
+            &timestamps,
             &cid,
             &[0x01],
             &groups,
@@ -179,14 +185,13 @@ mod tests {
     async fn sequential_appends_increment_numbers() {
         let log_storage = MemLogStorage::new();
         let (article_numbers, _tmp) = make_article_numbers().await;
-        let mut clock = test_clock();
         let group = vec![GroupName::new("comp.lang.rust").unwrap()];
 
         let cid1 = test_cid(b"article-seq-1");
         let r1 = append_to_groups(
             &log_storage,
             &article_numbers,
-            &mut clock,
+            &test_timestamps(group.len()),
             &cid1,
             &[0x01],
             &group,
@@ -198,7 +203,7 @@ mod tests {
         let r2 = append_to_groups(
             &log_storage,
             &article_numbers,
-            &mut clock,
+            &test_timestamps(group.len()),
             &cid2,
             &[0x02],
             &group,
@@ -214,15 +219,15 @@ mod tests {
     async fn log_entry_in_storage() {
         let log_storage = MemLogStorage::new();
         let (article_numbers, _tmp) = make_article_numbers().await;
-        let mut clock = test_clock();
         let cid = test_cid(b"article-log-check");
         let group_name = GroupName::new("comp.lang.rust").unwrap();
         let groups = vec![group_name.clone()];
+        let timestamps = test_timestamps(groups.len());
 
         append_to_groups(
             &log_storage,
             &article_numbers,
-            &mut clock,
+            &timestamps,
             &cid,
             &[0xcc],
             &groups,

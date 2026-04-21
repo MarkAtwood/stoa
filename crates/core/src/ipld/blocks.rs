@@ -1,8 +1,7 @@
 use cid::Cid;
 use multihash_codetable::{Code, MultihashDigest};
 
-/// RAW IPLD codec code.
-const RAW: u64 = 0x55;
+use crate::ipld::codec::CODEC_RAW;
 
 /// Produce a raw IPLD block and its CIDv1 SHA-256 from verbatim header bytes.
 ///
@@ -22,7 +21,7 @@ pub fn body_block(body_bytes: &[u8]) -> (Cid, Vec<u8>) {
 
 fn raw_block(data: &[u8]) -> (Cid, Vec<u8>) {
     let digest = Code::Sha2_256.digest(data);
-    let cid = Cid::new_v1(RAW, digest);
+    let cid = Cid::new_v1(CODEC_RAW, digest);
     (cid, data.to_vec())
 }
 
@@ -40,7 +39,7 @@ mod tests {
             "block bytes must equal input exactly"
         );
         assert_eq!(cid.version(), cid::Version::V1);
-        assert_eq!(cid.codec(), RAW);
+        assert_eq!(cid.codec(), CODEC_RAW);
     }
 
     #[test]
@@ -49,7 +48,7 @@ mod tests {
         let (cid, block) = body_block(bytes);
         assert_eq!(block, bytes.to_vec());
         assert_eq!(cid.version(), cid::Version::V1);
-        assert_eq!(cid.codec(), RAW);
+        assert_eq!(cid.codec(), CODEC_RAW);
     }
 
     #[test]

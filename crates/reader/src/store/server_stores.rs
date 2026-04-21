@@ -9,6 +9,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
+use multihash_codetable::{Code, MultihashDigest};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::SqlitePool;
 use tokio::sync::Mutex;
@@ -18,7 +19,7 @@ static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
 use usenet_ipfs_core::group_log::MemLogStorage;
 use usenet_ipfs_core::hlc::HlcClock;
 use usenet_ipfs_core::msgid_map::MsgIdMap;
-use usenet_ipfs_core::signing::SigningKey;
+use usenet_ipfs_core::signing::{generate_signing_key, SigningKey};
 
 use crate::post::ipfs_write::{IpfsBlockStore, MemIpfsStore, RustIpfsStore};
 use crate::store::article_numbers::ArticleNumberStore;
@@ -58,6 +59,9 @@ impl ServerStores {
             .unwrap()
             .as_millis() as u64;
 
+        let signing_key = load_or_generate_signing_key(&config.operator.signing_key_path)?;
+        let node_id = hlc_node_id(&signing_key);
+
         Ok(Self {
             ipfs_store: Arc::new(ipfs_store),
             msgid_map: Arc::new(MsgIdMap::new(core_pool)),
@@ -65,8 +69,8 @@ impl ServerStores {
             article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
             overview_store: Arc::new(OverviewStore::new(reader_pool)),
             credential_store: Arc::new(build_credential_store(&config.auth)?),
-            clock: Arc::new(Mutex::new(HlcClock::new([0x01u8; 8], now_ms))),
-            signing_key: Arc::new(SigningKey::from_bytes(&[0x42u8; 32])),
+            clock: Arc::new(Mutex::new(HlcClock::new(node_id, now_ms))),
+            signing_key: Arc::new(signing_key),
         })
     }
 
@@ -85,6 +89,10 @@ impl ServerStores {
             .unwrap()
             .as_millis() as u64;
 
+        // Generate a fresh random key per test instance; derive node ID from it.
+        let signing_key = generate_signing_key();
+        let node_id = hlc_node_id(&signing_key);
+
         Self {
             ipfs_store: Arc::new(MemIpfsStore::new()),
             msgid_map: Arc::new(MsgIdMap::new(core_pool)),
@@ -92,8 +100,8 @@ impl ServerStores {
             article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
             overview_store: Arc::new(OverviewStore::new(reader_pool)),
             credential_store: Arc::new(CredentialStore::empty()),
-            clock: Arc::new(Mutex::new(HlcClock::new([0x01u8; 8], now_ms))),
-            signing_key: Arc::new(SigningKey::from_bytes(&[0x42u8; 32])),
+            clock: Arc::new(Mutex::new(HlcClock::new(node_id, now_ms))),
+            signing_key: Arc::new(signing_key),
         }
     }
 }
@@ -148,4 +156,51 @@ fn build_credential_store(auth: &crate::config::AuthConfig) -> Result<Credential
         store.merge_from_file(path)?;
     }
     Ok(store)
+}
+
+/// Load a 32-byte Ed25519 signing key from the given file path, or generate a
+/// fresh random key if no path is configured.
+///
+/// If `path` is `None`, a random ephemeral key is generated and a warning is
+/// emitted.  This is acceptable for development but insecure for production
+/// because the signing key changes on every restart.
+fn load_or_generate_signing_key(path: &Option<String>) -> Result<SigningKey, String> {
+    match path {
+        Some(p) => {
+            let bytes = std::fs::read(p)
+                .map_err(|e| format!("failed to read signing key from '{p}': {e}"))?;
+            if bytes.len() != 32 {
+                return Err(format!(
+                    "signing key file '{p}' must contain exactly 32 bytes, got {}",
+                    bytes.len()
+                ));
+            }
+            let arr: [u8; 32] = bytes.try_into().unwrap();
+            Ok(SigningKey::from_bytes(&arr))
+        }
+        None => {
+            let key = generate_signing_key();
+            tracing::warn!(
+                "no operator.signing_key_path configured — \
+                 using an ephemeral signing key that changes on every restart; \
+                 set [operator] signing_key_path in config for a stable production key"
+            );
+            Ok(key)
+        }
+    }
+}
+
+/// Derive the 8-byte HLC node ID from the operator signing key.
+///
+/// Uses the first 8 bytes of SHA-256(public_key) so the node ID is:
+/// - Stable across restarts (as long as the key is the same).
+/// - Unique per operator (Ed25519 key pairs are effectively unique).
+/// - Not the key itself (exposing only a hash is fine; the public key is
+///   already public, but this makes the derivation explicit).
+fn hlc_node_id(signing_key: &SigningKey) -> [u8; 8] {
+    let vk = signing_key.verifying_key();
+    let digest = Code::Sha2_256.digest(vk.as_bytes());
+    let mut node_id = [0u8; 8];
+    node_id.copy_from_slice(&digest.digest()[..8]);
+    node_id
 }

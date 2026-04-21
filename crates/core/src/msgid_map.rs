@@ -119,7 +119,7 @@ mod tests {
     }
 
     fn test_cid(data: &[u8]) -> Cid {
-        Cid::new_v1(0x55, Code::Sha2_256.digest(data))
+        Cid::new_v1(crate::ipld::codec::CODEC_RAW, Code::Sha2_256.digest(data))
     }
 
     #[tokio::test]

@@ -49,20 +49,30 @@ impl RateLimiter {
         let mut state = self.state.lock().unwrap();
         let tokens_per_sec = self.rpm as f64 / 60.0;
         let max_tokens = self.rpm as f64;
-        let entry = state.entry(ip).or_insert(RateLimitState {
-            tokens: max_tokens,
-            last_refill: Instant::now(),
-        });
         let now = Instant::now();
-        let elapsed = now.duration_since(entry.last_refill).as_secs_f64();
-        entry.tokens = (entry.tokens + elapsed * tokens_per_sec).min(max_tokens);
-        entry.last_refill = now;
-        if entry.tokens >= 1.0 {
-            entry.tokens -= 1.0;
-            true
-        } else {
-            false
+
+        let allowed;
+        {
+            let entry = state.entry(ip).or_insert(RateLimitState {
+                tokens: max_tokens,
+                last_refill: now,
+            });
+            let elapsed = now.duration_since(entry.last_refill).as_secs_f64();
+            entry.tokens = (entry.tokens + elapsed * tokens_per_sec).min(max_tokens);
+            entry.last_refill = now;
+            if entry.tokens >= 1.0 {
+                entry.tokens -= 1.0;
+                allowed = true;
+            } else {
+                allowed = false;
+            }
         }
+
+        // Evict entries idle for more than one hour to bound HashMap size.
+        let evict_before = now - std::time::Duration::from_secs(3600);
+        state.retain(|_, v| v.last_refill >= evict_before);
+
+        allowed
     }
 }
 

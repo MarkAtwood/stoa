@@ -28,10 +28,23 @@ pub fn parse_list_id(header_value: &str) -> Option<String> {
 
 /// Extract the List-ID header value from raw RFC 5322 message bytes.
 ///
-/// Uses `mail_parser::MessageParser` to parse the message. Returns the
-/// parsed List-ID value (the content between `<` and `>`), or `None`.
+/// Only the header section (bytes before the first blank line) is parsed,
+/// avoiding a full body parse for what may be a multi-megabyte message.
 pub fn extract_list_id(raw_message: &[u8]) -> Option<String> {
-    let msg = MessageParser::default().parse(raw_message)?;
+    // Locate the blank line that separates headers from body.
+    let header_end = raw_message
+        .windows(4)
+        .position(|w| w == b"\r\n\r\n")
+        .map(|p| p + 2) // include the trailing \r\n so the parser sees a complete header block
+        .or_else(|| {
+            raw_message
+                .windows(2)
+                .position(|w| w == b"\n\n")
+                .map(|p| p + 1)
+        })
+        .unwrap_or(raw_message.len());
+
+    let msg = MessageParser::default().parse(&raw_message[..header_end])?;
     let raw = msg.header_raw(HeaderName::ListId)?;
     parse_list_id(raw)
 }

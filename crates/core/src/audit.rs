@@ -120,13 +120,16 @@ pub struct AuditLoggerHandle {
 }
 
 impl AuditLoggerHandle {
-    /// Send an audit event. Returns even if the buffer is full (event is dropped with a warning).
+    /// Send an audit event. Returns even if the buffer is full (event is dropped).
     /// Non-blocking: never blocks the caller.
     pub fn log(&self, event: AuditEvent) {
         match self.tx.try_send(event) {
             Ok(()) => {}
-            Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
-                tracing::warn!("audit log buffer full; event dropped");
+            Err(tokio::sync::mpsc::error::TrySendError::Full(dropped)) => {
+                tracing::error!(
+                    event_type = dropped.event_type(),
+                    "audit log buffer full; security event dropped"
+                );
             }
             Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {
                 tracing::warn!("audit logger shut down; event dropped");

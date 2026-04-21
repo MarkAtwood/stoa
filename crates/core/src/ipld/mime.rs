@@ -52,7 +52,7 @@ mod tests {
 
     fn test_cid(data: &[u8]) -> Cid {
         let digest = Code::Sha2_256.digest(data);
-        Cid::new_v1(0x55, digest) // RAW codec
+        Cid::new_v1(crate::ipld::codec::CODEC_RAW, digest)
     }
 
     fn make_single_part() -> MimeNode {

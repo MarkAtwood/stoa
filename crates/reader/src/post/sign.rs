@@ -66,6 +66,12 @@ pub fn load_signing_key(path: &std::path::Path) -> Result<SigningKey, String> {
 /// `article_bytes` must contain a header/body separator (`\r\n\r\n` or `\n\n`).
 /// If no separator is found the bytes are returned unchanged.
 pub fn sign_article(key: &SigningKey, article_bytes: &[u8]) -> Vec<u8> {
+    // Ed25519 via ed25519-dalek uses RFC 8032 deterministic signing: same key +
+    // same bytes → same signature → same CID in IPFS.  This is intentional —
+    // two concurrent POSTs of the same article produce identical signed bytes,
+    // write to the same CID, and msgid_map handles the collision via INSERT OR
+    // IGNORE.  Do NOT add a nonce or timestamp to the signature; that would
+    // break CID idempotency and cause duplicate articles in IPFS.
     let sig: Signature = signing::sign(key, article_bytes);
     let sig_value = URL_SAFE_NO_PAD.encode(sig.to_bytes());
     let sig_line = format!("{OPERATOR_SIG_HEADER}: {sig_value}\r\n");

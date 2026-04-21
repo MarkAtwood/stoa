@@ -4,10 +4,20 @@
 //! The signing key is never logged or exposed in error output.
 
 use ed25519_dalek::{Signer, Verifier};
+use rand_core::OsRng;
 
 pub use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
 
 use crate::error::SigningError;
+
+/// Generate a fresh Ed25519 signing key from OS entropy.
+///
+/// Uses [`OsRng`] so the key is cryptographically random.  The returned key
+/// is ephemeral unless the caller persists it (e.g. writes the 32-byte seed to
+/// a file owned and readable only by the daemon process).
+pub fn generate_signing_key() -> SigningKey {
+    SigningKey::generate(&mut OsRng)
+}
 
 /// Sign `canonical_bytes` with the given Ed25519 signing key.
 ///

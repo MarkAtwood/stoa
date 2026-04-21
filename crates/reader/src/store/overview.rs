@@ -70,6 +70,39 @@ impl OverviewStore {
         Ok(())
     }
 
+    /// Look up a single overview record by Message-ID across all groups.
+    ///
+    /// Returns `None` if no article with that Message-ID is in the index.
+    /// If the same Message-ID appears in multiple groups (cross-posted), returns
+    /// the record with the lowest article_number (arbitrary but deterministic).
+    pub async fn query_by_msgid(
+        &self,
+        message_id: &str,
+    ) -> Result<Option<OverviewRecord>, sqlx::Error> {
+        let row: Option<OverviewRow> = sqlx::query_as(
+            "SELECT article_number, subject, from_header, date_header, \
+             message_id, references_header, byte_count, line_count \
+             FROM overview \
+             WHERE message_id = ? \
+             ORDER BY article_number ASC \
+             LIMIT 1",
+        )
+        .bind(message_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|r| OverviewRecord {
+            article_number: r.article_number as u64,
+            subject: r.subject,
+            from: r.from_header,
+            date: r.date_header,
+            message_id: r.message_id,
+            references: r.references_header,
+            byte_count: r.byte_count as u64,
+            line_count: r.line_count as u64,
+        }))
+    }
+
     /// Query overview records for a range of article numbers (inclusive).
     ///
     /// Returns records in ascending `article_number` order. Article numbers

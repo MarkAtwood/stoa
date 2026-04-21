@@ -333,8 +333,17 @@ where
 
         // POST two-phase completion: if dispatch returned 340, read the article.
         if is_post && resp_code == 340 {
-            let article_bytes = match read_dot_terminated(reader).await {
+            let article_bytes = match read_dot_terminated(reader, DEFAULT_MAX_ARTICLE_BYTES).await {
                 Ok(bytes) => bytes,
+                Err(e) if e.kind() == std::io::ErrorKind::InvalidData => {
+                    // Article exceeded the size limit.  The stream was drained to
+                    // the dot-terminator, so the connection is still valid.
+                    warn!(peer = %peer_addr, "post rejected: article too large");
+                    if writer.write_all(b"441 Article too large\r\n").await.is_err() {
+                        return false;
+                    }
+                    continue;
+                }
                 Err(e) => {
                     warn!(peer = %peer_addr, "post read error: {e}");
                     return false;
@@ -444,11 +453,24 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
     };
 
     // Step 5: Append to group logs and assign article numbers.
-    let mut clock = stores.clock.lock().await;
+    //
+    // Generate HLC timestamps under the clock mutex, then release the mutex
+    // before any async I/O so concurrent POSTs are not serialised by it.
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64;
+    let hlc_timestamps: Vec<u64> = {
+        let mut clock = stores.clock.lock().await;
+        newsgroups
+            .iter()
+            .map(|_| clock.send(now_ms).wall_ms)
+            .collect()
+    };
     let append_result = match append_to_groups(
         stores.log_storage.as_ref(),
         &stores.article_numbers,
-        &mut clock,
+        &hlc_timestamps,
         &cid,
         &[],
         &newsgroups,
@@ -458,7 +480,6 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
         Ok(r) => r,
         Err(resp) => return resp,
     };
-    drop(clock);
 
     // Step 6: Index overview fields for each assigned (group, article_number).
     let (header_bytes, body_bytes) = split_article(&signed_bytes);
@@ -738,6 +759,18 @@ async fn handle_over_live(
     ctx: &SessionContext,
     arg: Option<&OverArg>,
 ) -> Response {
+    // RFC 3977 §8.3.2: message-id form does not require a currently selected newsgroup.
+    if let Some(OverArg::MessageId(msgid)) = arg {
+        return match stores.overview_store.query_by_msgid(msgid).await {
+            Ok(Some(record)) => over_response(std::iter::once(record)),
+            Ok(None) => Response::no_article_with_message_id(),
+            Err(e) => {
+                warn!("OVER msgid lookup error: {e}");
+                Response::program_fault()
+            }
+        };
+    }
+
     if !ctx.state.group_selected() {
         return Response::no_newsgroup_selected();
     }
@@ -768,9 +801,7 @@ async fn handle_over_live(
             }
             ArticleRange::Range(lo, hi) => (*lo, *hi),
         },
-        Some(OverArg::MessageId(_)) => {
-            return over_response(std::iter::empty());
-        }
+        Some(OverArg::MessageId(_)) => unreachable!("MessageId handled above"),
     };
 
     let records = match stores.overview_store.query_range(&group, low, high).await {

@@ -13,6 +13,21 @@ pub struct Config {
     pub admin: AdminConfig,
     #[serde(default)]
     pub log: LogConfig,
+    #[serde(default)]
+    pub operator: OperatorConfig,
+}
+
+/// Operator identity configuration.
+#[derive(Debug, Deserialize, Default)]
+pub struct OperatorConfig {
+    /// Path to the 32-byte raw Ed25519 operator signing key seed file.
+    ///
+    /// The file must contain exactly 32 bytes (the Ed25519 seed / private scalar).
+    /// If unset, an ephemeral key is generated at startup — articles signed by
+    /// different process instances will have different keys and cannot be
+    /// cross-verified.  Set this for any production deployment.
+    #[serde(default)]
+    pub signing_key_path: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

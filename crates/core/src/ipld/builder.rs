@@ -9,8 +9,7 @@ use crate::ipld::{
     root_node::{ArticleRootNode, SCHEMA_VERSION},
 };
 
-/// DAG-CBOR IPLD codec code.
-const DAG_CBOR: u64 = 0x71;
+use crate::ipld::codec::CODEC_DAG_CBOR;
 
 /// Result of building a complete article IPLD block set.
 pub struct BuiltArticle {
@@ -119,7 +118,7 @@ pub fn build_article(
 
 fn dag_cbor_cid(bytes: &[u8]) -> Cid {
     let digest = Code::Sha2_256.digest(bytes);
-    Cid::new_v1(DAG_CBOR, digest)
+    Cid::new_v1(CODEC_DAG_CBOR, digest)
 }
 
 #[cfg(test)]
@@ -150,7 +149,7 @@ mod tests {
         let built = build_test_article();
         assert_eq!(
             built.root_cid.codec(),
-            DAG_CBOR,
+            CODEC_DAG_CBOR,
             "root CID must use DAG-CBOR codec (0x71)"
         );
     }

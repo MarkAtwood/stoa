@@ -112,16 +112,22 @@ pub async fn run_peering_session(stream: TcpStream, shared: Arc<PeeringShared>) 
                 if let Some(guard_resp) = check_mode_guard(mode) {
                     Some(guard_resp.to_owned())
                 } else {
-                    let article_bytes = match read_dot_stuffed(&mut reader).await {
-                        Some(b) => b,
-                        None => break,
-                    };
-                    let result = check_ingest(&msgid, &article_bytes, &shared.msgid_map).await;
-                    let resp = takethis_response(&result);
-                    if result == IngestResult::Accepted {
-                        enqueue_article(&shared, &msgid, article_bytes).await;
+                    match read_dot_stuffed(&mut reader).await {
+                        DotStuffedResult::Eof => break,
+                        DotStuffedResult::TooLarge => {
+                            // Stream was drained to the terminator; connection is still valid.
+                            Some(format!("439 Article too large {msgid}\r\n"))
+                        }
+                        DotStuffedResult::Data(article_bytes) => {
+                            let result =
+                                check_ingest(&msgid, &article_bytes, &shared.msgid_map).await;
+                            let resp = takethis_response(&result);
+                            if result == IngestResult::Accepted {
+                                enqueue_article(&shared, &msgid, article_bytes).await;
+                            }
+                            Some(format!("{} {}\r\n", resp.trim_end(), msgid))
+                        }
                     }
-                    Some(format!("{} {}\r\n", resp.trim_end(), msgid))
                 }
             }
             "IHAVE" => {
@@ -134,15 +140,21 @@ pub async fn run_peering_session(stream: TcpStream, shared: Arc<PeeringShared>) 
                         if writer.write_all(b"335 Send it\r\n").await.is_err() {
                             break;
                         }
-                        let article_bytes = match read_dot_stuffed(&mut reader).await {
-                            Some(b) => b,
-                            None => break,
-                        };
-                        let result = check_ingest(&msgid, &article_bytes, &shared.msgid_map).await;
-                        if result == IngestResult::Accepted {
-                            enqueue_article(&shared, &msgid, article_bytes).await;
+                        match read_dot_stuffed(&mut reader).await {
+                            DotStuffedResult::Eof => break,
+                            DotStuffedResult::TooLarge => {
+                                // Stream was drained; connection is still valid.
+                                Some("437 Article too large\r\n".to_owned())
+                            }
+                            DotStuffedResult::Data(article_bytes) => {
+                                let result =
+                                    check_ingest(&msgid, &article_bytes, &shared.msgid_map).await;
+                                if result == IngestResult::Accepted {
+                                    enqueue_article(&shared, &msgid, article_bytes).await;
+                                }
+                                Some(ihave_response(&result).to_owned())
+                            }
                         }
-                        Some(ihave_response(&result).to_owned())
                     }
                     IngestResult::Duplicate => Some("435 Duplicate\r\n".to_owned()),
                     IngestResult::TransientError(_) => {
@@ -191,30 +203,61 @@ async fn enqueue_article(shared: &PeeringShared, message_id: &str, bytes: Vec<u8
     }
 }
 
+/// Result of reading a dot-stuffed article from a peer.
+enum DotStuffedResult {
+    /// Article read successfully; contains the unstuffed bytes.
+    Data(Vec<u8>),
+    /// Article exceeded the size limit; stream was drained to the terminator.
+    TooLarge,
+    /// Connection closed before the dot-terminator.
+    Eof,
+}
+
 /// Read a dot-stuffed NNTP article terminated by `.\r\n` (or `.\n`).
 ///
-/// Returns the accumulated raw bytes (with dot-unstuffing applied), or
-/// `None` if the connection closed before the terminator.
+/// Applies dot-unstuffing (leading `..` → `.`) and enforces
+/// `crate::peering::ingestion::MAX_ARTICLE_BYTES`.  If the accumulated
+/// content exceeds the limit, switches to drain mode (reads until the
+/// terminator without accumulating) and returns [`DotStuffedResult::TooLarge`].
+/// This keeps the NNTP connection valid so a 437/439 rejection can be sent.
 async fn read_dot_stuffed(
     reader: &mut BufReader<tokio::net::tcp::OwnedReadHalf>,
-) -> Option<Vec<u8>> {
+) -> DotStuffedResult {
+    use crate::peering::ingestion::MAX_ARTICLE_BYTES;
+
     let mut buf = Vec::new();
     let mut line = String::new();
+    let mut too_large = false;
+
     loop {
         line.clear();
         match reader.read_line(&mut line).await {
-            Ok(0) | Err(_) => return None,
+            Ok(0) | Err(_) => return DotStuffedResult::Eof,
             Ok(_) => {}
         }
         let trimmed = line.trim_end_matches(['\r', '\n']);
         if trimmed == "." {
-            return Some(buf);
+            return if too_large {
+                DotStuffedResult::TooLarge
+            } else {
+                DotStuffedResult::Data(buf)
+            };
         }
+
+        if too_large {
+            // Drain mode: keep reading for the terminator without accumulating.
+            continue;
+        }
+
         let output_line = if let Some(rest) = trimmed.strip_prefix("..") {
             format!(".{rest}\r\n")
         } else {
             format!("{trimmed}\r\n")
         };
+        if buf.len() + output_line.len() > MAX_ARTICLE_BYTES {
+            too_large = true;
+            continue;
+        }
         buf.extend_from_slice(output_line.as_bytes());
     }
 }

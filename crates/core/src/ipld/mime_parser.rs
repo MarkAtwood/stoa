@@ -5,8 +5,7 @@ use multihash_codetable::{Code, MultihashDigest};
 
 use crate::ipld::mime::{MimeNode, MimePart, MultipartMime, SinglePartMime};
 
-/// RAW IPLD codec code.
-const RAW: u64 = 0x55;
+use crate::ipld::codec::CODEC_RAW;
 
 /// Result of MIME parsing: the MIME node and all decoded content blocks
 /// (indexed by their CIDs) that will need to be stored in IPFS.
@@ -245,10 +244,10 @@ fn decode_body(body_bytes: &[u8], cte: &str) -> (Vec<u8>, String) {
     }
 }
 
-/// Compute a CIDv1 RAW SHA-256 block from bytes.
+/// Compute a CIDv1 CODEC_RAW SHA-256 block from bytes.
 fn make_raw_block(data: &[u8]) -> (Cid, Vec<u8>) {
     let digest = Code::Sha2_256.digest(data);
-    let cid = Cid::new_v1(RAW, digest);
+    let cid = Cid::new_v1(CODEC_RAW, digest);
     (cid, data.to_vec())
 }
 
@@ -406,7 +405,7 @@ mod tests {
         assert!(sp.is_binary, "image/jpeg must be flagged as binary");
     }
 
-    /// The decoded_cid in any result must use the RAW codec (0x55).
+    /// The decoded_cid in any result must use the CODEC_RAW codec (0x55).
     #[test]
     fn test_decoded_cid_is_raw_codec() {
         let body = b"Some article body text.";
@@ -419,12 +418,12 @@ mod tests {
 
         assert_eq!(
             sp.decoded_cid.codec(),
-            RAW,
-            "decoded_cid must use RAW codec (0x55)"
+            CODEC_RAW,
+            "decoded_cid must use CODEC_RAW codec (0x55)"
         );
 
         for (cid, _) in &parsed.blocks {
-            assert_eq!(cid.codec(), RAW, "all blocks must use RAW codec (0x55)");
+            assert_eq!(cid.codec(), CODEC_RAW, "all blocks must use CODEC_RAW codec (0x55)");
         }
     }
 }

@@ -5878,6 +5878,7 @@ dependencies = [
  "axum",
  "cid",
  "data-encoding",
+ "mailparse",
  "multihash-codetable",
  "reqwest",
  "rustls",
