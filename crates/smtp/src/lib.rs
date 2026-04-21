@@ -5,5 +5,6 @@ pub mod queue;
 pub mod routing;
 pub mod server;
 pub mod session;
+pub mod sieve_admin;
 pub mod store;
 pub mod tls;

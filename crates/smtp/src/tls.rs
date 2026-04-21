@@ -109,6 +109,7 @@ mod tests {
             list_routing: vec![],
             users: vec![],
             database: DatabaseConfig::default(),
+            sieve_admin: crate::config::SieveAdminConfig::default(),
         };
         assert!(tls_configured(&cfg));
     }
@@ -134,6 +135,7 @@ mod tests {
             list_routing: vec![],
             users: vec![],
             database: DatabaseConfig::default(),
+            sieve_admin: crate::config::SieveAdminConfig::default(),
         };
         assert!(!tls_configured(&cfg));
     }

@@ -5,7 +5,7 @@ use tracing::{error, info, warn};
 
 use usenet_ipfs_smtp::{
     config::Config,
-    nntp_client, routing, store,
+    nntp_client, routing, sieve_admin, store,
     queue::{IncomingMessage, MessageQueue},
     server::run_server,
 };
@@ -103,6 +103,15 @@ async fn main() {
             route_message(msg, &routing_config).await;
         }
     });
+
+    // Start the Sieve admin HTTP API when local users are configured.
+    if let Some(ref admin_pool) = pool {
+        let admin_config = Arc::clone(&config);
+        let admin_pool = admin_pool.clone();
+        tokio::spawn(async move {
+            sieve_admin::run_admin_server(admin_config, admin_pool).await;
+        });
+    }
 
     tokio::select! {
         _ = run_server(listener_25, listener_587, config, queue, pool) => {}

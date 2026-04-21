@@ -550,7 +550,8 @@ fn parse_angle_addr(args: &str) -> String {
 mod tests {
     use super::*;
     use crate::config::{
-        DatabaseConfig, LimitsConfig, ListenConfig, LogConfig, ReaderConfig, TlsConfig, UserConfig,
+        DatabaseConfig, LimitsConfig, ListenConfig, LogConfig, ReaderConfig, SieveAdminConfig,
+        TlsConfig, UserConfig,
     };
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -579,6 +580,7 @@ mod tests {
             list_routing: vec![],
             users: vec![],
             database: DatabaseConfig::default(),
+            sieve_admin: SieveAdminConfig::default(),
         })
     }
 
@@ -601,6 +603,7 @@ mod tests {
             list_routing: vec![],
             users,
             database: DatabaseConfig::default(),
+            sieve_admin: SieveAdminConfig::default(),
         })
     }
 

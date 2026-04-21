@@ -5939,6 +5939,7 @@ dependencies = [
 name = "usenet-ipfs-smtp"
 version = "0.1.0"
 dependencies = [
+ "axum",
  "mail-auth",
  "mail-parser",
  "rustls",
@@ -5949,6 +5950,7 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "toml",
+ "tower",
  "tracing",
  "tracing-subscriber",
  "usenet-ipfs-sieve",

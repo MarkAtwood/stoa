@@ -22,6 +22,8 @@ pub struct Config {
     pub users: Vec<UserConfig>,
     #[serde(default)]
     pub database: DatabaseConfig,
+    #[serde(default)]
+    pub sieve_admin: SieveAdminConfig,
 }
 
 /// A local mailbox user.  `email` is matched against RCPT TO addresses.
@@ -45,6 +47,37 @@ pub struct DatabaseConfig {
 impl Default for DatabaseConfig {
     fn default() -> Self {
         Self { path: default_db_path() }
+    }
+}
+
+fn default_sieve_admin_bind() -> String {
+    "127.0.0.1:4190".to_string()
+}
+
+fn default_max_script_bytes() -> u64 {
+    65_536
+}
+
+/// Configuration for the HTTP Sieve script management API.
+///
+/// The API listens on `bind` (default `127.0.0.1:4190`) and requires no
+/// credentials — access control is enforced by the bind address.
+/// **Do not bind to a non-loopback address in production.**
+#[derive(Debug, Deserialize)]
+pub struct SieveAdminConfig {
+    #[serde(default = "default_sieve_admin_bind")]
+    pub bind: String,
+    /// Maximum size of a Sieve script in bytes (default 64 KiB).
+    #[serde(default = "default_max_script_bytes")]
+    pub max_script_bytes: u64,
+}
+
+impl Default for SieveAdminConfig {
+    fn default() -> Self {
+        Self {
+            bind: default_sieve_admin_bind(),
+            max_script_bytes: default_max_script_bytes(),
+        }
     }
 }
 

@@ -81,7 +81,7 @@ pub async fn run_server(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{DatabaseConfig, LimitsConfig, ListenConfig, LogConfig, ReaderConfig, TlsConfig};
+    use crate::config::{DatabaseConfig, LimitsConfig, ListenConfig, LogConfig, ReaderConfig, SieveAdminConfig, TlsConfig};
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     fn test_config() -> Arc<Config> {
@@ -106,6 +106,7 @@ mod tests {
             list_routing: vec![],
             users: vec![],
             database: DatabaseConfig::default(),
+            sieve_admin: SieveAdminConfig::default(),
         })
     }
 
