@@ -1,0 +1,11 @@
+[package]
+name = "usenet-ipfs-sieve"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+
+# sieve-rs is AGPL-3.0-only — intentional, approved by project owner
+[dependencies]
+sieve-rs = "0.7"
+mail-parser = "0.11"
+tracing = "0.1"
