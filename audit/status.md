@@ -9,3 +9,5 @@
 [23:33:30] COORDINATOR: starting epic loop
 [23:33:31] COORDINATOR: claimed epic usenet-ipfs-43s
 [23:52:29] COORDINATOR: claimed epic usenet-ipfs-5yg, starting NNTP CID extensions
+[00:23:33] COORDINATOR: claimed epic usenet-ipfs-3bz — reader live data sources
+[00:35:00] COORDINATOR: phase1 complete — 13 beads created, 4 ready in wave 0

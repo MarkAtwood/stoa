@@ -22,6 +22,7 @@ use usenet_ipfs_core::signing::SigningKey;
 
 use crate::post::ipfs_write::{IpfsBlockStore, MemIpfsStore};
 use crate::store::article_numbers::ArticleNumberStore;
+use crate::store::overview::OverviewStore;
 
 /// All storage handles needed by the POST pipeline and article retrieval.
 ///
@@ -31,6 +32,7 @@ pub struct ServerStores {
     pub msgid_map: Arc<MsgIdMap>,
     pub log_storage: Arc<MemLogStorage>,
     pub article_numbers: Arc<ArticleNumberStore>,
+    pub overview_store: Arc<OverviewStore>,
     /// HLC clock — shared across sessions, protected by a mutex.
     pub clock: Arc<Mutex<HlcClock>>,
     /// Operator signing key — ephemeral in-process key (no PEM file required).
@@ -57,7 +59,8 @@ impl ServerStores {
             ipfs_store: Arc::new(MemIpfsStore::new()),
             msgid_map: Arc::new(MsgIdMap::new(core_pool)),
             log_storage: Arc::new(MemLogStorage::new()),
-            article_numbers: Arc::new(ArticleNumberStore::new(reader_pool)),
+            article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
+            overview_store: Arc::new(OverviewStore::new(reader_pool)),
             clock: Arc::new(Mutex::new(HlcClock::new([0x01u8; 8], now_ms))),
             signing_key: Arc::new(SigningKey::from_bytes(&[0x42u8; 32])),
         }

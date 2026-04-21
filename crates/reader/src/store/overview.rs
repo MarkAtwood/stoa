@@ -112,6 +112,14 @@ impl OverviewStore {
     }
 }
 
+/// Replace tab, CR, and LF with a space to prevent corruption of
+/// tab-separated OVER/XOVER responses.
+fn sanitize_overview_field(s: &str) -> String {
+    s.chars()
+        .map(|c| if c == '\t' || c == '\r' || c == '\n' { ' ' } else { c })
+        .collect()
+}
+
 /// Extract the 7 overview fields from raw header bytes and a body.
 ///
 /// Returns an `OverviewRecord` with `article_number` set to 0; the caller is
@@ -163,11 +171,11 @@ pub fn extract_overview(header_bytes: &[u8], body_bytes: &[u8]) -> OverviewRecor
 
     OverviewRecord {
         article_number: 0,
-        subject,
-        from,
-        date,
-        message_id,
-        references,
+        subject: sanitize_overview_field(&subject),
+        from: sanitize_overview_field(&from),
+        date: sanitize_overview_field(&date),
+        message_id: sanitize_overview_field(&message_id),
+        references: sanitize_overview_field(&references),
         byte_count,
         line_count,
     }
@@ -331,5 +339,13 @@ mod tests {
         for (i, rec) in results.iter().enumerate() {
             assert_eq!(rec.article_number, (i + 1) as u64);
         }
+    }
+
+    #[test]
+    fn extract_overview_strips_tab_in_subject() {
+        let headers = b"Subject: Hello\tWorld\r\nFrom: user@example.com\r\nDate: Mon, 01 Jan 2024 00:00:00 +0000\r\nMessage-ID: <test@example.com>\r\n";
+        let rec = extract_overview(headers, b"Some body\r\n");
+        assert!(!rec.subject.contains('\t'), "tab in subject must be stripped");
+        assert_eq!(rec.subject, "Hello World");
     }
 }
