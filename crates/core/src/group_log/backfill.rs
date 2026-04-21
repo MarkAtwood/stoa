@@ -2,7 +2,8 @@ use std::collections::{HashSet, VecDeque};
 
 use crate::error::StorageError;
 use crate::group_log::storage::LogStorage;
-use crate::group_log::types::{LogEntry, LogEntryId};
+use crate::group_log::types::LogEntryId;
+use crate::group_log::verify::VerifiedEntry;
 
 /// Error returned by [`backfill`].
 #[derive(Debug)]
@@ -40,20 +41,20 @@ impl From<StorageError> for BackfillError {
 /// Backfill a DAG starting from `want_id`, fetching all ancestors not already
 /// in local storage.
 ///
-/// `fetch` is a callback that retrieves a `LogEntry` by its `LogEntryId` from
-/// a remote source.  Returns the number of entries fetched and inserted.
+/// `fetch` is a callback that retrieves and **verifies** a `LogEntry` by its
+/// `LogEntryId` from a remote source, returning a [`VerifiedEntry`].  Returns
+/// the number of entries fetched and inserted.
 ///
 /// If `want_id` is already present in local storage the function returns
 /// `Ok(0)` immediately without issuing any fetch calls.
 ///
-/// # Security requirement for remote fetch
+/// # Signature verification is enforced by type
 ///
-/// This function inserts whatever the `fetch` callback returns.  When `fetch`
-/// retrieves entries from an untrusted remote peer, the callback **must** call
-/// [`crate::group_log::verify::verify_entry`] on each entry before returning
-/// it.  Skipping that call means forged or tampered log entries — including
-/// ones with invalid operator signatures or phantom parent chains — can enter
-/// local storage undetected and be propagated to other peers.
+/// The callback must return a [`VerifiedEntry`], which can only be constructed
+/// via [`crate::group_log::verify::verify_signature`].  This makes it
+/// impossible for callers to insert unverified entries: the type system
+/// enforces the invariant that every entry stored here has a valid operator
+/// Ed25519 signature.
 ///
 /// Algorithm (BFS):
 /// 1. If `want_id` already in storage: return `Ok(0)`.
@@ -74,7 +75,7 @@ pub async fn backfill<S, F, Fut>(
 where
     S: LogStorage,
     F: Fn(LogEntryId) -> Fut,
-    Fut: std::future::Future<Output = Result<LogEntry, String>>,
+    Fut: std::future::Future<Output = Result<VerifiedEntry, String>>,
 {
     if storage.has_entry(&want_id).await? {
         return Ok(0);
@@ -99,9 +100,10 @@ where
 
         visited.insert(key);
 
-        let entry = fetch(entry_id.clone())
+        let verified = fetch(entry_id.clone())
             .await
             .map_err(BackfillError::FetchFailed)?;
+        let entry = verified.into_inner();
 
         storage
             .insert_entry(entry_id.clone(), entry.clone())
@@ -208,6 +210,7 @@ mod tests {
                     .await
                     .map_err(|e| e.to_string())?
                     .ok_or_else(|| format!("entry not found: {id}"))
+                    .map(VerifiedEntry::new_for_test)
             }
         })
         .await
@@ -236,6 +239,7 @@ mod tests {
                     .await
                     .map_err(|e| e.to_string())?
                     .ok_or_else(|| format!("entry not found: {id}"))
+                    .map(VerifiedEntry::new_for_test)
             }
         })
         .await
@@ -266,6 +270,7 @@ mod tests {
                     .await
                     .map_err(|e| e.to_string())?
                     .ok_or_else(|| format!("entry not found: {id}"))
+                    .map(VerifiedEntry::new_for_test)
             }
         })
         .await
@@ -280,6 +285,7 @@ mod tests {
                     .await
                     .map_err(|e| e.to_string())?
                     .ok_or_else(|| format!("entry not found: {id}"))
+                    .map(VerifiedEntry::new_for_test)
             }
         })
         .await
@@ -340,6 +346,7 @@ mod tests {
                     .await
                     .map_err(|e| e.to_string())?
                     .ok_or_else(|| format!("entry not found: {id}"))
+                    .map(VerifiedEntry::new_for_test)
             }
         })
         .await
@@ -367,7 +374,7 @@ mod tests {
         let missing_id = make_entry_id(b"does-not-exist");
 
         let result = backfill(&local, missing_id, |id| async move {
-            Err(format!("remote has no entry {id}"))
+            Err::<VerifiedEntry, _>(format!("remote has no entry {id}"))
         })
         .await;
 
@@ -388,7 +395,7 @@ mod tests {
         local.insert_entry(id.clone(), entry).await.unwrap();
 
         let count = backfill(&local, id.clone(), |_id| async move {
-            Err("fetch must not be called".to_string())
+            Err::<VerifiedEntry, _>("fetch must not be called".to_string())
         })
         .await
         .expect("backfill should succeed");

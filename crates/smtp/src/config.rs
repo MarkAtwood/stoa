@@ -89,6 +89,13 @@ pub struct SieveAdminConfig {
     /// with its own authentication.
     #[serde(default)]
     pub allow_non_loopback: bool,
+    /// Optional bearer token for HTTP authentication.
+    ///
+    /// When set, every request must include `Authorization: Bearer <token>`.
+    /// Strongly recommended when `bind` is a non-loopback address.
+    /// If unset, all requests are allowed (loopback-only access control).
+    #[serde(default)]
+    pub bearer_token: Option<String>,
 }
 
 impl Default for SieveAdminConfig {
@@ -97,6 +104,7 @@ impl Default for SieveAdminConfig {
             bind: default_sieve_admin_bind(),
             max_script_bytes: default_max_script_bytes(),
             allow_non_loopback: false,
+            bearer_token: None,
         }
     }
 }

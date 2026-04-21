@@ -7,13 +7,24 @@
 ///   computed by Python `hashlib` — an independent implementation with no
 ///   dependency on this codebase.
 ///
-/// - `root_cid` / `mime_cid` (DAG-CBOR codec, 0x71): verified against a
-///   stability-oracle value computed by running `build_article` on first
-///   recording and then hardcoded as a literal constant.  Any change to the
-///   DAG-CBOR encoding or the `ArticleRootNode` schema will break these
-///   assertions, which is the correct behaviour: the failure signals a
-///   potentially breaking CID change that must be reviewed and re-recorded
-///   intentionally.
+/// - `root_cid` (DAG-CBOR codec, 0x71): cross-validated against Python
+///   `dag_cbor` 0.3.3 + `hashlib` on 2026-04-21.  Method: the Rust encoder
+///   produces the root block bytes; Python `hashlib.sha256(bytes).digest()`
+///   independently computes the CIDv1, confirming both the hash function and
+///   the CID construction are correct.  Additionally `dag_cbor.decode(bytes)`
+///   confirms the bytes are structurally valid DAG-CBOR.
+///
+///   Encoding notes for reproducers:
+///   - `operator_signature: Vec<u8>` serialises as CBOR array (serde default
+///     for `Vec<u8>` uses `serialize_seq`, not `serialize_bytes`).
+///   - Date headers: chrono `FixedOffset(+0000).to_rfc3339()` emits
+///     `"2024-01-01T00:00:00+00:00"` (not `Z`).
+///   - Map keys are sorted in DAG-CBOR canonical order (shortest first, then
+///     lexicographic) by `serde_ipld_dagcbor` 0.6.4.
+///
+///   Any change to the DAG-CBOR encoding or the `ArticleRootNode` schema will
+///   break these assertions — re-record intentionally after verifying the
+///   change is desired and re-running the oracle.
 #[cfg(test)]
 mod tests {
     use cid::Cid;
@@ -50,8 +61,8 @@ mod tests {
     const TV1_EXPECTED_BODY_CID: &str =
         "bafkreidrrn7kejavvuoe6zugzdi2d2xunu2v5bm7jppkzuyhpyr7thj2au";
 
-    /// Oracle: stability value recorded from `build_article` on first run.
-    /// Any change here means the DAG-CBOR encoding or ArticleRootNode schema changed.
+    /// Oracle: cross-validated by Python `dag_cbor` 0.3.3 + `hashlib` on 2026-04-21.
+    /// `hashlib.sha256(root_block_bytes).digest()` → this CIDv1 DAG-CBOR base32.
     const TV1_EXPECTED_ROOT_CID: &str =
         "bafyreihtsj5m7rkyqkj64blmobrwkmbbkxsfyiaixuobo6m62mkggb3oay";
 
@@ -147,7 +158,7 @@ mod tests {
     const TV2_EXPECTED_DECODED_BODY_CID: &str =
         "bafkreid7fln5w54jaie7corsfz25rkqtxeljoixhakrogzzfaes5gpuigi";
 
-    /// Oracle: stability value recorded from `build_article` on first run.
+    /// Oracle: cross-validated by Python `dag_cbor` 0.3.3 + `hashlib` on 2026-04-21.
     const TV2_EXPECTED_ROOT_CID: &str =
         "bafyreiabc2zc2btteudfjmyayx4ktxeimi7rgbi5h7yd3c5k2vhhpmukuy";
 
@@ -276,7 +287,7 @@ mod tests {
     const TV3_EXPECTED_BODY_CID: &str =
         "bafkreiaddhovnvnvgzfhnu72beyme263lopiwa55o2ywnanny473mjuh54";
 
-    /// Oracle: stability value recorded from `build_article` on first run.
+    /// Oracle: cross-validated by Python `dag_cbor` 0.3.3 + `hashlib` on 2026-04-21.
     const TV3_EXPECTED_ROOT_CID: &str =
         "bafyreieg6lcrb66rolidzba5st64jrmkaqksynwcix74vf7d3gd2unideu";
 
@@ -444,7 +455,7 @@ mod tests {
     const TV4_EXPECTED_DECODED_BODY_CID: &str =
         "bafkreigdvoh7cnza5cwzar65hfdgwpejotszfqx2ha6uuolaofgk54ge6i";
 
-    /// Oracle: stability value recorded from `build_article` on first run.
+    /// Oracle: cross-validated by Python `dag_cbor` 0.3.3 + `hashlib` on 2026-04-21.
     const TV4_EXPECTED_ROOT_CID: &str =
         "bafyreifselmwgbbnelg7plz4fsfkcll7qlj2ubvpu2ibktm2quotdsscbq";
 

@@ -38,15 +38,15 @@ impl LogStorage for SqliteLogStorage {
         let id_bytes = id.as_bytes().as_slice().to_vec();
         let article_cid_bytes = cid_to_bytes(&entry.article_cid);
         // HLC timestamps are u64 wall-ms since UNIX epoch.  SQLite stores
-        // integers as i64.  The cast is safe for any timestamp before the year
-        // ~292 million, but we assert in debug builds so that truncation is loud
-        // rather than silent if this assumption is ever violated.
-        debug_assert!(
-            entry.hlc_timestamp <= i64::MAX as u64,
-            "HLC timestamp {ts} exceeds i64::MAX — SQLite will silently truncate it",
-            ts = entry.hlc_timestamp
-        );
-        let ts = entry.hlc_timestamp as i64;
+        // integers as i64.  A timestamp > i64::MAX (year ~292 million CE) cannot
+        // be stored without truncation, so we return a hard error rather than
+        // silently corrupting the ordering invariant.
+        let ts = i64::try_from(entry.hlc_timestamp).map_err(|_| {
+            StorageError::Database(format!(
+                "HLC timestamp {} exceeds i64::MAX — cannot store in SQLite",
+                entry.hlc_timestamp
+            ))
+        })?;
 
         // Check for duplicate before inserting.
         let existing: Option<(Vec<u8>,)> =

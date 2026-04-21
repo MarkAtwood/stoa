@@ -18,6 +18,7 @@ use usenet_ipfs_core::{
     article::GroupName,
     group_log::{
         append::append, backfill, reconcile, LogEntry, LogEntryId, LogStorage, MemLogStorage,
+        VerifiedEntry,
     },
 };
 
@@ -199,6 +200,7 @@ async fn crdt_merge_and_backfill_convergence() {
                     .await
                     .map_err(|e| e.to_string())?
                     .ok_or_else(|| format!("entry not found on B: {id}"))
+                    .map(VerifiedEntry::new_for_test)
             }
         })
         .await
@@ -242,6 +244,7 @@ async fn crdt_merge_and_backfill_convergence() {
                     .await
                     .map_err(|e| e.to_string())?
                     .ok_or_else(|| format!("entry not found on A: {id}"))
+                    .map(VerifiedEntry::new_for_test)
             }
         })
         .await
@@ -417,6 +420,7 @@ async fn backfill_stops_at_already_present_entries() {
                 .await
                 .map_err(|e| e.to_string())?
                 .ok_or_else(|| format!("entry not found on remote: {id}"))
+                .map(VerifiedEntry::new_for_test)
         }
     })
     .await

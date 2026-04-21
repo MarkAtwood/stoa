@@ -14,4 +14,4 @@ pub use reconcile::{reconcile, ReconcileResult};
 pub use sqlite_storage::SqliteLogStorage;
 pub use storage::LogStorage;
 pub use types::{LogEntry, LogEntryId, LogHead};
-pub use verify::{tip_hash, verify_entry, VerifyError};
+pub use verify::{tip_hash, verify_entry, verify_signature, VerifiedEntry, VerifyError};

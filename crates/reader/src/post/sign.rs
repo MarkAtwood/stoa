@@ -57,27 +57,29 @@ pub fn load_signing_key(path: &std::path::Path) -> Result<SigningKey, String> {
     Ok(SigningKey::from_bytes(&seed))
 }
 
-/// Sign article bytes and return the article with `X-Usenet-IPFS-Sig` appended.
+/// Sign article bytes and return `(signed_article, sig_bytes)`.
+///
+/// `signed_article` is the article with `X-Usenet-IPFS-Sig` inserted immediately
+/// before the header/body separator. `sig_bytes` is the raw 64-byte Ed25519
+/// signature over `article_bytes`, used for the `X-Usenet-IPFS-Sig` header value.
 ///
 /// The signature is computed over the full `article_bytes` as supplied (before
-/// the signature header exists). The header is then inserted immediately before
-/// the blank line that separates headers from body.
+/// the signature header exists). `article_bytes` must contain a header/body
+/// separator (`\r\n\r\n` or `\n\n`); if none is found the bytes are returned
+/// unchanged and sig_bytes is still the valid signature over the input.
 ///
-/// `article_bytes` must contain a header/body separator (`\r\n\r\n` or `\n\n`).
-/// If no separator is found the bytes are returned unchanged.
-pub fn sign_article(key: &SigningKey, article_bytes: &[u8]) -> Vec<u8> {
-    // Ed25519 via ed25519-dalek uses RFC 8032 deterministic signing: same key +
-    // same bytes → same signature → same CID in IPFS.  This is intentional —
-    // two concurrent POSTs of the same article produce identical signed bytes,
-    // write to the same CID, and msgid_map handles the collision via INSERT OR
-    // IGNORE.  Do NOT add a nonce or timestamp to the signature; that would
-    // break CID idempotency and cause duplicate articles in IPFS.
+/// Ed25519 via ed25519-dalek uses RFC 8032 deterministic signing: same key +
+/// same bytes → same signature → same CID in IPFS.  Do NOT add a nonce or
+/// timestamp to the signature; that would break CID idempotency and cause
+/// duplicate articles in IPFS.
+pub fn sign_article(key: &SigningKey, article_bytes: &[u8]) -> (Vec<u8>, Vec<u8>) {
     let sig: Signature = signing::sign(key, article_bytes);
-    let sig_value = URL_SAFE_NO_PAD.encode(sig.to_bytes());
+    let sig_bytes = sig.to_bytes().to_vec();
+    let sig_value = URL_SAFE_NO_PAD.encode(&sig_bytes);
     let sig_line = format!("{OPERATOR_SIG_HEADER}: {sig_value}\r\n");
 
     // Locate the end-of-headers boundary.
-    if let Some(sep_pos) = find_header_end(article_bytes) {
+    let out = if let Some(sep_pos) = find_header_end(article_bytes) {
         // sep_pos is the index of the first byte of the blank line.
         let mut out = Vec::with_capacity(article_bytes.len() + sig_line.len());
         out.extend_from_slice(&article_bytes[..sep_pos]);
@@ -86,7 +88,8 @@ pub fn sign_article(key: &SigningKey, article_bytes: &[u8]) -> Vec<u8> {
         out
     } else {
         article_bytes.to_vec()
-    }
+    };
+    (out, sig_bytes)
 }
 
 /// Verify that the `X-Usenet-IPFS-Sig` header in `article_bytes` is valid.
@@ -201,7 +204,7 @@ mod tests {
         let pubkey = key.verifying_key();
         let article = test_article();
 
-        let signed = sign_article(&key, &article);
+        let (signed, _) = sign_article(&key, &article);
         assert!(
             verify_article_sig(&pubkey, &signed).is_ok(),
             "verification with the correct key must succeed"
@@ -213,7 +216,7 @@ mod tests {
         let key = test_key();
         let article = test_article();
 
-        let signed = sign_article(&key, &article);
+        let (signed, _) = sign_article(&key, &article);
         let signed_str = std::str::from_utf8(&signed).expect("signed article must be UTF-8");
 
         assert!(
@@ -228,7 +231,7 @@ mod tests {
         let key_b = SigningKey::from_bytes(&[0x13u8; 32]);
         let article = test_article();
 
-        let signed = sign_article(&key_a, &article);
+        let (signed, _) = sign_article(&key_a, &article);
         let result = verify_article_sig(&key_b.verifying_key(), &signed);
 
         assert!(
@@ -243,7 +246,7 @@ mod tests {
         let pubkey = key.verifying_key();
         let article = test_article();
 
-        let mut signed = sign_article(&key, &article);
+        let (mut signed, _) = sign_article(&key, &article);
 
         // Flip the last byte of the body.
         let last = signed.len() - 1;

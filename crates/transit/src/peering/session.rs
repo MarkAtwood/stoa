@@ -56,6 +56,7 @@ pub async fn run_peering_session(stream: TcpStream, shared: Arc<PeeringShared>) 
     let (reader_half, mut writer) = stream.into_split();
     let mut reader = BufReader::new(reader_half);
     let mut mode = PeeringMode::Ihave;
+    let mut rate_limiter = TokenBucket::new(RATE_BURST, RATE_PER_SEC);
 
     tracing::debug!(%peer_addr, "peering connection accepted");
 
@@ -121,10 +122,20 @@ pub async fn run_peering_session(stream: TcpStream, shared: Arc<PeeringShared>) 
                         DotStuffedResult::Data(article_bytes) => {
                             let result =
                                 check_ingest(&msgid, &article_bytes, &shared.msgid_map).await;
-                            let resp = takethis_response(&result);
-                            if result == IngestResult::Accepted {
-                                enqueue_article(&shared, &msgid, article_bytes).await;
-                            }
+                            let resp = if result == IngestResult::Accepted {
+                                if rate_limiter.try_consume() {
+                                    enqueue_article(&shared, &msgid, article_bytes).await;
+                                    takethis_response(&result)
+                                } else {
+                                    tracing::warn!(
+                                        %peer_addr, %msgid,
+                                        "TAKETHIS rate limit exceeded"
+                                    );
+                                    "431 Article too soon, try again later"
+                                }
+                            } else {
+                                takethis_response(&result)
+                            };
                             Some(format!("{} {}\r\n", resp.trim_end(), msgid))
                         }
                     }
@@ -150,9 +161,19 @@ pub async fn run_peering_session(stream: TcpStream, shared: Arc<PeeringShared>) 
                                 let result =
                                     check_ingest(&msgid, &article_bytes, &shared.msgid_map).await;
                                 if result == IngestResult::Accepted {
-                                    enqueue_article(&shared, &msgid, article_bytes).await;
+                                    if rate_limiter.try_consume() {
+                                        enqueue_article(&shared, &msgid, article_bytes).await;
+                                        Some(ihave_response(&result).to_owned())
+                                    } else {
+                                        tracing::warn!(
+                                            %peer_addr, %msgid,
+                                            "IHAVE rate limit exceeded"
+                                        );
+                                        Some("436 Transfer failed, try again later\r\n".to_owned())
+                                    }
+                                } else {
+                                    Some(ihave_response(&result).to_owned())
                                 }
-                                Some(ihave_response(&result).to_owned())
                             }
                         }
                     }
@@ -174,6 +195,53 @@ pub async fn run_peering_session(stream: TcpStream, shared: Arc<PeeringShared>) 
     }
 
     tracing::debug!(%peer_addr, "peering connection closed");
+}
+
+// ── Per-session rate limiter ──────────────────────────────────────────────────
+
+/// Burst capacity: number of accepted articles allowed in a sudden burst
+/// before the per-second rate limit kicks in.
+const RATE_BURST: f64 = 200.0;
+
+/// Sustained rate: articles accepted per second per connection in steady state.
+const RATE_PER_SEC: f64 = 100.0;
+
+/// Token-bucket rate limiter for per-connection article acceptance.
+///
+/// Prevents a single peer from flooding the ingestion queue and starving
+/// legitimate peers.  Calls to `try_consume` return `true` (allowed) or
+/// `false` (rate limit exceeded; caller should respond with 431/436).
+pub(crate) struct TokenBucket {
+    tokens: f64,
+    capacity: f64,
+    refill_rate: f64,
+    last_refill: std::time::Instant,
+}
+
+impl TokenBucket {
+    pub(crate) fn new(capacity: f64, refill_rate: f64) -> Self {
+        Self {
+            tokens: capacity,
+            capacity,
+            refill_rate,
+            last_refill: std::time::Instant::now(),
+        }
+    }
+
+    /// Attempt to consume one token.  Returns `true` if the token was granted,
+    /// `false` if the bucket was empty (rate limit exceeded).
+    pub(crate) fn try_consume(&mut self) -> bool {
+        let now = std::time::Instant::now();
+        let elapsed = now.duration_since(self.last_refill).as_secs_f64();
+        self.last_refill = now;
+        self.tokens = (self.tokens + elapsed * self.refill_rate).min(self.capacity);
+        if self.tokens >= 1.0 {
+            self.tokens -= 1.0;
+            true
+        } else {
+            false
+        }
+    }
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
@@ -259,5 +327,58 @@ async fn read_dot_stuffed(
             continue;
         }
         buf.extend_from_slice(output_line.as_bytes());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn token_bucket_allows_up_to_capacity() {
+        let mut tb = TokenBucket::new(5.0, 0.0); // no refill
+        for _ in 0..5 {
+            assert!(tb.try_consume(), "should allow up to capacity");
+        }
+        assert!(!tb.try_consume(), "should deny when exhausted");
+    }
+
+    #[test]
+    fn token_bucket_refills_over_time() {
+        let mut tb = TokenBucket::new(1.0, 1_000_000.0); // very fast refill
+        assert!(tb.try_consume(), "first consume succeeds");
+        // drain
+        while tb.try_consume() {}
+        // Sleep not needed: the refill formula uses elapsed time; with 1M tokens/sec
+        // even a nanosecond of elapsed time will refill at least one token.
+        // Force a small artificial delay via setting last_refill in the past.
+        tb.last_refill -= std::time::Duration::from_secs(1);
+        assert!(tb.try_consume(), "should refill after time passes");
+    }
+
+    #[test]
+    fn token_bucket_does_not_exceed_capacity() {
+        let cap = 10.0;
+        let mut tb = TokenBucket::new(cap, 1_000_000.0);
+        // Wait a long time (via time manipulation)
+        tb.last_refill -= std::time::Duration::from_secs(9999);
+        // Consume once to trigger refill
+        tb.try_consume();
+        // tokens should be capped at capacity - 1
+        assert!(
+            tb.tokens <= cap,
+            "tokens {:.1} must not exceed capacity {cap}",
+            tb.tokens
+        );
+    }
+
+    #[test]
+    fn token_bucket_zero_refill_stays_empty_after_drain() {
+        let mut tb = TokenBucket::new(3.0, 0.0);
+        for _ in 0..3 {
+            assert!(tb.try_consume());
+        }
+        tb.last_refill -= std::time::Duration::from_secs(100);
+        assert!(!tb.try_consume(), "zero refill rate must not replenish");
     }
 }

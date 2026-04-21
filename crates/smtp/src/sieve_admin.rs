@@ -20,7 +20,8 @@ use axum::{
     Router,
     body::Bytes,
     extract::{Path, State},
-    http::StatusCode,
+    http::{Request, StatusCode},
+    middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::{delete, get, post, put},
 };
@@ -29,6 +30,7 @@ use tokio::net::TcpListener;
 use tracing::{info, warn};
 
 use crate::config::Config;
+use crate::session::SieveCache;
 use crate::store;
 
 /// Returns `true` if `addr` resolves to a loopback address.
@@ -45,6 +47,7 @@ fn is_loopback_addr(addr: &str) -> bool {
 struct AdminState {
     config: Arc<Config>,
     pool: SqlitePool,
+    sieve_cache: SieveCache,
 }
 
 /// Validate a script name: must be non-empty, no path separators, no null bytes.
@@ -56,16 +59,41 @@ fn valid_script_name(name: &str) -> bool {
         && !name.contains("..")
 }
 
+/// Axum middleware that enforces the bearer token configured in
+/// `sieve_admin.bearer_token`.
+///
+/// If no token is configured, all requests pass through (backward compatible).
+/// If a token is configured, requests must include `Authorization: Bearer <token>`;
+/// missing or incorrect tokens receive `401 Unauthorized`.
+async fn require_bearer_token(
+    State(s): State<AdminState>,
+    request: Request<axum::body::Body>,
+    next: Next,
+) -> Response {
+    if let Some(expected) = &s.config.sieve_admin.bearer_token {
+        let auth = request
+            .headers()
+            .get(axum::http::header::AUTHORIZATION)
+            .and_then(|v| v.to_str().ok());
+        let expected_header = format!("Bearer {expected}");
+        if auth != Some(expected_header.as_str()) {
+            return (StatusCode::UNAUTHORIZED, "Unauthorized").into_response();
+        }
+    }
+    next.run(request).await
+}
+
 /// Start the Sieve admin HTTP server.  Runs until the listener is closed.
-pub async fn run_admin_server(config: Arc<Config>, pool: SqlitePool) {
+pub async fn run_admin_server(config: Arc<Config>, pool: SqlitePool, sieve_cache: SieveCache) {
     let bind = &config.sieve_admin.bind;
 
-    if !is_loopback_addr(bind) && !config.sieve_admin.allow_non_loopback {
+    let has_token = config.sieve_admin.bearer_token.is_some();
+    if !is_loopback_addr(bind) && !config.sieve_admin.allow_non_loopback && !has_token {
         warn!(
             bind,
-            "WARNING: Sieve admin API bound to non-loopback address without authentication. \
+            "WARNING: Sieve admin API bound to non-loopback address with no bearer token. \
              Any host with HTTP access can read and write Sieve scripts for all users. \
-             Set sieve_admin.allow_non_loopback = true in config to suppress this warning, \
+             Set sieve_admin.bearer_token in config to require authentication, \
              or bind to 127.0.0.1."
         );
     }
@@ -81,7 +109,7 @@ pub async fn run_admin_server(config: Arc<Config>, pool: SqlitePool) {
         }
     };
 
-    let state = AdminState { config, pool };
+    let state = AdminState { config, pool, sieve_cache };
     let app = Router::new()
         .route("/admin/sieve/{username}", get(list_scripts))
         .route("/admin/sieve/{username}/{name}", get(get_script))
@@ -89,6 +117,10 @@ pub async fn run_admin_server(config: Arc<Config>, pool: SqlitePool) {
         .route("/admin/sieve/{username}/{name}", delete(delete_script))
         .route("/admin/sieve/{username}/{name}/activate", post(activate_script))
         .route("/admin/sieve/check", post(check_script))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            require_bearer_token,
+        ))
         .with_state(state);
 
     if let Err(e) = axum::serve(listener, app).await {
@@ -174,7 +206,10 @@ async fn put_script(
             .into_response();
     }
     match store::save_script(&s.pool, &username, &name, &body, false).await {
-        Ok(()) => (StatusCode::CREATED, "").into_response(),
+        Ok(()) => {
+            s.sieve_cache.lock().await.remove(&username);
+            (StatusCode::CREATED, "").into_response()
+        }
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
 }
@@ -191,7 +226,10 @@ async fn delete_script(
         return (StatusCode::BAD_REQUEST, "invalid script name").into_response();
     }
     match store::delete_script(&s.pool, &username, &name).await {
-        Ok(true) => (StatusCode::NO_CONTENT, "").into_response(),
+        Ok(true) => {
+            s.sieve_cache.lock().await.remove(&username);
+            (StatusCode::NO_CONTENT, "").into_response()
+        }
         Ok(false) => (StatusCode::NOT_FOUND, "script not found").into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
@@ -209,7 +247,10 @@ async fn activate_script(
         return (StatusCode::BAD_REQUEST, "invalid script name").into_response();
     }
     match store::set_active(&s.pool, &username, &name).await {
-        Ok(true) => (StatusCode::NO_CONTENT, "").into_response(),
+        Ok(true) => {
+            s.sieve_cache.lock().await.remove(&username);
+            (StatusCode::NO_CONTENT, "").into_response()
+        }
         Ok(false) => (StatusCode::NOT_FOUND, "script not found").into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
@@ -261,9 +302,15 @@ mod tests {
     }
 
     async fn app_with_alice() -> (Router, SqlitePool) {
+        let (app, pool, _cache) = app_with_alice_and_cache().await;
+        (app, pool)
+    }
+
+    async fn app_with_alice_and_cache() -> (Router, SqlitePool, crate::session::SieveCache) {
         let pool = crate::store::open(":memory:").await.expect("open db");
         let config = test_config(vec![alice()]);
-        let state = AdminState { config, pool: pool.clone() };
+        let cache = crate::session::new_sieve_cache();
+        let state = AdminState { config, pool: pool.clone(), sieve_cache: cache.clone() };
         let app = Router::new()
             .route("/admin/sieve/{username}", get(list_scripts))
             .route("/admin/sieve/{username}/{name}", get(get_script))
@@ -272,7 +319,7 @@ mod tests {
             .route("/admin/sieve/{username}/{name}/activate", post(activate_script))
             .route("/admin/sieve/check", post(check_script))
             .with_state(state);
-        (app, pool)
+        (app, pool, cache)
     }
 
     async fn response_body(resp: axum::response::Response) -> String {
@@ -451,5 +498,152 @@ mod tests {
             .unwrap();
         let resp = app.oneshot(req).await.unwrap();
         assert_eq!(resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    }
+
+    fn test_config_with_token(users: Vec<UserConfig>, token: &str) -> Arc<Config> {
+        Arc::new(Config {
+            hostname: "test.example.com".to_string(),
+            listen: ListenConfig { port_25: "127.0.0.1:0".into(), port_587: "127.0.0.1:0".into() },
+            tls: TlsConfig { cert_path: None, key_path: None },
+            limits: LimitsConfig::default(),
+            log: LogConfig::default(),
+            reader: ReaderConfig::default(),
+            list_routing: vec![],
+            users,
+            database: DatabaseConfig::default(),
+            sieve_admin: crate::config::SieveAdminConfig {
+                bearer_token: Some(token.to_string()),
+                ..Default::default()
+            },
+            dns_resolver: "system".to_string(),
+        })
+    }
+
+    async fn app_with_token(token: &str) -> Router {
+        let pool = crate::store::open(":memory:").await.expect("open db");
+        let config = test_config_with_token(vec![alice()], token);
+        let cache = crate::session::new_sieve_cache();
+        let state = AdminState { config, pool, sieve_cache: cache };
+        Router::new()
+            .route("/admin/sieve/{username}", get(list_scripts))
+            .route("/admin/sieve/{username}/{name}", get(get_script))
+            .route("/admin/sieve/{username}/{name}", put(put_script))
+            .route("/admin/sieve/{username}/{name}", delete(delete_script))
+            .route("/admin/sieve/{username}/{name}/activate", post(activate_script))
+            .route("/admin/sieve/check", post(check_script))
+            .layer(middleware::from_fn_with_state(
+                state.clone(),
+                require_bearer_token,
+            ))
+            .with_state(state)
+    }
+
+    #[tokio::test]
+    async fn bearer_token_missing_returns_401() {
+        let app = app_with_token("secret").await;
+        let req = Request::builder()
+            .method(Method::GET)
+            .uri("/admin/sieve/alice")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn bearer_token_wrong_returns_401() {
+        let app = app_with_token("secret").await;
+        let req = Request::builder()
+            .method(Method::GET)
+            .uri("/admin/sieve/alice")
+            .header("Authorization", "Bearer wrong")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn bearer_token_correct_allows_request() {
+        let app = app_with_token("secret").await;
+        let req = Request::builder()
+            .method(Method::GET)
+            .uri("/admin/sieve/alice")
+            .header("Authorization", "Bearer secret")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    // ── Cache invalidation tests ──────────────────────────────────────────
+
+    #[tokio::test]
+    async fn put_script_invalidates_cache_entry() {
+        let (app, _pool, cache) = app_with_alice_and_cache().await;
+
+        // Pre-populate the cache with a stale entry.
+        cache.lock().await.insert(
+            "alice".to_string(),
+            std::sync::Arc::new(usenet_ipfs_sieve::compile(b"discard;").unwrap()),
+        );
+
+        let req = Request::builder()
+            .method(Method::PUT)
+            .uri("/admin/sieve/alice/default")
+            .body(Body::from("keep;"))
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::CREATED);
+        assert!(
+            !cache.lock().await.contains_key("alice"),
+            "cache entry must be removed after PUT"
+        );
+    }
+
+    #[tokio::test]
+    async fn delete_script_invalidates_cache_entry() {
+        let (app, pool, cache) = app_with_alice_and_cache().await;
+        store::save_script(&pool, "alice", "tmp", b"keep;", true).await.unwrap();
+
+        cache.lock().await.insert(
+            "alice".to_string(),
+            std::sync::Arc::new(usenet_ipfs_sieve::compile(b"keep;").unwrap()),
+        );
+
+        let req = Request::builder()
+            .method(Method::DELETE)
+            .uri("/admin/sieve/alice/tmp")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+        assert!(
+            !cache.lock().await.contains_key("alice"),
+            "cache entry must be removed after DELETE"
+        );
+    }
+
+    #[tokio::test]
+    async fn activate_script_invalidates_cache_entry() {
+        let (app, pool, cache) = app_with_alice_and_cache().await;
+        store::save_script(&pool, "alice", "s", b"discard;", false).await.unwrap();
+
+        cache.lock().await.insert(
+            "alice".to_string(),
+            std::sync::Arc::new(usenet_ipfs_sieve::compile(b"discard;").unwrap()),
+        );
+
+        let req = Request::builder()
+            .method(Method::POST)
+            .uri("/admin/sieve/alice/s/activate")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+        assert!(
+            !cache.lock().await.contains_key("alice"),
+            "cache entry must be removed after activate"
+        );
     }
 }

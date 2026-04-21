@@ -46,6 +46,14 @@ impl MsgIdMap {
                 if stored_bytes == cid_bytes {
                     Ok(())
                 } else {
+                    // Two distinct articles share a Message-ID.  This is either a
+                    // bug in the sender, a deliberate replay/injection attempt, or
+                    // a hash collision (negligible probability).  Log it so operators
+                    // can detect and investigate duplicate-ID injection.
+                    tracing::warn!(
+                        message_id,
+                        "Message-ID collision: already mapped to a different CID"
+                    );
                     Err(StorageError::Database(format!(
                         "message-id {message_id:?} already mapped to a different CID"
                     )))

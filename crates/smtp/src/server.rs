@@ -8,7 +8,7 @@ use tracing::{error, info, warn};
 
 use crate::config::Config;
 use crate::queue::MessageQueue;
-use crate::session::run_session;
+use crate::session::{run_session, SieveCache};
 
 /// Accept connections on both port-25 and port-587 listeners, spawning a
 /// `run_session` task for each.  Returns when both listeners close or an
@@ -19,6 +19,7 @@ pub async fn run_server(
     config: Arc<Config>,
     queue: MessageQueue,
     pool: Option<SqlitePool>,
+    sieve_cache: Option<SieveCache>,
 ) {
     let auth: Option<Arc<MessageAuthenticator>> = {
         let result = match config.dns_resolver.as_str() {
@@ -78,9 +79,10 @@ pub async fn run_server(
         let queue = queue.clone();
         let auth = auth.clone();
         let pool = pool.clone();
+        let cache = sieve_cache.clone();
         tokio::spawn(async move {
             let _permit = permit; // released when session task ends
-            run_session(stream, peer_str, config, queue, auth, pool).await;
+            run_session(stream, peer_str, config, queue, auth, pool, cache).await;
         });
     }
 }
@@ -129,7 +131,7 @@ mod tests {
         let config = test_config();
         let (queue, _rx) = MessageQueue::new(100);
 
-        tokio::spawn(run_server(listener_25, listener_587, config, queue, None));
+        tokio::spawn(run_server(listener_25, listener_587, config, queue, None, None));
 
         let mut client = tokio::net::TcpStream::connect(addr_25).await.unwrap();
         let mut buf = [0u8; 256];
@@ -153,7 +155,7 @@ mod tests {
         let config = test_config();
         let (queue, _rx) = MessageQueue::new(100);
 
-        tokio::spawn(run_server(listener_25, listener_587, config, queue, None));
+        tokio::spawn(run_server(listener_25, listener_587, config, queue, None, None));
 
         // Connect to port_25 and port_587 concurrently.
         let (c1, c2) = tokio::join!(

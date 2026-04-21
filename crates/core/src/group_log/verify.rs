@@ -8,6 +8,35 @@ use crate::signing::{verify, VerifyingKey};
 
 use ed25519_dalek::Signature;
 
+/// A [`LogEntry`] that has passed Ed25519 signature verification.
+///
+/// This type can only be constructed via [`verify_signature`] or (in tests)
+/// via [`VerifiedEntry::new_for_test`], ensuring that any `VerifiedEntry`
+/// in hand carries a valid operator signature.
+pub struct VerifiedEntry(LogEntry);
+
+impl VerifiedEntry {
+    /// Extract the inner [`LogEntry`].
+    pub fn into_inner(self) -> LogEntry {
+        self.0
+    }
+
+    /// Read-only reference to the inner entry.
+    pub fn as_entry(&self) -> &LogEntry {
+        &self.0
+    }
+
+    /// Construct a `VerifiedEntry` without signature verification.
+    ///
+    /// Use only in tests that exercise backfill mechanics and are not testing
+    /// signature correctness.  Production paths must go through
+    /// [`verify_signature`].
+    #[doc(hidden)]
+    pub fn new_for_test(entry: LogEntry) -> Self {
+        Self(entry)
+    }
+}
+
 /// Compute a deterministic hash of a tip set.
 ///
 /// Tip CIDs are sorted lexicographically by their raw byte representation,
@@ -66,26 +95,26 @@ impl From<StorageError> for VerifyError {
     }
 }
 
-/// Verify a log entry's consistency:
+/// Verify only the Ed25519 signature in `entry.operator_signature`.
 ///
-/// 1. The Ed25519 signature in `entry.operator_signature` is valid over the
-///    canonical bytes: `hlc_timestamp (8 BE bytes) || article_cid bytes ||
-///    sorted parent_cid bytes`.  The signature field itself is excluded from
-///    the signed content.
-/// 2. All parent CIDs listed in `entry.parent_cids` exist in `storage`.
-/// 3. `entry.hlc_timestamp` is strictly greater than every parent's
-///    `hlc_timestamp`.
+/// The signature must be valid over the canonical bytes:
+/// `hlc_timestamp (8 BE bytes) || article_cid bytes || sorted parent_cid bytes`.
+/// Parent existence and HLC monotonicity are NOT checked here; use
+/// [`verify_entry`] for the full check.
 ///
-/// Genesis entries (no parents) pass checks 2 and 3 vacuously.
-pub async fn verify_entry<S: LogStorage>(
-    entry: &LogEntry,
-    _entry_id: &LogEntryId,
-    storage: &S,
+/// On success, returns a [`VerifiedEntry`] that proves the entry carries a
+/// valid operator signature.  This is the only stable way to produce a
+/// `VerifiedEntry` in production code.
+pub fn verify_signature(
+    entry: LogEntry,
     pubkey: &VerifyingKey,
-) -> Result<(), VerifyError> {
-    // ── 1. Signature verification ─────────────────────────────────────────────
-    // Canonical bytes are the same fields used in compute_entry_id, but WITHOUT
-    // operator_signature — the signature covers the content it protects.
+) -> Result<VerifiedEntry, VerifyError> {
+    check_signature(&entry, pubkey)?;
+    Ok(VerifiedEntry(entry))
+}
+
+/// Shared signature check over canonical log entry bytes.
+fn check_signature(entry: &LogEntry, pubkey: &VerifyingKey) -> Result<(), VerifyError> {
     let mut canonical = Vec::new();
     canonical.extend_from_slice(&entry.hlc_timestamp.to_be_bytes());
     canonical.extend_from_slice(&entry.article_cid.to_bytes());
@@ -107,8 +136,28 @@ pub async fn verify_entry<S: LogStorage>(
             })
         })?;
     let sig = Signature::from_bytes(&sig_bytes);
+    verify(pubkey, &canonical, &sig).map_err(VerifyError::InvalidSignature)
+}
 
-    verify(pubkey, &canonical, &sig).map_err(VerifyError::InvalidSignature)?;
+/// Verify a log entry's consistency:
+///
+/// 1. The Ed25519 signature in `entry.operator_signature` is valid over the
+///    canonical bytes: `hlc_timestamp (8 BE bytes) || article_cid bytes ||
+///    sorted parent_cid bytes`.  The signature field itself is excluded from
+///    the signed content.
+/// 2. All parent CIDs listed in `entry.parent_cids` exist in `storage`.
+/// 3. `entry.hlc_timestamp` is strictly greater than every parent's
+///    `hlc_timestamp`.
+///
+/// Genesis entries (no parents) pass checks 2 and 3 vacuously.
+pub async fn verify_entry<S: LogStorage>(
+    entry: &LogEntry,
+    _entry_id: &LogEntryId,
+    storage: &S,
+    pubkey: &VerifyingKey,
+) -> Result<(), VerifyError> {
+    // ── 1. Signature verification ─────────────────────────────────────────────
+    check_signature(entry, pubkey)?;
 
     // ── 2 & 3. Parent existence and HLC monotonicity ──────────────────────────
     for parent_cid in &entry.parent_cids {

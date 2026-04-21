@@ -437,7 +437,10 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
     }
 
     // Step 3: Sign the article.
-    let signed_bytes = sign_article(&stores.signing_key, article_bytes);
+    // Produces signed_bytes with the X-Usenet-IPFS-Sig header inserted.
+    // The group log entry signature is computed separately over log entry
+    // canonical bytes inside append_to_groups, where parent CIDs are known.
+    let (signed_bytes, _) = sign_article(&stores.signing_key, article_bytes);
 
     // Step 4: Write to IPFS and record msgid → CID.
     let cid = match write_article_to_ipfs(
@@ -472,7 +475,7 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
         &stores.article_numbers,
         &hlc_timestamps,
         &cid,
-        &[],
+        &stores.signing_key,
         &newsgroups,
     )
     .await
@@ -845,6 +848,7 @@ mod tests {
     use super::*;
     use crate::store::server_stores::ServerStores;
     use std::time::{SystemTime, UNIX_EPOCH};
+    use usenet_ipfs_core::group_log::LogStorage;
 
     /// Return the current time formatted as RFC 2822 (e.g. `Mon, 20 Apr 2026 12:00:00 +0000`).
     fn now_rfc2822() -> String {
@@ -895,6 +899,64 @@ mod tests {
              Article body.\r\n"
         )
         .into_bytes()
+    }
+
+    /// Regression test for o0r.2: verify that the group log entry produced by
+    /// run_post_pipeline carries a valid operator Ed25519 signature.
+    ///
+    /// The fix has two parts:
+    /// (1) append_to_groups now accepts a SigningKey and computes the log entry
+    ///     signature over canonical bytes (hlc_timestamp || article_cid ||
+    ///     sorted parent_cids) internally, where parent CIDs are known.
+    /// (2) The article signature from sign_article (over raw article bytes) is
+    ///     correctly used only for the X-Usenet-IPFS-Sig header, not the log.
+    ///
+    /// This test will fail if operator_signature in the log entry is ever left
+    /// empty or set to a signature over the wrong bytes.
+    #[tokio::test]
+    async fn post_pipeline_log_entry_signature_verifies() {
+        let stores = ServerStores::new_mem().await;
+        let article =
+            minimal_article("comp.test", "Signature Verify", "<sigverify@test.example>");
+
+        let resp = run_post_pipeline(&article, &stores).await;
+        assert_eq!(
+            resp.code, 240,
+            "POST pipeline must succeed; got: {}",
+            resp.text
+        );
+
+        let group = usenet_ipfs_core::article::GroupName::new("comp.test").unwrap();
+        let tips = stores.log_storage.list_tips(&group).await.unwrap();
+        assert_eq!(tips.len(), 1, "must have exactly one tip after one POST");
+
+        let entry = stores
+            .log_storage
+            .get_entry(&tips[0])
+            .await
+            .unwrap()
+            .expect("tip entry must exist in storage");
+
+        assert_eq!(
+            entry.operator_signature.len(),
+            64,
+            "operator_signature must be 64 bytes (Ed25519); got {} — sign_article return value may not be threaded through",
+            entry.operator_signature.len()
+        );
+
+        let pubkey = stores.signing_key.verifying_key();
+        let result = usenet_ipfs_core::group_log::verify::verify_entry(
+            &entry,
+            &tips[0],
+            stores.log_storage.as_ref(),
+            &pubkey,
+        )
+        .await;
+
+        assert!(
+            result.is_ok(),
+            "group log entry must carry a valid operator signature; got: {result:?}"
+        );
     }
 
     #[tokio::test]

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
@@ -6,12 +7,25 @@ use mail_auth::MessageAuthenticator;
 use sqlx::SqlitePool;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
+use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
 
 use crate::auth::verify_inbound;
 use crate::config::Config;
 use crate::queue::{IncomingMessage, MessageQueue};
 use crate::{routing, store};
+
+/// Thread-safe cache of compiled Sieve scripts, keyed by username.
+///
+/// Scripts are compiled on first use and retained until the sieve admin API
+/// explicitly invalidates the entry (on script PUT, DELETE, or activate).
+/// This avoids recompiling the same script for every inbound message.
+pub type SieveCache = Arc<Mutex<HashMap<String, Arc<usenet_ipfs_sieve::CompiledScript>>>>;
+
+/// Create a new, empty [`SieveCache`].
+pub fn new_sieve_cache() -> SieveCache {
+    Arc::new(Mutex::new(HashMap::new()))
+}
 
 const MAX_LINE_BYTES: usize = 4096;
 
@@ -96,6 +110,7 @@ pub async fn run_session(
     queue: MessageQueue,
     auth: Option<Arc<MessageAuthenticator>>,
     pool: Option<SqlitePool>,
+    sieve_cache: Option<SieveCache>,
 ) {
     let (read_half, mut write_half) = stream.into_split();
     let mut reader = BufReader::new(read_half);
@@ -385,6 +400,7 @@ pub async fn run_session(
                                 &raw_bytes,
                                 &from,
                                 recipient_email,
+                                sieve_cache.as_ref(),
                             )
                             .await;
                             deliveries.push((
@@ -544,15 +560,36 @@ async fn sieve_for_user(
     raw_message: &[u8],
     envelope_from: &str,
     envelope_to: &str,
+    cache: Option<&SieveCache>,
 ) -> Vec<usenet_ipfs_sieve::SieveAction> {
+    // Check cache before hitting the database.
+    if let Some(cache) = cache {
+        let lock = cache.lock().await;
+        if let Some(compiled) = lock.get(username) {
+            let compiled = Arc::clone(compiled);
+            drop(lock);
+            return usenet_ipfs_sieve::evaluate(&compiled, raw_message, envelope_from, envelope_to);
+        }
+    }
+
     let script_bytes = store::load_active_script(pool, username).await;
     match script_bytes {
         Some(bytes) => match usenet_ipfs_sieve::compile(&bytes) {
             Ok(compiled) => {
+                let compiled = Arc::new(compiled);
+                if let Some(cache) = cache {
+                    cache.lock().await.insert(username.to_owned(), Arc::clone(&compiled));
+                }
                 usenet_ipfs_sieve::evaluate(&compiled, raw_message, envelope_from, envelope_to)
             }
             Err(e) => {
-                warn!(%username, "Sieve compile error: {e} — defaulting to Keep");
+                tracing::error!(
+                    %username,
+                    error = %e,
+                    sieve.event = "compile_error",
+                    "Sieve script compile error — failing open to Keep; \
+                     user's filter rules are NOT being applied"
+                );
                 vec![usenet_ipfs_sieve::SieveAction::Keep]
             }
         },
@@ -749,7 +786,7 @@ mod tests {
         let queue2 = queue.clone();
         let server_task = tokio::spawn(async move {
             let (stream, peer) = listener.accept().await.expect("accept");
-            run_session(stream, peer.to_string(), config2, queue2, None, pool).await;
+            run_session(stream, peer.to_string(), config2, queue2, None, pool, None).await;
         });
 
         let mut client = tokio::net::TcpStream::connect(addr).await.expect("connect");
@@ -886,7 +923,7 @@ mod tests {
         let auth2 = auth.clone();
         tokio::spawn(async move {
             let (stream, peer) = listener.accept().await.unwrap();
-            run_session(stream, peer.to_string(), config2, queue2, Some(auth2), None).await;
+            run_session(stream, peer.to_string(), config2, queue2, Some(auth2), None, None).await;
         });
 
         let mut client = tokio::net::TcpStream::connect(addr).await.unwrap();
@@ -1183,7 +1220,7 @@ mod tests {
         let queue2 = queue.clone();
         let server_task = tokio::spawn(async move {
             let (stream, peer) = listener.accept().await.unwrap();
-            run_session(stream, peer.to_string(), config2, queue2, None, None).await;
+            run_session(stream, peer.to_string(), config2, queue2, None, None, None).await;
         });
 
         let mut client = tokio::net::TcpStream::connect(addr).await.unwrap();
@@ -1207,5 +1244,52 @@ mod tests {
             response.contains("421"),
             "expected 421 timeout response, got: {response:?}"
         );
+    }
+
+    // ── Sieve script cache tests ──────────────────────────────────────────
+
+    const MINIMAL_MESSAGE: &[u8] = b"From: a@example.com\r\nTo: b@example.com\r\n\r\nHi\r\n";
+
+    #[tokio::test]
+    async fn sieve_for_user_populates_cache_on_first_call() {
+        let pool = crate::store::open(":memory:").await.unwrap();
+        crate::store::save_script(&pool, "alice", "default", b"keep;", true).await.unwrap();
+
+        let cache = new_sieve_cache();
+        sieve_for_user(&pool, "alice", MINIMAL_MESSAGE, "a@example.com", "b@example.com", Some(&cache)).await;
+
+        assert!(
+            cache.lock().await.contains_key("alice"),
+            "cache should contain alice after first call"
+        );
+    }
+
+    #[tokio::test]
+    async fn sieve_for_user_uses_cached_script_after_db_removal() {
+        let pool = crate::store::open(":memory:").await.unwrap();
+        crate::store::save_script(&pool, "alice", "default", b"discard;", true).await.unwrap();
+
+        let cache = new_sieve_cache();
+        // First call: DB load, cache populated, script is Discard.
+        let actions = sieve_for_user(&pool, "alice", MINIMAL_MESSAGE, "a@example.com", "b@example.com", Some(&cache)).await;
+        assert!(
+            actions.iter().any(|a| *a == usenet_ipfs_sieve::SieveAction::Discard),
+            "expected Discard from compiled script"
+        );
+
+        // Remove from DB — subsequent call must use the cache, still Discard.
+        crate::store::delete_script(&pool, "alice", "default").await.unwrap();
+        let actions2 = sieve_for_user(&pool, "alice", MINIMAL_MESSAGE, "a@example.com", "b@example.com", Some(&cache)).await;
+        assert!(
+            actions2.iter().any(|a| *a == usenet_ipfs_sieve::SieveAction::Discard),
+            "expected Discard from cache even after DB removal"
+        );
+    }
+
+    #[tokio::test]
+    async fn sieve_for_user_no_cache_falls_back_to_keep_when_no_script() {
+        let pool = crate::store::open(":memory:").await.unwrap();
+        let actions = sieve_for_user(&pool, "nobody", MINIMAL_MESSAGE, "a@example.com", "b@example.com", None).await;
+        assert_eq!(actions, vec![usenet_ipfs_sieve::SieveAction::Keep]);
     }
 }

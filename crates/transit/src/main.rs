@@ -7,7 +7,7 @@ use tokio::{net::TcpListener, sync::Mutex};
 use tracing::{info, warn};
 use usenet_ipfs_core::{
     GroupName,
-    group_log::{backfill, reconcile, LogEntry, LogEntryId, SqliteLogStorage},
+    group_log::{backfill, reconcile, LogEntryId, SqliteLogStorage, VerifiedEntry},
     hlc::HlcClock,
     msgid_map::MsgIdMap,
 };
@@ -197,12 +197,11 @@ async fn main() {
 
                 // Backfill missing entries.
                 // v1: peer block fetch is not yet implemented; log and move on.
-                // When this stub is replaced with a real fetch, the callback
-                // MUST call verify_entry() on each received entry before returning
-                // it — see the security note on backfill() in core::group_log::backfill.
+                // When this stub is replaced, the callback must return VerifiedEntry
+                // produced by verify_signature() — the type enforces the invariant.
                 for entry_id in &result.want {
                     let fetch = |_: LogEntryId| async {
-                        Err::<LogEntry, String>(
+                        Err::<VerifiedEntry, String>(
                             "v1: peer block fetch not yet implemented".to_string(),
                         )
                     };

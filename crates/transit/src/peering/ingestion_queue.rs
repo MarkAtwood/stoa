@@ -63,21 +63,25 @@ pub struct IngestionSender {
 impl IngestionSender {
     /// Try to enqueue an article.
     ///
+    /// Uses `try_send` so the capacity check and the enqueue are atomic with
+    /// respect to the channel — no TOCTOU between a separate `is_full()` read
+    /// and the actual send.
+    ///
     /// Returns `Ok(())` if accepted, `Err("431 ...")` if the queue is full.
     pub async fn try_enqueue(&self, article: QueuedArticle) -> Result<(), &'static str> {
-        if self.metrics.is_full() {
-            self.metrics
-                .rejected_full_total
-                .fetch_add(1, Ordering::Relaxed);
-            return Err("431 Ingestion queue full, try again later\r\n");
-        }
-        match self.tx.send(article).await {
+        match self.tx.try_send(article) {
             Ok(()) => {
                 self.metrics.depth_current.fetch_add(1, Ordering::Relaxed);
                 self.metrics.accepted_total.fetch_add(1, Ordering::Relaxed);
                 Ok(())
             }
-            Err(_) => {
+            Err(mpsc::error::TrySendError::Full(_)) => {
+                self.metrics
+                    .rejected_full_total
+                    .fetch_add(1, Ordering::Relaxed);
+                Err("431 Ingestion queue full, try again later\r\n")
+            }
+            Err(mpsc::error::TrySendError::Closed(_)) => {
                 // Receiver dropped — queue is shutting down.
                 Err("431 Ingestion queue unavailable\r\n")
             }
@@ -238,5 +242,57 @@ mod tests {
         // Queue is now empty; new enqueues should succeed again.
         assert!(sender.try_enqueue(make_article(100)).await.is_ok());
         assert_eq!(sender.depth(), 1);
+    }
+
+    /// Regression test for usenet-ipfs-76h: concurrent TAKETHIS flood must never
+    /// exceed queue capacity or deadlock.
+    ///
+    /// Before the TOCTOU fix (is_full() + tx.send().await), two racing tasks could
+    /// both observe depth < capacity and both proceed, pushing depth past capacity.
+    /// `try_send` is atomic at the channel level, so this cannot happen.
+    #[tokio::test]
+    async fn concurrent_enqueue_never_exceeds_capacity() {
+        use std::sync::Arc;
+
+        let capacity = 10usize;
+        let n_senders = 100usize;
+        let (sender, _rx) = ingestion_queue(capacity);
+        let sender = Arc::new(sender);
+
+        let handles: Vec<_> = (0..n_senders)
+            .map(|i| {
+                let s = Arc::clone(&sender);
+                tokio::spawn(async move { s.try_enqueue(make_article(i as u64)).await })
+            })
+            .collect();
+
+        let mut accepted = 0usize;
+        let mut rejected = 0usize;
+        for h in handles {
+            match h.await.unwrap() {
+                Ok(()) => accepted += 1,
+                Err(_) => rejected += 1,
+            }
+        }
+
+        assert_eq!(
+            accepted + rejected,
+            n_senders,
+            "all tasks must complete (no hangs)"
+        );
+        assert!(
+            accepted <= capacity,
+            "accepted {accepted} exceeds capacity {capacity}"
+        );
+        assert!(
+            sender.depth() <= capacity,
+            "depth {} exceeds capacity {capacity}",
+            sender.depth()
+        );
+        assert_eq!(
+            sender.metrics().accepted_total.load(std::sync::atomic::Ordering::Relaxed),
+            accepted as u64,
+            "accepted_total counter must match observed accepts"
+        );
     }
 }

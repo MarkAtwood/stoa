@@ -4,6 +4,7 @@ use usenet_ipfs_core::article::GroupName;
 use usenet_ipfs_core::group_log::append::append as crdt_append;
 use usenet_ipfs_core::group_log::types::{LogEntry, LogEntryId};
 use usenet_ipfs_core::group_log::LogStorage;
+use usenet_ipfs_core::signing::SigningKey;
 
 use crate::session::response::Response;
 use crate::store::article_numbers::ArticleNumberStore;
@@ -33,13 +34,18 @@ fn entry_id_to_cid(id: &LogEntryId) -> Cid {
 /// clock mutex (and releasing the mutex before calling this function) so that
 /// the mutex is not held across async I/O operations.
 ///
+/// Each log entry is signed over its canonical bytes
+/// (`hlc_timestamp BE-8 || article_cid || sorted parent_cids`) so that entries
+/// are independently verifiable from the log alone without fetching the article.
+///
 /// Steps for each group:
 /// 1. Get current tips from storage → parent CIDs.
-/// 2. Build a `LogEntry` with the HLC timestamp, article CID, operator
-///    signature, and parent CIDs.
-/// 3. Call `crdt_append` to persist the entry.
-/// 4. Call `article_numbers.assign_number` to get the local article number.
-/// 5. Collect `(group_name, article_number)` pairs.
+/// 2. Compute canonical bytes and sign to produce `operator_signature`.
+/// 3. Build a `LogEntry` with the HLC timestamp, article CID, signature, and
+///    parent CIDs.
+/// 4. Call `crdt_append` to persist the entry.
+/// 5. Call `article_numbers.assign_number` to get the local article number.
+/// 6. Collect `(group_name, article_number)` pairs.
 ///
 /// If any step fails for any group, returns `Err(441 Posting failed)`.
 pub async fn append_to_groups<S: LogStorage>(
@@ -47,7 +53,7 @@ pub async fn append_to_groups<S: LogStorage>(
     article_numbers: &ArticleNumberStore,
     hlc_timestamps: &[u64],
     article_cid: &Cid,
-    operator_signature: &[u8],
+    signing_key: &SigningKey,
     newsgroups: &[GroupName],
 ) -> Result<AppendResult, Response> {
     debug_assert_eq!(
@@ -66,10 +72,27 @@ pub async fn append_to_groups<S: LogStorage>(
 
         let parent_cids: Vec<Cid> = current_tips.iter().map(entry_id_to_cid).collect();
 
+        // Sign the log entry canonical bytes so the entry is independently
+        // verifiable without fetching the article from IPFS.
+        // canonical = hlc_timestamp (8 BE bytes) || article_cid || sorted parent_cids
+        let operator_signature = {
+            let mut canonical = Vec::new();
+            canonical.extend_from_slice(&hlc_ts.to_be_bytes());
+            canonical.extend_from_slice(&article_cid.to_bytes());
+            let mut parent_bytes: Vec<Vec<u8>> =
+                parent_cids.iter().map(|c| c.to_bytes()).collect();
+            parent_bytes.sort();
+            for pb in &parent_bytes {
+                canonical.extend_from_slice(pb);
+            }
+            let sig = usenet_ipfs_core::signing::sign(signing_key, &canonical);
+            sig.to_bytes().to_vec()
+        };
+
         let entry = LogEntry {
             hlc_timestamp: hlc_ts,
             article_cid: *article_cid,
-            operator_signature: operator_signature.to_vec(),
+            operator_signature,
             parent_cids,
         };
 
@@ -96,6 +119,11 @@ mod tests {
     use std::str::FromStr as _;
     use usenet_ipfs_core::group_log::MemLogStorage;
     use usenet_ipfs_core::hlc::HlcClock;
+    use usenet_ipfs_core::signing::SigningKey;
+
+    fn test_signing_key() -> SigningKey {
+        SigningKey::from_bytes(&[0x42u8; 32])
+    }
 
     fn test_cid(data: &[u8]) -> Cid {
         Cid::new_v1(0x71, Code::Sha2_256.digest(data))
@@ -135,7 +163,7 @@ mod tests {
             &article_numbers,
             &timestamps,
             &cid,
-            &[0xaa, 0xbb],
+            &test_signing_key(),
             &groups,
         )
         .await
@@ -163,7 +191,7 @@ mod tests {
             &article_numbers,
             &timestamps,
             &cid,
-            &[0x01],
+            &test_signing_key(),
             &groups,
         )
         .await
@@ -187,13 +215,14 @@ mod tests {
         let (article_numbers, _tmp) = make_article_numbers().await;
         let group = vec![GroupName::new("comp.lang.rust").unwrap()];
 
+        let key = test_signing_key();
         let cid1 = test_cid(b"article-seq-1");
         let r1 = append_to_groups(
             &log_storage,
             &article_numbers,
             &test_timestamps(group.len()),
             &cid1,
-            &[0x01],
+            &key,
             &group,
         )
         .await
@@ -205,7 +234,7 @@ mod tests {
             &article_numbers,
             &test_timestamps(group.len()),
             &cid2,
-            &[0x02],
+            &key,
             &group,
         )
         .await
@@ -229,7 +258,7 @@ mod tests {
             &article_numbers,
             &timestamps,
             &cid,
-            &[0xcc],
+            &test_signing_key(),
             &groups,
         )
         .await

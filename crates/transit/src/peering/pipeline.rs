@@ -224,6 +224,18 @@ where
         }
     }
 
+    // GC SAFETY: The pipeline intentionally does not insert into the `articles`
+    // table here.  The GC system (retention/gc_candidates.rs) only collects
+    // CIDs present in `articles`, so a CID written to IPFS above cannot be
+    // collected until it is explicitly recorded there.
+    //
+    // When articles table recording is eventually added, `ingested_at_ms` MUST
+    // be set to the current wall-clock time (SystemTime::now()), NOT from the
+    // article's Date header or any peer-supplied timestamp.  The grace period
+    // check (`ingested_at_ms < now - grace_period_ms`) in gc_candidates.rs
+    // protects newly ingested articles from immediate collection only when this
+    // invariant holds.
+
     // 4. Publish tip advertisements (best-effort).
     if let Some(tx) = ctx.gossip_tx {
         for group_name_str in &group_name_strs {
