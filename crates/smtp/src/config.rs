@@ -18,6 +18,34 @@ pub struct Config {
     pub reader: ReaderConfig,
     #[serde(default)]
     pub list_routing: Vec<ListRoutingRule>,
+    #[serde(default)]
+    pub users: Vec<UserConfig>,
+    #[serde(default)]
+    pub database: DatabaseConfig,
+}
+
+/// A local mailbox user.  `email` is matched against RCPT TO addresses.
+#[derive(Debug, Deserialize, Clone)]
+pub struct UserConfig {
+    pub username: String,
+    pub email: String,
+}
+
+fn default_db_path() -> String {
+    "smtp.db".to_string()
+}
+
+#[derive(Debug, Deserialize)]
+pub struct DatabaseConfig {
+    /// File path for the SQLite database, or `:memory:` for in-process testing.
+    #[serde(default = "default_db_path")]
+    pub path: String,
+}
+
+impl Default for DatabaseConfig {
+    fn default() -> Self {
+        Self { path: default_db_path() }
+    }
 }
 
 #[derive(Debug, Deserialize, Clone)]

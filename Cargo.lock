@@ -5944,6 +5944,7 @@ dependencies = [
  "rustls",
  "rustls-pemfile",
  "serde",
+ "sqlx",
  "tempfile",
  "tokio",
  "tokio-rustls",

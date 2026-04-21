@@ -5,7 +5,7 @@ use tracing::{error, info, warn};
 
 use usenet_ipfs_smtp::{
     config::Config,
-    nntp_client, routing,
+    nntp_client, routing, store,
     queue::{IncomingMessage, MessageQueue},
     server::run_server,
 };
@@ -71,6 +71,22 @@ async fn main() {
         }
     };
 
+    // Open the Sieve delivery database only when local users are configured.
+    let pool = if !config.users.is_empty() {
+        match store::open(&config.database.path).await {
+            Ok(p) => {
+                info!(path = %config.database.path, "Sieve delivery database opened");
+                Some(p)
+            }
+            Err(e) => {
+                error!("failed to open database {}: {e}", config.database.path);
+                std::process::exit(1);
+            }
+        }
+    } else {
+        None
+    };
+
     info!(
         port_25 = %config.listen.port_25,
         port_587 = %config.listen.port_587,
@@ -89,7 +105,7 @@ async fn main() {
     });
 
     tokio::select! {
-        _ = run_server(listener_25, listener_587, config, queue) => {}
+        _ = run_server(listener_25, listener_587, config, queue, pool) => {}
         _ = tokio::signal::ctrl_c() => {
             info!("received CTRL-C, shutting down");
         }
@@ -125,6 +141,6 @@ async fn route_message(msg: IncomingMessage, config: &Config) {
     warn!(
         from = %msg.envelope_from,
         to = ?msg.envelope_to,
-        "no routing rule matched — message dropped (Sieve delivery not yet implemented)"
+        "no routing rule matched — message dropped"
     );
 }

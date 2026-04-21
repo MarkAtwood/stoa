@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use mail_auth::MessageAuthenticator;
+use sqlx::SqlitePool;
 use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
 use tracing::{error, info, warn};
@@ -17,6 +18,7 @@ pub async fn run_server(
     listener_587: TcpListener,
     config: Arc<Config>,
     queue: MessageQueue,
+    pool: Option<SqlitePool>,
 ) {
     let auth: Option<Arc<MessageAuthenticator>> =
         match MessageAuthenticator::new_cloudflare() {
@@ -68,9 +70,10 @@ pub async fn run_server(
         let config = config.clone();
         let queue = queue.clone();
         let auth = auth.clone();
+        let pool = pool.clone();
         tokio::spawn(async move {
             let _permit = permit; // released when session task ends
-            run_session(stream, peer_str, config, queue, auth).await;
+            run_session(stream, peer_str, config, queue, auth, pool).await;
         });
     }
 }
@@ -78,7 +81,7 @@ pub async fn run_server(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{LimitsConfig, ListenConfig, LogConfig, ReaderConfig, TlsConfig};
+    use crate::config::{DatabaseConfig, LimitsConfig, ListenConfig, LogConfig, ReaderConfig, TlsConfig};
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     fn test_config() -> Arc<Config> {
@@ -101,6 +104,8 @@ mod tests {
             },
             reader: ReaderConfig::default(),
             list_routing: vec![],
+            users: vec![],
+            database: DatabaseConfig::default(),
         })
     }
 
@@ -114,7 +119,7 @@ mod tests {
         let config = test_config();
         let (queue, _rx) = MessageQueue::new();
 
-        tokio::spawn(run_server(listener_25, listener_587, config, queue));
+        tokio::spawn(run_server(listener_25, listener_587, config, queue, None));
 
         let mut client = tokio::net::TcpStream::connect(addr_25).await.unwrap();
         let mut buf = [0u8; 256];
@@ -138,7 +143,7 @@ mod tests {
         let config = test_config();
         let (queue, _rx) = MessageQueue::new();
 
-        tokio::spawn(run_server(listener_25, listener_587, config, queue));
+        tokio::spawn(run_server(listener_25, listener_587, config, queue, None));
 
         // Connect to port_25 and port_587 concurrently.
         let (c1, c2) = tokio::join!(

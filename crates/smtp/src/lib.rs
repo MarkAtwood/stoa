@@ -5,4 +5,5 @@ pub mod queue;
 pub mod routing;
 pub mod server;
 pub mod session;
+pub mod store;
 pub mod tls;
