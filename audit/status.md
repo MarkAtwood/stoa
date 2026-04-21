@@ -6,3 +6,6 @@
 [02:54:56] COORDINATOR: claimed epic usenet-ipfs-l62.2.8
 [02:55:11] COORDINATOR: starting wave1 l62.2.8.1
 [03:05:56] COORDINATOR: epic usenet-ipfs-l62.2.8 complete
+[23:33:30] COORDINATOR: starting epic loop
+[23:33:31] COORDINATOR: claimed epic usenet-ipfs-43s
+[23:52:29] COORDINATOR: claimed epic usenet-ipfs-5yg, starting NNTP CID extensions

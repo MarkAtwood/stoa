@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use cid::Cid;
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tracing::{debug, info, warn};
@@ -11,12 +12,12 @@ use crate::{
         ipfs_write::write_article_to_ipfs,
         log_append::append_to_groups,
         pipeline::check_duplicate_msgid,
-        sign::sign_article,
+        sign::{sign_article, verify_article_sig},
     },
     session::{
         command::{parse_command, ArticleRef, Command},
         commands::{
-            fetch::{article_response, ArticleContent},
+            fetch::{article_response, xcid_response, ArticleContent},
             post::{complete_post, read_dot_terminated, DEFAULT_MAX_ARTICLE_BYTES},
         },
         context::SessionContext,
@@ -153,6 +154,39 @@ async fn run_plain_session(
             continue;
         }
 
+        // ARTICLE cid:<cid>: fetch directly by CID (ADR-0007).
+        if let Command::Article(Some(ArticleRef::Cid(ref cid_str))) = cmd {
+            let resp = lookup_article_by_cid(&stores, cid_str).await;
+            if write_half.write_all(resp.to_string().as_bytes()).await.is_err() {
+                break;
+            }
+            continue;
+        }
+
+        // XCID: return CID for current or named article (ADR-0007).
+        if let Command::Xcid(ref arg) = cmd {
+            let resp = handle_xcid(
+                &stores,
+                arg.as_deref(),
+                ctx.current_group.as_ref().map(|g| g.as_str()),
+                ctx.current_article_number,
+            )
+            .await;
+            if write_half.write_all(resp.to_string().as_bytes()).await.is_err() {
+                break;
+            }
+            continue;
+        }
+
+        // XVERIFY: verify stored CID and optionally signature (ADR-0007).
+        if let Command::Xverify { ref message_id, ref expected_cid, verify_sig } = cmd {
+            let resp = handle_xverify(&stores, message_id, expected_cid, verify_sig).await;
+            if write_half.write_all(resp.to_string().as_bytes()).await.is_err() {
+                break;
+            }
+            continue;
+        }
+
         let is_quit = matches!(cmd, Command::Quit);
         let is_post = matches!(cmd, Command::Post);
         let is_starttls = matches!(cmd, Command::StartTls);
@@ -277,6 +311,39 @@ async fn run_session_io<S>(
         // ARTICLE <msgid>: resolve from stores before dispatching.
         if let Command::Article(Some(ArticleRef::MessageId(ref msgid))) = cmd {
             let resp = lookup_article_by_msgid(&stores, msgid).await;
+            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                break;
+            }
+            continue;
+        }
+
+        // ARTICLE cid:<cid>: fetch directly by CID (ADR-0007).
+        if let Command::Article(Some(ArticleRef::Cid(ref cid_str))) = cmd {
+            let resp = lookup_article_by_cid(&stores, cid_str).await;
+            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                break;
+            }
+            continue;
+        }
+
+        // XCID: return CID for current or named article (ADR-0007).
+        if let Command::Xcid(ref arg) = cmd {
+            let resp = handle_xcid(
+                &stores,
+                arg.as_deref(),
+                ctx.current_group.as_ref().map(|g| g.as_str()),
+                ctx.current_article_number,
+            )
+            .await;
+            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                break;
+            }
+            continue;
+        }
+
+        // XVERIFY: verify stored CID and optionally signature (ADR-0007).
+        if let Command::Xverify { ref message_id, ref expected_cid, verify_sig } = cmd {
+            let resp = handle_xverify(&stores, message_id, expected_cid, verify_sig).await;
             if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
                 break;
             }
@@ -412,6 +479,7 @@ async fn lookup_article_by_msgid(stores: &ServerStores, msgid: &str) -> Response
         message_id: msgid.to_string(),
         header_bytes,
         body_bytes,
+        cid: Some(cid),
     };
 
     article_response(&content)
@@ -495,4 +563,116 @@ fn extract_header_value(headers: &str, name: &str) -> Option<String> {
         }
     }
     None
+}
+
+// ── CID extension handlers (ADR-0007) ─────────────────────────────────────
+
+/// XCID [<message-id>]: return the CID for the current or named article.
+///
+/// If a message-id argument is supplied, look it up directly.
+/// If no argument, use the current (group, article_number) from session state.
+async fn handle_xcid(
+    stores: &ServerStores,
+    arg: Option<&str>,
+    current_group: Option<&str>,
+    current_number: Option<u64>,
+) -> Response {
+    let cid = if let Some(msgid) = arg {
+        match stores.msgid_map.lookup_by_msgid(msgid).await {
+            Ok(Some(c)) => c,
+            Ok(None) => return Response::no_article_with_message_id(),
+            Err(e) => {
+                warn!("XCID msgid lookup error: {e}");
+                return Response::program_fault();
+            }
+        }
+    } else {
+        let group = match current_group {
+            Some(g) => g,
+            None => return Response::no_newsgroup_selected(),
+        };
+        let number = match current_number {
+            Some(n) => n,
+            None => return Response::current_article_invalid(),
+        };
+        match stores.article_numbers.lookup_cid(group, number).await {
+            Ok(Some(c)) => c,
+            Ok(None) => return Response::current_article_invalid(),
+            Err(e) => {
+                warn!("XCID article_numbers lookup error: {e}");
+                return Response::program_fault();
+            }
+        }
+    };
+    xcid_response(&cid)
+}
+
+/// XVERIFY <message-id> <expected-cid> [SIG]: verify CID match, optionally
+/// also re-verify the operator ed25519 signature.
+///
+/// Response codes:
+/// - 291: verified OK
+/// - 430: message-id not found
+/// - 541: CID mismatch
+/// - 542: signature verification failed
+async fn handle_xverify(
+    stores: &ServerStores,
+    message_id: &str,
+    expected_cid: &str,
+    verify_sig: bool,
+) -> Response {
+    let actual_cid = match stores.msgid_map.lookup_by_msgid(message_id).await {
+        Ok(Some(c)) => c,
+        Ok(None) => return Response::no_article_with_message_id(),
+        Err(e) => {
+            warn!("XVERIFY msgid lookup error: {e}");
+            return Response::program_fault();
+        }
+    };
+
+    if actual_cid.to_string() != expected_cid {
+        return Response::new(541, "CID mismatch");
+    }
+
+    if verify_sig {
+        let raw_bytes = match stores.ipfs_store.get_raw_block(&actual_cid).await {
+            Ok(b) => b,
+            Err(e) => {
+                warn!("XVERIFY IPFS get error: {e}");
+                return Response::program_fault();
+            }
+        };
+        let pubkey = stores.signing_key.verifying_key();
+        if verify_article_sig(&pubkey, &raw_bytes).is_err() {
+            return Response::new(542, "Signature verification failed");
+        }
+    }
+
+    Response::new(291, "Verified OK")
+}
+
+/// ARTICLE cid:<cid>: fetch an article directly by its IPFS CID.
+///
+/// Returns 501 for an unparseable CID, 430 if the block is not found,
+/// or 220 with the article on success.
+async fn lookup_article_by_cid(stores: &ServerStores, cid_str: &str) -> Response {
+    let cid: Cid = match cid_str.parse() {
+        Ok(c) => c,
+        Err(_) => return Response::syntax_error(),
+    };
+    let raw_bytes = match stores.ipfs_store.get_raw_block(&cid).await {
+        Ok(b) => b,
+        Err(_) => return Response::no_article_with_message_id(),
+    };
+    let (header_bytes, body_bytes) = split_article(&raw_bytes);
+    let headers_str = String::from_utf8_lossy(&header_bytes);
+    let message_id = extract_header_value(&headers_str, "Message-ID").unwrap_or_default();
+    let content = ArticleContent {
+        article_number: 0,
+        message_id,
+        header_bytes,
+        body_bytes,
+        cid: Some(cid),
+    };
+    article_response(&content)
 }

@@ -1,3 +1,5 @@
+use cid::Cid;
+
 use crate::session::response::Response;
 
 /// Represents a stored article's content (resolved from storage).
@@ -8,6 +10,9 @@ pub struct ArticleContent {
     pub header_bytes: Vec<u8>,
     /// Raw body bytes
     pub body_bytes: Vec<u8>,
+    /// The article CID from the msgid→CID map, if available.
+    /// Used to inject X-Usenet-IPFS-CID into ARTICLE and HEAD responses.
+    pub cid: Option<Cid>,
 }
 
 /// Apply dot-stuffing to article output: prepend '.' to any line starting with '.'.
@@ -67,10 +72,20 @@ fn dot_stuffed_lines(data: &[u8]) -> Vec<String> {
     bytes_to_lines(&dot_stuff(data))
 }
 
+/// Build the X-Usenet-IPFS-CID header line string for injection into responses.
+///
+/// Returns `None` when no CID is available (legacy articles or failed lookups).
+fn cid_header_line(content: &ArticleContent) -> Option<String> {
+    content.cid.as_ref().map(|c| format!("X-Usenet-IPFS-CID: {c}"))
+}
+
 /// ARTICLE response: 220 + article_number + message_id, followed by headers,
 /// a blank line, and the dot-stuffed body. Terminated by ".".
 pub fn article_response(content: &ArticleContent) -> Response {
     let mut body = bytes_to_lines(&content.header_bytes);
+    if let Some(cid_line) = cid_header_line(content) {
+        body.push(cid_line);
+    }
     body.push(String::new()); // blank line separating headers from body
     body.extend(dot_stuffed_lines(&content.body_bytes));
     Response {
@@ -84,12 +99,21 @@ pub fn article_response(content: &ArticleContent) -> Response {
 /// HEAD response: 221 + article_number + message_id, followed by headers only.
 /// Terminated by ".".
 pub fn head_response(content: &ArticleContent) -> Response {
+    let mut body = bytes_to_lines(&content.header_bytes);
+    if let Some(cid_line) = cid_header_line(content) {
+        body.push(cid_line);
+    }
     Response {
         code: 221,
         text: format!("{} {} Headers follow", content.article_number, content.message_id),
-        body: bytes_to_lines(&content.header_bytes),
+        body,
         multiline: true,
     }
+}
+
+/// 290 response for XCID: returns the CID of the current or named article.
+pub fn xcid_response(cid: &Cid) -> Response {
+    Response::new(290, cid.to_string())
 }
 
 /// BODY response: 222 + article_number + message_id, followed by dot-stuffed body.
@@ -128,6 +152,7 @@ mod tests {
             message_id: "<test@example.com>".into(),
             header_bytes: b"Subject: Test\r\nFrom: foo@bar.com".to_vec(),
             body_bytes: b"Hello\r\n.dotted line\r\n".to_vec(),
+            cid: None,
         }
     }
 
@@ -176,6 +201,7 @@ mod tests {
             message_id: "<x@y>".into(),
             header_bytes: b"Subject: X".to_vec(),
             body_bytes: b".starts with dot\r\n".to_vec(),
+            cid: None,
         };
         let resp = article_response(&content);
         // The dot-stuffed line should appear as "..starts with dot" in the body lines.

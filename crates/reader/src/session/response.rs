@@ -65,6 +65,10 @@ impl Response {
             "OVER".to_string(),
             "HDR".to_string(),
             "LIST ACTIVE NEWSGROUPS".to_string(),
+            // CID extension capabilities (ADR-0007)
+            "XCID".to_string(),
+            "XVERIFY".to_string(),
+            "X-CID-LOCATOR".to_string(),
         ];
         if starttls_available {
             caps.push("STARTTLS".to_string());

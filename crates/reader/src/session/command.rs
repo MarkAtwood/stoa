@@ -1,11 +1,13 @@
 /// RFC 3977 §3.1.3 — maximum line length including CRLF.
 const MAX_LINE_BYTES: usize = 512;
 
-/// An article reference: either a message-ID or a local article number.
+/// An article reference: either a message-ID, a local article number,
+/// or a CID locator (the `cid:<cid-string>` form from ADR-0007).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ArticleRef {
     MessageId(String),
     Number(u64),
+    Cid(String),
 }
 
 /// An NNTP article number range as used by OVER/XOVER.
@@ -50,6 +52,17 @@ pub enum Command {
     AuthinfoUser(String),
     AuthinfoPass(String),
     StartTls,
+    /// XCID [<message-id>] — return the CID for the current or named article.
+    /// Advertised as XCID in CAPABILITIES. Response: 290 <cid>.
+    Xcid(Option<String>),
+    /// XVERIFY <message-id> <expected-cid> [SIG] — verify stored CID matches
+    /// expected-cid; optionally re-verify operator signature.
+    /// Advertised as XVERIFY in CAPABILITIES. Response: 291/541/542.
+    Xverify {
+        message_id: String,
+        expected_cid: String,
+        verify_sig: bool,
+    },
     /// Any unrecognized command, stored verbatim for logging/500 response.
     Unknown(String),
 }
@@ -159,6 +172,20 @@ pub fn parse_command(line: &str) -> Result<Command, ParseError> {
         "BODY" => Ok(Command::Body(parse_article_ref(rest))),
         "STAT" => Ok(Command::Stat(parse_article_ref(rest))),
 
+        "XCID" => {
+            let arg = if rest.is_empty() { None } else { Some(rest.to_string()) };
+            Ok(Command::Xcid(arg))
+        }
+
+        "XVERIFY" => {
+            let mut parts = rest.splitn(3, char::is_whitespace);
+            let message_id = parts.next().unwrap_or("").to_string();
+            let expected_cid = parts.next().unwrap_or("").to_string();
+            let sig_token = parts.next().unwrap_or("").trim().to_ascii_uppercase();
+            let verify_sig = sig_token == "SIG";
+            Ok(Command::Xverify { message_id, expected_cid, verify_sig })
+        }
+
         "OVER" | "XOVER" => {
             if rest.is_empty() {
                 return Ok(Command::Over(None));
@@ -188,13 +215,16 @@ pub fn parse_command(line: &str) -> Result<Command, ParseError> {
     }
 }
 
-/// Parse an optional article reference (message-ID or number).
+/// Parse an optional article reference (message-ID, number, or CID locator).
 fn parse_article_ref(s: &str) -> Option<ArticleRef> {
     if s.is_empty() {
         return None;
     }
     if s.starts_with('<') {
         return Some(ArticleRef::MessageId(s.to_string()));
+    }
+    if let Some(cid_str) = s.strip_prefix("cid:") {
+        return Some(ArticleRef::Cid(cid_str.to_string()));
     }
     s.parse::<u64>().ok().map(ArticleRef::Number)
 }
@@ -355,6 +385,15 @@ mod tests {
         assert_eq!(
             parse_command("ARTICLE <foo@bar>\r\n"),
             Ok(Command::Article(Some(ArticleRef::MessageId("<foo@bar>".into()))))
+        );
+    }
+
+    #[test]
+    fn parse_article_cid_locator() {
+        let cid = "bafyreihtsj5m7rkyqkj64blmobrwkmbbkxsfyiaixuobo6m62mkggb3oay";
+        assert_eq!(
+            parse_command(&format!("ARTICLE cid:{cid}\r\n")),
+            Ok(Command::Article(Some(ArticleRef::Cid(cid.to_string()))))
         );
     }
 

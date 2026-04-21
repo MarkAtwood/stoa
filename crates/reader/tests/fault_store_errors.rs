@@ -148,6 +148,7 @@ fn article_response_on_success_returns_220() {
         message_id: "<test@example.com>".to_string(),
         header_bytes: b"Subject: Test\r\nFrom: a@b.com".to_vec(),
         body_bytes: b"Hello world.\r\n".to_vec(),
+        cid: None,
     };
     let resp = article_response(&content);
     assert_eq!(resp.code, 220, "RFC 3977 §6.2.1: successful ARTICLE must yield 220");
@@ -161,6 +162,7 @@ fn head_response_on_success_returns_221() {
         message_id: "<head@example.com>".to_string(),
         header_bytes: b"Subject: Head Test".to_vec(),
         body_bytes: b"".to_vec(),
+        cid: None,
     };
     let resp = head_response(&content);
     assert_eq!(resp.code, 221, "RFC 3977 §6.2.2: successful HEAD must yield 221");
@@ -174,6 +176,7 @@ fn body_response_on_success_returns_222() {
         message_id: "<body@example.com>".to_string(),
         header_bytes: b"Subject: Body Test".to_vec(),
         body_bytes: b"Body text.\r\n".to_vec(),
+        cid: None,
     };
     let resp = body_response(&content);
     assert_eq!(resp.code, 222, "RFC 3977 §6.2.3: successful BODY must yield 222");

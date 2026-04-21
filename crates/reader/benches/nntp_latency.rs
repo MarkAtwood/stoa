@@ -26,6 +26,7 @@ fn make_article(i: usize) -> ArticleContent {
         )
         .into_bytes(),
         body_bytes: format!("Body of article {i}. Line two.\r\n").into_bytes(),
+        cid: None,
     }
 }
 
