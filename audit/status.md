@@ -11,3 +11,6 @@
 [23:52:29] COORDINATOR: claimed epic usenet-ipfs-5yg, starting NNTP CID extensions
 [00:23:33] COORDINATOR: claimed epic usenet-ipfs-3bz — reader live data sources
 [00:35:00] COORDINATOR: phase1 complete — 13 beads created, 4 ready in wave 0
+[03:43:48] COORDINATOR: claimed epic usenet-ipfs-9f1 (usenet-ipfs-mail: crate foundation)
+[03:43:57] COORDINATOR: phase0 done
+[03:47:18] COORDINATOR: phase1 done — 4 beads for epic 9f1, research complete

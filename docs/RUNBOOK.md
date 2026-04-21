@@ -242,6 +242,117 @@ INFO gossip: reconcile result  group=comp.lang.rust  want=0  have=1
 
 ---
 
+## Mail daemon (usenet-ipfs-mail)
+
+`usenet-ipfs-mail` is a JMAP (RFC 8620/8621) server that exposes the usenet-ipfs
+article store to email clients such as Fastmail, Thunderbird, and iOS Mail.
+
+> **v1 Limitations**
+>
+> | Limitation | Detail |
+> |-----------|--------|
+> | **No EventSource push** | `eventSourceUrl` is advertised but not implemented. Clients must poll. |
+> | **cannotCalculateChanges** | `Mailbox/changes` and `Email/changes` always return `cannotCalculateChanges`. Clients perform full re-sync on every session. |
+> | **In-memory user_flags** | `\Seen`/`\Flagged` state uses the mail SQLite database and persists, but is per-instance only — not shared across mail server restarts if the database is in-memory. |
+> | **Depends on reader stores** | The mail server reads articles from the same SQLite and IPFS as a co-located `usenet-ipfs-reader`. They must share the same reader database file. |
+
+### Prerequisites
+
+`usenet-ipfs-mail` must run on the same host as `usenet-ipfs-reader` and share its
+SQLite database file. The reader daemon must be started first.
+
+### Configuration
+
+Create `mail.toml`:
+
+```toml
+[listen]
+addr = "127.0.0.1:8080"
+
+[tls]
+# Uncomment for HTTPS (JMAP requires TLS in production):
+# cert_path = "/etc/ssl/certs/jmap.pem"
+# key_path  = "/etc/ssl/private/jmap.key"
+
+[database]
+# Mail-specific state (per-user flags, subscriptions).
+path = "/var/lib/usenet-ipfs/mail/mail.db"
+
+[auth]
+required = false   # set true and add [[auth.users]] for production
+
+# [[auth.users]]
+# username = "alice"
+# password = "changeme"
+
+[log]
+level = "info"
+format = "json"
+```
+
+### Start
+
+```bash
+mkdir -p /var/lib/usenet-ipfs/mail
+usenet-ipfs-mail --config mail.toml
+```
+
+### Create users (manual)
+
+User records live in the mail SQLite database. To add a user, generate a bcrypt hash
+and insert directly:
+
+```bash
+# Generate bcrypt hash (cost factor 12):
+python3 -c "import bcrypt; print(bcrypt.hashpw(b'yourpassword', bcrypt.gensalt(12)).decode())"
+
+# Insert into database:
+sqlite3 /var/lib/usenet-ipfs/mail/mail.db \
+  "INSERT INTO users (username, password_hash) VALUES ('alice', '\$2b\$12\$...');"
+```
+
+### Connect a JMAP client
+
+JMAP clients discover the server via the well-known URL:
+
+```
+http://127.0.0.1:8080/.well-known/jmap
+```
+
+This redirects to `/jmap/session`. Configure your client with:
+
+| Field | Value |
+|-------|-------|
+| **Server** | `http://127.0.0.1:8080` (or your hostname) |
+| **Username** | as configured in `[[auth.users]]` |
+| **Password** | as configured |
+| **Session URL** | `http://127.0.0.1:8080/jmap/session` |
+
+For Fastmail app, Thunderbird, or iOS Mail — use "Other JMAP server" and enter
+the session URL above.
+
+> **Production:** always use HTTPS. JMAP transmits credentials and message content
+> in HTTP request bodies. Configure `[tls]` cert/key paths before exposing to any
+> non-loopback network.
+
+### Verify
+
+```bash
+curl -s http://127.0.0.1:8080/health | python3 -m json.tool
+```
+
+Expected:
+```json
+{"status": "ok", "uptime_secs": 5}
+```
+
+Check the JMAP session resource:
+```bash
+curl -s http://127.0.0.1:8080/jmap/session | python3 -m json.tool
+```
+
+---
+
 ## See also
 
 - `docs/ops/configuration_reference.md` — full field-by-field reference

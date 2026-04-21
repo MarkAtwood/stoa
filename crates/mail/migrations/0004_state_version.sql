@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS state_version (
+    scope TEXT PRIMARY KEY NOT NULL,
+    version INTEGER NOT NULL DEFAULT 0
+);

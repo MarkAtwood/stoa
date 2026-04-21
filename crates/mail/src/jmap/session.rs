@@ -1,0 +1,112 @@
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::HashMap;
+
+/// RFC 8620 §2 Session Resource.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SessionResource {
+    pub capabilities: HashMap<String, Value>,
+    pub accounts: HashMap<String, AccountInfo>,
+    #[serde(rename = "primaryAccounts")]
+    pub primary_accounts: HashMap<String, String>,
+    pub username: String,
+    #[serde(rename = "apiUrl")]
+    pub api_url: String,
+    #[serde(rename = "downloadUrl")]
+    pub download_url: String,
+    #[serde(rename = "uploadUrl")]
+    pub upload_url: String,
+    #[serde(rename = "eventSourceUrl")]
+    pub event_source_url: String,
+    pub state: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AccountInfo {
+    pub name: String,
+    #[serde(rename = "isPersonal")]
+    pub is_personal: bool,
+    #[serde(rename = "isReadOnly")]
+    pub is_read_only: bool,
+    #[serde(rename = "accountCapabilities")]
+    pub account_capabilities: HashMap<String, Value>,
+}
+
+/// Build a SessionResource for the given username.
+pub fn build_session(username: &str, base_url: &str) -> SessionResource {
+    let mut capabilities: HashMap<String, Value> = HashMap::new();
+    capabilities.insert(
+        "urn:ietf:params:jmap:core".to_string(),
+        serde_json::json!({
+            "maxSizeUpload": 50_000_000u64,
+            "maxConcurrentUpload": 4,
+            "maxSizeRequest": 10_000_000u64,
+            "maxConcurrentRequests": 4,
+            "maxCallsInRequest": 16,
+            "maxObjectsInGet": 500,
+            "maxObjectsInSet": 500,
+            "collationAlgorithms": []
+        }),
+    );
+    capabilities.insert(
+        "urn:ietf:params:jmap:mail".to_string(),
+        serde_json::json!({}),
+    );
+
+    let account_id = format!("u_{username}");
+    let mut account_capabilities: HashMap<String, Value> = HashMap::new();
+    account_capabilities.insert("urn:ietf:params:jmap:mail".to_string(), serde_json::json!({}));
+
+    let mut accounts: HashMap<String, AccountInfo> = HashMap::new();
+    accounts.insert(
+        account_id.clone(),
+        AccountInfo {
+            name: username.to_string(),
+            is_personal: true,
+            is_read_only: false,
+            account_capabilities,
+        },
+    );
+
+    let mut primary_accounts: HashMap<String, String> = HashMap::new();
+    primary_accounts.insert("urn:ietf:params:jmap:mail".to_string(), account_id);
+
+    SessionResource {
+        capabilities,
+        accounts,
+        primary_accounts,
+        username: username.to_string(),
+        api_url: format!("{base_url}/jmap/api"),
+        download_url: format!("{base_url}/jmap/download/{{accountId}}/{{blobId}}/{{name}}"),
+        upload_url: format!("{base_url}/jmap/upload/{{accountId}}/"),
+        event_source_url: format!("{base_url}/jmap/eventsource/"),
+        state: "0".to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn session_has_required_capabilities() {
+        let s = build_session("alice", "https://example.com");
+        assert!(s.capabilities.contains_key("urn:ietf:params:jmap:core"));
+        assert!(s.capabilities.contains_key("urn:ietf:params:jmap:mail"));
+        assert_eq!(s.username, "alice");
+    }
+
+    #[test]
+    fn session_api_url_correct() {
+        let s = build_session("alice", "https://example.com");
+        assert_eq!(s.api_url, "https://example.com/jmap/api");
+    }
+
+    #[test]
+    fn session_serializes_to_json() {
+        let s = build_session("bob", "http://localhost:8080");
+        let json = serde_json::to_string(&s).unwrap();
+        assert!(json.contains("urn:ietf:params:jmap:core"));
+        assert!(json.contains("apiUrl"));
+    }
+}
