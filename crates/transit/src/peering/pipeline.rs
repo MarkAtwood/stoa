@@ -81,6 +81,41 @@ impl IpfsStore for MemIpfsStore {
     }
 }
 
+// ── Production rust-ipfs store ────────────────────────────────────────────────
+
+/// IPFS block store backed by `rust-ipfs` 0.15 (in-process node).
+///
+/// Blocks are stored in the node's local repository. No external IPFS daemon
+/// is required. `rust_ipfs::Ipfs` is `Clone`; the handle is cheaply shared.
+pub struct RustIpfsStore {
+    ipfs: rust_ipfs::Ipfs,
+}
+
+impl RustIpfsStore {
+    /// Start an in-process IPFS node and return a store backed by it.
+    pub async fn new() -> Result<Self, String> {
+        let ipfs = rust_ipfs::builder::DefaultIpfsBuilder::new()
+            .start()
+            .await
+            .map_err(|e| e.to_string())?;
+        Ok(Self { ipfs })
+    }
+}
+
+#[async_trait]
+impl IpfsStore for RustIpfsStore {
+    async fn put_raw(&self, data: &[u8]) -> Result<Cid, IpfsError> {
+        let digest = Code::Sha2_256.digest(data);
+        let cid = Cid::new_v1(0x55, digest);
+        let block = rust_ipfs::Block::new(cid, data.to_vec())
+            .map_err(|e| IpfsError::WriteFailed(e.to_string()))?;
+        self.ipfs
+            .put_block(&block)
+            .await
+            .map_err(|e| IpfsError::WriteFailed(e.to_string()))
+    }
+}
+
 // ── Pipeline context and result types ────────────────────────────────────────
 
 /// Per-invocation context for `run_pipeline`.
@@ -135,7 +170,7 @@ pub async fn run_pipeline<I, S>(
     ctx: PipelineCtx<'_>,
 ) -> Result<(PipelineResult, PipelineMetrics), String>
 where
-    I: IpfsStore,
+    I: IpfsStore + ?Sized,
     S: LogStorage,
 {
     use crate::gossip::tip_advert::TipAdvertisement;

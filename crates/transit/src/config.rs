@@ -14,9 +14,31 @@ pub struct Config {
     pub pinning: PinningConfig,
     pub gc: GcConfig,
     #[serde(default)]
+    pub database: DatabaseConfig,
+    #[serde(default)]
     pub admin: AdminConfig,
     #[serde(default)]
     pub log: LogConfig,
+}
+
+/// SQLite database configuration.
+#[derive(Debug, Deserialize)]
+pub struct DatabaseConfig {
+    /// Path to the SQLite database file. Created if it does not exist.
+    #[serde(default = "default_db_path")]
+    pub path: String,
+}
+
+fn default_db_path() -> String {
+    "transit.db".to_string()
+}
+
+impl Default for DatabaseConfig {
+    fn default() -> Self {
+        Self {
+            path: default_db_path(),
+        }
+    }
 }
 
 // AdminConfig fields will be used by the admin HTTP endpoint (not yet implemented).

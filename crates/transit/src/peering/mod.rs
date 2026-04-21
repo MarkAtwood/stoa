@@ -7,3 +7,4 @@ pub mod mode_stream;
 pub mod peer_registry;
 pub mod pipeline;
 pub mod rate_limit;
+pub mod session;
