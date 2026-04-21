@@ -15,14 +15,16 @@ use crate::{
         sign::{sign_article, verify_article_sig},
     },
     session::{
-        command::{parse_command, ArticleRef, Command},
+        command::{parse_command, ArticleRange, ArticleRef, Command, ListSubcommand, OverArg},
         commands::{
             fetch::{article_response, xcid_response, ArticleContent},
+            over::over_response,
             post::{complete_post, read_dot_terminated, DEFAULT_MAX_ARTICLE_BYTES},
         },
         context::SessionContext,
         dispatch::dispatch,
         response::Response,
+        state::SessionState,
     },
     store::server_stores::ServerStores,
 };
@@ -187,6 +189,33 @@ async fn run_plain_session(
             continue;
         }
 
+        // GROUP: serve live article count/range from article_numbers store.
+        if let Command::Group(ref name) = cmd {
+            let resp = handle_group_live(&stores, &mut ctx, name).await;
+            if write_half.write_all(resp.to_string().as_bytes()).await.is_err() {
+                break;
+            }
+            continue;
+        }
+
+        // LIST ACTIVE: serve live article ranges for all configured groups.
+        if let Command::List(ListSubcommand::Active) = cmd {
+            let resp = handle_list_active_live(&stores, &ctx).await;
+            if write_half.write_all(resp.to_string().as_bytes()).await.is_err() {
+                break;
+            }
+            continue;
+        }
+
+        // OVER/XOVER: serve overview records from the overview index.
+        if let Command::Over(ref arg) = cmd {
+            let resp = handle_over_live(&stores, &ctx, arg.as_ref()).await;
+            if write_half.write_all(resp.to_string().as_bytes()).await.is_err() {
+                break;
+            }
+            continue;
+        }
+
         let is_quit = matches!(cmd, Command::Quit);
         let is_post = matches!(cmd, Command::Post);
         let is_starttls = matches!(cmd, Command::StartTls);
@@ -344,6 +373,33 @@ async fn run_session_io<S>(
         // XVERIFY: verify stored CID and optionally signature (ADR-0007).
         if let Command::Xverify { ref message_id, ref expected_cid, verify_sig } = cmd {
             let resp = handle_xverify(&stores, message_id, expected_cid, verify_sig).await;
+            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                break;
+            }
+            continue;
+        }
+
+        // GROUP: serve live article count/range from article_numbers store.
+        if let Command::Group(ref name) = cmd {
+            let resp = handle_group_live(&stores, &mut ctx, name).await;
+            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                break;
+            }
+            continue;
+        }
+
+        // LIST ACTIVE: serve live article ranges for all configured groups.
+        if let Command::List(ListSubcommand::Active) = cmd {
+            let resp = handle_list_active_live(&stores, &ctx).await;
+            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                break;
+            }
+            continue;
+        }
+
+        // OVER/XOVER: serve overview records from the overview index.
+        if let Command::Over(ref arg) = cmd {
+            let resp = handle_over_live(&stores, &ctx, arg.as_ref()).await;
             if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
                 break;
             }
@@ -649,6 +705,106 @@ async fn handle_xverify(
     }
 
     Response::new(291, "Verified OK")
+}
+
+// ── Live GROUP / LIST ACTIVE / OVER handlers ──────────────────────────────
+
+/// GROUP groupname: select a group and return live article count and range.
+///
+/// Returns 411 if the group is not in the configured known_groups list.
+/// Returns 211 with live (low, high, count) from the article_numbers store.
+async fn handle_group_live(
+    stores: &ServerStores,
+    ctx: &mut SessionContext,
+    name: &str,
+) -> Response {
+    if !ctx.known_groups.iter().any(|g| g.name == name) {
+        return Response::no_such_newsgroup();
+    }
+    let group_name = match usenet_ipfs_core::article::GroupName::new(name) {
+        Ok(g) => g,
+        Err(_) => return Response::no_such_newsgroup(),
+    };
+    let (low, high) = match stores.article_numbers.group_range(name).await {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("group_range error for {name}: {e}");
+            return Response::program_fault();
+        }
+    };
+    let count = if low <= high { high - low + 1 } else { 0 };
+    ctx.current_group = Some(group_name);
+    ctx.current_article_number = if count > 0 { Some(low) } else { None };
+    ctx.state = SessionState::GroupSelected;
+    Response::group_selected(name, count, low, high)
+}
+
+/// LIST ACTIVE: return live article ranges for all configured groups.
+async fn handle_list_active_live(stores: &ServerStores, ctx: &SessionContext) -> Response {
+    let mut body = Vec::with_capacity(ctx.known_groups.len());
+    for group_info in &ctx.known_groups {
+        let (low, high) = match stores.article_numbers.group_range(&group_info.name).await {
+            Ok(r) => r,
+            Err(e) => {
+                warn!("group_range error for {}: {e}", group_info.name);
+                (1, 0)
+            }
+        };
+        let flag = if group_info.posting_allowed { 'y' } else { 'n' };
+        body.push(format!("{} {} {} {}", group_info.name, high, low, flag));
+    }
+    Response::list_active(body)
+}
+
+/// OVER/XOVER [range]: serve overview records from the SQLite overview index.
+async fn handle_over_live(
+    stores: &ServerStores,
+    ctx: &SessionContext,
+    arg: Option<&OverArg>,
+) -> Response {
+    if !ctx.state.group_selected() {
+        return Response::no_newsgroup_selected();
+    }
+    let group = match ctx.current_group.as_ref() {
+        Some(g) => g.as_str().to_string(),
+        None => return Response::no_newsgroup_selected(),
+    };
+
+    let (low, high) = match arg {
+        None => {
+            let n = match ctx.current_article_number {
+                Some(n) => n,
+                None => return Response::current_article_invalid(),
+            };
+            (n, n)
+        }
+        Some(OverArg::Range(r)) => match r {
+            ArticleRange::Single(n) => (*n, *n),
+            ArticleRange::From(n) => {
+                let (_, g_high) = match stores.article_numbers.group_range(&group).await {
+                    Ok(r) => r,
+                    Err(e) => {
+                        warn!("OVER group_range error: {e}");
+                        return Response::program_fault();
+                    }
+                };
+                (*n, g_high)
+            }
+            ArticleRange::Range(lo, hi) => (*lo, *hi),
+        },
+        Some(OverArg::MessageId(_)) => {
+            return over_response(std::iter::empty());
+        }
+    };
+
+    let records = match stores.overview_store.query_range(&group, low, high).await {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("OVER query_range error: {e}");
+            return Response::program_fault();
+        }
+    };
+    over_response(records)
 }
 
 /// ARTICLE cid:<cid>: fetch an article directly by its IPFS CID.

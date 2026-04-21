@@ -96,6 +96,55 @@ impl IpfsBlockStore for MemIpfsStore {
 }
 
 // ---------------------------------------------------------------------------
+// Production rust-ipfs implementation
+// ---------------------------------------------------------------------------
+
+/// IPFS block store backed by `rust-ipfs` 0.15 (in-process node).
+///
+/// Blocks are stored in the node's local repository. No external IPFS daemon
+/// is required. `rust_ipfs::Ipfs` is `Clone`; the handle is cheaply shared.
+pub struct RustIpfsStore {
+    ipfs: rust_ipfs::Ipfs,
+}
+
+impl RustIpfsStore {
+    /// Start an in-process IPFS node and return a store backed by it.
+    pub async fn new() -> Result<Self, String> {
+        let ipfs = rust_ipfs::builder::DefaultIpfsBuilder::new()
+            .start()
+            .await
+            .map_err(|e| e.to_string())?;
+        Ok(Self { ipfs })
+    }
+}
+
+#[async_trait]
+impl IpfsBlockStore for RustIpfsStore {
+    async fn put_raw_block(&self, data: &[u8]) -> Result<Cid, IpfsWriteError> {
+        let digest = Code::Sha2_256.digest(data);
+        let cid = Cid::new_v1(0x55, digest);
+        let block = rust_ipfs::Block::new(cid, data.to_vec())
+            .map_err(|e| IpfsWriteError::WriteFailed(e.to_string()))?;
+        self.ipfs
+            .put_block(&block)
+            .await
+            .map_err(|e| IpfsWriteError::WriteFailed(e.to_string()))
+    }
+
+    async fn get_raw_block(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError> {
+        let block = self.ipfs.get_block(cid).await.map_err(|e| {
+            let msg = e.to_string();
+            if msg.contains("not found") || msg.contains("NotFound") {
+                IpfsWriteError::NotFound(msg)
+            } else {
+                IpfsWriteError::NotReachable(msg)
+            }
+        })?;
+        Ok(block.data().to_vec())
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Pipeline function
 // ---------------------------------------------------------------------------
 
@@ -304,5 +353,14 @@ mod tests {
         let retrieved = store.get_raw_block(&cid).await.unwrap();
 
         assert_eq!(retrieved, data, "MemIpfsStore put/get roundtrip must be exact");
+    }
+
+    #[tokio::test]
+    async fn rust_ipfs_roundtrip() {
+        let store = RustIpfsStore::new().await.expect("RustIpfsStore must start");
+        let data = b"From: bench@usenet-ipfs.test\r\nSubject: RustIpfs Test\r\n\r\nBody.\r\n";
+        let cid = store.put_raw_block(data).await.expect("put must succeed");
+        let retrieved = store.get_raw_block(&cid).await.expect("get must succeed");
+        assert_eq!(retrieved, data, "RustIpfsStore put/get roundtrip must be exact");
     }
 }
