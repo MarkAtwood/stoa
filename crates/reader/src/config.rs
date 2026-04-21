@@ -80,6 +80,12 @@ impl AuthConfig {
 
 #[derive(Debug, Deserialize)]
 pub struct TlsConfig {
+    /// Bind address for the NNTPS listener (implicit TLS, port 563 by convention).
+    ///
+    /// When set, a second TCP listener is started at this address and every
+    /// connection is wrapped in TLS before any NNTP bytes are exchanged.
+    /// Requires `cert_path` and `key_path` to also be set.
+    pub tls_addr: Option<String>,
     pub cert_path: Option<String>,
     pub key_path: Option<String>,
 }
@@ -185,6 +191,13 @@ impl Config {
                 ));
             }
             _ => {}
+        }
+        if self.tls.tls_addr.is_some()
+            && (self.tls.cert_path.is_none() || self.tls.key_path.is_none())
+        {
+            return Err(ConfigError::Validation(
+                "tls.tls_addr requires tls.cert_path and tls.key_path to be set".into(),
+            ));
         }
         Ok(())
     }

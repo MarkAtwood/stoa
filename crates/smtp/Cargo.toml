@@ -2,6 +2,7 @@
 name = "usenet-ipfs-smtp"
 version = "0.1.0"
 edition = "2021"
+license = "AGPL-3.0-only"
 
 [lib]
 name = "usenet_ipfs_smtp"
@@ -24,6 +25,7 @@ mail-auth = "0.8"
 mail-parser = "0.11"
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio-rustls"] }
 axum = "0.8"
+subtle = "2"
 usenet-ipfs-sieve = { path = "../sieve" }
 tempfile = "3"
 tower = { version = "0.5", features = ["util"] }

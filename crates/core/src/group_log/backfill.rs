@@ -12,6 +12,10 @@ pub enum BackfillError {
     Storage(StorageError),
     /// The fetch callback returned an error for the given entry ID.
     FetchFailed(String),
+    /// A fetched entry contains a parent CID whose multihash digest is not 32
+    /// bytes.  Storing this entry would silently disconnect the DAG, so the
+    /// operation is aborted instead.
+    MalformedParentCid(String),
 }
 
 impl std::fmt::Display for BackfillError {
@@ -19,6 +23,7 @@ impl std::fmt::Display for BackfillError {
         match self {
             Self::Storage(e) => write!(f, "storage error: {e}"),
             Self::FetchFailed(msg) => write!(f, "fetch failed: {msg}"),
+            Self::MalformedParentCid(msg) => write!(f, "malformed parent CID: {msg}"),
         }
     }
 }
@@ -27,7 +32,7 @@ impl std::error::Error for BackfillError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Storage(e) => Some(e),
-            Self::FetchFailed(_) => None,
+            Self::FetchFailed(_) | Self::MalformedParentCid(_) => None,
         }
     }
 }
@@ -112,11 +117,16 @@ where
 
         for parent_cid in &entry.parent_cids {
             let digest_bytes = parent_cid.hash().digest();
-            if let Ok(raw) = <[u8; 32]>::try_from(digest_bytes) {
-                let parent_id = LogEntryId::from_bytes(raw);
-                if !storage.has_entry(&parent_id).await? {
-                    queue.push_back(parent_id);
-                }
+            let raw: [u8; 32] = <[u8; 32]>::try_from(digest_bytes).map_err(|_| {
+                BackfillError::MalformedParentCid(format!(
+                    "parent CID {} has {}-byte digest (expected 32)",
+                    parent_cid,
+                    digest_bytes.len()
+                ))
+            })?;
+            let parent_id = LogEntryId::from_bytes(raw);
+            if !storage.has_entry(&parent_id).await? {
+                queue.push_back(parent_id);
             }
         }
     }
@@ -381,6 +391,50 @@ mod tests {
         assert!(
             matches!(result, Err(BackfillError::FetchFailed(_))),
             "expected BackfillError::FetchFailed, got {result:?}"
+        );
+    }
+
+    // ── backfill_malformed_parent_cid_errors ─────────────────────────────────
+    //
+    //  If a fetched entry contains a parent CID whose multihash digest is not
+    //  32 bytes, backfill must return MalformedParentCid, not silently skip it.
+    //  A silent skip would store an entry with a broken ancestry pointer.
+
+    #[tokio::test]
+    async fn backfill_malformed_parent_cid_errors() {
+        // Build a parent CID with a 20-byte digest instead of 32.
+        // Multihash::wrap(0x12, bytes) sets code=SHA2-256 but uses whatever
+        // byte slice we give it, so 20 bytes produces a structurally valid
+        // Multihash that is nonetheless the wrong size for a LogEntryId.
+        let short_digest = [0xABu8; 20];
+        let short_mh = Multihash::wrap(0x12, &short_digest).expect("valid multihash wrap");
+        let bad_parent_cid = Cid::new_v1(0x71, short_mh);
+
+        let remote = MemLogStorage::new();
+        let tip_id = make_entry_id(b"tip-malformed");
+        // The tip entry has one parent whose CID uses a 20-byte digest.
+        let tip_entry = make_entry(1_000, b"art-tip", vec![bad_parent_cid]);
+        remote
+            .insert_entry(tip_id.clone(), tip_entry)
+            .await
+            .unwrap();
+
+        let local = MemLogStorage::new();
+        let result = backfill(&local, tip_id.clone(), |id| {
+            let r = &remote;
+            async move {
+                r.get_entry(&id)
+                    .await
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| format!("entry not found: {id}"))
+                    .map(VerifiedEntry::new_for_test)
+            }
+        })
+        .await;
+
+        assert!(
+            matches!(result, Err(BackfillError::MalformedParentCid(_))),
+            "expected BackfillError::MalformedParentCid, got {result:?}"
         );
     }
 

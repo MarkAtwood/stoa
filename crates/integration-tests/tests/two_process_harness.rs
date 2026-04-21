@@ -150,6 +150,23 @@ async fn make_transit_core_pool() -> sqlx::SqlitePool {
     pool
 }
 
+async fn make_transit_db_pool() -> sqlx::SqlitePool {
+    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
+    let url = format!("file:integ_transit_db_{n}?mode=memory&cache=shared");
+    let opts = sqlx::sqlite::SqliteConnectOptions::new()
+        .filename(&url)
+        .create_if_missing(true);
+    let pool = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(opts)
+        .await
+        .expect("transit db pool");
+    usenet_ipfs_transit::migrations::run_migrations(&pool)
+        .await
+        .expect("transit db migrations");
+    pool
+}
+
 // ── Test config ───────────────────────────────────────────────────────────────
 
 fn reader_test_config(addr: &str) -> usenet_ipfs_reader::config::Config {
@@ -275,6 +292,7 @@ async fn transit_reader_shared_store() {
         let log_drain = Arc::clone(&transit_log_storage);
         let key_drain: Arc<ed25519_dalek::SigningKey> = Arc::clone(&transit_signing_key);
         let hlc_drain = Arc::clone(&transit_hlc);
+        let transit_db_pool = make_transit_db_pool().await;
 
         tokio::spawn(async move {
             use ed25519_dalek::Signer as _;
@@ -296,6 +314,7 @@ async fn transit_reader_shared_store() {
                     &*ipfs,
                     &msgid_drain,
                     &*log_drain,
+                    &transit_db_pool,
                     ctx,
                 )
                 .await;
@@ -317,7 +336,7 @@ async fn transit_reader_shared_store() {
                 let (stream, _) = reader_listener.accept().await.unwrap();
                 let s = Arc::clone(&stores);
                 let c = Arc::clone(&config);
-                tokio::spawn(async move { run_session(stream, &c, s).await });
+                tokio::spawn(async move { run_session(stream, false, &c, s).await });
             }
         });
     }

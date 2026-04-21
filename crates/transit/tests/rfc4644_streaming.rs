@@ -20,6 +20,21 @@ use usenet_ipfs_transit::peering::{
 
 // ── Test helpers ──────────────────────────────────────────────────────────────
 
+async fn make_transit_pool() -> sqlx::SqlitePool {
+    let opts = SqliteConnectOptions::from_str("sqlite::memory:")
+        .unwrap()
+        .create_if_missing(true);
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(opts)
+        .await
+        .unwrap();
+    usenet_ipfs_transit::migrations::run_migrations(&pool)
+        .await
+        .unwrap();
+    pool
+}
+
 /// Create an isolated MsgIdMap backed by a temporary SQLite file.
 ///
 /// Using a real temp file per test to avoid migration races that occur with
@@ -150,6 +165,7 @@ async fn streaming_check_takethis_100_articles() {
     let ipfs = MemIpfsStore::new();
     let log_storage = MemLogStorage::new();
     let key = make_signing_key();
+    let transit_pool = make_transit_pool().await;
 
     let mut accepted = 0u32;
 
@@ -177,6 +193,7 @@ async fn streaming_check_takethis_100_articles() {
             &ipfs,
             &msgid_map,
             &log_storage,
+            &transit_pool,
             make_pipeline_ctx(&key, make_timestamp()),
         )
         .await;

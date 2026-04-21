@@ -30,10 +30,22 @@ impl HlcClock {
     }
 
     /// Generate a send timestamp: advance to max(last, now), bump logical on ties.
+    ///
+    /// If the logical counter would overflow u32::MAX (possible only when generating
+    /// more than 4 billion events within a single millisecond, or under a mocked
+    /// clock), wall_ms is advanced by 1ms and logical resets to 0.  This preserves
+    /// strict monotonicity: (wall+1, 0) > (wall, u32::MAX).
     pub fn send(&mut self, now_ms: u64) -> HlcTimestamp {
-        let new_wall = self.last.wall_ms.max(now_ms);
+        let mut new_wall = self.last.wall_ms.max(now_ms);
         let new_logical = if new_wall == self.last.wall_ms {
-            self.last.logical + 1
+            match self.last.logical.checked_add(1) {
+                Some(l) => l,
+                // Logical counter exhausted for this millisecond; advance wall.
+                None => {
+                    new_wall += 1;
+                    0
+                }
+            }
         } else {
             0
         };
@@ -46,14 +58,36 @@ impl HlcClock {
     }
 
     /// Receive a remote timestamp: advance to max(local, observed, now) + 1 logical.
+    ///
+    /// Same overflow handling as `send`: if the logical increment would wrap,
+    /// wall_ms is advanced by 1ms and logical resets to 0.
     pub fn receive(&mut self, now_ms: u64, observed: &HlcTimestamp) -> HlcTimestamp {
-        let new_wall = self.last.wall_ms.max(observed.wall_ms).max(now_ms);
+        let mut new_wall = self.last.wall_ms.max(observed.wall_ms).max(now_ms);
         let new_logical = if new_wall == self.last.wall_ms && new_wall == observed.wall_ms {
-            self.last.logical.max(observed.logical) + 1
+            let max_logical = self.last.logical.max(observed.logical);
+            match max_logical.checked_add(1) {
+                Some(l) => l,
+                None => {
+                    new_wall += 1;
+                    0
+                }
+            }
         } else if new_wall == self.last.wall_ms {
-            self.last.logical + 1
+            match self.last.logical.checked_add(1) {
+                Some(l) => l,
+                None => {
+                    new_wall += 1;
+                    0
+                }
+            }
         } else if new_wall == observed.wall_ms {
-            observed.logical + 1
+            match observed.logical.checked_add(1) {
+                Some(l) => l,
+                None => {
+                    new_wall += 1;
+                    0
+                }
+            }
         } else {
             0
         };
@@ -149,6 +183,62 @@ mod tests {
         let result = clock.receive(9000, &observed);
         assert_eq!(result.wall_ms, 9000);
         assert_eq!(result.logical, 0, "logical resets when now_ms dominates");
+    }
+
+    #[test]
+    fn send_logical_overflow_advances_wall() {
+        // Seed clock at (wall=1000, logical=u32::MAX).
+        let mut clock = HlcClock {
+            last: HlcTimestamp {
+                wall_ms: 1000,
+                logical: u32::MAX,
+                node_id: NODE_A,
+            },
+            node_id: NODE_A,
+        };
+        let t = clock.send(1000);
+        assert_eq!(t.wall_ms, 1001, "wall must advance when logical overflows");
+        assert_eq!(t.logical, 0, "logical must reset after wall advance");
+        // The new timestamp must be strictly greater than the seed.
+        assert!(
+            t > HlcTimestamp { wall_ms: 1000, logical: u32::MAX, node_id: NODE_A },
+            "post-overflow timestamp must be greater than pre-overflow"
+        );
+    }
+
+    #[test]
+    fn receive_logical_overflow_advances_wall() {
+        // Both local and observed at (wall=1000, logical=u32::MAX).
+        let mut clock = HlcClock {
+            last: HlcTimestamp {
+                wall_ms: 1000,
+                logical: u32::MAX,
+                node_id: NODE_A,
+            },
+            node_id: NODE_A,
+        };
+        let observed = HlcTimestamp {
+            wall_ms: 1000,
+            logical: u32::MAX,
+            node_id: NODE_B,
+        };
+        let t = clock.receive(1000, &observed);
+        assert_eq!(t.wall_ms, 1001, "wall must advance when logical overflows in receive");
+        assert_eq!(t.logical, 0);
+    }
+
+    #[test]
+    fn receive_observed_logical_overflow_advances_wall() {
+        // Local is behind; observed.logical == u32::MAX, so observed.logical + 1 overflows.
+        let mut clock = HlcClock::new(NODE_A, 500);
+        let observed = HlcTimestamp {
+            wall_ms: 1000,
+            logical: u32::MAX,
+            node_id: NODE_B,
+        };
+        let t = clock.receive(500, &observed);
+        assert_eq!(t.wall_ms, 1001, "wall must advance when observed.logical overflows");
+        assert_eq!(t.logical, 0);
     }
 
     #[test]

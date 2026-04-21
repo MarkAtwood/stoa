@@ -38,14 +38,21 @@ pub fn dispatch(
     if ctx.state == SessionState::Authenticating {
         return match cmd {
             Command::Capabilities => {
-                Response::capabilities_with_ctx(ctx.posting_allowed, true, ctx.starttls_available)
+                Response::capabilities_with_ctx(ctx.posting_allowed, true)
             }
             Command::Quit => Response::closing_connection(),
             Command::AuthinfoUser(username) => {
+                // RFC 3977 §7.1.1: if TLS is required but not active, reject with 483.
+                if auth_config.required && !ctx.tls_active {
+                    return Response::new(483, "Encryption required for authentication");
+                }
                 ctx.pending_auth_user = Some(username);
                 Response::enter_password()
             }
             Command::AuthinfoPass(password) => {
+                if auth_config.required && !ctx.tls_active {
+                    return Response::new(483, "Encryption required for authentication");
+                }
                 let username = match ctx.pending_auth_user.take() {
                     Some(u) => u,
                     None => return Response::authentication_out_of_sequence(),
@@ -58,7 +65,8 @@ pub fn dispatch(
                 }
                 Response::from_static_str(resp_str)
             }
-            Command::StartTls => dispatch_starttls(ctx),
+            // STARTTLS is not supported: this server uses implicit TLS only (NNTPS port 563).
+            Command::StartTls => Response::new(502, "Command unavailable"),
             _ => Response::authentication_required(),
         };
     }
@@ -66,7 +74,7 @@ pub fn dispatch(
     // Normal dispatch (Active or GroupSelected).
     match cmd {
         Command::Capabilities => {
-            Response::capabilities_with_ctx(ctx.posting_allowed, false, ctx.starttls_available)
+            Response::capabilities_with_ctx(ctx.posting_allowed, false)
         }
         Command::ModeReader => {
             if ctx.posting_allowed {
@@ -80,15 +88,16 @@ pub fn dispatch(
             if !ctx.known_groups.iter().any(|g| g.name == name) {
                 return Response::no_such_newsgroup();
             }
-            ctx.current_group = usenet_ipfs_core::article::GroupName::new(name).ok();
-            ctx.current_article_number = Some(0);
-            ctx.state = SessionState::GroupSelected;
-            let group_str = ctx
-                .current_group
-                .as_ref()
-                .map(|g| g.as_str())
-                .unwrap_or("no.such.group");
-            Response::group_selected(group_str, 0, 0, 0)
+            match usenet_ipfs_core::article::GroupName::new(name) {
+                Err(_) => Response::no_such_newsgroup(),
+                Ok(group) => {
+                    let group_str = group.as_str().to_owned();
+                    ctx.current_group = Some(group);
+                    ctx.current_article_number = Some(0);
+                    ctx.state = SessionState::GroupSelected;
+                    Response::group_selected(&group_str, 0, 0, 0)
+                }
+            }
         }
         Command::Next | Command::Last => {
             if !ctx.state.group_selected() {
@@ -115,10 +124,16 @@ pub fn dispatch(
             }
         }
         Command::AuthinfoUser(username) => {
+            if auth_config.required && !ctx.tls_active {
+                return Response::new(483, "Encryption required for authentication");
+            }
             ctx.pending_auth_user = Some(username);
             Response::enter_password()
         }
         Command::AuthinfoPass(password) => {
+            if auth_config.required && !ctx.tls_active {
+                return Response::new(483, "Encryption required for authentication");
+            }
             let username = match ctx.pending_auth_user.take() {
                 Some(u) => u,
                 None => return Response::authentication_out_of_sequence(),
@@ -130,7 +145,7 @@ pub fn dispatch(
             }
             Response::from_static_str(resp_str)
         }
-        Command::StartTls => dispatch_starttls(ctx),
+        Command::StartTls => Response::new(502, "Command unavailable"),
         Command::List(sub) => match sub {
             ListSubcommand::Active => list_active(&ctx.known_groups, None),
             ListSubcommand::Newsgroups => list_newsgroups(&ctx.known_groups, None),
@@ -169,14 +184,6 @@ fn check_credentials(auth_config: &AuthConfig, username: &str, password: &str) -
         .any(|u| u.username == username && u.password == password)
 }
 
-/// Return the correct STARTTLS response depending on whether upgrade is available.
-fn dispatch_starttls(ctx: &mut SessionContext) -> Response {
-    if ctx.starttls_available {
-        Response::tls_proceed()
-    } else {
-        Response::tls_not_available()
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -370,17 +377,11 @@ mod tests {
     }
 
     #[test]
-    fn starttls_not_available_returns_580() {
+    fn starttls_always_returns_502() {
+        // STARTTLS is not supported — implicit TLS (NNTPS port 563) is used instead.
         let mut ctx = SessionContext::new(test_addr(), false, true, false);
         let resp = dispatch(&mut ctx, Command::StartTls, &empty_auth(), None);
-        assert_eq!(resp.code, 580);
-    }
-
-    #[test]
-    fn starttls_available_returns_382() {
-        let mut ctx = SessionContext::new(test_addr(), false, true, true);
-        let resp = dispatch(&mut ctx, Command::StartTls, &empty_auth(), None);
-        assert_eq!(resp.code, 382);
+        assert_eq!(resp.code, 502);
     }
 
     #[test]
@@ -393,7 +394,8 @@ mod tests {
             }],
             credential_file: None,
         };
-        let mut ctx = SessionContext::new(test_addr(), false, true, false);
+        // tls_active=true: TLS session, auth is allowed.
+        let mut ctx = SessionContext::new(test_addr(), false, true, true);
         dispatch(&mut ctx, Command::AuthinfoUser("alice".into()), &auth, None);
         let resp = dispatch(
             &mut ctx,
@@ -414,10 +416,27 @@ mod tests {
             }],
             credential_file: None,
         };
-        let mut ctx = SessionContext::new(test_addr(), false, true, false);
+        // tls_active=true: TLS session, auth is allowed.
+        let mut ctx = SessionContext::new(test_addr(), false, true, true);
         dispatch(&mut ctx, Command::AuthinfoUser("alice".into()), &auth, None);
         let resp = dispatch(&mut ctx, Command::AuthinfoPass("wrong".into()), &auth, None);
         assert_eq!(resp.code, 481);
+    }
+
+    #[test]
+    fn authinfo_on_plain_with_required_returns_483() {
+        // Plain connection (tls_active=false) with auth.required=true must return 483.
+        let auth = AuthConfig {
+            required: true,
+            users: vec![UserCredential {
+                username: "alice".into(),
+                password: "secret".into(),
+            }],
+            credential_file: None,
+        };
+        let mut ctx = SessionContext::new(test_addr(), false, true, false);
+        let resp = dispatch(&mut ctx, Command::AuthinfoUser("alice".into()), &auth, None);
+        assert_eq!(resp.code, 483, "AUTHINFO on plain must return 483 when required=true");
     }
 
     #[test]
@@ -433,17 +452,16 @@ mod tests {
     }
 
     #[test]
-    fn capabilities_includes_starttls_when_available() {
-        let mut ctx = SessionContext::new(test_addr(), false, true, true);
-        let resp = dispatch(&mut ctx, Command::Capabilities, &empty_auth(), None);
-        assert!(resp.body.iter().any(|l| l == "STARTTLS"));
-    }
-
-    #[test]
-    fn capabilities_excludes_starttls_when_not_available() {
-        let mut ctx = ctx_active();
-        let resp = dispatch(&mut ctx, Command::Capabilities, &empty_auth(), None);
-        assert!(!resp.body.iter().any(|l| l == "STARTTLS"));
+    fn capabilities_never_includes_starttls() {
+        // STARTTLS is not advertised on any connection type.
+        for tls_active in [false, true] {
+            let mut ctx = SessionContext::new(test_addr(), false, true, tls_active);
+            let resp = dispatch(&mut ctx, Command::Capabilities, &empty_auth(), None);
+            assert!(
+                !resp.body.iter().any(|l| l == "STARTTLS"),
+                "STARTTLS must not appear in CAPABILITIES (tls_active={tls_active})"
+            );
+        }
     }
 
     #[test]
@@ -476,6 +494,34 @@ mod tests {
             None,
         );
         assert_eq!(resp.code, 211);
+    }
+
+    /// A group name that passes the `known_groups` membership check but fails
+    /// `GroupName::new` validation must return 411, not 211 with a None group.
+    #[test]
+    fn group_invalid_name_in_known_groups_returns_411() {
+        let mut ctx = ctx_active();
+        // Push a syntactically-invalid name into known_groups to simulate a
+        // misconfigured or adversarial state.
+        ctx.known_groups
+            .push(crate::session::commands::list::GroupInfo {
+                name: "invalid..double.dot".into(),
+                high: 0,
+                low: 0,
+                posting_allowed: true,
+                description: String::new(),
+            });
+        let resp = dispatch(
+            &mut ctx,
+            Command::Group("invalid..double.dot".into()),
+            &empty_auth(),
+            None,
+        );
+        assert_eq!(resp.code, 411, "invalid group name must return 411");
+        assert!(
+            ctx.current_group.is_none(),
+            "current_group must not be set after 411"
+        );
     }
 
     #[test]

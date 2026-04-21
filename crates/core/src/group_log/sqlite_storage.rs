@@ -48,21 +48,15 @@ impl LogStorage for SqliteLogStorage {
             ))
         })?;
 
-        // Check for duplicate before inserting.
-        let existing: Option<(Vec<u8>,)> =
-            sqlx::query_as("SELECT id FROM log_entries WHERE id = ?")
-                .bind(&id_bytes)
-                .fetch_optional(&self.pool)
-                .await
-                .map_err(db_err)?;
-
-        if existing.is_some() {
-            return Err(StorageError::DuplicateEntry(id));
-        }
-
+        // Begin the transaction first so the duplicate check and both inserts
+        // are fully atomic.  We do NOT pre-check for duplicates outside the
+        // transaction — that creates a TOCTOU window where a concurrent insert
+        // can slip in between the check and the INSERT, causing a confusing DB
+        // error instead of DuplicateEntry.  Instead, we attempt the INSERT
+        // directly and translate a UNIQUE constraint violation to DuplicateEntry.
         let mut tx = self.pool.begin().await.map_err(db_err)?;
 
-        sqlx::query(
+        let insert_result = sqlx::query(
             "INSERT INTO log_entries (id, hlc_timestamp, article_cid, operator_signature)
              VALUES (?, ?, ?, ?)",
         )
@@ -71,8 +65,15 @@ impl LogStorage for SqliteLogStorage {
         .bind(&article_cid_bytes)
         .bind(&entry.operator_signature)
         .execute(&mut *tx)
-        .await
-        .map_err(db_err)?;
+        .await;
+
+        match insert_result {
+            Ok(_) => {}
+            Err(sqlx::Error::Database(e)) if e.is_unique_violation() => {
+                return Err(StorageError::DuplicateEntry(id));
+            }
+            Err(e) => return Err(db_err(e)),
+        }
 
         for parent_cid in &entry.parent_cids {
             let parent_bytes = cid_to_bytes(parent_cid);

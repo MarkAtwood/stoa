@@ -32,12 +32,15 @@ use crate::{
 
 /// Run a complete NNTP session on the given TCP stream.
 ///
-/// If `config.tls` is configured, upgrades immediately to TLS before the
-/// greeting. If TLS is not configured, runs a plain-text session that
-/// supports STARTTLS in-session upgrade: when the client sends STARTTLS
-/// the plain loop exits, the stream is upgraded, and the command loop
-/// continues on the TLS stream.
-pub async fn run_session(stream: TcpStream, config: &Config, stores: Arc<ServerStores>) {
+/// `is_tls`: true for NNTPS connections (implicit TLS, accepted by the
+/// caller before this function is invoked). false for plain connections
+/// on port 119 — no in-session TLS upgrade is available.
+pub async fn run_session(
+    stream: TcpStream,
+    is_tls: bool,
+    config: &Config,
+    stores: Arc<ServerStores>,
+) {
     let peer_addr = match stream.peer_addr() {
         Ok(addr) => addr,
         Err(e) => {
@@ -46,11 +49,9 @@ pub async fn run_session(stream: TcpStream, config: &Config, stores: Arc<ServerS
         }
     };
 
-    let tls_configured = config.tls.cert_path.is_some() && config.tls.key_path.is_some();
-
-    if tls_configured {
-        let cert = config.tls.cert_path.as_deref().unwrap();
-        let key = config.tls.key_path.as_deref().unwrap();
+    if is_tls {
+        let cert = config.tls.cert_path.as_deref().unwrap_or("");
+        let key = config.tls.key_path.as_deref().unwrap_or("");
         let acceptor = match crate::tls::load_tls_acceptor(cert, key) {
             Ok(a) => a,
             Err(e) => {
@@ -60,50 +61,33 @@ pub async fn run_session(stream: TcpStream, config: &Config, stores: Arc<ServerS
         };
         match crate::tls::accept_tls(&acceptor, stream).await {
             Ok(tls_stream) => {
-                // Already TLS; STARTTLS not available.
-                run_session_io(tls_stream, peer_addr, config, false, stores).await;
+                run_session_io(tls_stream, peer_addr, config, true, stores).await;
             }
             Err(e) => {
                 warn!(peer = %peer_addr, "TLS handshake failed: {e}");
             }
         }
     } else {
-        // Plain-text session. STARTTLS not available (no TLS configured).
-        // run_plain_session returns Some(stream) if STARTTLS was requested,
-        // but that cannot happen here since starttls_available will be false
-        // in the context and dispatch will return 580.
-        let _ = run_plain_session(stream, peer_addr, config, stores).await;
+        run_plain_session(stream, peer_addr, config, stores).await;
     }
 }
 
-/// Run a plain-text NNTP session.
+/// Run a plain-text NNTP session (port 119, no TLS).
 ///
-/// Returns the original `TcpStream` if the client sent STARTTLS, so the
-/// caller can upgrade it. Returns `None` if the session ended normally.
-///
-/// Note: STARTTLS requires TLS to be configured; without cert/key this
-/// function never returns `Some` because `starttls_available` will be false
-/// in the context and dispatch will return 580.
+/// AUTHINFO returns 483 if `auth.required = true` — callers must connect
+/// to the NNTPS port (563) for authenticated sessions.
 async fn run_plain_session(
     stream: TcpStream,
     peer_addr: SocketAddr,
     config: &Config,
     stores: Arc<ServerStores>,
-) -> Option<TcpStream> {
+) {
     info!(peer = %peer_addr, "plain session started");
     let start = std::time::Instant::now();
 
-    // STARTTLS is available on a plain connection only when TLS is configured.
-    let starttls_available = config.tls.cert_path.is_some() && config.tls.key_path.is_some();
-
     let auth_required = config.auth.required;
     let posting_allowed = true;
-    let mut ctx = SessionContext::new(
-        peer_addr,
-        auth_required,
-        posting_allowed,
-        starttls_available,
-    );
+    let mut ctx = SessionContext::new(peer_addr, auth_required, posting_allowed, false);
 
     let (read_half, mut write_half) = stream.into_split();
     let mut reader = BufReader::new(read_half);
@@ -120,34 +104,18 @@ async fn run_plain_session(
     {
         let elapsed = start.elapsed();
         info!(peer = %peer_addr, elapsed_ms = elapsed.as_millis(), "plain session ended");
-        return None;
+        return;
     }
 
-    let do_starttls =
-        run_command_loop(&mut reader, &mut write_half, &mut ctx, peer_addr, config, &stores).await;
+    run_command_loop(&mut reader, &mut write_half, &mut ctx, peer_addr, config, &stores).await;
 
     let elapsed = start.elapsed();
     info!(peer = %peer_addr, elapsed_ms = elapsed.as_millis(), "plain session ended");
-
-    if do_starttls {
-        let read_half = reader.into_inner();
-        match write_half.reunite(read_half) {
-            Ok(stream) => Some(stream),
-            Err(e) => {
-                warn!(peer = %peer_addr, "stream reunite failed: {e}");
-                None
-            }
-        }
-    } else {
-        None
-    }
 }
 
 /// Execute the NNTP command loop on a generic async read/write pair.
 ///
-/// Returns `true` if the client successfully negotiated STARTTLS (response
-/// code 382) so the caller can upgrade the stream. Returns `false` for all
-/// normal session ends: QUIT, EOF, read/write error, or idle timeout.
+/// Runs until QUIT, EOF, read/write error, or idle timeout.
 async fn run_command_loop<R, W>(
     reader: &mut BufReader<R>,
     writer: &mut W,
@@ -155,8 +123,7 @@ async fn run_command_loop<R, W>(
     peer_addr: SocketAddr,
     config: &Config,
     stores: &ServerStores,
-) -> bool
-where
+) where
     R: AsyncRead + Unpin,
     W: AsyncWrite + Unpin,
 {
@@ -169,18 +136,18 @@ where
             Ok(Ok(n)) => n,
             Ok(Err(e)) => {
                 warn!(peer = %peer_addr, "read error: {e}");
-                return false;
+                return;
             }
             Err(_) => {
                 let resp = Response::new(400, "Timeout - closing connection");
                 let _ = writer.write_all(resp.to_string().as_bytes()).await;
-                return false;
+                return;
             }
         };
 
         if n == 0 {
             debug!(peer = %peer_addr, "client disconnected");
-            return false;
+            return;
         }
 
         let line = line_buf.trim_end_matches(['\r', '\n']);
@@ -191,7 +158,7 @@ where
             Err(_) => {
                 let resp = Response::unknown_command();
                 if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                    return false;
+                    return;
                 }
                 continue;
             }
@@ -201,7 +168,7 @@ where
         if let Command::Article(Some(ArticleRef::MessageId(ref msgid))) = cmd {
             let resp = lookup_article_by_msgid(stores, msgid).await;
             if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                return false;
+                return;
             }
             continue;
         }
@@ -210,7 +177,7 @@ where
         if let Command::Article(Some(ArticleRef::Cid(ref cid_str))) = cmd {
             let resp = lookup_article_by_cid(stores, cid_str).await;
             if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                return false;
+                return;
             }
             continue;
         }
@@ -225,7 +192,7 @@ where
             )
             .await;
             if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                return false;
+                return;
             }
             continue;
         }
@@ -239,7 +206,7 @@ where
         {
             let resp = handle_xverify(stores, message_id, expected_cid, verify_sig).await;
             if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                return false;
+                return;
             }
             continue;
         }
@@ -248,7 +215,7 @@ where
         if let Command::Group(ref name) = cmd {
             let resp = handle_group_live(stores, ctx, name).await;
             if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                return false;
+                return;
             }
             continue;
         }
@@ -257,7 +224,7 @@ where
         if let Command::List(ListSubcommand::Active) = cmd {
             let resp = handle_list_active_live(stores, ctx).await;
             if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                return false;
+                return;
             }
             continue;
         }
@@ -266,7 +233,7 @@ where
         if let Command::Over(ref arg) = cmd {
             let resp = handle_over_live(stores, ctx, arg.as_ref()).await;
             if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                return false;
+                return;
             }
             continue;
         }
@@ -278,7 +245,7 @@ where
                 None => {
                     let resp = Response::authentication_out_of_sequence();
                     if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                        return false;
+                        return;
                     }
                     continue;
                 }
@@ -291,21 +258,29 @@ where
             if accepted {
                 ctx.state = SessionState::Active;
                 ctx.authenticated_user = Some(username);
-            }
-            let resp = if accepted {
-                Response::authentication_accepted()
+                ctx.auth_failure_count = 0;
+                let resp = Response::authentication_accepted();
+                if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                    return;
+                }
             } else {
-                Response::authentication_failed()
-            };
-            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                return false;
+                ctx.auth_failure_count += 1;
+                if ctx.auth_failure_count >= crate::session::context::MAX_AUTH_FAILURES {
+                    warn!(peer = %peer_addr, "AUTHINFO: too many failures, closing connection");
+                    let resp = Response::new(400, "Too many authentication failures");
+                    let _ = writer.write_all(resp.to_string().as_bytes()).await;
+                    return;
+                }
+                let resp = Response::authentication_failed();
+                if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                    return;
+                }
             }
             continue;
         }
 
         let is_quit = matches!(cmd, Command::Quit);
         let is_post = matches!(cmd, Command::Post);
-        let is_starttls = matches!(cmd, Command::StartTls);
         let cmd_label = line
             .split_whitespace()
             .next()
@@ -319,16 +294,11 @@ where
         let resp_code = resp.code;
 
         if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-            return false;
+            return;
         }
 
         if is_quit {
-            return false;
-        }
-
-        // STARTTLS upgrade: signal caller to wrap the stream in TLS.
-        if is_starttls && resp_code == 382 {
-            return true;
+            return;
         }
 
         // POST two-phase completion: if dispatch returned 340, read the article.
@@ -340,13 +310,13 @@ where
                     // the dot-terminator, so the connection is still valid.
                     warn!(peer = %peer_addr, "post rejected: article too large");
                     if writer.write_all(b"441 Article too large\r\n").await.is_err() {
-                        return false;
+                        return;
                     }
                     continue;
                 }
                 Err(e) => {
                     warn!(peer = %peer_addr, "post read error: {e}");
-                    return false;
+                    return;
                 }
             };
 
@@ -356,7 +326,7 @@ where
                 .await
                 .is_err()
             {
-                return false;
+                return;
             }
         }
     }
@@ -364,13 +334,12 @@ where
 
 /// Run the NNTP protocol loop on a generic async I/O stream.
 ///
-/// `starttls_available`: false for TLS streams (no double-upgrade) and for
-/// plain streams where STARTTLS was already handled by `run_plain_session`.
+/// `is_tls`: true for NNTPS connections, false for plain.
 async fn run_session_io<S>(
     stream: S,
     peer_addr: SocketAddr,
     config: &Config,
-    starttls_available: bool,
+    is_tls: bool,
     stores: Arc<ServerStores>,
 ) where
     S: AsyncRead + AsyncWrite + Unpin + Send,
@@ -380,12 +349,7 @@ async fn run_session_io<S>(
 
     let auth_required = config.auth.required;
     let posting_allowed = true;
-    let mut ctx = SessionContext::new(
-        peer_addr,
-        auth_required,
-        posting_allowed,
-        starttls_available,
-    );
+    let mut ctx = SessionContext::new(peer_addr, auth_required, posting_allowed, is_tls);
 
     let (reader, mut writer) = tokio::io::split(stream);
     let mut reader = BufReader::new(reader);

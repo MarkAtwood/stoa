@@ -3,6 +3,7 @@ name = "usenet-ipfs-sieve"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.80"
+license = "AGPL-3.0-only"
 
 # sieve-rs is AGPL-3.0-only — intentional, approved by project owner
 [dependencies]

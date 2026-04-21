@@ -36,6 +36,22 @@ fn make_article(i: usize) -> Vec<u8> {
     .into_bytes()
 }
 
+async fn make_transit_pool(db_name: &str) -> sqlx::SqlitePool {
+    let url = format!("file:{db_name}?mode=memory&cache=shared");
+    let opts = SqliteConnectOptions::new()
+        .filename(&url)
+        .create_if_missing(true);
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(opts)
+        .await
+        .expect("in-memory transit SQLite pool");
+    usenet_ipfs_transit::migrations::run_migrations(&pool)
+        .await
+        .expect("transit migrations");
+    pool
+}
+
 async fn make_msgid_pool(db_name: &str) -> sqlx::SqlitePool {
     let url = format!("file:{db_name}?mode=memory&cache=shared");
     let opts = SqliteConnectOptions::new()
@@ -62,6 +78,7 @@ async fn main() {
     let pool = make_msgid_pool("ihave_bench_throughput").await;
     let msgid_map = MsgIdMap::new(pool);
     let log_storage = MemLogStorage::new();
+    let transit_pool = make_transit_pool("ihave_bench_transit_throughput").await;
 
     let signing_key = SigningKey::from_bytes(&[0x42u8; 32]);
     let timestamp = HlcTimestamp {
@@ -82,7 +99,7 @@ async fn main() {
             gossip_tx: None,
             sender_peer_id: "bench-peer",
         };
-        run_pipeline(article, &ipfs, &msgid_map, &log_storage, ctx)
+        run_pipeline(article, &ipfs, &msgid_map, &log_storage, &transit_pool, ctx)
             .await
             .expect("pipeline must succeed");
     }
@@ -108,6 +125,7 @@ async fn main() {
     let pool2 = make_msgid_pool("ihave_bench_latency").await;
     let msgid_map2 = MsgIdMap::new(pool2);
     let log_storage2 = MemLogStorage::new();
+    let transit_pool2 = make_transit_pool("ihave_bench_transit_latency").await;
 
     // Channel capacity equals ARTICLE_COUNT so no send ever blocks.
     let (gossip_tx, _gossip_rx) = mpsc::channel::<(String, Vec<u8>)>(ARTICLE_COUNT);
@@ -128,7 +146,7 @@ async fn main() {
             sender_peer_id: "bench-peer",
         };
         let t0 = Instant::now();
-        run_pipeline(article, &ipfs2, &msgid_map2, &log_storage2, ctx)
+        run_pipeline(article, &ipfs2, &msgid_map2, &log_storage2, &transit_pool2, ctx)
             .await
             .expect("pipeline must succeed");
         latencies.push(t0.elapsed());

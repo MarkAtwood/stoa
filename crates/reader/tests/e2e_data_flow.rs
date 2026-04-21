@@ -8,7 +8,11 @@ use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 
-use usenet_ipfs_reader::{session::lifecycle::run_session, store::server_stores::ServerStores};
+use usenet_ipfs_reader::{
+    config::UserCredential,
+    session::lifecycle::run_session,
+    store::{credentials::CredentialStore, server_stores::ServerStores},
+};
 
 fn test_config(addr: &str) -> usenet_ipfs_reader::config::Config {
     let toml = format!(
@@ -113,7 +117,7 @@ async fn e2e_post_group_over_article() {
     let stores2 = stores.clone();
     tokio::spawn(async move {
         let (stream, _) = listener.accept().await.unwrap();
-        run_session(stream, &config2, stores2).await;
+        run_session(stream, false, &config2, stores2).await;
     });
 
     let stream = TcpStream::connect(addr).await.unwrap();
@@ -197,4 +201,76 @@ async fn e2e_post_group_over_article() {
         quit_resp.starts_with("205"),
         "expected 205, got: {quit_resp}"
     );
+}
+
+/// After `MAX_AUTH_FAILURES` (5) consecutive AUTHINFO PASS failures the server
+/// must close the connection with a 400 response, not accept further commands.
+///
+/// Uses bcrypt cost 4 (minimum, ~5ms/verify) to keep the test fast while still
+/// exercising the real credential path.
+#[tokio::test]
+async fn authinfo_rate_limiter_closes_after_max_failures() {
+    use usenet_ipfs_reader::session::context::MAX_AUTH_FAILURES;
+
+    // Precompute a hash at cost 4 for speed (DEFAULT_COST≈100ms × 5 is too slow).
+    let hash = bcrypt::hash("right-password", 4).expect("bcrypt::hash must not fail");
+    let mut stores = ServerStores::new_mem().await;
+    // Replace the empty store with one that has a known user — all wrong-password
+    // checks will run real bcrypt verify (returning false) at low cost.
+    stores.credential_store = std::sync::Arc::new(CredentialStore::from_credentials(&[
+        UserCredential { username: "alice".to_string(), password: hash },
+    ]));
+    let stores = std::sync::Arc::new(stores);
+
+    // Config with auth.required=false but users=[alice] — disables dev mode so
+    // credential checks actually run.
+    let addr_str = "127.0.0.1:0";
+    let toml = format!(
+        "[listen]\naddr = \"{addr_str}\"\n\
+         [limits]\nmax_connections = 10\ncommand_timeout_secs = 30\n\
+         [auth]\nrequired = false\n\
+         [[auth.users]]\nusername = \"alice\"\npassword = \"placeholder\"\n\
+         [tls]\n"
+    );
+    let config: usenet_ipfs_reader::config::Config = toml::from_str(&toml).expect("config must parse");
+    let config = std::sync::Arc::new(config);
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+
+    let config2 = config.clone();
+    let stores2 = stores.clone();
+    tokio::spawn(async move {
+        let (stream, _) = listener.accept().await.unwrap();
+        run_session(stream, false, &config2, stores2).await;
+    });
+
+    let stream = TcpStream::connect(addr).await.unwrap();
+    let (read_half, mut write_half) = tokio::io::split(stream);
+    let mut reader = BufReader::new(read_half);
+
+    // Consume the greeting.
+    let mut greeting = String::new();
+    reader.read_line(&mut greeting).await.unwrap();
+    assert!(greeting.starts_with("200") || greeting.starts_with("201"), "greeting: {greeting}");
+
+    // Send MAX_AUTH_FAILURES wrong passwords.  Each one should return 481.
+    // The (MAX_AUTH_FAILURES)th failure should close the connection with 400.
+    for attempt in 1..=MAX_AUTH_FAILURES {
+        let user_resp = send_cmd(&mut write_half, &mut reader, "AUTHINFO USER alice").await;
+        assert!(user_resp.starts_with("381"), "attempt {attempt}: expected 381, got: {user_resp}");
+
+        let pass_resp = send_cmd(&mut write_half, &mut reader, "AUTHINFO PASS wrong").await;
+        if attempt < MAX_AUTH_FAILURES {
+            assert!(
+                pass_resp.starts_with("481"),
+                "attempt {attempt}: expected 481, got: {pass_resp}"
+            );
+        } else {
+            assert!(
+                pass_resp.starts_with("400"),
+                "final attempt: expected 400 (close), got: {pass_resp}"
+            );
+        }
+    }
 }

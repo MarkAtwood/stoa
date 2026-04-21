@@ -7,9 +7,10 @@
 use async_trait::async_trait;
 use cid::Cid;
 use multihash_codetable::{Code, MultihashDigest};
+use sqlx::SqlitePool;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use std::time::Instant;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc;
 use usenet_ipfs_core::{
     article::GroupName,
@@ -167,6 +168,7 @@ pub async fn run_pipeline<I, S>(
     ipfs: &I,
     msgid_map: &MsgIdMap,
     log_storage: &S,
+    pool: &SqlitePool,
     ctx: PipelineCtx<'_>,
 ) -> Result<(PipelineResult, PipelineMetrics), String>
 where
@@ -224,17 +226,34 @@ where
         }
     }
 
-    // GC SAFETY: The pipeline intentionally does not insert into the `articles`
-    // table here.  The GC system (retention/gc_candidates.rs) only collects
-    // CIDs present in `articles`, so a CID written to IPFS above cannot be
-    // collected until it is explicitly recorded there.
+    // 3.5. Record in articles table for GC tracking.
     //
-    // When articles table recording is eventually added, `ingested_at_ms` MUST
-    // be set to the current wall-clock time (SystemTime::now()), NOT from the
-    // article's Date header or any peer-supplied timestamp.  The grace period
-    // check (`ingested_at_ms < now - grace_period_ms`) in gc_candidates.rs
-    // protects newly ingested articles from immediate collection only when this
-    // invariant holds.
+    // `ingested_at_ms` MUST be the current wall-clock time (SystemTime::now()),
+    // NOT from the article's Date header or ctx.timestamp — those are
+    // peer-supplied.  The grace period check in gc_candidates.rs only protects
+    // newly ingested articles from immediate collection when this invariant holds.
+    {
+        let cid_str = cid.to_string();
+        let primary_group = group_name_strs.first().map(String::as_str).unwrap_or("");
+        let ingested_at_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as i64;
+        let byte_count = article_bytes.len() as i64;
+        if let Err(e) = sqlx::query(
+            "INSERT OR IGNORE INTO articles (cid, group_name, ingested_at_ms, byte_count) \
+             VALUES (?1, ?2, ?3, ?4)",
+        )
+        .bind(&cid_str)
+        .bind(primary_group)
+        .bind(ingested_at_ms)
+        .bind(byte_count)
+        .execute(pool)
+        .await
+        {
+            tracing::warn!(cid = %cid_str, "articles table insert failed: {e}");
+        }
+    }
 
     // 4. Publish tip advertisements (best-effort).
     if let Some(tx) = ctx.gossip_tx {
@@ -325,6 +344,19 @@ mod tests {
     use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
     use std::str::FromStr as _;
 
+    async fn make_transit_pool() -> SqlitePool {
+        let opts = SqliteConnectOptions::from_str("sqlite::memory:")
+            .unwrap()
+            .create_if_missing(true);
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(opts)
+            .await
+            .unwrap();
+        crate::migrations::run_migrations(&pool).await.unwrap();
+        pool
+    }
+
     async fn make_msgid_map() -> (MsgIdMap, tempfile::TempPath) {
         let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
         let url = format!("sqlite://{}", tmp.to_str().unwrap());
@@ -383,12 +415,14 @@ mod tests {
         let storage = usenet_ipfs_core::group_log::MemLogStorage::new();
         let key = make_signing_key();
         let article = make_article("<test@example.com>", "comp.lang.rust");
+        let transit_pool = make_transit_pool().await;
 
         let result = run_pipeline(
             &article,
             &ipfs,
             &msgid_map,
             &storage,
+            &transit_pool,
             make_ctx(&key, make_timestamp()),
         )
         .await;
@@ -407,6 +441,56 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn pipeline_records_article_in_articles_table() {
+        let ipfs = MemIpfsStore::new();
+        let (msgid_map, _tmp) = make_msgid_map().await;
+        let storage = usenet_ipfs_core::group_log::MemLogStorage::new();
+        let key = make_signing_key();
+        let article = make_article("<articles-table@example.com>", "alt.test");
+        let transit_pool = make_transit_pool().await;
+
+        let before_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64;
+
+        let (pr, _metrics) = run_pipeline(
+            &article,
+            &ipfs,
+            &msgid_map,
+            &storage,
+            &transit_pool,
+            make_ctx(&key, make_timestamp()),
+        )
+        .await
+        .unwrap();
+
+        let after_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64;
+
+        let row: Option<(String, String, i64, i64)> = sqlx::query_as(
+            "SELECT cid, group_name, ingested_at_ms, byte_count FROM articles WHERE cid = ?1",
+        )
+        .bind(pr.cid.to_string())
+        .fetch_optional(&transit_pool)
+        .await
+        .unwrap();
+
+        let (cid_str, group_name, ingested_at_ms, byte_count) =
+            row.expect("articles table must contain the ingested article");
+
+        assert_eq!(cid_str, pr.cid.to_string());
+        assert_eq!(group_name, "alt.test");
+        assert!(
+            ingested_at_ms >= before_ms && ingested_at_ms <= after_ms,
+            "ingested_at_ms {ingested_at_ms} must be within [{before_ms}, {after_ms}]"
+        );
+        assert_eq!(byte_count as usize, article.len());
+    }
+
+    #[tokio::test]
     async fn pipeline_publishes_gossip_tip() {
         let ipfs = MemIpfsStore::new();
         let (msgid_map, _tmp) = make_msgid_map().await;
@@ -421,7 +505,8 @@ mod tests {
             gossip_tx: Some(&tx),
             sender_peer_id: "peer1",
         };
-        let result = run_pipeline(&article, &ipfs, &msgid_map, &storage, ctx).await;
+        let transit_pool = make_transit_pool().await;
+        let result = run_pipeline(&article, &ipfs, &msgid_map, &storage, &transit_pool, ctx).await;
         assert!(result.is_ok(), "pipeline should succeed: {result:?}");
 
         // Should have received a gossip message.
@@ -461,6 +546,7 @@ mod tests {
         let (msgid_map, _tmp) = make_msgid_map().await;
         let storage = usenet_ipfs_core::group_log::MemLogStorage::new();
         let key = make_signing_key();
+        let transit_pool = make_transit_pool().await;
         // Article with no Message-ID header.
         let article = b"From: x@example.com\r\nNewsgroups: alt.test\r\n\r\nBody.\r\n";
 
@@ -469,6 +555,7 @@ mod tests {
             &ipfs,
             &msgid_map,
             &storage,
+            &transit_pool,
             make_ctx(&key, make_timestamp()),
         )
         .await;
@@ -483,12 +570,14 @@ mod tests {
         let storage = usenet_ipfs_core::group_log::MemLogStorage::new();
         let key = make_signing_key();
         let article = make_article("<metrics@example.com>", "alt.test");
+        let transit_pool = make_transit_pool().await;
 
         let (_pr, metrics) = run_pipeline(
             &article,
             &ipfs,
             &msgid_map,
             &storage,
+            &transit_pool,
             make_ctx(&key, make_timestamp()),
         )
         .await

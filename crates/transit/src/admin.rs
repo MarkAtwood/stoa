@@ -81,13 +81,25 @@ impl RateLimiter {
 /// Accepts `SqlitePool` for live stats queries, an optional bearer token for
 /// authentication, and a per-IP rate limit in requests per minute (0 = unlimited).
 /// Spawns a background tokio task. Returns immediately.
+///
+/// # Fail-closed: non-loopback without bearer token
+///
+/// Returns `Err` if `addr` is non-loopback and `bearer_token` is `None`.
+/// An unauthenticated admin endpoint on a reachable interface is a security
+/// footgun in production; the server must not start in that configuration.
 pub fn start_admin_server(
     addr: std::net::SocketAddr,
     pool: Arc<SqlitePool>,
     start_time: Instant,
     bearer_token: Option<String>,
     rate_limit_rpm: u32,
-) {
+) -> Result<(), String> {
+    if !addr.ip().is_loopback() && bearer_token.is_none() {
+        return Err(format!(
+            "admin endpoint at {addr} is on a non-loopback interface but no bearer_token \
+             is configured — refusing to start an unauthenticated admin server"
+        ));
+    }
     let bearer_token = Arc::new(bearer_token);
     let rate_limiter = Arc::new(RateLimiter::new(rate_limit_rpm));
     tokio::spawn(async move {
@@ -125,6 +137,7 @@ pub fn start_admin_server(
             }
         }
     });
+    Ok(())
 }
 
 async fn handle_admin_connection(
@@ -293,12 +306,23 @@ async fn handle_admin_connection(
 /// - The header is present and exactly matches `"Bearer <token>"`.
 ///
 /// Returns `false` if a token is configured and the header is missing or incorrect.
+///
+/// The comparison is constant-time (via `subtle::ConstantTimeEq`) to prevent
+/// timing oracles that could leak the token one character at a time.
 pub(crate) fn check_bearer_token(auth_header: Option<&str>, bearer_token: Option<&str>) -> bool {
+    use subtle::ConstantTimeEq;
     match bearer_token {
         None => true,
         Some(token) => {
             let expected = format!("Bearer {token}");
-            auth_header == Some(expected.as_str())
+            match auth_header {
+                None => false,
+                Some(header) => {
+                    // ct_eq returns Choice (0 or 1); lengths must match first.
+                    // Comparing different-length slices returns 0 (not equal).
+                    expected.as_bytes().ct_eq(header.as_bytes()).into()
+                }
+            }
         }
     }
 }

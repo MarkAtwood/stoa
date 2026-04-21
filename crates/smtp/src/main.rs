@@ -113,9 +113,11 @@ async fn main() {
         let admin_config = Arc::clone(&config);
         let admin_pool = admin_pool.clone();
         let admin_cache = sieve_cache.clone().expect("cache is Some when pool is Some");
-        tokio::spawn(async move {
-            sieve_admin::run_admin_server(admin_config, admin_pool, admin_cache).await;
-        });
+        if let Err(e) = sieve_admin::start_sieve_admin_server(admin_config, admin_pool, admin_cache)
+        {
+            eprintln!("error: sieve admin server: {e}");
+            std::process::exit(1);
+        }
     }
 
     tokio::select! {

@@ -85,6 +85,21 @@ async fn make_msgid_map() -> (MsgIdMap, tempfile::TempPath) {
     (MsgIdMap::new(pool), tmp)
 }
 
+async fn make_transit_pool() -> sqlx::SqlitePool {
+    let opts = SqliteConnectOptions::from_str("sqlite::memory:")
+        .unwrap()
+        .create_if_missing(true);
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(opts)
+        .await
+        .unwrap();
+    usenet_ipfs_transit::migrations::run_migrations(&pool)
+        .await
+        .unwrap();
+    pool
+}
+
 fn make_signing_key() -> SigningKey {
     SigningKey::from_bytes(&[0x42u8; 32])
 }
@@ -133,7 +148,8 @@ async fn ipfs_unavailable_returns_error() {
 
     let article = make_article("<ipfs-fail@test.com>", "comp.test");
 
-    let result = run_pipeline(&article, &ipfs, &map, &log_storage, make_ctx(&key)).await;
+    let transit_pool = make_transit_pool().await;
+    let result = run_pipeline(&article, &ipfs, &map, &log_storage, &transit_pool, make_ctx(&key)).await;
 
     assert!(
         result.is_err(),
@@ -159,7 +175,8 @@ async fn ipfs_unavailable_leaves_no_state() {
     let msgid = "<no-state@test.com>";
     let article = make_article(msgid, "comp.test");
 
-    let _ = run_pipeline(&article, &ipfs, &map, &log_storage, make_ctx(&key)).await;
+    let transit_pool = make_transit_pool().await;
+    let _ = run_pipeline(&article, &ipfs, &map, &log_storage, &transit_pool, make_ctx(&key)).await;
 
     // msgid_map must have no entry for this article.
     let lookup = map.lookup_by_msgid(msgid).await.unwrap();
@@ -193,8 +210,10 @@ async fn ipfs_restored_succeeds() {
     let msgid = "<restored@test.com>";
     let article = make_article(msgid, "comp.test");
 
+    let transit_pool = make_transit_pool().await;
+
     // First attempt: IPFS unavailable, must fail.
-    let first = run_pipeline(&article, &ipfs, &map, &log_storage, make_ctx(&key)).await;
+    let first = run_pipeline(&article, &ipfs, &map, &log_storage, &transit_pool, make_ctx(&key)).await;
     assert!(
         first.is_err(),
         "first pipeline run must fail while IPFS is unavailable"
@@ -204,7 +223,7 @@ async fn ipfs_restored_succeeds() {
     fail_flag.store(false, Ordering::SeqCst);
 
     // Second attempt: must succeed now that IPFS is back.
-    let second = run_pipeline(&article, &ipfs, &map, &log_storage, make_ctx(&key)).await;
+    let second = run_pipeline(&article, &ipfs, &map, &log_storage, &transit_pool, make_ctx(&key)).await;
     assert!(
         second.is_ok(),
         "pipeline must succeed after IPFS is restored: {:?}",

@@ -63,12 +63,11 @@ impl Response {
     ///
     /// `posting_allowed`: include `POST` capability.
     /// `auth_required`: include `AUTHINFO USER` capability.
-    /// `starttls_available`: include `STARTTLS` capability (plain-text connection with TLS configured).
-    pub fn capabilities_with_ctx(
-        posting_allowed: bool,
-        auth_required: bool,
-        starttls_available: bool,
-    ) -> Self {
+    ///
+    /// STARTTLS is intentionally omitted: this server uses implicit TLS (NNTPS,
+    /// port 563) only. Mid-session upgrades are not supported and Command::StartTls
+    /// returns 502.
+    pub fn capabilities_with_ctx(posting_allowed: bool, auth_required: bool) -> Self {
         let mut caps = vec![
             "VERSION 2".to_string(),
             "READER".to_string(),
@@ -80,9 +79,6 @@ impl Response {
             "XVERIFY".to_string(),
             "X-CID-LOCATOR".to_string(),
         ];
-        if starttls_available {
-            caps.push("STARTTLS".to_string());
-        }
         if posting_allowed {
             caps.push("POST".to_string());
         }
@@ -90,12 +86,6 @@ impl Response {
             caps.push("AUTHINFO USER".to_string());
         }
         Self::new_multiline(101, "Capability list follows", caps)
-    }
-    pub fn tls_proceed() -> Self {
-        Self::new(382, "Continue with TLS negotiation")
-    }
-    pub fn tls_not_available() -> Self {
-        Self::new(580, "Can not initiate TLS negotiation")
     }
     /// Build a Response by parsing a static `"NNN text\r\n"` string.
     ///
@@ -259,19 +249,13 @@ mod tests {
 
     #[test]
     fn capabilities_with_ctx_code_is_101() {
-        assert_eq!(
-            Response::capabilities_with_ctx(true, false, false).code,
-            101
-        );
-        assert_eq!(
-            Response::capabilities_with_ctx(false, true, false).code,
-            101
-        );
+        assert_eq!(Response::capabilities_with_ctx(true, false).code, 101);
+        assert_eq!(Response::capabilities_with_ctx(false, true).code, 101);
     }
 
     #[test]
     fn capabilities_with_ctx_multiline_display() {
-        let r = Response::capabilities_with_ctx(false, false, false);
+        let r = Response::capabilities_with_ctx(false, false);
         let s = r.to_string();
         assert!(s.starts_with("101 Capability list follows\r\n"));
         assert!(s.contains("VERSION 2\r\n"));
@@ -279,20 +263,12 @@ mod tests {
     }
 
     #[test]
-    fn capabilities_with_ctx_starttls_included_when_available() {
-        let r = Response::capabilities_with_ctx(false, false, true);
-        assert!(
-            r.body.iter().any(|l| l == "STARTTLS"),
-            "should include STARTTLS"
-        );
-    }
-
-    #[test]
-    fn capabilities_with_ctx_starttls_excluded_when_not_available() {
-        let r = Response::capabilities_with_ctx(false, false, false);
+    fn capabilities_never_includes_starttls() {
+        // STARTTLS is not advertised — implicit TLS (NNTPS) is used instead.
+        let r = Response::capabilities_with_ctx(false, false);
         assert!(
             !r.body.iter().any(|l| l == "STARTTLS"),
-            "should not include STARTTLS"
+            "STARTTLS must not appear in CAPABILITIES"
         );
     }
 
@@ -325,7 +301,6 @@ mod tests {
         assert_eq!(Response::authentication_required().code, 480);
         assert_eq!(Response::authentication_failed().code, 481);
         assert_eq!(Response::authentication_out_of_sequence().code, 482);
-        assert_eq!(Response::tls_not_available().code, 580);
         assert_eq!(Response::unknown_command().code, 500);
         assert_eq!(Response::syntax_error().code, 501);
         assert_eq!(Response::command_unavailable().code, 502);

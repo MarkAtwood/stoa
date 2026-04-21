@@ -268,8 +268,24 @@ async fn full_stack_propagation() {
 
     // Run the transit pipeline on A: writes to IPFS, records msgid→CID,
     // appends to group log, and publishes a TipAdvertisement over gossipsub.
+    let transit_pool = {
+        use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+        use std::str::FromStr as _;
+        let opts = SqliteConnectOptions::from_str("sqlite::memory:")
+            .unwrap()
+            .create_if_missing(true);
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(opts)
+            .await
+            .unwrap();
+        usenet_ipfs_transit::migrations::run_migrations(&pool)
+            .await
+            .unwrap();
+        pool
+    };
     let (pipeline_result, _metrics) =
-        run_pipeline(&article_bytes, &ipfs_a, &msgid_map_a, &log_storage_a, ctx_a)
+        run_pipeline(&article_bytes, &ipfs_a, &msgid_map_a, &log_storage_a, &transit_pool, ctx_a)
             .await
             .expect("pipeline on node A must succeed");
 

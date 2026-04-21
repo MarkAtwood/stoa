@@ -260,6 +260,7 @@ async fn main() {
         let hlc_drain = Arc::clone(&hlc);
         let gossip_tx_drain = gossip_tx;
         let local_peer_id = peer_id.to_string();
+        let transit_pool_drain = Arc::clone(&transit_pool);
 
         tokio::spawn(async move {
             while let Some(article) = ingestion_receiver.recv().await {
@@ -280,6 +281,7 @@ async fn main() {
                     &*ipfs,
                     &msgid_map_drain,
                     &*log_storage_drain,
+                    &*transit_pool_drain,
                     ctx,
                 )
                 .await
@@ -316,13 +318,16 @@ async fn main() {
 
     match config.admin.addr.parse::<std::net::SocketAddr>() {
         Ok(admin_addr) => {
-            start_admin_server(
+            if let Err(e) = start_admin_server(
                 admin_addr,
                 Arc::clone(&transit_pool),
                 start_time,
                 config.admin.bearer_token.clone(),
                 config.admin.rate_limit_rpm,
-            );
+            ) {
+                eprintln!("error: admin server: {e}");
+                std::process::exit(1);
+            }
         }
         Err(e) => {
             eprintln!("error: invalid admin addr '{}': {e}", config.admin.addr);

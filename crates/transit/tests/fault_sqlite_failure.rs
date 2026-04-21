@@ -96,6 +96,21 @@ impl LogStorage for FailingLogStorage {
 
 // ── Test helpers ──────────────────────────────────────────────────────────────
 
+async fn make_transit_pool() -> sqlx::SqlitePool {
+    let opts = SqliteConnectOptions::from_str("sqlite::memory:")
+        .unwrap()
+        .create_if_missing(true);
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(opts)
+        .await
+        .unwrap();
+    usenet_ipfs_transit::migrations::run_migrations(&pool)
+        .await
+        .unwrap();
+    pool
+}
+
 async fn make_msgid_map() -> (MsgIdMap, tempfile::TempPath) {
     let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
     let url = format!("sqlite://{}", tmp.to_str().unwrap());
@@ -160,7 +175,8 @@ async fn log_storage_failure_is_non_fatal() {
     let key = make_signing_key();
 
     let article = make_article("<sqlite-fail@test.com>", "comp.test");
-    let result = run_pipeline(&article, &ipfs, &map, &log_storage, make_ctx(&key)).await;
+    let transit_pool = make_transit_pool().await;
+    let result = run_pipeline(&article, &ipfs, &map, &log_storage, &transit_pool, make_ctx(&key)).await;
 
     // Log-append failure must NOT abort the pipeline — it is a warning.
     assert!(
@@ -194,8 +210,8 @@ async fn ipfs_and_msgid_persist_when_log_fails() {
 
     let msgid = "<persist-test@test.com>";
     let article = make_article(msgid, "comp.test");
-
-    let result = run_pipeline(&article, &ipfs, &map, &log_storage, make_ctx(&key)).await;
+    let transit_pool = make_transit_pool().await;
+    let result = run_pipeline(&article, &ipfs, &map, &log_storage, &transit_pool, make_ctx(&key)).await;
     assert!(
         result.is_ok(),
         "pipeline must return Ok even when log storage fails"
@@ -230,7 +246,8 @@ async fn group_log_has_no_tips_after_insert_failure() {
     let key = make_signing_key();
 
     let article = make_article("<no-tips@test.com>", "comp.test");
-    let _ = run_pipeline(&article, &ipfs, &map, &log_storage, make_ctx(&key)).await;
+    let transit_pool = make_transit_pool().await;
+    let _ = run_pipeline(&article, &ipfs, &map, &log_storage, &transit_pool, make_ctx(&key)).await;
 
     let group = GroupName::new("comp.test").unwrap();
     let tips = log_storage.list_tips(&group).await.unwrap();
@@ -251,7 +268,8 @@ async fn subsequent_article_with_working_storage_succeeds() {
     let key = make_signing_key();
 
     let article = make_article("<fresh-start@test.com>", "comp.test");
-    let result = run_pipeline(&article, &ipfs, &map, &log_storage, make_ctx(&key)).await;
+    let transit_pool = make_transit_pool().await;
+    let result = run_pipeline(&article, &ipfs, &map, &log_storage, &transit_pool, make_ctx(&key)).await;
     assert!(
         result.is_ok(),
         "pipeline with working storage must succeed: {result:?}"
@@ -275,9 +293,11 @@ async fn daemon_continues_operating_after_log_failure() {
     let (log_storage, _count) = FailingLogStorage::new_fail_on_first();
     let key = make_signing_key();
 
+    let transit_pool = make_transit_pool().await;
+
     // First article: log append fails, pipeline returns Ok with empty groups.
     let article1 = make_article("<daemon-cont-1@test.com>", "comp.test");
-    let r1 = run_pipeline(&article1, &ipfs, &map, &log_storage, make_ctx(&key)).await;
+    let r1 = run_pipeline(&article1, &ipfs, &map, &log_storage, &transit_pool, make_ctx(&key)).await;
     assert!(
         r1.is_ok(),
         "first pipeline must return Ok despite log failure"
@@ -290,7 +310,7 @@ async fn daemon_continues_operating_after_log_failure() {
     // Second article: log append also fails (counter still above threshold),
     // but the pipeline must not panic or deadlock.
     let article2 = make_article("<daemon-cont-2@test.com>", "comp.test");
-    let r2 = run_pipeline(&article2, &ipfs, &map, &log_storage, make_ctx(&key)).await;
+    let r2 = run_pipeline(&article2, &ipfs, &map, &log_storage, &transit_pool, make_ctx(&key)).await;
 
     // No panic means the daemon continues operating correctly.
     // r2 may succeed or fail at the log step depending on the counter value;

@@ -27,7 +27,7 @@ use axum::{
 };
 use sqlx::SqlitePool;
 use tokio::net::TcpListener;
-use tracing::{info, warn};
+use tracing::info;
 
 use crate::config::Config;
 use crate::session::SieveCache;
@@ -71,32 +71,50 @@ async fn require_bearer_token(
     next: Next,
 ) -> Response {
     if let Some(expected) = &s.config.sieve_admin.bearer_token {
+        use subtle::ConstantTimeEq as _;
         let auth = request
             .headers()
             .get(axum::http::header::AUTHORIZATION)
             .and_then(|v| v.to_str().ok());
         let expected_header = format!("Bearer {expected}");
-        if auth != Some(expected_header.as_str()) {
+        let ok: bool = match auth {
+            None => false,
+            Some(header) => expected_header.as_bytes().ct_eq(header.as_bytes()).into(),
+        };
+        if !ok {
             return (StatusCode::UNAUTHORIZED, "Unauthorized").into_response();
         }
     }
     next.run(request).await
 }
 
-/// Start the Sieve admin HTTP server.  Runs until the listener is closed.
-pub async fn run_admin_server(config: Arc<Config>, pool: SqlitePool, sieve_cache: SieveCache) {
+/// Performs the fail-closed startup check and, if the configuration is safe,
+/// spawns the Sieve admin HTTP server task.
+///
+/// Returns `Err` immediately when the endpoint is bound to a non-loopback
+/// address without a bearer token and without `allow_non_loopback = true`.
+/// The caller must treat this as a fatal startup error.
+pub fn start_sieve_admin_server(
+    config: Arc<Config>,
+    pool: SqlitePool,
+    sieve_cache: SieveCache,
+) -> Result<(), String> {
     let bind = &config.sieve_admin.bind;
-
     let has_token = config.sieve_admin.bearer_token.is_some();
     if !is_loopback_addr(bind) && !config.sieve_admin.allow_non_loopback && !has_token {
-        warn!(
-            bind,
-            "WARNING: Sieve admin API bound to non-loopback address with no bearer token. \
-             Any host with HTTP access can read and write Sieve scripts for all users. \
-             Set sieve_admin.bearer_token in config to require authentication, \
-             or bind to 127.0.0.1."
-        );
+        return Err(format!(
+            "sieve admin endpoint at {bind} is on a non-loopback interface but no \
+             bearer_token is configured — refusing to start an unauthenticated admin server"
+        ));
     }
+    tokio::spawn(run_admin_server(config, pool, sieve_cache));
+    Ok(())
+}
+
+/// Inner async loop: bind and serve.  Called only after the fail-closed check
+/// in `start_sieve_admin_server` has passed.
+async fn run_admin_server(config: Arc<Config>, pool: SqlitePool, sieve_cache: SieveCache) {
+    let bind = &config.sieve_admin.bind;
 
     let listener = match TcpListener::bind(bind).await {
         Ok(l) => {
@@ -645,5 +663,67 @@ mod tests {
             !cache.lock().await.contains_key("alice"),
             "cache entry must be removed after activate"
         );
+    }
+
+    // ── Fail-closed startup check ─────────────────────────────────────────
+
+    fn fail_closed_config(
+        bind: &str,
+        bearer_token: Option<&str>,
+        allow_non_loopback: bool,
+    ) -> Arc<Config> {
+        Arc::new(Config {
+            hostname: "test.example.com".to_string(),
+            listen: ListenConfig {
+                port_25: "127.0.0.1:0".into(),
+                port_587: "127.0.0.1:0".into(),
+            },
+            tls: TlsConfig { cert_path: None, key_path: None },
+            limits: LimitsConfig::default(),
+            log: LogConfig::default(),
+            reader: ReaderConfig::default(),
+            list_routing: vec![],
+            users: vec![],
+            database: DatabaseConfig::default(),
+            sieve_admin: crate::config::SieveAdminConfig {
+                bind: bind.to_string(),
+                allow_non_loopback,
+                bearer_token: bearer_token.map(str::to_string),
+                max_script_bytes: 65_536,
+            },
+            dns_resolver: "system".to_string(),
+        })
+    }
+
+    #[tokio::test]
+    async fn start_non_loopback_no_token_returns_err() {
+        let pool = crate::store::open(":memory:").await.expect("open db");
+        let cache = crate::session::new_sieve_cache();
+        let config = fail_closed_config("0.0.0.0:4190", None, false);
+        let result = start_sieve_admin_server(config, pool, cache);
+        assert!(result.is_err(), "expected Err for non-loopback without token");
+        let msg = result.unwrap_err();
+        assert!(
+            msg.contains("non-loopback"),
+            "error message should mention non-loopback: {msg}"
+        );
+    }
+
+    #[tokio::test]
+    async fn start_non_loopback_with_token_returns_ok() {
+        let pool = crate::store::open(":memory:").await.expect("open db");
+        let cache = crate::session::new_sieve_cache();
+        let config = fail_closed_config("0.0.0.0:0", Some("secret"), false);
+        let result = start_sieve_admin_server(config, pool, cache);
+        assert!(result.is_ok(), "expected Ok for non-loopback with token: {:?}", result.err());
+    }
+
+    #[tokio::test]
+    async fn start_non_loopback_allow_override_returns_ok() {
+        let pool = crate::store::open(":memory:").await.expect("open db");
+        let cache = crate::session::new_sieve_cache();
+        let config = fail_closed_config("0.0.0.0:0", None, true);
+        let result = start_sieve_admin_server(config, pool, cache);
+        assert!(result.is_ok(), "expected Ok when allow_non_loopback=true: {:?}", result.err());
     }
 }
