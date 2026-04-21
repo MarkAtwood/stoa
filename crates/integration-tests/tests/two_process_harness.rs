@@ -31,8 +31,10 @@ use usenet_ipfs_reader::{
 };
 use usenet_ipfs_transit::{
     peering::{
+        blacklist::BlacklistConfig,
         ingestion_queue::ingestion_queue,
         pipeline::{IpfsError, IpfsStore, PipelineCtx, run_pipeline},
+        rate_limit::{ExhaustionAction, PeerRateLimiter},
         session::{PeeringShared, run_peering_session},
     },
 };
@@ -273,6 +275,8 @@ async fn transit_reader_shared_store() {
     let (ingestion_sender, mut ingestion_receiver) = ingestion_queue(64);
     let ingestion_sender = Arc::new(ingestion_sender);
 
+    let transit_db_pool = Arc::new(make_transit_db_pool().await);
+
     let transit_shared = Arc::new(PeeringShared {
         ipfs: Arc::clone(&shared_ipfs) as Arc<dyn IpfsStore>,
         msgid_map: Arc::clone(&msgid_map),
@@ -282,6 +286,13 @@ async fn transit_reader_shared_store() {
         hlc: Arc::clone(&transit_hlc),
         ingestion_sender: Arc::clone(&ingestion_sender),
         local_peer_id: "integ-test-peer".to_string(),
+        peer_rate_limiter: Arc::new(std::sync::Mutex::new(PeerRateLimiter::new(
+            100.0,
+            200,
+            ExhaustionAction::Respond431,
+        ))),
+        transit_pool: Arc::clone(&transit_db_pool),
+        blacklist_config: BlacklistConfig::default(),
     });
 
     // ── Pipeline drain task ───────────────────────────────────────────────────
@@ -292,7 +303,7 @@ async fn transit_reader_shared_store() {
         let log_drain = Arc::clone(&transit_log_storage);
         let key_drain: Arc<ed25519_dalek::SigningKey> = Arc::clone(&transit_signing_key);
         let hlc_drain = Arc::clone(&transit_hlc);
-        let transit_db_pool = make_transit_db_pool().await;
+        let transit_db_pool = Arc::clone(&transit_db_pool);
 
         tokio::spawn(async move {
             use ed25519_dalek::Signer as _;

@@ -80,6 +80,31 @@ impl PeerRegistry {
         }))
     }
 
+    /// Ensure a peer record exists without overwriting existing data.
+    ///
+    /// Inserts a minimal row (peer_id, address, last_seen) with all counters at
+    /// their defaults if no row for this peer_id is present yet.  No-op if the
+    /// peer is already registered.  Call this on first TCP contact so that
+    /// `record_accepted`, `record_rejected`, and `is_blacklisted` have a row to
+    /// operate on.
+    pub async fn ensure_registered(
+        &self,
+        peer_id: &str,
+        address: &str,
+        now_ms: i64,
+    ) -> Result<(), StorageError> {
+        sqlx::query(
+            "INSERT OR IGNORE INTO peers (peer_id, address, last_seen) VALUES (?1, ?2, ?3)",
+        )
+        .bind(peer_id)
+        .bind(address)
+        .bind(now_ms)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| StorageError::Database(e.to_string()))?;
+        Ok(())
+    }
+
     /// Record a successful article ingestion from a peer.
     pub async fn record_accepted(&self, peer_id: &str, now_ms: i64) -> Result<(), StorageError> {
         sqlx::query(

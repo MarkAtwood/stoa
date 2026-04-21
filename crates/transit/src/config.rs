@@ -19,6 +19,29 @@ pub struct Config {
     pub admin: AdminConfig,
     #[serde(default)]
     pub log: LogConfig,
+    #[serde(default)]
+    pub operator: OperatorConfig,
+}
+
+/// Operator identity configuration.
+///
+/// Controls the Ed25519 signing key used to sign articles before they are
+/// written to IPFS and to derive the stable HLC node_id.
+///
+/// If `signing_key_path` is absent, an ephemeral key is generated at startup.
+/// This is safe for development but breaks article signature verification across
+/// restarts and makes HLC timestamps non-comparable between daemon instances.
+/// Set this in production.
+#[derive(Debug, Deserialize, Default)]
+pub struct OperatorConfig {
+    /// Path to the PEM-encoded Ed25519 operator signing key.
+    ///
+    /// The file must contain a PKCS#8 DER (`PRIVATE KEY` PEM label, 48 bytes)
+    /// or a raw 32-byte seed in PEM form.  Use `transit keygen` to create one.
+    ///
+    /// If absent, an ephemeral key is generated each startup (dev mode only).
+    #[serde(default)]
+    pub signing_key_path: Option<String>,
 }
 
 /// SQLite database configuration.
@@ -203,6 +226,15 @@ impl Config {
         }
         for name in &self.groups.names {
             validate_group_name(name)?;
+        }
+        // Fail fast if the signing key path is configured but unreadable.
+        // Better to catch this at startup than discover it when an article arrives.
+        if let Some(ref path) = self.operator.signing_key_path {
+            std::fs::metadata(path).map_err(|e| {
+                ConfigError::Validation(format!(
+                    "operator.signing_key_path '{path}' is not accessible: {e}"
+                ))
+            })?;
         }
         Ok(())
     }

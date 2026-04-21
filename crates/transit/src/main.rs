@@ -16,8 +16,10 @@ use usenet_ipfs_transit::{
     config::{check_admin_addr, Config},
     gossip::{swarm::start_swarm, tip_advert::handle_tip_advertisement},
     peering::{
+        blacklist::BlacklistConfig,
         ingestion_queue::ingestion_queue,
         pipeline::{run_pipeline, PipelineCtx, RustIpfsStore},
+        rate_limit::{ExhaustionAction, PeerRateLimiter},
         session::{run_peering_session, PeeringShared},
     },
 };
@@ -108,10 +110,29 @@ async fn main() {
         };
     info!("rust-ipfs node started");
 
-    // ── Operator signing key (ephemeral for v1) ───────────────────────────────
+    // ── Operator signing key ──────────────────────────────────────────────────
 
-    let signing_key = Arc::new(ed25519_dalek::SigningKey::generate(&mut OsRng));
-    warn!("using ephemeral operator signing key — add key persistence before production");
+    let signing_key = Arc::new(match &config.operator.signing_key_path {
+        Some(path) => {
+            match usenet_ipfs_core::signing::load_signing_key(std::path::Path::new(path)) {
+                Ok(k) => {
+                    info!(path, "loaded operator signing key");
+                    k
+                }
+                Err(e) => {
+                    eprintln!("error: cannot load operator signing key from '{path}': {e}");
+                    std::process::exit(1);
+                }
+            }
+        }
+        None => {
+            warn!(
+                "operator.signing_key_path not set — using ephemeral key; \
+                 article signatures will not survive restart"
+            );
+            ed25519_dalek::SigningKey::generate(&mut OsRng)
+        }
+    });
 
     // ── Gossipsub swarm (j7n) ─────────────────────────────────────────────────
 
@@ -225,11 +246,17 @@ async fn main() {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_millis() as u64;
-    let peer_bytes = peer_id.to_bytes();
+    // Derive node_id from SHA-256 of the operator signing key's public bytes.
+    // Using the public key (not the libp2p peer_id) ensures the node_id is
+    // stable across restarts as long as the operator key file is unchanged,
+    // and is globally unique assuming Ed25519 keys are not reused across
+    // distinct operators.
     let node_id = {
+        use sha2::{Digest, Sha256};
+        let pubkey_bytes = signing_key.verifying_key().to_bytes();
+        let hash = Sha256::digest(pubkey_bytes);
         let mut id = [0u8; 8];
-        let copy_len = id.len().min(peer_bytes.len());
-        id[..copy_len].copy_from_slice(&peer_bytes[..copy_len]);
+        id.copy_from_slice(&hash[..8]);
         id
     };
     let hlc = Arc::new(Mutex::new(HlcClock::new(node_id, now_ms)));
@@ -248,6 +275,15 @@ async fn main() {
         hlc: Arc::clone(&hlc),
         ingestion_sender: Arc::clone(&ingestion_sender),
         local_peer_id: peer_id.to_string(),
+        // Per-IP rate limiter: all connections from one host share this budget.
+        // 200-article burst, 100 articles/sec sustained.
+        peer_rate_limiter: Arc::new(std::sync::Mutex::new(PeerRateLimiter::new(
+            100.0,
+            200,
+            ExhaustionAction::Respond431,
+        ))),
+        transit_pool: Arc::clone(&transit_pool),
+        blacklist_config: BlacklistConfig::default(),
     });
 
     // ── Pipeline drain task ───────────────────────────────────────────────────

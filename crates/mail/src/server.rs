@@ -12,7 +12,7 @@ use usenet_ipfs_reader::{
     store::{article_numbers::ArticleNumberStore, overview::OverviewStore},
 };
 
-use crate::state::flags::UserFlagsStore;
+use crate::state::{flags::UserFlagsStore, version::StateStore};
 
 /// JMAP backing stores, wired together for the API handler.
 pub struct JmapStores {
@@ -20,6 +20,7 @@ pub struct JmapStores {
     pub article_numbers: Arc<ArticleNumberStore>,
     pub overview_store: Arc<OverviewStore>,
     pub user_flags: Arc<UserFlagsStore>,
+    pub state_store: Arc<StateStore>,
 }
 
 #[derive(Clone)]
@@ -89,9 +90,15 @@ async fn jmap_api_handler(
         method_responses.push(crate::jmap::types::Invocation(response_name, result, call_id));
     }
 
+    let session_state = jmap
+        .state_store
+        .get_state("session")
+        .await
+        .unwrap_or_else(|_| "0".to_string());
+
     let response = crate::jmap::types::Response {
         method_responses,
-        session_state: "0".to_string(),
+        session_state,
         created_ids: None,
     };
 
@@ -122,7 +129,12 @@ async fn route_method(method: &str, args: Value, jmap: &JmapStores) -> Value {
                         .filter_map(|v| v.as_str().map(str::to_string))
                         .collect()
                 });
-            crate::mailbox::get::handle_mailbox_get(&group_infos, ids_filter.as_deref())
+            let state = jmap
+                .state_store
+                .get_state("Mailbox")
+                .await
+                .unwrap_or_else(|_| "0".to_string());
+            crate::mailbox::get::handle_mailbox_get(&group_infos, ids_filter.as_deref(), &state)
         }
 
         "Email/query" => {
@@ -139,13 +151,19 @@ async fn route_method(method: &str, args: Value, jmap: &JmapStores) -> Value {
                 crate::mailbox::types::mailbox_id_for_group(name) == mailbox_id.unwrap_or("")
             });
 
+            let email_state = jmap
+                .state_store
+                .get_state("Email")
+                .await
+                .unwrap_or_else(|_| "0".to_string());
+
             let (group_name, lo, hi) = match target_group {
                 Some(g) => g.clone(),
                 None => {
                     return json!({
                         "ids": [],
                         "total": 0,
-                        "queryState": "0",
+                        "queryState": email_state,
                         "canCalculateChanges": false,
                         "position": 0
                     })
@@ -175,7 +193,7 @@ async fn route_method(method: &str, args: Value, jmap: &JmapStores) -> Value {
             }
 
             let filter = args.get("filter");
-            crate::email::query::handle_email_query(&entries, filter, 0, None)
+            crate::email::query::handle_email_query(&entries, filter, 0, None, &email_state)
         }
 
         "Email/get" => {

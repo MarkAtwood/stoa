@@ -22,7 +22,7 @@ use usenet_ipfs_reader::{
 };
 use usenet_ipfs_mail::{
     server::{AppState, JmapStores, build_router},
-    state::flags::UserFlagsStore,
+    state::{flags::UserFlagsStore, version::StateStore},
 };
 
 static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
@@ -111,6 +111,7 @@ async fn jmap_session_e2e() {
 
     let article_numbers = Arc::new(ArticleNumberStore::new(reader_pool.clone()));
     let overview_store = Arc::new(OverviewStore::new(reader_pool));
+    let state_store = Arc::new(StateStore::new(mail_pool.clone()));
     let user_flags = Arc::new(UserFlagsStore::new(mail_pool));
 
     // Build sub-block CIDs (placeholder raw blocks — only their identity matters
@@ -171,6 +172,7 @@ async fn jmap_session_e2e() {
         article_numbers: Arc::clone(&article_numbers),
         overview_store: Arc::clone(&overview_store),
         user_flags: Arc::clone(&user_flags),
+        state_store: Arc::clone(&state_store),
     });
     let state = Arc::new(AppState {
         start_time: std::time::Instant::now(),

@@ -5,57 +5,13 @@
 //! `X-Usenet-IPFS-Sig: <base64url-no-pad>` immediately before the blank line
 //! separating headers from body.
 
-use base64::{
-    engine::general_purpose::STANDARD, engine::general_purpose::URL_SAFE_NO_PAD, Engine as _,
-};
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use usenet_ipfs_core::signing::{self, Signature, SigningKey, VerifyingKey};
+
+pub use usenet_ipfs_core::signing::load_signing_key;
 
 /// The header name for the operator signature.
 pub const OPERATOR_SIG_HEADER: &str = "X-Usenet-IPFS-Sig";
-
-/// Load an ed25519 signing key from a PEM file at the given path.
-///
-/// Supports two formats:
-/// 1. Standard PKCS#8 DER (48 bytes): 16-byte header + 32-byte seed.
-/// 2. Raw 32-byte seed between PEM `PRIVATE KEY` markers (non-standard).
-///
-/// Returns `Err` with a descriptive message if the file is missing or malformed.
-/// The error message never contains key material.
-pub fn load_signing_key(path: &std::path::Path) -> Result<SigningKey, String> {
-    let pem = std::fs::read_to_string(path)
-        .map_err(|e| format!("cannot read signing key file {}: {e}", path.display()))?;
-
-    // Strip PEM header and footer lines, concatenate the base64 body.
-    let b64_body: String = pem
-        .lines()
-        .filter(|l| !l.starts_with("-----"))
-        .collect::<Vec<_>>()
-        .join("");
-
-    let der = STANDARD
-        .decode(b64_body.trim())
-        .map_err(|e| format!("signing key PEM body is not valid base64: {e}"))?;
-
-    let seed: [u8; 32] = match der.len() {
-        48 => {
-            // PKCS#8 DER for Ed25519: 16-byte header then 32-byte seed.
-            der[16..48]
-                .try_into()
-                .map_err(|_| "PKCS#8 DER seed extraction failed".to_string())?
-        }
-        32 => der
-            .as_slice()
-            .try_into()
-            .map_err(|_| "raw seed must be exactly 32 bytes".to_string())?,
-        n => {
-            return Err(format!(
-                "signing key has unexpected length {n}; expected 32 (raw) or 48 (PKCS#8 DER)"
-            ))
-        }
-    };
-
-    Ok(SigningKey::from_bytes(&seed))
-}
 
 /// Sign article bytes and return `(signed_article, sig_bytes)`.
 ///

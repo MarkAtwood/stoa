@@ -15,7 +15,8 @@ pub struct GroupInfo {
 /// Handle Mailbox/get given a list of group infos.
 ///
 /// `ids` is the JMAP ids argument (null means return all).
-pub fn handle_mailbox_get(groups: &[GroupInfo], ids: Option<&[String]>) -> Value {
+/// `state` is the current JMAP Mailbox state string from StateStore.
+pub fn handle_mailbox_get(groups: &[GroupInfo], ids: Option<&[String]>, state: &str) -> Value {
     let all_mailboxes: Vec<Mailbox> = groups
         .iter()
         .map(|g| Mailbox::from_group(&g.name, g.total_emails, g.unread_emails, g.is_subscribed))
@@ -43,7 +44,7 @@ pub fn handle_mailbox_get(groups: &[GroupInfo], ids: Option<&[String]>) -> Value
 
     json!({
         "accountId": null,
-        "state": "0",
+        "state": state,
         "list": list,
         "notFound": not_found,
     })
@@ -63,7 +64,7 @@ mod tests {
 
     #[test]
     fn get_all_returns_both() {
-        let resp = handle_mailbox_get(&sample_groups(), None);
+        let resp = handle_mailbox_get(&sample_groups(), None, "0");
         let list = resp["list"].as_array().unwrap();
         assert_eq!(list.len(), 2);
     }
@@ -72,7 +73,7 @@ mod tests {
     fn get_by_id_found() {
         let groups = sample_groups();
         let id = mailbox_id_for_group("comp.lang.rust");
-        let resp = handle_mailbox_get(&groups, Some(&[id.clone()]));
+        let resp = handle_mailbox_get(&groups, Some(&[id.clone()]), "0");
         let list = resp["list"].as_array().unwrap();
         assert_eq!(list.len(), 1);
         assert_eq!(list[0]["id"].as_str().unwrap(), &id);
@@ -83,10 +84,16 @@ mod tests {
     #[test]
     fn get_by_id_not_found() {
         let groups = sample_groups();
-        let resp = handle_mailbox_get(&groups, Some(&["nonexistent-id".to_string()]));
+        let resp = handle_mailbox_get(&groups, Some(&["nonexistent-id".to_string()]), "0");
         let list = resp["list"].as_array().unwrap();
         assert!(list.is_empty());
         let not_found = resp["notFound"].as_array().unwrap();
         assert_eq!(not_found.len(), 1);
+    }
+
+    #[test]
+    fn state_string_is_passed_through() {
+        let resp = handle_mailbox_get(&sample_groups(), None, "99");
+        assert_eq!(resp["state"].as_str().unwrap(), "99");
     }
 }

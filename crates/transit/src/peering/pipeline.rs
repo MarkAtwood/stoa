@@ -160,7 +160,7 @@ pub struct PipelineMetrics {
 /// 3. Append a [`LogEntry`] to each group named in `Newsgroups:`.
 /// 4. Publish a [`TipAdvertisement`] for each group via `ctx.gossip_tx` (best-effort).
 ///
-/// Returns `Err` immediately if the IPFS write fails — nothing is committed.
+/// Returns `Err` immediately if the IPFS write or articles table insert fails.
 /// Log-append failures are logged as warnings but do not abort the pipeline.
 /// Gossipsub publish failures are logged but not propagated.
 pub async fn run_pipeline<I, S>(
@@ -228,6 +228,10 @@ where
 
     // 3.5. Record in articles table for GC tracking.
     //
+    // This is a hard error: if IPFS write, msgid_map, and group log all succeed
+    // but the articles table insert fails, the block exists in IPFS but is
+    // invisible to select_gc_candidates — it will never be collected.
+    //
     // `ingested_at_ms` MUST be the current wall-clock time (SystemTime::now()),
     // NOT from the article's Date header or ctx.timestamp — those are
     // peer-supplied.  The grace period check in gc_candidates.rs only protects
@@ -240,7 +244,7 @@ where
             .unwrap_or_default()
             .as_millis() as i64;
         let byte_count = article_bytes.len() as i64;
-        if let Err(e) = sqlx::query(
+        sqlx::query(
             "INSERT OR IGNORE INTO articles (cid, group_name, ingested_at_ms, byte_count) \
              VALUES (?1, ?2, ?3, ?4)",
         )
@@ -250,9 +254,7 @@ where
         .bind(byte_count)
         .execute(pool)
         .await
-        {
-            tracing::warn!(cid = %cid_str, "articles table insert failed: {e}");
-        }
+        .map_err(|e| format!("articles table insert failed for CID {cid_str}: {e}"))?;
     }
 
     // 4. Publish tip advertisements (best-effort).

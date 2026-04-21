@@ -196,9 +196,8 @@ async fn handle_admin_connection(
     }
 
     // Check bearer token if configured.
-    // Note: string comparison is not constant-time; this is intentional for v1
-    // (ops/dev use only). Upgrade to a constant-time comparison before exposing
-    // this endpoint to the public internet.
+    // Bearer token comparison uses subtle::ConstantTimeEq (see check_bearer_token
+    // below) to prevent timing-oracle attacks even on loopback.
     if !check_bearer_token(auth_header.as_deref(), bearer_token) {
         tracing::debug!("admin request rejected: missing or invalid bearer token");
         write_json(

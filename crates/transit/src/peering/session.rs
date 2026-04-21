@@ -7,6 +7,7 @@
 //! them asynchronously.
 
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tokio::sync::{mpsc, Mutex};
@@ -15,13 +16,16 @@ use usenet_ipfs_core::group_log::SqliteLogStorage;
 use usenet_ipfs_core::{msgid_map::MsgIdMap, validation::validate_message_id};
 
 use crate::peering::{
+    blacklist::{check_and_blacklist, is_blacklisted, BlacklistConfig},
     ingestion::{
         check_ingest, check_mode_guard, check_response, ihave_response, takethis_response,
         IngestResult,
     },
     ingestion_queue::{IngestionSender, QueuedArticle},
     mode_stream::{capabilities_response, handle_mode_stream, PeeringMode},
+    peer_registry::PeerRegistry,
     pipeline::IpfsStore,
+    rate_limit::PeerRateLimiter,
 };
 
 /// State shared across all peering sessions (and the pipeline drain task).
@@ -42,23 +46,60 @@ pub struct PeeringShared {
     pub ingestion_sender: Arc<IngestionSender>,
     /// Libp2p peer identity string (used in tip advertisements).
     pub local_peer_id: String,
+    /// Per-IP rate limiter shared across all sessions.
+    ///
+    /// Keyed by peer IP (not IP:port) so that multiple simultaneous connections
+    /// from one host share a single budget — preventing N-connection burst
+    /// multiplication.
+    pub peer_rate_limiter: Arc<std::sync::Mutex<PeerRateLimiter>>,
+    /// Transit SQLite pool for peer registry and blacklist lookups.
+    pub transit_pool: Arc<sqlx::SqlitePool>,
+    /// Blacklist policy configuration.
+    pub blacklist_config: BlacklistConfig,
 }
 
 /// Handle one inbound NNTP peering TCP connection.
 ///
 /// Returns when the peer disconnects or sends QUIT.
 pub async fn run_peering_session(stream: TcpStream, shared: Arc<PeeringShared>) {
-    let peer_addr = stream
-        .peer_addr()
+    let peer_sock = stream.peer_addr();
+    let peer_addr = peer_sock
+        .as_ref()
         .map(|a| a.to_string())
         .unwrap_or_else(|_| "unknown".to_string());
+    // Key by IP (without port) so all connections from one host share a
+    // rate-limit bucket and blacklist entry.
+    let peer_ip = peer_sock
+        .map(|a| a.ip().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+
+    tracing::debug!(%peer_addr, "peering connection accepted");
+
+    // Register peer if not yet known; then check blacklist.
+    // Silently drop the connection with no NNTP greeting on blacklist hit —
+    // do not leak the reason to the peer.
+    let registry = PeerRegistry::new((*shared.transit_pool).clone());
+    let now_ms = wall_ms();
+    if let Err(e) = registry
+        .ensure_registered(&peer_ip, &peer_addr, now_ms)
+        .await
+    {
+        tracing::warn!(%peer_ip, "peer registry update failed: {e}");
+    }
+    match is_blacklisted(&shared.transit_pool, &peer_ip, now_ms).await {
+        Ok(true) => {
+            tracing::debug!(%peer_ip, "rejecting blacklisted peer");
+            return;
+        }
+        Err(e) => {
+            tracing::warn!(%peer_ip, "blacklist check failed: {e}");
+        }
+        Ok(false) => {}
+    }
 
     let (reader_half, mut writer) = stream.into_split();
     let mut reader = BufReader::new(reader_half);
     let mut mode = PeeringMode::Ihave;
-    let mut rate_limiter = TokenBucket::new(RATE_BURST, RATE_PER_SEC);
-
-    tracing::debug!(%peer_addr, "peering connection accepted");
 
     if writer
         .write_all(b"200 usenet-ipfs-transit NNTP service ready\r\n")
@@ -123,17 +164,38 @@ pub async fn run_peering_session(stream: TcpStream, shared: Arc<PeeringShared>) 
                             let result =
                                 check_ingest(&msgid, &article_bytes, &shared.msgid_map).await;
                             let resp = if result == IngestResult::Accepted {
-                                if rate_limiter.try_consume() {
+                                if shared
+                                    .peer_rate_limiter
+                                    .lock()
+                                    .unwrap()
+                                    .check(&peer_ip)
+                                    .is_none()
+                                {
                                     enqueue_article(&shared, &msgid, article_bytes).await;
+                                    record_accepted(&registry, &peer_ip).await;
                                     takethis_response(&result)
                                 } else {
                                     tracing::warn!(
                                         %peer_addr, %msgid,
                                         "TAKETHIS rate limit exceeded"
                                     );
+                                    record_and_maybe_blacklist(
+                                        &registry,
+                                        &shared,
+                                        &peer_ip,
+                                    )
+                                    .await;
                                     "431 Article too soon, try again later"
                                 }
                             } else {
+                                if matches!(result, IngestResult::Rejected(_)) {
+                                    record_and_maybe_blacklist(
+                                        &registry,
+                                        &shared,
+                                        &peer_ip,
+                                    )
+                                    .await;
+                                }
                                 takethis_response(&result)
                             };
                             Some(format!("{} {}\r\n", resp.trim_end(), msgid))
@@ -161,17 +223,38 @@ pub async fn run_peering_session(stream: TcpStream, shared: Arc<PeeringShared>) 
                                 let result =
                                     check_ingest(&msgid, &article_bytes, &shared.msgid_map).await;
                                 if result == IngestResult::Accepted {
-                                    if rate_limiter.try_consume() {
+                                    if shared
+                                        .peer_rate_limiter
+                                        .lock()
+                                        .unwrap()
+                                        .check(&peer_ip)
+                                        .is_none()
+                                    {
                                         enqueue_article(&shared, &msgid, article_bytes).await;
+                                        record_accepted(&registry, &peer_ip).await;
                                         Some(ihave_response(&result).to_owned())
                                     } else {
                                         tracing::warn!(
                                             %peer_addr, %msgid,
                                             "IHAVE rate limit exceeded"
                                         );
+                                        record_and_maybe_blacklist(
+                                            &registry,
+                                            &shared,
+                                            &peer_ip,
+                                        )
+                                        .await;
                                         Some("436 Transfer failed, try again later\r\n".to_owned())
                                     }
                                 } else {
+                                    if matches!(result, IngestResult::Rejected(_)) {
+                                        record_and_maybe_blacklist(
+                                            &registry,
+                                            &shared,
+                                            &peer_ip,
+                                        )
+                                        .await;
+                                    }
                                     Some(ihave_response(&result).to_owned())
                                 }
                             }
@@ -197,54 +280,48 @@ pub async fn run_peering_session(stream: TcpStream, shared: Arc<PeeringShared>) 
     tracing::debug!(%peer_addr, "peering connection closed");
 }
 
-// ── Per-session rate limiter ──────────────────────────────────────────────────
-
-/// Burst capacity: number of accepted articles allowed in a sudden burst
-/// before the per-second rate limit kicks in.
-const RATE_BURST: f64 = 200.0;
-
-/// Sustained rate: articles accepted per second per connection in steady state.
-const RATE_PER_SEC: f64 = 100.0;
-
-/// Token-bucket rate limiter for per-connection article acceptance.
-///
-/// Prevents a single peer from flooding the ingestion queue and starving
-/// legitimate peers.  Calls to `try_consume` return `true` (allowed) or
-/// `false` (rate limit exceeded; caller should respond with 431/436).
-pub(crate) struct TokenBucket {
-    tokens: f64,
-    capacity: f64,
-    refill_rate: f64,
-    last_refill: std::time::Instant,
-}
-
-impl TokenBucket {
-    pub(crate) fn new(capacity: f64, refill_rate: f64) -> Self {
-        Self {
-            tokens: capacity,
-            capacity,
-            refill_rate,
-            last_refill: std::time::Instant::now(),
-        }
-    }
-
-    /// Attempt to consume one token.  Returns `true` if the token was granted,
-    /// `false` if the bucket was empty (rate limit exceeded).
-    pub(crate) fn try_consume(&mut self) -> bool {
-        let now = std::time::Instant::now();
-        let elapsed = now.duration_since(self.last_refill).as_secs_f64();
-        self.last_refill = now;
-        self.tokens = (self.tokens + elapsed * self.refill_rate).min(self.capacity);
-        if self.tokens >= 1.0 {
-            self.tokens -= 1.0;
-            true
-        } else {
-            false
-        }
-    }
-}
-
 // ── Internal helpers ──────────────────────────────────────────────────────────
+
+/// Current wall-clock time in Unix milliseconds.
+fn wall_ms() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64
+}
+
+/// Record an accepted article in the peer registry; log on failure.
+async fn record_accepted(registry: &PeerRegistry, peer_ip: &str) {
+    if let Err(e) = registry.record_accepted(peer_ip, wall_ms()).await {
+        tracing::warn!(%peer_ip, "record_accepted failed: {e}");
+    }
+}
+
+/// Record a rejected article and check whether to blacklist the peer.
+///
+/// Called after any Rejected (not Duplicate or TransientError) outcome
+/// so that a peer sending repeated invalid articles accumulates failures.
+async fn record_and_maybe_blacklist(
+    registry: &PeerRegistry,
+    shared: &PeeringShared,
+    peer_ip: &str,
+) {
+    let now_ms = wall_ms();
+    if let Err(e) = registry.record_rejected(peer_ip, now_ms).await {
+        tracing::warn!(%peer_ip, "record_rejected failed: {e}");
+    }
+    match check_and_blacklist(&shared.transit_pool, peer_ip, now_ms, &shared.blacklist_config)
+        .await
+    {
+        Ok(true) => {
+            tracing::warn!(%peer_ip, "peer blacklisted after repeated article rejections");
+        }
+        Err(e) => {
+            tracing::warn!(%peer_ip, "check_and_blacklist failed: {e}");
+        }
+        Ok(false) => {}
+    }
+}
 
 /// Check only msgid format and duplicate status (no article bytes needed).
 async fn check_msgid_only(msgid: &str, msgid_map: &MsgIdMap) -> IngestResult {
@@ -327,58 +404,5 @@ async fn read_dot_stuffed(
             continue;
         }
         buf.extend_from_slice(output_line.as_bytes());
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn token_bucket_allows_up_to_capacity() {
-        let mut tb = TokenBucket::new(5.0, 0.0); // no refill
-        for _ in 0..5 {
-            assert!(tb.try_consume(), "should allow up to capacity");
-        }
-        assert!(!tb.try_consume(), "should deny when exhausted");
-    }
-
-    #[test]
-    fn token_bucket_refills_over_time() {
-        let mut tb = TokenBucket::new(1.0, 1_000_000.0); // very fast refill
-        assert!(tb.try_consume(), "first consume succeeds");
-        // drain
-        while tb.try_consume() {}
-        // Sleep not needed: the refill formula uses elapsed time; with 1M tokens/sec
-        // even a nanosecond of elapsed time will refill at least one token.
-        // Force a small artificial delay via setting last_refill in the past.
-        tb.last_refill -= std::time::Duration::from_secs(1);
-        assert!(tb.try_consume(), "should refill after time passes");
-    }
-
-    #[test]
-    fn token_bucket_does_not_exceed_capacity() {
-        let cap = 10.0;
-        let mut tb = TokenBucket::new(cap, 1_000_000.0);
-        // Wait a long time (via time manipulation)
-        tb.last_refill -= std::time::Duration::from_secs(9999);
-        // Consume once to trigger refill
-        tb.try_consume();
-        // tokens should be capped at capacity - 1
-        assert!(
-            tb.tokens <= cap,
-            "tokens {:.1} must not exceed capacity {cap}",
-            tb.tokens
-        );
-    }
-
-    #[test]
-    fn token_bucket_zero_refill_stays_empty_after_drain() {
-        let mut tb = TokenBucket::new(3.0, 0.0);
-        for _ in 0..3 {
-            assert!(tb.try_consume());
-        }
-        tb.last_refill -= std::time::Duration::from_secs(100);
-        assert!(!tb.try_consume(), "zero refill rate must not replenish");
     }
 }

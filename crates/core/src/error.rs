@@ -95,6 +95,7 @@ pub enum ValidationError {
     DateOutOfRange(String),
     InvalidGroupInNewsgroups(String),
     EmptyNewsgroups,
+    TooManyNewsgroups { count: usize, limit: usize },
 }
 
 impl fmt::Display for ValidationError {
@@ -112,6 +113,9 @@ impl fmt::Display for ValidationError {
             Self::DateOutOfRange(d) => write!(f, "date out of acceptable range: {d}"),
             Self::InvalidGroupInNewsgroups(g) => write!(f, "invalid group in Newsgroups: {g:?}"),
             Self::EmptyNewsgroups => write!(f, "Newsgroups header is empty"),
+            Self::TooManyNewsgroups { count, limit } => {
+                write!(f, "too many Newsgroups entries: {count} (limit {limit})")
+            }
         }
     }
 }

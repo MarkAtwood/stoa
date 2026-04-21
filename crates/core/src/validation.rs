@@ -7,6 +7,16 @@
 use crate::article::Article;
 use crate::error::{ProtocolError, ValidationError};
 
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+/// Maximum number of groups permitted in the Newsgroups header.
+///
+/// An article crossposted to more than this many groups is rejected at ingress.
+/// Without a cap, a peer can send an article with thousands of fabricated group
+/// names and force the transit pipeline to perform one group-log append per
+/// name — a DoS multiplier.
+pub const MAX_NEWSGROUPS: usize = 100;
+
 // ── Configuration ─────────────────────────────────────────────────────────────
 
 /// Configuration for article ingress validation.
@@ -53,7 +63,9 @@ fn is_valid_message_id(id: &str) -> bool {
         return false;
     }
 
-    let forbidden = |c: char| c.is_whitespace() || c == '<' || c == '>';
+    // NUL (\0) is not matched by is_whitespace(); check explicitly.
+    // RFC 5322 §2.2 forbids NUL in header field values.
+    let forbidden = |c: char| c.is_whitespace() || c == '<' || c == '>' || c == '\0';
 
     if local.chars().any(forbidden) || domain.chars().any(forbidden) {
         return false;
@@ -129,9 +141,16 @@ pub fn validate_article_ingress(
         return Err(ValidationError::InvalidMessageId(h.message_id.clone()).into());
     }
 
-    // 3. Newsgroups not empty.
+    // 3. Newsgroups not empty and within the crosspost cap.
     if h.newsgroups.is_empty() {
         return Err(ValidationError::EmptyNewsgroups.into());
+    }
+    if h.newsgroups.len() > MAX_NEWSGROUPS {
+        return Err(ValidationError::TooManyNewsgroups {
+            count: h.newsgroups.len(),
+            limit: MAX_NEWSGROUPS,
+        }
+        .into());
     }
 
     // 4. Group names valid (GroupName::new already validates; the vec only
@@ -500,6 +519,52 @@ mod tests {
         let long = format!("<{}@x>", "x".repeat(995));
         assert_eq!(long.len(), 999);
         assert!(validate_message_id(&long).is_err());
+    }
+
+    // RFC 5322 §2.2: NUL byte is not whitespace in Rust but is forbidden in headers.
+    #[test]
+    fn test_nul_byte_rejected_in_message_id() {
+        // NUL in local part
+        let id_with_nul = "<te\x00st@example.com>";
+        let err = validate_message_id(id_with_nul).unwrap_err();
+        assert!(
+            matches!(err, ValidationError::InvalidMessageId(_)),
+            "unexpected error: {err:?}"
+        );
+
+        // NUL in domain part
+        let id_nul_domain = "<test@exam\x00ple.com>";
+        assert!(validate_message_id(id_nul_domain).is_err());
+    }
+
+    // ── Newsgroups cap ────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_too_many_newsgroups_rejected() {
+        let mut article = make_valid_article();
+        article.header.newsgroups = (0..=MAX_NEWSGROUPS)
+            .map(|i| GroupName::new(&format!("comp.test.group{i}")).unwrap())
+            .collect();
+        let err = validate_article_ingress(&article, &ValidationConfig::default()).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                ProtocolError::ValidationFailed(ValidationError::TooManyNewsgroups {
+                    count,
+                    limit,
+                }) if count == MAX_NEWSGROUPS + 1 && limit == MAX_NEWSGROUPS
+            ),
+            "unexpected error: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_exactly_max_newsgroups_accepted() {
+        let mut article = make_valid_article();
+        article.header.newsgroups = (0..MAX_NEWSGROUPS)
+            .map(|i| GroupName::new(&format!("comp.test.group{i}")).unwrap())
+            .collect();
+        assert!(validate_article_ingress(&article, &ValidationConfig::default()).is_ok());
     }
 
     // ── check_duplicate ───────────────────────────────────────────────────────

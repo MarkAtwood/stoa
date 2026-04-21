@@ -12,35 +12,7 @@ pub struct RotateConfig {
     pub group: String,
 }
 
-/// Load an ed25519 private key from a PKCS#8 PEM file.
-///
-/// The PEM must use the `PRIVATE KEY` label and contain a PKCS#8 v1 DER blob
-/// (16-byte fixed header + 32-byte seed), matching the format written by
-/// `transit keygen`.
-///
-/// The raw seed bytes are never logged or returned; only the `SigningKey` handle.
-pub fn load_signing_key(pem_path: &std::path::Path) -> Result<ed25519_dalek::SigningKey, String> {
-    let pem_text = std::fs::read_to_string(pem_path)
-        .map_err(|e| format!("cannot read {}: {e}", pem_path.display()))?;
-
-    let der = decode_pem(&pem_text, "PRIVATE KEY")
-        .ok_or_else(|| format!("not a valid PRIVATE KEY PEM: {}", pem_path.display()))?;
-
-    // PKCS#8 v1 DER for ed25519: 16-byte fixed header + 32-byte seed.
-    if der.len() != 48 {
-        return Err(format!(
-            "unexpected PKCS#8 DER length {} (expected 48): {}",
-            der.len(),
-            pem_path.display()
-        ));
-    }
-
-    let seed: [u8; 32] = der[16..48]
-        .try_into()
-        .map_err(|_| "seed slice length mismatch".to_string())?;
-
-    Ok(ed25519_dalek::SigningKey::from_bytes(&seed))
-}
+pub use usenet_ipfs_core::signing::load_signing_key;
 
 /// Load a public key from a PKCS#8 SubjectPublicKeyInfo PEM file.
 ///
