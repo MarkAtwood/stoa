@@ -40,10 +40,7 @@ pub async fn reconcile<S: LogStorage>(
 
     // ── have ─────────────────────────────────────────────────────────────────
     // Build a set of remote tip bytes for O(1) membership tests.
-    let remote_set: HashSet<[u8; 32]> = remote_tips
-        .iter()
-        .map(|id| *id.as_bytes())
-        .collect();
+    let remote_set: HashSet<[u8; 32]> = remote_tips.iter().map(|id| *id.as_bytes()).collect();
 
     let mut have: Vec<LogEntryId> = Vec::new();
     let mut visited: HashSet<[u8; 32]> = HashSet::new();
@@ -77,7 +74,7 @@ pub async fn reconcile<S: LogStorage>(
 mod tests {
     use super::*;
     use cid::Cid;
-    use multihash_codetable::{Code, MultihashDigest, Multihash};
+    use multihash_codetable::{Code, Multihash, MultihashDigest};
 
     use crate::article::GroupName;
     use crate::group_log::mem_storage::MemLogStorage;
@@ -105,10 +102,7 @@ mod tests {
     fn make_entry(hlc: u64, article_seed: &[u8], parents: Vec<Cid>) -> LogEntry {
         LogEntry {
             hlc_timestamp: hlc,
-            article_cid: Cid::new_v1(
-                0x71,
-                Code::Sha2_256.digest(article_seed),
-            ),
+            article_cid: Cid::new_v1(0x71, Code::Sha2_256.digest(article_seed)),
             operator_signature: vec![],
             parent_cids: parents,
         }
@@ -139,8 +133,16 @@ mod tests {
 
         let result = reconcile(&storage, &group, &[id.clone()]).await.unwrap();
 
-        assert!(result.want.is_empty(), "want must be empty: {:?}", result.want);
-        assert!(result.have.is_empty(), "have must be empty: {:?}", result.have);
+        assert!(
+            result.want.is_empty(),
+            "want must be empty: {:?}",
+            result.want
+        );
+        assert!(
+            result.have.is_empty(),
+            "have must be empty: {:?}",
+            result.have
+        );
     }
 
     // ── remote_has_new_tip ────────────────────────────────────────────────────
@@ -162,9 +164,15 @@ mod tests {
         // Remote claims a tip we have never seen.
         let remote_id = make_entry_id(b"remote-genesis");
 
-        let result = reconcile(&storage, &group, &[remote_id.clone()]).await.unwrap();
+        let result = reconcile(&storage, &group, &[remote_id.clone()])
+            .await
+            .unwrap();
 
-        assert_eq!(result.want, vec![remote_id], "remote tip must appear in want");
+        assert_eq!(
+            result.want,
+            vec![remote_id],
+            "remote tip must appear in want"
+        );
         // local_id is not in remote_tips → appears in have
         assert_eq!(result.have, vec![local_id]);
     }
@@ -196,9 +204,15 @@ mod tests {
         storage.set_tips(&group, &[extra_id.clone()]).await.unwrap();
 
         // Remote only knows the genesis tip.
-        let result = reconcile(&storage, &group, &[genesis_id.clone()]).await.unwrap();
+        let result = reconcile(&storage, &group, &[genesis_id.clone()])
+            .await
+            .unwrap();
 
-        assert!(result.want.is_empty(), "want must be empty: {:?}", result.want);
+        assert!(
+            result.want.is_empty(),
+            "want must be empty: {:?}",
+            result.want
+        );
 
         // extra_id is local and not in remote_tips → in have.
         // genesis_id is in remote_tips → NOT in have.
@@ -231,7 +245,9 @@ mod tests {
 
         let remote_id = make_entry_id(b"remote-only");
 
-        let result = reconcile(&storage, &group, &[remote_id.clone()]).await.unwrap();
+        let result = reconcile(&storage, &group, &[remote_id.clone()])
+            .await
+            .unwrap();
 
         assert_eq!(result.want, vec![remote_id], "remote entry must be in want");
         assert_eq!(result.have, vec![local_id], "local entry must be in have");
@@ -258,10 +274,7 @@ mod tests {
         // Peer A has two entries: genesis + one child.
         let a_genesis_id = make_entry_id(b"a-genesis");
         storage_a
-            .insert_entry(
-                a_genesis_id.clone(),
-                make_entry(1_000, b"art-a0", vec![]),
-            )
+            .insert_entry(a_genesis_id.clone(), make_entry(1_000, b"art-a0", vec![]))
             .await
             .unwrap();
 
@@ -281,10 +294,7 @@ mod tests {
         // Peer B has one entry: its own genesis.
         let b_genesis_id = make_entry_id(b"b-genesis");
         storage_b
-            .insert_entry(
-                b_genesis_id.clone(),
-                make_entry(1_001, b"art-b0", vec![]),
-            )
+            .insert_entry(b_genesis_id.clone(), make_entry(1_001, b"art-b0", vec![]))
             .await
             .unwrap();
         storage_b

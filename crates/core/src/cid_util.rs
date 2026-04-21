@@ -81,7 +81,11 @@ mod tests {
         assert_eq!(cid.codec(), RAW, "codec must be RAW (0x55)");
 
         // Hash must be SHA2-256.
-        assert_eq!(cid.hash().code(), 0x12, "multihash function must be SHA2-256 (0x12)");
+        assert_eq!(
+            cid.hash().code(),
+            0x12,
+            "multihash function must be SHA2-256 (0x12)"
+        );
 
         // Digest bytes must match the Python reference vector.
         let expected_digest =

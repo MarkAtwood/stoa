@@ -58,13 +58,21 @@ mod tests {
     fn sci_math_maps_to_different_topic_than_comp() {
         let t1 = topic_for_group("comp.lang.rust");
         let t2 = topic_for_group("sci.math");
-        assert_ne!(t1.hash(), t2.hash(), "comp and sci should be different topics");
+        assert_ne!(
+            t1.hash(),
+            t2.hash(),
+            "comp and sci should be different topics"
+        );
     }
 
     #[test]
     fn subscribe_hierarchies_deduplicates() {
         let topics = subscribe_hierarchies(&["comp.lang.rust", "comp.os.linux", "sci.math"]);
-        assert_eq!(topics.len(), 2, "comp.lang.rust and comp.os.linux share a hierarchy");
+        assert_eq!(
+            topics.len(),
+            2,
+            "comp.lang.rust and comp.os.linux share a hierarchy"
+        );
     }
 
     #[test]

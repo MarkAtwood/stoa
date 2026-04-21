@@ -5,7 +5,9 @@
 //! `X-Usenet-IPFS-Sig: <base64url-no-pad>` immediately before the blank line
 //! separating headers from body.
 
-use base64::{engine::general_purpose::STANDARD, engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+use base64::{
+    engine::general_purpose::STANDARD, engine::general_purpose::URL_SAFE_NO_PAD, Engine as _,
+};
 use usenet_ipfs_core::signing::{self, Signature, SigningKey, VerifyingKey};
 
 /// The header name for the operator signature.
@@ -157,8 +159,7 @@ fn extract_sig_header(article_bytes: &[u8]) -> Result<(Vec<u8>, Vec<u8>), String
         cursor += raw_line.len();
     }
 
-    let value = sig_value
-        .ok_or_else(|| format!("{OPERATOR_SIG_HEADER} header not found"))?;
+    let value = sig_value.ok_or_else(|| format!("{OPERATOR_SIG_HEADER} header not found"))?;
 
     let sig_bytes = URL_SAFE_NO_PAD
         .decode(value)
@@ -224,7 +225,10 @@ mod tests {
         let signed = sign_article(&key_a, &article);
         let result = verify_article_sig(&key_b.verifying_key(), &signed);
 
-        assert!(result.is_err(), "verification with a different key must fail");
+        assert!(
+            result.is_err(),
+            "verification with a different key must fail"
+        );
     }
 
     #[test]

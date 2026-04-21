@@ -10,10 +10,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use usenet_ipfs_reader::session::{
     commands::{
-        fetch::{ArticleContent, article_response, body_response, head_response, no_group_selected,
-                no_such_msgid, no_such_number},
-        group::{GroupData, group_select, last_article, next_article, stat_article},
-        list::{GroupInfo, list_active, list_newsgroups, newgroups, newnews},
+        fetch::{
+            article_response, body_response, head_response, no_group_selected, no_such_msgid,
+            no_such_number, ArticleContent,
+        },
+        group::{group_select, last_article, next_article, stat_article, GroupData},
+        list::{list_active, list_newsgroups, newgroups, newnews, GroupInfo},
         post::complete_post,
     },
     context::SessionContext,
@@ -33,15 +35,20 @@ fn active_ctx() -> SessionContext {
 fn make_group(name: &str, numbers: Vec<u64>) -> GroupData {
     let low = numbers.first().copied().unwrap_or(1);
     let high = numbers.last().copied().unwrap_or(0);
-    GroupData { name: name.into(), count: numbers.len() as u64, low, high, article_numbers: numbers }
+    GroupData {
+        name: name.into(),
+        count: numbers.len() as u64,
+        low,
+        high,
+        article_numbers: numbers,
+    }
 }
 
 /// Format a Unix timestamp (seconds) as an RFC 2822 date string.
 fn epoch_to_rfc2822(secs: i64) -> String {
     const DAYS: [&str; 7] = ["Thu", "Fri", "Sat", "Sun", "Mon", "Tue", "Wed"];
     const MONTHS: [&str; 12] = [
-        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
     ];
     let s = secs;
     let sec = (s % 60) as u32;
@@ -61,7 +68,13 @@ fn epoch_to_rfc2822(secs: i64) -> String {
     let y = if m <= 2 { y + 1 } else { y };
     format!(
         "{}, {:02} {} {} {:02}:{:02}:{:02} +0000",
-        DAYS[wday], d, MONTHS[(m - 1) as usize], y, hour, min, sec
+        DAYS[wday],
+        d,
+        MONTHS[(m - 1) as usize],
+        y,
+        hour,
+        min,
+        sec
     )
 }
 
@@ -96,7 +109,10 @@ fn make_article(newsgroups: Option<&str>, from: Option<&str>) -> Vec<u8> {
 #[test]
 fn article_not_found_by_msgid_returns_430() {
     let resp = no_such_msgid();
-    assert_eq!(resp.code, 430, "RFC 3977 §6.2.1: unknown message-ID must yield 430");
+    assert_eq!(
+        resp.code, 430,
+        "RFC 3977 §6.2.1: unknown message-ID must yield 430"
+    );
 }
 
 /// When a local article-number lookup returns no row (e.g. SQLite returns
@@ -105,7 +121,10 @@ fn article_not_found_by_msgid_returns_430() {
 #[test]
 fn article_not_found_by_number_returns_423() {
     let resp = no_such_number();
-    assert_eq!(resp.code, 423, "RFC 3977 §6.2.1: no article with that number must yield 423");
+    assert_eq!(
+        resp.code, 423,
+        "RFC 3977 §6.2.1: no article with that number must yield 423"
+    );
 }
 
 /// When the client issues ARTICLE/HEAD/BODY with a bare number but has not
@@ -114,7 +133,10 @@ fn article_not_found_by_number_returns_423() {
 #[test]
 fn article_fetch_without_group_returns_412() {
     let resp = no_group_selected();
-    assert_eq!(resp.code, 412, "RFC 3977 §6.1.1: no group selected must yield 412");
+    assert_eq!(
+        resp.code, 412,
+        "RFC 3977 §6.1.1: no group selected must yield 412"
+    );
 }
 
 /// The 430 response must contain only a single-line status (no body lines).
@@ -122,21 +144,30 @@ fn article_fetch_without_group_returns_412() {
 #[test]
 fn no_such_msgid_is_single_line() {
     let resp = no_such_msgid();
-    assert!(resp.body.is_empty(), "430 response must be single-line per RFC 3977 §3.2");
+    assert!(
+        resp.body.is_empty(),
+        "430 response must be single-line per RFC 3977 §3.2"
+    );
 }
 
 /// The 423 response must be single-line.
 #[test]
 fn no_such_number_is_single_line() {
     let resp = no_such_number();
-    assert!(resp.body.is_empty(), "423 response must be single-line per RFC 3977 §3.2");
+    assert!(
+        resp.body.is_empty(),
+        "423 response must be single-line per RFC 3977 §3.2"
+    );
 }
 
 /// The 412 response must be single-line.
 #[test]
 fn no_group_selected_is_single_line() {
     let resp = no_group_selected();
-    assert!(resp.body.is_empty(), "412 response must be single-line per RFC 3977 §3.2");
+    assert!(
+        resp.body.is_empty(),
+        "412 response must be single-line per RFC 3977 §3.2"
+    );
 }
 
 /// A successful ARTICLE fetch must return 220.  Verifying the success path
@@ -151,7 +182,10 @@ fn article_response_on_success_returns_220() {
         cid: None,
     };
     let resp = article_response(&content);
-    assert_eq!(resp.code, 220, "RFC 3977 §6.2.1: successful ARTICLE must yield 220");
+    assert_eq!(
+        resp.code, 220,
+        "RFC 3977 §6.2.1: successful ARTICLE must yield 220"
+    );
 }
 
 /// HEAD succeeds with 221; confirms the branch taken when storage delivers data.
@@ -165,7 +199,10 @@ fn head_response_on_success_returns_221() {
         cid: None,
     };
     let resp = head_response(&content);
-    assert_eq!(resp.code, 221, "RFC 3977 §6.2.2: successful HEAD must yield 221");
+    assert_eq!(
+        resp.code, 221,
+        "RFC 3977 §6.2.2: successful HEAD must yield 221"
+    );
 }
 
 /// BODY succeeds with 222; confirms the branch taken when storage delivers data.
@@ -179,7 +216,10 @@ fn body_response_on_success_returns_222() {
         cid: None,
     };
     let resp = body_response(&content);
-    assert_eq!(resp.code, 222, "RFC 3977 §6.2.3: successful BODY must yield 222");
+    assert_eq!(
+        resp.code, 222,
+        "RFC 3977 §6.2.3: successful BODY must yield 222"
+    );
 }
 
 // ── group command error paths ─────────────────────────────────────────────────
@@ -190,7 +230,10 @@ fn body_response_on_success_returns_222() {
 fn group_select_unknown_group_returns_411() {
     let mut ctx = active_ctx();
     let resp = group_select(&mut ctx, None); // None simulates a storage miss
-    assert_eq!(resp.code, 411, "RFC 3977 §6.1.1: no such newsgroup must yield 411");
+    assert_eq!(
+        resp.code, 411,
+        "RFC 3977 §6.1.1: no such newsgroup must yield 411"
+    );
 }
 
 /// After GROUP succeeds, the session is in GroupSelected state and the
@@ -200,7 +243,10 @@ fn group_select_known_group_returns_211() {
     let mut ctx = active_ctx();
     let gd = make_group("comp.lang.rust", vec![1, 2, 3]);
     let resp = group_select(&mut ctx, Some(&gd));
-    assert_eq!(resp.code, 211, "RFC 3977 §6.1.1: successful GROUP must yield 211");
+    assert_eq!(
+        resp.code, 211,
+        "RFC 3977 §6.1.1: successful GROUP must yield 211"
+    );
 }
 
 /// An empty group (no articles stored yet) must still return 211 with
@@ -210,8 +256,14 @@ fn group_select_empty_group_returns_211_with_zero_count() {
     let mut ctx = active_ctx();
     let gd = make_group("comp.test.empty", vec![]);
     let resp = group_select(&mut ctx, Some(&gd));
-    assert_eq!(resp.code, 211, "RFC 3977 §6.1.1: empty group must still yield 211");
-    assert!(resp.text.starts_with("0 "), "count must be zero for an empty group");
+    assert_eq!(
+        resp.code, 211,
+        "RFC 3977 §6.1.1: empty group must still yield 211"
+    );
+    assert!(
+        resp.text.starts_with("0 "),
+        "count must be zero for an empty group"
+    );
 }
 
 /// NEXT when no group is selected must return 412 per RFC 3977 §6.1.3.
@@ -221,7 +273,10 @@ fn next_without_group_returns_412() {
     let mut ctx = active_ctx(); // state = Active, no group
     let gd = make_group("comp.lang.rust", vec![1, 2, 3]);
     let resp = next_article(&mut ctx, Some(&gd));
-    assert_eq!(resp.code, 412, "RFC 3977 §6.1.3: NEXT without GROUP must yield 412");
+    assert_eq!(
+        resp.code, 412,
+        "RFC 3977 §6.1.3: NEXT without GROUP must yield 412"
+    );
 }
 
 /// NEXT when the cursor is already at the last article (or the group has no
@@ -233,7 +288,10 @@ fn next_at_end_of_group_returns_421() {
     group_select(&mut ctx, Some(&gd));
     ctx.current_article_number = Some(3); // already at the last article
     let resp = next_article(&mut ctx, Some(&gd));
-    assert_eq!(resp.code, 421, "RFC 3977 §6.1.3: no next article must yield 421");
+    assert_eq!(
+        resp.code, 421,
+        "RFC 3977 §6.1.3: no next article must yield 421"
+    );
 }
 
 /// LAST when no group is selected must return 412 per RFC 3977 §6.1.4.
@@ -242,7 +300,10 @@ fn last_without_group_returns_412() {
     let mut ctx = active_ctx(); // state = Active, no group
     let gd = make_group("comp.lang.rust", vec![1, 2, 3]);
     let resp = last_article(&mut ctx, Some(&gd));
-    assert_eq!(resp.code, 412, "RFC 3977 §6.1.4: LAST without GROUP must yield 412");
+    assert_eq!(
+        resp.code, 412,
+        "RFC 3977 §6.1.4: LAST without GROUP must yield 412"
+    );
 }
 
 /// LAST at the first article must return 422 per RFC 3977 §6.1.4.
@@ -253,7 +314,10 @@ fn last_at_beginning_of_group_returns_422() {
     group_select(&mut ctx, Some(&gd));
     // After group_select the cursor is at article 1 (first).
     let resp = last_article(&mut ctx, Some(&gd));
-    assert_eq!(resp.code, 422, "RFC 3977 §6.1.4: no previous article must yield 422");
+    assert_eq!(
+        resp.code, 422,
+        "RFC 3977 §6.1.4: no previous article must yield 422"
+    );
 }
 
 /// STAT with a number when no group is selected must return 412 per
@@ -263,7 +327,10 @@ fn stat_without_group_returns_412() {
     let mut ctx = active_ctx();
     let gd = make_group("comp.lang.rust", vec![1, 2, 3]);
     let resp = stat_article(&mut ctx, Some(&gd), Some("1"));
-    assert_eq!(resp.code, 412, "RFC 3977 §6.2.4: STAT number without GROUP must yield 412");
+    assert_eq!(
+        resp.code, 412,
+        "RFC 3977 §6.2.4: STAT number without GROUP must yield 412"
+    );
 }
 
 /// STAT with a number that does not exist in the group must return 423 per
@@ -274,7 +341,10 @@ fn stat_missing_number_returns_423() {
     let gd = make_group("comp.lang.rust", vec![1, 2, 3]);
     group_select(&mut ctx, Some(&gd));
     let resp = stat_article(&mut ctx, Some(&gd), Some("999"));
-    assert_eq!(resp.code, 423, "RFC 3977 §6.2.4: no article with that number must yield 423");
+    assert_eq!(
+        resp.code, 423,
+        "RFC 3977 §6.2.4: no article with that number must yield 423"
+    );
 }
 
 /// STAT with a message-ID form returns 430 (the v1 stub; message-ID lookups
@@ -285,7 +355,10 @@ fn stat_msgid_form_returns_430() {
     let gd = make_group("comp.lang.rust", vec![1, 2, 3]);
     group_select(&mut ctx, Some(&gd));
     let resp = stat_article(&mut ctx, Some(&gd), Some("<foo@example.com>"));
-    assert_eq!(resp.code, 430, "RFC 3977 §6.2.4: STAT <msgid> with no match must yield 430");
+    assert_eq!(
+        resp.code, 430,
+        "RFC 3977 §6.2.4: STAT <msgid> with no match must yield 430"
+    );
 }
 
 // ── list command error paths ──────────────────────────────────────────────────
@@ -296,8 +369,14 @@ fn stat_msgid_form_returns_430() {
 #[test]
 fn list_active_empty_store_returns_215_with_no_lines() {
     let resp = list_active(&[], None);
-    assert_eq!(resp.code, 215, "RFC 3977 §7.6.3: LIST ACTIVE must always return 215");
-    assert!(resp.body.is_empty(), "empty group table must produce zero body lines");
+    assert_eq!(
+        resp.code, 215,
+        "RFC 3977 §7.6.3: LIST ACTIVE must always return 215"
+    );
+    assert!(
+        resp.body.is_empty(),
+        "empty group table must produce zero body lines"
+    );
 }
 
 /// LIST ACTIVE with a wildmat that matches nothing must return 215 with no
@@ -312,8 +391,14 @@ fn list_active_wildmat_no_match_returns_215_with_no_lines() {
         description: "Rust".to_string(),
     }];
     let resp = list_active(&groups, Some("alt.*"));
-    assert_eq!(resp.code, 215, "RFC 3977 §7.6.3: LIST ACTIVE with no match must still yield 215");
-    assert!(resp.body.is_empty(), "wildmat that matches nothing must produce zero body lines");
+    assert_eq!(
+        resp.code, 215,
+        "RFC 3977 §7.6.3: LIST ACTIVE with no match must still yield 215"
+    );
+    assert!(
+        resp.body.is_empty(),
+        "wildmat that matches nothing must produce zero body lines"
+    );
 }
 
 /// LIST NEWSGROUPS with an empty store must return 215 with no body lines
@@ -321,7 +406,10 @@ fn list_active_wildmat_no_match_returns_215_with_no_lines() {
 #[test]
 fn list_newsgroups_empty_store_returns_215_with_no_lines() {
     let resp = list_newsgroups(&[], None);
-    assert_eq!(resp.code, 215, "RFC 3977 §7.6.6: LIST NEWSGROUPS must always return 215");
+    assert_eq!(
+        resp.code, 215,
+        "RFC 3977 §7.6.6: LIST NEWSGROUPS must always return 215"
+    );
     assert!(resp.body.is_empty());
 }
 
@@ -351,9 +439,13 @@ fn newnews_returns_230_empty() {
 /// article before any IPFS write.
 #[test]
 fn post_oversized_article_returns_441() {
-    let article = b"Newsgroups: comp.lang.rust\r\nFrom: user@example.com\r\nSubject: x\r\n\r\nbody\r\n";
+    let article =
+        b"Newsgroups: comp.lang.rust\r\nFrom: user@example.com\r\nSubject: x\r\n\r\nbody\r\n";
     let resp = complete_post(article, 1, None); // limit of 1 byte forces rejection
-    assert_eq!(resp.code, 441, "RFC 3977 §6.3.1: oversized article must yield 441");
+    assert_eq!(
+        resp.code, 441,
+        "RFC 3977 §6.3.1: oversized article must yield 441"
+    );
 }
 
 /// POST: article missing the Newsgroups header must return 441 per RFC 3977
@@ -364,8 +456,14 @@ fn post_oversized_article_returns_441() {
 fn post_missing_newsgroups_header_returns_441() {
     let article = make_article(None, Some("user@example.com"));
     let resp = complete_post(&article, 1_048_576, None);
-    assert_eq!(resp.code, 441, "RFC 3977 §6.3.1: missing Newsgroups must yield 441");
-    assert!(resp.text.contains("Newsgroups"), "error text must identify missing header");
+    assert_eq!(
+        resp.code, 441,
+        "RFC 3977 §6.3.1: missing Newsgroups must yield 441"
+    );
+    assert!(
+        resp.text.contains("Newsgroups"),
+        "error text must identify missing header"
+    );
 }
 
 /// POST: article missing the From header must return 441 per RFC 3977 §6.3.1.
@@ -373,8 +471,14 @@ fn post_missing_newsgroups_header_returns_441() {
 fn post_missing_from_header_returns_441() {
     let article = make_article(Some("comp.lang.rust"), None);
     let resp = complete_post(&article, 1_048_576, None);
-    assert_eq!(resp.code, 441, "RFC 3977 §6.3.1: missing From must yield 441");
-    assert!(resp.text.contains("From"), "error text must identify missing header");
+    assert_eq!(
+        resp.code, 441,
+        "RFC 3977 §6.3.1: missing From must yield 441"
+    );
+    assert!(
+        resp.text.contains("From"),
+        "error text must identify missing header"
+    );
 }
 
 /// POST: valid article with all required RFC 5536 headers and within size
@@ -394,7 +498,10 @@ fn post_valid_article_returns_240() {
 #[test]
 fn program_fault_response_is_503() {
     let resp = Response::program_fault();
-    assert_eq!(resp.code, 503, "RFC 3977 §3.2: unrecoverable server fault must yield 503");
+    assert_eq!(
+        resp.code, 503,
+        "RFC 3977 §3.2: unrecoverable server fault must yield 503"
+    );
 }
 
 /// Service temporarily unavailable (e.g. storage backend starting up) maps
@@ -402,7 +509,10 @@ fn program_fault_response_is_503() {
 #[test]
 fn service_unavailable_response_is_400() {
     let resp = Response::service_unavailable();
-    assert_eq!(resp.code, 400, "RFC 3977 §3.2: temporary unavailability must yield 400");
+    assert_eq!(
+        resp.code, 400,
+        "RFC 3977 §3.2: temporary unavailability must yield 400"
+    );
 }
 
 /// Posting failed (e.g. IPFS write error after article validation passed)
@@ -410,5 +520,8 @@ fn service_unavailable_response_is_400() {
 #[test]
 fn posting_failed_response_is_441() {
     let resp = Response::posting_failed();
-    assert_eq!(resp.code, 441, "RFC 3977 §6.3.1: post failure must yield 441");
+    assert_eq!(
+        resp.code, 441,
+        "RFC 3977 §6.3.1: post failure must yield 441"
+    );
 }

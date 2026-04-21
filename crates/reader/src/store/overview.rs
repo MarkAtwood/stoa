@@ -116,7 +116,13 @@ impl OverviewStore {
 /// tab-separated OVER/XOVER responses.
 fn sanitize_overview_field(s: &str) -> String {
     s.chars()
-        .map(|c| if c == '\t' || c == '\r' || c == '\n' { ' ' } else { c })
+        .map(|c| {
+            if c == '\t' || c == '\r' || c == '\n' {
+                ' '
+            } else {
+                c
+            }
+        })
         .collect()
 }
 
@@ -231,7 +237,10 @@ mod tests {
     #[tokio::test]
     async fn insert_and_query_single() {
         let (store, _tmp) = make_store().await;
-        store.insert("comp.lang.rust", &sample_record(1)).await.unwrap();
+        store
+            .insert("comp.lang.rust", &sample_record(1))
+            .await
+            .unwrap();
         let results = store.query_range("comp.lang.rust", 1, 1).await.unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].article_number, 1);
@@ -241,9 +250,18 @@ mod tests {
     #[tokio::test]
     async fn query_range_returns_ordered() {
         let (store, _tmp) = make_store().await;
-        store.insert("comp.lang.rust", &sample_record(5)).await.unwrap();
-        store.insert("comp.lang.rust", &sample_record(1)).await.unwrap();
-        store.insert("comp.lang.rust", &sample_record(3)).await.unwrap();
+        store
+            .insert("comp.lang.rust", &sample_record(5))
+            .await
+            .unwrap();
+        store
+            .insert("comp.lang.rust", &sample_record(1))
+            .await
+            .unwrap();
+        store
+            .insert("comp.lang.rust", &sample_record(3))
+            .await
+            .unwrap();
         let results = store.query_range("comp.lang.rust", 1, 5).await.unwrap();
         assert_eq!(results.len(), 3);
         assert_eq!(results[0].article_number, 1);
@@ -254,8 +272,14 @@ mod tests {
     #[tokio::test]
     async fn query_range_skips_missing() {
         let (store, _tmp) = make_store().await;
-        store.insert("comp.lang.rust", &sample_record(1)).await.unwrap();
-        store.insert("comp.lang.rust", &sample_record(3)).await.unwrap();
+        store
+            .insert("comp.lang.rust", &sample_record(1))
+            .await
+            .unwrap();
+        store
+            .insert("comp.lang.rust", &sample_record(3))
+            .await
+            .unwrap();
         let results = store.query_range("comp.lang.rust", 1, 5).await.unwrap();
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].article_number, 1);
@@ -265,8 +289,14 @@ mod tests {
     #[tokio::test]
     async fn insert_idempotent() {
         let (store, _tmp) = make_store().await;
-        store.insert("comp.lang.rust", &sample_record(1)).await.unwrap();
-        store.insert("comp.lang.rust", &sample_record(1)).await.unwrap();
+        store
+            .insert("comp.lang.rust", &sample_record(1))
+            .await
+            .unwrap();
+        store
+            .insert("comp.lang.rust", &sample_record(1))
+            .await
+            .unwrap();
         let results = store.query_range("comp.lang.rust", 1, 1).await.unwrap();
         assert_eq!(results.len(), 1);
     }
@@ -274,7 +304,10 @@ mod tests {
     #[tokio::test]
     async fn multi_group_isolation() {
         let (store, _tmp) = make_store().await;
-        store.insert("comp.lang.rust", &sample_record(1)).await.unwrap();
+        store
+            .insert("comp.lang.rust", &sample_record(1))
+            .await
+            .unwrap();
         store.insert("alt.test", &sample_record(1)).await.unwrap();
 
         let rust = store.query_range("comp.lang.rust", 1, 1).await.unwrap();
@@ -332,7 +365,10 @@ mod tests {
     async fn insert_50_articles() {
         let (store, _tmp) = make_store().await;
         for n in 1u64..=50 {
-            store.insert("comp.lang.rust", &sample_record(n)).await.unwrap();
+            store
+                .insert("comp.lang.rust", &sample_record(n))
+                .await
+                .unwrap();
         }
         let results = store.query_range("comp.lang.rust", 1, 50).await.unwrap();
         assert_eq!(results.len(), 50);
@@ -345,7 +381,10 @@ mod tests {
     fn extract_overview_strips_tab_in_subject() {
         let headers = b"Subject: Hello\tWorld\r\nFrom: user@example.com\r\nDate: Mon, 01 Jan 2024 00:00:00 +0000\r\nMessage-ID: <test@example.com>\r\n";
         let rec = extract_overview(headers, b"Some body\r\n");
-        assert!(!rec.subject.contains('\t'), "tab in subject must be stripped");
+        assert!(
+            !rec.subject.contains('\t'),
+            "tab in subject must be stripped"
+        );
         assert_eq!(rec.subject, "Hello World");
     }
 }

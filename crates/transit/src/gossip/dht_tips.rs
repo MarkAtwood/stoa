@@ -8,8 +8,8 @@ use std::collections::HashMap;
 use libp2p::{
     futures::StreamExt,
     kad::{
-        self, Event as KademliaEvent, GetRecordOk, QueryId, QueryResult, Quorum, Record, RecordKey,
-        store::MemoryStore,
+        self, store::MemoryStore, Event as KademliaEvent, GetRecordOk, QueryId, QueryResult,
+        Quorum, Record, RecordKey,
     },
     swarm::SwarmEvent,
     PeerId,
@@ -44,9 +44,7 @@ pub struct DhtHandle {
 /// It runs in a background `tokio::spawn` task. The swarm uses an
 /// in-memory record store and operates in Server mode so that it can
 /// store records for other peers.
-pub async fn start_dht_swarm(
-    listen_addr: &str,
-) -> Result<DhtHandle, Box<dyn std::error::Error>> {
+pub async fn start_dht_swarm(listen_addr: &str) -> Result<DhtHandle, Box<dyn std::error::Error>> {
     let mut swarm = libp2p::SwarmBuilder::with_new_identity()
         .with_tokio()
         .with_tcp(

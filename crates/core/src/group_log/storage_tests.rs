@@ -65,7 +65,10 @@ pub async fn test_get_missing_returns_none(storage: &impl LogStorage) {
 
 pub async fn test_has_entry(storage: &impl LogStorage) {
     let id = make_id(0x02);
-    let absent = storage.has_entry(&id).await.expect("has_entry should not error");
+    let absent = storage
+        .has_entry(&id)
+        .await
+        .expect("has_entry should not error");
     assert!(!absent, "entry should be absent before insert");
 
     storage
@@ -73,7 +76,10 @@ pub async fn test_has_entry(storage: &impl LogStorage) {
         .await
         .expect("insert should succeed");
 
-    let present = storage.has_entry(&id).await.expect("has_entry should not error");
+    let present = storage
+        .has_entry(&id)
+        .await
+        .expect("has_entry should not error");
     assert!(present, "entry should be present after insert");
 }
 
@@ -83,7 +89,10 @@ pub async fn test_set_and_list_tips(storage: &impl LogStorage) {
     let id2 = make_id(0x11);
 
     // Initially no tips.
-    let tips = storage.list_tips(&group).await.expect("list_tips should not error");
+    let tips = storage
+        .list_tips(&group)
+        .await
+        .expect("list_tips should not error");
     assert!(tips.is_empty(), "expected empty tips before set");
 
     // Set two tips.
@@ -92,7 +101,10 @@ pub async fn test_set_and_list_tips(storage: &impl LogStorage) {
         .await
         .expect("set_tips should succeed");
 
-    let tips = storage.list_tips(&group).await.expect("list_tips should not error");
+    let tips = storage
+        .list_tips(&group)
+        .await
+        .expect("list_tips should not error");
     assert_eq!(tips.len(), 2, "expected 2 tips");
 
     let tip_bytes: Vec<[u8; 32]> = tips.iter().map(|id| *id.as_bytes()).collect();
@@ -106,7 +118,10 @@ pub async fn test_set_and_list_tips(storage: &impl LogStorage) {
         .await
         .expect("set_tips replace should succeed");
 
-    let tips = storage.list_tips(&group).await.expect("list_tips should not error");
+    let tips = storage
+        .list_tips(&group)
+        .await
+        .expect("list_tips should not error");
     assert_eq!(tips.len(), 1, "expected 1 tip after replace");
     assert_eq!(*tips[0].as_bytes(), *id3.as_bytes());
 }
@@ -114,7 +129,10 @@ pub async fn test_set_and_list_tips(storage: &impl LogStorage) {
 pub async fn test_entry_count(storage: &impl LogStorage) {
     let group = make_group("sci.math");
 
-    let count = storage.entry_count(&group).await.expect("entry_count should not error");
+    let count = storage
+        .entry_count(&group)
+        .await
+        .expect("entry_count should not error");
     assert_eq!(count, 0, "expected 0 before any tips set");
 
     let id1 = make_id(0x20);
@@ -124,7 +142,10 @@ pub async fn test_entry_count(storage: &impl LogStorage) {
         .await
         .expect("set_tips should succeed");
 
-    let count = storage.entry_count(&group).await.expect("entry_count should not error");
+    let count = storage
+        .entry_count(&group)
+        .await
+        .expect("entry_count should not error");
     assert_eq!(count, 2, "expected 2 after setting 2 tips");
 }
 
@@ -135,7 +156,9 @@ pub async fn test_duplicate_insert_rejected(storage: &impl LogStorage) {
         .await
         .expect("first insert should succeed");
 
-    let result = storage.insert_entry(id.clone(), make_entry(b"second")).await;
+    let result = storage
+        .insert_entry(id.clone(), make_entry(b"second"))
+        .await;
     assert!(
         matches!(result, Err(StorageError::DuplicateEntry(_))),
         "duplicate insert should return DuplicateEntry, got: {result:?}"
@@ -157,8 +180,14 @@ pub async fn test_tips_are_group_scoped(storage: &impl LogStorage) {
         .await
         .expect("set_tips group_b");
 
-    let tips_a = storage.list_tips(&group_a).await.expect("list_tips group_a");
-    let tips_b = storage.list_tips(&group_b).await.expect("list_tips group_b");
+    let tips_a = storage
+        .list_tips(&group_a)
+        .await
+        .expect("list_tips group_a");
+    let tips_b = storage
+        .list_tips(&group_b)
+        .await
+        .expect("list_tips group_b");
 
     assert_eq!(tips_a.len(), 1);
     assert_eq!(*tips_a[0].as_bytes(), *id_a.as_bytes());

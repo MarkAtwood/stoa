@@ -92,14 +92,13 @@ where
 
         // Insert, skipping if already present
         let cid_str = cid.to_string();
-        let result = sqlx::query(
-            "INSERT OR IGNORE INTO msgid_map (message_id, cid) VALUES (?1, ?2)",
-        )
-        .bind(&msg_id)
-        .bind(&cid_str)
-        .execute(pool)
-        .await
-        .map_err(|e| StorageError::Database(e.to_string()))?;
+        let result =
+            sqlx::query("INSERT OR IGNORE INTO msgid_map (message_id, cid) VALUES (?1, ?2)")
+                .bind(&msg_id)
+                .bind(&cid_str)
+                .execute(pool)
+                .await
+                .map_err(|e| StorageError::Database(e.to_string()))?;
 
         if result.rows_affected() == 0 {
             summary.skipped_duplicate += 1;
@@ -215,7 +214,9 @@ mod tests {
         let pool = make_pool().await;
         let article = make_article(0, "<dup@test.com>");
         let config = ReindexConfig::default();
-        run_reindex(vec![article.clone()], &pool, &config).await.unwrap();
+        run_reindex(vec![article.clone()], &pool, &config)
+            .await
+            .unwrap();
         let summary = run_reindex(vec![article], &pool, &config).await.unwrap();
         assert_eq!(summary.skipped_duplicate, 1);
         assert_eq!(summary.indexed, 0);

@@ -25,7 +25,7 @@ use tokio::sync::{mpsc, oneshot};
 use usenet_ipfs_core::{hlc::HlcTimestamp, msgid_map::MsgIdMap};
 use usenet_ipfs_transit::{
     gossip::tip_advert::handle_tip_advertisement,
-    peering::pipeline::{MemIpfsStore, PipelineCtx, IpfsStore, run_pipeline},
+    peering::pipeline::{run_pipeline, IpfsStore, MemIpfsStore, PipelineCtx},
 };
 
 // ---------------------------------------------------------------------------
@@ -67,11 +67,8 @@ async fn start_test_swarm() -> TestSwarmHandle {
         )
         .expect("TCP transport must initialise")
         .with_behaviour(|key| {
-            gossipsub::Behaviour::new(
-                MessageAuthenticity::Signed(key.clone()),
-                gossipsub_config,
-            )
-            .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { e.into() })
+            gossipsub::Behaviour::new(MessageAuthenticity::Signed(key.clone()), gossipsub_config)
+                .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { e.into() })
         })
         .expect("gossipsub behaviour must attach")
         .build();
@@ -271,15 +268,10 @@ async fn full_stack_propagation() {
 
     // Run the transit pipeline on A: writes to IPFS, records msgid→CID,
     // appends to group log, and publishes a TipAdvertisement over gossipsub.
-    let (pipeline_result, _metrics) = run_pipeline(
-        &article_bytes,
-        &ipfs_a,
-        &msgid_map_a,
-        &log_storage_a,
-        ctx_a,
-    )
-    .await
-    .expect("pipeline on node A must succeed");
+    let (pipeline_result, _metrics) =
+        run_pipeline(&article_bytes, &ipfs_a, &msgid_map_a, &log_storage_a, ctx_a)
+            .await
+            .expect("pipeline on node A must succeed");
 
     let cid_a = pipeline_result.cid;
     assert_eq!(
@@ -289,25 +281,29 @@ async fn full_stack_propagation() {
     );
 
     // --- Node B: receive TipAdvertisement from gossipsub ---
-    let recv_result =
-        tokio::time::timeout(Duration::from_secs(5), node_b.gossip_rx.recv()).await;
+    let recv_result = tokio::time::timeout(Duration::from_secs(5), node_b.gossip_rx.recv()).await;
 
     let advert = match recv_result {
-        Ok(Some((_recv_topic, recv_bytes))) => {
-            handle_tip_advertisement(&recv_bytes)
-                .expect("node B must parse a valid TipAdvertisement from node A")
-        }
+        Ok(Some((_recv_topic, recv_bytes))) => handle_tip_advertisement(&recv_bytes)
+            .expect("node B must parse a valid TipAdvertisement from node A"),
         Ok(None) => panic!("gossip_rx channel closed before TipAdvertisement arrived at node B"),
         Err(_) => panic!("timeout: node B did not receive TipAdvertisement from node A within 5 s"),
     };
 
-    assert_eq!(advert.group_name, newsgroup, "advertisement must carry correct group name");
+    assert_eq!(
+        advert.group_name, newsgroup,
+        "advertisement must carry correct group name"
+    );
     assert_eq!(
         advert.sender_peer_id,
         node_a.peer_id.to_string(),
         "advertisement must identify node A as sender"
     );
-    assert_eq!(advert.tip_cids.len(), 1, "advertisement must carry exactly one tip CID");
+    assert_eq!(
+        advert.tip_cids.len(),
+        1,
+        "advertisement must carry exactly one tip CID"
+    );
 
     // The tip CID string received over the wire must match what A computed.
     let tip_cid_str = &advert.tip_cids[0];

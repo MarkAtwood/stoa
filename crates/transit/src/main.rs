@@ -1,6 +1,6 @@
-use usenet_ipfs_transit::config::{check_admin_addr, Config};
 use std::path::PathBuf;
 use tracing::{info, warn};
+use usenet_ipfs_transit::config::{check_admin_addr, Config};
 
 fn parse_args() -> PathBuf {
     let args: Vec<String> = std::env::args().collect();
@@ -26,7 +26,11 @@ async fn main() {
     let config = match Config::from_file(&config_path) {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("error: failed to load config from {}: {}", config_path.display(), e);
+            eprintln!(
+                "error: failed to load config from {}: {}",
+                config_path.display(),
+                e
+            );
             std::process::exit(1);
         }
     };
@@ -40,9 +44,7 @@ async fn main() {
             .with_env_filter(filter)
             .init();
     } else {
-        tracing_subscriber::fmt()
-            .with_env_filter(filter)
-            .init();
+        tracing_subscriber::fmt().with_env_filter(filter).init();
     }
 
     info!(
@@ -71,7 +73,6 @@ async fn main() {
 async fn sigterm() {
     use tokio::signal::unix::{signal, SignalKind};
     // SAFETY: signal() is safe to call; it only registers an OS signal handler.
-    let mut stream = signal(SignalKind::terminate())
-        .expect("failed to install SIGTERM handler");
+    let mut stream = signal(SignalKind::terminate()).expect("failed to install SIGTERM handler");
     stream.recv().await;
 }

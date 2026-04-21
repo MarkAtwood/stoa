@@ -216,7 +216,10 @@ mod tests {
         let unpinned = runner.run_once(&candidates, NOW_MS).await;
 
         assert_eq!(unpinned, 5, "all 5 should be unpinned");
-        assert_eq!(metrics.gc_articles_unpinned_total.load(Ordering::Relaxed), 5);
+        assert_eq!(
+            metrics.gc_articles_unpinned_total.load(Ordering::Relaxed),
+            5
+        );
     }
 
     #[tokio::test]
@@ -237,7 +240,10 @@ mod tests {
         let runner = GcRunner::new(pin_client, pin_sci_math(), metrics.clone());
         let unpinned = runner.run_once(&candidates, NOW_MS).await;
 
-        assert_eq!(unpinned, 3, "only 3 comp.lang.rust articles should be unpinned");
+        assert_eq!(
+            unpinned, 3,
+            "only 3 comp.lang.rust articles should be unpinned"
+        );
     }
 
     #[tokio::test]

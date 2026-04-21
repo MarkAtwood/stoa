@@ -21,7 +21,8 @@ pub struct AppendResult {
 /// The CID uses DAG-CBOR codec (0x71) and wraps the 32-byte entry ID as a
 /// SHA2-256 multihash, matching the convention in `append::compute_entry_id`.
 fn entry_id_to_cid(id: &LogEntryId) -> Cid {
-    let mh = Multihash::wrap(0x12, id.as_bytes()).expect("32-byte SHA2-256 multihash is always valid");
+    let mh =
+        Multihash::wrap(0x12, id.as_bytes()).expect("32-byte SHA2-256 multihash is always valid");
     Cid::new_v1(0x71, mh)
 }
 
@@ -164,8 +165,7 @@ mod tests {
 
         assert_eq!(result.assignments.len(), 3);
 
-        let group_names: Vec<&str> =
-            result.assignments.iter().map(|(g, _)| g.as_str()).collect();
+        let group_names: Vec<&str> = result.assignments.iter().map(|(g, _)| g.as_str()).collect();
         assert!(group_names.contains(&"comp.lang.rust"));
         assert!(group_names.contains(&"comp.lang.python"));
         assert!(group_names.contains(&"alt.test"));
@@ -231,6 +231,9 @@ mod tests {
         .unwrap();
 
         let tips = log_storage.list_tips(&group_name).await.unwrap();
-        assert!(!tips.is_empty(), "log_storage must have at least one tip after append");
+        assert!(
+            !tips.is_empty(),
+            "log_storage must have at least one tip after append"
+        );
     }
 }

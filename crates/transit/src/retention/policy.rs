@@ -12,7 +12,10 @@ impl std::fmt::Display for PolicyValidationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             PolicyValidationError::EmptyPolicy => {
-                write!(f, "retention policy has no rules; at least one rule is required")
+                write!(
+                    f,
+                    "retention policy has no rules; at least one rule is required"
+                )
             }
             PolicyValidationError::InvalidGroupPattern(p) => {
                 write!(f, "invalid group pattern: '{p}'")
@@ -324,7 +327,9 @@ mod tests {
     #[test]
     fn validate_useless_rule_zero_max_age_all_groups() {
         let policy = PinPolicy::new(vec![pin_rule("all", Some(0), None, "pin")]);
-        let err = policy.validate().expect_err("max_age_days=0 with groups=all must be invalid");
+        let err = policy
+            .validate()
+            .expect_err("max_age_days=0 with groups=all must be invalid");
         assert!(matches!(
             err,
             PolicyValidationError::UselessRule { rule_index: 0, .. }

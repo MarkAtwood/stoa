@@ -171,7 +171,10 @@ mod tests {
             TipAdvertisement::build("comp.lang.rust", &[cid1, cid2], &ts, &peer).to_bytes();
         let bytes_ba =
             TipAdvertisement::build("comp.lang.rust", &[cid2, cid1], &ts, &peer).to_bytes();
-        assert_eq!(bytes_ab, bytes_ba, "tip_cid ordering must not affect output");
+        assert_eq!(
+            bytes_ab, bytes_ba,
+            "tip_cid ordering must not affect output"
+        );
     }
 
     #[test]

@@ -66,7 +66,9 @@ pub struct MemIpfsStore {
 
 impl MemIpfsStore {
     pub fn new() -> Self {
-        Self { blocks: tokio::sync::RwLock::new(std::collections::HashMap::new()) }
+        Self {
+            blocks: tokio::sync::RwLock::new(std::collections::HashMap::new()),
+        }
     }
 }
 
@@ -81,7 +83,10 @@ impl IpfsBlockStore for MemIpfsStore {
     async fn put_raw_block(&self, data: &[u8]) -> Result<Cid, IpfsWriteError> {
         let digest = Code::Sha2_256.digest(data);
         let cid = Cid::new_v1(0x55, digest);
-        self.blocks.write().await.insert(cid.to_bytes(), data.to_vec());
+        self.blocks
+            .write()
+            .await
+            .insert(cid.to_bytes(), data.to_vec());
         Ok(cid)
     }
 
@@ -163,13 +168,15 @@ pub async fn write_article_to_ipfs(
     article_bytes: &[u8],
     message_id: &str,
 ) -> Result<Cid, Response> {
-    let cid = ipfs_store.put_raw_block(article_bytes).await.map_err(|e| {
-        Response::new(441, format!("Posting failed: IPFS write error: {e}"))
-    })?;
+    let cid = ipfs_store
+        .put_raw_block(article_bytes)
+        .await
+        .map_err(|e| Response::new(441, format!("Posting failed: IPFS write error: {e}")))?;
 
-    msgid_map.insert(message_id, &cid).await.map_err(|e| {
-        Response::new(441, format!("Posting failed: storage error: {e}"))
-    })?;
+    msgid_map
+        .insert(message_id, &cid)
+        .await
+        .map_err(|e| Response::new(441, format!("Posting failed: storage error: {e}")))?;
 
     Ok(cid)
 }
@@ -188,7 +195,9 @@ mod tests {
             .connect("sqlite::memory:")
             .await
             .unwrap();
-        usenet_ipfs_core::migrations::run_migrations(&pool).await.unwrap();
+        usenet_ipfs_core::migrations::run_migrations(&pool)
+            .await
+            .unwrap();
         MsgIdMap::new(pool)
     }
 
@@ -232,8 +241,10 @@ mod tests {
                 return true;
             }
             if let Some(n) = self.fail_every_n {
-                let count =
-                    self.call_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+                let count = self
+                    .call_count
+                    .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+                    + 1;
                 return count % n == 0;
             }
             false
@@ -275,10 +286,16 @@ mod tests {
         let data = b"From: user@example.com\r\nSubject: Test\r\n\r\nBody.\r\n";
         let msgid = "<test-record@example.com>";
 
-        let cid = write_article_to_ipfs(&store, &map, data, msgid).await.unwrap();
+        let cid = write_article_to_ipfs(&store, &map, data, msgid)
+            .await
+            .unwrap();
 
         let found = map.lookup_by_msgid(msgid).await.unwrap();
-        assert_eq!(found, Some(cid), "msgid_map must record the CID after write");
+        assert_eq!(
+            found,
+            Some(cid),
+            "msgid_map must record the CID after write"
+        );
     }
 
     #[tokio::test]
@@ -304,7 +321,10 @@ mod tests {
         assert_eq!(result.unwrap_err().code, 441);
 
         let found = map.lookup_by_msgid(msgid).await.unwrap();
-        assert!(found.is_none(), "msgid_map must not be updated when IPFS write fails");
+        assert!(
+            found.is_none(),
+            "msgid_map must not be updated when IPFS write fails"
+        );
     }
 
     #[tokio::test]
@@ -323,7 +343,10 @@ mod tests {
         let data = b"From: user@example.com\r\nSubject: Test\r\n\r\nBody.\r\n";
 
         let result = store.put_raw_block(data).await;
-        assert!(result.is_err(), "always_fail store must return Err on every call");
+        assert!(
+            result.is_err(),
+            "always_fail store must return Err on every call"
+        );
     }
 
     #[tokio::test]
@@ -352,15 +375,23 @@ mod tests {
         let cid = store.put_raw_block(data).await.unwrap();
         let retrieved = store.get_raw_block(&cid).await.unwrap();
 
-        assert_eq!(retrieved, data, "MemIpfsStore put/get roundtrip must be exact");
+        assert_eq!(
+            retrieved, data,
+            "MemIpfsStore put/get roundtrip must be exact"
+        );
     }
 
     #[tokio::test]
     async fn rust_ipfs_roundtrip() {
-        let store = RustIpfsStore::new().await.expect("RustIpfsStore must start");
+        let store = RustIpfsStore::new()
+            .await
+            .expect("RustIpfsStore must start");
         let data = b"From: bench@usenet-ipfs.test\r\nSubject: RustIpfs Test\r\n\r\nBody.\r\n";
         let cid = store.put_raw_block(data).await.expect("put must succeed");
         let retrieved = store.get_raw_block(&cid).await.expect("get must succeed");
-        assert_eq!(retrieved, data, "RustIpfsStore put/get roundtrip must be exact");
+        assert_eq!(
+            retrieved, data,
+            "RustIpfsStore put/get roundtrip must be exact"
+        );
     }
 }

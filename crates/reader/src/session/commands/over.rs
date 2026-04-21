@@ -27,7 +27,10 @@ pub fn format_overview_line(record: &OverviewRecord) -> String {
 /// stream records from a database cursor without pre-fetching the full
 /// range into memory.
 pub fn over_response(records: impl IntoIterator<Item = OverviewRecord>) -> Response {
-    let body = records.into_iter().map(|r| format_overview_line(&r)).collect();
+    let body = records
+        .into_iter()
+        .map(|r| format_overview_line(&r))
+        .collect();
     Response {
         code: 224,
         text: "Overview information follows".to_string(),

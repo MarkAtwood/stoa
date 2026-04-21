@@ -207,7 +207,11 @@ mod tests {
         let reg = make_registry().await;
         let record = make_record("12D3KooWExample");
         reg.upsert(&record).await.unwrap();
-        let got = reg.get("12D3KooWExample").await.unwrap().expect("should exist");
+        let got = reg
+            .get("12D3KooWExample")
+            .await
+            .unwrap()
+            .expect("should exist");
         assert_eq!(got.peer_id, "12D3KooWExample");
         assert_eq!(got.address, "192.0.2.1:119");
         assert!(!got.configured);
@@ -275,7 +279,10 @@ mod tests {
         record.articles_rejected = 0;
         record.consecutive_failures = 0;
         let score = peer_score(&record);
-        assert!((score - 1.0).abs() < 0.01, "perfect peer should score ~1.0, got {score}");
+        assert!(
+            (score - 1.0).abs() < 0.01,
+            "perfect peer should score ~1.0, got {score}"
+        );
     }
 
     #[test]
@@ -286,7 +293,10 @@ mod tests {
         record.consecutive_failures = 0;
         let score = peer_score(&record);
         // accept_penalty = (1.0 - 0.0) * 0.5 = 0.5; failure_penalty = 0 → score = 0.5
-        assert!((score - 0.5).abs() < 0.01, "0% accept rate should score 0.5, got {score}");
+        assert!(
+            (score - 0.5).abs() < 0.01,
+            "0% accept rate should score 0.5, got {score}"
+        );
     }
 
     #[test]
@@ -297,7 +307,10 @@ mod tests {
         record.consecutive_failures = MAX_CONSECUTIVE_FAILURES;
         let score = peer_score(&record);
         // accept_penalty = 0.0; failure_penalty = 1.0 * 0.5 = 0.5 → score = 0.5
-        assert!((score - 0.5).abs() < 0.01, "max failures should score 0.5, got {score}");
+        assert!(
+            (score - 0.5).abs() < 0.01,
+            "max failures should score 0.5, got {score}"
+        );
     }
 
     #[test]
@@ -333,7 +346,10 @@ mod tests {
         let record = make_record("new_peer");
         // No articles exchanged: no accept_rate penalty.
         let score = peer_score(&record);
-        assert!((score - 1.0).abs() < 0.01, "new peer with no history should score 1.0, got {score}");
+        assert!(
+            (score - 1.0).abs() < 0.01,
+            "new peer with no history should score 1.0, got {score}"
+        );
     }
 
     #[test]

@@ -34,7 +34,11 @@ mod tests {
     fn header_block_round_trip() {
         let bytes = b"From: user@example.com\r\nDate: Mon, 01 Jan 2024 00:00:00 +0000\r\n";
         let (cid, block) = header_block(bytes);
-        assert_eq!(block, bytes.to_vec(), "block bytes must equal input exactly");
+        assert_eq!(
+            block,
+            bytes.to_vec(),
+            "block bytes must equal input exactly"
+        );
         assert_eq!(cid.version(), cid::Version::V1);
         assert_eq!(cid.codec(), RAW);
     }

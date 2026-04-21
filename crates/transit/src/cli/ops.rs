@@ -63,14 +63,12 @@ pub async fn cmd_pin(pool: &SqlitePool, cid_str: &str) -> Result<String, Storage
     ensure_pinned_cids_table(pool).await?;
 
     let now_ms = now_ms();
-    sqlx::query(
-        "INSERT OR IGNORE INTO pinned_cids (cid, pinned_at_ms) VALUES (?1, ?2)",
-    )
-    .bind(cid_str)
-    .bind(now_ms)
-    .execute(pool)
-    .await
-    .map_err(|e| StorageError::Database(e.to_string()))?;
+    sqlx::query("INSERT OR IGNORE INTO pinned_cids (cid, pinned_at_ms) VALUES (?1, ?2)")
+        .bind(cid_str)
+        .bind(now_ms)
+        .execute(pool)
+        .await
+        .map_err(|e| StorageError::Database(e.to_string()))?;
 
     Ok(format!("pinned: {cid_str}\n"))
 }
@@ -265,7 +263,10 @@ mod tests {
 
         let policy = PinPolicy::new(vec![]);
         let result = cmd_gc_run(&pool, &policy).await.unwrap();
-        assert!(result.contains("1 scanned"), "should be 1 scanned: {result}");
+        assert!(
+            result.contains("1 scanned"),
+            "should be 1 scanned: {result}"
+        );
         assert!(
             result.contains("1 unpinned"),
             "should be 1 unpinned: {result}"
@@ -285,7 +286,10 @@ mod tests {
             action: "pin".to_string(),
         }]);
         let result = cmd_gc_run(&pool, &policy).await.unwrap();
-        assert!(result.contains("1 scanned"), "should be 1 scanned: {result}");
+        assert!(
+            result.contains("1 scanned"),
+            "should be 1 scanned: {result}"
+        );
         assert!(
             result.contains("0 unpinned"),
             "should be 0 unpinned: {result}"

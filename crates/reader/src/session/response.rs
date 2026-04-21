@@ -22,11 +22,21 @@ pub struct Response {
 
 impl Response {
     pub fn new(code: u16, text: impl Into<String>) -> Self {
-        Self { code, text: text.into(), body: vec![], multiline: false }
+        Self {
+            code,
+            text: text.into(),
+            body: vec![],
+            multiline: false,
+        }
     }
 
     fn new_multiline(code: u16, text: impl Into<String>, body: Vec<String>) -> Self {
-        Self { code, text: text.into(), body, multiline: true }
+        Self {
+            code,
+            text: text.into(),
+            body,
+            multiline: true,
+        }
     }
 
     // --- RFC 3977 standard responses ---
@@ -96,7 +106,9 @@ impl Response {
     /// Panics in debug builds if the string does not start with a 3-digit code.
     /// Only call with known-good static strings from the `auth` module.
     pub fn from_static_str(s: &'static str) -> Self {
-        let code: u16 = s[..3].parse().expect("authinfo_response must start with 3-digit code");
+        let code: u16 = s[..3]
+            .parse()
+            .expect("authinfo_response must start with 3-digit code");
         let text = s[4..].trim_end_matches(['\r', '\n']).to_string();
         Self::new(code, text)
     }
@@ -247,8 +259,14 @@ mod tests {
 
     #[test]
     fn capabilities_with_ctx_code_is_101() {
-        assert_eq!(Response::capabilities_with_ctx(true, false, false).code, 101);
-        assert_eq!(Response::capabilities_with_ctx(false, true, false).code, 101);
+        assert_eq!(
+            Response::capabilities_with_ctx(true, false, false).code,
+            101
+        );
+        assert_eq!(
+            Response::capabilities_with_ctx(false, true, false).code,
+            101
+        );
     }
 
     #[test]
@@ -263,13 +281,19 @@ mod tests {
     #[test]
     fn capabilities_with_ctx_starttls_included_when_available() {
         let r = Response::capabilities_with_ctx(false, false, true);
-        assert!(r.body.iter().any(|l| l == "STARTTLS"), "should include STARTTLS");
+        assert!(
+            r.body.iter().any(|l| l == "STARTTLS"),
+            "should include STARTTLS"
+        );
     }
 
     #[test]
     fn capabilities_with_ctx_starttls_excluded_when_not_available() {
         let r = Response::capabilities_with_ctx(false, false, false);
-        assert!(!r.body.iter().any(|l| l == "STARTTLS"), "should not include STARTTLS");
+        assert!(
+            !r.body.iter().any(|l| l == "STARTTLS"),
+            "should not include STARTTLS"
+        );
     }
 
     #[test]

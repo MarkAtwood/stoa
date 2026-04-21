@@ -70,11 +70,8 @@ async fn start_test_swarm() -> TestSwarmHandle {
         )
         .expect("TCP transport must initialise")
         .with_behaviour(|key| {
-            gossipsub::Behaviour::new(
-                MessageAuthenticity::Signed(key.clone()),
-                gossipsub_config,
-            )
-            .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { e.into() })
+            gossipsub::Behaviour::new(MessageAuthenticity::Signed(key.clone()), gossipsub_config)
+                .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { e.into() })
         })
         .expect("gossipsub behaviour must attach")
         .build();
@@ -223,13 +220,18 @@ async fn two_swarms_can_exchange_messages() {
         .await
         .expect("gossip_tx send must succeed");
 
-    let result =
-        tokio::time::timeout(Duration::from_secs(5), node_b.gossip_rx.recv()).await;
+    let result = tokio::time::timeout(Duration::from_secs(5), node_b.gossip_rx.recv()).await;
 
     match result {
         Ok(Some((recv_topic, recv_data))) => {
-            assert_eq!(recv_topic, topic, "received topic must match published topic");
-            assert_eq!(recv_data, payload, "received payload must be byte-identical");
+            assert_eq!(
+                recv_topic, topic,
+                "received topic must match published topic"
+            );
+            assert_eq!(
+                recv_data, payload,
+                "received payload must be byte-identical"
+            );
         }
         Ok(None) => panic!("gossip_rx channel closed before message arrived"),
         Err(_) => panic!("timeout: node B did not receive the message within 5 s"),
@@ -275,8 +277,7 @@ async fn tip_advertisement_roundtrip() {
         .await
         .expect("gossip_tx send must succeed");
 
-    let result =
-        tokio::time::timeout(Duration::from_secs(5), node_b.gossip_rx.recv()).await;
+    let result = tokio::time::timeout(Duration::from_secs(5), node_b.gossip_rx.recv()).await;
 
     match result {
         Ok(Some((_recv_topic, recv_bytes))) => {

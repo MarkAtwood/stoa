@@ -100,8 +100,8 @@ pub fn complete_post(
     let headers = String::from_utf8_lossy(header_bytes);
 
     if let Some(logger) = audit_logger {
-        let message_id = extract_header_value(&headers, "Message-ID")
-            .unwrap_or_else(|| "missing".to_string());
+        let message_id =
+            extract_header_value(&headers, "Message-ID").unwrap_or_else(|| "missing".to_string());
         logger.log(AuditEvent::ArticleSigned {
             message_id,
             cid: "not-yet-stored".to_string(),
@@ -155,8 +155,7 @@ mod tests {
     fn epoch_to_rfc2822(secs: i64) -> String {
         const DAYS: [&str; 7] = ["Thu", "Fri", "Sat", "Sun", "Mon", "Tue", "Wed"];
         const MONTHS: [&str; 12] = [
-            "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
         ];
         let s = secs;
         let sec = (s % 60) as u32;
@@ -176,7 +175,13 @@ mod tests {
         let y = if m <= 2 { y + 1 } else { y };
         format!(
             "{}, {:02} {} {} {:02}:{:02}:{:02} +0000",
-            DAYS[wday], d, MONTHS[(m - 1) as usize], y, hour, min, sec
+            DAYS[wday],
+            d,
+            MONTHS[(m - 1) as usize],
+            y,
+            hour,
+            min,
+            sec
         )
     }
 
@@ -252,7 +257,11 @@ mod tests {
         let article = minimal_article(None, Some("user@example.com"));
         let resp = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES, None);
         assert_eq!(resp.code, 441);
-        assert!(resp.text.contains("Newsgroups"), "expected 'Newsgroups' in: {}", resp.text);
+        assert!(
+            resp.text.contains("Newsgroups"),
+            "expected 'Newsgroups' in: {}",
+            resp.text
+        );
     }
 
     #[test]
@@ -260,7 +269,11 @@ mod tests {
         let article = minimal_article(Some("comp.lang.rust"), None);
         let resp = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES, None);
         assert_eq!(resp.code, 441);
-        assert!(resp.text.contains("From"), "expected 'From' in: {}", resp.text);
+        assert!(
+            resp.text.contains("From"),
+            "expected 'From' in: {}",
+            resp.text
+        );
     }
 
     #[test]
@@ -270,7 +283,11 @@ mod tests {
         let article = minimal_article(None, None);
         let resp = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES, None);
         assert_eq!(resp.code, 441);
-        assert!(resp.text.contains("From"), "expected 'From' in: {}", resp.text);
+        assert!(
+            resp.text.contains("From"),
+            "expected 'From' in: {}",
+            resp.text
+        );
     }
 
     // ----- read_dot_terminated -----

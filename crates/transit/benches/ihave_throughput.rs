@@ -17,12 +17,8 @@ use std::time::{Duration, Instant};
 use ed25519_dalek::{Signer, SigningKey};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use tokio::sync::mpsc;
-use usenet_ipfs_core::{
-    group_log::MemLogStorage,
-    hlc::HlcTimestamp,
-    msgid_map::MsgIdMap,
-};
-use usenet_ipfs_transit::peering::pipeline::{MemIpfsStore, PipelineCtx, run_pipeline};
+use usenet_ipfs_core::{group_log::MemLogStorage, hlc::HlcTimestamp, msgid_map::MsgIdMap};
+use usenet_ipfs_transit::peering::pipeline::{run_pipeline, MemIpfsStore, PipelineCtx};
 
 const ARTICLE_COUNT: usize = 1_000;
 
@@ -142,5 +138,7 @@ async fn main() {
     let p50_us = latencies[499].as_micros();
     let p99_us = latencies[989].as_micros();
     println!("latency p50: {p50_us}µs  p99: {p99_us}µs");
-    println!("  (end-to-end: IPFS write + msgid SQLite insert + log append + gossipsub channel send)");
+    println!(
+        "  (end-to-end: IPFS write + msgid SQLite insert + log append + gossipsub channel send)"
+    );
 }

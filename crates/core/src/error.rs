@@ -26,12 +26,12 @@ pub enum UsenetIpfsError {
 impl fmt::Display for UsenetIpfsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Storage(e)    => write!(f, "storage error: {e}"),
-            Self::Protocol(e)   => write!(f, "protocol error: {e}"),
+            Self::Storage(e) => write!(f, "storage error: {e}"),
+            Self::Protocol(e) => write!(f, "protocol error: {e}"),
             Self::Validation(e) => write!(f, "validation error: {e}"),
-            Self::Signing(e)    => write!(f, "signing error: {e}"),
-            Self::Io(e)         => write!(f, "I/O error: {e}"),
-            Self::Config(msg)   => write!(f, "config error: {msg}"),
+            Self::Signing(e) => write!(f, "signing error: {e}"),
+            Self::Io(e) => write!(f, "I/O error: {e}"),
+            Self::Config(msg) => write!(f, "config error: {msg}"),
         }
     }
 }
@@ -39,21 +39,41 @@ impl fmt::Display for UsenetIpfsError {
 impl std::error::Error for UsenetIpfsError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Self::Storage(e)    => Some(e),
-            Self::Protocol(e)   => Some(e),
+            Self::Storage(e) => Some(e),
+            Self::Protocol(e) => Some(e),
             Self::Validation(e) => Some(e),
-            Self::Signing(e)    => Some(e),
-            Self::Io(e)         => Some(e),
-            Self::Config(_)     => None,
+            Self::Signing(e) => Some(e),
+            Self::Io(e) => Some(e),
+            Self::Config(_) => None,
         }
     }
 }
 
-impl From<StorageError>    for UsenetIpfsError { fn from(e: StorageError)    -> Self { Self::Storage(e)    } }
-impl From<ProtocolError>   for UsenetIpfsError { fn from(e: ProtocolError)   -> Self { Self::Protocol(e)   } }
-impl From<ValidationError> for UsenetIpfsError { fn from(e: ValidationError) -> Self { Self::Validation(e) } }
-impl From<SigningError>    for UsenetIpfsError { fn from(e: SigningError)    -> Self { Self::Signing(e)    } }
-impl From<std::io::Error>  for UsenetIpfsError { fn from(e: std::io::Error)  -> Self { Self::Io(e)         } }
+impl From<StorageError> for UsenetIpfsError {
+    fn from(e: StorageError) -> Self {
+        Self::Storage(e)
+    }
+}
+impl From<ProtocolError> for UsenetIpfsError {
+    fn from(e: ProtocolError) -> Self {
+        Self::Protocol(e)
+    }
+}
+impl From<ValidationError> for UsenetIpfsError {
+    fn from(e: ValidationError) -> Self {
+        Self::Validation(e)
+    }
+}
+impl From<SigningError> for UsenetIpfsError {
+    fn from(e: SigningError) -> Self {
+        Self::Signing(e)
+    }
+}
+impl From<std::io::Error> for UsenetIpfsError {
+    fn from(e: std::io::Error) -> Self {
+        Self::Io(e)
+    }
+}
 
 // ── ValidationError ──────────────────────────────────────────────────────────
 
@@ -63,8 +83,15 @@ pub enum ValidationError {
     InvalidGroupName(String),
     InvalidMessageId(String),
     MissingMandatoryHeader(String),
-    HeaderFieldTooLong { field: String, len: usize, limit: usize },
-    ArticleTooBig { size: usize, limit: usize },
+    HeaderFieldTooLong {
+        field: String,
+        len: usize,
+        limit: usize,
+    },
+    ArticleTooBig {
+        size: usize,
+        limit: usize,
+    },
     DateOutOfRange(String),
     InvalidGroupInNewsgroups(String),
     EmptyNewsgroups,
@@ -73,20 +100,18 @@ pub enum ValidationError {
 impl fmt::Display for ValidationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InvalidGroupName(n)   => write!(f, "invalid group name: {n:?}"),
-            Self::InvalidMessageId(id)  => write!(f, "invalid message-id: {id:?}"),
-            Self::MissingMandatoryHeader(h) =>
-                write!(f, "missing mandatory header: {h}"),
-            Self::HeaderFieldTooLong { field, len, limit } =>
-                write!(f, "header field {field:?} too long: {len} > {limit} bytes"),
-            Self::ArticleTooBig { size, limit } =>
-                write!(f, "article too large: {size} bytes (limit {limit})"),
-            Self::DateOutOfRange(d) =>
-                write!(f, "date out of acceptable range: {d}"),
-            Self::InvalidGroupInNewsgroups(g) =>
-                write!(f, "invalid group in Newsgroups: {g:?}"),
-            Self::EmptyNewsgroups =>
-                write!(f, "Newsgroups header is empty"),
+            Self::InvalidGroupName(n) => write!(f, "invalid group name: {n:?}"),
+            Self::InvalidMessageId(id) => write!(f, "invalid message-id: {id:?}"),
+            Self::MissingMandatoryHeader(h) => write!(f, "missing mandatory header: {h}"),
+            Self::HeaderFieldTooLong { field, len, limit } => {
+                write!(f, "header field {field:?} too long: {len} > {limit} bytes")
+            }
+            Self::ArticleTooBig { size, limit } => {
+                write!(f, "article too large: {size} bytes (limit {limit})")
+            }
+            Self::DateOutOfRange(d) => write!(f, "date out of acceptable range: {d}"),
+            Self::InvalidGroupInNewsgroups(g) => write!(f, "invalid group in Newsgroups: {g:?}"),
+            Self::EmptyNewsgroups => write!(f, "Newsgroups header is empty"),
         }
     }
 }
@@ -116,18 +141,18 @@ impl ProtocolError {
     /// Return the RFC 3977 response code for this error.
     pub fn response_code(&self) -> u16 {
         match self {
-            Self::UnknownCommand(_)      => 500,
-            Self::InvalidSyntax(_)       => 501,
-            Self::NoGroupSelected        => 412,
-            Self::NoSuchGroup(_)         => 411,
-            Self::NoSuchArticle          => 430,
-            Self::NotAuthenticated       => 480,
-            Self::DuplicateMessageId(_)  => 435,
-            Self::PostingNotPermitted    => 440,
+            Self::UnknownCommand(_) => 500,
+            Self::InvalidSyntax(_) => 501,
+            Self::NoGroupSelected => 412,
+            Self::NoSuchGroup(_) => 411,
+            Self::NoSuchArticle => 430,
+            Self::NotAuthenticated => 480,
+            Self::DuplicateMessageId(_) => 435,
+            Self::PostingNotPermitted => 440,
             Self::TransferNotPossible(_) => 436,
-            Self::ArticleTooBig { .. }   => 441,
-            Self::ValidationFailed(_)    => 441,
-            Self::ServiceUnavailable(_)  => 400,
+            Self::ArticleTooBig { .. } => 441,
+            Self::ValidationFailed(_) => 441,
+            Self::ServiceUnavailable(_) => 400,
         }
     }
 }
@@ -135,20 +160,20 @@ impl ProtocolError {
 impl fmt::Display for ProtocolError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::UnknownCommand(cmd)       => write!(f, "unknown command: {cmd:?}"),
-            Self::InvalidSyntax(msg)        => write!(f, "syntax error: {msg}"),
-            Self::NoGroupSelected           => write!(f, "no newsgroup has been selected"),
-            Self::NoSuchGroup(g)            => write!(f, "no such newsgroup: {g:?}"),
-            Self::NoSuchArticle             => write!(f, "no article with that message-id"),
-            Self::NotAuthenticated          => write!(f, "authentication required"),
-            Self::DuplicateMessageId(id)    => write!(f, "article not wanted: {id:?}"),
-            Self::PostingNotPermitted       => write!(f, "posting not permitted"),
-            Self::TransferNotPossible(msg)  => write!(f, "transfer not possible: {msg}"),
-            Self::ArticleTooBig { size, limit } =>
-                write!(f, "article too large: {size} > {limit} bytes"),
-            Self::ValidationFailed(e)       => write!(f, "validation failed: {e}"),
-            Self::ServiceUnavailable(msg)   =>
-                write!(f, "service temporarily unavailable: {msg}"),
+            Self::UnknownCommand(cmd) => write!(f, "unknown command: {cmd:?}"),
+            Self::InvalidSyntax(msg) => write!(f, "syntax error: {msg}"),
+            Self::NoGroupSelected => write!(f, "no newsgroup has been selected"),
+            Self::NoSuchGroup(g) => write!(f, "no such newsgroup: {g:?}"),
+            Self::NoSuchArticle => write!(f, "no article with that message-id"),
+            Self::NotAuthenticated => write!(f, "authentication required"),
+            Self::DuplicateMessageId(id) => write!(f, "article not wanted: {id:?}"),
+            Self::PostingNotPermitted => write!(f, "posting not permitted"),
+            Self::TransferNotPossible(msg) => write!(f, "transfer not possible: {msg}"),
+            Self::ArticleTooBig { size, limit } => {
+                write!(f, "article too large: {size} > {limit} bytes")
+            }
+            Self::ValidationFailed(e) => write!(f, "validation failed: {e}"),
+            Self::ServiceUnavailable(msg) => write!(f, "service temporarily unavailable: {msg}"),
         }
     }
 }
@@ -195,13 +220,13 @@ impl StorageError {
 impl fmt::Display for StorageError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Database(msg)        => write!(f, "database error: {msg}"),
+            Self::Database(msg) => write!(f, "database error: {msg}"),
             Self::MigrationFailed(msg) => write!(f, "migration failed: {msg}"),
-            Self::EntryNotFound(id)    => write!(f, "log entry not found: {id}"),
-            Self::DuplicateEntry(id)   => write!(f, "duplicate log entry: {id}"),
+            Self::EntryNotFound(id) => write!(f, "log entry not found: {id}"),
+            Self::DuplicateEntry(id) => write!(f, "duplicate log entry: {id}"),
             Self::IpfsWriteFailed(msg) => write!(f, "IPFS write failed: {msg}"),
-            Self::IpfsPinFailed(msg)   => write!(f, "IPFS pin failed: {msg}"),
-            Self::IpfsNotReachable     => write!(f, "IPFS node not reachable"),
+            Self::IpfsPinFailed(msg) => write!(f, "IPFS pin failed: {msg}"),
+            Self::IpfsNotReachable => write!(f, "IPFS node not reachable"),
         }
     }
 }
@@ -222,14 +247,13 @@ pub enum SigningError {
 impl fmt::Display for SigningError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InvalidKeyMaterial(msg) =>
-                write!(f, "invalid key material: {msg}"),
-            Self::SignatureTooShort { actual, expected } =>
-                write!(f, "signature too short: {actual} bytes, expected {expected}"),
-            Self::VerificationFailed =>
-                write!(f, "signature verification failed"),
-            Self::KeyNotLoaded =>
-                write!(f, "signing key not loaded"),
+            Self::InvalidKeyMaterial(msg) => write!(f, "invalid key material: {msg}"),
+            Self::SignatureTooShort { actual, expected } => write!(
+                f,
+                "signature too short: {actual} bytes, expected {expected}"
+            ),
+            Self::VerificationFailed => write!(f, "signature verification failed"),
+            Self::KeyNotLoaded => write!(f, "signing key not loaded"),
         }
     }
 }
@@ -249,15 +273,30 @@ mod tests {
 
     #[test]
     fn test_protocol_error_response_codes() {
-        assert_eq!(ProtocolError::UnknownCommand("FOO".into()).response_code(), 500);
-        assert_eq!(ProtocolError::InvalidSyntax("bad".into()).response_code(), 501);
+        assert_eq!(
+            ProtocolError::UnknownCommand("FOO".into()).response_code(),
+            500
+        );
+        assert_eq!(
+            ProtocolError::InvalidSyntax("bad".into()).response_code(),
+            501
+        );
         assert_eq!(ProtocolError::NoGroupSelected.response_code(), 412);
-        assert_eq!(ProtocolError::NoSuchGroup("misc.test".into()).response_code(), 411);
+        assert_eq!(
+            ProtocolError::NoSuchGroup("misc.test".into()).response_code(),
+            411
+        );
         assert_eq!(ProtocolError::NoSuchArticle.response_code(), 430);
         assert_eq!(ProtocolError::NotAuthenticated.response_code(), 480);
-        assert_eq!(ProtocolError::DuplicateMessageId("<x@y>".into()).response_code(), 435);
+        assert_eq!(
+            ProtocolError::DuplicateMessageId("<x@y>".into()).response_code(),
+            435
+        );
         assert_eq!(ProtocolError::PostingNotPermitted.response_code(), 440);
-        assert_eq!(ProtocolError::TransferNotPossible("nope".into()).response_code(), 436);
+        assert_eq!(
+            ProtocolError::TransferNotPossible("nope".into()).response_code(),
+            436
+        );
         assert_eq!(
             ProtocolError::ArticleTooBig { size: 1, limit: 0 }.response_code(),
             441
@@ -266,7 +305,10 @@ mod tests {
             ProtocolError::ValidationFailed(ValidationError::EmptyNewsgroups).response_code(),
             441
         );
-        assert_eq!(ProtocolError::ServiceUnavailable("down".into()).response_code(), 400);
+        assert_eq!(
+            ProtocolError::ServiceUnavailable("down".into()).response_code(),
+            400
+        );
     }
 
     #[test]
@@ -285,19 +327,31 @@ mod tests {
     fn test_from_conversions() {
         // StorageError → UsenetIpfsError
         let e: UsenetIpfsError = StorageError::IpfsNotReachable.into();
-        assert!(matches!(e, UsenetIpfsError::Storage(StorageError::IpfsNotReachable)));
+        assert!(matches!(
+            e,
+            UsenetIpfsError::Storage(StorageError::IpfsNotReachable)
+        ));
 
         // ProtocolError → UsenetIpfsError
         let e: UsenetIpfsError = ProtocolError::NoGroupSelected.into();
-        assert!(matches!(e, UsenetIpfsError::Protocol(ProtocolError::NoGroupSelected)));
+        assert!(matches!(
+            e,
+            UsenetIpfsError::Protocol(ProtocolError::NoGroupSelected)
+        ));
 
         // ValidationError → UsenetIpfsError
         let e: UsenetIpfsError = ValidationError::EmptyNewsgroups.into();
-        assert!(matches!(e, UsenetIpfsError::Validation(ValidationError::EmptyNewsgroups)));
+        assert!(matches!(
+            e,
+            UsenetIpfsError::Validation(ValidationError::EmptyNewsgroups)
+        ));
 
         // ValidationError → ProtocolError (produces ValidationFailed)
         let e: ProtocolError = ValidationError::EmptyNewsgroups.into();
-        assert!(matches!(e, ProtocolError::ValidationFailed(ValidationError::EmptyNewsgroups)));
+        assert!(matches!(
+            e,
+            ProtocolError::ValidationFailed(ValidationError::EmptyNewsgroups)
+        ));
     }
 
     #[test]

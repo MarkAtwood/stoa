@@ -81,7 +81,9 @@ pub struct PostPipelineConfig {
 
 impl Default for PostPipelineConfig {
     fn default() -> Self {
-        Self { max_article_bytes: 1_048_576 }
+        Self {
+            max_article_bytes: 1_048_576,
+        }
     }
 }
 
@@ -91,14 +93,17 @@ impl Default for PostPipelineConfig {
 /// `Ok(())` if the message-id has not been seen before.
 ///
 /// This check MUST happen before any signing or IPFS write.
-pub async fn check_duplicate_msgid(
-    msgid_map: &MsgIdMap,
-    message_id: &str,
-) -> Result<(), Response> {
+pub async fn check_duplicate_msgid(msgid_map: &MsgIdMap, message_id: &str) -> Result<(), Response> {
     match msgid_map.lookup_by_msgid(message_id).await {
-        Ok(Some(_)) => Err(Response::new(441, "441 Duplicate article: Message-ID already known")),
+        Ok(Some(_)) => Err(Response::new(
+            441,
+            "441 Duplicate article: Message-ID already known",
+        )),
         Ok(None) => Ok(()),
-        Err(_) => Err(Response::new(500, "500 Internal error: storage lookup failed")),
+        Err(_) => Err(Response::new(
+            500,
+            "500 Internal error: storage lookup failed",
+        )),
     }
 }
 
@@ -113,7 +118,9 @@ mod tests {
             .connect("sqlite::memory:")
             .await
             .unwrap();
-        usenet_ipfs_core::migrations::run_migrations(&pool).await.unwrap();
+        usenet_ipfs_core::migrations::run_migrations(&pool)
+            .await
+            .unwrap();
         MsgIdMap::new(pool)
     }
 
@@ -165,7 +172,11 @@ mod tests {
     }
 
     fn make_timestamp() -> HlcTimestamp {
-        HlcTimestamp { wall_ms: 1700000000000, logical: 0, node_id: [1, 2, 3, 4, 5, 6, 7, 8] }
+        HlcTimestamp {
+            wall_ms: 1700000000000,
+            logical: 0,
+            node_id: [1, 2, 3, 4, 5, 6, 7, 8],
+        }
     }
 
     #[tokio::test]
@@ -187,7 +198,9 @@ mod tests {
         let ts = make_timestamp();
         publish_tips_after_post(&Some(tx), &groups, &cid, &ts, "12D3abc").await;
 
-        let msg1 = rx.try_recv().expect("should have message for comp.lang.rust");
+        let msg1 = rx
+            .try_recv()
+            .expect("should have message for comp.lang.rust");
         let msg2 = rx.try_recv().expect("should have message for sci.math");
         assert!(rx.try_recv().is_err(), "should have exactly 2 messages");
 

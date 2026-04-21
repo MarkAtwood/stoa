@@ -88,6 +88,31 @@ impl ArticleNumberStore {
         }
     }
 
+    /// Return all `(group_name, article_number, cid)` rows across all groups.
+    ///
+    /// Used for startup backfill of the overview index.
+    pub async fn list_all_articles(&self) -> Result<Vec<(String, u64, Cid)>, sqlx::Error> {
+        #[derive(sqlx::FromRow)]
+        struct Row {
+            group_name: String,
+            article_number: i64,
+            cid: Vec<u8>,
+        }
+        let rows: Vec<Row> = sqlx::query_as(
+            "SELECT group_name, article_number, cid FROM article_numbers ORDER BY group_name, article_number",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.into_iter()
+            .map(|row| {
+                let cid = Cid::try_from(row.cid.as_slice())
+                    .map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
+                Ok((row.group_name, row.article_number as u64, cid))
+            })
+            .collect()
+    }
+
     /// Return the `(low, high)` article number range for a group.
     ///
     /// Returns `(1, 0)` for an empty group (RFC 3977 convention: `low > high`
@@ -138,9 +163,18 @@ mod tests {
     async fn assign_sequential() {
         let (store, _tmp) = make_store().await;
 
-        let n1 = store.assign_number("comp.lang.rust", &test_cid(b"article-1")).await.unwrap();
-        let n2 = store.assign_number("comp.lang.rust", &test_cid(b"article-2")).await.unwrap();
-        let n3 = store.assign_number("comp.lang.rust", &test_cid(b"article-3")).await.unwrap();
+        let n1 = store
+            .assign_number("comp.lang.rust", &test_cid(b"article-1"))
+            .await
+            .unwrap();
+        let n2 = store
+            .assign_number("comp.lang.rust", &test_cid(b"article-2"))
+            .await
+            .unwrap();
+        let n3 = store
+            .assign_number("comp.lang.rust", &test_cid(b"article-3"))
+            .await
+            .unwrap();
 
         assert_eq!(n1, 1);
         assert_eq!(n2, 2);
@@ -190,9 +224,18 @@ mod tests {
     async fn group_range_after_inserts() {
         let (store, _tmp) = make_store().await;
 
-        store.assign_number("comp.lang.rust", &test_cid(b"r1")).await.unwrap();
-        store.assign_number("comp.lang.rust", &test_cid(b"r2")).await.unwrap();
-        store.assign_number("comp.lang.rust", &test_cid(b"r3")).await.unwrap();
+        store
+            .assign_number("comp.lang.rust", &test_cid(b"r1"))
+            .await
+            .unwrap();
+        store
+            .assign_number("comp.lang.rust", &test_cid(b"r2"))
+            .await
+            .unwrap();
+        store
+            .assign_number("comp.lang.rust", &test_cid(b"r3"))
+            .await
+            .unwrap();
 
         let (lo, hi) = store.group_range("comp.lang.rust").await.unwrap();
         assert_eq!((lo, hi), (1, 3));
@@ -202,10 +245,22 @@ mod tests {
     async fn multi_group_isolation() {
         let (store, _tmp) = make_store().await;
 
-        let a1 = store.assign_number("comp.lang.rust", &test_cid(b"rust-1")).await.unwrap();
-        let b1 = store.assign_number("alt.test", &test_cid(b"test-1")).await.unwrap();
-        let a2 = store.assign_number("comp.lang.rust", &test_cid(b"rust-2")).await.unwrap();
-        let b2 = store.assign_number("alt.test", &test_cid(b"test-2")).await.unwrap();
+        let a1 = store
+            .assign_number("comp.lang.rust", &test_cid(b"rust-1"))
+            .await
+            .unwrap();
+        let b1 = store
+            .assign_number("alt.test", &test_cid(b"test-1"))
+            .await
+            .unwrap();
+        let a2 = store
+            .assign_number("comp.lang.rust", &test_cid(b"rust-2"))
+            .await
+            .unwrap();
+        let b2 = store
+            .assign_number("alt.test", &test_cid(b"test-2"))
+            .await
+            .unwrap();
 
         assert_eq!(a1, 1);
         assert_eq!(a2, 2);

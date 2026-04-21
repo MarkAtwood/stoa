@@ -73,12 +73,8 @@ impl IngestionSender {
         }
         match self.tx.send(article).await {
             Ok(()) => {
-                self.metrics
-                    .depth_current
-                    .fetch_add(1, Ordering::Relaxed);
-                self.metrics
-                    .accepted_total
-                    .fetch_add(1, Ordering::Relaxed);
+                self.metrics.depth_current.fetch_add(1, Ordering::Relaxed);
+                self.metrics.accepted_total.fetch_add(1, Ordering::Relaxed);
                 Ok(())
             }
             Err(_) => {
@@ -119,9 +115,7 @@ impl IngestionReceiver {
     /// Receive the next article. Returns `None` if all senders have dropped.
     pub async fn recv(&mut self) -> Option<QueuedArticle> {
         let article = self.rx.recv().await?;
-        self.metrics
-            .depth_current
-            .fetch_sub(1, Ordering::Relaxed);
+        self.metrics.depth_current.fetch_sub(1, Ordering::Relaxed);
         Some(article)
     }
 }
@@ -192,10 +186,7 @@ mod tests {
         sender.try_enqueue(make_article(2)).await.unwrap_err(); // rejected
         sender.try_enqueue(make_article(3)).await.unwrap_err(); // rejected
         assert_eq!(
-            sender
-                .metrics()
-                .rejected_full_total
-                .load(Ordering::Relaxed),
+            sender.metrics().rejected_full_total.load(Ordering::Relaxed),
             2
         );
     }

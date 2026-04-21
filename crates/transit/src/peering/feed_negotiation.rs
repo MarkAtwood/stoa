@@ -17,7 +17,10 @@ pub async fn update_peer_groups(
     groups: &[&str],
     now_ms: i64,
 ) -> Result<(), StorageError> {
-    let mut tx = pool.begin().await.map_err(|e| StorageError::Database(e.to_string()))?;
+    let mut tx = pool
+        .begin()
+        .await
+        .map_err(|e| StorageError::Database(e.to_string()))?;
 
     sqlx::query("DELETE FROM peer_groups WHERE peer_id = ?1")
         .bind(peer_id)
@@ -37,7 +40,9 @@ pub async fn update_peer_groups(
         .map_err(|e| StorageError::Database(e.to_string()))?;
     }
 
-    tx.commit().await.map_err(|e| StorageError::Database(e.to_string()))?;
+    tx.commit()
+        .await
+        .map_err(|e| StorageError::Database(e.to_string()))?;
     Ok(())
 }
 
@@ -46,13 +51,12 @@ pub async fn groups_for_peer(
     pool: &SqlitePool,
     peer_id: &str,
 ) -> Result<Vec<String>, StorageError> {
-    let rows: Vec<(String,)> = sqlx::query_as(
-        "SELECT group_name FROM peer_groups WHERE peer_id = ?1 ORDER BY group_name",
-    )
-    .bind(peer_id)
-    .fetch_all(pool)
-    .await
-    .map_err(|e| StorageError::Database(e.to_string()))?;
+    let rows: Vec<(String,)> =
+        sqlx::query_as("SELECT group_name FROM peer_groups WHERE peer_id = ?1 ORDER BY group_name")
+            .bind(peer_id)
+            .fetch_all(pool)
+            .await
+            .map_err(|e| StorageError::Database(e.to_string()))?;
     Ok(rows.into_iter().map(|(g,)| g).collect())
 }
 
@@ -64,13 +68,12 @@ pub async fn peers_serving_group(
     pool: &SqlitePool,
     group_name: &str,
 ) -> Result<Vec<String>, StorageError> {
-    let rows: Vec<(String,)> = sqlx::query_as(
-        "SELECT peer_id FROM peer_groups WHERE group_name = ?1 ORDER BY peer_id",
-    )
-    .bind(group_name)
-    .fetch_all(pool)
-    .await
-    .map_err(|e| StorageError::Database(e.to_string()))?;
+    let rows: Vec<(String,)> =
+        sqlx::query_as("SELECT peer_id FROM peer_groups WHERE group_name = ?1 ORDER BY peer_id")
+            .bind(group_name)
+            .fetch_all(pool)
+            .await
+            .map_err(|e| StorageError::Database(e.to_string()))?;
     Ok(rows.into_iter().map(|(p,)| p).collect())
 }
 
@@ -80,14 +83,13 @@ pub async fn peer_serves_group(
     peer_id: &str,
     group_name: &str,
 ) -> Result<bool, StorageError> {
-    let row: Option<(i64,)> = sqlx::query_as(
-        "SELECT 1 FROM peer_groups WHERE peer_id = ?1 AND group_name = ?2",
-    )
-    .bind(peer_id)
-    .bind(group_name)
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| StorageError::Database(e.to_string()))?;
+    let row: Option<(i64,)> =
+        sqlx::query_as("SELECT 1 FROM peer_groups WHERE peer_id = ?1 AND group_name = ?2")
+            .bind(peer_id)
+            .bind(group_name)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| StorageError::Database(e.to_string()))?;
     Ok(row.is_some())
 }
 
@@ -140,7 +142,9 @@ mod tests {
         let pool = make_pool().await;
         insert_peer(&pool, "peer1").await;
         let groups = &["comp.lang.rust", "sci.math", "alt.test"];
-        update_peer_groups(&pool, "peer1", groups, NOW).await.unwrap();
+        update_peer_groups(&pool, "peer1", groups, NOW)
+            .await
+            .unwrap();
 
         let result = groups_for_peer(&pool, "peer1").await.unwrap();
         assert_eq!(result.len(), 3);

@@ -20,12 +20,7 @@ use usenet_ipfs_core::{
 
 fn make_entry_id(seed: u8) -> LogEntryId {
     let digest = Code::Sha2_256.digest(&[seed]);
-    LogEntryId::from_bytes(
-        digest
-            .digest()
-            .try_into()
-            .expect("SHA2-256 is 32 bytes"),
-    )
+    LogEntryId::from_bytes(digest.digest().try_into().expect("SHA2-256 is 32 bytes"))
 }
 
 fn make_entry(hlc: u64) -> LogEntry {

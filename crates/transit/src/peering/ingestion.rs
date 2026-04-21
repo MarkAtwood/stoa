@@ -44,7 +44,9 @@ pub async fn check_ingest(
     // 2. Duplicate check.
     match msgid_map.lookup_by_msgid(message_id).await {
         Err(e) => {
-            return IngestResult::TransientError(format!("storage error during duplicate check: {e}"));
+            return IngestResult::TransientError(format!(
+                "storage error during duplicate check: {e}"
+            ));
         }
         Ok(Some(_)) => {
             crate::metrics::ARTICLES_REJECTED_TOTAL
@@ -140,9 +142,7 @@ pub fn check_response(result: &IngestResult) -> &'static str {
 pub fn check_mode_guard(mode: PeeringMode) -> Option<&'static str> {
     match mode {
         PeeringMode::Streaming => None,
-        PeeringMode::Ihave => {
-            Some("401 This command is only allowed in streaming mode\r\n")
-        }
+        PeeringMode::Ihave => Some("401 This command is only allowed in streaming mode\r\n"),
     }
 }
 
@@ -158,7 +158,11 @@ fn has_header(article_bytes: &[u8], name: &str) -> bool {
 
     for line in article_bytes.split(|&b| b == b'\n') {
         // Stop at the blank line separating headers from body.
-        let trimmed = if line.last() == Some(&b'\r') { &line[..line.len() - 1] } else { line };
+        let trimmed = if line.last() == Some(&b'\r') {
+            &line[..line.len() - 1]
+        } else {
+            line
+        };
         if trimmed.is_empty() {
             break;
         }

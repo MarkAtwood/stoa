@@ -11,12 +11,12 @@
 //! - `GET /peers`            — list of active (non-blacklisted) peers
 //! - `GET /metrics`          — Prometheus text format (delegates to [`crate::metrics`])
 
+use sqlx::SqlitePool;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
-use sqlx::SqlitePool;
 
 struct RateLimitState {
     /// Tokens available (fractional).
@@ -178,7 +178,13 @@ async fn handle_admin_connection(
     // this endpoint to the public internet.
     if !check_bearer_token(auth_header.as_deref(), bearer_token) {
         tracing::debug!("admin request rejected: missing or invalid bearer token");
-        write_json(&mut writer, 401, "Unauthorized", r#"{"error":"unauthorized"}"#).await?;
+        write_json(
+            &mut writer,
+            401,
+            "Unauthorized",
+            r#"{"error":"unauthorized"}"#,
+        )
+        .await?;
         return Ok(());
     }
 
@@ -187,7 +193,13 @@ async fn handle_admin_connection(
     }
 
     if method != "GET" {
-        write_json(&mut writer, 405, "Method Not Allowed", r#"{"error":"method not allowed"}"#).await?;
+        write_json(
+            &mut writer,
+            405,
+            "Method Not Allowed",
+            r#"{"error":"method not allowed"}"#,
+        )
+        .await?;
         return Ok(());
     }
 
@@ -196,38 +208,58 @@ async fn handle_admin_connection(
             let body = build_health_json(start_time);
             write_json(&mut writer, 200, "OK", &body).await?;
         }
-        "/stats" => {
-            match build_stats_json(pool).await {
-                Ok(body) => write_json(&mut writer, 200, "OK", &body).await?,
-                Err(e) => {
-                    tracing::warn!("admin /stats error: {e}");
-                    write_json(&mut writer, 500, "Internal Server Error", r#"{"error":"internal server error"}"#).await?;
-                }
+        "/stats" => match build_stats_json(pool).await {
+            Ok(body) => write_json(&mut writer, 200, "OK", &body).await?,
+            Err(e) => {
+                tracing::warn!("admin /stats error: {e}");
+                write_json(
+                    &mut writer,
+                    500,
+                    "Internal Server Error",
+                    r#"{"error":"internal server error"}"#,
+                )
+                .await?;
             }
-        }
+        },
         "/log-tip" => {
             let group = extract_query_param(query, "group");
             match group {
                 None => {
-                    write_json(&mut writer, 400, "Bad Request", r#"{"error":"missing group parameter"}"#).await?;
+                    write_json(
+                        &mut writer,
+                        400,
+                        "Bad Request",
+                        r#"{"error":"missing group parameter"}"#,
+                    )
+                    .await?;
                 }
-                Some(g) => {
-                    match build_log_tip_json(pool, &g).await {
-                        Some(body) => write_json(&mut writer, 200, "OK", &body).await?,
-                        None => write_json(&mut writer, 404, "Not Found", r#"{"error":"group not found"}"#).await?,
+                Some(g) => match build_log_tip_json(pool, &g).await {
+                    Some(body) => write_json(&mut writer, 200, "OK", &body).await?,
+                    None => {
+                        write_json(
+                            &mut writer,
+                            404,
+                            "Not Found",
+                            r#"{"error":"group not found"}"#,
+                        )
+                        .await?
                     }
-                }
+                },
             }
         }
-        "/peers" => {
-            match build_peers_json(pool).await {
-                Ok(body) => write_json(&mut writer, 200, "OK", &body).await?,
-                Err(e) => {
-                    tracing::warn!("admin /peers error: {e}");
-                    write_json(&mut writer, 500, "Internal Server Error", r#"{"error":"internal server error"}"#).await?;
-                }
+        "/peers" => match build_peers_json(pool).await {
+            Ok(body) => write_json(&mut writer, 200, "OK", &body).await?,
+            Err(e) => {
+                tracing::warn!("admin /peers error: {e}");
+                write_json(
+                    &mut writer,
+                    500,
+                    "Internal Server Error",
+                    r#"{"error":"internal server error"}"#,
+                )
+                .await?;
             }
-        }
+        },
         "/metrics" => {
             let body = crate::metrics::gather_metrics();
             let content_length = body.len();
@@ -329,14 +361,13 @@ pub(crate) async fn build_stats_json(pool: &SqlitePool) -> Result<String, sqlx::
 }
 
 pub(crate) async fn build_log_tip_json(pool: &SqlitePool, group: &str) -> Option<String> {
-    let row: Option<(Option<i64>, Option<String>)> = sqlx::query_as(
-        "SELECT MAX(sequence_number), cid FROM group_log WHERE group_name = ?",
-    )
-    .bind(group)
-    .fetch_optional(pool)
-    .await
-    .ok()
-    .flatten();
+    let row: Option<(Option<i64>, Option<String>)> =
+        sqlx::query_as("SELECT MAX(sequence_number), cid FROM group_log WHERE group_name = ?")
+            .bind(group)
+            .fetch_optional(pool)
+            .await
+            .ok()
+            .flatten();
 
     match row {
         Some((Some(seq), Some(cid))) => Some(
@@ -401,7 +432,10 @@ mod tests {
         let json = build_health_json(start_time);
         assert!(json.contains("\"status\""), "missing status key: {json}");
         assert!(json.contains("\"ok\""), "missing ok value: {json}");
-        assert!(json.contains("\"uptime_secs\""), "missing uptime_secs: {json}");
+        assert!(
+            json.contains("\"uptime_secs\""),
+            "missing uptime_secs: {json}"
+        );
     }
 
     #[tokio::test]
@@ -409,7 +443,10 @@ mod tests {
         let pool = make_pool().await;
         let json = build_stats_json(&pool).await.unwrap();
         assert!(json.contains("\"articles\""), "missing articles: {json}");
-        assert!(json.contains("\"pinned_cids\""), "missing pinned_cids: {json}");
+        assert!(
+            json.contains("\"pinned_cids\""),
+            "missing pinned_cids: {json}"
+        );
         assert!(json.contains("\"groups\""), "missing groups: {json}");
         assert!(json.contains("\"peers\""), "missing peers: {json}");
         let v: serde_json::Value = serde_json::from_str(&json).unwrap();
@@ -423,7 +460,10 @@ mod tests {
     async fn log_tip_returns_none_for_missing_group() {
         let pool = make_pool().await;
         let result = build_log_tip_json(&pool, "comp.lang.rust").await;
-        assert!(result.is_none(), "expected None for unknown group, got: {result:?}");
+        assert!(
+            result.is_none(),
+            "expected None for unknown group, got: {result:?}"
+        );
     }
 
     #[tokio::test]
@@ -438,12 +478,18 @@ mod tests {
         let start_time = Instant::now();
         let json = build_health_json(start_time);
         let v: serde_json::Value = serde_json::from_str(&json).unwrap();
-        assert!(v["uptime_secs"].as_u64().is_some(), "uptime_secs must be a non-negative integer");
+        assert!(
+            v["uptime_secs"].as_u64().is_some(),
+            "uptime_secs must be a non-negative integer"
+        );
     }
 
     #[test]
     fn bearer_token_correct_returns_true() {
-        assert!(check_bearer_token(Some("Bearer secret123"), Some("secret123")));
+        assert!(check_bearer_token(
+            Some("Bearer secret123"),
+            Some("secret123")
+        ));
     }
 
     #[test]

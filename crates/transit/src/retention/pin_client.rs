@@ -202,10 +202,7 @@ impl PinClient for HttpPinClient {
     }
 
     async fn is_pinned(&self, cid: &Cid) -> Result<bool, PinError> {
-        let url = format!(
-            "{}/api/v0/pin/ls?type=recursive&arg={}",
-            self.base_url, cid
-        );
+        let url = format!("{}/api/v0/pin/ls?type=recursive&arg={}", self.base_url, cid);
         let resp = self
             .client
             .post(&url)
@@ -237,7 +234,9 @@ impl PinClient for HttpPinClient {
         let keys = body
             .get("Keys")
             .and_then(|v| v.as_object())
-            .ok_or_else(|| PinError::Failed("missing Keys object in pin/ls response".to_string()))?;
+            .ok_or_else(|| {
+                PinError::Failed("missing Keys object in pin/ls response".to_string())
+            })?;
         let mut cids = keys
             .keys()
             .map(|s| {
@@ -346,7 +345,10 @@ mod tests {
         let cid = make_cid(b"retry-article");
 
         let result = client.pin(&cid).await;
-        assert!(result.is_err(), "should fail when force_error is always set");
+        assert!(
+            result.is_err(),
+            "should fail when force_error is always set"
+        );
         assert_eq!(
             inner_count.load(std::sync::atomic::Ordering::Relaxed),
             3,

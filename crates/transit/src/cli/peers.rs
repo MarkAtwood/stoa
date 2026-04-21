@@ -5,9 +5,9 @@
 //! Actual argument parsing (clap) is wired in the binary; these functions
 //! are pure business logic, testable without a CLI framework.
 
-use sqlx::SqlitePool;
-use crate::peering::peer_registry::{PeerRecord, PeerRegistry, peer_score};
 use crate::peering::blacklist::unblacklist;
+use crate::peering::peer_registry::{peer_score, PeerRecord, PeerRegistry};
+use sqlx::SqlitePool;
 use usenet_ipfs_core::error::StorageError;
 
 /// Output format for CLI commands.
@@ -154,7 +154,9 @@ pub async fn cmd_peer_blacklist(
     .execute(pool)
     .await
     .map_err(|e| StorageError::Database(e.to_string()))?;
-    Ok(format!("Peer '{peer_id}' blacklisted until {blacklisted_until} ms.\n"))
+    Ok(format!(
+        "Peer '{peer_id}' blacklisted until {blacklisted_until} ms.\n"
+    ))
 }
 
 /// `transit peer-unblacklist <peer_id>`: clear blacklist for a peer.
@@ -207,7 +209,9 @@ mod tests {
     #[tokio::test]
     async fn peer_list_empty() {
         let pool = make_pool().await;
-        let output = cmd_peer_list(&pool, NOW, OutputFormat::Table).await.unwrap();
+        let output = cmd_peer_list(&pool, NOW, OutputFormat::Table)
+            .await
+            .unwrap();
         assert!(output.contains("No peers"));
     }
 
@@ -215,7 +219,9 @@ mod tests {
     async fn peer_list_table_contains_peer() {
         let pool = make_pool().await;
         insert_peer(&pool, "12D3KooWExample", 100, 5).await;
-        let output = cmd_peer_list(&pool, NOW, OutputFormat::Table).await.unwrap();
+        let output = cmd_peer_list(&pool, NOW, OutputFormat::Table)
+            .await
+            .unwrap();
         assert!(output.contains("12D3KooWExample"));
         assert!(output.contains("active"));
     }

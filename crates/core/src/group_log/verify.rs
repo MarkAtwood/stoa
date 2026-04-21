@@ -90,11 +90,7 @@ pub async fn verify_entry<S: LogStorage>(
     canonical.extend_from_slice(&entry.hlc_timestamp.to_be_bytes());
     canonical.extend_from_slice(&entry.article_cid.to_bytes());
 
-    let mut parent_bytes: Vec<Vec<u8>> = entry
-        .parent_cids
-        .iter()
-        .map(|c| c.to_bytes())
-        .collect();
+    let mut parent_bytes: Vec<Vec<u8>> = entry.parent_cids.iter().map(|c| c.to_bytes()).collect();
     parent_bytes.sort();
     for pb in &parent_bytes {
         canonical.extend_from_slice(pb);
@@ -188,11 +184,7 @@ mod tests {
     }
 
     /// Helper: store an entry in MemLogStorage and return its id CID.
-    async fn store_entry(
-        storage: &MemLogStorage,
-        id: LogEntryId,
-        entry: LogEntry,
-    ) -> Cid {
+    async fn store_entry(storage: &MemLogStorage, id: LogEntryId, entry: LogEntry) -> Cid {
         storage
             .insert_entry(id.clone(), entry)
             .await
@@ -253,13 +245,14 @@ mod tests {
             input.extend_from_slice(&entry.article_cid.to_bytes());
             input.extend_from_slice(&entry.operator_signature);
             let digest = Code::Sha2_256.digest(&input);
-            LogEntryId::from_bytes(
-                digest.digest().try_into().expect("32 bytes"),
-            )
+            LogEntryId::from_bytes(digest.digest().try_into().expect("32 bytes"))
         };
 
         let result = verify_entry(&entry, &entry_id, &storage, &pubkey).await;
-        assert!(result.is_ok(), "valid entry must pass verification: {result:?}");
+        assert!(
+            result.is_ok(),
+            "valid entry must pass verification: {result:?}"
+        );
     }
 
     // ── verify_entry_bad_signature ────────────────────────────────────────────

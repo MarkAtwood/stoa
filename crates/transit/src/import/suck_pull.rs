@@ -34,11 +34,7 @@ impl std::fmt::Display for SuckPullSummary {
         write!(
             f,
             "new: {}, fetched: {}, skipped: {}, failed: {}, elapsed: {}ms",
-            self.new_articles,
-            self.fetched,
-            self.skipped_duplicate,
-            self.failed,
-            self.elapsed_ms
+            self.new_articles, self.fetched, self.skipped_duplicate, self.failed, self.elapsed_ms
         )
     }
 }
@@ -106,9 +102,7 @@ pub async fn run_suck_pull(
     for group in &config.groups {
         let since = match config.since_override {
             Some(ts) => ts,
-            None => {
-                read_cursor(pool, group).await?.unwrap_or(default_since)
-            }
+            None => read_cursor(pool, group).await?.unwrap_or(default_since),
         };
 
         let date_str = format_nntp_date(since);
@@ -158,13 +152,8 @@ pub async fn run_suck_pull(
         summary.new_articles += msgids.len();
 
         for msgid in &msgids {
-            match fetch_article_with_retry(
-                &mut writer,
-                &mut reader,
-                msgid,
-                config.max_retries,
-            )
-            .await
+            match fetch_article_with_retry(&mut writer, &mut reader, msgid, config.max_retries)
+                .await
             {
                 FetchResult::Fetched => {
                     tracing::debug!("suck_pull: fetched {msgid}");
@@ -207,10 +196,7 @@ async fn ensure_cursor_table(pool: &SqlitePool) -> Result<(), StorageError> {
     Ok(())
 }
 
-async fn read_cursor(
-    pool: &SqlitePool,
-    group: &str,
-) -> Result<Option<u64>, StorageError> {
+async fn read_cursor(pool: &SqlitePool, group: &str) -> Result<Option<u64>, StorageError> {
     let row: Option<(i64,)> =
         sqlx::query_as("SELECT last_fetched_unix FROM suck_pull_cursor WHERE group_name = ?")
             .bind(group)
@@ -220,11 +206,7 @@ async fn read_cursor(
     Ok(row.map(|(ts,)| ts as u64))
 }
 
-async fn update_cursor(
-    pool: &SqlitePool,
-    group: &str,
-    unix_secs: u64,
-) -> Result<(), StorageError> {
+async fn update_cursor(pool: &SqlitePool, group: &str, unix_secs: u64) -> Result<(), StorageError> {
     sqlx::query(
         "INSERT OR REPLACE INTO suck_pull_cursor (group_name, last_fetched_unix) VALUES (?, ?)",
     )
@@ -261,9 +243,7 @@ async fn fetch_article_with_retry(
                 if attempts > max_retries {
                     return FetchResult::Failed;
                 }
-                tracing::debug!(
-                    "suck_pull: retry {attempts}/{max_retries} for {msgid}"
-                );
+                tracing::debug!("suck_pull: retry {attempts}/{max_retries} for {msgid}");
                 tokio::time::sleep(Duration::from_millis(500)).await;
             }
         }
@@ -355,18 +335,23 @@ pub(crate) fn format_nntp_date(unix_secs: u64) -> String {
     let cycles1 = (days / 365).min(3);
     days -= cycles1 * 365;
 
-    let year = 1970
-        + cycles400 * 400
-        + cycles100 * 100
-        + cycles4 * 4
-        + cycles1;
+    let year = 1970 + cycles400 * 400 + cycles100 * 100 + cycles4 * 4 + cycles1;
 
     // Now `days` is 0-based day-of-year. Compute month and day.
     let leap = is_leap_year(year);
     let month_lengths: [u32; 12] = [
         31,
         if leap { 29 } else { 28 },
-        31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
     ];
 
     let mut month = 1u32;

@@ -65,13 +65,8 @@ pub async fn start_swarm(
             libp2p::yamux::Config::default,
         )?
         .with_behaviour(|key| {
-            gossipsub::Behaviour::new(
-                MessageAuthenticity::Signed(key.clone()),
-                gossipsub_config,
-            )
-            .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
-                e.into()
-            })
+            gossipsub::Behaviour::new(MessageAuthenticity::Signed(key.clone()), gossipsub_config)
+                .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { e.into() })
         })?
         .build();
 
@@ -187,8 +182,16 @@ mod tests {
         // PeerId has no concept of "zero"; we verify it round-trips through its string form,
         // which is the canonical way to assert it is a well-formed peer identity.
         let s = peer_id.to_string();
-        assert!(!s.is_empty(), "PeerId should have a non-empty string representation");
-        let reparsed: PeerId = s.parse().expect("PeerId should parse back from its string form");
-        assert_eq!(peer_id, reparsed, "PeerId round-trip through string must be identity");
+        assert!(
+            !s.is_empty(),
+            "PeerId should have a non-empty string representation"
+        );
+        let reparsed: PeerId = s
+            .parse()
+            .expect("PeerId should parse back from its string form");
+        assert_eq!(
+            peer_id, reparsed,
+            "PeerId round-trip through string must be identity"
+        );
     }
 }

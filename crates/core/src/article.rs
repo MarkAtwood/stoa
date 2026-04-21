@@ -180,9 +180,7 @@ mod tests {
                 newsgroups: vec![GroupName::new("comp.lang.rust").unwrap()],
                 subject: "Hello Rust".into(),
                 path: "news.example.com!user".into(),
-                extra_headers: vec![
-                    ("X-Mailer".into(), "test".into()),
-                ],
+                extra_headers: vec![("X-Mailer".into(), "test".into())],
             },
             body: ArticleBody::from_text("This is the body.\r\n"),
         }

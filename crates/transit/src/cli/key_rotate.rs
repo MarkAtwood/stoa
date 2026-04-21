@@ -229,8 +229,7 @@ mod tests {
         let dir = tempfile::TempDir::new().unwrap();
         let result = crate::cli::keygen::generate_keypair(dir.path(), false).unwrap();
 
-        let key = load_signing_key(&result.private_key_path)
-            .expect("should load signing key");
+        let key = load_signing_key(&result.private_key_path).expect("should load signing key");
 
         use ed25519_dalek::Signer;
         let sig = key.sign(b"test message");
@@ -247,10 +246,13 @@ mod tests {
         let dir = tempfile::TempDir::new().unwrap();
         let result = crate::cli::keygen::generate_keypair(dir.path(), false).unwrap();
 
-        let (vk, fp) = load_verifying_key(&result.public_key_path)
-            .expect("should load verifying key");
+        let (vk, fp) =
+            load_verifying_key(&result.public_key_path).expect("should load verifying key");
         assert_eq!(fp.len(), 64, "fingerprint should be 64 hex chars");
-        assert_eq!(fp, result.fingerprint, "fingerprint should match keygen output");
+        assert_eq!(
+            fp, result.fingerprint,
+            "fingerprint should match keygen output"
+        );
         let _ = vk;
     }
 
@@ -300,6 +302,9 @@ mod tests {
             "Subject header must use CRLF"
         );
         // Header/body separator must be \r\n\r\n.
-        assert!(text.contains("\r\n\r\n"), "header/body separator must be CRLF");
+        assert!(
+            text.contains("\r\n\r\n"),
+            "header/body separator must be CRLF"
+        );
     }
 }

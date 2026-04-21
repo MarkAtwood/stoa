@@ -338,7 +338,8 @@ mod tests {
     #[tokio::test]
     async fn message_id_extraction() {
         // Test the Message-ID extraction helper directly
-        let article = "From: a@b.com\r\nMessage-ID: <abc123@example.com>\r\nSubject: Test\r\n\r\nBody\r\n";
+        let article =
+            "From: a@b.com\r\nMessage-ID: <abc123@example.com>\r\nSubject: Test\r\n\r\nBody\r\n";
         let msgid = extract_message_id(article);
         assert_eq!(msgid, Some("<abc123@example.com>".to_string()));
     }
@@ -361,7 +362,10 @@ mod tests {
         let input = b"Normal line\r\n.dotted line\r\nAnother\r\n";
         let output = dot_stuff(input);
         let s = std::str::from_utf8(&output).unwrap();
-        assert!(s.contains("..dotted line"), "expected dot-stuffed line in: {s}");
+        assert!(
+            s.contains("..dotted line"),
+            "expected dot-stuffed line in: {s}"
+        );
         assert!(s.contains("Normal line"), "normal line should be unchanged");
     }
 

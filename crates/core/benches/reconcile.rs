@@ -61,11 +61,7 @@ fn make_entry(hlc: u64, n: usize, parent: Option<&LogEntryId>) -> LogEntry {
 ///
 /// `unique_tag` distinguishes node-specific entry IDs (`0xAA` for A, `0xBB`
 /// for B).  Shared entries always use tag `0x00`.
-async fn populate(
-    storage: &MemLogStorage,
-    group: &GroupName,
-    unique_tag: u8,
-) -> LogEntryId {
+async fn populate(storage: &MemLogStorage, group: &GroupName, unique_tag: u8) -> LogEntryId {
     let shared_tag = 0x00u8;
 
     // ── shared chain ─────────────────────────────────────────────────────────
@@ -79,7 +75,10 @@ async fn populate(
     for i in 1..SHARED_COUNT {
         let id = make_id(shared_tag, i);
         let entry = make_entry(1_000_000 + i as u64, i, Some(&prev_id));
-        storage.insert_entry(id.clone(), entry).await.expect("insert shared");
+        storage
+            .insert_entry(id.clone(), entry)
+            .await
+            .expect("insert shared");
         prev_id = id;
     }
 
@@ -89,13 +88,19 @@ async fn populate(
     for i in 0..UNIQUE_COUNT {
         let id = make_id(unique_tag, i);
         let entry = make_entry(2_000_000 + i as u64, SHARED_COUNT + i, Some(&prev_id));
-        storage.insert_entry(id.clone(), entry).await.expect("insert unique");
+        storage
+            .insert_entry(id.clone(), entry)
+            .await
+            .expect("insert unique");
         prev_id = id;
     }
 
     // `prev_id` is now the tip: last unique entry (index UNIQUE_COUNT - 1).
     let tip = prev_id;
-    storage.set_tips(group, &[tip.clone()]).await.expect("set tips");
+    storage
+        .set_tips(group, &[tip.clone()])
+        .await
+        .expect("set tips");
     tip
 }
 

@@ -26,7 +26,7 @@ use crate::{
         response::Response,
         state::SessionState,
     },
-    store::server_stores::ServerStores,
+    store::{overview::extract_overview, server_stores::ServerStores},
 };
 
 /// Run a complete NNTP session on the given TCP stream.
@@ -93,13 +93,16 @@ async fn run_plain_session(
     let start = std::time::Instant::now();
 
     // STARTTLS is available on a plain connection only when TLS is configured.
-    let starttls_available =
-        config.tls.cert_path.is_some() && config.tls.key_path.is_some();
+    let starttls_available = config.tls.cert_path.is_some() && config.tls.key_path.is_some();
 
     let auth_required = config.auth.required;
     let posting_allowed = true;
-    let mut ctx =
-        SessionContext::new(peer_addr, auth_required, posting_allowed, starttls_available);
+    let mut ctx = SessionContext::new(
+        peer_addr,
+        auth_required,
+        posting_allowed,
+        starttls_available,
+    );
 
     let (read_half, mut write_half) = stream.into_split();
     let mut reader = BufReader::new(read_half);
@@ -109,7 +112,11 @@ async fn run_plain_session(
     } else {
         Response::service_available_posting_prohibited()
     };
-    if write_half.write_all(greeting.to_string().as_bytes()).await.is_err() {
+    if write_half
+        .write_all(greeting.to_string().as_bytes())
+        .await
+        .is_err()
+    {
         let elapsed = start.elapsed();
         info!(peer = %peer_addr, elapsed_ms = elapsed.as_millis(), "plain session ended");
         return None;
@@ -140,7 +147,11 @@ async fn run_plain_session(
             Ok(c) => c,
             Err(_) => {
                 let resp = Response::unknown_command();
-                if write_half.write_all(resp.to_string().as_bytes()).await.is_err() {
+                if write_half
+                    .write_all(resp.to_string().as_bytes())
+                    .await
+                    .is_err()
+                {
                     break;
                 }
                 continue;
@@ -150,7 +161,11 @@ async fn run_plain_session(
         // ARTICLE <msgid>: resolve from stores before dispatching.
         if let Command::Article(Some(ArticleRef::MessageId(ref msgid))) = cmd {
             let resp = lookup_article_by_msgid(&stores, msgid).await;
-            if write_half.write_all(resp.to_string().as_bytes()).await.is_err() {
+            if write_half
+                .write_all(resp.to_string().as_bytes())
+                .await
+                .is_err()
+            {
                 break;
             }
             continue;
@@ -159,7 +174,11 @@ async fn run_plain_session(
         // ARTICLE cid:<cid>: fetch directly by CID (ADR-0007).
         if let Command::Article(Some(ArticleRef::Cid(ref cid_str))) = cmd {
             let resp = lookup_article_by_cid(&stores, cid_str).await;
-            if write_half.write_all(resp.to_string().as_bytes()).await.is_err() {
+            if write_half
+                .write_all(resp.to_string().as_bytes())
+                .await
+                .is_err()
+            {
                 break;
             }
             continue;
@@ -174,16 +193,29 @@ async fn run_plain_session(
                 ctx.current_article_number,
             )
             .await;
-            if write_half.write_all(resp.to_string().as_bytes()).await.is_err() {
+            if write_half
+                .write_all(resp.to_string().as_bytes())
+                .await
+                .is_err()
+            {
                 break;
             }
             continue;
         }
 
         // XVERIFY: verify stored CID and optionally signature (ADR-0007).
-        if let Command::Xverify { ref message_id, ref expected_cid, verify_sig } = cmd {
+        if let Command::Xverify {
+            ref message_id,
+            ref expected_cid,
+            verify_sig,
+        } = cmd
+        {
             let resp = handle_xverify(&stores, message_id, expected_cid, verify_sig).await;
-            if write_half.write_all(resp.to_string().as_bytes()).await.is_err() {
+            if write_half
+                .write_all(resp.to_string().as_bytes())
+                .await
+                .is_err()
+            {
                 break;
             }
             continue;
@@ -192,7 +224,11 @@ async fn run_plain_session(
         // GROUP: serve live article count/range from article_numbers store.
         if let Command::Group(ref name) = cmd {
             let resp = handle_group_live(&stores, &mut ctx, name).await;
-            if write_half.write_all(resp.to_string().as_bytes()).await.is_err() {
+            if write_half
+                .write_all(resp.to_string().as_bytes())
+                .await
+                .is_err()
+            {
                 break;
             }
             continue;
@@ -201,7 +237,11 @@ async fn run_plain_session(
         // LIST ACTIVE: serve live article ranges for all configured groups.
         if let Command::List(ListSubcommand::Active) = cmd {
             let resp = handle_list_active_live(&stores, &ctx).await;
-            if write_half.write_all(resp.to_string().as_bytes()).await.is_err() {
+            if write_half
+                .write_all(resp.to_string().as_bytes())
+                .await
+                .is_err()
+            {
                 break;
             }
             continue;
@@ -210,7 +250,51 @@ async fn run_plain_session(
         // OVER/XOVER: serve overview records from the overview index.
         if let Command::Over(ref arg) = cmd {
             let resp = handle_over_live(&stores, &ctx, arg.as_ref()).await;
-            if write_half.write_all(resp.to_string().as_bytes()).await.is_err() {
+            if write_half
+                .write_all(resp.to_string().as_bytes())
+                .await
+                .is_err()
+            {
+                break;
+            }
+            continue;
+        }
+
+        // AUTHINFO PASS: async bcrypt credential check via CredentialStore.
+        if let Command::AuthinfoPass(ref password) = cmd {
+            let username = match ctx.pending_auth_user.take() {
+                Some(u) => u,
+                None => {
+                    let resp = Response::authentication_out_of_sequence();
+                    if write_half
+                        .write_all(resp.to_string().as_bytes())
+                        .await
+                        .is_err()
+                    {
+                        break;
+                    }
+                    continue;
+                }
+            };
+            let accepted = if config.auth.is_dev_mode() {
+                true
+            } else {
+                stores.credential_store.check(&username, password).await
+            };
+            if accepted {
+                ctx.state = SessionState::Active;
+                ctx.authenticated_user = Some(username);
+            }
+            let resp = if accepted {
+                Response::authentication_accepted()
+            } else {
+                Response::authentication_failed()
+            };
+            if write_half
+                .write_all(resp.to_string().as_bytes())
+                .await
+                .is_err()
+            {
                 break;
             }
             continue;
@@ -219,7 +303,11 @@ async fn run_plain_session(
         let is_quit = matches!(cmd, Command::Quit);
         let is_post = matches!(cmd, Command::Post);
         let is_starttls = matches!(cmd, Command::StartTls);
-        let cmd_label = line.split_whitespace().next().unwrap_or("UNKNOWN").to_uppercase();
+        let cmd_label = line
+            .split_whitespace()
+            .next()
+            .unwrap_or("UNKNOWN")
+            .to_uppercase();
         let cmd_start = std::time::Instant::now();
         let resp = dispatch(&mut ctx, cmd, &config.auth, None);
         crate::metrics::NNTP_COMMAND_DURATION_SECONDS
@@ -227,7 +315,11 @@ async fn run_plain_session(
             .observe(cmd_start.elapsed().as_secs_f64());
         let resp_code = resp.code;
 
-        if write_half.write_all(resp.to_string().as_bytes()).await.is_err() {
+        if write_half
+            .write_all(resp.to_string().as_bytes())
+            .await
+            .is_err()
+        {
             break;
         }
 
@@ -250,7 +342,11 @@ async fn run_plain_session(
                 }
             };
             let final_resp = run_post_pipeline(&article_bytes, &stores).await;
-            if write_half.write_all(final_resp.to_string().as_bytes()).await.is_err() {
+            if write_half
+                .write_all(final_resp.to_string().as_bytes())
+                .await
+                .is_err()
+            {
                 break;
             }
         }
@@ -291,8 +387,12 @@ async fn run_session_io<S>(
 
     let auth_required = config.auth.required;
     let posting_allowed = true;
-    let mut ctx =
-        SessionContext::new(peer_addr, auth_required, posting_allowed, starttls_available);
+    let mut ctx = SessionContext::new(
+        peer_addr,
+        auth_required,
+        posting_allowed,
+        starttls_available,
+    );
 
     let (reader, mut writer) = tokio::io::split(stream);
     let mut reader = BufReader::new(reader);
@@ -302,7 +402,11 @@ async fn run_session_io<S>(
     } else {
         Response::service_available_posting_prohibited()
     };
-    if writer.write_all(greeting.to_string().as_bytes()).await.is_err() {
+    if writer
+        .write_all(greeting.to_string().as_bytes())
+        .await
+        .is_err()
+    {
         return;
     }
 
@@ -371,7 +475,12 @@ async fn run_session_io<S>(
         }
 
         // XVERIFY: verify stored CID and optionally signature (ADR-0007).
-        if let Command::Xverify { ref message_id, ref expected_cid, verify_sig } = cmd {
+        if let Command::Xverify {
+            ref message_id,
+            ref expected_cid,
+            verify_sig,
+        } = cmd
+        {
             let resp = handle_xverify(&stores, message_id, expected_cid, verify_sig).await;
             if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
                 break;
@@ -406,9 +515,45 @@ async fn run_session_io<S>(
             continue;
         }
 
+        // AUTHINFO PASS: async bcrypt credential check via CredentialStore.
+        if let Command::AuthinfoPass(ref password) = cmd {
+            let username = match ctx.pending_auth_user.take() {
+                Some(u) => u,
+                None => {
+                    let resp = Response::authentication_out_of_sequence();
+                    if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                        break;
+                    }
+                    continue;
+                }
+            };
+            let accepted = if config.auth.is_dev_mode() {
+                true
+            } else {
+                stores.credential_store.check(&username, password).await
+            };
+            if accepted {
+                ctx.state = SessionState::Active;
+                ctx.authenticated_user = Some(username);
+            }
+            let resp = if accepted {
+                Response::authentication_accepted()
+            } else {
+                Response::authentication_failed()
+            };
+            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                break;
+            }
+            continue;
+        }
+
         let is_quit = matches!(cmd, Command::Quit);
         let is_post = matches!(cmd, Command::Post);
-        let cmd_label = line.split_whitespace().next().unwrap_or("UNKNOWN").to_uppercase();
+        let cmd_label = line
+            .split_whitespace()
+            .next()
+            .unwrap_or("UNKNOWN")
+            .to_uppercase();
         let cmd_start = std::time::Instant::now();
         let resp = dispatch(&mut ctx, cmd, &config.auth, None);
         crate::metrics::NNTP_COMMAND_DURATION_SECONDS
@@ -435,7 +580,11 @@ async fn run_session_io<S>(
             };
 
             let final_resp = run_post_pipeline(&article_bytes, &stores).await;
-            if writer.write_all(final_resp.to_string().as_bytes()).await.is_err() {
+            if writer
+                .write_all(final_resp.to_string().as_bytes())
+                .await
+                .is_err()
+            {
                 break;
             }
         }
@@ -491,7 +640,7 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
 
     // Step 5: Append to group logs and assign article numbers.
     let mut clock = stores.clock.lock().await;
-    if let Err(resp) = append_to_groups(
+    let append_result = match append_to_groups(
         stores.log_storage.as_ref(),
         &stores.article_numbers,
         &mut clock,
@@ -501,9 +650,20 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
     )
     .await
     {
-        return resp;
-    }
+        Ok(r) => r,
+        Err(resp) => return resp,
+    };
     drop(clock);
+
+    // Step 6: Index overview fields for each assigned (group, article_number).
+    let (header_bytes, body_bytes) = split_article(&signed_bytes);
+    let mut overview = extract_overview(&header_bytes, &body_bytes);
+    for (group, article_number) in &append_result.assignments {
+        overview.article_number = *article_number;
+        if let Err(e) = stores.overview_store.insert(group, &overview).await {
+            warn!("overview insert failed for {group}/{article_number}: {e}");
+        }
+    }
 
     Response::new(240, "Article received OK")
 }
@@ -711,16 +871,14 @@ async fn handle_xverify(
 
 /// GROUP groupname: select a group and return live article count and range.
 ///
-/// Returns 411 if the group is not in the configured known_groups list.
-/// Returns 211 with live (low, high, count) from the article_numbers store.
+/// Returns 411 for an invalid group name. Returns 211 with live (low, high,
+/// count) from the article_numbers store for any valid name (count=0 for
+/// groups that have no articles yet).
 async fn handle_group_live(
     stores: &ServerStores,
     ctx: &mut SessionContext,
     name: &str,
 ) -> Response {
-    if !ctx.known_groups.iter().any(|g| g.name == name) {
-        return Response::no_such_newsgroup();
-    }
     let group_name = match usenet_ipfs_core::article::GroupName::new(name) {
         Ok(g) => g,
         Err(_) => return Response::no_such_newsgroup(),
@@ -831,4 +989,50 @@ async fn lookup_article_by_cid(stores: &ServerStores, cid_str: &str) -> Response
         cid: Some(cid),
     };
     article_response(&content)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::store::server_stores::ServerStores;
+
+    fn minimal_article(newsgroups: &str, subject: &str, msgid: &str) -> Vec<u8> {
+        format!(
+            "Newsgroups: {newsgroups}\r\n\
+             From: poster@example.com\r\n\
+             Subject: {subject}\r\n\
+             Date: Mon, 20 Apr 2026 12:00:00 +0000\r\n\
+             Message-ID: {msgid}\r\n\
+             \r\n\
+             Article body.\r\n"
+        )
+        .into_bytes()
+    }
+
+    #[tokio::test]
+    async fn post_then_over_returns_article() {
+        let stores = ServerStores::new_mem().await;
+        let article = minimal_article("comp.test", "Integration Test", "<integ@test.example>");
+
+        let resp = run_post_pipeline(&article, &stores).await;
+        assert_eq!(
+            resp.code, 240,
+            "POST pipeline must return 240; got: {}",
+            resp.text
+        );
+
+        let records = stores
+            .overview_store
+            .query_range("comp.test", 1, 10)
+            .await
+            .unwrap();
+        assert_eq!(
+            records.len(),
+            1,
+            "overview index must have exactly one record"
+        );
+        assert_eq!(records[0].article_number, 1);
+        assert_eq!(records[0].subject, "Integration Test");
+        assert_eq!(records[0].message_id, "<integ@test.example>");
+    }
 }

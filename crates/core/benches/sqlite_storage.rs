@@ -1,8 +1,8 @@
 use cid::Cid;
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use multihash_codetable::{Code, MultihashDigest};
-use sqlx::SqlitePool;
 use sqlx::sqlite::SqliteConnectOptions;
+use sqlx::SqlitePool;
 use std::str::FromStr;
 use tempfile::NamedTempFile;
 use tokio::runtime::Runtime;
@@ -47,16 +47,12 @@ async fn setup_memory_storage() -> SqliteLogStorage {
 /// Create a file-backed `SqliteLogStorage`.  Returns `(storage, tmp)` — the
 /// `TempPath` must be kept alive for the duration of the storage's use.
 async fn setup_storage() -> (SqliteLogStorage, tempfile::TempPath) {
-    let tmp = NamedTempFile::new()
-        .expect("temp file")
-        .into_temp_path();
+    let tmp = NamedTempFile::new().expect("temp file").into_temp_path();
     let url = format!("sqlite://{}", tmp.to_str().expect("utf-8 path"));
     let opts = SqliteConnectOptions::from_str(&url)
         .expect("parse url")
         .create_if_missing(true);
-    let pool = SqlitePool::connect_with(opts)
-        .await
-        .expect("file pool");
+    let pool = SqlitePool::connect_with(opts).await.expect("file pool");
     usenet_ipfs_core::migrations::run_migrations(&pool)
         .await
         .expect("migrations");
@@ -79,10 +75,7 @@ fn bench_sqlite_insert_1000(c: &mut Criterion) {
                 let storage = setup_memory_storage().await;
                 for i in 0u64..1000 {
                     let (id, entry) = make_log_entry(i);
-                    storage
-                        .insert_entry(id, entry)
-                        .await
-                        .expect("insert");
+                    storage.insert_entry(id, entry).await.expect("insert");
                 }
             })
         })
@@ -123,10 +116,7 @@ fn bench_sqlite_get_random(c: &mut Criterion) {
         b.iter(|| {
             rt.block_on(async {
                 for id in &fetch_ids {
-                    let _ = storage
-                        .get_entry(id)
-                        .await
-                        .expect("get");
+                    let _ = storage.get_entry(id).await.expect("get");
                 }
             })
         })

@@ -54,11 +54,7 @@ fn compute_entry_id(entry: &LogEntry) -> LogEntryId {
     input.extend_from_slice(&entry.article_cid.to_bytes());
     input.extend_from_slice(&entry.operator_signature);
 
-    let mut parent_bytes: Vec<Vec<u8>> = entry
-        .parent_cids
-        .iter()
-        .map(|c| c.to_bytes())
-        .collect();
+    let mut parent_bytes: Vec<Vec<u8>> = entry.parent_cids.iter().map(|c| c.to_bytes()).collect();
     parent_bytes.sort();
     for pb in &parent_bytes {
         input.extend_from_slice(pb);
@@ -118,7 +114,9 @@ pub async fn append<S: LogStorage>(
     }
 
     storage.insert_entry(entry_id.clone(), entry).await?;
-    storage.set_tips(group, std::slice::from_ref(&entry_id)).await?;
+    storage
+        .set_tips(group, std::slice::from_ref(&entry_id))
+        .await?;
 
     Ok(entry_id)
 }
@@ -226,11 +224,17 @@ mod tests {
             .await
             .expect("second append (idempotent)");
 
-        assert_eq!(id_first, id_second, "idempotent re-append must return same ID");
+        assert_eq!(
+            id_first, id_second,
+            "idempotent re-append must return same ID"
+        );
 
         // Storage must contain exactly the one entry we appended.
         let stored = storage.get_entry(&id_first).await.unwrap();
-        assert!(stored.is_some(), "entry must be present after idempotent append");
+        assert!(
+            stored.is_some(),
+            "entry must be present after idempotent append"
+        );
     }
 
     // ── missing_parent_rejected ───────────────────────────────────────────────

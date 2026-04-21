@@ -49,8 +49,8 @@ pub async fn cmd_audit_export(
 
     let mut output = String::new();
     for (ts_ms, _event_type, event_json) in &rows {
-        let mut obj: serde_json::Value = serde_json::from_str(event_json)
-            .map_err(|e| StorageError::Database(e.to_string()))?;
+        let mut obj: serde_json::Value =
+            serde_json::from_str(event_json).map_err(|e| StorageError::Database(e.to_string()))?;
         if let serde_json::Value::Object(ref mut map) = obj {
             map.insert(
                 "timestamp_ms".to_owned(),
@@ -112,8 +112,7 @@ mod tests {
         let lines: Vec<&str> = result.trim_end_matches('\n').split('\n').collect();
         assert_eq!(lines.len(), 5, "should have 5 lines");
         for line in &lines {
-            let parsed: serde_json::Value =
-                serde_json::from_str(line).expect("must be valid JSON");
+            let parsed: serde_json::Value = serde_json::from_str(line).expect("must be valid JSON");
             assert!(
                 parsed.get("timestamp_ms").is_some(),
                 "must have timestamp_ms: {line}"

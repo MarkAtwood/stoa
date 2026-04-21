@@ -35,9 +35,16 @@ pub enum Command {
     Quit,
     List(ListSubcommand),
     /// NEWGROUPS yyyymmdd hhmmss [GMT]
-    Newgroups { date: String, time: String },
+    Newgroups {
+        date: String,
+        time: String,
+    },
     /// NEWNEWS wildmat yyyymmdd hhmmss [GMT]
-    Newnews { wildmat: String, date: String, time: String },
+    Newnews {
+        wildmat: String,
+        date: String,
+        time: String,
+    },
     Group(String),
     Next,
     Last,
@@ -116,12 +123,10 @@ pub fn parse_command(line: &str) -> Result<Command, ParseError> {
         "POST" => Ok(Command::Post),
         "STARTTLS" => Ok(Command::StartTls),
 
-        "MODE" => {
-            match rest.to_ascii_uppercase().as_str() {
-                "READER" => Ok(Command::ModeReader),
-                _ => Ok(Command::Unknown(line.to_string())),
-            }
-        }
+        "MODE" => match rest.to_ascii_uppercase().as_str() {
+            "READER" => Ok(Command::ModeReader),
+            _ => Ok(Command::Unknown(line.to_string())),
+        },
 
         "LIST" => {
             let sub = rest.split_ascii_whitespace().next().unwrap_or("ACTIVE");
@@ -162,7 +167,11 @@ pub fn parse_command(line: &str) -> Result<Command, ParseError> {
                 .next()
                 .unwrap_or("")
                 .to_string();
-            Ok(Command::Newnews { wildmat, date, time })
+            Ok(Command::Newnews {
+                wildmat,
+                date,
+                time,
+            })
         }
 
         "GROUP" => Ok(Command::Group(rest.to_string())),
@@ -173,7 +182,11 @@ pub fn parse_command(line: &str) -> Result<Command, ParseError> {
         "STAT" => Ok(Command::Stat(parse_article_ref(rest))),
 
         "XCID" => {
-            let arg = if rest.is_empty() { None } else { Some(rest.to_string()) };
+            let arg = if rest.is_empty() {
+                None
+            } else {
+                Some(rest.to_string())
+            };
             Ok(Command::Xcid(arg))
         }
 
@@ -183,7 +196,11 @@ pub fn parse_command(line: &str) -> Result<Command, ParseError> {
             let expected_cid = parts.next().unwrap_or("").to_string();
             let sig_token = parts.next().unwrap_or("").trim().to_ascii_uppercase();
             let verify_sig = sig_token == "SIG";
-            Ok(Command::Xverify { message_id, expected_cid, verify_sig })
+            Ok(Command::Xverify {
+                message_id,
+                expected_cid,
+                verify_sig,
+            })
         }
 
         "OVER" | "XOVER" => {
@@ -290,12 +307,18 @@ mod tests {
 
     #[test]
     fn parse_list_no_arg_defaults_to_active() {
-        assert_eq!(parse_command("LIST\r\n"), Ok(Command::List(ListSubcommand::Active)));
+        assert_eq!(
+            parse_command("LIST\r\n"),
+            Ok(Command::List(ListSubcommand::Active))
+        );
     }
 
     #[test]
     fn parse_list_active() {
-        assert_eq!(parse_command("LIST ACTIVE\r\n"), Ok(Command::List(ListSubcommand::Active)));
+        assert_eq!(
+            parse_command("LIST ACTIVE\r\n"),
+            Ok(Command::List(ListSubcommand::Active))
+        );
     }
 
     #[test]
@@ -384,7 +407,9 @@ mod tests {
     fn parse_article_message_id() {
         assert_eq!(
             parse_command("ARTICLE <foo@bar>\r\n"),
-            Ok(Command::Article(Some(ArticleRef::MessageId("<foo@bar>".into()))))
+            Ok(Command::Article(Some(ArticleRef::MessageId(
+                "<foo@bar>".into()
+            ))))
         );
     }
 
@@ -409,7 +434,9 @@ mod tests {
     fn parse_body_message_id() {
         assert_eq!(
             parse_command("BODY <test@example.com>\r\n"),
-            Ok(Command::Body(Some(ArticleRef::MessageId("<test@example.com>".into()))))
+            Ok(Command::Body(Some(ArticleRef::MessageId(
+                "<test@example.com>".into()
+            ))))
         );
     }
 
@@ -437,7 +464,9 @@ mod tests {
     fn parse_over_range() {
         assert_eq!(
             parse_command("OVER 1-10\r\n"),
-            Ok(Command::Over(Some(OverArg::Range(ArticleRange::Range(1, 10)))))
+            Ok(Command::Over(Some(OverArg::Range(ArticleRange::Range(
+                1, 10
+            )))))
         );
     }
 
@@ -453,7 +482,9 @@ mod tests {
     fn parse_xover_same_as_over() {
         assert_eq!(
             parse_command("XOVER 1-5\r\n"),
-            Ok(Command::Over(Some(OverArg::Range(ArticleRange::Range(1, 5)))))
+            Ok(Command::Over(Some(OverArg::Range(ArticleRange::Range(
+                1, 5
+            )))))
         );
     }
 

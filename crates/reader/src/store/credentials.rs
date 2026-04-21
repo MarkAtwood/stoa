@@ -47,7 +47,45 @@ impl CredentialStore {
 
     /// Return an empty `CredentialStore` (no users configured; all checks fail).
     pub fn empty() -> Self {
-        Self { entries: HashMap::new() }
+        Self {
+            entries: HashMap::new(),
+        }
+    }
+
+    /// Build a `CredentialStore` from a credential file at `path`.
+    ///
+    /// File format: one `username:bcrypt_hash` per line. Blank lines and lines
+    /// starting with `#` are ignored. Duplicate usernames: last wins.
+    ///
+    /// Returns `Err(String)` if the file cannot be read or a line is malformed.
+    pub fn from_file(path: &str) -> Result<Self, String> {
+        let content =
+            std::fs::read_to_string(path).map_err(|e| format!("cannot read {path}: {e}"))?;
+        let mut entries = HashMap::new();
+        for (lineno, line) in content.lines().enumerate() {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            let (user, hash) = line
+                .split_once(':')
+                .ok_or_else(|| format!("{path}:{}: missing ':' separator", lineno + 1))?;
+            let user = user.trim().to_ascii_lowercase();
+            let hash = hash.trim().to_string();
+            if user.is_empty() {
+                return Err(format!("{path}:{}: empty username", lineno + 1));
+            }
+            entries.insert(user, hash);
+        }
+        Ok(Self { entries })
+    }
+
+    /// Merge credentials from a file into an existing store, overwriting
+    /// any duplicate usernames with the file's version.
+    pub fn merge_from_file(&mut self, path: &str) -> Result<(), String> {
+        let other = Self::from_file(path)?;
+        self.entries.extend(other.entries);
+        Ok(())
     }
 
     /// Verify `username`/`password` against the stored bcrypt hashes.
@@ -64,11 +102,9 @@ impl CredentialStore {
             .cloned()
             .unwrap_or_else(|| dummy_hash().to_string());
         let password = password.to_string();
-        tokio::task::spawn_blocking(move || {
-            bcrypt::verify(&password, &hash).unwrap_or(false)
-        })
-        .await
-        .unwrap_or(false)
+        tokio::task::spawn_blocking(move || bcrypt::verify(&password, &hash).unwrap_or(false))
+            .await
+            .unwrap_or(false)
     }
 }
 
@@ -87,25 +123,37 @@ mod tests {
     #[tokio::test]
     async fn test_correct_password_accepted() {
         let store = store_with_alice();
-        assert!(store.check("alice", "correct-horse").await, "correct password must be accepted");
+        assert!(
+            store.check("alice", "correct-horse").await,
+            "correct password must be accepted"
+        );
     }
 
     #[tokio::test]
     async fn test_wrong_password_rejected() {
         let store = store_with_alice();
-        assert!(!store.check("alice", "wrong-password").await, "wrong password must be rejected");
+        assert!(
+            !store.check("alice", "wrong-password").await,
+            "wrong password must be rejected"
+        );
     }
 
     #[tokio::test]
     async fn test_unknown_user_rejected() {
         let store = store_with_alice();
-        assert!(!store.check("bob", "any-password").await, "unknown user must be rejected");
+        assert!(
+            !store.check("bob", "any-password").await,
+            "unknown user must be rejected"
+        );
     }
 
     #[tokio::test]
     async fn test_empty_store_rejects_all() {
         let store = CredentialStore::empty();
-        assert!(!store.check("alice", "any-password").await, "empty store must reject all");
+        assert!(
+            !store.check("alice", "any-password").await,
+            "empty store must reject all"
+        );
     }
 
     #[tokio::test]
@@ -118,6 +166,63 @@ mod tests {
         assert!(
             store.check("Alice", "correct-horse").await,
             "mixed-case username must be accepted"
+        );
+    }
+
+    #[test]
+    fn from_file_loads_valid_credentials() {
+        let hash = bcrypt::hash("filepass", 4).expect("bcrypt::hash must not fail");
+        let contents = format!("# comment\nbob:{hash}\n\nalice:dummyhash\n");
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(tmp.path(), &contents).unwrap();
+
+        let store = CredentialStore::from_file(tmp.path().to_str().unwrap())
+            .expect("from_file must succeed");
+        assert!(store.entries.contains_key("bob"), "bob must be loaded");
+        assert!(store.entries.contains_key("alice"), "alice must be loaded");
+    }
+
+    #[test]
+    fn from_file_returns_err_for_missing_file() {
+        let result = CredentialStore::from_file("/nonexistent/path/creds.txt");
+        assert!(
+            result.is_err(),
+            "from_file must return Err for missing file"
+        );
+    }
+
+    #[test]
+    fn from_file_returns_err_for_malformed_line() {
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(tmp.path(), "nocolon\n").unwrap();
+        let result = CredentialStore::from_file(tmp.path().to_str().unwrap());
+        assert!(
+            result.is_err(),
+            "from_file must return Err for line missing ':'"
+        );
+    }
+
+    #[tokio::test]
+    async fn merge_from_file_overrides_inline() {
+        let inline_hash = bcrypt::hash("inline-pass", 4).unwrap();
+        let file_hash = bcrypt::hash("file-pass", 4).unwrap();
+        // Alice in inline store with inline-pass.
+        let mut store = CredentialStore {
+            entries: HashMap::from([("alice".to_string(), inline_hash)]),
+        };
+        // File has alice with file-pass (overrides) + bob.
+        let contents = format!("alice:{file_hash}\nbob:{}\n", bcrypt::hash("b", 4).unwrap());
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(tmp.path(), &contents).unwrap();
+        store.merge_from_file(tmp.path().to_str().unwrap()).unwrap();
+
+        assert!(
+            store.check("alice", "file-pass").await,
+            "alice must use file-pass after merge"
+        );
+        assert!(
+            store.entries.contains_key("bob"),
+            "bob must be added by merge"
         );
     }
 }

@@ -9,8 +9,8 @@
 use std::time::Instant;
 
 use usenet_ipfs_reader::session::commands::{
-    fetch::{ArticleContent, article_response},
-    list::{GroupInfo, list_active},
+    fetch::{article_response, ArticleContent},
+    list::{list_active, GroupInfo},
 };
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -89,9 +89,7 @@ async fn bench_article_fetch() {
 
     let p50 = percentile_us(all.clone(), 50);
     let p99 = percentile_us(all, 99);
-    println!(
-        "ARTICLE p50: {p50}µs  p99: {p99}µs  (10 concurrent readers, 1000 total fetches)"
-    );
+    println!("ARTICLE p50: {p50}µs  p99: {p99}µs  (10 concurrent readers, 1000 total fetches)");
 }
 
 // ── benchmark 2: LIST ACTIVE with 10 000 groups ───────────────────────────────

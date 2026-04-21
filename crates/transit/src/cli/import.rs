@@ -2,7 +2,7 @@
 
 use usenet_ipfs_core::error::StorageError;
 
-use crate::import::ihave_push::{IhaveImportConfig, run_ihave_import};
+use crate::import::ihave_push::{run_ihave_import, IhaveImportConfig};
 
 /// Run an IHAVE bulk import from `article_dir`, sending to `addr`.
 ///

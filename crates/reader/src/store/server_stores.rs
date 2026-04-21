@@ -6,8 +6,8 @@
 //! message-id map, the group log, the article number store, the HLC clock,
 //! and the operator signing key.
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::SqlitePool;
@@ -20,7 +20,7 @@ use usenet_ipfs_core::hlc::HlcClock;
 use usenet_ipfs_core::msgid_map::MsgIdMap;
 use usenet_ipfs_core::signing::SigningKey;
 
-use crate::post::ipfs_write::{IpfsBlockStore, MemIpfsStore};
+use crate::post::ipfs_write::{IpfsBlockStore, MemIpfsStore, RustIpfsStore};
 use crate::store::article_numbers::ArticleNumberStore;
 use crate::store::credentials::CredentialStore;
 use crate::store::overview::OverviewStore;
@@ -42,6 +42,34 @@ pub struct ServerStores {
 }
 
 impl ServerStores {
+    /// Construct a `ServerStores` backed by a real `RustIpfsStore` in-process
+    /// node, credential store from config, and in-memory SQLite databases.
+    ///
+    /// Returns `Err` if the IPFS node fails to start.
+    pub async fn new_with_ipfs(config: &crate::config::Config) -> Result<Self, String> {
+        let ipfs_store = RustIpfsStore::new()
+            .await
+            .map_err(|e| format!("IPFS node startup failed: {e}"))?;
+        let reader_pool = make_pool_with_reader_migrations().await;
+        let core_pool = make_pool_with_core_migrations().await;
+
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+
+        Ok(Self {
+            ipfs_store: Arc::new(ipfs_store),
+            msgid_map: Arc::new(MsgIdMap::new(core_pool)),
+            log_storage: Arc::new(MemLogStorage::new()),
+            article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
+            overview_store: Arc::new(OverviewStore::new(reader_pool)),
+            credential_store: Arc::new(build_credential_store(&config.auth)?),
+            clock: Arc::new(Mutex::new(HlcClock::new([0x01u8; 8], now_ms))),
+            signing_key: Arc::new(SigningKey::from_bytes(&[0x42u8; 32])),
+        })
+    }
+
     /// Construct an ephemeral `ServerStores` backed entirely by in-memory
     /// stores and in-memory SQLite databases.
     ///
@@ -108,4 +136,16 @@ async fn make_pool_with_core_migrations() -> SqlitePool {
         .await
         .expect("core migrations failed on in-memory pool");
     pool
+}
+
+/// Build a `CredentialStore` from the `[auth]` section of the config.
+///
+/// Loads inline `users` first, then merges any entries from `credential_file`
+/// (file entries override inline entries with the same username).
+fn build_credential_store(auth: &crate::config::AuthConfig) -> Result<CredentialStore, String> {
+    let mut store = CredentialStore::from_credentials(&auth.users);
+    if let Some(ref path) = auth.credential_file {
+        store.merge_from_file(path)?;
+    }
+    Ok(store)
 }

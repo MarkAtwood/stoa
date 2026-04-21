@@ -40,9 +40,7 @@ impl std::fmt::Display for TlsError {
 impl std::error::Error for TlsError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            TlsError::CertLoad(_, e) | TlsError::KeyLoad(_, e) | TlsError::Handshake(e) => {
-                Some(e)
-            }
+            TlsError::CertLoad(_, e) | TlsError::KeyLoad(_, e) | TlsError::Handshake(e) => Some(e),
             TlsError::Config(e) => Some(e),
         }
     }
@@ -65,22 +63,24 @@ impl std::fmt::Debug for TlsAcceptor {
 /// are not offered.
 pub fn load_tls_acceptor(cert_path: &str, key_path: &str) -> Result<TlsAcceptor, TlsError> {
     // --- Load certificate chain ---
-    let cert_file = File::open(cert_path)
-        .map_err(|e| TlsError::CertLoad(cert_path.to_string(), e))?;
+    let cert_file =
+        File::open(cert_path).map_err(|e| TlsError::CertLoad(cert_path.to_string(), e))?;
     let cert_chain: Vec<rustls::pki_types::CertificateDer<'static>> =
         certs(&mut BufReader::new(cert_file))
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| TlsError::CertLoad(cert_path.to_string(), e))?;
 
     // --- Load private key ---
-    let key_file = File::open(key_path)
-        .map_err(|e| TlsError::KeyLoad(key_path.to_string(), e))?;
+    let key_file = File::open(key_path).map_err(|e| TlsError::KeyLoad(key_path.to_string(), e))?;
     let private_key = private_key(&mut BufReader::new(key_file))
         .map_err(|e| TlsError::KeyLoad(key_path.to_string(), e))?
         .ok_or_else(|| {
             TlsError::KeyLoad(
                 key_path.to_string(),
-                std::io::Error::new(std::io::ErrorKind::InvalidData, "no private key found in PEM"),
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "no private key found in PEM",
+                ),
             )
         })?;
 
@@ -103,7 +103,11 @@ pub async fn accept_tls(
     acceptor: &TlsAcceptor,
     stream: tokio::net::TcpStream,
 ) -> Result<tokio_rustls::server::TlsStream<tokio::net::TcpStream>, TlsError> {
-    acceptor.inner.accept(stream).await.map_err(TlsError::Handshake)
+    acceptor
+        .inner
+        .accept(stream)
+        .await
+        .map_err(TlsError::Handshake)
 }
 
 #[cfg(test)]

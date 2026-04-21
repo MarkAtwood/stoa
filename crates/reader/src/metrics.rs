@@ -20,7 +20,9 @@ pub fn gather_metrics() -> String {
     let encoder = prometheus::TextEncoder::new();
     let metric_families = prometheus::gather();
     let mut buf = Vec::new();
-    encoder.encode(&metric_families, &mut buf).unwrap_or_default();
+    encoder
+        .encode(&metric_families, &mut buf)
+        .unwrap_or_default();
     String::from_utf8(buf).unwrap_or_default()
 }
 
@@ -33,18 +35,33 @@ mod tests {
         // Prometheus only emits a metric family once at least one label-value
         // combination has been observed; make a zero-duration observation to
         // ensure the family appears in gather() output.
-        NNTP_COMMAND_DURATION_SECONDS.with_label_values(&["CAPABILITIES"]).observe(0.0);
+        NNTP_COMMAND_DURATION_SECONDS
+            .with_label_values(&["CAPABILITIES"])
+            .observe(0.0);
         let output = gather_metrics();
-        assert!(output.contains("nntp_command_duration_seconds"), "output: {output}");
+        assert!(
+            output.contains("nntp_command_duration_seconds"),
+            "output: {output}"
+        );
     }
 
     #[test]
     fn histogram_records_observation() {
-        NNTP_COMMAND_DURATION_SECONDS.with_label_values(&["ARTICLE"]).observe(0.001);
-        NNTP_COMMAND_DURATION_SECONDS.with_label_values(&["OVER"]).observe(0.002);
-        NNTP_COMMAND_DURATION_SECONDS.with_label_values(&["POST"]).observe(0.5);
-        NNTP_COMMAND_DURATION_SECONDS.with_label_values(&["GROUP"]).observe(0.003);
-        NNTP_COMMAND_DURATION_SECONDS.with_label_values(&["HEAD"]).observe(0.001);
+        NNTP_COMMAND_DURATION_SECONDS
+            .with_label_values(&["ARTICLE"])
+            .observe(0.001);
+        NNTP_COMMAND_DURATION_SECONDS
+            .with_label_values(&["OVER"])
+            .observe(0.002);
+        NNTP_COMMAND_DURATION_SECONDS
+            .with_label_values(&["POST"])
+            .observe(0.5);
+        NNTP_COMMAND_DURATION_SECONDS
+            .with_label_values(&["GROUP"])
+            .observe(0.003);
+        NNTP_COMMAND_DURATION_SECONDS
+            .with_label_values(&["HEAD"])
+            .observe(0.001);
         let output = gather_metrics();
         assert!(output.contains("nntp_command_duration_seconds_count"));
     }

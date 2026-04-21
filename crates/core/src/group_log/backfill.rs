@@ -117,7 +117,7 @@ where
 mod tests {
     use super::*;
     use cid::Cid;
-    use multihash_codetable::{Code, MultihashDigest, Multihash};
+    use multihash_codetable::{Code, Multihash, MultihashDigest};
 
     use crate::group_log::mem_storage::MemLogStorage;
     use crate::group_log::storage::LogStorage;
@@ -384,6 +384,9 @@ mod tests {
         .await
         .expect("backfill should succeed");
 
-        assert_eq!(count, 0, "entry already in local storage: must return Ok(0)");
+        assert_eq!(
+            count, 0,
+            "entry already in local storage: must return Ok(0)"
+        );
     }
 }

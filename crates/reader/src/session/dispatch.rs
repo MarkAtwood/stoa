@@ -38,11 +38,7 @@ pub fn dispatch(
     if ctx.state == SessionState::Authenticating {
         return match cmd {
             Command::Capabilities => {
-                Response::capabilities_with_ctx(
-                    ctx.posting_allowed,
-                    true,
-                    ctx.starttls_available,
-                )
+                Response::capabilities_with_ctx(ctx.posting_allowed, true, ctx.starttls_available)
             }
             Command::Quit => Response::closing_connection(),
             Command::AuthinfoUser(username) => {
@@ -70,11 +66,7 @@ pub fn dispatch(
     // Normal dispatch (Active or GroupSelected).
     match cmd {
         Command::Capabilities => {
-            Response::capabilities_with_ctx(
-                ctx.posting_allowed,
-                false,
-                ctx.starttls_available,
-            )
+            Response::capabilities_with_ctx(ctx.posting_allowed, false, ctx.starttls_available)
         }
         Command::ModeReader => {
             if ctx.posting_allowed {
@@ -200,7 +192,11 @@ mod tests {
     }
 
     fn empty_auth() -> AuthConfig {
-        AuthConfig { required: false, users: vec![] }
+        AuthConfig {
+            required: false,
+            users: vec![],
+            credential_file: None,
+        }
     }
 
     fn ctx_authenticating() -> SessionContext {
@@ -213,14 +209,20 @@ mod tests {
 
     fn ctx_group_selected() -> SessionContext {
         let mut ctx = SessionContext::new(test_addr(), false, true, false);
-        ctx.known_groups.push(crate::session::commands::list::GroupInfo {
-            name: "comp.lang.rust".into(),
-            high: 0,
-            low: 0,
-            posting_allowed: true,
-            description: String::new(),
-        });
-        dispatch(&mut ctx, Command::Group("comp.lang.rust".into()), &empty_auth(), None);
+        ctx.known_groups
+            .push(crate::session::commands::list::GroupInfo {
+                name: "comp.lang.rust".into(),
+                high: 0,
+                low: 0,
+                posting_allowed: true,
+                description: String::new(),
+            });
+        dispatch(
+            &mut ctx,
+            Command::Group("comp.lang.rust".into()),
+            &empty_auth(),
+            None,
+        );
         ctx
     }
 
@@ -246,7 +248,12 @@ mod tests {
     #[test]
     fn test_authenticating_authinfo_user_returns_381() {
         let mut ctx = ctx_authenticating();
-        let resp = dispatch(&mut ctx, Command::AuthinfoUser("alice".into()), &empty_auth(), None);
+        let resp = dispatch(
+            &mut ctx,
+            Command::AuthinfoUser("alice".into()),
+            &empty_auth(),
+            None,
+        );
         assert_eq!(resp.code, 381);
         assert_eq!(ctx.state, SessionState::Authenticating);
     }
@@ -254,8 +261,18 @@ mod tests {
     #[test]
     fn test_authenticating_authinfo_pass_after_user_succeeds() {
         let mut ctx = ctx_authenticating();
-        dispatch(&mut ctx, Command::AuthinfoUser("alice".into()), &empty_auth(), None);
-        let resp = dispatch(&mut ctx, Command::AuthinfoPass("any".into()), &empty_auth(), None);
+        dispatch(
+            &mut ctx,
+            Command::AuthinfoUser("alice".into()),
+            &empty_auth(),
+            None,
+        );
+        let resp = dispatch(
+            &mut ctx,
+            Command::AuthinfoPass("any".into()),
+            &empty_auth(),
+            None,
+        );
         assert_eq!(resp.code, 281);
         assert_eq!(ctx.state, SessionState::Active);
     }
@@ -291,13 +308,22 @@ mod tests {
     #[test]
     fn test_capabilities_always_works() {
         let mut ctx_a = ctx_authenticating();
-        assert_eq!(dispatch(&mut ctx_a, Command::Capabilities, &empty_auth(), None).code, 101);
+        assert_eq!(
+            dispatch(&mut ctx_a, Command::Capabilities, &empty_auth(), None).code,
+            101
+        );
 
         let mut ctx_b = ctx_active();
-        assert_eq!(dispatch(&mut ctx_b, Command::Capabilities, &empty_auth(), None).code, 101);
+        assert_eq!(
+            dispatch(&mut ctx_b, Command::Capabilities, &empty_auth(), None).code,
+            101
+        );
 
         let mut ctx_c = ctx_group_selected();
-        assert_eq!(dispatch(&mut ctx_c, Command::Capabilities, &empty_auth(), None).code, 101);
+        assert_eq!(
+            dispatch(&mut ctx_c, Command::Capabilities, &empty_auth(), None).code,
+            101
+        );
     }
 
     #[test]
@@ -365,10 +391,16 @@ mod tests {
                 username: "alice".into(),
                 password: "secret".into(),
             }],
+            credential_file: None,
         };
         let mut ctx = SessionContext::new(test_addr(), false, true, false);
         dispatch(&mut ctx, Command::AuthinfoUser("alice".into()), &auth, None);
-        let resp = dispatch(&mut ctx, Command::AuthinfoPass("secret".into()), &auth, None);
+        let resp = dispatch(
+            &mut ctx,
+            Command::AuthinfoPass("secret".into()),
+            &auth,
+            None,
+        );
         assert_eq!(resp.code, 281);
     }
 
@@ -380,6 +412,7 @@ mod tests {
                 username: "alice".into(),
                 password: "secret".into(),
             }],
+            credential_file: None,
         };
         let mut ctx = SessionContext::new(test_addr(), false, true, false);
         dispatch(&mut ctx, Command::AuthinfoUser("alice".into()), &auth, None);
@@ -390,7 +423,12 @@ mod tests {
     #[test]
     fn authinfo_pass_without_user_returns_482() {
         let mut ctx = ctx_active();
-        let resp = dispatch(&mut ctx, Command::AuthinfoPass("secret".into()), &empty_auth(), None);
+        let resp = dispatch(
+            &mut ctx,
+            Command::AuthinfoPass("secret".into()),
+            &empty_auth(),
+            None,
+        );
         assert_eq!(resp.code, 482);
     }
 
@@ -411,21 +449,32 @@ mod tests {
     #[test]
     fn group_unknown_returns_411() {
         let mut ctx = ctx_active();
-        let resp = dispatch(&mut ctx, Command::Group("no.such.group".into()), &empty_auth(), None);
+        let resp = dispatch(
+            &mut ctx,
+            Command::Group("no.such.group".into()),
+            &empty_auth(),
+            None,
+        );
         assert_eq!(resp.code, 411);
     }
 
     #[test]
     fn group_known_returns_211() {
         let mut ctx = ctx_active();
-        ctx.known_groups.push(crate::session::commands::list::GroupInfo {
-            name: "comp.lang.rust".into(),
-            high: 0,
-            low: 0,
-            posting_allowed: true,
-            description: String::new(),
-        });
-        let resp = dispatch(&mut ctx, Command::Group("comp.lang.rust".into()), &empty_auth(), None);
+        ctx.known_groups
+            .push(crate::session::commands::list::GroupInfo {
+                name: "comp.lang.rust".into(),
+                high: 0,
+                low: 0,
+                posting_allowed: true,
+                description: String::new(),
+            });
+        let resp = dispatch(
+            &mut ctx,
+            Command::Group("comp.lang.rust".into()),
+            &empty_auth(),
+            None,
+        );
         assert_eq!(resp.code, 211);
     }
 

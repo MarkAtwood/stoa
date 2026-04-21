@@ -144,7 +144,11 @@ mod tests {
         let result = select_gc_candidates(&pool, &policy, NOW_MS, GRACE_MS)
             .await
             .expect("query");
-        assert_eq!(result.len(), 0, "article within grace period must be excluded");
+        assert_eq!(
+            result.len(),
+            0,
+            "article within grace period must be excluded"
+        );
     }
 
     #[tokio::test]
@@ -181,6 +185,10 @@ mod tests {
         let result = select_gc_candidates(&pool, &policy, NOW_MS, GRACE_MS)
             .await
             .expect("query");
-        assert_eq!(result.len(), 3, "all 3 unpinned old articles must be returned");
+        assert_eq!(
+            result.len(),
+            3,
+            "all 3 unpinned old articles must be returned"
+        );
     }
 }

@@ -12,7 +12,7 @@
 use std::sync::Arc;
 
 use cid::Cid;
-use multihash_codetable::{Code, MultihashDigest, Multihash};
+use multihash_codetable::{Code, Multihash, MultihashDigest};
 
 use usenet_ipfs_core::{
     article::GroupName,
@@ -143,7 +143,11 @@ async fn crdt_merge_and_backfill_convergence() {
     }
     {
         let b_tips = replica_b.list_tips(&group).await.unwrap();
-        assert_eq!(b_tips, vec![chain_a[39].clone()], "B's tip must be chain_a[39]");
+        assert_eq!(
+            b_tips,
+            vec![chain_a[39].clone()],
+            "B's tip must be chain_a[39]"
+        );
     }
 
     // ── Phase 3: replicas diverge ────────────────────────────────────────────
@@ -286,8 +290,14 @@ async fn crdt_merge_and_backfill_convergence() {
     // Both tip sets are non-empty (log is not empty on either replica).
     let tips_a = replica_a.list_tips(&group).await.unwrap();
     let tips_b = replica_b.list_tips(&group).await.unwrap();
-    assert!(!tips_a.is_empty(), "A must have at least one tip after convergence");
-    assert!(!tips_b.is_empty(), "B must have at least one tip after convergence");
+    assert!(
+        !tips_a.is_empty(),
+        "A must have at least one tip after convergence"
+    );
+    assert!(
+        !tips_b.is_empty(),
+        "B must have at least one tip after convergence"
+    );
 }
 
 // ── crdt_identical_after_full_sync ────────────────────────────────────────────

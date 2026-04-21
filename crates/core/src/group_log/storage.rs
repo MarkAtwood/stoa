@@ -26,10 +26,8 @@ pub trait LogStorage: Send + Sync {
     ) -> impl Future<Output = Result<Option<LogEntry>, StorageError>> + Send;
 
     /// Return `true` if an entry with the given id exists.
-    fn has_entry(
-        &self,
-        id: &LogEntryId,
-    ) -> impl Future<Output = Result<bool, StorageError>> + Send;
+    fn has_entry(&self, id: &LogEntryId)
+        -> impl Future<Output = Result<bool, StorageError>> + Send;
 
     /// Return the current tip ids for a group (empty vec if no tips set).
     fn list_tips(

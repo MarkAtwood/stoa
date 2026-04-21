@@ -108,8 +108,7 @@ mod tests {
     #[test]
     fn root_node_dagcbor_roundtrip() {
         let original = make_root_node();
-        let encoded =
-            serde_ipld_dagcbor::to_vec(&original).expect("DAG-CBOR serialization failed");
+        let encoded = serde_ipld_dagcbor::to_vec(&original).expect("DAG-CBOR serialization failed");
         let decoded: ArticleRootNode =
             serde_ipld_dagcbor::from_slice(&encoded).expect("DAG-CBOR deserialization failed");
         assert_eq!(original, decoded, "round-tripped value must equal original");
@@ -120,7 +119,8 @@ mod tests {
         let mut node = make_root_node();
         node.mime_cid = None;
         let encoded = serde_ipld_dagcbor::to_vec(&node).expect("serialize");
-        let decoded: ArticleRootNode = serde_ipld_dagcbor::from_slice(&encoded).expect("deserialize");
+        let decoded: ArticleRootNode =
+            serde_ipld_dagcbor::from_slice(&encoded).expect("deserialize");
         assert_eq!(node, decoded);
     }
 

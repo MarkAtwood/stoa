@@ -116,7 +116,9 @@ pub fn gather_metrics() -> String {
     let encoder = prometheus::TextEncoder::new();
     let metric_families = prometheus::gather();
     let mut buf = Vec::new();
-    encoder.encode(&metric_families, &mut buf).unwrap_or_default();
+    encoder
+        .encode(&metric_families, &mut buf)
+        .unwrap_or_default();
     String::from_utf8(buf).unwrap_or_default()
 }
 
@@ -242,21 +244,27 @@ mod tests {
     #[test]
     fn histogram_vec_label_present() {
         // Record one observation for a known command label.
-        NNTP_COMMAND_DURATION_SECONDS.with_label_values(&["GROUP"]).observe(0.01);
+        NNTP_COMMAND_DURATION_SECONDS
+            .with_label_values(&["GROUP"])
+            .observe(0.01);
         let output = gather_metrics();
         assert!(output.contains("nntp_command_duration_seconds"));
     }
 
     #[test]
     fn group_counter_increments() {
-        ARTICLES_INGESTED_GROUP_TOTAL.with_label_values(&["comp.lang.rust"]).inc();
+        ARTICLES_INGESTED_GROUP_TOTAL
+            .with_label_values(&["comp.lang.rust"])
+            .inc();
         let output = gather_metrics();
         assert!(output.contains("articles_ingested_group_total"));
     }
 
     #[test]
     fn rejected_counter_increments() {
-        ARTICLES_REJECTED_TOTAL.with_label_values(&["duplicate"]).inc();
+        ARTICLES_REJECTED_TOTAL
+            .with_label_values(&["duplicate"])
+            .inc();
         let output = gather_metrics();
         assert!(output.contains("articles_rejected_total"));
     }

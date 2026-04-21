@@ -80,7 +80,10 @@ mod tests {
         let t2 = clock.send(1000);
         assert_eq!(t1.wall_ms, 1000);
         assert_eq!(t2.wall_ms, 1000);
-        assert!(t2.logical > t1.logical, "logical must increase on same wall time");
+        assert!(
+            t2.logical > t1.logical,
+            "logical must increase on same wall time"
+        );
     }
 
     #[test]
@@ -160,7 +163,10 @@ mod tests {
             logical: 0,
             node_id: NODE_A,
         };
-        assert!(high > low, "higher wall_ms must sort greater regardless of logical");
+        assert!(
+            high > low,
+            "higher wall_ms must sort greater regardless of logical"
+        );
     }
 
     #[test]

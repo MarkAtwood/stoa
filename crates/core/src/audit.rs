@@ -75,15 +75,13 @@ pub async fn append_audit_event(
 ) -> Result<(), StorageError> {
     let event_type = event.event_type();
     let event_json = event.to_json();
-    sqlx::query(
-        "INSERT INTO audit_log (timestamp_ms, event_type, event_json) VALUES (?, ?, ?)",
-    )
-    .bind(timestamp_ms)
-    .bind(event_type)
-    .bind(&event_json)
-    .execute(pool)
-    .await
-    .map_err(|e| StorageError::Database(e.to_string()))?;
+    sqlx::query("INSERT INTO audit_log (timestamp_ms, event_type, event_json) VALUES (?, ?, ?)")
+        .bind(timestamp_ms)
+        .bind(event_type)
+        .bind(&event_json)
+        .execute(pool)
+        .await
+        .map_err(|e| StorageError::Database(e.to_string()))?;
     Ok(())
 }
 
@@ -260,7 +258,10 @@ mod tests {
         let json = event.to_json();
         let parsed = AuditEvent::from_json(&json).unwrap();
         assert_eq!(event, parsed);
-        assert!(json.contains("article_signed"), "event_type in JSON: {json}");
+        assert!(
+            json.contains("article_signed"),
+            "event_type in JSON: {json}"
+        );
     }
 
     #[test]
@@ -368,8 +369,7 @@ mod tests {
     #[tokio::test]
     async fn audit_logger_non_blocking() {
         let (pool, _tmp) = make_pool().await;
-        let handle =
-            start_audit_logger(pool.clone(), 100, std::time::Duration::from_millis(100));
+        let handle = start_audit_logger(pool.clone(), 100, std::time::Duration::from_millis(100));
 
         let start = std::time::Instant::now();
         for i in 0u64..200 {

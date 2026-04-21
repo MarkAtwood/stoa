@@ -167,11 +167,9 @@ mod tests {
         assert_eq!(bytes_a, bytes_b);
 
         // The Newsgroups line must be in sorted order.
-        assert!(
-            std::str::from_utf8(&bytes_a)
-                .unwrap()
-                .contains("Newsgroups: alt.atheism,sci.skeptic,talk.origins\r\n")
-        );
+        assert!(std::str::from_utf8(&bytes_a)
+            .unwrap()
+            .contains("Newsgroups: alt.atheism,sci.skeptic,talk.origins\r\n"));
     }
 
     /// Log-entry stub returns empty bytes (not yet implemented).

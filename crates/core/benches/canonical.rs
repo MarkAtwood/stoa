@@ -74,11 +74,9 @@ fn bench_canonicalize_by_header_count(c: &mut Criterion) {
         article.header.extra_headers = (0..n_extra)
             .map(|i| (format!("X-Extra-{i}"), format!("value-{i}")))
             .collect();
-        group.bench_with_input(
-            BenchmarkId::from_parameter(n_extra),
-            &article,
-            |b, a| b.iter(|| canonical_bytes(black_box(a))),
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(n_extra), &article, |b, a| {
+            b.iter(|| canonical_bytes(black_box(a)))
+        });
     }
     group.finish();
 }
@@ -88,11 +86,9 @@ fn bench_canonicalize_by_body_size(c: &mut Criterion) {
     for size in [100usize, 1024, 10240] {
         let article = make_article_with_body_size(size);
         group.throughput(Throughput::Bytes(size as u64));
-        group.bench_with_input(
-            BenchmarkId::from_parameter(size),
-            &article,
-            |b, a| b.iter(|| canonical_bytes(black_box(a))),
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(size), &article, |b, a| {
+            b.iter(|| canonical_bytes(black_box(a)))
+        });
     }
     group.finish();
 }

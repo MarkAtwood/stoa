@@ -118,7 +118,11 @@ impl BackpressureGuard {
     ///
     /// Extracts the hierarchy from the first dot-delimited component.
     pub fn check_publish(&mut self, group_name: &str) -> bool {
-        let hierarchy = group_name.split('.').next().unwrap_or(group_name).to_owned();
+        let hierarchy = group_name
+            .split('.')
+            .next()
+            .unwrap_or(group_name)
+            .to_owned();
         let rate = self.rate;
         let capacity = self.capacity;
         let bucket = self
@@ -166,7 +170,10 @@ mod tests {
         c.increment();
         let text = c.prometheus_text();
         assert!(text.contains("gossip_messages_dropped_total"));
-        assert!(text.contains('1'), "counter value must appear in prometheus text");
+        assert!(
+            text.contains('1'),
+            "counter value must appear in prometheus text"
+        );
     }
 
     #[test]
@@ -219,6 +226,9 @@ mod tests {
         bucket.last_refill = Instant::now() - Duration::from_millis(5);
 
         // 5ms at 1000/s = 5 tokens refilled, capped at capacity=1.
-        assert!(guard.check_publish("comp.lang.rust"), "should have refilled");
+        assert!(
+            guard.check_publish("comp.lang.rust"),
+            "should have refilled"
+        );
     }
 }

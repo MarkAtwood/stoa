@@ -70,10 +70,7 @@ impl LogStorage for MemLogStorage {
 
     async fn entry_count(&self, group: &GroupName) -> Result<u64, StorageError> {
         let map = self.tips.read().await;
-        let count = map
-            .get(group.as_str())
-            .map(|v| v.len() as u64)
-            .unwrap_or(0);
+        let count = map.get(group.as_str()).map(|v| v.len() as u64).unwrap_or(0);
         Ok(count)
     }
 }

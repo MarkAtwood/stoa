@@ -76,7 +76,10 @@ fn dot_stuffed_lines(data: &[u8]) -> Vec<String> {
 ///
 /// Returns `None` when no CID is available (legacy articles or failed lookups).
 fn cid_header_line(content: &ArticleContent) -> Option<String> {
-    content.cid.as_ref().map(|c| format!("X-Usenet-IPFS-CID: {c}"))
+    content
+        .cid
+        .as_ref()
+        .map(|c| format!("X-Usenet-IPFS-CID: {c}"))
 }
 
 /// ARTICLE response: 220 + article_number + message_id, followed by headers,
@@ -90,7 +93,10 @@ pub fn article_response(content: &ArticleContent) -> Response {
     body.extend(dot_stuffed_lines(&content.body_bytes));
     Response {
         code: 220,
-        text: format!("{} {} Article follows", content.article_number, content.message_id),
+        text: format!(
+            "{} {} Article follows",
+            content.article_number, content.message_id
+        ),
         body,
         multiline: true,
     }
@@ -105,7 +111,10 @@ pub fn head_response(content: &ArticleContent) -> Response {
     }
     Response {
         code: 221,
-        text: format!("{} {} Headers follow", content.article_number, content.message_id),
+        text: format!(
+            "{} {} Headers follow",
+            content.article_number, content.message_id
+        ),
         body,
         multiline: true,
     }
@@ -121,7 +130,10 @@ pub fn xcid_response(cid: &Cid) -> Response {
 pub fn body_response(content: &ArticleContent) -> Response {
     Response {
         code: 222,
-        text: format!("{} {} Body follows", content.article_number, content.message_id),
+        text: format!(
+            "{} {} Body follows",
+            content.article_number, content.message_id
+        ),
         body: dot_stuffed_lines(&content.body_bytes),
         multiline: true,
     }

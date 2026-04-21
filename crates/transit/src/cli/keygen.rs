@@ -22,10 +22,7 @@ pub struct KeygenOutput {
 /// - Public key: `{output_dir}/operator_key.pub.pem` (mode 0644 on Unix)
 /// - Returns the public key fingerprint (SHA-256 of SubjectPublicKeyInfo DER, hex)
 /// - Fails if files already exist and `force` is false
-pub fn generate_keypair(
-    output_dir: &std::path::Path,
-    force: bool,
-) -> Result<KeygenOutput, String> {
+pub fn generate_keypair(output_dir: &std::path::Path, force: bool) -> Result<KeygenOutput, String> {
     let private_key_path = output_dir.join("operator_key.pem");
     let public_key_path = output_dir.join("operator_key.pub.pem");
 
@@ -51,8 +48,8 @@ pub fn generate_keypair(
     // Fixed 16-byte header + 32-byte seed
     // SEQUENCE { INTEGER 0, SEQUENCE { OID 1.3.101.112 }, OCTET STRING { OCTET STRING { seed } } }
     const PKCS8_HEADER: [u8; 16] = [
-        0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22,
-        0x04, 0x20,
+        0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04,
+        0x20,
     ];
     let mut private_der = Vec::with_capacity(48);
     private_der.extend_from_slice(&PKCS8_HEADER);
@@ -84,7 +81,8 @@ pub fn generate_keypair(
             f.set_permissions(fs::Permissions::from_mode(0o600))
                 .map_err(|e| e.to_string())?;
         }
-        f.write_all(private_pem.as_bytes()).map_err(|e| e.to_string())?;
+        f.write_all(private_pem.as_bytes())
+            .map_err(|e| e.to_string())?;
     }
 
     // Write public key: mode 0644
@@ -96,7 +94,8 @@ pub fn generate_keypair(
             f.set_permissions(fs::Permissions::from_mode(0o644))
                 .map_err(|e| e.to_string())?;
         }
-        f.write_all(public_pem.as_bytes()).map_err(|e| e.to_string())?;
+        f.write_all(public_pem.as_bytes())
+            .map_err(|e| e.to_string())?;
     }
 
     Ok(KeygenOutput {
@@ -126,11 +125,24 @@ mod tests {
         let dir = tempfile::TempDir::new().unwrap();
         let result = generate_keypair(dir.path(), false).unwrap();
 
-        assert!(result.private_key_path.exists(), "private key file should exist");
-        assert!(result.public_key_path.exists(), "public key file should exist");
-        assert!(!result.fingerprint.is_empty(), "fingerprint should not be empty");
+        assert!(
+            result.private_key_path.exists(),
+            "private key file should exist"
+        );
+        assert!(
+            result.public_key_path.exists(),
+            "public key file should exist"
+        );
+        assert!(
+            !result.fingerprint.is_empty(),
+            "fingerprint should not be empty"
+        );
         // Fingerprint is 64 hex chars (SHA-256)
-        assert_eq!(result.fingerprint.len(), 64, "fingerprint should be 64 hex chars");
+        assert_eq!(
+            result.fingerprint.len(),
+            64,
+            "fingerprint should be 64 hex chars"
+        );
     }
 
     #[test]
@@ -170,7 +182,10 @@ mod tests {
         // Second call without force should fail
         let result = generate_keypair(dir.path(), false);
         assert!(result.is_err(), "should fail without --force");
-        assert!(result.unwrap_err().contains("force"), "error should mention --force");
+        assert!(
+            result.unwrap_err().contains("force"),
+            "error should mention --force"
+        );
     }
 
     #[test]
@@ -179,7 +194,10 @@ mod tests {
         let r1 = generate_keypair(dir.path(), false).unwrap();
         let r2 = generate_keypair(dir.path(), true).unwrap();
         // Both succeed; fingerprints differ (new key generated)
-        assert_ne!(r1.fingerprint, r2.fingerprint, "force should generate a new key");
+        assert_ne!(
+            r1.fingerprint, r2.fingerprint,
+            "force should generate a new key"
+        );
     }
 
     #[cfg(unix)]
@@ -190,6 +208,10 @@ mod tests {
         let result = generate_keypair(dir.path(), false).unwrap();
         let meta = std::fs::metadata(&result.private_key_path).unwrap();
         let mode = meta.permissions().mode() & 0o777;
-        assert_eq!(mode, 0o600, "private key must have mode 0600, got {:o}", mode);
+        assert_eq!(
+            mode, 0o600,
+            "private key must have mode 0600, got {:o}",
+            mode
+        );
     }
 }

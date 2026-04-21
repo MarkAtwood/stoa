@@ -91,10 +91,7 @@ pub fn build_header_map(raw_headers: &[u8]) -> HeaderMapNode {
 
 /// Returns true if `name` consists only of ASCII letters, digits, and hyphens.
 fn is_valid_header_name(name: &str) -> bool {
-    !name.is_empty()
-        && name
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '-')
+    !name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
 }
 
 /// Decode RFC 2047 encoded words (e.g. `=?utf-8?Q?caf=C3=A9?=`) in a header
@@ -125,8 +122,10 @@ fn decode_rfc2047(input: &str) -> String {
                     "B" => base64::engine::general_purpose::STANDARD.decode(text).ok(),
                     "Q" => {
                         // RFC 2047 Q-encoding: underscore stands for 0x20 (space).
-                        let qp: String =
-                            text.chars().map(|c| if c == '_' { ' ' } else { c }).collect();
+                        let qp: String = text
+                            .chars()
+                            .map(|c| if c == '_' { ' ' } else { c })
+                            .collect();
                         quoted_printable::decode(qp.as_bytes(), quoted_printable::ParseMode::Robust)
                             .ok()
                     }
@@ -159,9 +158,7 @@ fn decode_rfc2047(input: &str) -> String {
 /// Convert charset-encoded bytes to a UTF-8 String.
 fn charset_bytes_to_utf8(bytes: &[u8], charset: &str) -> String {
     match charset {
-        "utf-8" | "utf8" | "us-ascii" | "ascii" => {
-            String::from_utf8_lossy(bytes).into_owned()
-        }
+        "utf-8" | "utf8" | "us-ascii" | "ascii" => String::from_utf8_lossy(bytes).into_owned(),
         // ISO-8859-1 / Latin-1: codepoints 0x00–0xFF match Unicode exactly.
         "iso-8859-1" | "latin-1" | "latin1" | "iso8859-1" => {
             bytes.iter().map(|&b| b as char).collect()
@@ -199,7 +196,10 @@ mod tests {
     #[test]
     fn single_value_roundtrip() {
         let mut map: HeaderMapNode = BTreeMap::new();
-        map.insert("from".into(), HeaderValue::Single("alice@example.com".into()));
+        map.insert(
+            "from".into(),
+            HeaderValue::Single("alice@example.com".into()),
+        );
         map.insert("subject".into(), HeaderValue::Single("Hello world".into()));
 
         let encoded = serde_ipld_dagcbor::to_vec(&map).expect("encode");
@@ -245,7 +245,10 @@ mod tests {
     #[test]
     fn serialization_is_deterministic() {
         let mut map: HeaderMapNode = BTreeMap::new();
-        map.insert("from".into(), HeaderValue::Single("alice@example.com".into()));
+        map.insert(
+            "from".into(),
+            HeaderValue::Single("alice@example.com".into()),
+        );
         map.insert(
             "received".into(),
             HeaderValue::Multi(vec!["hop1".into(), "hop2".into()]),
@@ -272,7 +275,10 @@ Received: from c.example by d.example\r\n\
         let map = build_header_map(SAMPLE_HEADERS);
         assert!(map.contains_key("from"), "From -> from");
         assert!(map.contains_key("subject"), "Subject -> subject");
-        assert!(map.contains_key("content-type"), "Content-Type -> content-type");
+        assert!(
+            map.contains_key("content-type"),
+            "Content-Type -> content-type"
+        );
         assert!(!map.contains_key("From"), "must not have mixed-case key");
     }
 
@@ -353,10 +359,7 @@ Received: from c.example by d.example\r\n\
 
     #[test]
     fn rfc2047_encoded_word_in_header() {
-        let raw = format!(
-            "Subject: {}\r\n\r\n",
-            "=?utf-8?Q?Hello_world?="
-        );
+        let raw = format!("Subject: {}\r\n\r\n", "=?utf-8?Q?Hello_world?=");
         let map = build_header_map(raw.as_bytes());
         assert_eq!(
             map.get("subject"),

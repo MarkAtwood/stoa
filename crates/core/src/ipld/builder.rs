@@ -4,8 +4,8 @@ use multihash_codetable::{Code, MultihashDigest};
 use crate::ipld::{
     blocks::{body_block, header_block},
     header_map::build_header_map,
-    mime_parser::parse_mime,
     metadata::compute_metadata,
+    mime_parser::parse_mime,
     root_node::{ArticleRootNode, SCHEMA_VERSION},
 };
 
@@ -175,7 +175,10 @@ mod tests {
         )
         .expect("second build must succeed");
 
-        assert_eq!(built1.root_cid, built2.root_cid, "root CIDs must be identical");
+        assert_eq!(
+            built1.root_cid, built2.root_cid,
+            "root CIDs must be identical"
+        );
 
         let root_bytes1 = built1
             .blocks
@@ -189,7 +192,10 @@ mod tests {
             .find(|(cid, _)| *cid == built2.root_cid)
             .map(|(_, b)| b)
             .expect("root block must be present in second build");
-        assert_eq!(root_bytes1, root_bytes2, "root block bytes must be identical");
+        assert_eq!(
+            root_bytes1, root_bytes2,
+            "root block bytes must be identical"
+        );
     }
 
     #[test]
@@ -245,9 +251,8 @@ mod tests {
             .map(|(_, b)| b)
             .expect("root block must be present in blocks");
 
-        let decoded: ArticleRootNode =
-            serde_ipld_dagcbor::from_slice(root_block_bytes)
-                .expect("root block must deserialize to ArticleRootNode");
+        let decoded: ArticleRootNode = serde_ipld_dagcbor::from_slice(root_block_bytes)
+            .expect("root block must deserialize to ArticleRootNode");
         assert_eq!(
             decoded, built.root_node,
             "deserialized root node must equal original"

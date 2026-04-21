@@ -10,7 +10,10 @@ pub struct HdrRecord {
 ///
 /// Returns one `"{number} {value}"` string per record.
 fn hdr_body(records: &[HdrRecord]) -> Vec<String> {
-    records.iter().map(|r| format!("{} {}", r.article_number, r.value)).collect()
+    records
+        .iter()
+        .map(|r| format!("{} {}", r.article_number, r.value))
+        .collect()
 }
 
 /// Format HDR response per RFC 3977 §8.5.
@@ -64,13 +67,19 @@ mod tests {
 
     #[test]
     fn hdr_response_code() {
-        let records = vec![HdrRecord { article_number: 1, value: "hello".to_string() }];
+        let records = vec![HdrRecord {
+            article_number: 1,
+            value: "hello".to_string(),
+        }];
         assert_eq!(hdr_response(&records).code, 225);
     }
 
     #[test]
     fn hdr_response_lines_format() {
-        let records = vec![HdrRecord { article_number: 42, value: "Test Subject".to_string() }];
+        let records = vec![HdrRecord {
+            article_number: 42,
+            value: "Test Subject".to_string(),
+        }];
         let resp = hdr_response(&records);
         assert_eq!(resp.body.len(), 1);
         assert_eq!(resp.body[0], "42 Test Subject");
@@ -86,13 +95,19 @@ mod tests {
     #[test]
     fn extract_subject_field() {
         let rec = sample_record();
-        assert_eq!(extract_field(&rec, "Subject"), Some("Test Subject".to_string()));
+        assert_eq!(
+            extract_field(&rec, "Subject"),
+            Some("Test Subject".to_string())
+        );
     }
 
     #[test]
     fn extract_from_field() {
         let rec = sample_record();
-        assert_eq!(extract_field(&rec, "From"), Some("alice@example.com".to_string()));
+        assert_eq!(
+            extract_field(&rec, "From"),
+            Some("alice@example.com".to_string())
+        );
     }
 
     #[test]
@@ -109,15 +124,24 @@ mod tests {
 
     #[test]
     fn xhdr_response_code_is_221() {
-        let records = vec![HdrRecord { article_number: 1, value: "hello".to_string() }];
+        let records = vec![HdrRecord {
+            article_number: 1,
+            value: "hello".to_string(),
+        }];
         assert_eq!(xhdr_response(&records).code, 221);
     }
 
     #[test]
     fn xhdr_response_has_same_body_as_hdr() {
         let records = vec![
-            HdrRecord { article_number: 10, value: "foo".to_string() },
-            HdrRecord { article_number: 11, value: "bar".to_string() },
+            HdrRecord {
+                article_number: 10,
+                value: "foo".to_string(),
+            },
+            HdrRecord {
+                article_number: 11,
+                value: "bar".to_string(),
+            },
         ];
         let hdr = hdr_response(&records);
         let xhdr = xhdr_response(&records);

@@ -142,20 +142,23 @@ impl std::error::Error for ConfigError {}
 
 impl Config {
     pub fn from_file(path: &Path) -> Result<Config, ConfigError> {
-        let content = std::fs::read_to_string(path)
-            .map_err(|e| ConfigError::Io(e.to_string()))?;
-        let config: Config = toml::from_str(&content)
-            .map_err(|e| ConfigError::Parse(e.to_string()))?;
+        let content = std::fs::read_to_string(path).map_err(|e| ConfigError::Io(e.to_string()))?;
+        let config: Config =
+            toml::from_str(&content).map_err(|e| ConfigError::Parse(e.to_string()))?;
         config.validate()?;
         Ok(config)
     }
 
     pub fn validate(&self) -> Result<(), ConfigError> {
         if self.listen.addr.is_empty() {
-            return Err(ConfigError::Validation("listen.addr must not be empty".into()));
+            return Err(ConfigError::Validation(
+                "listen.addr must not be empty".into(),
+            ));
         }
         if self.ipfs.api_url.is_empty() {
-            return Err(ConfigError::Validation("ipfs.api_url must not be empty".into()));
+            return Err(ConfigError::Validation(
+                "ipfs.api_url must not be empty".into(),
+            ));
         }
         if self.pinning.rules.is_empty() {
             return Err(ConfigError::Validation(
@@ -218,7 +221,9 @@ pub fn check_admin_addr(admin: &AdminConfig) -> Option<String> {
 /// containing only lowercase letters, digits, '+', '-', and '_'.
 fn validate_group_name(name: &str) -> Result<(), ConfigError> {
     if name.is_empty() {
-        return Err(ConfigError::Validation("group name must not be empty".into()));
+        return Err(ConfigError::Validation(
+            "group name must not be empty".into(),
+        ));
     }
     for component in name.split('.') {
         if component.is_empty() {
@@ -390,8 +395,8 @@ max_age_days = 30
 
     #[test]
     fn io_error_on_missing_file() {
-        let err = Config::from_file(Path::new("/nonexistent/path/config.toml"))
-            .expect_err("should fail");
+        let err =
+            Config::from_file(Path::new("/nonexistent/path/config.toml")).expect_err("should fail");
         assert!(matches!(err, ConfigError::Io(_)));
     }
 
@@ -420,7 +425,10 @@ max_age_days = 30
         };
         let warning = check_admin_addr(&admin);
         assert!(warning.is_some(), "non-loopback should trigger warning");
-        assert!(warning.unwrap().contains("WARNING"), "warning should say WARNING");
+        assert!(
+            warning.unwrap().contains("WARNING"),
+            "warning should say WARNING"
+        );
     }
 
     #[test]
@@ -431,13 +439,22 @@ max_age_days = 30
             bearer_token: None,
             rate_limit_rpm: 60,
         };
-        assert!(check_admin_addr(&admin).is_none(), "allow_non_loopback should suppress warning");
+        assert!(
+            check_admin_addr(&admin).is_none(),
+            "allow_non_loopback should suppress warning"
+        );
     }
 
     #[test]
     fn default_addr_is_loopback() {
         let admin = AdminConfig::default();
-        assert!(is_loopback_addr(&admin.addr), "default addr must be loopback");
-        assert!(check_admin_addr(&admin).is_none(), "default config must not warn");
+        assert!(
+            is_loopback_addr(&admin.addr),
+            "default addr must be loopback"
+        );
+        assert!(
+            check_admin_addr(&admin).is_none(),
+            "default config must not warn"
+        );
     }
 }

@@ -12,7 +12,10 @@ pub enum PeeringMode {
 /// Returns the response line and the new mode. The transit daemon always
 /// permits streaming; there is no configuration knob to disable it.
 pub fn handle_mode_stream(_current_mode: PeeringMode) -> (String, PeeringMode) {
-    ("203 Streaming permitted\r\n".to_string(), PeeringMode::Streaming)
+    (
+        "203 Streaming permitted\r\n".to_string(),
+        PeeringMode::Streaming,
+    )
 }
 
 /// Build the CAPABILITIES response for the transit daemon.

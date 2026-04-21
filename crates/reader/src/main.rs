@@ -7,7 +7,7 @@ use tracing::{error, info, warn};
 use usenet_ipfs_reader::{
     config::Config,
     session::lifecycle::run_session,
-    store::server_stores::ServerStores,
+    store::{backfill::backfill_overview, server_stores::ServerStores},
 };
 
 fn parse_args() -> PathBuf {
@@ -34,7 +34,11 @@ async fn main() {
     let config = match Config::from_file(&config_path) {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("error: failed to load config from {}: {}", config_path.display(), e);
+            eprintln!(
+                "error: failed to load config from {}: {}",
+                config_path.display(),
+                e
+            );
             std::process::exit(1);
         }
     };
@@ -48,9 +52,7 @@ async fn main() {
             .with_env_filter(filter)
             .init();
     } else {
-        tracing_subscriber::fmt()
-            .with_env_filter(filter)
-            .init();
+        tracing_subscriber::fmt().with_env_filter(filter).init();
     }
 
     let listener = match TcpListener::bind(&config.listen.addr).await {
@@ -68,8 +70,25 @@ async fn main() {
     );
 
     let semaphore = Arc::new(Semaphore::new(config.limits.max_connections));
+    let stores = Arc::new(match ServerStores::new_with_ipfs(&config).await {
+        Ok(s) => s,
+        Err(e) => {
+            error!("failed to initialise stores: {e}");
+            std::process::exit(1);
+        }
+    });
+
+    let backfilled = backfill_overview(
+        &stores.article_numbers,
+        &stores.overview_store,
+        stores.ipfs_store.as_ref(),
+    )
+    .await;
+    if backfilled > 0 {
+        info!(count = backfilled, "overview index backfill complete");
+    }
+
     let config = Arc::new(config);
-    let stores = Arc::new(ServerStores::new_mem().await);
 
     tokio::select! {
         _ = accept_loop(listener, semaphore, config, stores) => {}
@@ -121,7 +140,6 @@ async fn accept_loop(
 async fn sigterm() {
     use tokio::signal::unix::{signal, SignalKind};
     // SAFETY: signal() is safe to call; it only registers an OS signal handler.
-    let mut stream = signal(SignalKind::terminate())
-        .expect("failed to install SIGTERM handler");
+    let mut stream = signal(SignalKind::terminate()).expect("failed to install SIGTERM handler");
     stream.recv().await;
 }

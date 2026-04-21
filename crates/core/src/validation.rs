@@ -206,10 +206,7 @@ pub trait MsgIdStorage {
 ///
 /// Returns [`ProtocolError::DuplicateMessageId`] if the article is already
 /// known. Called before any signing or IPFS operations.
-pub fn check_duplicate(
-    message_id: &str,
-    storage: &dyn MsgIdStorage,
-) -> Result<(), ProtocolError> {
+pub fn check_duplicate(message_id: &str, storage: &dyn MsgIdStorage) -> Result<(), ProtocolError> {
     if storage.contains(message_id) {
         return Err(ProtocolError::DuplicateMessageId(message_id.into()));
     }
@@ -509,9 +506,7 @@ mod tests {
 
     #[test]
     fn test_check_duplicate_returns_error_for_known() {
-        let store = InMemoryMsgIdStore(
-            ["<abc123@example.com>".to_string()].into_iter().collect(),
-        );
+        let store = InMemoryMsgIdStore(["<abc123@example.com>".to_string()].into_iter().collect());
         let err = check_duplicate("<abc123@example.com>", &store).unwrap_err();
         assert!(
             matches!(err, ProtocolError::DuplicateMessageId(ref id) if id == "<abc123@example.com>"),

@@ -14,7 +14,10 @@ use multihash_codetable::{Code, MultihashDigest};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tempfile::TempDir;
-use usenet_ipfs_transit::import::{mbox::parse_mbox_file, reindex::{run_reindex, ReindexConfig}};
+use usenet_ipfs_transit::import::{
+    mbox::parse_mbox_file,
+    reindex::{run_reindex, ReindexConfig},
+};
 
 static DB_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
@@ -69,7 +72,11 @@ async fn import_10k_all_message_ids_indexed() {
 
     // Phase 1: parse the mbox file.
     let messages = parse_mbox_file(&mbox_path).await.unwrap();
-    assert_eq!(messages.len(), 10_000, "mbox parse should produce 10,000 messages");
+    assert_eq!(
+        messages.len(),
+        10_000,
+        "mbox parse should produce 10,000 messages"
+    );
 
     // Phase 2: build (Cid, Vec<u8>) pairs for reindex.
     // CID is derived from the raw article bytes so each is unique.
@@ -89,9 +96,15 @@ async fn import_10k_all_message_ids_indexed() {
     };
     let summary = run_reindex(articles, &pool, &config).await.unwrap();
 
-    assert_eq!(summary.total_scanned, 10_000, "should scan all 10,000 articles");
+    assert_eq!(
+        summary.total_scanned, 10_000,
+        "should scan all 10,000 articles"
+    );
     assert_eq!(summary.indexed, 10_000, "all 10,000 should be indexed");
-    assert_eq!(summary.skipped_not_article, 0, "no articles should be skipped");
+    assert_eq!(
+        summary.skipped_not_article, 0,
+        "no articles should be skipped"
+    );
     assert_eq!(summary.skipped_duplicate, 0, "no duplicates expected");
 
     // Phase 4: verify database state.
@@ -99,7 +112,10 @@ async fn import_10k_all_message_ids_indexed() {
         .fetch_one(&pool)
         .await
         .unwrap();
-    assert_eq!(count, 10_000, "msgid_map should contain exactly 10,000 rows");
+    assert_eq!(
+        count, 10_000,
+        "msgid_map should contain exactly 10,000 rows"
+    );
 
     // Spot-check: article 42 must have a non-empty CID.
     let cid_str: Option<String> =

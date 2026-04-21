@@ -90,9 +90,7 @@ pub(crate) fn extract_header(raw: &[u8], name: &str) -> Option<String> {
         }
 
         // Check if this line starts with our target header name.
-        if line.len() > search.len()
-            && line[..search.len()].to_ascii_lowercase() == search
-        {
+        if line.len() > search.len() && line[..search.len()].to_ascii_lowercase() == search {
             let rest = line[search.len()..].trim();
             value_parts.push(rest.to_string());
             in_target = true;
@@ -197,7 +195,11 @@ pub async fn run_mbox_import(
 
     for (idx, msg) in messages.iter().enumerate() {
         // Determine the newsgroup.
-        let group = match msg.newsgroups.as_deref().or(config.default_group.as_deref()) {
+        let group = match msg
+            .newsgroups
+            .as_deref()
+            .or(config.default_group.as_deref())
+        {
             Some(g) => g,
             None => {
                 summary.skipped_no_group += 1;
@@ -377,7 +379,10 @@ Body of second article.\r\n\
         let messages = parse_mbox_file(&path).await.unwrap();
         assert_eq!(messages.len(), 2, "should parse 2 messages");
         assert_eq!(messages[0].newsgroups.as_deref(), Some("comp.lang.rust"));
-        assert_eq!(messages[0].message_id.as_deref(), Some("<msg1@example.com>"));
+        assert_eq!(
+            messages[0].message_id.as_deref(),
+            Some("<msg1@example.com>")
+        );
         assert_eq!(messages[1].newsgroups.as_deref(), Some("sci.math"));
     }
 
@@ -407,7 +412,10 @@ Body.\r\n\
             progress_interval: 100,
         };
         let summary = run_mbox_import(&path, &config).await.unwrap();
-        assert_eq!(summary.skipped_no_group, 1, "should skip article with no group: {summary}");
+        assert_eq!(
+            summary.skipped_no_group, 1,
+            "should skip article with no group: {summary}"
+        );
     }
 
     #[test]
@@ -453,5 +461,4 @@ Body.\r\n\
         let messages = parse_mbox_directory(dir.path()).await.unwrap();
         assert_eq!(messages.len(), 4, "two files × two messages each");
     }
-
 }

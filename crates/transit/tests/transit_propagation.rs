@@ -69,11 +69,8 @@ async fn start_test_swarm() -> TestSwarmHandle {
         )
         .expect("TCP transport must initialise")
         .with_behaviour(|key| {
-            gossipsub::Behaviour::new(
-                MessageAuthenticity::Signed(key.clone()),
-                gossipsub_config,
-            )
-            .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { e.into() })
+            gossipsub::Behaviour::new(MessageAuthenticity::Signed(key.clone()), gossipsub_config)
+                .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { e.into() })
         })
         .expect("gossipsub behaviour must attach")
         .build();

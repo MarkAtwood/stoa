@@ -179,7 +179,10 @@ mod tests {
         monitor.record_latency_ms(0.0);
         let after_second = monitor.ema_ms();
         // After first sample EMA=200, after second EMA = 0.1*0 + 0.9*200 = 180.
-        assert!(after_second < after_first, "EMA should decrease after a low sample");
+        assert!(
+            after_second < after_first,
+            "EMA should decrease after a low sample"
+        );
         assert!(
             (after_second - 180.0).abs() < 1.0,
             "EMA after second sample should be ~180ms"

@@ -52,9 +52,8 @@ fn check_line_lengths(header_bytes: &[u8]) -> Result<(), Response> {
 
 /// Parse the raw header block into a case-folded map of name → list of values.
 fn parse_header_map(header_bytes: &[u8]) -> Result<HashMap<String, Vec<String>>, Response> {
-    let (parsed, _) = parse_headers(header_bytes).map_err(|_| {
-        Response::new(441, "Could not parse article headers")
-    })?;
+    let (parsed, _) = parse_headers(header_bytes)
+        .map_err(|_| Response::new(441, "Could not parse article headers"))?;
 
     let mut map: HashMap<String, Vec<String>> = HashMap::new();
     for hdr in &parsed {
@@ -210,8 +209,7 @@ mod tests {
         // Days of week and months for manual formatting.
         const DAYS: [&str; 7] = ["Thu", "Fri", "Sat", "Sun", "Mon", "Tue", "Wed"];
         const MONTHS: [&str; 12] = [
-            "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
         ];
 
         // Use the Gregorian calendar algorithm to convert epoch seconds to
@@ -270,7 +268,11 @@ mod tests {
         let bytes = make_headers(&refs);
         let err = validate_post_headers(&bytes).unwrap_err();
         assert_eq!(err.code, 441);
-        assert!(err.text.contains("From"), "expected 'From' in: {}", err.text);
+        assert!(
+            err.text.contains("From"),
+            "expected 'From' in: {}",
+            err.text
+        );
     }
 
     // ── 3. Missing Newsgroups ─────────────────────────────────────────────────

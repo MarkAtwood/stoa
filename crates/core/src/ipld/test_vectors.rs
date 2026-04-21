@@ -211,8 +211,7 @@ mod tests {
             .expect("mime block must be present in blocks");
 
         let mime_node: crate::ipld::mime::MimeNode =
-            serde_ipld_dagcbor::from_slice(mime_block_bytes)
-                .expect("mime block must deserialize");
+            serde_ipld_dagcbor::from_slice(mime_block_bytes).expect("mime block must deserialize");
 
         let MimeNode::SinglePart(ref sp) = mime_node else {
             panic!("TV2 must produce a SinglePart MIME node");
@@ -353,8 +352,7 @@ mod tests {
             .expect("mime block must be present in blocks");
 
         let mime_node: crate::ipld::mime::MimeNode =
-            serde_ipld_dagcbor::from_slice(mime_block_bytes)
-                .expect("mime block must deserialize");
+            serde_ipld_dagcbor::from_slice(mime_block_bytes).expect("mime block must deserialize");
 
         let MimeNode::Multipart(ref mp) = mime_node else {
             panic!("TV3 must produce a Multipart MIME node");
@@ -511,8 +509,7 @@ mod tests {
             .expect("mime block must be present in blocks");
 
         let mime_node: crate::ipld::mime::MimeNode =
-            serde_ipld_dagcbor::from_slice(mime_block_bytes)
-                .expect("mime block must deserialize");
+            serde_ipld_dagcbor::from_slice(mime_block_bytes).expect("mime block must deserialize");
 
         let MimeNode::SinglePart(ref sp) = mime_node else {
             panic!("TV4 must produce a SinglePart MIME node");
@@ -539,10 +536,7 @@ mod tests {
         )
         .expect("build_article must succeed for TV4");
 
-        let mime_cid = built
-            .root_node
-            .mime_cid
-            .expect("TV4 mime_cid must be Some");
+        let mime_cid = built.root_node.mime_cid.expect("TV4 mime_cid must be Some");
         let mime_bytes = built
             .blocks
             .iter()

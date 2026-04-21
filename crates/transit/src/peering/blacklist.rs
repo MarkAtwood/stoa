@@ -19,7 +19,10 @@ pub struct BlacklistConfig {
 
 impl Default for BlacklistConfig {
     fn default() -> Self {
-        Self { failure_threshold: 10, duration_secs: 3600 }
+        Self {
+            failure_threshold: 10,
+            duration_secs: 3600,
+        }
     }
 }
 
@@ -36,13 +39,12 @@ pub async fn check_and_blacklist(
     now_ms: i64,
     config: &BlacklistConfig,
 ) -> Result<bool, StorageError> {
-    let row: Option<(i64,)> = sqlx::query_as(
-        "SELECT consecutive_failures FROM peers WHERE peer_id = ?1",
-    )
-    .bind(peer_id)
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| StorageError::Database(e.to_string()))?;
+    let row: Option<(i64,)> =
+        sqlx::query_as("SELECT consecutive_failures FROM peers WHERE peer_id = ?1")
+            .bind(peer_id)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| StorageError::Database(e.to_string()))?;
 
     let failures = match row {
         Some((f,)) => f,
@@ -51,14 +53,12 @@ pub async fn check_and_blacklist(
 
     if failures >= config.failure_threshold {
         let blacklisted_until = now_ms + config.duration_secs * 1000;
-        sqlx::query(
-            "UPDATE peers SET blacklisted_until = ?1 WHERE peer_id = ?2",
-        )
-        .bind(blacklisted_until)
-        .bind(peer_id)
-        .execute(pool)
-        .await
-        .map_err(|e| StorageError::Database(e.to_string()))?;
+        sqlx::query("UPDATE peers SET blacklisted_until = ?1 WHERE peer_id = ?2")
+            .bind(blacklisted_until)
+            .bind(peer_id)
+            .execute(pool)
+            .await
+            .map_err(|e| StorageError::Database(e.to_string()))?;
 
         tracing::warn!(
             peer_id = %peer_id,
@@ -81,13 +81,12 @@ pub async fn is_blacklisted(
     peer_id: &str,
     now_ms: i64,
 ) -> Result<bool, StorageError> {
-    let row: Option<(Option<i64>,)> = sqlx::query_as(
-        "SELECT blacklisted_until FROM peers WHERE peer_id = ?1",
-    )
-    .bind(peer_id)
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| StorageError::Database(e.to_string()))?;
+    let row: Option<(Option<i64>,)> =
+        sqlx::query_as("SELECT blacklisted_until FROM peers WHERE peer_id = ?1")
+            .bind(peer_id)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| StorageError::Database(e.to_string()))?;
 
     Ok(match row {
         Some((Some(until),)) => until > now_ms,
@@ -99,10 +98,7 @@ pub async fn is_blacklisted(
 ///
 /// Sets `blacklisted_until = NULL` for the given peer_id.
 /// Logs at `info` level. No-op if peer is not blacklisted.
-pub async fn unblacklist(
-    pool: &SqlitePool,
-    peer_id: &str,
-) -> Result<(), StorageError> {
+pub async fn unblacklist(pool: &SqlitePool, peer_id: &str) -> Result<(), StorageError> {
     sqlx::query(
         "UPDATE peers SET blacklisted_until = NULL, consecutive_failures = 0 WHERE peer_id = ?1",
     )
@@ -154,8 +150,13 @@ mod tests {
     async fn not_blacklisted_below_threshold() {
         let pool = make_pool().await;
         insert_peer(&pool, "peer1", 5).await;
-        let config = BlacklistConfig { failure_threshold: 10, duration_secs: 3600 };
-        let result = check_and_blacklist(&pool, "peer1", NOW, &config).await.unwrap();
+        let config = BlacklistConfig {
+            failure_threshold: 10,
+            duration_secs: 3600,
+        };
+        let result = check_and_blacklist(&pool, "peer1", NOW, &config)
+            .await
+            .unwrap();
         assert!(!result, "5 failures < threshold=10, should not blacklist");
         assert!(!is_blacklisted(&pool, "peer1", NOW).await.unwrap());
     }
@@ -164,8 +165,13 @@ mod tests {
     async fn blacklisted_at_threshold() {
         let pool = make_pool().await;
         insert_peer(&pool, "peer1", 10).await;
-        let config = BlacklistConfig { failure_threshold: 10, duration_secs: 3600 };
-        let result = check_and_blacklist(&pool, "peer1", NOW, &config).await.unwrap();
+        let config = BlacklistConfig {
+            failure_threshold: 10,
+            duration_secs: 3600,
+        };
+        let result = check_and_blacklist(&pool, "peer1", NOW, &config)
+            .await
+            .unwrap();
         assert!(result, "10 failures >= threshold=10, should blacklist");
         assert!(is_blacklisted(&pool, "peer1", NOW).await.unwrap());
     }
@@ -174,8 +180,13 @@ mod tests {
     async fn blacklist_expires_after_duration() {
         let pool = make_pool().await;
         insert_peer(&pool, "peer1", 20).await;
-        let config = BlacklistConfig { failure_threshold: 10, duration_secs: 3600 };
-        check_and_blacklist(&pool, "peer1", NOW, &config).await.unwrap();
+        let config = BlacklistConfig {
+            failure_threshold: 10,
+            duration_secs: 3600,
+        };
+        check_and_blacklist(&pool, "peer1", NOW, &config)
+            .await
+            .unwrap();
 
         let future_ms = NOW + 3600 * 1000 + 1;
         assert!(
@@ -189,7 +200,9 @@ mod tests {
         let pool = make_pool().await;
         insert_peer(&pool, "peer1", 20).await;
         let config = BlacklistConfig::default();
-        check_and_blacklist(&pool, "peer1", NOW, &config).await.unwrap();
+        check_and_blacklist(&pool, "peer1", NOW, &config)
+            .await
+            .unwrap();
         assert!(is_blacklisted(&pool, "peer1", NOW).await.unwrap());
 
         unblacklist(&pool, "peer1").await.unwrap();
@@ -199,8 +212,9 @@ mod tests {
     #[tokio::test]
     async fn unknown_peer_not_blacklisted() {
         let pool = make_pool().await;
-        let result =
-            check_and_blacklist(&pool, "unknown", NOW, &BlacklistConfig::default()).await.unwrap();
+        let result = check_and_blacklist(&pool, "unknown", NOW, &BlacklistConfig::default())
+            .await
+            .unwrap();
         assert!(!result);
         assert!(!is_blacklisted(&pool, "unknown", NOW).await.unwrap());
     }

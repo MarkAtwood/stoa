@@ -122,12 +122,11 @@ impl LogStorage for SqliteLogStorage {
 
     async fn has_entry(&self, id: &LogEntryId) -> Result<bool, StorageError> {
         let id_bytes = id.as_bytes().as_slice().to_vec();
-        let row: Option<(Vec<u8>,)> =
-            sqlx::query_as("SELECT id FROM log_entries WHERE id = ?")
-                .bind(&id_bytes)
-                .fetch_optional(&self.pool)
-                .await
-                .map_err(db_err)?;
+        let row: Option<(Vec<u8>,)> = sqlx::query_as("SELECT id FROM log_entries WHERE id = ?")
+            .bind(&id_bytes)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(db_err)?;
         Ok(row.is_some())
     }
 
@@ -178,12 +177,11 @@ impl LogStorage for SqliteLogStorage {
     }
 
     async fn entry_count(&self, group: &GroupName) -> Result<u64, StorageError> {
-        let row: (i64,) =
-            sqlx::query_as("SELECT COUNT(*) FROM group_tips WHERE group_name = ?")
-                .bind(group.as_str())
-                .fetch_one(&self.pool)
-                .await
-                .map_err(db_err)?;
+        let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM group_tips WHERE group_name = ?")
+            .bind(group.as_str())
+            .fetch_one(&self.pool)
+            .await
+            .map_err(db_err)?;
         Ok(row.0 as u64)
     }
 }

@@ -25,24 +25,21 @@ impl MsgIdMap {
     pub async fn insert(&self, message_id: &str, cid: &Cid) -> Result<(), StorageError> {
         let cid_bytes = cid.to_bytes();
 
-        let existing: Option<Vec<u8>> = sqlx::query_scalar(
-            "SELECT cid FROM msgid_map WHERE message_id = ?",
-        )
-        .bind(message_id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| StorageError::Database(e.to_string()))?;
+        let existing: Option<Vec<u8>> =
+            sqlx::query_scalar("SELECT cid FROM msgid_map WHERE message_id = ?")
+                .bind(message_id)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(|e| StorageError::Database(e.to_string()))?;
 
         match existing {
             None => {
-                sqlx::query(
-                    "INSERT INTO msgid_map (message_id, cid) VALUES (?, ?)",
-                )
-                .bind(message_id)
-                .bind(&cid_bytes)
-                .execute(&self.pool)
-                .await
-                .map_err(|e| StorageError::Database(e.to_string()))?;
+                sqlx::query("INSERT INTO msgid_map (message_id, cid) VALUES (?, ?)")
+                    .bind(message_id)
+                    .bind(&cid_bytes)
+                    .execute(&self.pool)
+                    .await
+                    .map_err(|e| StorageError::Database(e.to_string()))?;
                 Ok(())
             }
             Some(stored_bytes) => {
@@ -59,13 +56,12 @@ impl MsgIdMap {
 
     /// Look up a CID by Message-ID. Returns `None` if not found.
     pub async fn lookup_by_msgid(&self, message_id: &str) -> Result<Option<Cid>, StorageError> {
-        let row: Option<Vec<u8>> = sqlx::query_scalar(
-            "SELECT cid FROM msgid_map WHERE message_id = ?",
-        )
-        .bind(message_id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| StorageError::Database(e.to_string()))?;
+        let row: Option<Vec<u8>> =
+            sqlx::query_scalar("SELECT cid FROM msgid_map WHERE message_id = ?")
+                .bind(message_id)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(|e| StorageError::Database(e.to_string()))?;
 
         match row {
             None => Ok(None),
@@ -81,13 +77,12 @@ impl MsgIdMap {
     pub async fn lookup_by_cid(&self, cid: &Cid) -> Result<Option<String>, StorageError> {
         let cid_bytes = cid.to_bytes();
 
-        let row: Option<String> = sqlx::query_scalar(
-            "SELECT message_id FROM msgid_map WHERE cid = ?",
-        )
-        .bind(&cid_bytes)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| StorageError::Database(e.to_string()))?;
+        let row: Option<String> =
+            sqlx::query_scalar("SELECT message_id FROM msgid_map WHERE cid = ?")
+                .bind(&cid_bytes)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(|e| StorageError::Database(e.to_string()))?;
 
         Ok(row)
     }
@@ -158,7 +153,10 @@ mod tests {
         let (pool, _tmp) = make_pool().await;
         let store = MsgIdMap::new(pool);
 
-        let by_msgid = store.lookup_by_msgid("<notfound@example.com>").await.unwrap();
+        let by_msgid = store
+            .lookup_by_msgid("<notfound@example.com>")
+            .await
+            .unwrap();
         assert!(by_msgid.is_none());
 
         let phantom_cid = test_cid(b"phantom");

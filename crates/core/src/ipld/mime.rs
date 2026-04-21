@@ -67,8 +67,7 @@ mod tests {
     #[test]
     fn single_part_dagcbor_roundtrip() {
         let original = make_single_part();
-        let encoded =
-            serde_ipld_dagcbor::to_vec(&original).expect("DAG-CBOR serialization failed");
+        let encoded = serde_ipld_dagcbor::to_vec(&original).expect("DAG-CBOR serialization failed");
         let decoded: MimeNode =
             serde_ipld_dagcbor::from_slice(&encoded).expect("DAG-CBOR deserialization failed");
         assert_eq!(original, decoded, "round-tripped value must equal original");
@@ -91,8 +90,7 @@ mod tests {
                 },
             ],
         });
-        let encoded =
-            serde_ipld_dagcbor::to_vec(&original).expect("DAG-CBOR serialization failed");
+        let encoded = serde_ipld_dagcbor::to_vec(&original).expect("DAG-CBOR serialization failed");
         let decoded: MimeNode =
             serde_ipld_dagcbor::from_slice(&encoded).expect("DAG-CBOR deserialization failed");
         assert_eq!(original, decoded, "round-tripped value must equal original");
@@ -114,11 +112,13 @@ mod tests {
             decoded_cid: test_cid(b"raw binary blob"),
             is_binary: true,
         });
-        let encoded =
-            serde_ipld_dagcbor::to_vec(&original).expect("DAG-CBOR serialization failed");
+        let encoded = serde_ipld_dagcbor::to_vec(&original).expect("DAG-CBOR serialization failed");
         let decoded: MimeNode =
             serde_ipld_dagcbor::from_slice(&encoded).expect("DAG-CBOR deserialization failed");
-        assert_eq!(original, decoded, "binary SinglePartMime must round-trip without loss");
+        assert_eq!(
+            original, decoded,
+            "binary SinglePartMime must round-trip without loss"
+        );
         if let MimeNode::SinglePart(ref part) = decoded {
             assert!(part.is_binary, "is_binary flag must survive round-trip");
         } else {

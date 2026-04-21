@@ -278,8 +278,14 @@ async fn daemon_continues_operating_after_log_failure() {
     // First article: log append fails, pipeline returns Ok with empty groups.
     let article1 = make_article("<daemon-cont-1@test.com>", "comp.test");
     let r1 = run_pipeline(&article1, &ipfs, &map, &log_storage, make_ctx(&key)).await;
-    assert!(r1.is_ok(), "first pipeline must return Ok despite log failure");
-    assert!(r1.unwrap().0.groups.is_empty(), "first article must have no groups");
+    assert!(
+        r1.is_ok(),
+        "first pipeline must return Ok despite log failure"
+    );
+    assert!(
+        r1.unwrap().0.groups.is_empty(),
+        "first article must have no groups"
+    );
 
     // Second article: log append also fails (counter still above threshold),
     // but the pipeline must not panic or deadlock.

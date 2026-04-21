@@ -119,11 +119,7 @@ pub fn group_info_from_cache(meta: &crate::store::group_cache::GroupMetadata) ->
 ///
 /// V1 conservative behaviour: return empty list. Clients will catch up via
 /// GROUP/ARTICLE once they select a group.
-pub fn newnews(
-    _groups: &[GroupInfo],
-    _since_timestamp: u64,
-    _wildmat: Option<&str>,
-) -> Response {
+pub fn newnews(_groups: &[GroupInfo], _since_timestamp: u64, _wildmat: Option<&str>) -> Response {
     Response::newnews(vec![])
 }
 

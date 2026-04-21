@@ -44,11 +44,25 @@ pub struct AuthConfig {
     pub required: bool,
     /// User accounts for AUTHINFO USER/PASS authentication.
     ///
-    /// If empty and `required = false`, all credential attempts succeed
-    /// (development mode). If `required = true` and this list is non-empty,
-    /// credentials are validated against it.
+    /// If empty and `required = false` and `credential_file` is unset, all
+    /// credential attempts succeed (development mode).
     #[serde(default)]
     pub users: Vec<UserCredential>,
+    /// Path to a file of `username:bcrypt_hash` credential pairs.
+    ///
+    /// Each non-blank, non-comment line must be `username:$2b$...`. Lines
+    /// starting with `#` are ignored. Loaded at startup and merged with the
+    /// inline `users` list.
+    #[serde(default)]
+    pub credential_file: Option<String>,
+}
+
+impl AuthConfig {
+    /// Returns `true` when no credentials are configured and auth is not
+    /// required — the development / open-access mode.
+    pub fn is_dev_mode(&self) -> bool {
+        !self.required && self.users.is_empty() && self.credential_file.is_none()
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -133,17 +147,18 @@ impl std::error::Error for ConfigError {}
 
 impl Config {
     pub fn from_file(path: &Path) -> Result<Config, ConfigError> {
-        let content = std::fs::read_to_string(path)
-            .map_err(|e| ConfigError::Io(e.to_string()))?;
-        let config: Config = toml::from_str(&content)
-            .map_err(|e| ConfigError::Parse(e.to_string()))?;
+        let content = std::fs::read_to_string(path).map_err(|e| ConfigError::Io(e.to_string()))?;
+        let config: Config =
+            toml::from_str(&content).map_err(|e| ConfigError::Parse(e.to_string()))?;
         config.validate()?;
         Ok(config)
     }
 
     pub fn validate(&self) -> Result<(), ConfigError> {
         if self.listen.addr.is_empty() {
-            return Err(ConfigError::Validation("listen.addr must not be empty".into()));
+            return Err(ConfigError::Validation(
+                "listen.addr must not be empty".into(),
+            ));
         }
         if self.limits.max_connections == 0 {
             return Err(ConfigError::Validation(
@@ -227,7 +242,10 @@ key_path = "/etc/ssl/private/server.key"
         assert_eq!(cfg.limits.max_connections, 50);
         assert_eq!(cfg.limits.command_timeout_secs, 30);
         assert!(!cfg.auth.required);
-        assert_eq!(cfg.tls.cert_path.as_deref(), Some("/etc/ssl/certs/server.pem"));
+        assert_eq!(
+            cfg.tls.cert_path.as_deref(),
+            Some("/etc/ssl/certs/server.pem")
+        );
     }
 
     #[test]
@@ -330,8 +348,8 @@ required = false
 
     #[test]
     fn io_error_on_missing_file() {
-        let err = Config::from_file(Path::new("/nonexistent/path/reader.toml"))
-            .expect_err("should fail");
+        let err =
+            Config::from_file(Path::new("/nonexistent/path/reader.toml")).expect_err("should fail");
         assert!(matches!(err, ConfigError::Io(_)));
     }
 
@@ -358,7 +376,10 @@ required = false
         };
         let warning = check_admin_addr(&admin);
         assert!(warning.is_some(), "non-loopback should trigger warning");
-        assert!(warning.unwrap().contains("WARNING"), "warning should say WARNING");
+        assert!(
+            warning.unwrap().contains("WARNING"),
+            "warning should say WARNING"
+        );
     }
 
     #[test]
@@ -367,13 +388,22 @@ required = false
             addr: "0.0.0.0:9090".to_string(),
             allow_non_loopback: true,
         };
-        assert!(check_admin_addr(&admin).is_none(), "allow_non_loopback should suppress warning");
+        assert!(
+            check_admin_addr(&admin).is_none(),
+            "allow_non_loopback should suppress warning"
+        );
     }
 
     #[test]
     fn default_addr_is_loopback() {
         let admin = AdminConfig::default();
-        assert!(is_loopback_addr(&admin.addr), "default addr must be loopback");
-        assert!(check_admin_addr(&admin).is_none(), "default config must not warn");
+        assert!(
+            is_loopback_addr(&admin.addr),
+            "default addr must be loopback"
+        );
+        assert!(
+            check_admin_addr(&admin).is_none(),
+            "default config must not warn"
+        );
     }
 }

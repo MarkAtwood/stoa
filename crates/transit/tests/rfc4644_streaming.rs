@@ -122,10 +122,7 @@ fn mode_stream_enables_streaming() {
 #[test]
 fn check_requires_streaming_mode() {
     let guard = check_mode_guard(PeeringMode::Ihave);
-    assert!(
-        guard.is_some(),
-        "CHECK must be blocked when in IHAVE mode"
-    );
+    assert!(guard.is_some(), "CHECK must be blocked when in IHAVE mode");
     let resp = guard.unwrap();
     assert!(
         resp.starts_with("401"),
@@ -200,7 +197,10 @@ async fn streaming_check_takethis_100_articles() {
         accepted += 1;
     }
 
-    assert_eq!(accepted, 100, "all 100 articles must complete CHECK+TAKETHIS");
+    assert_eq!(
+        accepted, 100,
+        "all 100 articles must complete CHECK+TAKETHIS"
+    );
 }
 
 // ── Test 5: Duplicate detection on CHECK ─────────────────────────────────────

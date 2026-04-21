@@ -3,7 +3,7 @@ use cid::Cid;
 use mailparse::{parse_content_type, parse_headers};
 use multihash_codetable::{Code, MultihashDigest};
 
-use crate::ipld::mime::{MimePart, MimeNode, MultipartMime, SinglePartMime};
+use crate::ipld::mime::{MimeNode, MimePart, MultipartMime, SinglePartMime};
 
 /// RAW IPLD codec code.
 const RAW: u64 = 0x55;
@@ -34,7 +34,12 @@ pub fn parse_mime(header_bytes: &[u8], body_bytes: &[u8]) -> Option<ParsedMime> 
         .get_value();
 
     let ct = parse_content_type(&content_type_value);
-    let top_type = ct.mimetype.split('/').next().unwrap_or("").to_ascii_lowercase();
+    let top_type = ct
+        .mimetype
+        .split('/')
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase();
 
     if top_type == "multipart" {
         let boundary = ct.params.get("boundary").cloned().unwrap_or_default();
@@ -42,7 +47,10 @@ pub fn parse_mime(header_bytes: &[u8], body_bytes: &[u8]) -> Option<ParsedMime> 
     } else {
         let cte = headers
             .iter()
-            .find(|h| h.get_key().eq_ignore_ascii_case("content-transfer-encoding"))
+            .find(|h| {
+                h.get_key()
+                    .eq_ignore_ascii_case("content-transfer-encoding")
+            })
             .map(|h| h.get_value())
             .unwrap_or_else(|| "7bit".to_string());
 
@@ -100,12 +108,20 @@ fn parse_multipart(
             .unwrap_or_else(|| "text/plain".to_string());
 
         let part_ct = parse_content_type(&part_ct_value);
-        let part_top = part_ct.mimetype.split('/').next().unwrap_or("").to_ascii_lowercase();
+        let part_top = part_ct
+            .mimetype
+            .split('/')
+            .next()
+            .unwrap_or("")
+            .to_ascii_lowercase();
         let is_binary = !part_top.eq_ignore_ascii_case("text");
 
         let part_cte = part_headers
             .iter()
-            .find(|h| h.get_key().eq_ignore_ascii_case("content-transfer-encoding"))
+            .find(|h| {
+                h.get_key()
+                    .eq_ignore_ascii_case("content-transfer-encoding")
+            })
             .map(|h| h.get_value())
             .unwrap_or_else(|| "7bit".to_string());
 
@@ -132,11 +148,7 @@ fn parse_multipart(
 /// Split `body` into sections using the MIME boundary delimiter.
 /// Returns a Vec of byte slices representing the preamble + each part body.
 /// The end delimiter causes the remaining bytes to be dropped.
-fn split_on_boundary<'a>(
-    body: &'a [u8],
-    delimiter: &[u8],
-    end_delimiter: &[u8],
-) -> Vec<&'a [u8]> {
+fn split_on_boundary<'a>(body: &'a [u8], delimiter: &[u8], end_delimiter: &[u8]) -> Vec<&'a [u8]> {
     let mut result: Vec<&'a [u8]> = Vec::new();
     let mut pos = 0usize;
     let mut section_start = 0usize;
@@ -202,9 +214,7 @@ fn split_part_headers(part: &[u8]) -> (&[u8], &[u8]) {
 
 /// Find the first occurrence of `needle` in `haystack`, returning the start index.
 fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    haystack
-        .windows(needle.len())
-        .position(|w| w == needle)
+    haystack.windows(needle.len()).position(|w| w == needle)
 }
 
 /// Decode `body_bytes` according to the Content-Transfer-Encoding.
@@ -221,7 +231,11 @@ fn decode_body(body_bytes: &[u8], cte: &str) -> (Vec<u8>, String) {
         }
         "base64" => {
             // Strip all whitespace before decoding.
-            let stripped: Vec<u8> = body_bytes.iter().copied().filter(|b| !b.is_ascii_whitespace()).collect();
+            let stripped: Vec<u8> = body_bytes
+                .iter()
+                .copied()
+                .filter(|b| !b.is_ascii_whitespace())
+                .collect();
             let decoded = base64::engine::general_purpose::STANDARD
                 .decode(&stripped)
                 .unwrap_or_else(|_| body_bytes.to_vec());
@@ -263,8 +277,10 @@ mod tests {
         let qp_body = b"Now's the time =\r\nfor all folk to come=\r\n to the aid of their country.";
         let expected = "Now's the time for all folk to come to the aid of their country.";
 
-        let (headers, body) = make_single_part("text/plain; charset=us-ascii", "quoted-printable", qp_body);
-        let parsed = parse_mime(&headers, &body).expect("parse_mime must return Some for text/plain");
+        let (headers, body) =
+            make_single_part("text/plain; charset=us-ascii", "quoted-printable", qp_body);
+        let parsed =
+            parse_mime(&headers, &body).expect("parse_mime must return Some for text/plain");
 
         let MimeNode::SinglePart(ref sp) = parsed.node else {
             panic!("expected SinglePart");
@@ -303,7 +319,11 @@ mod tests {
             .find(|(cid, _)| *cid == sp.decoded_cid)
             .expect("decoded block must be in blocks vec");
 
-        assert_eq!(block_bytes.as_slice(), expected, "base64 decode must match RFC 4648 §10 vector");
+        assert_eq!(
+            block_bytes.as_slice(),
+            expected,
+            "base64 decode must match RFC 4648 §10 vector"
+        );
     }
 
     /// Article with no Content-Type header must return None.
@@ -370,11 +390,7 @@ mod tests {
         assert_eq!(mp.parts.len(), 2, "must have exactly two parts");
         assert!(!mp.parts[0].is_binary, "first part must not be binary");
         assert!(!mp.parts[1].is_binary, "second part must not be binary");
-        assert_eq!(
-            parsed.blocks.len(),
-            2,
-            "must have two decoded blocks"
-        );
+        assert_eq!(parsed.blocks.len(), 2, "must have two decoded blocks");
     }
 
     /// image/jpeg Content-Type must produce is_binary = true.

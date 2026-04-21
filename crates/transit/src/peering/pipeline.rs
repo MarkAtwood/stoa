@@ -149,8 +149,8 @@ where
     let ipfs_write_latency_ms = t0.elapsed().as_millis() as u64;
 
     // 2. Message-ID → CID.
-    let message_id = extract_message_id(article_bytes)
-        .ok_or_else(|| "missing Message-ID header".to_string())?;
+    let message_id =
+        extract_message_id(article_bytes).ok_or_else(|| "missing Message-ID header".to_string())?;
     msgid_map
         .insert(&message_id, &cid)
         .await
