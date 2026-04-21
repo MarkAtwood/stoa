@@ -14,3 +14,14 @@
 [03:43:48] COORDINATOR: claimed epic usenet-ipfs-9f1 (usenet-ipfs-mail: crate foundation)
 [03:43:57] COORDINATOR: phase0 done
 [03:47:18] COORDINATOR: phase1 done — 4 beads for epic 9f1, research complete
+[04:56:25] COORDINATOR: starting SMTP epic loop — cleared stale phase markers
+[04:56:41] COORDINATOR: claimed epic usenet-ipfs-zzo.4 (Sieve engine)
+[04:56:49] COORDINATOR: phase0 done, dolt has no remote (local only)
+[04:59:46] COORDINATOR: phase1 research complete — sieve-rs AGPL blocks adoption, must build from scratch; mail-auth ADOPT; smtp-proto+NNTP pattern for SMTP core
+[05:07:04] COORDINATOR: phase1 replanned — sieve-rs AGPL adopted, 2 beads: skeleton+deps, then impl+tests
+[05:07:26] COORDINATOR: phase2 started — implementing zzo.4.12 (sieve crate skeleton)
+[05:10:02] COORDINATOR: zzo.4.12 closed, starting zzo.4.13 (sieve evaluate impl)
+[05:13:34] COORDINATOR: zzo.4 complete — sieve crate done, 7 tests green
+[05:13:58] COORDINATOR: claimed zzo.1 (SMTP receive daemon)
+[05:20:03] COORDINATOR: phase2 started — wave0 fan-out: zzo.1.1+1.2+1.3
+[05:22:10] COORDINATOR: wave0 closed, starting wave1: zzo.1.4 (session SM) + zzo.1.5 (STARTTLS)

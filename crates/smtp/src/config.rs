@@ -1,0 +1,227 @@
+use serde::Deserialize;
+use std::path::Path;
+
+// Config fields are read from TOML; server logic will consume them as epics are implemented.
+#[allow(dead_code)]
+#[derive(Debug, Deserialize)]
+pub struct Config {
+    pub listen: ListenConfig,
+    #[serde(default = "default_hostname")]
+    pub hostname: String,
+    #[serde(default)]
+    pub tls: TlsConfig,
+    #[serde(default)]
+    pub limits: LimitsConfig,
+    #[serde(default)]
+    pub log: LogConfig,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ListenConfig {
+    pub port_25: String,
+    pub port_587: String,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct TlsConfig {
+    pub cert_path: Option<String>,
+    pub key_path: Option<String>,
+}
+
+fn default_max_message_bytes() -> u64 {
+    26_214_400
+}
+
+fn default_max_recipients() -> usize {
+    100
+}
+
+fn default_command_timeout_secs() -> u64 {
+    300
+}
+
+fn default_max_connections() -> usize {
+    100
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LimitsConfig {
+    #[serde(default = "default_max_message_bytes")]
+    pub max_message_bytes: u64,
+    #[serde(default = "default_max_recipients")]
+    pub max_recipients: usize,
+    #[serde(default = "default_command_timeout_secs")]
+    pub command_timeout_secs: u64,
+    #[serde(default = "default_max_connections")]
+    pub max_connections: usize,
+}
+
+impl Default for LimitsConfig {
+    fn default() -> Self {
+        Self {
+            max_message_bytes: default_max_message_bytes(),
+            max_recipients: default_max_recipients(),
+            command_timeout_secs: default_command_timeout_secs(),
+            max_connections: default_max_connections(),
+        }
+    }
+}
+
+fn default_log_level() -> String {
+    "info".to_string()
+}
+
+fn default_log_format() -> String {
+    "json".to_string()
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LogConfig {
+    /// Log level filter (e.g. "info", "debug").
+    /// Defaults to "info". Also overridden by the RUST_LOG env var.
+    #[serde(default = "default_log_level")]
+    pub level: String,
+    /// Output format: "text" (human-readable) or "json" (structured).
+    #[serde(default = "default_log_format")]
+    pub format: String,
+}
+
+impl Default for LogConfig {
+    fn default() -> Self {
+        Self {
+            level: default_log_level(),
+            format: default_log_format(),
+        }
+    }
+}
+
+fn default_hostname() -> String {
+    "localhost".to_string()
+}
+
+#[derive(Debug)]
+pub enum ConfigError {
+    Io(String),
+    Parse(String),
+    Validation(String),
+}
+
+impl std::fmt::Display for ConfigError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ConfigError::Io(msg) => write!(f, "I/O error: {}", msg),
+            ConfigError::Parse(msg) => write!(f, "parse error: {}", msg),
+            ConfigError::Validation(msg) => write!(f, "validation error: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for ConfigError {}
+
+impl Config {
+    pub fn from_file(path: &Path) -> Result<Config, ConfigError> {
+        let content = std::fs::read_to_string(path).map_err(|e| ConfigError::Io(e.to_string()))?;
+        let config: Config =
+            toml::from_str(&content).map_err(|e| ConfigError::Parse(e.to_string()))?;
+        config.validate()?;
+        Ok(config)
+    }
+
+    pub fn validate(&self) -> Result<(), ConfigError> {
+        if self.hostname.is_empty() {
+            return Err(ConfigError::Validation("hostname must not be empty".into()));
+        }
+        if self.listen.port_25.is_empty() {
+            return Err(ConfigError::Validation(
+                "listen.port_25 must not be empty".into(),
+            ));
+        }
+        if self.listen.port_587.is_empty() {
+            return Err(ConfigError::Validation(
+                "listen.port_587 must not be empty".into(),
+            ));
+        }
+        match (&self.tls.cert_path, &self.tls.key_path) {
+            (Some(_), None) | (None, Some(_)) => {
+                return Err(ConfigError::Validation(
+                    "tls.cert_path and tls.key_path must both be set or both be absent".into(),
+                ));
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    fn write_toml(content: &str) -> NamedTempFile {
+        let mut f = NamedTempFile::new().expect("tempfile");
+        f.write_all(content.as_bytes()).expect("write");
+        f
+    }
+
+    #[test]
+    fn parse_minimal_valid_toml() {
+        let toml = r#"
+[listen]
+port_25 = "0.0.0.0:25"
+port_587 = "0.0.0.0:587"
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("should parse");
+        assert_eq!(cfg.listen.port_25, "0.0.0.0:25");
+        assert_eq!(cfg.listen.port_587, "0.0.0.0:587");
+        assert_eq!(cfg.hostname, "localhost");
+    }
+
+    #[test]
+    fn defaults_applied() {
+        let toml = r#"
+[listen]
+port_25 = "0.0.0.0:25"
+port_587 = "0.0.0.0:587"
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("should parse");
+        assert_eq!(cfg.limits.max_message_bytes, 26_214_400);
+        assert_eq!(cfg.limits.max_recipients, 100);
+        assert_eq!(cfg.limits.command_timeout_secs, 300);
+        assert_eq!(cfg.limits.max_connections, 100);
+        assert_eq!(cfg.log.level, "info");
+        assert_eq!(cfg.log.format, "json");
+    }
+
+    #[test]
+    fn tls_both_or_neither_validation() {
+        let toml = r#"
+[listen]
+port_25 = "0.0.0.0:25"
+port_587 = "0.0.0.0:587"
+
+[tls]
+cert_path = "/etc/ssl/certs/smtp.pem"
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path()).expect_err("should fail");
+        assert!(matches!(err, ConfigError::Validation(_)));
+    }
+
+    #[test]
+    fn empty_hostname_fails_validation() {
+        let toml = r#"
+hostname = ""
+
+[listen]
+port_25 = "0.0.0.0:25"
+port_587 = "0.0.0.0:587"
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path()).expect_err("should fail");
+        assert!(matches!(err, ConfigError::Validation(_)));
+    }
+}
