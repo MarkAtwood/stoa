@@ -1,10 +1,13 @@
+use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::SystemTime;
 
+use mail_auth::MessageAuthenticator;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tracing::{debug, info, warn};
 
+use crate::auth::verify_inbound;
 use crate::config::Config;
 use crate::queue::{IncomingMessage, MessageQueue};
 
@@ -13,17 +16,23 @@ const MAX_LINE_BYTES: usize = 4096;
 #[derive(Debug)]
 enum SessionState {
     Fresh,
-    Greeted,
-    Mail { from: String },
-    Rcpt { from: String, to: Vec<String> },
+    Greeted { ehlo_domain: String },
+    Mail { ehlo_domain: String, from: String },
+    Rcpt { ehlo_domain: String, from: String, to: Vec<String> },
 }
 
 /// Run a complete RFC 5321 SMTP session on the given TCP stream.
+///
+/// `auth` is optional: when `Some`, every accepted message is passed through
+/// the SPF/DKIM/DMARC/ARC pipeline before enqueuing.  When `None` the message
+/// is enqueued without authentication (suitable for loopback submission or
+/// unit tests).
 pub async fn run_session(
     stream: TcpStream,
     peer_addr: String,
     config: Arc<Config>,
     queue: MessageQueue,
+    auth: Option<Arc<MessageAuthenticator>>,
 ) {
     let (read_half, mut write_half) = stream.into_split();
     let mut reader = BufReader::new(read_half);
@@ -35,6 +44,12 @@ pub async fn run_session(
     if write_half.write_all(greeting.as_bytes()).await.is_err() {
         return;
     }
+
+    // Parse the peer IP once; fall back to loopback if unparseable.
+    let client_ip: IpAddr = peer_addr
+        .parse::<std::net::SocketAddr>()
+        .map(|sa| sa.ip())
+        .unwrap_or(IpAddr::from([127, 0, 0, 1]));
 
     let mut state = SessionState::Fresh;
 
@@ -85,7 +100,7 @@ pub async fn run_session(
                 if write_half.write_all(resp.as_bytes()).await.is_err() {
                     break;
                 }
-                state = SessionState::Greeted;
+                state = SessionState::Greeted { ehlo_domain: args.to_string() };
             }
 
             "HELO" => {
@@ -93,42 +108,47 @@ pub async fn run_session(
                 if write_half.write_all(resp.as_bytes()).await.is_err() {
                     break;
                 }
-                state = SessionState::Greeted;
+                state = SessionState::Greeted { ehlo_domain: args.to_string() };
             }
 
             "MAIL" => {
                 // Must be in Greeted state.
-                if !matches!(state, SessionState::Greeted) {
-                    if write_half
-                        .write_all(b"503 Bad sequence of commands\r\n")
-                        .await
-                        .is_err()
-                    {
-                        break;
+                let ehlo_domain = match &state {
+                    SessionState::Greeted { ehlo_domain } => ehlo_domain.clone(),
+                    _ => {
+                        if write_half
+                            .write_all(b"503 Bad sequence of commands\r\n")
+                            .await
+                            .is_err()
+                        {
+                            break;
+                        }
+                        continue;
                     }
-                    continue;
-                }
+                };
                 let from = parse_angle_addr(args);
                 if write_half.write_all(b"250 OK\r\n").await.is_err() {
                     break;
                 }
-                state = SessionState::Mail { from };
+                state = SessionState::Mail { ehlo_domain, from };
             }
 
             "RCPT" => {
                 match state {
-                    SessionState::Mail { ref from } => {
+                    SessionState::Mail { ref ehlo_domain, ref from } => {
                         let to_addr = parse_angle_addr(args);
+                        let ehlo_domain = ehlo_domain.clone();
                         let from_clone = from.clone();
                         if write_half.write_all(b"250 OK\r\n").await.is_err() {
                             break;
                         }
                         state = SessionState::Rcpt {
+                            ehlo_domain,
                             from: from_clone,
                             to: vec![to_addr],
                         };
                     }
-                    SessionState::Rcpt { from: _, ref mut to } => {
+                    SessionState::Rcpt { from: _, ref ehlo_domain, ref mut to } => {
                         if to.len() >= config.limits.max_recipients {
                             if write_half
                                 .write_all(b"452 Too many recipients\r\n")
@@ -144,6 +164,8 @@ pub async fn run_session(
                                 break;
                             }
                         }
+                        // suppress unused variable warning on ehlo_domain
+                        let _ = ehlo_domain;
                     }
                     _ => {
                         if write_half
@@ -159,9 +181,9 @@ pub async fn run_session(
 
             "DATA" => {
                 // Must be in Rcpt state with at least one recipient.
-                let (from, to) = match state {
-                    SessionState::Rcpt { ref from, ref to } if !to.is_empty() => {
-                        (from.clone(), to.clone())
+                let (ehlo_domain, from, to) = match state {
+                    SessionState::Rcpt { ref ehlo_domain, ref from, ref to } if !to.is_empty() => {
+                        (ehlo_domain.clone(), from.clone(), to.clone())
                     }
                     _ => {
                         if write_half
@@ -185,7 +207,7 @@ pub async fn run_session(
 
                 // Read dot-terminated message body.
                 let max_bytes = config.limits.max_message_bytes;
-                let (raw_bytes, too_large) =
+                let (mut raw_bytes, too_large) =
                     read_data_body(&mut reader, max_bytes).await;
 
                 if too_large {
@@ -196,8 +218,50 @@ pub async fn run_session(
                     {
                         break;
                     }
-                    state = SessionState::Greeted;
+                    state = SessionState::Greeted { ehlo_domain };
                     continue;
+                }
+
+                // Run the inbound authentication pipeline if an authenticator
+                // is configured.  On DMARC reject the session sends 550 and
+                // resets to Greeted (the TCP connection stays open per RFC 5321
+                // §6.1 — a 5xx on DATA is not a reason to terminate).
+                if let Some(ref authenticator) = auth {
+                    let result = verify_inbound(
+                        authenticator,
+                        &raw_bytes,
+                        client_ip,
+                        &ehlo_domain,
+                        &from,
+                        &config.hostname,
+                    )
+                    .await;
+
+                    if result.dmarc_reject {
+                        warn!(
+                            peer = %peer_addr,
+                            from = %from,
+                            "DMARC reject policy applied — rejecting message"
+                        );
+                        if write_half
+                            .write_all(
+                                b"550 5.7.1 Message rejected due to DMARC policy\r\n",
+                            )
+                            .await
+                            .is_err()
+                        {
+                            break;
+                        }
+                        state = SessionState::Greeted { ehlo_domain };
+                        continue;
+                    }
+
+                    // Prepend Authentication-Results header to the message.
+                    let header_line =
+                        format!("Authentication-Results: {}\r\n", result.header);
+                    let mut prefixed = header_line.into_bytes();
+                    prefixed.extend_from_slice(&raw_bytes);
+                    raw_bytes = prefixed;
                 }
 
                 let msg = IncomingMessage {
@@ -212,7 +276,7 @@ pub async fn run_session(
                 if write_half.write_all(b"250 OK\r\n").await.is_err() {
                     break;
                 }
-                state = SessionState::Greeted;
+                state = SessionState::Greeted { ehlo_domain };
             }
 
             "RSET" => {
@@ -221,7 +285,11 @@ pub async fn run_session(
                 }
                 state = match state {
                     SessionState::Fresh => SessionState::Fresh,
-                    _ => SessionState::Greeted,
+                    SessionState::Greeted { ehlo_domain }
+                    | SessionState::Mail { ehlo_domain, .. }
+                    | SessionState::Rcpt { ehlo_domain, .. } => {
+                        SessionState::Greeted { ehlo_domain }
+                    }
                 };
             }
 
@@ -363,33 +431,6 @@ mod tests {
         let config = test_config();
         let (queue, mut rx) = MessageQueue::new();
 
-        // duplex gives us two connected async byte streams.
-        let (client_side, server_side) = tokio::io::duplex(65536);
-        let (client_read, mut client_write) = tokio::io::split(client_side);
-
-        // Write the client script, then shut down the write side so the server
-        // sees EOF after processing.
-        client_write
-            .write_all(client_script)
-            .await
-            .expect("client write");
-        // We need to close the write side to signal EOF, but DuplexStream's
-        // write half is not independently closable.  Instead we spawn the
-        // session and then drop the write half after the read is done.
-
-        // Convert the DuplexStream halves into a TcpStream-compatible type
-        // using an actual loopback pair.
-        //
-        // tokio::io::duplex returns a DuplexStream which is not a TcpStream.
-        // We run the session on a separate task using the server_side directly,
-        // passing it through a thin wrapper.
-        //
-        // Since run_session requires TcpStream, we use an actual loopback
-        // TCP pair instead.
-        drop(client_read);
-        drop(client_write);
-        drop(server_side);
-
         // Use a real TCP loopback pair.
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await
@@ -400,7 +441,7 @@ mod tests {
         let queue2 = queue.clone();
         let server_task = tokio::spawn(async move {
             let (stream, peer) = listener.accept().await.expect("accept");
-            run_session(stream, peer.to_string(), config2, queue2).await;
+            run_session(stream, peer.to_string(), config2, queue2, None).await;
         });
 
         let mut client = tokio::net::TcpStream::connect(addr)
@@ -518,6 +559,59 @@ mod tests {
         assert!(
             response.contains("500 Line too long"),
             "expected 500 Line too long, got: {response}"
+        );
+    }
+
+    /// When `auth` is Some, a message with no DKIM / no DMARC record still
+    /// gets accepted (dmarc_reject will be false) and has the
+    /// Authentication-Results header prepended.
+    #[tokio::test]
+    async fn test_auth_pipeline_stamps_header() {
+        let auth = Arc::new(
+            mail_auth::MessageAuthenticator::new_cloudflare()
+                .expect("resolver creation must not fail"),
+        );
+
+        let config = test_config();
+        let (queue, mut rx) = MessageQueue::new();
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        let config2 = config.clone();
+        let queue2 = queue.clone();
+        let auth2 = auth.clone();
+        tokio::spawn(async move {
+            let (stream, peer) = listener.accept().await.unwrap();
+            run_session(stream, peer.to_string(), config2, queue2, Some(auth2)).await;
+        });
+
+        let mut client = tokio::net::TcpStream::connect(addr).await.unwrap();
+        let script = b"EHLO client.example.com\r\n\
+            MAIL FROM:<sender@example.com>\r\n\
+            RCPT TO:<rcpt@example.com>\r\n\
+            DATA\r\n\
+            From: sender@example.com\r\n\
+            To: rcpt@example.com\r\n\
+            Subject: Auth test\r\n\
+            Date: Mon, 01 Jan 2024 00:00:00 +0000\r\n\
+            \r\n\
+            Body.\r\n\
+            .\r\n\
+            QUIT\r\n";
+        client.write_all(script).await.unwrap();
+        client.shutdown().await.unwrap();
+
+        let mut response = String::new();
+        client.read_to_string(&mut response).await.unwrap();
+
+        assert!(response.contains("250 OK"), "expected 250 after DATA");
+
+        let msg = rx.recv().await.expect("message must be queued");
+        let raw = std::str::from_utf8(&msg.raw_bytes).expect("valid UTF-8");
+        assert!(
+            raw.contains("Authentication-Results:"),
+            "expected Authentication-Results header in message:\n{raw}"
         );
     }
 }

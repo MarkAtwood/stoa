@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use mail_auth::MessageAuthenticator;
 use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
 use tracing::{error, info, warn};
@@ -17,6 +18,18 @@ pub async fn run_server(
     config: Arc<Config>,
     queue: MessageQueue,
 ) {
+    let auth: Option<Arc<MessageAuthenticator>> =
+        match MessageAuthenticator::new_cloudflare() {
+            Ok(a) => {
+                info!("inbound auth (SPF/DKIM/DMARC/ARC) enabled via Cloudflare DNS");
+                Some(Arc::new(a))
+            }
+            Err(e) => {
+                warn!("failed to create DNS resolver — inbound auth disabled: {e}");
+                None
+            }
+        };
+
     let semaphore = Arc::new(Semaphore::new(config.limits.max_connections));
 
     loop {
@@ -54,9 +67,10 @@ pub async fn run_server(
 
         let config = config.clone();
         let queue = queue.clone();
+        let auth = auth.clone();
         tokio::spawn(async move {
             let _permit = permit; // released when session task ends
-            run_session(stream, peer_str, config, queue).await;
+            run_session(stream, peer_str, config, queue, auth).await;
         });
     }
 }
