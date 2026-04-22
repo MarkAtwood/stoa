@@ -5,30 +5,61 @@ use tokio::{
     net::TcpStream,
     time::timeout,
 };
+use tracing::warn;
 
 const OPERATION_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Configuration for NNTP client connections.
+#[derive(Debug, Clone)]
+pub struct NntpClientConfig {
+    /// TCP address of the NNTP server (e.g. `"127.0.0.1:119"`).
+    pub addr: String,
+    /// Optional AUTHINFO USER credential.
+    pub username: Option<String>,
+    /// Optional AUTHINFO PASS credential.
+    pub password: Option<String>,
+    /// Maximum retry attempts on transient 436 failures.
+    pub max_retries: u32,
+}
 
 /// Post an article to an NNTP server via TCP.
 ///
 /// Protocol sequence:
 /// 1. Read `200` greeting
-/// 2. Send `POST\r\n`
-/// 3. Read `340` (send article)
+/// 2. Optionally authenticate with AUTHINFO USER/PASS (if credentials configured)
+/// 3. Send `POST\r\n`, read `340`
 /// 4. Write dot-stuffed article bytes followed by `\r\n.\r\n`
-/// 5. Read `240` or `250` (article received)
+/// 5. Read final response:
+///    - `240`: success → verify with ARTICLE command
+///    - `436`: transient failure → retry with exponential backoff (up to max_retries)
+///    - `437`: permanent rejection → return `Err` immediately
+///    - other: return `Err`
+/// 6. Verify with `ARTICLE <message_id>`, expect `220` (non-fatal warning on failure)
+/// 7. Send `QUIT`
 ///
-/// Returns `Ok(())` on 240/250. Returns `Err(String)` on any protocol
+/// Returns `Ok(())` on success. Returns `Err(String)` on any protocol
 /// deviation, I/O error, or timeout.
-pub async fn post_article(addr: &str, article_bytes: &[u8]) -> Result<(), String> {
-    timeout(OPERATION_TIMEOUT, do_post(addr, article_bytes))
-        .await
-        .map_err(|_| "NNTP POST timed out after 30 seconds".to_string())?
+pub async fn post_article(
+    config: &NntpClientConfig,
+    article_bytes: &[u8],
+    message_id: &str,
+) -> Result<(), String> {
+    timeout(
+        OPERATION_TIMEOUT,
+        do_post(config, article_bytes, message_id),
+    )
+    .await
+    .map_err(|_| "NNTP POST timed out after 30 seconds".to_string())?
 }
 
-async fn do_post(addr: &str, article_bytes: &[u8]) -> Result<(), String> {
-    let stream = TcpStream::connect(addr)
+async fn do_post(
+    config: &NntpClientConfig,
+    article_bytes: &[u8],
+    message_id: &str,
+) -> Result<(), String> {
+    let stream = TcpStream::connect(&config.addr)
         .await
-        .map_err(|e| format!("failed to connect to NNTP server {addr}: {e}"))?;
+        .map_err(|e| format!("failed to connect to NNTP server {}: {e}", config.addr))?;
 
     let (reader_half, mut writer) = stream.into_split();
     let mut reader = BufReader::new(reader_half);
@@ -44,52 +75,136 @@ async fn do_post(addr: &str, article_bytes: &[u8]) -> Result<(), String> {
     }
     line.clear();
 
-    // Send POST command
-    writer
-        .write_all(b"POST\r\n")
-        .await
-        .map_err(|e| format!("failed to send POST command: {e}"))?;
+    // AUTHINFO USER/PASS (if credentials configured)
+    if let (Some(username), Some(password)) = (&config.username, &config.password) {
+        writer
+            .write_all(format!("AUTHINFO USER {username}\r\n").as_bytes())
+            .await
+            .map_err(|e| format!("failed to send AUTHINFO USER: {e}"))?;
 
-    // Read 340 (go ahead, send article)
-    reader
-        .read_line(&mut line)
-        .await
-        .map_err(|e| format!("failed to read POST response: {e}"))?;
-    if !line.starts_with("340") {
-        return Err(format!("NNTP server rejected POST: {}", line.trim_end()));
+        reader
+            .read_line(&mut line)
+            .await
+            .map_err(|e| format!("failed to read AUTHINFO USER response: {e}"))?;
+        if !line.starts_with("381") {
+            return Err(format!(
+                "AUTHINFO USER failed: {}",
+                line.trim_end()
+            ));
+        }
+        line.clear();
+
+        writer
+            .write_all(format!("AUTHINFO PASS {password}\r\n").as_bytes())
+            .await
+            .map_err(|e| format!("failed to send AUTHINFO PASS: {e}"))?;
+
+        reader
+            .read_line(&mut line)
+            .await
+            .map_err(|e| format!("failed to read AUTHINFO PASS response: {e}"))?;
+        if !line.starts_with("281") {
+            return Err(format!(
+                "AUTHINFO PASS failed: {}",
+                line.trim_end()
+            ));
+        }
+        line.clear();
     }
-    line.clear();
 
-    // Write dot-stuffed article
+    // POST with retry loop on 436
     let stuffed = dot_stuff(article_bytes);
-    writer
-        .write_all(&stuffed)
-        .await
-        .map_err(|e| format!("failed to write article body: {e}"))?;
+    let mut attempt = 0u32;
+    loop {
+        // Send POST command
+        writer
+            .write_all(b"POST\r\n")
+            .await
+            .map_err(|e| format!("failed to send POST command: {e}"))?;
 
-    // End-of-article marker
-    writer
-        .write_all(b"\r\n.\r\n")
-        .await
-        .map_err(|e| format!("failed to write article terminator: {e}"))?;
+        // Read 340 (go ahead, send article)
+        reader
+            .read_line(&mut line)
+            .await
+            .map_err(|e| format!("failed to read POST response: {e}"))?;
+        if !line.starts_with("340") {
+            return Err(format!("NNTP server rejected POST: {}", line.trim_end()));
+        }
+        line.clear();
 
-    writer
-        .flush()
-        .await
-        .map_err(|e| format!("failed to flush NNTP stream: {e}"))?;
+        // Write dot-stuffed article
+        writer
+            .write_all(&stuffed)
+            .await
+            .map_err(|e| format!("failed to write article body: {e}"))?;
 
-    // Read final response: 240 or 250 = success
+        // End-of-article marker
+        writer
+            .write_all(b"\r\n.\r\n")
+            .await
+            .map_err(|e| format!("failed to write article terminator: {e}"))?;
+
+        writer
+            .flush()
+            .await
+            .map_err(|e| format!("failed to flush NNTP stream: {e}"))?;
+
+        // Read final response
+        reader
+            .read_line(&mut line)
+            .await
+            .map_err(|e| format!("failed to read article-received response: {e}"))?;
+
+        let code = line.get(..3).unwrap_or("");
+        if code == "240" || code == "250" {
+            break;
+        } else if code == "437" {
+            return Err(format!("NNTP 437: article permanently rejected: {}", line.trim_end()));
+        } else if code == "436" {
+            attempt += 1;
+            if attempt >= config.max_retries {
+                return Err(format!(
+                    "NNTP 436: transient failure after {attempt} attempt(s): {}",
+                    line.trim_end()
+                ));
+            }
+            let backoff = Duration::from_millis(500u64 * (1u64 << attempt));
+            warn!(
+                attempt,
+                backoff_ms = backoff.as_millis(),
+                "NNTP 436 transient failure, retrying"
+            );
+            line.clear();
+            tokio::time::sleep(backoff).await;
+            continue;
+        } else {
+            return Err(format!("NNTP article not accepted: {}", line.trim_end()));
+        }
+    }
+
+    // Verify with ARTICLE command (non-fatal on failure)
+    writer
+        .write_all(format!("ARTICLE <{message_id}>\r\n").as_bytes())
+        .await
+        .map_err(|e| format!("failed to send ARTICLE verify command: {e}"))?;
+
+    line.clear();
     reader
         .read_line(&mut line)
         .await
-        .map_err(|e| format!("failed to read article-received response: {e}"))?;
-
-    let code = line.get(..3).unwrap_or("");
-    if code == "240" || code == "250" {
-        Ok(())
-    } else {
-        Err(format!("NNTP article not accepted: {}", line.trim_end()))
+        .map_err(|e| format!("failed to read ARTICLE verify response: {e}"))?;
+    if !line.starts_with("220") {
+        warn!(
+            message_id,
+            response = line.trim_end(),
+            "NNTP ARTICLE verify did not return 220 — article may still be accepted"
+        );
     }
+
+    // QUIT
+    let _ = writer.write_all(b"QUIT\r\n").await;
+
+    Ok(())
 }
 
 /// Perform dot-stuffing on article bytes per RFC 3977 §3.1.1.
@@ -114,6 +229,15 @@ mod tests {
     use super::*;
     use tokio::io::AsyncReadExt;
     use tokio::net::TcpListener;
+
+    fn no_auth_config(addr: String) -> NntpClientConfig {
+        NntpClientConfig {
+            addr,
+            username: None,
+            password: None,
+            max_retries: 3,
+        }
+    }
 
     // --- dot_stuff ---
 
@@ -148,13 +272,33 @@ mod tests {
         assert_eq!(dot_stuff(b""), b"".to_vec());
     }
 
-    // --- post_article (mock server tests) ---
+    // --- mock server helper ---
 
+    /// Read from `reader` until the NNTP end-of-article marker `\r\n.\r\n`.
+    async fn read_until_eoa(reader: &mut BufReader<tokio::net::tcp::OwnedReadHalf>) {
+        let mut buf = Vec::new();
+        let mut tmp = [0u8; 1];
+        loop {
+            reader.read_exact(&mut tmp).await.expect("read body byte");
+            buf.push(tmp[0]);
+            if buf.len() >= 5 {
+                let tail = &buf[buf.len() - 5..];
+                if tail == b"\r\n.\r\n" {
+                    break;
+                }
+            }
+        }
+    }
+
+    /// Minimal mock NNTP server: sends `greeting`, expects POST, sends `post_response`,
+    /// reads article body, sends `final_response`, reads ARTICLE verify, sends `article_response`,
+    /// reads QUIT.
     async fn run_mock_server(
         listener: TcpListener,
         greeting: &'static str,
         post_response: &'static str,
         final_response: &'static str,
+        article_response: &'static str,
     ) {
         let (stream, _) = listener.accept().await.expect("accept");
         let (reader_half, mut writer) = stream.into_split();
@@ -174,29 +318,28 @@ mod tests {
             .await
             .expect("write 340");
 
-        // Read until end-of-article marker
-        let mut buf = Vec::new();
-        let mut prev = [0u8; 4];
-        let mut tmp = [0u8; 1];
-        loop {
-            reader.read_exact(&mut tmp).await.expect("read body byte");
-            buf.push(tmp[0]);
-            prev = [prev[1], prev[2], prev[3], tmp[0]];
-            // Look for \r\n.\r\n
-            if buf.len() >= 5 {
-                let tail = &buf[buf.len() - 5..];
-                if tail == b"\r\n.\r\n" {
-                    break;
-                }
-            }
-            let _ = prev;
-        }
+        read_until_eoa(&mut reader).await;
 
         writer
             .write_all(final_response.as_bytes())
             .await
             .expect("write final");
+
+        // Read ARTICLE verify command
+        line.clear();
+        reader.read_line(&mut line).await.expect("read ARTICLE");
+
+        writer
+            .write_all(article_response.as_bytes())
+            .await
+            .expect("write article response");
+
+        // Read QUIT
+        line.clear();
+        let _ = reader.read_line(&mut line).await;
     }
+
+    // --- post_article (mock server tests) ---
 
     #[tokio::test]
     async fn post_article_success_240() {
@@ -208,10 +351,12 @@ mod tests {
             "200 NNTP Service Ready\r\n",
             "340 Send article\r\n",
             "240 Article received ok\r\n",
+            "220 0 <test@example.com> article\r\n",
         ));
 
+        let config = no_auth_config(addr);
         let msg = b"From: a@b.com\r\nSubject: test\r\n\r\nbody\r\n";
-        let result = post_article(&addr, msg).await;
+        let result = post_article(&config, msg, "test@example.com").await;
         assert!(result.is_ok(), "expected Ok, got: {result:?}");
     }
 
@@ -225,10 +370,12 @@ mod tests {
             "200 NNTP Service Ready\r\n",
             "340 Send article\r\n",
             "250 Article accepted\r\n",
+            "220 0 <test@example.com> article\r\n",
         ));
 
+        let config = no_auth_config(addr);
         let msg = b"From: a@b.com\r\nSubject: test\r\n\r\nbody\r\n";
-        let result = post_article(&addr, msg).await;
+        let result = post_article(&config, msg, "test@example.com").await;
         assert!(result.is_ok(), "expected Ok, got: {result:?}");
     }
 
@@ -254,8 +401,9 @@ mod tests {
                 .expect("write 440");
         });
 
+        let config = no_auth_config(addr);
         let msg = b"From: a@b.com\r\n\r\nbody\r\n";
-        let result = post_article(&addr, msg).await;
+        let result = post_article(&config, msg, "test@example.com").await;
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("440"), "expected 440 in error");
     }
@@ -274,8 +422,9 @@ mod tests {
                 .expect("write");
         });
 
+        let config = no_auth_config(addr);
         let msg = b"From: a@b.com\r\n\r\nbody\r\n";
-        let result = post_article(&addr, msg).await;
+        let result = post_article(&config, msg, "test@example.com").await;
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("502"));
     }
@@ -290,10 +439,12 @@ mod tests {
             "200 NNTP Service Ready\r\n",
             "340 Send article\r\n",
             "441 Posting failed\r\n",
+            "",
         ));
 
+        let config = no_auth_config(addr);
         let msg = b"From: a@b.com\r\nSubject: test\r\n\r\nbody\r\n";
-        let result = post_article(&addr, msg).await;
+        let result = post_article(&config, msg, "test@example.com").await;
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("441"));
     }
@@ -301,7 +452,290 @@ mod tests {
     #[tokio::test]
     async fn post_article_connection_refused() {
         // Port 1 is reserved/unlikely to be listening
-        let result = post_article("127.0.0.1:1", b"test\r\n").await;
+        let config = no_auth_config("127.0.0.1:1".to_string());
+        let result = post_article(&config, b"test\r\n", "test@example.com").await;
         assert!(result.is_err());
+    }
+
+    // --- 437 permanent rejection ---
+
+    #[tokio::test]
+    async fn post_article_437_permanent_rejection_no_retry() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let addr = listener.local_addr().expect("local_addr").to_string();
+
+        tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.expect("accept");
+            let (reader_half, mut writer) = stream.into_split();
+            let mut reader = BufReader::new(reader_half);
+            let mut line = String::new();
+
+            writer
+                .write_all(b"200 NNTP Service Ready\r\n")
+                .await
+                .expect("write greeting");
+
+            reader.read_line(&mut line).await.expect("read POST");
+            assert_eq!(line.trim_end(), "POST");
+            writer
+                .write_all(b"340 Send article\r\n")
+                .await
+                .expect("write 340");
+
+            read_until_eoa(&mut reader).await;
+
+            writer
+                .write_all(b"437 Article permanently rejected\r\n")
+                .await
+                .expect("write 437");
+        });
+
+        let config = no_auth_config(addr);
+        let msg = b"From: a@b.com\r\nSubject: test\r\n\r\nbody\r\n";
+        let result = post_article(&config, msg, "test@example.com").await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("437"), "expected 437 in error, got: {err}");
+    }
+
+    // --- 436 transient retry ---
+
+    #[tokio::test]
+    async fn post_article_436_retries_then_succeeds() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let addr = listener.local_addr().expect("local_addr").to_string();
+
+        tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.expect("accept");
+            let (reader_half, mut writer) = stream.into_split();
+            let mut reader = BufReader::new(reader_half);
+            let mut line = String::new();
+
+            writer
+                .write_all(b"200 NNTP Service Ready\r\n")
+                .await
+                .expect("write greeting");
+
+            // Attempt 1: 436
+            line.clear();
+            reader.read_line(&mut line).await.expect("read POST 1");
+            assert_eq!(line.trim_end(), "POST");
+            writer.write_all(b"340 Send article\r\n").await.expect("write 340");
+            read_until_eoa(&mut reader).await;
+            writer.write_all(b"436 Try again later\r\n").await.expect("write 436");
+
+            // Attempt 2: 240
+            line.clear();
+            reader.read_line(&mut line).await.expect("read POST 2");
+            assert_eq!(line.trim_end(), "POST");
+            writer.write_all(b"340 Send article\r\n").await.expect("write 340");
+            read_until_eoa(&mut reader).await;
+            writer.write_all(b"240 Article received ok\r\n").await.expect("write 240");
+
+            // ARTICLE verify
+            line.clear();
+            reader.read_line(&mut line).await.expect("read ARTICLE");
+            writer
+                .write_all(b"220 0 <test@example.com> article\r\n")
+                .await
+                .expect("write 220");
+
+            // QUIT
+            line.clear();
+            let _ = reader.read_line(&mut line).await;
+        });
+
+        let config = NntpClientConfig {
+            addr,
+            username: None,
+            password: None,
+            max_retries: 3,
+        };
+        let msg = b"From: a@b.com\r\nSubject: test\r\n\r\nbody\r\n";
+        let result = post_article(&config, msg, "test@example.com").await;
+        assert!(result.is_ok(), "expected Ok after retry, got: {result:?}");
+    }
+
+    #[tokio::test]
+    async fn post_article_436_exhausts_retries() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let addr = listener.local_addr().expect("local_addr").to_string();
+
+        // max_retries = 2; server always returns 436
+        tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.expect("accept");
+            let (reader_half, mut writer) = stream.into_split();
+            let mut reader = BufReader::new(reader_half);
+            let mut line = String::new();
+
+            writer
+                .write_all(b"200 NNTP Service Ready\r\n")
+                .await
+                .expect("write greeting");
+
+            for _ in 0..2 {
+                line.clear();
+                reader.read_line(&mut line).await.expect("read POST");
+                assert_eq!(line.trim_end(), "POST");
+                writer.write_all(b"340 Send article\r\n").await.expect("write 340");
+                read_until_eoa(&mut reader).await;
+                writer.write_all(b"436 Deferred\r\n").await.expect("write 436");
+            }
+        });
+
+        let config = NntpClientConfig {
+            addr,
+            username: None,
+            password: None,
+            max_retries: 2,
+        };
+        let msg = b"From: a@b.com\r\nSubject: test\r\n\r\nbody\r\n";
+        let result = post_article(&config, msg, "test@example.com").await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("436"), "expected 436 in error, got: {err}");
+    }
+
+    // --- AUTHINFO ---
+
+    #[tokio::test]
+    async fn post_article_authinfo_success() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let addr = listener.local_addr().expect("local_addr").to_string();
+
+        tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.expect("accept");
+            let (reader_half, mut writer) = stream.into_split();
+            let mut reader = BufReader::new(reader_half);
+            let mut line = String::new();
+
+            writer
+                .write_all(b"200 NNTP Service Ready\r\n")
+                .await
+                .expect("write greeting");
+
+            // AUTHINFO USER
+            reader.read_line(&mut line).await.expect("read authinfo user");
+            assert_eq!(line.trim_end(), "AUTHINFO USER testuser");
+            writer.write_all(b"381 Enter password\r\n").await.expect("write 381");
+
+            // AUTHINFO PASS
+            line.clear();
+            reader.read_line(&mut line).await.expect("read authinfo pass");
+            assert_eq!(line.trim_end(), "AUTHINFO PASS secret");
+            writer.write_all(b"281 Authentication accepted\r\n").await.expect("write 281");
+
+            // POST
+            line.clear();
+            reader.read_line(&mut line).await.expect("read POST");
+            assert_eq!(line.trim_end(), "POST");
+            writer.write_all(b"340 Send article\r\n").await.expect("write 340");
+            read_until_eoa(&mut reader).await;
+            writer.write_all(b"240 Article received ok\r\n").await.expect("write 240");
+
+            // ARTICLE verify
+            line.clear();
+            reader.read_line(&mut line).await.expect("read ARTICLE");
+            writer
+                .write_all(b"220 0 <mid@example.com> article\r\n")
+                .await
+                .expect("write 220");
+
+            // QUIT
+            line.clear();
+            let _ = reader.read_line(&mut line).await;
+        });
+
+        let config = NntpClientConfig {
+            addr,
+            username: Some("testuser".to_string()),
+            password: Some("secret".to_string()),
+            max_retries: 3,
+        };
+        let msg = b"From: a@b.com\r\nSubject: test\r\n\r\nbody\r\n";
+        let result = post_article(&config, msg, "mid@example.com").await;
+        assert!(result.is_ok(), "expected Ok with auth, got: {result:?}");
+    }
+
+    #[tokio::test]
+    async fn post_article_authinfo_wrong_password() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let addr = listener.local_addr().expect("local_addr").to_string();
+
+        tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.expect("accept");
+            let (reader_half, mut writer) = stream.into_split();
+            let mut reader = BufReader::new(reader_half);
+            let mut line = String::new();
+
+            writer
+                .write_all(b"200 NNTP Service Ready\r\n")
+                .await
+                .expect("write greeting");
+
+            // AUTHINFO USER
+            reader.read_line(&mut line).await.expect("read authinfo user");
+            writer.write_all(b"381 Enter password\r\n").await.expect("write 381");
+
+            // AUTHINFO PASS — reject
+            line.clear();
+            reader.read_line(&mut line).await.expect("read authinfo pass");
+            writer.write_all(b"482 Authentication failed\r\n").await.expect("write 482");
+        });
+
+        let config = NntpClientConfig {
+            addr,
+            username: Some("testuser".to_string()),
+            password: Some("wrong".to_string()),
+            max_retries: 3,
+        };
+        let msg = b"From: a@b.com\r\n\r\nbody\r\n";
+        let result = post_article(&config, msg, "mid@example.com").await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("482"), "expected 482 in error, got: {err}");
+    }
+
+    // --- ARTICLE verify non-fatal ---
+
+    #[tokio::test]
+    async fn post_article_article_verify_non_fatal() {
+        // Server returns 240 but ARTICLE verify returns 430 (not found); should still succeed.
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let addr = listener.local_addr().expect("local_addr").to_string();
+
+        tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.expect("accept");
+            let (reader_half, mut writer) = stream.into_split();
+            let mut reader = BufReader::new(reader_half);
+            let mut line = String::new();
+
+            writer
+                .write_all(b"200 NNTP Service Ready\r\n")
+                .await
+                .expect("write greeting");
+
+            reader.read_line(&mut line).await.expect("read POST");
+            writer.write_all(b"340 Send article\r\n").await.expect("write 340");
+            read_until_eoa(&mut reader).await;
+            writer.write_all(b"240 Article received ok\r\n").await.expect("write 240");
+
+            // ARTICLE verify: return 430
+            line.clear();
+            reader.read_line(&mut line).await.expect("read ARTICLE");
+            writer.write_all(b"430 No such article\r\n").await.expect("write 430");
+
+            // QUIT
+            line.clear();
+            let _ = reader.read_line(&mut line).await;
+        });
+
+        let config = no_auth_config(addr);
+        let msg = b"From: a@b.com\r\nSubject: test\r\n\r\nbody\r\n";
+        let result = post_article(&config, msg, "test@example.com").await;
+        assert!(
+            result.is_ok(),
+            "ARTICLE verify failure should be non-fatal, got: {result:?}"
+        );
     }
 }

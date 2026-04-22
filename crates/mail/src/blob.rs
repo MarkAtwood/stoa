@@ -1,23 +1,32 @@
+use std::sync::Arc;
+
 use axum::{
     body::Body,
-    extract::Path,
+    extract::{Path, State},
     http::{header, StatusCode},
     response::Response,
     Extension,
 };
 
-use crate::server::AuthenticatedUser;
+use crate::server::{AppState, AuthenticatedUser};
+use usenet_ipfs_reader::post::ipfs_write::IpfsWriteError;
 
 /// GET /jmap/download/{accountId}/{blobId}/{name}
 ///
-/// v1: parses blobId as a CID string. Returns 400 if blobId is not a valid CID.
-/// When an authenticated user is present (non-dev mode), the path account_id
-/// must equal `u_{username}` — any other account returns 403.
-/// Actual IPFS fetch is stubbed — returns 501 Not Implemented until IPFS
-/// is wired into the server AppState.
+/// Parses blobId as a CID string, fetches the raw block from IPFS, wraps it
+/// in a synthetic RFC 5322 MIME message, and returns that as the body with
+/// Content-Type: message/rfc822.
+///
+/// Error mapping:
+/// - 400: blobId is not a valid CID.
+/// - 403: authenticated user does not own the requested account.
+/// - 404: CID not found in IPFS.
+/// - 503: JMAP stores not configured (server in stub/dev mode).
+/// - 500: any other IPFS error.
 pub async fn blob_download(
+    State(state): State<Arc<AppState>>,
     user: Option<Extension<AuthenticatedUser>>,
-    Path((account_id, blob_id, name)): Path<(String, String, String)>,
+    Path((account_id, blob_id, _name)): Path<(String, String, String)>,
 ) -> Response<Body> {
     // In authenticated mode, verify the caller owns the requested account.
     if let Some(Extension(ref authenticated_user)) = user {
@@ -32,36 +41,114 @@ pub async fn blob_download(
     }
 
     // Validate that blobId looks like a CID.
-    if cid::Cid::try_from(blob_id.as_str()).is_err() {
-        return Response::builder()
-            .status(StatusCode::BAD_REQUEST)
-            .header(header::CONTENT_TYPE, "text/plain")
-            .body(Body::from("invalid blobId"))
-            .unwrap();
-    }
+    let cid = match cid::Cid::try_from(blob_id.as_str()) {
+        Ok(c) => c,
+        Err(_) => {
+            return Response::builder()
+                .status(StatusCode::BAD_REQUEST)
+                .header(header::CONTENT_TYPE, "text/plain")
+                .body(Body::from("invalid blobId"))
+                .unwrap();
+        }
+    };
 
-    // v1: IPFS fetch not yet wired; return 501.
-    tracing::warn!(
-        account_id = %account_id,
-        blob_id = %blob_id,
-        name = %name,
-        "Blob/get: IPFS fetch not yet implemented in v1"
+    // Require JMAP stores to be configured.
+    let jmap = match state.jmap.as_ref() {
+        Some(j) => j,
+        None => {
+            return Response::builder()
+                .status(StatusCode::SERVICE_UNAVAILABLE)
+                .header(header::CONTENT_TYPE, "text/plain")
+                .body(Body::from("503 JMAP not configured"))
+                .unwrap();
+        }
+    };
+
+    // Fetch the raw block from IPFS.
+    let bytes = match jmap.ipfs.get_raw_block(&cid).await {
+        Ok(b) => b,
+        Err(IpfsWriteError::NotFound(_)) => {
+            return Response::builder()
+                .status(StatusCode::NOT_FOUND)
+                .header(header::CONTENT_TYPE, "text/plain")
+                .body(Body::from("404 blob not found"))
+                .unwrap();
+        }
+        Err(e) => {
+            tracing::error!(cid = %cid, "blob_download IPFS error: {e}");
+            return Response::builder()
+                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .header(header::CONTENT_TYPE, "text/plain")
+                .body(Body::from("500 IPFS error"))
+                .unwrap();
+        }
+    };
+
+    // Base64-encode the block bytes.
+    let b64 = data_encoding::BASE64.encode(&bytes);
+
+    // Build a synthetic RFC 5322 MIME message wrapping the block.
+    let message = format!(
+        "From: ipfs-gateway@localhost\r\n\
+         Subject: IPFS:{cid}\r\n\
+         Message-ID: <{cid}@ipfs.local>\r\n\
+         X-Usenet-IPFS-CID: {cid}\r\n\
+         MIME-Version: 1.0\r\n\
+         Content-Type: application/octet-stream\r\n\
+         Content-Transfer-Encoding: base64\r\n\
+         \r\n\
+         {b64}\r\n"
     );
+
     Response::builder()
-        .status(StatusCode::NOT_IMPLEMENTED)
-        .header(header::CONTENT_TYPE, "text/plain")
-        .body(Body::from("v1: blob fetch not yet implemented"))
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "message/rfc822")
+        .body(Body::from(message))
         .unwrap()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::extract::State;
     use axum::http::StatusCode;
+    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+    use std::str::FromStr as _;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+    use std::time::Instant;
+    use usenet_ipfs_auth::{AuthConfig, CredentialStore};
+
+    static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
+
+    async fn make_dev_state() -> Arc<AppState> {
+        let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
+        let url = format!("file:blob_test_{n}?mode=memory&cache=shared");
+        let opts = SqliteConnectOptions::from_str(&url)
+            .unwrap()
+            .create_if_missing(true);
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(opts)
+            .await
+            .expect("pool");
+        crate::migrations::run_migrations(&pool)
+            .await
+            .expect("migrations");
+        Arc::new(AppState {
+            start_time: Instant::now(),
+            jmap: None,
+            credential_store: Arc::new(CredentialStore::empty()),
+            auth_config: Arc::new(AuthConfig::default()),
+            token_store: Arc::new(crate::token_store::TokenStore::new(Arc::new(pool))),
+            base_url: "http://localhost".to_string(),
+        })
+    }
 
     #[tokio::test]
     async fn invalid_blob_id_returns_400() {
         let resp = blob_download(
+            State(make_dev_state().await),
             None,
             Path((
                 "acc1".to_string(),
@@ -74,9 +161,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn valid_cid_returns_501_in_v1() {
+    async fn valid_cid_jmap_not_configured_returns_503() {
         let valid_cid = "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi";
         let resp = blob_download(
+            State(make_dev_state().await),
             None,
             Path((
                 "acc1".to_string(),
@@ -85,7 +173,7 @@ mod tests {
             )),
         )
         .await;
-        assert_eq!(resp.status(), StatusCode::NOT_IMPLEMENTED);
+        assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
     }
 
     #[tokio::test]
@@ -93,6 +181,7 @@ mod tests {
         let user = Some(Extension(AuthenticatedUser("alice".to_string())));
         let valid_cid = "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi";
         let resp = blob_download(
+            State(make_dev_state().await),
             user,
             Path((
                 "u_bob".to_string(),
@@ -105,10 +194,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn correct_account_id_passes_account_check() {
+    async fn correct_account_id_passes_account_check_returns_503_without_jmap() {
         let user = Some(Extension(AuthenticatedUser("alice".to_string())));
         let valid_cid = "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi";
         let resp = blob_download(
+            State(make_dev_state().await),
             user,
             Path((
                 "u_alice".to_string(),
@@ -117,7 +207,7 @@ mod tests {
             )),
         )
         .await;
-        // Passes account check; v1 returns 501 because IPFS is not wired.
-        assert_eq!(resp.status(), StatusCode::NOT_IMPLEMENTED);
+        // Passes account check; returns 503 because jmap is not configured.
+        assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
     }
 }

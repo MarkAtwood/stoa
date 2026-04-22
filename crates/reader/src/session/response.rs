@@ -77,6 +77,7 @@ impl Response {
             // CID extension capabilities (ADR-0007)
             "XCID".to_string(),
             "XVERIFY".to_string(),
+            "XGET".to_string(),
             "X-CID-LOCATOR".to_string(),
         ];
         if posting_allowed {

@@ -62,6 +62,10 @@ pub enum Command {
     /// XCID [<message-id>] — return the CID for the current or named article.
     /// Advertised as XCID in CAPABILITIES. Response: 290 <cid>.
     Xcid(Option<String>),
+    /// XGET <cid> — fetch a raw IPFS block by CID and return it base64-encoded
+    /// as a synthetic MIME message.
+    /// Advertised as XGET in CAPABILITIES. Response: 290/430/501/403.
+    Xget(String),
     /// XVERIFY <message-id> <expected-cid> [SIG] — verify stored CID matches
     /// expected-cid; optionally re-verify operator signature.
     /// Advertised as XVERIFY in CAPABILITIES. Response: 291/541/542.
@@ -189,6 +193,8 @@ pub fn parse_command(line: &str) -> Result<Command, ParseError> {
             };
             Ok(Command::Xcid(arg))
         }
+
+        "XGET" => Ok(Command::Xget(rest.to_string())),
 
         "XVERIFY" => {
             let mut parts = rest.splitn(3, char::is_whitespace);
@@ -534,6 +540,26 @@ mod tests {
     #[test]
     fn parse_starttls() {
         assert_eq!(parse_command("STARTTLS\r\n"), Ok(Command::StartTls));
+    }
+
+    // ---- XGET ----
+
+    #[test]
+    fn parse_xget_with_cid() {
+        let cid = "bafyreihtsj5m7rkyqkj64blmobrwkmbbkxsfyiaixuobo6m62mkggb3oay";
+        assert_eq!(
+            parse_command(&format!("XGET {cid}\r\n")),
+            Ok(Command::Xget(cid.to_string()))
+        );
+    }
+
+    #[test]
+    fn parse_xget_lowercase() {
+        let cid = "bafyreihtsj5m7rkyqkj64blmobrwkmbbkxsfyiaixuobo6m62mkggb3oay";
+        assert_eq!(
+            parse_command(&format!("xget {cid}\r\n")),
+            Ok(Command::Xget(cid.to_string()))
+        );
     }
 
     // ---- Unknown / error cases ----

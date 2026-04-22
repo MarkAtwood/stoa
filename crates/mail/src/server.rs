@@ -387,6 +387,12 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use tokio::net::TcpListener;
     use usenet_ipfs_auth::{AuthConfig, CredentialStore, UserCredential};
+    use usenet_ipfs_reader::{
+        post::ipfs_write::MemIpfsStore,
+        store::{article_numbers::ArticleNumberStore, overview::OverviewStore},
+    };
+
+    use crate::state::{flags::UserFlagsStore, version::StateStore};
 
     static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
 
@@ -450,6 +456,65 @@ mod tests {
             token_store: make_token_store().await,
             base_url: "http://localhost".to_string(),
         })
+    }
+
+    /// Create a named shared in-memory SQLite pool with reader-crate migrations applied.
+    async fn make_reader_pool(name: &str) -> sqlx::SqlitePool {
+        let url = format!("file:{name}?mode=memory&cache=shared");
+        let opts = SqliteConnectOptions::from_str(&url)
+            .unwrap()
+            .create_if_missing(true);
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(opts)
+            .await
+            .expect("reader pool");
+        usenet_ipfs_reader::migrations::run_migrations(&pool)
+            .await
+            .expect("reader migrations");
+        pool
+    }
+
+    /// Build an AppState with JMAP stores wired to a MemIpfsStore.
+    ///
+    /// Returns `(state, ipfs)` so the caller can seed blocks before the test.
+    async fn jmap_state() -> (Arc<AppState>, Arc<MemIpfsStore>) {
+        let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
+
+        // Pool for mail-crate stores (UserFlagsStore, StateStore, TokenStore).
+        let mail_url = format!("file:jmap_mail_{n}?mode=memory&cache=shared");
+        let mail_opts = SqliteConnectOptions::from_str(&mail_url)
+            .unwrap()
+            .create_if_missing(true);
+        let mail_pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(mail_opts)
+            .await
+            .expect("mail pool");
+        crate::migrations::run_migrations(&mail_pool)
+            .await
+            .expect("mail migrations");
+
+        // Pool for reader-crate stores (ArticleNumberStore, OverviewStore).
+        let reader_pool = make_reader_pool(&format!("jmap_reader_{n}")).await;
+
+        let ipfs = Arc::new(MemIpfsStore::new());
+        let stores = Arc::new(JmapStores {
+            ipfs: ipfs.clone(),
+            article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
+            overview_store: Arc::new(OverviewStore::new(reader_pool)),
+            user_flags: Arc::new(UserFlagsStore::new(mail_pool.clone())),
+            state_store: Arc::new(StateStore::new(mail_pool.clone())),
+        });
+        let state = Arc::new(AppState {
+            start_time: Instant::now(),
+            jmap: Some(stores),
+            credential_store: Arc::new(CredentialStore::empty()),
+            auth_config: Arc::new(AuthConfig::default()),
+            token_store: Arc::new(TokenStore::new(Arc::new(mail_pool))),
+            base_url: "http://localhost".to_string(),
+        });
+        (state, ipfs)
     }
 
     async fn spawn_server(state: Arc<AppState>) -> std::net::SocketAddr {
@@ -656,5 +721,74 @@ mod tests {
             body["accounts"]["u_bob"].is_object(),
             "account u_bob must be present for authenticated user bob"
         );
+    }
+
+    /// Seed a block in MemIpfsStore, request it via GET /jmap/download, assert
+    /// 200 with Content-Type: message/rfc822 and base64-encoded body.
+    #[tokio::test]
+    async fn blob_download_with_ipfs_returns_200_with_rfc822() {
+        let (state, ipfs) = jmap_state().await;
+
+        // Seed a known block.
+        let block_data = b"hello from IPFS block";
+        let cid = ipfs
+            .put_raw_block(block_data)
+            .await
+            .expect("put_raw_block must succeed");
+
+        let addr = spawn_server(state).await;
+
+        let resp = reqwest::Client::new()
+            .get(format!(
+                "http://{addr}/jmap/download/acc1/{cid}/block.bin"
+            ))
+            .send()
+            .await
+            .expect("request must succeed");
+
+        assert_eq!(resp.status(), 200, "seeded block must return 200");
+
+        let ct = resp
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .expect("Content-Type must be present")
+            .to_str()
+            .expect("Content-Type must be valid UTF-8");
+        assert_eq!(ct, "message/rfc822", "Content-Type must be message/rfc822");
+
+        let body = resp.text().await.expect("body must be readable");
+
+        // The body must contain the X-Usenet-IPFS-CID header with the CID.
+        assert!(
+            body.contains(&format!("X-Usenet-IPFS-CID: {cid}")),
+            "body must contain X-Usenet-IPFS-CID header"
+        );
+
+        // The body must contain the base64-encoded block bytes.
+        let expected_b64 = data_encoding::BASE64.encode(block_data);
+        assert!(
+            body.contains(&expected_b64),
+            "body must contain base64-encoded block data"
+        );
+    }
+
+    /// A CID not present in IPFS must return 404.
+    #[tokio::test]
+    async fn blob_download_unknown_cid_returns_404() {
+        let (state, _ipfs) = jmap_state().await;
+        let addr = spawn_server(state).await;
+
+        // Valid CID that was never seeded.
+        let absent_cid = "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi";
+
+        let resp = reqwest::Client::new()
+            .get(format!(
+                "http://{addr}/jmap/download/acc1/{absent_cid}/missing.bin"
+            ))
+            .send()
+            .await
+            .expect("request must succeed");
+
+        assert_eq!(resp.status(), 404, "absent CID must return 404");
     }
 }

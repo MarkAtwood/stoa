@@ -5,7 +5,7 @@ use std::time::{Duration, SystemTime};
 
 use tracing::{info, warn};
 
-use crate::nntp_client;
+use crate::nntp_client::{self, NntpClientConfig};
 
 static SEQ: AtomicU64 = AtomicU64::new(0);
 
@@ -16,6 +16,66 @@ fn unique_name() -> String {
         .as_nanos();
     let seq = SEQ.fetch_add(1, Ordering::Relaxed);
     format!("{ns}_{seq:016x}.msg")
+}
+
+/// Extract the value of the `Message-Id:` header from RFC 822 article bytes.
+///
+/// Scans the header section (up to the blank line) for a line whose field name
+/// is `message-id` (case-insensitive).  Returns the bare message-id token
+/// (stripped of surrounding `<>` and whitespace) if found, or an empty string
+/// if not present.
+fn extract_message_id(bytes: &[u8]) -> String {
+    let header_end = find_header_end(bytes);
+    let headers = &bytes[..header_end];
+
+    for line in headers.split(|&b| b == b'\n') {
+        let line = line.strip_suffix(b"\r").unwrap_or(line);
+        if let Some(rest) = strip_field_name(line, b"message-id") {
+            let value = std::str::from_utf8(rest).unwrap_or("").trim();
+            // Strip enclosing angle brackets if present.
+            return value
+                .trim_start_matches('<')
+                .trim_end_matches('>')
+                .to_string();
+        }
+    }
+    String::new()
+}
+
+/// Return the byte offset of the end of the header section (the blank line
+/// separator), or the full length of `bytes` if no blank line is found.
+fn find_header_end(bytes: &[u8]) -> usize {
+    let mut i = 0;
+    while i < bytes.len() {
+        // Look for \r\n\r\n or \n\n
+        if bytes[i..].starts_with(b"\r\n\r\n") {
+            return i + 4;
+        }
+        if bytes[i..].starts_with(b"\n\n") {
+            return i + 2;
+        }
+        // Advance to next line
+        while i < bytes.len() && bytes[i] != b'\n' {
+            i += 1;
+        }
+        i += 1; // skip the '\n'
+    }
+    bytes.len()
+}
+
+/// If `line` starts with `field_name:` (case-insensitive), return the bytes
+/// after the colon.  The field name must be followed immediately by `:`.
+fn strip_field_name<'a>(line: &'a [u8], field_name: &[u8]) -> Option<&'a [u8]> {
+    if line.len() <= field_name.len() {
+        return None;
+    }
+    let prefix = &line[..field_name.len()];
+    let after = &line[field_name.len()..];
+    if prefix.eq_ignore_ascii_case(field_name) && after.first() == Some(&b':') {
+        Some(&after[1..])
+    } else {
+        None
+    }
 }
 
 /// Durable filesystem-backed queue for outbound NNTP article delivery.
@@ -61,10 +121,10 @@ impl NntpQueue {
     /// Scans the queue directory immediately on startup (crash recovery), then
     /// wakes again on each new enqueue notification or after `retry_interval`,
     /// whichever comes first.
-    pub fn start_drain(self: Arc<Self>, nntp_addr: String, retry_interval: Duration) {
+    pub fn start_drain(self: Arc<Self>, nntp_config: NntpClientConfig, retry_interval: Duration) {
         tokio::spawn(async move {
             loop {
-                self.drain_once(&nntp_addr).await;
+                self.drain_once(&nntp_config).await;
                 tokio::select! {
                     _ = self.notify.notified() => {}
                     _ = tokio::time::sleep(retry_interval) => {}
@@ -73,7 +133,7 @@ impl NntpQueue {
         });
     }
 
-    async fn drain_once(&self, nntp_addr: &str) {
+    async fn drain_once(&self, nntp_config: &NntpClientConfig) {
         let mut dir = match tokio::fs::read_dir(&self.queue_dir).await {
             Ok(d) => d,
             Err(e) => {
@@ -85,24 +145,27 @@ impl NntpQueue {
             let path = entry.path();
             if path.extension().is_some_and(|e| e == "msg") {
                 match tokio::fs::read(&path).await {
-                    Ok(bytes) => match nntp_client::post_article(nntp_addr, &bytes).await {
-                        Ok(()) => {
-                            if let Err(e) = tokio::fs::remove_file(&path).await {
+                    Ok(bytes) => {
+                        let message_id = extract_message_id(&bytes);
+                        match nntp_client::post_article(nntp_config, &bytes, &message_id).await {
+                            Ok(()) => {
+                                if let Err(e) = tokio::fs::remove_file(&path).await {
+                                    warn!(
+                                        path = %path.display(),
+                                        "nntp queue: failed to remove delivered file: {e}"
+                                    );
+                                } else {
+                                    info!("nntp queue: article delivered");
+                                }
+                            }
+                            Err(e) => {
                                 warn!(
                                     path = %path.display(),
-                                    "nntp queue: failed to remove delivered file: {e}"
+                                    "nntp queue: delivery failed, will retry: {e}"
                                 );
-                            } else {
-                                info!("nntp queue: article delivered");
                             }
                         }
-                        Err(e) => {
-                            warn!(
-                                path = %path.display(),
-                                "nntp queue: delivery failed, will retry: {e}"
-                            );
-                        }
-                    },
+                    }
                     Err(e) => {
                         warn!(path = %path.display(), "nntp queue: failed to read file: {e}");
                     }
@@ -170,5 +233,32 @@ mod tests {
             queue_dir.is_dir(),
             "queue_dir should exist after NntpQueue::new"
         );
+    }
+
+    // --- extract_message_id ---
+
+    #[test]
+    fn extract_message_id_present() {
+        let article =
+            b"From: a@b.com\r\nMessage-Id: <foo@bar.example>\r\nSubject: test\r\n\r\nbody\r\n";
+        assert_eq!(extract_message_id(article), "foo@bar.example");
+    }
+
+    #[test]
+    fn extract_message_id_case_insensitive() {
+        let article = b"message-id: <lower@case.test>\r\nFrom: a@b.com\r\n\r\nbody\r\n";
+        assert_eq!(extract_message_id(article), "lower@case.test");
+    }
+
+    #[test]
+    fn extract_message_id_missing() {
+        let article = b"From: a@b.com\r\nSubject: no mid\r\n\r\nbody\r\n";
+        assert_eq!(extract_message_id(article), "");
+    }
+
+    #[test]
+    fn extract_message_id_no_angle_brackets() {
+        let article = b"Message-Id: plain@id.test\r\nFrom: a@b.com\r\n\r\nbody\r\n";
+        assert_eq!(extract_message_id(article), "plain@id.test");
     }
 }

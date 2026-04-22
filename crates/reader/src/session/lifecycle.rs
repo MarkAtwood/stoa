@@ -259,6 +259,19 @@ async fn run_command_loop<R, W>(
             continue;
         }
 
+        // XGET: fetch a raw IPFS block by CID and return it base64-encoded.
+        if let Command::Xget(ref cid_str) = cmd {
+            let resp = crate::session::commands::xget::handle_xget(
+                cid_str,
+                stores.ipfs_store.as_ref(),
+            )
+            .await;
+            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                return;
+            }
+            continue;
+        }
+
         // GROUP: serve live article count/range from article_numbers store.
         if let Command::Group(ref name) = cmd {
             let resp = handle_group_live(stores, ctx, name).await;

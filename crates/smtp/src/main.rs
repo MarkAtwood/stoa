@@ -4,8 +4,8 @@ use tokio::net::TcpListener;
 use tracing::{error, info};
 
 use usenet_ipfs_smtp::{
-    config::Config, queue::NntpQueue, server::run_server, session::new_sieve_cache, sieve_admin,
-    store, tls::build_tls_acceptor,
+    config::Config, nntp_client::NntpClientConfig, queue::NntpQueue, server::run_server,
+    session::new_sieve_cache, sieve_admin, store, tls::build_tls_acceptor,
 };
 
 fn parse_args() -> PathBuf {
@@ -129,7 +129,13 @@ async fn main() {
         }
     };
     let retry_interval = Duration::from_secs(config.delivery.nntp_retry_secs);
-    Arc::clone(&nntp_queue).start_drain(config.reader.nntp_addr.clone(), retry_interval);
+    let nntp_config = NntpClientConfig {
+        addr: config.reader.nntp_addr.clone(),
+        username: config.reader.nntp_username.clone(),
+        password: config.reader.nntp_password.clone(),
+        max_retries: config.reader.nntp_max_retries,
+    };
+    Arc::clone(&nntp_queue).start_drain(nntp_config, retry_interval);
 
     let config = Arc::new(config);
 

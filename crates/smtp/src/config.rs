@@ -119,16 +119,32 @@ impl Default for SieveAdminConfig {
 pub struct ReaderConfig {
     #[serde(default = "default_nntp_addr")]
     pub nntp_addr: String,
+    /// Optional AUTHINFO USER credential for submission to the local NNTP reader.
+    #[serde(default)]
+    pub nntp_username: Option<String>,
+    /// Optional AUTHINFO PASS credential for submission to the local NNTP reader.
+    #[serde(default)]
+    pub nntp_password: Option<String>,
+    /// Maximum retry attempts on transient 436 failures (default: 3).
+    #[serde(default = "default_nntp_max_retries")]
+    pub nntp_max_retries: u32,
 }
 
 fn default_nntp_addr() -> String {
     "127.0.0.1:119".to_string()
 }
 
+fn default_nntp_max_retries() -> u32 {
+    3
+}
+
 impl Default for ReaderConfig {
     fn default() -> Self {
         Self {
             nntp_addr: default_nntp_addr(),
+            nntp_username: None,
+            nntp_password: None,
+            nntp_max_retries: default_nntp_max_retries(),
         }
     }
 }
