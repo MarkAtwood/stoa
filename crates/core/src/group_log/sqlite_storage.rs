@@ -186,7 +186,7 @@ impl LogStorage for SqliteLogStorage {
         Ok(())
     }
 
-    async fn entry_count(&self, group: &GroupName) -> Result<u64, StorageError> {
+    async fn tip_count(&self, group: &GroupName) -> Result<u64, StorageError> {
         let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM group_tips WHERE group_name = ?")
             .bind(group.as_str())
             .fetch_one(&self.pool)
@@ -243,10 +243,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn sqlite_entry_count() {
+    async fn sqlite_tip_count() {
         let pool = make_pool().await;
         let s = SqliteLogStorage::new(pool);
-        storage_tests::test_entry_count(&s).await;
+        storage_tests::test_tip_count(&s).await;
     }
 
     #[tokio::test]

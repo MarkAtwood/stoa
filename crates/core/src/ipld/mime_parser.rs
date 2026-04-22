@@ -1,6 +1,6 @@
 use base64::Engine as _;
 use cid::Cid;
-use mailparse::{parse_content_type, parse_headers};
+use mailparse::{parse_content_type, parse_headers, parse_mail};
 use multihash_codetable::{Code, MultihashDigest};
 
 use crate::ipld::mime::{MimeNode, MimePart, MultipartMime, SinglePartMime};
@@ -41,8 +41,7 @@ pub fn parse_mime(header_bytes: &[u8], body_bytes: &[u8]) -> Option<ParsedMime> 
         .to_ascii_lowercase();
 
     if top_type == "multipart" {
-        let boundary = ct.params.get("boundary").cloned().unwrap_or_default();
-        parse_multipart(&content_type_value, &boundary, body_bytes)
+        parse_multipart(&content_type_value, header_bytes, body_bytes)
     } else {
         let cte = headers
             .iter()
@@ -69,67 +68,57 @@ pub fn parse_mime(header_bytes: &[u8], body_bytes: &[u8]) -> Option<ParsedMime> 
     }
 }
 
-/// Parse a multipart body, splitting on `--{boundary}` delimiters.
+/// Parse a multipart body using mailparse's boundary splitting via `.subparts`.
+///
+/// `parse_mail` requires the full RFC 822 message (headers + blank line + body)
+/// so we reassemble it before calling. This correctly handles both CRLF and bare-LF
+/// line endings, nested multipart, and all edge cases that the hand-rolled
+/// `split_on_boundary()` got wrong.
 fn parse_multipart(
     content_type_value: &str,
-    boundary: &str,
+    header_bytes: &[u8],
     body_bytes: &[u8],
 ) -> Option<ParsedMime> {
-    let delimiter = format!("--{boundary}");
-    let end_delimiter = format!("--{boundary}--");
+    // Reassemble the full message so mailparse can do boundary splitting.
+    let mut full_message = header_bytes.to_vec();
+    // Ensure there is a blank line between headers and body.
+    if !full_message.ends_with(b"\r\n\r\n") && !full_message.ends_with(b"\n\n") {
+        if full_message.ends_with(b"\r\n") {
+            full_message.extend_from_slice(b"\r\n");
+        } else {
+            full_message.extend_from_slice(b"\n\n");
+        }
+    }
+    full_message.extend_from_slice(body_bytes);
+
+    let parsed = parse_mail(&full_message).ok()?;
 
     let mut parts: Vec<MimePart> = Vec::new();
     let mut blocks: Vec<(Cid, Vec<u8>)> = Vec::new();
 
-    // Find delimiter positions in the body.
-    // Each delimiter must appear at the start of a line (after \r\n or \n or at start).
-    let sections = split_on_boundary(body_bytes, delimiter.as_bytes(), end_delimiter.as_bytes());
-
-    // sections[0] is the preamble (before first delimiter) — skip it.
-    // sections[1..] are the actual parts; the last one may be empty (epilogue after --).
-    for section in sections.iter().skip(1) {
-        if section.is_empty() {
-            continue;
-        }
-
-        // Each section: part-headers \r\n\r\n part-body  (or \n\n)
-        let (part_header_bytes, part_body_bytes) = split_part_headers(section);
-
-        let (part_headers, _) = match parse_headers(part_header_bytes) {
-            Ok(r) => r,
-            Err(_) => continue,
-        };
-
-        let part_ct_value = part_headers
-            .iter()
-            .find(|h| h.get_key().eq_ignore_ascii_case("content-type"))
-            .map(|h| h.get_value())
-            .unwrap_or_else(|| "text/plain".to_string());
-
-        let part_ct = parse_content_type(&part_ct_value);
-        let part_top = part_ct
-            .mimetype
+    for subpart in &parsed.subparts {
+        let mimetype = subpart.ctype.mimetype.clone();
+        let top_type = mimetype
             .split('/')
             .next()
             .unwrap_or("")
             .to_ascii_lowercase();
-        let is_binary = !part_top.eq_ignore_ascii_case("text");
+        let is_binary = !top_type.eq_ignore_ascii_case("text");
 
-        let part_cte = part_headers
-            .iter()
-            .find(|h| {
-                h.get_key()
-                    .eq_ignore_ascii_case("content-transfer-encoding")
-            })
-            .map(|h| h.get_value())
-            .unwrap_or_else(|| "7bit".to_string());
-
-        let (decoded, _) = decode_body(part_body_bytes, &part_cte);
+        // get_body_raw() applies the part's Content-Transfer-Encoding.
+        // RFC 2046 §5.1.1: the CRLF immediately preceding the boundary delimiter
+        // belongs to the delimiter, not the body.  mailparse includes it; strip it.
+        let mut decoded = subpart.get_body_raw().unwrap_or_default();
+        if decoded.ends_with(b"\r\n") {
+            decoded.truncate(decoded.len() - 2);
+        } else if decoded.ends_with(b"\n") {
+            decoded.truncate(decoded.len() - 1);
+        }
         let (decoded_cid, block_bytes) = make_raw_block(&decoded);
 
         blocks.push((decoded_cid, block_bytes));
         parts.push(MimePart {
-            content_type: part_ct.mimetype.clone(),
+            content_type: mimetype,
             decoded_cid,
             is_binary,
         });
@@ -142,78 +131,6 @@ fn parse_multipart(
         }),
         blocks,
     })
-}
-
-/// Split `body` into sections using the MIME boundary delimiter.
-/// Returns a Vec of byte slices representing the preamble + each part body.
-/// The end delimiter causes the remaining bytes to be dropped.
-fn split_on_boundary<'a>(body: &'a [u8], delimiter: &[u8], end_delimiter: &[u8]) -> Vec<&'a [u8]> {
-    let mut result: Vec<&'a [u8]> = Vec::new();
-    let mut pos = 0usize;
-    let mut section_start = 0usize;
-
-    while pos < body.len() {
-        // Look for delimiter at start of current line.
-        if body[pos..].starts_with(end_delimiter) {
-            result.push(trim_trailing_crlf(&body[section_start..pos]));
-            return result;
-        }
-        if body[pos..].starts_with(delimiter) {
-            result.push(trim_trailing_crlf(&body[section_start..pos]));
-            // Skip past the delimiter line.
-            let line_end = find_line_end(body, pos);
-            section_start = line_end;
-            pos = line_end;
-            continue;
-        }
-        pos = find_line_end(body, pos);
-    }
-
-    result.push(trim_trailing_crlf(&body[section_start..]));
-    result
-}
-
-/// Find the position after the end of the line starting at `pos`.
-fn find_line_end(buf: &[u8], pos: usize) -> usize {
-    let mut i = pos;
-    while i < buf.len() {
-        if buf[i] == b'\n' {
-            return i + 1;
-        }
-        i += 1;
-    }
-    i
-}
-
-/// Strip trailing `\r\n` or `\n` from a byte slice.
-fn trim_trailing_crlf(s: &[u8]) -> &[u8] {
-    let mut end = s.len();
-    if end > 0 && s[end - 1] == b'\n' {
-        end -= 1;
-    }
-    if end > 0 && s[end - 1] == b'\r' {
-        end -= 1;
-    }
-    &s[..end]
-}
-
-/// Split a part into (header_bytes, body_bytes) at the blank line separator.
-/// Handles both `\r\n\r\n` and `\n\n`.
-fn split_part_headers(part: &[u8]) -> (&[u8], &[u8]) {
-    // Search for \r\n\r\n first, then \n\n.
-    if let Some(pos) = find_subsequence(part, b"\r\n\r\n") {
-        (&part[..pos + 2], &part[pos + 4..])
-    } else if let Some(pos) = find_subsequence(part, b"\n\n") {
-        (&part[..pos + 1], &part[pos + 2..])
-    } else {
-        // No blank line found — treat entire section as headers with empty body.
-        (part, b"")
-    }
-}
-
-/// Find the first occurrence of `needle` in `haystack`, returning the start index.
-fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    haystack.windows(needle.len()).position(|w| w == needle)
 }
 
 /// Decode `body_bytes` according to the Content-Transfer-Encoding.
@@ -403,6 +320,48 @@ mod tests {
         };
 
         assert!(sp.is_binary, "image/jpeg must be flagged as binary");
+    }
+
+    /// Multipart message with bare-LF line endings (\n not \r\n) must parse correctly.
+    ///
+    /// RFC 2046 §5.1.1 requires CRLF, but real-world messages often use bare LF.
+    /// mailparse handles this correctly; the old hand-rolled split_on_boundary() did not.
+    #[test]
+    fn test_multipart_bare_lf_line_endings() {
+        let boundary = "bare_lf_boundary";
+        // Intentionally use bare \n throughout (no \r\n).
+        let body = format!(
+            "--{boundary}\n\
+             Content-Type: text/plain; charset=utf-8\n\
+             \n\
+             Bare LF first part.\n\
+             --{boundary}\n\
+             Content-Type: text/plain; charset=utf-8\n\
+             \n\
+             Bare LF second part.\n\
+             --{boundary}--\n"
+        );
+        let ct = format!("multipart/mixed; boundary={boundary}");
+        // Headers also use bare LF.
+        let headers = format!("From: test@example.com\nContent-Type: {ct}\n");
+
+        let parsed = parse_mime(headers.as_bytes(), body.as_bytes())
+            .expect("parse_mime must return Some for bare-LF multipart");
+
+        let MimeNode::Multipart(ref mp) = parsed.node else {
+            panic!("expected Multipart");
+        };
+
+        assert_eq!(
+            mp.parts.len(),
+            2,
+            "bare-LF multipart must yield exactly two parts"
+        );
+        assert_eq!(
+            parsed.blocks.len(),
+            2,
+            "bare-LF multipart must yield two decoded blocks"
+        );
     }
 
     /// The decoded_cid in any result must use the CODEC_RAW codec (0x55).

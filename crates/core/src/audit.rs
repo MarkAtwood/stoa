@@ -3,10 +3,27 @@
 //! All events are written to the `audit_log` SQLite table as append-only rows.
 //! No UPDATE or DELETE ever runs against this table.
 
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 
 use crate::error::StorageError;
+
+/// Running count of audit events dropped due to channel overflow or DB failure.
+///
+/// Incremented atomically whenever an event is silently discarded.
+/// Operators should expose this via metrics to detect sustained loss.
+static AUDIT_EVENTS_DROPPED: AtomicU64 = AtomicU64::new(0);
+
+/// Return the total number of audit events dropped since process start.
+///
+/// Events are dropped in two cases:
+/// - The internal channel is full (sustained write load exceeds flush rate).
+/// - The database flush fails (pool exhausted, disk full, etc.).
+pub fn dropped_event_count() -> u64 {
+    AUDIT_EVENTS_DROPPED.load(Ordering::Relaxed)
+}
 
 /// A security-relevant event to be recorded in the audit log.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -126,13 +143,19 @@ impl AuditLoggerHandle {
         match self.tx.try_send(event) {
             Ok(()) => {}
             Err(tokio::sync::mpsc::error::TrySendError::Full(dropped)) => {
-                tracing::error!(
+                let total = AUDIT_EVENTS_DROPPED.fetch_add(1, Ordering::Relaxed) + 1;
+                tracing::warn!(
                     event_type = dropped.event_type(),
-                    "audit log buffer full; security event dropped"
+                    audit_events_dropped_total = total,
+                    "audit log channel full; security event dropped"
                 );
             }
             Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {
-                tracing::warn!("audit logger shut down; event dropped");
+                let total = AUDIT_EVENTS_DROPPED.fetch_add(1, Ordering::Relaxed) + 1;
+                tracing::warn!(
+                    audit_events_dropped_total = total,
+                    "audit logger shut down; event dropped"
+                );
             }
         }
     }
@@ -201,12 +224,19 @@ async fn flush_buffer(pool: &sqlx::SqlitePool, buffer: &mut Vec<AuditEvent>) {
     let mut tx = match pool.begin().await {
         Ok(t) => t,
         Err(e) => {
-            tracing::error!("audit logger: failed to begin transaction: {e}");
+            let count = buffer.len() as u64;
+            let total = AUDIT_EVENTS_DROPPED.fetch_add(count, Ordering::Relaxed) + count;
+            tracing::error!(
+                audit_events_dropped_total = total,
+                dropped_this_flush = count,
+                "audit logger: failed to begin transaction, dropping buffered events: {e}"
+            );
             buffer.clear();
             return;
         }
     };
 
+    let mut insert_failed = false;
     for event in buffer.iter() {
         let event_type = event.event_type();
         let event_json = event.to_json();
@@ -220,11 +250,26 @@ async fn flush_buffer(pool: &sqlx::SqlitePool, buffer: &mut Vec<AuditEvent>) {
         .await
         {
             tracing::error!("audit logger: insert failed: {e}");
+            insert_failed = true;
         }
     }
 
     if let Err(e) = tx.commit().await {
-        tracing::error!("audit logger: commit failed: {e}");
+        let count = buffer.len() as u64;
+        let total = AUDIT_EVENTS_DROPPED.fetch_add(count, Ordering::Relaxed) + count;
+        tracing::error!(
+            audit_events_dropped_total = total,
+            dropped_this_flush = count,
+            "audit logger: commit failed, dropping buffered events: {e}"
+        );
+        buffer.clear();
+        return;
+    }
+
+    if insert_failed {
+        tracing::error!(
+            "audit logger: one or more inserts failed during flush; some events may be missing from the log"
+        );
     }
 
     buffer.clear();
@@ -393,5 +438,87 @@ mod tests {
         tokio::time::sleep(std::time::Duration::from_millis(300)).await;
         let events = recent_audit_events(&pool, 300).await.unwrap();
         assert_eq!(events.len(), 200);
+    }
+
+    /// Channel overflow (1001 events into a 1000-slot channel, no awaits between sends)
+    /// must increment the dropped counter by exactly 1.
+    ///
+    /// This works because `#[tokio::test]` uses a single-threaded scheduler by default:
+    /// the background logger task cannot run while we hold the CPU in the send loop,
+    /// so the channel stays full until we yield.
+    #[tokio::test]
+    async fn channel_overflow_increments_dropped_counter() {
+        let (pool, _tmp) = make_pool().await;
+        // Use a very long flush interval so the logger task never drains the channel
+        // during our send loop.
+        let handle = start_audit_logger(pool.clone(), 2000, std::time::Duration::from_secs(3600));
+
+        let before = dropped_event_count();
+
+        // Fill the 1000-slot channel plus one extra that must be dropped.
+        for i in 0u64..1001 {
+            handle.log(AuditEvent::GcRun {
+                articles_unpinned: i,
+                group_name: "comp.test".to_string(),
+            });
+        }
+
+        let after = dropped_event_count();
+        // At least one event must have been dropped; the counter must have increased.
+        assert!(
+            after > before,
+            "expected dropped_event_count to increase; before={before} after={after}"
+        );
+        drop(handle);
+    }
+
+    /// When `flush_buffer` is called with a closed pool, `pool.begin()` fails.
+    /// The buffer must be cleared and the dropped counter must increase by the
+    /// number of events in the buffer.
+    ///
+    /// This test calls `flush_buffer` directly to avoid timing dependencies with
+    /// the background task's internal loop.
+    #[tokio::test]
+    async fn db_failure_increments_dropped_counter() {
+        let (pool, _tmp) = make_pool().await;
+
+        // Close the pool so that pool.begin() will fail.
+        pool.close().await;
+        assert!(
+            pool.begin().await.is_err(),
+            "pool.begin() must fail after pool.close() — if this assertion fails, \
+             the test strategy needs to be updated"
+        );
+
+        let before = dropped_event_count();
+
+        // Build a buffer of 3 events and call flush_buffer directly.
+        let mut buffer = vec![
+            AuditEvent::GcRun {
+                articles_unpinned: 1,
+                group_name: "comp.test".to_string(),
+            },
+            AuditEvent::GcRun {
+                articles_unpinned: 2,
+                group_name: "comp.test".to_string(),
+            },
+            AuditEvent::GcRun {
+                articles_unpinned: 3,
+                group_name: "comp.test".to_string(),
+            },
+        ];
+
+        flush_buffer(&pool, &mut buffer).await;
+
+        let after = dropped_event_count();
+        assert!(
+            after >= before + 3,
+            "dropped counter must increase by at least 3 (one per buffered event); \
+             before={before} after={after}"
+        );
+        assert!(
+            buffer.is_empty(),
+            "buffer must be cleared even on DB failure"
+        );
     }
 }

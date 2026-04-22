@@ -89,8 +89,8 @@ impl LogStorage for FailingLogStorage {
         self.inner.set_tips(group, tips).await
     }
 
-    async fn entry_count(&self, group: &GroupName) -> Result<u64, StorageError> {
-        self.inner.entry_count(group).await
+    async fn tip_count(&self, group: &GroupName) -> Result<u64, StorageError> {
+        self.inner.tip_count(group).await
     }
 }
 

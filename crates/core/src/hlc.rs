@@ -1,3 +1,5 @@
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
 
 /// Hybrid Logical Clock timestamp.
@@ -11,10 +13,45 @@ pub struct HlcTimestamp {
     pub node_id: [u8; 8],
 }
 
+/// Errors produced by [`HlcClock`] operations.
+#[derive(Debug, Clone, PartialEq)]
+pub enum HlcError {
+    /// The observed peer timestamp exceeds the local wall clock by more than
+    /// the configured `max_clock_skew_ms`.  Accepting it would permanently
+    /// advance the local HLC, which is a denial-of-service vector.
+    ClockSkewExceeded {
+        observed_ms: u64,
+        now_ms: u64,
+        max_skew_ms: u64,
+    },
+}
+
+impl fmt::Display for HlcError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ClockSkewExceeded {
+                observed_ms,
+                now_ms,
+                max_skew_ms,
+            } => write!(
+                f,
+                "peer timestamp {observed_ms}ms exceeds local clock {now_ms}ms \
+                 by more than the {max_skew_ms}ms allowed skew"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for HlcError {}
+
+/// Default maximum clock skew accepted from remote peers (milliseconds).
+pub const DEFAULT_MAX_CLOCK_SKEW_MS: u64 = 5_000;
+
 /// Hybrid Logical Clock (Kulkarni & Demirbas 2014).
 pub struct HlcClock {
     last: HlcTimestamp,
     node_id: [u8; 8],
+    max_clock_skew_ms: u64,
 }
 
 impl HlcClock {
@@ -26,6 +63,7 @@ impl HlcClock {
                 node_id,
             },
             node_id,
+            max_clock_skew_ms: DEFAULT_MAX_CLOCK_SKEW_MS,
         }
     }
 
@@ -59,9 +97,25 @@ impl HlcClock {
 
     /// Receive a remote timestamp: advance to max(local, observed, now) + 1 logical.
     ///
+    /// Returns `Err(HlcError::ClockSkewExceeded)` if `observed.wall_ms` is more
+    /// than `max_clock_skew_ms` ahead of `now_ms`.  This prevents a malicious
+    /// peer from permanently jumping the local HLC into the future.
+    ///
     /// Same overflow handling as `send`: if the logical increment would wrap,
     /// wall_ms is advanced by 1ms and logical resets to 0.
-    pub fn receive(&mut self, now_ms: u64, observed: &HlcTimestamp) -> HlcTimestamp {
+    pub fn receive(
+        &mut self,
+        now_ms: u64,
+        observed: &HlcTimestamp,
+    ) -> Result<HlcTimestamp, HlcError> {
+        if observed.wall_ms > now_ms.saturating_add(self.max_clock_skew_ms) {
+            return Err(HlcError::ClockSkewExceeded {
+                observed_ms: observed.wall_ms,
+                now_ms,
+                max_skew_ms: self.max_clock_skew_ms,
+            });
+        }
+
         let mut new_wall = self.last.wall_ms.max(observed.wall_ms).max(now_ms);
         let new_logical = if new_wall == self.last.wall_ms && new_wall == observed.wall_ms {
             let max_logical = self.last.logical.max(observed.logical);
@@ -96,7 +150,7 @@ impl HlcClock {
             logical: new_logical,
             node_id: self.node_id,
         };
-        self.last
+        Ok(self.last)
     }
 }
 
@@ -145,7 +199,8 @@ mod tests {
             logical: 10,
             node_id: NODE_B,
         };
-        let result = clock.receive(wall, &observed);
+        // observed.wall_ms == now_ms, so skew is 0ms — well within the default 5s limit.
+        let result = clock.receive(wall, &observed).unwrap();
         assert_eq!(result.wall_ms, wall);
         assert_eq!(
             result.logical,
@@ -164,7 +219,9 @@ mod tests {
             logical: 7,
             node_id: NODE_B,
         };
-        let result = clock.receive(1000, &observed);
+        // now_ms = 5000 so observed is 4s ahead — within the 5s default skew limit.
+        // max(last≈1001, observed=9000, now=5000) = 9000, so wall jumps to 9000.
+        let result = clock.receive(5000, &observed).unwrap();
         assert_eq!(result.wall_ms, 9000, "wall must jump to message wall");
         assert_eq!(result.logical, 8, "logical must be msg.logical + 1");
     }
@@ -179,8 +236,9 @@ mod tests {
             logical: 5,
             node_id: NODE_B,
         };
-        // now_ms is far ahead of both local and observed
-        let result = clock.receive(9000, &observed);
+        // observed is behind now_ms, so skew check passes trivially.
+        // now_ms is far ahead of both local and observed.
+        let result = clock.receive(9000, &observed).unwrap();
         assert_eq!(result.wall_ms, 9000);
         assert_eq!(result.logical, 0, "logical resets when now_ms dominates");
     }
@@ -195,6 +253,7 @@ mod tests {
                 node_id: NODE_A,
             },
             node_id: NODE_A,
+            max_clock_skew_ms: DEFAULT_MAX_CLOCK_SKEW_MS,
         };
         let t = clock.send(1000);
         assert_eq!(t.wall_ms, 1001, "wall must advance when logical overflows");
@@ -220,13 +279,15 @@ mod tests {
                 node_id: NODE_A,
             },
             node_id: NODE_A,
+            max_clock_skew_ms: DEFAULT_MAX_CLOCK_SKEW_MS,
         };
         let observed = HlcTimestamp {
             wall_ms: 1000,
             logical: u32::MAX,
             node_id: NODE_B,
         };
-        let t = clock.receive(1000, &observed);
+        // observed.wall_ms == now_ms, skew is 0ms.
+        let t = clock.receive(1000, &observed).unwrap();
         assert_eq!(
             t.wall_ms, 1001,
             "wall must advance when logical overflows in receive"
@@ -243,12 +304,66 @@ mod tests {
             logical: u32::MAX,
             node_id: NODE_B,
         };
-        let t = clock.receive(500, &observed);
+        // observed is 500ms ahead of now_ms=500 — well within 5s limit.
+        let t = clock.receive(500, &observed).unwrap();
         assert_eq!(
             t.wall_ms, 1001,
             "wall must advance when observed.logical overflows"
         );
         assert_eq!(t.logical, 0);
+    }
+
+    #[test]
+    fn receive_rejects_timestamp_far_in_future() {
+        // A peer timestamp 10 seconds ahead of local wall must be rejected.
+        let now_ms = 100_000u64;
+        let mut clock = HlcClock::new(NODE_A, now_ms);
+        let malicious = HlcTimestamp {
+            wall_ms: now_ms + 10_000, // 10 s ahead
+            logical: 0,
+            node_id: NODE_B,
+        };
+        let err = clock
+            .receive(now_ms, &malicious)
+            .expect_err("timestamp 10s in the future must be rejected");
+        assert!(
+            matches!(
+                err,
+                HlcError::ClockSkewExceeded {
+                    observed_ms,
+                    now_ms: n,
+                    max_skew_ms,
+                } if observed_ms == now_ms + 10_000
+                    && n == now_ms
+                    && max_skew_ms == DEFAULT_MAX_CLOCK_SKEW_MS
+            ),
+            "unexpected error variant: {err}"
+        );
+        // Clock state must not have advanced.
+        assert_eq!(
+            clock.last.wall_ms, now_ms,
+            "clock must not advance after rejected receive"
+        );
+    }
+
+    #[test]
+    fn receive_accepts_timestamp_within_skew() {
+        // A peer timestamp 1 second ahead of local wall must be accepted.
+        let now_ms = 100_000u64;
+        let mut clock = HlcClock::new(NODE_A, now_ms);
+        let peer = HlcTimestamp {
+            wall_ms: now_ms + 1_000, // 1 s ahead — within 5 s default
+            logical: 0,
+            node_id: NODE_B,
+        };
+        let result = clock
+            .receive(now_ms, &peer)
+            .expect("timestamp 1s in the future must be accepted");
+        assert_eq!(
+            result.wall_ms,
+            now_ms + 1_000,
+            "clock must advance to the peer wall when within skew limit"
+        );
     }
 
     #[test]

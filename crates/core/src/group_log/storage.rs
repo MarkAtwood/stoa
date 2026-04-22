@@ -7,9 +7,7 @@ use crate::group_log::types::{LogEntry, LogEntryId};
 /// Async storage backend for the per-group Merkle-CRDT log.
 ///
 /// All futures returned by this trait are `Send` so implementations can be
-/// shared across tokio tasks without wrapping in a mutex. `entry_count`
-/// returns the number of current tip entries for the group, which is an
-/// approximation of total log depth for DAGs with concurrent branches.
+/// shared across tokio tasks without wrapping in a mutex.
 pub trait LogStorage: Send + Sync {
     /// Persist a log entry. Returns `StorageError::DuplicateEntry` if an entry
     /// with the same id already exists.
@@ -42,8 +40,10 @@ pub trait LogStorage: Send + Sync {
         tips: &[LogEntryId],
     ) -> impl Future<Output = Result<(), StorageError>> + Send;
 
-    /// Return the number of tip entries for the group.
-    fn entry_count(
+    /// Returns the number of DAG tip entries for the group, not total log
+    /// entries. For a group with 1 000 entries branched into 2 concurrent tips
+    /// this returns 2, not 1 000.
+    fn tip_count(
         &self,
         group: &GroupName,
     ) -> impl Future<Output = Result<u64, StorageError>> + Send;

@@ -68,7 +68,7 @@ impl LogStorage for MemLogStorage {
         Ok(())
     }
 
-    async fn entry_count(&self, group: &GroupName) -> Result<u64, StorageError> {
+    async fn tip_count(&self, group: &GroupName) -> Result<u64, StorageError> {
         let map = self.tips.read().await;
         let count = map.get(group.as_str()).map(|v| v.len() as u64).unwrap_or(0);
         Ok(count)
@@ -99,9 +99,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn mem_entry_count() {
+    async fn mem_tip_count() {
         let s = MemLogStorage::new();
-        storage_tests::test_entry_count(&s).await;
+        storage_tests::test_tip_count(&s).await;
     }
 
     #[tokio::test]

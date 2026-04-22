@@ -126,13 +126,13 @@ pub async fn test_set_and_list_tips(storage: &impl LogStorage) {
     assert_eq!(*tips[0].as_bytes(), *id3.as_bytes());
 }
 
-pub async fn test_entry_count(storage: &impl LogStorage) {
+pub async fn test_tip_count(storage: &impl LogStorage) {
     let group = make_group("sci.math");
 
     let count = storage
-        .entry_count(&group)
+        .tip_count(&group)
         .await
-        .expect("entry_count should not error");
+        .expect("tip_count should not error");
     assert_eq!(count, 0, "expected 0 before any tips set");
 
     let id1 = make_id(0x20);
@@ -143,9 +143,9 @@ pub async fn test_entry_count(storage: &impl LogStorage) {
         .expect("set_tips should succeed");
 
     let count = storage
-        .entry_count(&group)
+        .tip_count(&group)
         .await
-        .expect("entry_count should not error");
+        .expect("tip_count should not error");
     assert_eq!(count, 2, "expected 2 after setting 2 tips");
 }
 
