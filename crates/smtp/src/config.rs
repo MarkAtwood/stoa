@@ -1,8 +1,6 @@
 use serde::Deserialize;
 use std::path::Path;
 
-use crate::routing::ListRoutingRule;
-
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub listen: ListenConfig,
@@ -17,7 +15,7 @@ pub struct Config {
     #[serde(default)]
     pub reader: ReaderConfig,
     #[serde(default)]
-    pub list_routing: Vec<ListRoutingRule>,
+    pub delivery: DeliveryConfig,
     #[serde(default)]
     pub users: Vec<UserConfig>,
     #[serde(default)]
@@ -127,6 +125,34 @@ impl Default for ReaderConfig {
     }
 }
 
+fn default_queue_dir() -> String {
+    "smtp-queue".to_string()
+}
+
+fn default_nntp_retry_secs() -> u64 {
+    60
+}
+
+/// Configuration for the durable NNTP injection queue.
+#[derive(Debug, Deserialize)]
+pub struct DeliveryConfig {
+    /// Directory for queued outbound NNTP articles. Created on startup if absent.
+    #[serde(default = "default_queue_dir")]
+    pub queue_dir: String,
+    /// Seconds between retry scans when NNTP delivery fails. Defaults to 60.
+    #[serde(default = "default_nntp_retry_secs")]
+    pub nntp_retry_secs: u64,
+}
+
+impl Default for DeliveryConfig {
+    fn default() -> Self {
+        Self {
+            queue_dir: default_queue_dir(),
+            nntp_retry_secs: default_nntp_retry_secs(),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ListenConfig {
     pub port_25: String,
@@ -155,10 +181,6 @@ fn default_max_connections() -> usize {
     100
 }
 
-fn default_queue_capacity() -> usize {
-    1_000
-}
-
 #[derive(Debug, Deserialize)]
 pub struct LimitsConfig {
     #[serde(default = "default_max_message_bytes")]
@@ -169,12 +191,6 @@ pub struct LimitsConfig {
     pub command_timeout_secs: u64,
     #[serde(default = "default_max_connections")]
     pub max_connections: usize,
-    /// Maximum number of messages held in the in-process queue awaiting
-    /// delivery to the NNTP reader.  When the queue is full, new DATA
-    /// submissions are rejected with a 452 transient error so the sending
-    /// MTA will retry later.  Defaults to 1000.
-    #[serde(default = "default_queue_capacity")]
-    pub queue_capacity: usize,
 }
 
 impl Default for LimitsConfig {
@@ -184,7 +200,6 @@ impl Default for LimitsConfig {
             max_recipients: default_max_recipients(),
             command_timeout_secs: default_command_timeout_secs(),
             max_connections: default_max_connections(),
-            queue_capacity: default_queue_capacity(),
         }
     }
 }

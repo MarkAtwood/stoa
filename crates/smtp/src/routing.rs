@@ -1,12 +1,4 @@
 use mail_parser::{HeaderName, MessageParser};
-use serde::Deserialize;
-
-/// A rule mapping a List-ID pattern to a newsgroup name.
-#[derive(Debug, Clone, Deserialize)]
-pub struct ListRoutingRule {
-    pub list_id_pattern: String,
-    pub newsgroup: String,
-}
 
 /// Parse the List-ID value from an RFC 2919 header value string.
 ///
@@ -49,34 +41,34 @@ pub fn extract_list_id(raw_message: &[u8]) -> Option<String> {
     parse_list_id(raw)
 }
 
-/// Apply configured routing rules to a List-ID value.
+/// Return `true` if the message already contains a `Newsgroups:` header.
 ///
-/// Rules are checked in order; the first match wins.
-/// Pattern `"*"` matches anything.
-/// Pattern `"*.example.org"` matches any string ending in `".example.org"`.
-/// Exact patterns match literally.
-pub fn apply_routing_rules(list_id: &str, rules: &[ListRoutingRule]) -> Option<String> {
-    for rule in rules {
-        if pattern_matches(&rule.list_id_pattern, list_id) {
-            return Some(rule.newsgroup.clone());
-        }
-    }
-    None
-}
+/// Only the header section (up to the first blank line) is scanned.
+/// The check is case-insensitive per RFC 2822 §2.2.
+pub fn has_newsgroups_header(raw_message: &[u8]) -> bool {
+    let header_end = raw_message
+        .windows(4)
+        .position(|w| w == b"\r\n\r\n")
+        .map(|p| p + 2)
+        .or_else(|| {
+            raw_message
+                .windows(2)
+                .position(|w| w == b"\n\n")
+                .map(|p| p + 1)
+        })
+        .unwrap_or(raw_message.len());
 
-fn pattern_matches(pattern: &str, value: &str) -> bool {
-    if pattern == "*" {
-        return true;
-    }
-    if let Some(suffix) = pattern.strip_prefix("*.") {
-        return value.ends_with(&format!(".{suffix}")) || value == suffix;
-    }
-    pattern == value
+    let headers = &raw_message[..header_end];
+    // Header at start of message or after a newline (handles both \r\n and \n).
+    headers.windows(12).any(|w| w.eq_ignore_ascii_case(b"\nNewsgroups:"))
+        || headers.len() >= 11 && headers[..11].eq_ignore_ascii_case(b"Newsgroups:")
 }
 
 /// Synthesize a `Newsgroups:` header into raw article bytes.
 ///
 /// Prepends `"Newsgroups: <newsgroup>\r\n"` at the front of the message.
+/// Callers must ensure the message does not already have a `Newsgroups:`
+/// header; use [`has_newsgroups_header`] to check first.
 pub fn add_newsgroups_header(raw_message: &[u8], newsgroup: &str) -> Vec<u8> {
     let header = format!("Newsgroups: {newsgroup}\r\n");
     let mut result = Vec::with_capacity(header.len() + raw_message.len());
@@ -132,6 +124,39 @@ mod tests {
         assert_eq!(parse_list_id(">rust-users.lists.rust-lang.org<"), None);
     }
 
+    // --- has_newsgroups_header ---
+
+    #[test]
+    fn has_newsgroups_header_present() {
+        let msg = b"Newsgroups: comp.test\r\nFrom: a@b.com\r\n\r\nbody\r\n";
+        assert!(has_newsgroups_header(msg));
+    }
+
+    #[test]
+    fn has_newsgroups_header_mid_headers() {
+        let msg = b"From: a@b.com\r\nNewsgroups: comp.test\r\nSubject: hi\r\n\r\nbody\r\n";
+        assert!(has_newsgroups_header(msg));
+    }
+
+    #[test]
+    fn has_newsgroups_header_absent() {
+        let msg = b"From: a@b.com\r\nSubject: hi\r\n\r\nbody\r\n";
+        assert!(!has_newsgroups_header(msg));
+    }
+
+    #[test]
+    fn has_newsgroups_header_case_insensitive() {
+        let msg = b"from: a@b.com\r\nnewsgroups: comp.test\r\n\r\nbody\r\n";
+        assert!(has_newsgroups_header(msg));
+    }
+
+    #[test]
+    fn has_newsgroups_header_in_body_not_counted() {
+        // "Newsgroups:" appearing only in the body must not count.
+        let msg = b"From: a@b.com\r\n\r\nNewsgroups: comp.test\r\n";
+        assert!(!has_newsgroups_header(msg));
+    }
+
     // --- extract_list_id ---
 
     #[test]
@@ -155,86 +180,6 @@ mod tests {
         assert_eq!(
             extract_list_id(msg),
             Some("rust-users.lists.rust-lang.org".to_string())
-        );
-    }
-
-    // --- apply_routing_rules ---
-
-    fn rule(pattern: &str, newsgroup: &str) -> ListRoutingRule {
-        ListRoutingRule {
-            list_id_pattern: pattern.to_string(),
-            newsgroup: newsgroup.to_string(),
-        }
-    }
-
-    #[test]
-    fn apply_routing_exact_match() {
-        let rules = vec![rule(
-            "rust-users.lists.rust-lang.org",
-            "comp.lang.rust.users",
-        )];
-        assert_eq!(
-            apply_routing_rules("rust-users.lists.rust-lang.org", &rules),
-            Some("comp.lang.rust.users".to_string())
-        );
-    }
-
-    #[test]
-    fn apply_routing_exact_no_match() {
-        let rules = vec![rule(
-            "rust-users.lists.rust-lang.org",
-            "comp.lang.rust.users",
-        )];
-        assert_eq!(
-            apply_routing_rules("other.lists.rust-lang.org", &rules),
-            None
-        );
-    }
-
-    #[test]
-    fn apply_routing_wildcard_star() {
-        let rules = vec![rule("*", "misc.lists.catchall")];
-        assert_eq!(
-            apply_routing_rules("anything.at.all", &rules),
-            Some("misc.lists.catchall".to_string())
-        );
-    }
-
-    #[test]
-    fn apply_routing_prefix_wildcard_match() {
-        let rules = vec![rule("*.lists.rust-lang.org", "misc.lists.rust-lang")];
-        assert_eq!(
-            apply_routing_rules("rust-users.lists.rust-lang.org", &rules),
-            Some("misc.lists.rust-lang".to_string())
-        );
-    }
-
-    #[test]
-    fn apply_routing_prefix_wildcard_no_match() {
-        let rules = vec![rule("*.lists.rust-lang.org", "misc.lists.rust-lang")];
-        assert_eq!(
-            apply_routing_rules("rust-users.lists.python.org", &rules),
-            None
-        );
-    }
-
-    #[test]
-    fn apply_routing_first_match_wins() {
-        let rules = vec![
-            rule("rust-users.lists.rust-lang.org", "first.match"),
-            rule("*.lists.rust-lang.org", "second.match"),
-        ];
-        assert_eq!(
-            apply_routing_rules("rust-users.lists.rust-lang.org", &rules),
-            Some("first.match".to_string())
-        );
-    }
-
-    #[test]
-    fn apply_routing_empty_rules() {
-        assert_eq!(
-            apply_routing_rules("rust-users.lists.rust-lang.org", &[]),
-            None
         );
     }
 

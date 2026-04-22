@@ -7,7 +7,7 @@ use tokio::sync::Semaphore;
 use tracing::{error, info, warn};
 
 use crate::config::Config;
-use crate::queue::MessageQueue;
+use crate::queue::NntpQueue;
 use crate::session::{run_session, SieveCache};
 
 /// Accept connections on both port-25 and port-587 listeners, spawning a
@@ -17,7 +17,7 @@ pub async fn run_server(
     listener_25: TcpListener,
     listener_587: TcpListener,
     config: Arc<Config>,
-    queue: MessageQueue,
+    nntp_queue: Arc<NntpQueue>,
     pool: Option<SqlitePool>,
     sieve_cache: Option<SieveCache>,
 ) {
@@ -76,13 +76,13 @@ pub async fn run_server(
         info!(%peer_str, "accepted connection");
 
         let config = config.clone();
-        let queue = queue.clone();
+        let nntp_queue = Arc::clone(&nntp_queue);
         let auth = auth.clone();
         let pool = pool.clone();
         let cache = sieve_cache.clone();
         tokio::spawn(async move {
             let _permit = permit; // released when session task ends
-            run_session(stream, peer_str, config, queue, auth, pool, cache).await;
+            run_session(stream, peer_str, config, nntp_queue, auth, pool, cache).await;
         });
     }
 }
@@ -90,7 +90,7 @@ pub async fn run_server(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{DatabaseConfig, LimitsConfig, ListenConfig, LogConfig, ReaderConfig, SieveAdminConfig, TlsConfig};
+    use crate::config::{DatabaseConfig, DeliveryConfig, LimitsConfig, ListenConfig, LogConfig, ReaderConfig, SieveAdminConfig, TlsConfig};
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     fn test_config() -> Arc<Config> {
@@ -106,14 +106,13 @@ mod tests {
                 max_recipients: 10,
                 command_timeout_secs: 300,
                 max_connections: 10,
-                queue_capacity: 100,
             },
             log: LogConfig {
                 level: "info".to_string(),
                 format: "text".to_string(),
             },
             reader: ReaderConfig::default(),
-            list_routing: vec![],
+            delivery: DeliveryConfig::default(),
             users: vec![],
             database: DatabaseConfig::default(),
             sieve_admin: SieveAdminConfig::default(),
@@ -129,9 +128,10 @@ mod tests {
         let addr_25 = listener_25.local_addr().unwrap();
 
         let config = test_config();
-        let (queue, _rx) = MessageQueue::new(100);
+        let queue_dir = tempfile::tempdir().expect("tempdir");
+        let nntp_queue = NntpQueue::new(queue_dir.path()).expect("NntpQueue::new");
 
-        tokio::spawn(run_server(listener_25, listener_587, config, queue, None, None));
+        tokio::spawn(run_server(listener_25, listener_587, config, nntp_queue, None, None));
 
         let mut client = tokio::net::TcpStream::connect(addr_25).await.unwrap();
         let mut buf = [0u8; 256];
@@ -153,9 +153,10 @@ mod tests {
         let addr_587 = listener_587.local_addr().unwrap();
 
         let config = test_config();
-        let (queue, _rx) = MessageQueue::new(100);
+        let queue_dir = tempfile::tempdir().expect("tempdir");
+        let nntp_queue = NntpQueue::new(queue_dir.path()).expect("NntpQueue::new");
 
-        tokio::spawn(run_server(listener_25, listener_587, config, queue, None, None));
+        tokio::spawn(run_server(listener_25, listener_587, config, nntp_queue, None, None));
 
         // Connect to port_25 and port_587 concurrently.
         let (c1, c2) = tokio::join!(

@@ -307,7 +307,7 @@ mod tests {
             limits: LimitsConfig::default(),
             log: LogConfig::default(),
             reader: ReaderConfig::default(),
-            list_routing: vec![],
+            delivery: crate::config::DeliveryConfig::default(),
             users,
             database: DatabaseConfig::default(),
             sieve_admin: crate::config::SieveAdminConfig::default(),
@@ -526,7 +526,7 @@ mod tests {
             limits: LimitsConfig::default(),
             log: LogConfig::default(),
             reader: ReaderConfig::default(),
-            list_routing: vec![],
+            delivery: crate::config::DeliveryConfig::default(),
             users,
             database: DatabaseConfig::default(),
             sieve_admin: crate::config::SieveAdminConfig {
@@ -682,7 +682,7 @@ mod tests {
             limits: LimitsConfig::default(),
             log: LogConfig::default(),
             reader: ReaderConfig::default(),
-            list_routing: vec![],
+            delivery: crate::config::DeliveryConfig::default(),
             users: vec![],
             database: DatabaseConfig::default(),
             sieve_admin: crate::config::SieveAdminConfig {

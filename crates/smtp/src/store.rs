@@ -215,6 +215,40 @@ pub async fn count_messages(pool: &SqlitePool, username: &str, mailbox: &str) ->
     .unwrap_or(0)
 }
 
+/// Fetch raw message bytes of the first message in a mailbox (used in tests).
+pub async fn get_first_message_raw(
+    pool: &SqlitePool,
+    username: &str,
+    mailbox: &str,
+) -> Option<Vec<u8>> {
+    sqlx::query_scalar::<_, Vec<u8>>(
+        "SELECT raw_message FROM mailbox_messages WHERE username = ? AND mailbox = ? ORDER BY id LIMIT 1",
+    )
+    .bind(username)
+    .bind(mailbox)
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten()
+}
+
+/// Fetch the envelope_from of the first message in a mailbox (used in tests).
+pub async fn get_first_envelope_from(
+    pool: &SqlitePool,
+    username: &str,
+    mailbox: &str,
+) -> Option<String> {
+    sqlx::query_scalar::<_, String>(
+        "SELECT envelope_from FROM mailbox_messages WHERE username = ? AND mailbox = ? ORDER BY id LIMIT 1",
+    )
+    .bind(username)
+    .bind(mailbox)
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

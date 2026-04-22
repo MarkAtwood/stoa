@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 
 use mail_auth::MessageAuthenticator;
 use sqlx::SqlitePool;
@@ -12,7 +12,7 @@ use tracing::{debug, info, warn};
 
 use crate::auth::verify_inbound;
 use crate::config::Config;
-use crate::queue::{IncomingMessage, MessageQueue};
+use crate::queue::NntpQueue;
 use crate::{routing, store};
 
 /// Thread-safe cache of compiled Sieve scripts, keyed by username.
@@ -107,7 +107,7 @@ pub async fn run_session(
     stream: TcpStream,
     peer_addr: String,
     config: Arc<Config>,
-    queue: MessageQueue,
+    nntp_queue: Arc<NntpQueue>,
     auth: Option<Arc<MessageAuthenticator>>,
     pool: Option<SqlitePool>,
     sieve_cache: Option<SieveCache>,
@@ -374,27 +374,31 @@ pub async fn run_session(
                     raw_bytes[..header_len].copy_from_slice(&header_bytes);
                 }
 
-                // ─── Inline Sieve delivery for non-list mail ─────────────────
-                // When a DB pool is available and users are configured, messages
-                // without a List-ID header are delivered inline via Sieve so
-                // that a `reject` action can return 550 before we accept.
-                let use_sieve = pool.is_some()
-                    && !config.users.is_empty()
-                    && routing::extract_list_id(&raw_bytes).is_none();
+                // ─── Sieve delivery ──────────────────────────────────────────
+                // All inbound SMTP email is processed by Sieve.
+                //
+                // Actions:
+                //   Reject   → 550, reset session (no accept)
+                //   Discard  → 250 OK, message dropped
+                //   Keep     → 250 OK, deliver to INBOX
+                //   FileInto("newsgroup:X") → enqueue to durable NNTP queue
+                //   FileInto(folder)        → deliver to named folder
+                //
+                // When no local user matches a recipient the message is
+                // accepted (250 OK) but produces no Sieve actions — the
+                // sending MTA's responsibility ends at 250.
 
-                if use_sieve {
-                    let db_pool = pool.as_ref().unwrap();
-
-                    // Collect Sieve actions for every addressed local user.
-                    let mut deliveries: Vec<(String, String, Vec<usenet_ipfs_sieve::SieveAction>)> =
-                        Vec::new();
-                    for recipient_email in &to {
-                        if let Some(user) = config
-                            .users
-                            .iter()
-                            .find(|u| u.email.eq_ignore_ascii_case(recipient_email))
-                        {
-                            let actions = sieve_for_user(
+                // Collect Sieve actions for every addressed local user.
+                let mut deliveries: Vec<(String, String, Vec<usenet_ipfs_sieve::SieveAction>)> =
+                    Vec::new();
+                for recipient_email in &to {
+                    if let Some(user) = config
+                        .users
+                        .iter()
+                        .find(|u| u.email.eq_ignore_ascii_case(recipient_email))
+                    {
+                        let actions = if let Some(db_pool) = pool.as_ref() {
+                            sieve_for_user(
                                 db_pool,
                                 &user.username,
                                 &raw_bytes,
@@ -402,53 +406,59 @@ pub async fn run_session(
                                 recipient_email,
                                 sieve_cache.as_ref(),
                             )
-                            .await;
-                            deliveries.push((
-                                user.username.clone(),
-                                recipient_email.clone(),
-                                actions,
-                            ));
-                        }
-                    }
-
-                    // If any script wants to reject, reject the whole transaction.
-                    let mut reject_reason: Option<String> = None;
-                    'find_reject: for (_, _, actions) in &deliveries {
-                        for action in actions {
-                            if let usenet_ipfs_sieve::SieveAction::Reject(r) = action {
-                                reject_reason = Some(r.clone());
-                                break 'find_reject;
-                            }
-                        }
-                    }
-
-                    if let Some(reason) = reject_reason {
-                        // Filter to printable ASCII + space only.  is_ascii_graphic()
-                        // excludes CR (0x0d) and LF (0x0a), preventing a malicious
-                        // Sieve script from injecting additional SMTP response lines
-                        // via embedded CRLF sequences in the 550 response text.
-                        let safe: String = reason
-                            .chars()
-                            .filter(|c| c.is_ascii_graphic() || *c == ' ')
-                            .take(200)
-                            .collect();
-                        warn!(peer = %peer_addr, from = %from, %safe, "Sieve reject");
-                        if write_half
-                            .write_all(format!("550 {}\r\n", safe).as_bytes())
                             .await
-                            .is_err()
-                        {
-                            break;
-                        }
-                        state = SessionState::Greeted { ehlo_domain };
-                        continue;
+                        } else {
+                            vec![usenet_ipfs_sieve::SieveAction::Keep]
+                        };
+                        deliveries.push((
+                            user.username.clone(),
+                            recipient_email.clone(),
+                            actions,
+                        ));
                     }
+                }
 
-                    // No reject — apply keep / fileinto / discard per recipient.
-                    for (username, email, actions) in deliveries {
-                        for action in actions {
-                            match action {
-                                usenet_ipfs_sieve::SieveAction::Keep => {
+                // If any script wants to reject, reject the whole transaction.
+                let mut reject_reason: Option<String> = None;
+                'find_reject: for (_, _, actions) in &deliveries {
+                    for action in actions {
+                        if let usenet_ipfs_sieve::SieveAction::Reject(r) = action {
+                            reject_reason = Some(r.clone());
+                            break 'find_reject;
+                        }
+                    }
+                }
+
+                if let Some(reason) = reject_reason {
+                    // Filter to printable ASCII + space only.  is_ascii_graphic()
+                    // excludes CR (0x0d) and LF (0x0a), preventing a malicious
+                    // Sieve script from injecting additional SMTP response lines
+                    // via embedded CRLF sequences in the 550 response text.
+                    let safe: String = reason
+                        .chars()
+                        .filter(|c| c.is_ascii_graphic() || *c == ' ')
+                        .take(200)
+                        .collect();
+                    warn!(peer = %peer_addr, from = %from, %safe, "Sieve reject");
+                    if write_half
+                        .write_all(format!("550 {}\r\n", safe).as_bytes())
+                        .await
+                        .is_err()
+                    {
+                        break;
+                    }
+                    state = SessionState::Greeted { ehlo_domain };
+                    continue;
+                }
+
+                // No reject — apply Keep / FileInto / Discard per recipient.
+                // Track whether any NNTP enqueue fails so we can 452.
+                let mut nntp_queue_error = false;
+                for (username, email, actions) in deliveries {
+                    for action in actions {
+                        match action {
+                            usenet_ipfs_sieve::SieveAction::Keep => {
+                                if let Some(db_pool) = pool.as_ref() {
                                     if let Err(e) = store::deliver(
                                         db_pool, &username, "INBOX", &from, &email, &raw_bytes,
                                     )
@@ -456,8 +466,22 @@ pub async fn run_session(
                                     {
                                         warn!(peer = %peer_addr, %username, "deliver to INBOX failed: {e}");
                                     }
+                                } else {
+                                    warn!(peer = %peer_addr, %username, "Sieve Keep: no database configured, message not stored");
                                 }
-                                usenet_ipfs_sieve::SieveAction::FileInto(folder) => {
+                            }
+                            usenet_ipfs_sieve::SieveAction::FileInto(folder) => {
+                                if let Some(newsgroup) = folder.strip_prefix("newsgroup:") {
+                                    let article = if routing::has_newsgroups_header(&raw_bytes) {
+                                        raw_bytes.to_vec()
+                                    } else {
+                                        routing::add_newsgroups_header(&raw_bytes, newsgroup)
+                                    };
+                                    if let Err(e) = nntp_queue.enqueue(&article).await {
+                                        warn!(peer = %peer_addr, %newsgroup, "NNTP queue write failed: {e}");
+                                        nntp_queue_error = true;
+                                    }
+                                } else if let Some(db_pool) = pool.as_ref() {
                                     if let Err(e) = store::deliver(
                                         db_pool, &username, &folder, &from, &email, &raw_bytes,
                                     )
@@ -465,35 +489,23 @@ pub async fn run_session(
                                     {
                                         warn!(peer = %peer_addr, %username, %folder, "deliver to folder failed: {e}");
                                     }
+                                } else {
+                                    warn!(peer = %peer_addr, %username, %folder, "Sieve FileInto: no database configured, message not stored");
                                 }
-                                usenet_ipfs_sieve::SieveAction::Discard => {
-                                    info!(peer = %peer_addr, %username, "Sieve discard — message dropped");
-                                }
-                                usenet_ipfs_sieve::SieveAction::Reject(_) => {}
                             }
+                            usenet_ipfs_sieve::SieveAction::Discard => {
+                                info!(peer = %peer_addr, %username, "Sieve discard — message dropped");
+                            }
+                            usenet_ipfs_sieve::SieveAction::Reject(_) => {}
                         }
                     }
-
-                    if write_half.write_all(b"250 OK\r\n").await.is_err() {
-                        break;
-                    }
-                    state = SessionState::Greeted { ehlo_domain };
-                    continue; // skip queue-based path below
                 }
                 // ─────────────────────────────────────────────────────────────
 
-                // Queue-based path: List-ID routing (or no Sieve config).
-                let msg = IncomingMessage {
-                    envelope_from: from,
-                    envelope_to: to,
-                    raw_bytes,
-                    received_at: SystemTime::now(),
-                    peer_addr: peer_addr.clone(),
-                };
-                let reply = if queue.enqueue(msg) {
-                    b"250 OK\r\n" as &[u8]
+                let reply: &[u8] = if nntp_queue_error {
+                    b"452 4.3.1 Queue write failed - try again later\r\n"
                 } else {
-                    b"452 4.3.1 Message queue full - try again later\r\n"
+                    b"250 OK\r\n"
                 };
                 if write_half.write_all(reply).await.is_err() {
                     break;
@@ -723,14 +735,13 @@ mod tests {
                 max_recipients: 10,
                 command_timeout_secs: 300,
                 max_connections: 10,
-                queue_capacity: 100,
             },
             log: LogConfig {
                 level: "info".to_string(),
                 format: "json".to_string(),
             },
             reader: ReaderConfig::default(),
-            list_routing: vec![],
+            delivery: crate::config::DeliveryConfig::default(),
             users: vec![],
             database: DatabaseConfig::default(),
             sieve_admin: SieveAdminConfig::default(),
@@ -751,11 +762,10 @@ mod tests {
                 max_recipients: 10,
                 command_timeout_secs: 300,
                 max_connections: 10,
-                queue_capacity: 100,
             },
             log: LogConfig { level: "info".to_string(), format: "json".to_string() },
             reader: ReaderConfig::default(),
-            list_routing: vec![],
+            delivery: crate::config::DeliveryConfig::default(),
             users,
             database: DatabaseConfig::default(),
             sieve_admin: SieveAdminConfig::default(),
@@ -769,13 +779,15 @@ mod tests {
 
     /// Drive a session with the given config and optional pool.
     ///
-    /// Returns `(server_response_string, first_queued_message)`.
+    /// Returns `(server_response_string, nntp_queue_dir)`.
+    /// The caller can inspect the tempdir for `.msg` files to verify NNTP injection.
     async fn drive_session_ext(
         client_script: &[u8],
         config: Arc<Config>,
         pool: Option<SqlitePool>,
-    ) -> (String, Option<IncomingMessage>) {
-        let (queue, mut rx) = MessageQueue::new(100);
+    ) -> (String, tempfile::TempDir) {
+        let queue_dir = tempfile::tempdir().expect("tempdir");
+        let nntp_queue = NntpQueue::new(queue_dir.path()).expect("NntpQueue::new");
 
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await
@@ -783,7 +795,7 @@ mod tests {
         let addr = listener.local_addr().expect("local_addr");
 
         let config2 = config.clone();
-        let queue2 = queue.clone();
+        let queue2 = Arc::clone(&nntp_queue);
         let server_task = tokio::spawn(async move {
             let (stream, peer) = listener.accept().await.expect("accept");
             run_session(stream, peer.to_string(), config2, queue2, None, pool, None).await;
@@ -797,17 +809,27 @@ mod tests {
         client.read_to_string(&mut response).await.expect("read response");
         server_task.await.expect("server task");
 
-        let msg = rx.try_recv().ok();
-        (response, msg)
+        (response, queue_dir)
     }
 
     /// Convenience wrapper: no-pool session using the default test config.
-    async fn drive_session(client_script: &[u8]) -> (String, Option<IncomingMessage>) {
+    async fn drive_session(client_script: &[u8]) -> (String, tempfile::TempDir) {
         drive_session_ext(client_script, test_config(), None).await
     }
 
+    /// Count .msg files in a queue directory.
+    fn count_queued(dir: &tempfile::TempDir) -> usize {
+        std::fs::read_dir(dir.path())
+            .expect("read_dir")
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().extension().map_or(false, |x| x == "msg"))
+            .count()
+    }
+
     #[tokio::test]
-    async fn test_greeting_ehlo_mail_rcpt_data_queue() {
+    async fn test_basic_smtp_session() {
+        // Basic end-to-end: full SMTP exchange completes with correct response codes.
+        // No users configured → Sieve produces no actions → 250 OK, nothing stored.
         let client = b"EHLO client.example.com\r\n\
             MAIL FROM:<sender@example.com>\r\n\
             RCPT TO:<rcpt@example.com>\r\n\
@@ -818,21 +840,13 @@ mod tests {
             .\r\n\
             QUIT\r\n";
 
-        let (response, msg) = drive_session(client).await;
+        let (response, _queue_dir) = drive_session(client).await;
 
-        assert!(
-            response.starts_with("220 "),
-            "expected greeting, got: {response}"
-        );
+        assert!(response.starts_with("220 "), "expected greeting, got: {response}");
         assert!(response.contains("250"), "expected 250 after EHLO");
         assert!(response.contains("354"), "expected 354 DATA prompt");
         assert!(response.contains("250 OK"), "expected 250 after DATA");
         assert!(response.contains("221"), "expected 221 QUIT");
-
-        let msg = msg.expect("message must be queued");
-        assert_eq!(msg.envelope_from, "sender@example.com");
-        assert_eq!(msg.envelope_to, vec!["rcpt@example.com"]);
-        assert!(!msg.raw_bytes.is_empty(), "raw_bytes must not be empty");
     }
 
     #[tokio::test]
@@ -904,7 +918,7 @@ mod tests {
 
     /// When `auth` is Some, a message with no DKIM / no DMARC record still
     /// gets accepted (dmarc_reject will be false) and has the
-    /// Authentication-Results header prepended.
+    /// Authentication-Results header prepended into the delivered message.
     #[tokio::test]
     async fn test_auth_pipeline_stamps_header() {
         let auth = Arc::new(
@@ -912,18 +926,25 @@ mod tests {
                 .expect("resolver creation must not fail"),
         );
 
-        let config = test_config();
-        let (queue, mut rx) = MessageQueue::new(100);
+        // Use a user so the message is stored in INBOX for inspection.
+        let pool = open_test_db().await;
+        let config = test_config_with_users(vec![UserConfig {
+            username: "rcpt".to_string(),
+            email: "rcpt@example.com".to_string(),
+        }]);
+        let queue_dir = tempfile::tempdir().expect("tempdir");
+        let nntp_queue = NntpQueue::new(queue_dir.path()).expect("NntpQueue::new");
 
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
 
         let config2 = config.clone();
-        let queue2 = queue.clone();
+        let queue2 = Arc::clone(&nntp_queue);
         let auth2 = auth.clone();
+        let pool2 = pool.clone();
         tokio::spawn(async move {
             let (stream, peer) = listener.accept().await.unwrap();
-            run_session(stream, peer.to_string(), config2, queue2, Some(auth2), None, None).await;
+            run_session(stream, peer.to_string(), config2, queue2, Some(auth2), Some(pool2), None).await;
         });
 
         let mut client = tokio::net::TcpStream::connect(addr).await.unwrap();
@@ -947,8 +968,9 @@ mod tests {
 
         assert!(response.contains("250 OK"), "expected 250 after DATA");
 
-        let msg = rx.recv().await.expect("message must be queued");
-        let raw = std::str::from_utf8(&msg.raw_bytes).expect("valid UTF-8");
+        let raw_bytes = crate::store::get_first_message_raw(&pool, "rcpt", "INBOX").await
+            .expect("message must be in INBOX");
+        let raw = std::str::from_utf8(&raw_bytes).expect("valid UTF-8");
         assert!(
             raw.contains("Authentication-Results:"),
             "expected Authentication-Results header in message:\n{raw}"
@@ -1079,6 +1101,94 @@ mod tests {
         assert_eq!(count, 0, "expected 0 messages — message was rejected");
     }
 
+    // ── Sieve fileinto "newsgroup:X" enqueues to NNTP queue ──────────────────
+
+    #[tokio::test]
+    async fn test_sieve_fileinto_newsgroup_enqueues_article() {
+        let pool = open_test_db().await;
+        crate::store::save_script(
+            &pool,
+            "alice",
+            "default",
+            br#"require ["fileinto"]; fileinto "newsgroup:comp.test";"#,
+            true,
+        )
+        .await
+        .expect("save script");
+
+        let config = test_config_with_users(vec![alice()]);
+        let pool_clone = pool.clone();
+        let (response, queue_dir) = drive_session_ext(FULL_MSG, config, Some(pool_clone)).await;
+
+        assert!(response.contains("250 OK"), "expected 250 OK, got: {response}");
+        assert_eq!(count_queued(&queue_dir), 1, "expected 1 article in NNTP queue");
+
+        // The queued file should contain the Newsgroups: header.
+        let files: Vec<_> = std::fs::read_dir(queue_dir.path())
+            .expect("read_dir")
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().extension().map_or(false, |x| x == "msg"))
+            .collect();
+        let bytes = std::fs::read(files[0].path()).expect("read queue file");
+        let text = std::str::from_utf8(&bytes).expect("valid UTF-8");
+        assert!(text.contains("Newsgroups: comp.test"), "queued article must have Newsgroups header");
+
+        // Nothing in INBOX.
+        let count = crate::store::count_messages(&pool, "alice", "INBOX").await;
+        assert_eq!(count, 0, "newsgroup fileinto must not deliver to INBOX");
+    }
+
+    // ── Sieve fileinto "newsgroup:X" with pre-existing Newsgroups: header ────
+
+    #[tokio::test]
+    async fn test_sieve_fileinto_newsgroup_no_duplicate_header() {
+        let pool = open_test_db().await;
+        crate::store::save_script(
+            &pool,
+            "alice",
+            "default",
+            br#"require ["fileinto"]; fileinto "newsgroup:comp.test";"#,
+            true,
+        )
+        .await
+        .expect("save script");
+
+        // Message already has a Newsgroups: header.
+        let msg_with_ng = b"EHLO client.example.com\r\n\
+            MAIL FROM:<sender@example.com>\r\n\
+            RCPT TO:<alice@example.com>\r\n\
+            DATA\r\n\
+            Newsgroups: alt.test\r\n\
+            Subject: Cross-posted\r\n\
+            \r\n\
+            Body\r\n\
+            .\r\n\
+            QUIT\r\n";
+
+        let config = test_config_with_users(vec![alice()]);
+        let (response, queue_dir) = drive_session_ext(msg_with_ng, config, Some(pool)).await;
+
+        assert!(response.contains("250 OK"), "expected 250 OK, got: {response}");
+        assert_eq!(count_queued(&queue_dir), 1, "expected 1 article in NNTP queue");
+
+        let files: Vec<_> = std::fs::read_dir(queue_dir.path())
+            .expect("read_dir")
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().extension().map_or(false, |x| x == "msg"))
+            .collect();
+        let bytes = std::fs::read(files[0].path()).expect("read queue file");
+        let text = std::str::from_utf8(&bytes).expect("valid UTF-8");
+
+        // Original Newsgroups: must be present.
+        assert!(text.contains("Newsgroups: alt.test"), "original Newsgroups header must be preserved");
+        // Must not have a duplicate.
+        assert_eq!(
+            text.matches("Newsgroups:").count(),
+            1,
+            "must not have duplicate Newsgroups: header, got:\n{text}"
+        );
+    }
+
     // ── ryw.2: parse_angle_addr unit tests ───────────────────────────────────
 
     #[test]
@@ -1117,7 +1227,12 @@ mod tests {
     #[tokio::test]
     async fn test_mail_from_with_size_param_accepted() {
         // A real MTA sends MAIL FROM:<addr> SIZE=nnn.  The session must
-        // accept it and record the address without the SIZE suffix.
+        // accept it and store the address without the SIZE suffix.
+        let pool = open_test_db().await;
+        let config = test_config_with_users(vec![UserConfig {
+            username: "rcpt".to_string(),
+            email: "rcpt@example.com".to_string(),
+        }]);
         let client = b"EHLO client.example.com\r\n\
             MAIL FROM:<sender@example.com> SIZE=1024\r\n\
             RCPT TO:<rcpt@example.com>\r\n\
@@ -1128,14 +1243,14 @@ mod tests {
             .\r\n\
             QUIT\r\n";
 
-        let (response, msg) = drive_session(client).await;
+        let (response, _queue_dir) = drive_session_ext(client, config, Some(pool.clone())).await;
         assert!(response.contains("250 OK"), "expected 250 after DATA: {response}");
 
-        let msg = msg.expect("message must be queued");
+        let envelope_from = crate::store::get_first_envelope_from(&pool, "rcpt", "INBOX").await
+            .expect("message must be in INBOX");
         assert_eq!(
-            msg.envelope_from, "sender@example.com",
-            "envelope_from must not include SIZE param: {:?}",
-            msg.envelope_from
+            envelope_from, "sender@example.com",
+            "envelope_from must not include SIZE param"
         );
     }
 
@@ -1161,11 +1276,10 @@ mod tests {
                 max_recipients: 10,
                 command_timeout_secs: 300,
                 max_connections: 10,
-                queue_capacity: 100,
             },
             log: LogConfig { level: "info".to_string(), format: "json".to_string() },
             reader: ReaderConfig::default(),
-            list_routing: vec![],
+            delivery: crate::config::DeliveryConfig::default(),
             users: vec![],
             database: DatabaseConfig::default(),
             sieve_admin: SieveAdminConfig::default(),
@@ -1201,23 +1315,23 @@ mod tests {
                 max_recipients: 10,
                 command_timeout_secs: 1, // 1-second timeout for this test
                 max_connections: 10,
-                queue_capacity: 100,
             },
             log: LogConfig { level: "info".to_string(), format: "json".to_string() },
             reader: ReaderConfig::default(),
-            list_routing: vec![],
+            delivery: crate::config::DeliveryConfig::default(),
             users: vec![],
             database: DatabaseConfig::default(),
             sieve_admin: SieveAdminConfig::default(),
             dns_resolver: "system".to_string(),
         });
 
-        let (queue, _rx) = MessageQueue::new(100);
+        let queue_dir = tempfile::tempdir().expect("tempdir");
+        let nntp_queue = NntpQueue::new(queue_dir.path()).expect("NntpQueue::new");
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
 
         let config2 = config.clone();
-        let queue2 = queue.clone();
+        let queue2 = Arc::clone(&nntp_queue);
         let server_task = tokio::spawn(async move {
             let (stream, peer) = listener.accept().await.unwrap();
             run_session(stream, peer.to_string(), config2, queue2, None, None, None).await;

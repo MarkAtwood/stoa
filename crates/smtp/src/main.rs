@@ -1,14 +1,14 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use tokio::net::TcpListener;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 use usenet_ipfs_smtp::{
     config::Config,
-    nntp_client, routing, sieve_admin, store,
-    queue::{IncomingMessage, MessageQueue},
+    queue::NntpQueue,
     server::run_server,
     session::new_sieve_cache,
+    sieve_admin, store,
 };
 
 fn parse_args() -> PathBuf {
@@ -95,15 +95,18 @@ async fn main() {
         "usenet-ipfs-smtp starting"
     );
 
-    let config = Arc::new(config);
-    let (queue, mut rx) = MessageQueue::new(config.limits.queue_capacity);
-
-    let routing_config = Arc::clone(&config);
-    tokio::spawn(async move {
-        while let Some(msg) = rx.recv().await {
-            route_message(msg, &routing_config).await;
+    // Create the durable NNTP queue and start the drain task.
+    let nntp_queue = match NntpQueue::new(&config.delivery.queue_dir) {
+        Ok(q) => q,
+        Err(e) => {
+            error!("failed to create NNTP queue dir {}: {e}", config.delivery.queue_dir);
+            std::process::exit(1);
         }
-    });
+    };
+    let retry_interval = Duration::from_secs(config.delivery.nntp_retry_secs);
+    Arc::clone(&nntp_queue).start_drain(config.reader.nntp_addr.clone(), retry_interval);
+
+    let config = Arc::new(config);
 
     // Create the Sieve script cache (shared by sessions and the admin API).
     let sieve_cache = if pool.is_some() { Some(new_sieve_cache()) } else { None };
@@ -121,7 +124,7 @@ async fn main() {
     }
 
     tokio::select! {
-        _ = run_server(listener_25, listener_587, config, queue, pool, sieve_cache) => {}
+        _ = run_server(listener_25, listener_587, config, nntp_queue, pool, sieve_cache) => {}
         _ = tokio::signal::ctrl_c() => {
             info!("received CTRL-C, shutting down");
         }
@@ -137,26 +140,4 @@ async fn sigterm() {
     use tokio::signal::unix::{signal, SignalKind};
     let mut stream = signal(SignalKind::terminate()).expect("failed to install SIGTERM handler");
     stream.recv().await;
-}
-
-async fn route_message(msg: IncomingMessage, config: &Config) {
-    if let Some(list_id) = routing::extract_list_id(&msg.raw_bytes) {
-        if let Some(newsgroup) = routing::apply_routing_rules(&list_id, &config.list_routing) {
-            let article = routing::add_newsgroups_header(&msg.raw_bytes, &newsgroup);
-            match nntp_client::post_article(&config.reader.nntp_addr, &article).await {
-                Ok(()) => {
-                    info!(list_id = %list_id, newsgroup = %newsgroup, "routed to newsgroup");
-                }
-                Err(e) => {
-                    warn!(list_id = %list_id, newsgroup = %newsgroup, "NNTP POST failed: {e}");
-                }
-            }
-            return;
-        }
-    }
-    warn!(
-        from = %msg.envelope_from,
-        to = ?msg.envelope_to,
-        "no routing rule matched — message dropped"
-    );
 }
