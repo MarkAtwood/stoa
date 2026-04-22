@@ -552,15 +552,30 @@ pub async fn run_session<S>(
                         .find(|u| u.email.eq_ignore_ascii_case(recipient_email))
                     {
                         let actions = if let Some(db_pool) = pool.as_ref() {
-                            sieve_for_user(
-                                db_pool,
-                                &user.username,
-                                &raw_bytes,
-                                &from,
-                                recipient_email,
-                                sieve_cache.as_ref(),
+                            let sieve_timeout = tokio::time::Duration::from_millis(
+                                config.limits.sieve_eval_timeout_ms,
+                            );
+                            let username = user.username.clone();
+                            match tokio::time::timeout(
+                                sieve_timeout,
+                                sieve_for_user(
+                                    db_pool,
+                                    &username,
+                                    &raw_bytes,
+                                    &from,
+                                    recipient_email,
+                                    sieve_cache.as_ref(),
+                                ),
                             )
                             .await
+                            {
+                                Ok(actions) => actions,
+                                Err(_elapsed) => {
+                                    tracing::warn!(%username, "Sieve evaluation timed out; defaulting to Keep");
+                                    crate::metrics::SMTP_SIEVE_EVAL_TIMEOUTS_TOTAL.inc();
+                                    vec![usenet_ipfs_sieve::SieveAction::Keep]
+                                }
+                            }
                         } else {
                             vec![usenet_ipfs_sieve::SieveAction::Keep]
                         };
@@ -931,6 +946,7 @@ mod tests {
                 max_recipients: 10,
                 command_timeout_secs: 300,
                 max_connections: 10,
+                sieve_eval_timeout_ms: 5_000,
             },
             log: LogConfig {
                 level: "info".to_string(),
@@ -960,6 +976,7 @@ mod tests {
                 max_recipients: 10,
                 command_timeout_secs: 300,
                 max_connections: 10,
+                sieve_eval_timeout_ms: 5_000,
             },
             log: LogConfig { level: "info".to_string(), format: "json".to_string() },
             reader: ReaderConfig::default(),
@@ -1545,6 +1562,7 @@ mod tests {
                 max_recipients: 10,
                 command_timeout_secs: 300,
                 max_connections: 10,
+                sieve_eval_timeout_ms: 5_000,
             },
             log: LogConfig { level: "info".to_string(), format: "json".to_string() },
             reader: ReaderConfig::default(),
@@ -1586,6 +1604,7 @@ mod tests {
                 max_recipients: 10,
                 command_timeout_secs: 1, // 1-second timeout for this test
                 max_connections: 10,
+                sieve_eval_timeout_ms: 5_000,
             },
             log: LogConfig { level: "info".to_string(), format: "json".to_string() },
             reader: ReaderConfig::default(),

@@ -65,64 +65,10 @@ mod tests {
     }
 
     #[test]
-    fn single_part_dagcbor_roundtrip() {
-        let original = make_single_part();
-        let encoded = serde_ipld_dagcbor::to_vec(&original).expect("DAG-CBOR serialization failed");
-        let decoded: MimeNode =
-            serde_ipld_dagcbor::from_slice(&encoded).expect("DAG-CBOR deserialization failed");
-        assert_eq!(original, decoded, "round-tripped value must equal original");
-    }
-
-    #[test]
-    fn multipart_dagcbor_roundtrip() {
-        let original = MimeNode::Multipart(MultipartMime {
-            content_type: "multipart/mixed; boundary=abc123".into(),
-            parts: vec![
-                MimePart {
-                    content_type: "text/plain; charset=utf-8".into(),
-                    decoded_cid: test_cid(b"part one body"),
-                    is_binary: false,
-                },
-                MimePart {
-                    content_type: "text/html; charset=utf-8".into(),
-                    decoded_cid: test_cid(b"part two body"),
-                    is_binary: false,
-                },
-            ],
-        });
-        let encoded = serde_ipld_dagcbor::to_vec(&original).expect("DAG-CBOR serialization failed");
-        let decoded: MimeNode =
-            serde_ipld_dagcbor::from_slice(&encoded).expect("DAG-CBOR deserialization failed");
-        assert_eq!(original, decoded, "round-tripped value must equal original");
-    }
-
-    #[test]
     fn dagcbor_is_deterministic() {
         let node = make_single_part();
         let bytes1 = serde_ipld_dagcbor::to_vec(&node).expect("first serialize");
         let bytes2 = serde_ipld_dagcbor::to_vec(&node).expect("second serialize");
         assert_eq!(bytes1, bytes2, "same value must produce identical bytes");
-    }
-
-    #[test]
-    fn binary_part_representable() {
-        let original = MimeNode::SinglePart(SinglePartMime {
-            content_type: "application/octet-stream".into(),
-            transfer_encoding: "base64".into(),
-            decoded_cid: test_cid(b"raw binary blob"),
-            is_binary: true,
-        });
-        let encoded = serde_ipld_dagcbor::to_vec(&original).expect("DAG-CBOR serialization failed");
-        let decoded: MimeNode =
-            serde_ipld_dagcbor::from_slice(&encoded).expect("DAG-CBOR deserialization failed");
-        assert_eq!(
-            original, decoded,
-            "binary SinglePartMime must round-trip without loss"
-        );
-        if let MimeNode::SinglePart(ref part) = decoded {
-            assert!(part.is_binary, "is_binary flag must survive round-trip");
-        } else {
-            panic!("expected SinglePart after round-trip");
-        }
     }
 }

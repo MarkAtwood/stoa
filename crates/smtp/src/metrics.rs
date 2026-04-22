@@ -5,7 +5,7 @@
 /// renders text/plain in Prometheus exposition format.
 use std::sync::LazyLock;
 
-use prometheus::{Counter, CounterVec, Opts, register_counter, register_counter_vec};
+use prometheus::{Counter, CounterVec, IntCounter, Opts, register_counter, register_counter_vec, register_int_counter};
 
 /// Total number of inbound TCP connections accepted.
 pub static SMTP_CONNECTIONS_TOTAL: LazyLock<Counter> = LazyLock::new(|| {
@@ -55,4 +55,13 @@ pub static SMTP_DATA_BYTES_TOTAL: LazyLock<Counter> = LazyLock::new(|| {
         )
     )
     .expect("failed to register smtp_data_bytes_total")
+});
+
+/// Total number of Sieve evaluations aborted due to exceeding the configured timeout.
+pub static SMTP_SIEVE_EVAL_TIMEOUTS_TOTAL: LazyLock<IntCounter> = LazyLock::new(|| {
+    register_int_counter!(
+        "smtp_sieve_eval_timeouts_total",
+        "Number of Sieve evaluations aborted due to timeout"
+    )
+    .expect("failed to register smtp_sieve_eval_timeouts_total")
 });

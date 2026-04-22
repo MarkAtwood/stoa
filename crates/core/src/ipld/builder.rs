@@ -239,6 +239,16 @@ mod tests {
         );
     }
 
+    /// Verifies that the root block bytes produced by `build_article` can be
+    /// decoded back to an `ArticleRootNode` without loss.
+    ///
+    /// Limitation: this is a roundtrip-only test — encode and decode both use
+    /// `serde_ipld_dagcbor`, so a symmetric codec bug would pass undetected.
+    /// The oracle-anchored equivalent is `tv1_root_block_decodes_correctly` in
+    /// `test_vectors.rs`, which decodes bytes whose CID has been independently
+    /// verified against Python `dag_cbor` 0.3.3.  This test is retained because
+    /// it exercises a different article payload (different header fields and body
+    /// content) and provides an additional sanity check for the full pipeline.
     #[test]
     fn test_root_block_round_trips() {
         let built = build_test_article();

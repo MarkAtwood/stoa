@@ -97,6 +97,7 @@ fn test_config(tim_credential: Option<UserCredential>) -> Arc<Config> {
             max_recipients: 10,
             command_timeout_secs: 300,
             max_connections: 10,
+            sieve_eval_timeout_ms: 5_000,
         },
         log: LogConfig {
             level: "error".to_string(),

@@ -196,6 +196,10 @@ fn default_max_connections() -> usize {
     100
 }
 
+fn default_sieve_eval_timeout_ms() -> u64 {
+    5_000
+}
+
 #[derive(Debug, Deserialize)]
 pub struct LimitsConfig {
     #[serde(default = "default_max_message_bytes")]
@@ -206,6 +210,10 @@ pub struct LimitsConfig {
     pub command_timeout_secs: u64,
     #[serde(default = "default_max_connections")]
     pub max_connections: usize,
+    /// Maximum time allowed for Sieve script evaluation per message (milliseconds).
+    /// Evaluation that exceeds this limit is aborted and treated as Keep (fail-safe).
+    #[serde(default = "default_sieve_eval_timeout_ms")]
+    pub sieve_eval_timeout_ms: u64,
 }
 
 impl Default for LimitsConfig {
@@ -215,6 +223,7 @@ impl Default for LimitsConfig {
             max_recipients: default_max_recipients(),
             command_timeout_secs: default_command_timeout_secs(),
             max_connections: default_max_connections(),
+            sieve_eval_timeout_ms: default_sieve_eval_timeout_ms(),
         }
     }
 }

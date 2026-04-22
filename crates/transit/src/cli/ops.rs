@@ -10,6 +10,10 @@ use usenet_ipfs_core::error::StorageError;
 use crate::cli::peers::OutputFormat;
 use crate::retention::policy::{ArticleMeta, PinPolicy};
 
+/// Row returned by the pinned-CIDs + articles LEFT JOIN in [`cmd_gc_run`].
+/// Fields after `cid` are `NULL` when a pinned CID has no `articles` row.
+type PinnedCidRow = (String, Option<String>, Option<i64>, Option<i64>);
+
 /// Print daemon status: peer count, article count from msgid_map, pinned CID count.
 ///
 /// All counts are read directly from SQLite. If a table does not exist
@@ -94,29 +98,62 @@ pub async fn cmd_unpin(pool: &SqlitePool, cid_str: &str) -> Result<String, Stora
 
 /// Run a GC cycle immediately using the given policy.
 ///
-/// Scans all entries in `pinned_cids`, evaluates each against the policy
-/// (using a dummy `ArticleMeta` since article metadata is not stored in that table),
-/// and removes those that fail the policy check.
+/// Scans all entries in `pinned_cids`, joins against the `articles` table to
+/// retrieve the real group name, ingestion time, and byte count for each CID,
+/// then evaluates each against the policy.  CIDs with no matching `articles`
+/// row (e.g. manually pinned entries) are evaluated with group="unknown",
+/// size=0, age=0 and a warning is emitted once.
 ///
 /// Returns a summary string of the form `"gc-run: {scanned} scanned, {unpinned} unpinned\n"`.
 pub async fn cmd_gc_run(pool: &SqlitePool, policy: &PinPolicy) -> Result<String, StorageError> {
     ensure_pinned_cids_table(pool).await?;
 
-    let rows: Vec<String> = sqlx::query_scalar("SELECT cid FROM pinned_cids")
-        .fetch_all(pool)
-        .await
-        .map_err(|e| StorageError::Database(e.to_string()))?;
+    // Each row: (cid, group_name?, ingested_at_ms?, byte_count?)
+    // The LEFT JOIN yields NULLs in the article columns when a pinned CID has
+    // no corresponding articles row (e.g. manually pinned).
+    let rows: Vec<PinnedCidRow> = sqlx::query_as(
+        "SELECT p.cid, a.group_name, a.ingested_at_ms, a.byte_count \
+         FROM pinned_cids p \
+         LEFT JOIN articles a ON a.cid = p.cid",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| StorageError::Database(e.to_string()))?;
 
     let scanned = rows.len();
-    let dummy_meta = ArticleMeta {
-        group: "unknown".to_string(),
-        size_bytes: 0,
-        age_days: 0,
-    };
-
+    let now_ms = now_ms();
+    let mut missing_meta_warned = false;
     let mut unpinned = 0usize;
-    for cid_str in &rows {
-        if !policy.should_pin(&dummy_meta) {
+
+    for (cid_str, group_name, ingested_at_ms, byte_count) in &rows {
+        let meta = if let Some(group) = group_name {
+            let age_days = ingested_at_ms.map_or(0, |ingested| {
+                let elapsed_ms = now_ms.saturating_sub(ingested);
+                (elapsed_ms / (86_400 * 1_000)) as u64
+            });
+            ArticleMeta {
+                group: group.clone(),
+                size_bytes: byte_count.unwrap_or(0) as usize,
+                age_days,
+            }
+        } else {
+            if !missing_meta_warned {
+                tracing::warn!(
+                    "gc-run: one or more pinned CIDs have no articles row; \
+                     age-based and group-scoped policy conditions cannot be \
+                     evaluated for those entries (pass-through: group=unknown, \
+                     size=0, age=0)"
+                );
+                missing_meta_warned = true;
+            }
+            ArticleMeta {
+                group: "unknown".to_string(),
+                size_bytes: 0,
+                age_days: 0,
+            }
+        };
+
+        if !policy.should_pin(&meta) {
             sqlx::query("DELETE FROM pinned_cids WHERE cid = ?1")
                 .bind(cid_str)
                 .execute(pool)

@@ -124,6 +124,82 @@ mod tests {
         );
     }
 
+    /// Decode the root block (whose CID is oracle-verified) back to
+    /// `ArticleRootNode` and assert that key fields match the known inputs.
+    ///
+    /// This gives an independent oracle for the decode path: the root block
+    /// bytes are oracle-verified (their SHA-256 → CID matches Python `dag_cbor`
+    /// 0.3.3), so if decoding those bytes yields wrong field values the decoder
+    /// is broken, not the encoder.  A symmetric codec bug that corrupts both
+    /// encode and decode would still be caught here because the CID assertion
+    /// (`tv1_root_cid_stability`) already locks the encoded bytes to the
+    /// Python oracle.
+    #[test]
+    fn tv1_root_block_decodes_correctly() {
+        let built = build_article(
+            TV1_HEADER,
+            TV1_BODY,
+            "<tv1@example.com>".into(),
+            vec!["comp.lang.rust".into()],
+            1_704_067_200_000,
+        )
+        .expect("build_article must succeed for TV1");
+
+        let root_bytes = built
+            .blocks
+            .iter()
+            .find(|(cid, _)| *cid == built.root_cid)
+            .map(|(_, b)| b)
+            .expect("root block must be present in blocks");
+
+        let decoded: crate::ipld::root_node::ArticleRootNode =
+            serde_ipld_dagcbor::from_slice(root_bytes)
+                .expect("root block bytes must deserialize to ArticleRootNode");
+
+        assert_eq!(
+            decoded.schema_version, 1,
+            "schema_version must be 1 after decode"
+        );
+        let expected_header_cid = Cid::from_str(TV1_EXPECTED_HEADER_CID)
+            .expect("TV1 header CID constant must parse");
+        assert_eq!(
+            decoded.header_cid, expected_header_cid,
+            "decoded header_cid must match SHA-256 oracle"
+        );
+        let expected_body_cid =
+            Cid::from_str(TV1_EXPECTED_BODY_CID).expect("TV1 body CID constant must parse");
+        assert_eq!(
+            decoded.body_cid, expected_body_cid,
+            "decoded body_cid must match SHA-256 oracle"
+        );
+        assert!(
+            decoded.mime_cid.is_none(),
+            "decoded mime_cid must be None (TV1 has no Content-Type)"
+        );
+        assert_eq!(
+            decoded.metadata.message_id, "<tv1@example.com>",
+            "decoded message_id must match input"
+        );
+        assert_eq!(
+            decoded.metadata.newsgroups,
+            vec!["comp.lang.rust".to_string()],
+            "decoded newsgroups must match input"
+        );
+        assert_eq!(
+            decoded.metadata.hlc_timestamp, 1_704_067_200_000_u64,
+            "decoded hlc_timestamp must match input"
+        );
+        assert_eq!(
+            decoded.metadata.content_type_summary, "text/plain",
+            "decoded content_type_summary must be text/plain for non-MIME article"
+        );
+        let expected_byte_count = (TV1_HEADER.len() + TV1_BODY.len()) as u64;
+        assert_eq!(
+            decoded.metadata.byte_count, expected_byte_count,
+            "decoded byte_count must equal header + body length"
+        );
+    }
+
     // ── Vector 2: text/plain + quoted-printable ───────────────────────────────
     //
     // Content-Type is text/plain; charset=utf-8 with Content-Transfer-Encoding:
@@ -250,6 +326,68 @@ mod tests {
         assert!(
             built.root_node.mime_cid.is_some(),
             "TV2 has Content-Type so mime_cid must be Some"
+        );
+    }
+
+    /// Decode the oracle-verified TV2 root block and assert field values.
+    /// Same rationale as `tv1_root_block_decodes_correctly`: the CID oracle
+    /// locks the encoded bytes; decoding those bytes must yield the correct fields.
+    #[test]
+    fn tv2_root_block_decodes_correctly() {
+        let built = build_article(
+            TV2_HEADER,
+            TV2_BODY,
+            "<tv2@example.com>".into(),
+            vec!["comp.lang.rust".into()],
+            1_704_196_800_000,
+        )
+        .expect("build_article must succeed for TV2");
+
+        let root_bytes = built
+            .blocks
+            .iter()
+            .find(|(cid, _)| *cid == built.root_cid)
+            .map(|(_, b)| b)
+            .expect("root block must be present in blocks");
+
+        let decoded: crate::ipld::root_node::ArticleRootNode =
+            serde_ipld_dagcbor::from_slice(root_bytes)
+                .expect("TV2 root block bytes must deserialize");
+
+        assert_eq!(decoded.schema_version, 1, "TV2 schema_version must be 1");
+        let expected_header_cid = Cid::from_str(TV2_EXPECTED_HEADER_CID)
+            .expect("TV2 header CID constant must parse");
+        assert_eq!(
+            decoded.header_cid, expected_header_cid,
+            "TV2 decoded header_cid must match SHA-256 oracle"
+        );
+        let expected_body_cid =
+            Cid::from_str(TV2_EXPECTED_BODY_CID).expect("TV2 body CID constant must parse");
+        assert_eq!(
+            decoded.body_cid, expected_body_cid,
+            "TV2 decoded body_cid must match SHA-256 oracle"
+        );
+        assert!(
+            decoded.mime_cid.is_some(),
+            "TV2 decoded mime_cid must be Some (has Content-Type)"
+        );
+        assert_eq!(
+            decoded.metadata.message_id, "<tv2@example.com>",
+            "TV2 decoded message_id must match input"
+        );
+        assert_eq!(
+            decoded.metadata.newsgroups,
+            vec!["comp.lang.rust".to_string()],
+            "TV2 decoded newsgroups must match input"
+        );
+        assert_eq!(
+            decoded.metadata.hlc_timestamp, 1_704_196_800_000_u64,
+            "TV2 decoded hlc_timestamp must match input"
+        );
+        let expected_byte_count = (TV2_HEADER.len() + TV2_BODY.len()) as u64;
+        assert_eq!(
+            decoded.metadata.byte_count, expected_byte_count,
+            "TV2 decoded byte_count must equal header + body length"
         );
     }
 
@@ -422,6 +560,66 @@ mod tests {
         );
     }
 
+    /// Decode the oracle-verified TV3 root block and assert field values.
+    #[test]
+    fn tv3_root_block_decodes_correctly() {
+        let built = build_article(
+            TV3_HEADER,
+            TV3_BODY,
+            "<tv3@example.com>".into(),
+            vec!["comp.lang.rust".into()],
+            1_704_240_000_000,
+        )
+        .expect("build_article must succeed for TV3");
+
+        let root_bytes = built
+            .blocks
+            .iter()
+            .find(|(cid, _)| *cid == built.root_cid)
+            .map(|(_, b)| b)
+            .expect("root block must be present in blocks");
+
+        let decoded: crate::ipld::root_node::ArticleRootNode =
+            serde_ipld_dagcbor::from_slice(root_bytes)
+                .expect("TV3 root block bytes must deserialize");
+
+        assert_eq!(decoded.schema_version, 1, "TV3 schema_version must be 1");
+        let expected_header_cid = Cid::from_str(TV3_EXPECTED_HEADER_CID)
+            .expect("TV3 header CID constant must parse");
+        assert_eq!(
+            decoded.header_cid, expected_header_cid,
+            "TV3 decoded header_cid must match SHA-256 oracle"
+        );
+        let expected_body_cid =
+            Cid::from_str(TV3_EXPECTED_BODY_CID).expect("TV3 body CID constant must parse");
+        assert_eq!(
+            decoded.body_cid, expected_body_cid,
+            "TV3 decoded body_cid must match SHA-256 oracle"
+        );
+        assert!(
+            decoded.mime_cid.is_some(),
+            "TV3 decoded mime_cid must be Some (has Content-Type)"
+        );
+        assert_eq!(
+            decoded.metadata.message_id, "<tv3@example.com>",
+            "TV3 decoded message_id must match input"
+        );
+        assert_eq!(
+            decoded.metadata.newsgroups,
+            vec!["comp.lang.rust".to_string()],
+            "TV3 decoded newsgroups must match input"
+        );
+        assert_eq!(
+            decoded.metadata.hlc_timestamp, 1_704_240_000_000_u64,
+            "TV3 decoded hlc_timestamp must match input"
+        );
+        let expected_byte_count = (TV3_HEADER.len() + TV3_BODY.len()) as u64;
+        assert_eq!(
+            decoded.metadata.byte_count, expected_byte_count,
+            "TV3 decoded byte_count must equal header + body length"
+        );
+    }
+
     // ── Vector 4: image/jpeg base64-encoded body (is_binary = true) ──────────
     //
     // Content-Type is image/jpeg with Content-Transfer-Encoding: base64.
@@ -561,5 +759,65 @@ mod tests {
         };
 
         assert!(sp.is_binary, "image/jpeg must be flagged is_binary = true");
+    }
+
+    /// Decode the oracle-verified TV4 root block and assert field values.
+    #[test]
+    fn tv4_root_block_decodes_correctly() {
+        let built = build_article(
+            TV4_HEADER,
+            TV4_BODY,
+            "<tv4@example.com>".into(),
+            vec!["comp.lang.rust".into()],
+            1_704_326_400_000,
+        )
+        .expect("build_article must succeed for TV4");
+
+        let root_bytes = built
+            .blocks
+            .iter()
+            .find(|(cid, _)| *cid == built.root_cid)
+            .map(|(_, b)| b)
+            .expect("root block must be present in blocks");
+
+        let decoded: crate::ipld::root_node::ArticleRootNode =
+            serde_ipld_dagcbor::from_slice(root_bytes)
+                .expect("TV4 root block bytes must deserialize");
+
+        assert_eq!(decoded.schema_version, 1, "TV4 schema_version must be 1");
+        let expected_header_cid = Cid::from_str(TV4_EXPECTED_HEADER_CID)
+            .expect("TV4 header CID constant must parse");
+        assert_eq!(
+            decoded.header_cid, expected_header_cid,
+            "TV4 decoded header_cid must match SHA-256 oracle"
+        );
+        let expected_body_cid =
+            Cid::from_str(TV4_EXPECTED_BODY_CID).expect("TV4 body CID constant must parse");
+        assert_eq!(
+            decoded.body_cid, expected_body_cid,
+            "TV4 decoded body_cid must match SHA-256 oracle"
+        );
+        assert!(
+            decoded.mime_cid.is_some(),
+            "TV4 decoded mime_cid must be Some (has Content-Type)"
+        );
+        assert_eq!(
+            decoded.metadata.message_id, "<tv4@example.com>",
+            "TV4 decoded message_id must match input"
+        );
+        assert_eq!(
+            decoded.metadata.newsgroups,
+            vec!["comp.lang.rust".to_string()],
+            "TV4 decoded newsgroups must match input"
+        );
+        assert_eq!(
+            decoded.metadata.hlc_timestamp, 1_704_326_400_000_u64,
+            "TV4 decoded hlc_timestamp must match input"
+        );
+        let expected_byte_count = (TV4_HEADER.len() + TV4_BODY.len()) as u64;
+        assert_eq!(
+            decoded.metadata.byte_count, expected_byte_count,
+            "TV4 decoded byte_count must equal header + body length"
+        );
     }
 }

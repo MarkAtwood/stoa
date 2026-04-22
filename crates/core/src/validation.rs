@@ -153,9 +153,15 @@ pub fn validate_article_ingress(
         .into());
     }
 
-    // 4. Group names valid (GroupName::new already validates; the vec only
-    //    holds GroupName values so this check is structurally guaranteed).
-    //    We leave this comment as a reminder that the type system enforces it.
+    // 4. Group names valid (defence-in-depth: validate the raw string even though
+    //    GroupName::new() should have already rejected invalid names at
+    //    construction time; this catches any values injected via unchecked
+    //    constructors, deserialization paths, or future API changes).
+    for group in &h.newsgroups {
+        if crate::article::GroupName::new(group.as_str()).is_err() {
+            return Err(ValidationError::InvalidGroupInNewsgroups(group.as_str().into()).into());
+        }
+    }
 
     // 5. If allowed_groups filter is active, all destination groups must be listed.
     if let Some(ref allowed) = config.allowed_groups {

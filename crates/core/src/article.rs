@@ -24,6 +24,16 @@ impl GroupName {
     pub fn as_str(&self) -> &str {
         &self.0
     }
+
+    /// Construct a `GroupName` from a raw string without format validation.
+    ///
+    /// This bypasses the RFC 3977 group name format check. Use only in fuzz
+    /// targets and tests where you need to inject arbitrary strings into the
+    /// validation pipeline to exercise error paths.
+    #[cfg(any(test, fuzzing))]
+    pub fn new_unchecked(s: impl Into<String>) -> Self {
+        GroupName(s.into())
+    }
 }
 
 impl std::fmt::Display for GroupName {

@@ -10,6 +10,12 @@ use crate::group_log::types::LogEntryId;
 /// Bounds memory and gossipsub message size regardless of group log depth.
 const MAX_HAVE: usize = 1000;
 
+/// Maximum number of BFS node visits during the `have` traversal.
+/// Set to 5× `MAX_HAVE` so that the traversal terminates in bounded work even
+/// when the local DAG has millions of entries.  When the limit is hit,
+/// `partial_have` is set to `true` so callers can schedule a follow-up round.
+const MAX_BFS_VISITS: usize = 5_000;
+
 /// Result of reconciling two tip sets.
 #[derive(Debug, Clone)]
 pub struct ReconcileResult {
@@ -58,6 +64,7 @@ pub async fn reconcile<S: LogStorage>(
     let mut queue: VecDeque<LogEntryId> = storage.list_tips(group).await?.into();
 
     let mut partial_have = false;
+    let mut visits: usize = 0;
 
     while let Some(entry_id) = queue.pop_front() {
         let key = *entry_id.as_bytes();
@@ -65,6 +72,12 @@ pub async fn reconcile<S: LogStorage>(
             continue;
         }
         visited.insert(key);
+
+        visits += 1;
+        if visits >= MAX_BFS_VISITS {
+            partial_have = true;
+            break;
+        }
 
         if !remote_set.contains(&key) {
             have.push(entry_id.clone());

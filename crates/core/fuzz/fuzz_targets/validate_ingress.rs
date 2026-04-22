@@ -21,10 +21,12 @@ fuzz_target!(|data: &[u8]| {
     let path = parts.get(5).copied().unwrap_or("").to_string();
     let body_str = parts.get(6).copied().unwrap_or("");
 
-    // Build group list — accept whatever GroupName::new returns, skip invalids.
+    // Pass raw group name strings directly to validate_article_ingress without
+    // pre-filtering, so the validator's group name format check (step 4) and
+    // allowed_groups filter (step 5) are both reachable from fuzz input.
     let newsgroups: Vec<GroupName> = newsgroups_raw
         .split(',')
-        .filter_map(|g| GroupName::new(g.trim()).ok())
+        .map(|g| GroupName::new_unchecked(g.trim()))
         .collect();
 
     let article = Article {
@@ -42,7 +44,16 @@ fuzz_target!(|data: &[u8]| {
         },
     };
 
-    let config = ValidationConfig::default();
+    // Use a non-None allowed_groups so that both error paths are reachable:
+    // - InvalidGroupInNewsgroups from step 4 (invalid group name format)
+    // - InvalidGroupInNewsgroups from step 5 (group not in allowed set)
+    let config = ValidationConfig {
+        allowed_groups: Some(vec![
+            GroupName::new("comp.lang.rust").unwrap(),
+            GroupName::new("alt.test").unwrap(),
+        ]),
+        ..ValidationConfig::default()
+    };
 
     // Must not panic. Return value (Ok/Err) is not checked — both are valid.
     let _ = validate_article_ingress(&article, &config);

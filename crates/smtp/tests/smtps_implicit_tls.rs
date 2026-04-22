@@ -191,6 +191,7 @@ fn base_config() -> Arc<Config> {
             max_recipients: 10,
             command_timeout_secs: 30,
             max_connections: 10,
+            sieve_eval_timeout_ms: 5_000,
         },
         log: LogConfig {
             level: "error".to_string(),
