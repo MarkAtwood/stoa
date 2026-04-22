@@ -91,6 +91,13 @@ impl MethodError {
             description: None,
         }
     }
+
+    pub fn account_not_found() -> Self {
+        Self {
+            error_type: ErrorType::Other,
+            description: Some("accountNotFound".to_string()),
+        }
+    }
 }
 
 #[cfg(test)]

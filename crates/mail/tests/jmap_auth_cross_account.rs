@@ -1,0 +1,349 @@
+//! RFC 8621 §2 cross-account authorization tests.
+//!
+//! The JMAP spec requires that every method call carrying an `accountId` that
+//! does not belong to the authenticated principal returns an `accountNotFound`
+//! method-level error — not data, not a server error.
+//!
+//! These tests use the in-process server pattern from `jmap_e2e.rs`.
+//! The server runs in dev mode (no HTTP auth required); the canonical account
+//! id issued by the session endpoint is `u_anonymous`.
+//!
+//! Independent oracle: RFC 8621 §2
+//!   "If the `accountId` does not correspond to a valid account, the method
+//!   MUST return an `accountNotFound` error."
+
+use std::str::FromStr as _;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+use async_trait::async_trait;
+use cid::Cid;
+use multihash_codetable::{Code, MultihashDigest};
+use tokio::net::TcpListener;
+use usenet_ipfs_reader::{
+    post::ipfs_write::{IpfsBlockStore, IpfsWriteError},
+    store::{article_numbers::ArticleNumberStore, overview::OverviewStore},
+};
+use usenet_ipfs_mail::{
+    server::{AppState, JmapStores, build_router},
+    state::{flags::UserFlagsStore, version::StateStore},
+    token_store::TokenStore,
+};
+
+static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
+
+// ── Minimal in-memory IPFS store ──────────────────────────────────────────────
+
+struct MemIpfs {
+    blocks: tokio::sync::RwLock<std::collections::HashMap<Vec<u8>, Vec<u8>>>,
+}
+
+impl MemIpfs {
+    fn new() -> Self {
+        Self { blocks: tokio::sync::RwLock::new(Default::default()) }
+    }
+}
+
+#[async_trait]
+impl IpfsBlockStore for MemIpfs {
+    async fn put_raw_block(&self, data: &[u8]) -> Result<Cid, IpfsWriteError> {
+        let digest = Code::Sha2_256.digest(data);
+        let cid = Cid::new_v1(0x71, digest);
+        self.blocks.write().await.insert(cid.to_bytes(), data.to_vec());
+        Ok(cid)
+    }
+
+    async fn put_block(&self, cid: Cid, data: Vec<u8>) -> Result<(), IpfsWriteError> {
+        self.blocks.write().await.insert(cid.to_bytes(), data);
+        Ok(())
+    }
+
+    async fn get_raw_block(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError> {
+        self.blocks
+            .read()
+            .await
+            .get(&cid.to_bytes())
+            .cloned()
+            .ok_or_else(|| IpfsWriteError::NotFound(cid.to_string()))
+    }
+}
+
+// ── Pool helpers ───────────────────────────────────────────────────────────────
+
+async fn make_reader_pool(tag: &str) -> sqlx::SqlitePool {
+    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
+    let url = format!("file:auth_reader_{tag}_{n}?mode=memory&cache=shared");
+    let opts = sqlx::sqlite::SqliteConnectOptions::from_str(&url)
+        .expect("valid url")
+        .create_if_missing(true);
+    let pool = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(opts)
+        .await
+        .expect("reader pool");
+    usenet_ipfs_reader::migrations::run_migrations(&pool)
+        .await
+        .expect("reader migrations");
+    pool
+}
+
+async fn make_mail_pool(tag: &str) -> sqlx::SqlitePool {
+    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
+    let url = format!("file:auth_mail_{tag}_{n}?mode=memory&cache=shared");
+    let opts = sqlx::sqlite::SqliteConnectOptions::from_str(&url)
+        .expect("valid url")
+        .create_if_missing(true);
+    let pool = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(opts)
+        .await
+        .expect("mail pool");
+    usenet_ipfs_mail::migrations::run_migrations(&pool)
+        .await
+        .expect("mail migrations");
+    pool
+}
+
+/// Spin up a dev-mode JMAP server and return its base URL.
+///
+/// Dev mode: no HTTP authentication required, canonical accountId = `u_anonymous`.
+async fn spawn_dev_server(tag: &str) -> String {
+    let reader_pool = make_reader_pool(tag).await;
+    let mail_pool = make_mail_pool(tag).await;
+    let mail_pool_arc = Arc::new(mail_pool);
+
+    let ipfs = Arc::new(MemIpfs::new());
+    let jmap_stores = Arc::new(JmapStores {
+        ipfs: ipfs as Arc<dyn IpfsBlockStore>,
+        article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
+        overview_store: Arc::new(OverviewStore::new(reader_pool)),
+        user_flags: Arc::new(UserFlagsStore::new((*mail_pool_arc).clone())),
+        state_store: Arc::new(StateStore::new((*mail_pool_arc).clone())),
+    });
+
+    let state = Arc::new(AppState {
+        start_time: std::time::Instant::now(),
+        jmap: Some(jmap_stores),
+        credential_store: Arc::new(usenet_ipfs_auth::CredentialStore::empty()),
+        auth_config: Arc::new(usenet_ipfs_auth::AuthConfig::default()),
+        token_store: Arc::new(TokenStore::new(Arc::clone(&mail_pool_arc))),
+        base_url: "http://localhost".to_string(),
+    });
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let app = build_router(state);
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+    tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+
+    format!("http://127.0.0.1:{port}")
+}
+
+// ── Helper: post a single JMAP method call, return methodResponses[0] ─────────
+
+async fn jmap_call(
+    client: &reqwest::Client,
+    base: &str,
+    method: &str,
+    args: serde_json::Value,
+) -> serde_json::Value {
+    let req_body = serde_json::json!({
+        "using": ["urn:ietf:params:jmap:mail"],
+        "methodCalls": [[method, args, "c1"]]
+    });
+    let resp = client
+        .post(format!("{base}/jmap/api"))
+        .json(&req_body)
+        .send()
+        .await
+        .expect("request must succeed");
+    assert_eq!(resp.status(), 200, "JMAP API must return HTTP 200");
+    let body: serde_json::Value = resp.json().await.unwrap();
+    body["methodResponses"][0].clone()
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
+/// Email/get with a foreign accountId must return accountNotFound, not data.
+///
+/// Oracle: RFC 8621 §2 — accountNotFound error when accountId does not match
+/// the authenticated principal.
+#[tokio::test]
+async fn email_get_wrong_account_id_returns_account_not_found() {
+    let base = spawn_dev_server("eg_wrong").await;
+    let client = reqwest::Client::new();
+
+    // Confirm the canonical accountId so we know what "wrong" means.
+    let session: serde_json::Value = client
+        .get(format!("{base}/jmap/session"))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let canonical = session["primaryAccounts"]["urn:ietf:params:jmap:mail"]
+        .as_str()
+        .expect("primaryAccounts must contain urn:ietf:params:jmap:mail");
+    assert_eq!(canonical, "u_anonymous", "dev-mode canonical accountId must be u_anonymous");
+
+    // Use a different, non-existent account id.
+    let invocation = jmap_call(
+        &client,
+        &base,
+        "Email/get",
+        serde_json::json!({
+            "accountId": "other-account",
+            "ids": ["bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi"]
+        }),
+    )
+    .await;
+
+    // The invocation name must be "error", not "Email/get".
+    assert_eq!(
+        invocation[0].as_str().unwrap(),
+        "error",
+        "wrong accountId must produce an error invocation, got: {invocation}"
+    );
+    // The error description must be accountNotFound (RFC 8621 §2).
+    let description = invocation[1]["description"].as_str().unwrap_or("");
+    assert_eq!(
+        description, "accountNotFound",
+        "error description must be accountNotFound, got: {invocation}"
+    );
+}
+
+/// Mailbox/get with a foreign accountId must return accountNotFound, not data.
+#[tokio::test]
+async fn mailbox_get_wrong_account_id_returns_account_not_found() {
+    let base = spawn_dev_server("mg_wrong").await;
+    let client = reqwest::Client::new();
+
+    let invocation = jmap_call(
+        &client,
+        &base,
+        "Mailbox/get",
+        serde_json::json!({
+            "accountId": "other-account",
+            "ids": null
+        }),
+    )
+    .await;
+
+    assert_eq!(
+        invocation[0].as_str().unwrap(),
+        "error",
+        "wrong accountId must produce an error invocation, got: {invocation}"
+    );
+    let description = invocation[1]["description"].as_str().unwrap_or("");
+    assert_eq!(
+        description, "accountNotFound",
+        "error description must be accountNotFound, got: {invocation}"
+    );
+}
+
+/// Email/query with a foreign accountId must return accountNotFound.
+#[tokio::test]
+async fn email_query_wrong_account_id_returns_account_not_found() {
+    let base = spawn_dev_server("eq_wrong").await;
+    let client = reqwest::Client::new();
+
+    let invocation = jmap_call(
+        &client,
+        &base,
+        "Email/query",
+        serde_json::json!({
+            "accountId": "other-account",
+            "filter": {}
+        }),
+    )
+    .await;
+
+    assert_eq!(
+        invocation[0].as_str().unwrap(),
+        "error",
+        "wrong accountId must produce an error invocation, got: {invocation}"
+    );
+    let description = invocation[1]["description"].as_str().unwrap_or("");
+    assert_eq!(
+        description, "accountNotFound",
+        "error description must be accountNotFound, got: {invocation}"
+    );
+}
+
+/// Email/get with an empty accountId must return accountNotFound.
+///
+/// An empty string is not a valid accountId and does not match `u_anonymous`.
+#[tokio::test]
+async fn email_get_empty_account_id_returns_account_not_found() {
+    let base = spawn_dev_server("eg_empty").await;
+    let client = reqwest::Client::new();
+
+    let invocation = jmap_call(
+        &client,
+        &base,
+        "Email/get",
+        serde_json::json!({
+            "accountId": "",
+            "ids": []
+        }),
+    )
+    .await;
+
+    assert_eq!(
+        invocation[0].as_str().unwrap(),
+        "error",
+        "empty accountId must produce an error invocation, got: {invocation}"
+    );
+    let description = invocation[1]["description"].as_str().unwrap_or("");
+    assert_eq!(
+        description, "accountNotFound",
+        "error description must be accountNotFound, got: {invocation}"
+    );
+}
+
+/// Mailbox/get with the correct canonical accountId must succeed (regression guard).
+///
+/// This confirms the validation does not break the happy path.
+#[tokio::test]
+async fn mailbox_get_correct_account_id_succeeds() {
+    let base = spawn_dev_server("mg_correct").await;
+    let client = reqwest::Client::new();
+
+    // Get the canonical accountId from the session.
+    let session: serde_json::Value = client
+        .get(format!("{base}/jmap/session"))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let account_id = session["primaryAccounts"]["urn:ietf:params:jmap:mail"]
+        .as_str()
+        .expect("primaryAccounts must contain urn:ietf:params:jmap:mail")
+        .to_string();
+
+    let invocation = jmap_call(
+        &client,
+        &base,
+        "Mailbox/get",
+        serde_json::json!({
+            "accountId": account_id,
+            "ids": null
+        }),
+    )
+    .await;
+
+    assert_eq!(
+        invocation[0].as_str().unwrap(),
+        "Mailbox/get",
+        "correct accountId must succeed with Mailbox/get response, got: {invocation}"
+    );
+    assert!(
+        invocation[1]["list"].is_array(),
+        "response must contain a list field"
+    );
+}

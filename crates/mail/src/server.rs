@@ -201,6 +201,7 @@ async fn jmap_session_handler(
 
 async fn jmap_api_handler(
     State(state): State<Arc<AppState>>,
+    user: Option<Extension<AuthenticatedUser>>,
     axum::extract::Json(request): axum::extract::Json<crate::jmap::types::Request>,
 ) -> (StatusCode, Json<Value>) {
     let jmap = match state.jmap.as_ref() {
@@ -213,11 +214,18 @@ async fn jmap_api_handler(
         }
     };
 
+    // Derive the canonical accountId for the authenticated principal.
+    // In dev mode no AuthenticatedUser extension is present; use "anonymous".
+    let username = user
+        .map(|Extension(u)| u.0)
+        .unwrap_or_else(|| "anonymous".to_string());
+    let canonical_account_id = format!("u_{username}");
+
     let mut method_responses = Vec::new();
 
     for crate::jmap::types::Invocation(method, args, call_id) in request.method_calls {
         let t0 = std::time::Instant::now();
-        let result = route_method(&method, args, jmap).await;
+        let result = route_method(&method, args, jmap, &canonical_account_id).await;
         let elapsed = t0.elapsed().as_secs_f64();
         crate::metrics::JMAP_REQUESTS_TOTAL
             .with_label_values(&[&method])
@@ -232,7 +240,12 @@ async fn jmap_api_handler(
                 .map_or(0, |a| a.len()) as i64;
             crate::metrics::EMAIL_QUERY_RESULTS.set(count);
         }
-        let response_name = if result.get("error").is_some() {
+        // A result is an error invocation if it has an "error" key (internal
+        // error path) or a "type" key (MethodError path — accountNotFound,
+        // unknownMethod, etc.).
+        let is_error =
+            result.get("error").is_some() || result.get("type").is_some();
+        let response_name = if is_error {
             "error".to_string()
         } else {
             method.clone()
@@ -255,7 +268,25 @@ async fn jmap_api_handler(
     (StatusCode::OK, Json(serde_json::to_value(response).unwrap()))
 }
 
-async fn route_method(method: &str, args: Value, jmap: &JmapStores) -> Value {
+async fn route_method(
+    method: &str,
+    args: Value,
+    jmap: &JmapStores,
+    canonical_account_id: &str,
+) -> Value {
+    // RFC 8621 §2: every method call carries an accountId.  If it is present
+    // and does not match the authenticated principal's account, return
+    // accountNotFound immediately without dispatching to the handler.
+    //
+    // An absent accountId is treated as the anonymous case and passed through;
+    // handlers that require it will return their own error if needed.
+    if let Some(requested_id) = args.get("accountId").and_then(|v| v.as_str()) {
+        if requested_id != canonical_account_id {
+            let err = crate::jmap::types::MethodError::account_not_found();
+            return serde_json::to_value(&err).unwrap_or(json!({}));
+        }
+    }
+
     match method {
         "Mailbox/get" => {
             let groups = match jmap.article_numbers.list_groups().await {

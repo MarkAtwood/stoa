@@ -50,6 +50,13 @@ pub struct Email {
     pub references: Option<Vec<String>>,
     /// First 256 chars of body text (None unless body is provided).
     pub preview: Option<String>,
+    /// Custom property: IPFS root CID string (DAG-CBOR, codec 0x71).
+    ///
+    /// Identical to `id` and `blob_id`.  Advertised via the
+    /// `urn:usenet-ipfs:jmap:cid` session capability.  Clients that do not
+    /// recognise this property may ignore it per RFC 8620 §3.3.
+    #[serde(rename = "x-usenet-ipfs-cid")]
+    pub ipfs_cid: String,
 }
 
 impl Email {
@@ -92,7 +99,7 @@ impl Email {
 
         Email {
             id: cid_str.clone(),
-            blob_id: cid_str,
+            blob_id: cid_str.clone(),
             mailbox_ids,
             keywords,
             received_at,
@@ -103,6 +110,7 @@ impl Email {
             in_reply_to,
             references,
             preview,
+            ipfs_cid: cid_str,
         }
     }
 }
@@ -264,6 +272,34 @@ mod tests {
         assert_eq!(email.size, 512);
         assert!(email.mailbox_ids.values().all(|v| *v));
         assert_eq!(email.mailbox_ids.len(), 1);
+    }
+
+    #[test]
+    fn ipfs_cid_property_equals_id() {
+        let cid = dummy_cid(b"article_cid_prop");
+        let root = dummy_root(vec!["comp.test".to_string()], 1_000_000_000_000, 128);
+        let email = Email::from_root_node(&cid, &root, None, HashMap::new(), None);
+        assert_eq!(
+            email.ipfs_cid,
+            cid.to_string(),
+            "x-usenet-ipfs-cid must equal the email id (root CID)"
+        );
+    }
+
+    #[test]
+    fn ipfs_cid_serializes_as_custom_property() {
+        let cid = dummy_cid(b"article_serial");
+        let root = dummy_root(vec!["comp.test".to_string()], 1_000_000_000_000, 64);
+        let email = Email::from_root_node(&cid, &root, None, HashMap::new(), None);
+        let json = serde_json::to_string(&email).unwrap();
+        assert!(
+            json.contains("\"x-usenet-ipfs-cid\""),
+            "serialized email must contain x-usenet-ipfs-cid key"
+        );
+        assert!(
+            json.contains(&cid.to_string()),
+            "serialized email must contain the CID value"
+        );
     }
 
     #[test]

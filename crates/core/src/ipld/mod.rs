@@ -6,6 +6,7 @@
 
 pub mod blocks;
 pub mod builder;
+pub mod cid_util;
 pub mod codec;
 pub mod header_map;
 pub mod metadata;
@@ -16,6 +17,7 @@ pub mod test_vectors;
 
 pub use blocks::{body_block, header_block};
 pub use builder::{build_article, BuildError, BuiltArticle};
+pub use cid_util::cid_for_article;
 pub use header_map::{HeaderMapNode, HeaderValue};
 pub use metadata::{
     compute_byte_count, compute_line_count, compute_metadata, extract_content_type_summary,

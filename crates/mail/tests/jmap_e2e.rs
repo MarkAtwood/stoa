@@ -202,7 +202,7 @@ async fn jmap_session_e2e() {
     let base = format!("http://127.0.0.1:{port}");
     let client = reqwest::Client::new();
 
-    // 1. GET /jmap/session
+    // 1. GET /jmap/session — also extract the canonical accountId
     let resp = client
         .get(format!("{base}/jmap/session"))
         .send()
@@ -214,11 +214,17 @@ async fn jmap_session_e2e() {
         session.get("capabilities").is_some(),
         "session must have capabilities"
     );
+    // Extract the accountId the server issued for this principal so all
+    // subsequent method calls use the canonical value (u_anonymous in dev mode).
+    let account_id = session["primaryAccounts"]["urn:ietf:params:jmap:mail"]
+        .as_str()
+        .expect("primaryAccounts must contain urn:ietf:params:jmap:mail")
+        .to_string();
 
     // 2. Mailbox/get — expect comp.test mailbox to be present
     let req_body = serde_json::json!({
         "using": ["urn:ietf:params:jmap:mail"],
-        "methodCalls": [["Mailbox/get", {"accountId": "acc1", "ids": null}, "c1"]]
+        "methodCalls": [["Mailbox/get", {"accountId": account_id, "ids": null}, "c1"]]
     });
     let resp = client
         .post(format!("{base}/jmap/api"))
@@ -244,7 +250,7 @@ async fn jmap_session_e2e() {
     // 3. Email/query — expect the seeded article to appear
     let req_body = serde_json::json!({
         "using": ["urn:ietf:params:jmap:mail"],
-        "methodCalls": [["Email/query", {"accountId": "acc1", "filter": {"inMailbox": mailbox_id}}, "c2"]]
+        "methodCalls": [["Email/query", {"accountId": account_id, "filter": {"inMailbox": mailbox_id}}, "c2"]]
     });
     let resp = client
         .post(format!("{base}/jmap/api"))
@@ -270,7 +276,7 @@ async fn jmap_session_e2e() {
     // 4. Email/get — verify full round-trip through DAG-CBOR ArticleRootNode
     let req_body = serde_json::json!({
         "using": ["urn:ietf:params:jmap:mail"],
-        "methodCalls": [["Email/get", {"accountId": "acc1", "ids": [email_id]}, "c3"]]
+        "methodCalls": [["Email/get", {"accountId": account_id, "ids": [email_id]}, "c3"]]
     });
     let resp = client
         .post(format!("{base}/jmap/api"))

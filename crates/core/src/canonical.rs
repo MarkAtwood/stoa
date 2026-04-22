@@ -22,6 +22,8 @@
 //! RFC 5322 header values (NUL is forbidden), making the header/body boundary
 //! unambiguous in the canonical stream.
 
+use cid::Cid;
+
 use crate::article::Article;
 
 /// Serialize `article` to a deterministic byte string suitable for hashing or
@@ -63,6 +65,31 @@ pub fn canonical_bytes(article: &Article) -> Vec<u8> {
     // Raw body bytes.
     out.extend_from_slice(&article.body.bytes);
 
+    out
+}
+
+/// Compute the canonical bytes for a log entry that are covered by the
+/// operator signature.
+///
+/// Layout: `hlc_timestamp` as 8 big-endian bytes, followed by `article_cid`
+/// bytes, followed by each parent CID's bytes sorted lexicographically.
+///
+/// This is the byte string that [`crate::signing::sign`] produces and
+/// [`crate::signing::verify`] checks. The signature field itself is excluded
+/// from the signed content.
+pub fn log_entry_canonical_bytes(
+    hlc_timestamp: u64,
+    article_cid: &Cid,
+    parent_cids: &[Cid],
+) -> Vec<u8> {
+    let mut out = Vec::new();
+    out.extend_from_slice(&hlc_timestamp.to_be_bytes());
+    out.extend_from_slice(&article_cid.to_bytes());
+    let mut parent_bytes: Vec<Vec<u8>> = parent_cids.iter().map(|c| c.to_bytes()).collect();
+    parent_bytes.sort();
+    for pb in &parent_bytes {
+        out.extend_from_slice(pb);
+    }
     out
 }
 

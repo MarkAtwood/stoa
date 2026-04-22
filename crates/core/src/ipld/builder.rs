@@ -1,3 +1,10 @@
+//! Article IPLD block set builder.
+//!
+//! This module produces the *root CID* (DAG-CBOR, codec 0x71) and all
+//! associated blocks for an article.  For the *canonical CID* (raw, codec
+//! 0x55) used for deduplication and `msgid_map` keying, see
+//! [`crate::ipld::cid_util`].
+
 use cid::Cid;
 use multihash_codetable::{Code, MultihashDigest};
 

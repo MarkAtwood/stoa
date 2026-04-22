@@ -1,6 +1,7 @@
 use cid::Cid;
 use multihash_codetable::{Code, MultihashDigest};
 
+use crate::canonical::log_entry_canonical_bytes;
 use crate::error::{SigningError, StorageError};
 use crate::group_log::storage::LogStorage;
 use crate::group_log::types::{LogEntry, LogEntryId};
@@ -115,23 +116,16 @@ pub fn verify_signature(
 
 /// Shared signature check over canonical log entry bytes.
 fn check_signature(entry: &LogEntry, pubkey: &VerifyingKey) -> Result<(), VerifyError> {
-    let mut canonical = Vec::new();
-    canonical.extend_from_slice(&entry.hlc_timestamp.to_be_bytes());
-    canonical.extend_from_slice(&entry.article_cid.to_bytes());
-
-    let mut parent_bytes: Vec<Vec<u8>> = entry.parent_cids.iter().map(|c| c.to_bytes()).collect();
-    parent_bytes.sort();
-    for pb in &parent_bytes {
-        canonical.extend_from_slice(pb);
-    }
+    let canonical =
+        log_entry_canonical_bytes(entry.hlc_timestamp, &entry.article_cid, &entry.parent_cids);
 
     let sig_bytes: [u8; 64] = entry
         .operator_signature
         .as_slice()
         .try_into()
         .map_err(|_| {
-            VerifyError::InvalidSignature(SigningError::SignatureTooShort {
-                actual: entry.operator_signature.len(),
+            VerifyError::InvalidSignature(SigningError::SignatureLengthInvalid {
+                got: entry.operator_signature.len(),
                 expected: 64,
             })
         })?;
@@ -212,22 +206,9 @@ mod tests {
         SigningKey::from_bytes(&[0x42u8; 32])
     }
 
-    /// Build canonical bytes for signing: hlc_timestamp || article_cid || sorted parent_cids.
-    fn canonical_bytes(entry: &LogEntry) -> Vec<u8> {
-        let mut bytes = Vec::new();
-        bytes.extend_from_slice(&entry.hlc_timestamp.to_be_bytes());
-        bytes.extend_from_slice(&entry.article_cid.to_bytes());
-        let mut parent_bytes: Vec<Vec<u8>> =
-            entry.parent_cids.iter().map(|c| c.to_bytes()).collect();
-        parent_bytes.sort();
-        for pb in &parent_bytes {
-            bytes.extend_from_slice(pb);
-        }
-        bytes
-    }
-
     fn sign_entry(entry: &mut LogEntry, key: &SigningKey) {
-        let canonical = canonical_bytes(entry);
+        let canonical =
+            log_entry_canonical_bytes(entry.hlc_timestamp, &entry.article_cid, &entry.parent_cids);
         let sig = crate::signing::sign(key, &canonical);
         entry.operator_signature = sig.to_bytes().to_vec();
     }

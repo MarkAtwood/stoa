@@ -246,7 +246,7 @@ impl std::error::Error for StorageError {}
 #[derive(Debug, Clone, PartialEq)]
 pub enum SigningError {
     InvalidKeyMaterial(String),
-    SignatureTooShort { actual: usize, expected: usize },
+    SignatureLengthInvalid { got: usize, expected: usize },
     VerificationFailed,
     KeyNotLoaded,
 }
@@ -255,9 +255,9 @@ impl fmt::Display for SigningError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidKeyMaterial(msg) => write!(f, "invalid key material: {msg}"),
-            Self::SignatureTooShort { actual, expected } => write!(
+            Self::SignatureLengthInvalid { got, expected } => write!(
                 f,
-                "signature too short: {actual} bytes, expected {expected}"
+                "signature length invalid: got {got} bytes, expected {expected}"
             ),
             Self::VerificationFailed => write!(f, "signature verification failed"),
             Self::KeyNotLoaded => write!(f, "signing key not loaded"),

@@ -52,6 +52,13 @@ pub fn build_session(username: &str, base_url: &str) -> SessionResource {
         "urn:ietf:params:jmap:mail".to_string(),
         serde_json::json!({}),
     );
+    // Custom capability: signals that Email objects carry the
+    // "x-usenet-ipfs-cid" property containing the DAG-CBOR root CID.
+    // Clients that do not recognise this capability may ignore it (RFC 8620 §3.3).
+    capabilities.insert(
+        "urn:usenet-ipfs:jmap:cid".to_string(),
+        serde_json::json!({}),
+    );
 
     let account_id = format!("u_{username}");
     let mut account_capabilities: HashMap<String, Value> = HashMap::new();
@@ -97,6 +104,15 @@ mod tests {
         assert!(s.capabilities.contains_key("urn:ietf:params:jmap:core"));
         assert!(s.capabilities.contains_key("urn:ietf:params:jmap:mail"));
         assert_eq!(s.username, "alice");
+    }
+
+    #[test]
+    fn session_has_usenet_ipfs_cid_capability() {
+        let s = build_session("alice", "https://example.com");
+        assert!(
+            s.capabilities.contains_key("urn:usenet-ipfs:jmap:cid"),
+            "session must advertise urn:usenet-ipfs:jmap:cid capability"
+        );
     }
 
     #[test]
