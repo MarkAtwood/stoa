@@ -190,7 +190,9 @@ where
         .put_raw(article_bytes)
         .await
         .map_err(|e| format!("IPFS write failed: {e}"))?;
-    let ipfs_write_latency_ms = t0.elapsed().as_millis() as u64;
+    let elapsed = t0.elapsed();
+    crate::metrics::IPFS_WRITE_LATENCY_SECONDS.observe(elapsed.as_secs_f64());
+    let ipfs_write_latency_ms = elapsed.as_millis() as u64;
 
     // 2+3. Parse Message-ID and Newsgroups in a single header scan.
     let (message_id, group_name_strs) = parse_message_id_and_newsgroups(article_bytes)

@@ -159,9 +159,18 @@ pub fn build_router(state: Arc<AppState>) -> Router {
 
     Router::new()
         .route("/health", get(health_handler))
+        .route("/metrics", get(metrics_handler))
         .route("/.well-known/jmap", get(well_known_jmap))
         .merge(protected)
         .with_state(state)
+}
+
+async fn metrics_handler() -> impl axum::response::IntoResponse {
+    let body = crate::metrics::gather_metrics();
+    (
+        [(header::CONTENT_TYPE, "text/plain; version=0.0.4")],
+        body,
+    )
 }
 
 async fn health_handler(State(state): State<Arc<AppState>>) -> Json<Value> {
@@ -207,7 +216,22 @@ async fn jmap_api_handler(
     let mut method_responses = Vec::new();
 
     for crate::jmap::types::Invocation(method, args, call_id) in request.method_calls {
+        let t0 = std::time::Instant::now();
         let result = route_method(&method, args, jmap).await;
+        let elapsed = t0.elapsed().as_secs_f64();
+        crate::metrics::JMAP_REQUESTS_TOTAL
+            .with_label_values(&[&method])
+            .inc();
+        crate::metrics::JMAP_REQUEST_DURATION_SECONDS
+            .with_label_values(&[&method])
+            .observe(elapsed);
+        if method == "Email/query" {
+            let count = result
+                .get("ids")
+                .and_then(|v| v.as_array())
+                .map_or(0, |a| a.len()) as i64;
+            crate::metrics::EMAIL_QUERY_RESULTS.set(count);
+        }
         let response_name = if result.get("error").is_some() {
             "error".to_string()
         } else {

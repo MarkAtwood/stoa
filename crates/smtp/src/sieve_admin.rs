@@ -25,6 +25,7 @@ use axum::{
     routing::{delete, get, post, put},
     Router,
 };
+use prometheus::{Encoder, TextEncoder};
 use sqlx::SqlitePool;
 use tokio::net::TcpListener;
 use tracing::info;
@@ -132,7 +133,9 @@ async fn run_admin_server(config: Arc<Config>, pool: SqlitePool, sieve_cache: Si
         pool,
         sieve_cache,
     };
-    let app = Router::new()
+
+    // Protected admin routes: bearer-token middleware applied to this sub-router.
+    let protected = Router::new()
         .route("/admin/sieve/{username}", get(list_scripts))
         .route("/admin/sieve/{username}/{name}", get(get_script))
         .route("/admin/sieve/{username}/{name}", put(put_script))
@@ -147,6 +150,11 @@ async fn run_admin_server(config: Arc<Config>, pool: SqlitePool, sieve_cache: Si
             require_bearer_token,
         ))
         .with_state(state);
+
+    // /metrics is public: Prometheus metrics expose no user data.
+    let app = Router::new()
+        .route("/metrics", get(get_metrics))
+        .merge(protected);
 
     if let Err(e) = axum::serve(listener, app).await {
         // Log the error but do not panic — a panic in a spawned task is caught
@@ -291,6 +299,34 @@ async fn check_script(body: Bytes) -> Response {
         )
             .into_response(),
     }
+}
+
+/// GET /metrics
+///
+/// Returns all registered Prometheus metrics in the standard text exposition
+/// format (Content-Type: text/plain; version=0.0.4).  This route requires no
+/// authentication: Prometheus metrics contain aggregate counters and reveal no
+/// user data.
+async fn get_metrics() -> Response {
+    let encoder = TextEncoder::new();
+    let metric_families = prometheus::gather();
+    let mut buf = Vec::new();
+    if let Err(e) = encoder.encode(&metric_families, &mut buf) {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("metrics encode error: {e}"),
+        )
+            .into_response();
+    }
+    (
+        StatusCode::OK,
+        [(
+            "Content-Type",
+            encoder.format_type(),
+        )],
+        buf,
+    )
+        .into_response()
 }
 
 fn user_exists(s: &AdminState, username: &str) -> bool {
@@ -801,6 +837,58 @@ mod tests {
             result.is_ok(),
             "expected Ok when allow_non_loopback=true: {:?}",
             result.err()
+        );
+    }
+
+    // ── /metrics route ────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn metrics_endpoint_returns_200_with_text_content_type() {
+        // Force LazyLock initialization so at least some metrics are registered.
+        crate::metrics::SMTP_CONNECTIONS_TOTAL.inc();
+
+        let app = Router::new().route("/metrics", get(get_metrics));
+        let req = Request::builder()
+            .method(Method::GET)
+            .uri("/metrics")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let ct = resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
+        assert!(
+            ct.starts_with("text/plain"),
+            "expected text/plain Content-Type, got: {ct}"
+        );
+        let body = response_body(resp).await;
+        assert!(
+            body.contains("smtp_connections_total"),
+            "expected smtp_connections_total in metrics output:\n{body}"
+        );
+    }
+
+    #[tokio::test]
+    async fn metrics_endpoint_no_auth_required_even_with_bearer_token_app() {
+        // /metrics must bypass bearer-token middleware.
+        let app = app_with_token("secret").await;
+        // app_with_token returns only the protected sub-router without /metrics;
+        // build the full router as run_admin_server does.
+        let app_with_metrics = Router::new().route("/metrics", get(get_metrics)).merge(app);
+
+        let req = Request::builder()
+            .method(Method::GET)
+            .uri("/metrics")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app_with_metrics.oneshot(req).await.unwrap();
+        assert_eq!(
+            resp.status(),
+            StatusCode::OK,
+            "/metrics must return 200 without Authorization header"
         );
     }
 }

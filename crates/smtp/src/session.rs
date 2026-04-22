@@ -15,6 +15,10 @@ use usenet_ipfs_core::util::epoch_to_rfc2822;
 
 use crate::auth::verify_inbound;
 use crate::config::Config;
+use crate::metrics::{
+    SMTP_CONNECTIONS_TOTAL, SMTP_DATA_BYTES_TOTAL, SMTP_MESSAGES_ACCEPTED_TOTAL,
+    SMTP_MESSAGES_REJECTED_TOTAL,
+};
 use crate::queue::NntpQueue;
 use crate::{routing, store};
 
@@ -132,6 +136,8 @@ pub async fn run_session<S>(
 ) where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
+    SMTP_CONNECTIONS_TOTAL.inc();
+
     let (read_half, mut write_half) = tokio::io::split(stream);
     let mut reader = BufReader::new(read_half);
 
@@ -439,6 +445,9 @@ pub async fn run_session<S>(
                 };
 
                 if too_large {
+                    SMTP_MESSAGES_REJECTED_TOTAL
+                        .with_label_values(&["size"])
+                        .inc();
                     if write_half
                         .write_all(b"552 Message too large\r\n")
                         .await
@@ -471,6 +480,9 @@ pub async fn run_session<S>(
                             from = %from,
                             "DMARC reject policy applied — rejecting message"
                         );
+                        SMTP_MESSAGES_REJECTED_TOTAL
+                            .with_label_values(&["policy"])
+                            .inc();
                         if write_half
                             .write_all(
                                 b"550 5.7.1 Message rejected due to DMARC policy\r\n",
@@ -582,6 +594,9 @@ pub async fn run_session<S>(
                         .take(200)
                         .collect();
                     warn!(peer = %peer_addr, from = %from, %safe, "Sieve reject");
+                    SMTP_MESSAGES_REJECTED_TOTAL
+                        .with_label_values(&["policy"])
+                        .inc();
                     if write_half
                         .write_all(format!("550 {}\r\n", safe).as_bytes())
                         .await
@@ -647,6 +662,8 @@ pub async fn run_session<S>(
                 let reply: &[u8] = if nntp_queue_error {
                     b"452 4.3.1 Queue write failed - try again later\r\n"
                 } else {
+                    SMTP_MESSAGES_ACCEPTED_TOTAL.inc();
+                    SMTP_DATA_BYTES_TOTAL.inc_by(raw_bytes.len() as f64);
                     b"250 OK\r\n"
                 };
                 if write_half.write_all(reply).await.is_err() {

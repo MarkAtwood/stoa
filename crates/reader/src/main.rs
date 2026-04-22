@@ -5,6 +5,7 @@ use tokio::sync::Semaphore;
 use tracing::{error, info, warn};
 
 use usenet_ipfs_reader::{
+    admin::start_admin_server,
     config::Config,
     session::lifecycle::run_session,
     store::{backfill::backfill_overview, server_stores::ServerStores},
@@ -89,6 +90,25 @@ async fn main() {
     }
 
     let config = Arc::new(config);
+
+    // Optional admin HTTP server.
+    if config.admin.enabled {
+        let admin_addr: std::net::SocketAddr = match config.admin.addr.parse() {
+            Ok(a) => a,
+            Err(e) => {
+                error!("invalid admin.addr '{}': {}", config.admin.addr, e);
+                std::process::exit(1);
+            }
+        };
+        if let Err(e) = start_admin_server(
+            admin_addr,
+            std::time::Instant::now(),
+            config.admin.admin_token.clone(),
+        ) {
+            error!("{e}");
+            std::process::exit(1);
+        }
+    }
 
     // Optional NNTPS listener (implicit TLS, port 563 by convention).
     let tls_listener_future: std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> =

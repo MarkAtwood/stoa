@@ -131,18 +131,23 @@ pub struct TlsConfig {
     pub key_path: Option<String>,
 }
 
-// AdminConfig fields will be used by the admin HTTP endpoint (not yet implemented).
-#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct AdminConfig {
+    /// Whether the admin HTTP endpoint is enabled. Default: false.
+    #[serde(default)]
+    pub enabled: bool,
     /// Address to bind the admin HTTP endpoint.
     /// Default: 127.0.0.1:9090 (loopback-only).
-    /// Setting to a non-loopback address without authentication is warned at startup.
     #[serde(default = "default_admin_addr")]
     pub addr: String,
-    /// If true, suppress the non-loopback warning (use only if you know what you're doing).
+    /// Bearer token for admin endpoint authentication.
+    ///
+    /// Required when `addr` is a non-loopback address — the server refuses to
+    /// start on a reachable interface without a token (fail-closed).
+    /// Optional on loopback; omitting it leaves the endpoint open to any local
+    /// process, which is acceptable in a trusted environment.
     #[serde(default)]
-    pub allow_non_loopback: bool,
+    pub admin_token: Option<String>,
 }
 
 fn default_admin_addr() -> String {
@@ -152,8 +157,9 @@ fn default_admin_addr() -> String {
 impl Default for AdminConfig {
     fn default() -> Self {
         Self {
+            enabled: false,
             addr: default_admin_addr(),
-            allow_non_loopback: false,
+            admin_token: None,
         }
     }
 }
@@ -256,20 +262,22 @@ pub fn is_loopback_addr(addr: &str) -> bool {
     }
 }
 
-/// Check admin configuration and emit a warning if admin is bound non-locally.
+/// Validate admin configuration.
 ///
-/// Returns Some(warning_message) if the admin address is not loopback and
-/// allow_non_loopback is not set. Returns None if the configuration is safe.
-pub fn check_admin_addr(admin: &AdminConfig) -> Option<String> {
-    if !is_loopback_addr(&admin.addr) && !admin.allow_non_loopback {
-        Some(format!(
-            "WARNING: admin endpoint bound to non-loopback address '{}' \
-             without authentication. Set admin.allow_non_loopback = true in \
-             config to suppress this warning, or bind to 127.0.0.1.",
+/// Returns `Err` if `addr` is non-loopback and no `admin_token` is set —
+/// an unauthenticated admin endpoint on a reachable interface is a security
+/// footgun that the server must not start with (fail-closed).
+/// Returns `Ok(())` if the configuration is safe.
+pub fn check_admin_addr(admin: &AdminConfig) -> Result<(), String> {
+    if !is_loopback_addr(&admin.addr) && admin.admin_token.is_none() {
+        Err(format!(
+            "admin endpoint at '{}' is on a non-loopback interface but \
+             admin.admin_token is not configured — refusing to start an \
+             unauthenticated admin server",
             admin.addr
         ))
     } else {
-        None
+        Ok(())
     }
 }
 
@@ -436,28 +444,30 @@ required = false
     }
 
     #[test]
-    fn non_loopback_triggers_warning() {
+    fn non_loopback_without_token_is_err() {
         let admin = AdminConfig {
+            enabled: true,
             addr: "0.0.0.0:9090".to_string(),
-            allow_non_loopback: false,
+            admin_token: None,
         };
-        let warning = check_admin_addr(&admin);
-        assert!(warning.is_some(), "non-loopback should trigger warning");
+        let result = check_admin_addr(&admin);
+        assert!(result.is_err(), "non-loopback without token must be Err");
         assert!(
-            warning.unwrap().contains("WARNING"),
-            "warning should say WARNING"
+            result.unwrap_err().contains("non-loopback"),
+            "error message must mention non-loopback"
         );
     }
 
     #[test]
-    fn non_loopback_with_flag_no_warning() {
+    fn non_loopback_with_token_is_ok() {
         let admin = AdminConfig {
+            enabled: true,
             addr: "0.0.0.0:9090".to_string(),
-            allow_non_loopback: true,
+            admin_token: Some("secret".to_string()),
         };
         assert!(
-            check_admin_addr(&admin).is_none(),
-            "allow_non_loopback should suppress warning"
+            check_admin_addr(&admin).is_ok(),
+            "non-loopback with token must be Ok"
         );
     }
 
@@ -469,8 +479,8 @@ required = false
             "default addr must be loopback"
         );
         assert!(
-            check_admin_addr(&admin).is_none(),
-            "default config must not warn"
+            check_admin_addr(&admin).is_ok(),
+            "default config must be Ok"
         );
     }
 }

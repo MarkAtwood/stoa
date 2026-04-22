@@ -70,6 +70,13 @@ lazy_static::lazy_static! {
         )
         .expect("failed to register pinned_articles_total");
 
+    pub static ref INGESTION_QUEUE_DEPTH: prometheus::IntGauge =
+        register_int_gauge!(
+            "ingestion_queue_depth",
+            "Current number of articles waiting in the ingestion queue"
+        )
+        .expect("failed to register ingestion_queue_depth");
+
     pub static ref NNTP_COMMAND_DURATION_SECONDS: prometheus::HistogramVec =
         register_histogram_vec!(
             "nntp_command_duration_seconds",
@@ -108,6 +115,7 @@ pub fn gather_metrics() -> String {
     lazy_static::initialize(&ARTICLES_SERVED_TOTAL);
     lazy_static::initialize(&GROUPS_SERVED);
     lazy_static::initialize(&PINNED_ARTICLES_TOTAL);
+    lazy_static::initialize(&INGESTION_QUEUE_DEPTH);
     lazy_static::initialize(&NNTP_COMMAND_DURATION_SECONDS);
     lazy_static::initialize(&ARTICLES_INGESTED_GROUP_TOTAL);
     lazy_static::initialize(&ARTICLES_REJECTED_TOTAL);
@@ -228,6 +236,10 @@ mod tests {
         assert!(
             output.contains("nntp_command_duration_seconds"),
             "missing nntp_command_duration_seconds in:\n{output}"
+        );
+        assert!(
+            output.contains("ingestion_queue_depth"),
+            "missing ingestion_queue_depth in:\n{output}"
         );
     }
 

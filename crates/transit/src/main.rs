@@ -308,9 +308,12 @@ async fn main() {
         let local_peer_id = peer_id.to_string();
         let local_hostname_drain = local_hostname;
         let transit_pool_drain = Arc::clone(&transit_pool);
+        let ingestion_sender_drain = Arc::clone(&ingestion_sender);
 
         tokio::spawn(async move {
             while let Some(article) = ingestion_receiver.recv().await {
+                usenet_ipfs_transit::metrics::INGESTION_QUEUE_DEPTH
+                    .set(ingestion_sender_drain.depth() as i64);
                 let now_ms = std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap()
