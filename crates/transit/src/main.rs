@@ -83,7 +83,7 @@ async fn main() {
 
     // ── SQLite databases (two separate pools: core schema + transit schema) ───
 
-    let core_pool = open_pool(&config.database.core_path).await;
+    let core_pool = open_pool(&config.database.core_path, config.database.pool_size).await;
     if let Err(e) = usenet_ipfs_core::migrations::run_migrations(&core_pool).await {
         eprintln!("error: core database migration failed: {e}");
         std::process::exit(1);
@@ -91,7 +91,7 @@ async fn main() {
     let msgid_map = Arc::new(MsgIdMap::new(core_pool.clone()));
     let log_storage = Arc::new(SqliteLogStorage::new(core_pool));
 
-    let transit_pool = Arc::new(open_pool(&config.database.path).await);
+    let transit_pool = Arc::new(open_pool(&config.database.path, config.database.pool_size).await);
     if let Err(e) = usenet_ipfs_transit::migrations::run_migrations(&transit_pool).await {
         eprintln!("error: transit database migration failed: {e}");
         std::process::exit(1);
@@ -261,7 +261,8 @@ async fn main() {
     };
     let hlc = Arc::new(Mutex::new(HlcClock::new(node_id, now_ms)));
 
-    let (ingestion_sender, mut ingestion_receiver) = ingestion_queue(1024);
+    let (ingestion_sender, mut ingestion_receiver) =
+        ingestion_queue(config.peering.ingestion_queue_capacity);
     let ingestion_sender = Arc::new(ingestion_sender);
 
     // ── Local hostname for Path: header (Son-of-RFC-1036 §3.3) ───────────────
@@ -286,10 +287,9 @@ async fn main() {
         local_peer_id: peer_id.to_string(),
         local_hostname: local_hostname.clone(),
         // Per-IP rate limiter: all connections from one host share this budget.
-        // 200-article burst, 100 articles/sec sustained.
         peer_rate_limiter: Arc::new(std::sync::Mutex::new(PeerRateLimiter::new(
-            100.0,
-            200,
+            config.peering.rate_limit_rps,
+            config.peering.rate_limit_burst,
             ExhaustionAction::Respond431,
         ))),
         transit_pool: Arc::clone(&transit_pool),
@@ -416,7 +416,7 @@ async fn accept_loop(listener: TcpListener, shared: Arc<PeeringShared>) -> std::
     }
 }
 
-async fn open_pool(path: &str) -> sqlx::SqlitePool {
+async fn open_pool(path: &str, pool_size: u32) -> sqlx::SqlitePool {
     let url = format!("sqlite://{path}");
     let opts = match <sqlx::sqlite::SqliteConnectOptions as std::str::FromStr>::from_str(&url) {
         Ok(o) => o.create_if_missing(true),
@@ -426,7 +426,7 @@ async fn open_pool(path: &str) -> sqlx::SqlitePool {
         }
     };
     match sqlx::sqlite::SqlitePoolOptions::new()
-        .max_connections(8)
+        .max_connections(pool_size)
         .connect_with(opts)
         .await
     {

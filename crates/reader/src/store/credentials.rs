@@ -23,6 +23,19 @@ fn dummy_hash() -> &'static str {
     })
 }
 
+/// Synchronous bcrypt verification for use in non-async contexts.
+///
+/// `hash`: the bcrypt hash for the found username, or `None` when the username
+/// is not found. In both cases, a bcrypt verification is performed against
+/// `dummy_hash()` or the real hash, preventing timing oracles on username
+/// existence. Returns `true` only when `hash` is `Some` and the password
+/// matches.
+pub fn verify_bcrypt_sync(hash: Option<&str>, password: &str) -> bool {
+    let hash = hash.unwrap_or_else(|| dummy_hash());
+    bcrypt::verify(password, hash).unwrap_or(false)
+        && hash != dummy_hash()
+}
+
 /// Bcrypt-hashed credential store.
 ///
 /// Usernames are normalised to ASCII-lowercase for case-insensitive matching.

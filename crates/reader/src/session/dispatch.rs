@@ -225,15 +225,21 @@ pub fn dispatch(
 ///
 /// If `auth_config.users` is empty and `auth_config.required` is false,
 /// all attempts succeed (development mode). Otherwise the credentials
-/// must match an entry in `auth_config.users`.
+/// must match an entry in `auth_config.users` using bcrypt verification.
+///
+/// Passwords stored in `UserCredential.password` must be bcrypt hashes.
+/// A dummy hash is verified even when the username is not found, to prevent
+/// a timing oracle on username existence.
 fn check_credentials(auth_config: &AuthConfig, username: &str, password: &str) -> bool {
     if auth_config.users.is_empty() && !auth_config.required {
         return true;
     }
-    auth_config
+    let hash = auth_config
         .users
         .iter()
-        .any(|u| u.username == username && u.password == password)
+        .find(|u| u.username.eq_ignore_ascii_case(username))
+        .map(|u| u.password.as_str());
+    crate::store::credentials::verify_bcrypt_sync(hash, password)
 }
 
 #[cfg(test)]
@@ -566,11 +572,13 @@ mod tests {
 
     #[test]
     fn authinfo_with_credential_match_returns_281() {
+        // password field must be a bcrypt hash; cost 4 is the minimum (fast for tests).
+        let hash = bcrypt::hash("secret", 4).expect("bcrypt::hash must not fail");
         let auth = AuthConfig {
             required: true,
             users: vec![UserCredential {
                 username: "alice".into(),
-                password: "secret".into(),
+                password: hash,
             }],
             credential_file: None,
             client_certs: vec![],
@@ -599,11 +607,12 @@ mod tests {
 
     #[test]
     fn authinfo_with_wrong_password_returns_481() {
+        let hash = bcrypt::hash("secret", 4).expect("bcrypt::hash must not fail");
         let auth = AuthConfig {
             required: true,
             users: vec![UserCredential {
                 username: "alice".into(),
-                password: "secret".into(),
+                password: hash,
             }],
             credential_file: None,
             client_certs: vec![],
@@ -633,11 +642,12 @@ mod tests {
     #[test]
     fn authinfo_on_plain_with_required_returns_483() {
         // Plain connection (tls_active=false) with auth.required=true must return 483.
+        let hash = bcrypt::hash("secret", 4).expect("bcrypt::hash must not fail");
         let auth = AuthConfig {
             required: true,
             users: vec![UserCredential {
                 username: "alice".into(),
-                password: "secret".into(),
+                password: hash,
             }],
             credential_file: None,
             client_certs: vec![],

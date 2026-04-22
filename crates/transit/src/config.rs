@@ -21,6 +21,8 @@ pub struct Config {
     pub log: LogConfig,
     #[serde(default)]
     pub operator: OperatorConfig,
+    #[serde(default)]
+    pub peering: PeeringConfig,
 }
 
 /// Operator identity configuration.
@@ -62,6 +64,9 @@ pub struct DatabaseConfig {
     /// Created if it does not exist. Default: `transit.db`.
     #[serde(default = "default_db_path")]
     pub path: String,
+    /// SQLite connection pool size for the transit database. Default: 8.
+    #[serde(default = "default_db_pool_size")]
+    pub pool_size: u32,
 }
 
 fn default_core_db_path() -> String {
@@ -72,11 +77,16 @@ fn default_db_path() -> String {
     "transit.db".to_string()
 }
 
+fn default_db_pool_size() -> u32 {
+    8
+}
+
 impl Default for DatabaseConfig {
     fn default() -> Self {
         Self {
             core_path: default_core_db_path(),
             path: default_db_path(),
+            pool_size: default_db_pool_size(),
         }
     }
 }
@@ -181,6 +191,42 @@ pub struct PinningConfig {
 pub struct GcConfig {
     pub schedule: String,
     pub max_age_days: u64,
+}
+
+/// Peering session tuning parameters.
+#[derive(Debug, Deserialize)]
+pub struct PeeringConfig {
+    /// Ingestion queue capacity (max queued articles before backpressure). Default: 1024.
+    #[serde(default = "default_ingestion_queue_capacity")]
+    pub ingestion_queue_capacity: usize,
+    /// Per-IP rate limit: sustained articles/second. Default: 100.
+    #[serde(default = "default_rate_limit_rps")]
+    pub rate_limit_rps: f64,
+    /// Per-IP rate limit burst: max burst articles. Default: 200.
+    #[serde(default = "default_rate_limit_burst")]
+    pub rate_limit_burst: u64,
+}
+
+fn default_ingestion_queue_capacity() -> usize {
+    1024
+}
+
+fn default_rate_limit_rps() -> f64 {
+    100.0
+}
+
+fn default_rate_limit_burst() -> u64 {
+    200
+}
+
+impl Default for PeeringConfig {
+    fn default() -> Self {
+        Self {
+            ingestion_queue_capacity: default_ingestion_queue_capacity(),
+            rate_limit_rps: default_rate_limit_rps(),
+            rate_limit_burst: default_rate_limit_burst(),
+        }
+    }
 }
 
 #[derive(Debug)]
