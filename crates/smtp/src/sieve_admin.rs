@@ -23,7 +23,7 @@ use axum::{
     middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::{delete, get, post, put},
-    Router,
+    Json, Router,
 };
 use prometheus::{Encoder, TextEncoder};
 use sqlx::SqlitePool;
@@ -49,6 +49,13 @@ struct AdminState {
     config: Arc<Config>,
     pool: SqlitePool,
     sieve_cache: SieveCache,
+}
+
+/// JSON payload for a single entry in the `GET /admin/sieve/{username}` response.
+#[derive(serde::Serialize)]
+struct ListScriptEntry {
+    name: String,
+    active: bool,
 }
 
 /// Validate a script name: must be non-empty, no path separators, no null bytes.
@@ -172,17 +179,11 @@ async fn list_scripts(State(s): State<AdminState>, Path(username): Path<String>)
     }
     match store::list_scripts(&s.pool, &username).await {
         Ok(scripts) => {
-            let json = scripts
-                .iter()
-                .map(|(name, active)| format!(r#"{{"name":{:?},"active":{}}}"#, name, active))
-                .collect::<Vec<_>>()
-                .join(",");
-            (
-                StatusCode::OK,
-                [("Content-Type", "application/json")],
-                format!("[{}]", json),
-            )
-                .into_response()
+            let entries: Vec<ListScriptEntry> = scripts
+                .into_iter()
+                .map(|(name, active)| ListScriptEntry { name, active })
+                .collect();
+            (StatusCode::OK, Json(entries)).into_response()
         }
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }

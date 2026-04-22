@@ -74,6 +74,13 @@ pub enum Command {
         expected_cid: String,
         verify_sig: bool,
     },
+    /// HDR field-name [range|message-id] — return a single header field for
+    /// one or more articles (RFC 3977 §8.5). Advertised as HDR in CAPABILITIES.
+    /// Response: 225 Headers follow + lines + "."
+    Hdr {
+        field: String,
+        range_or_msgid: Option<String>,
+    },
     /// Any unrecognized command, stored verbatim for logging/500 response.
     Unknown(String),
 }
@@ -209,6 +216,13 @@ pub fn parse_command(line: &str) -> Result<Command, ParseError> {
             })
         }
 
+        "HDR" => {
+            let mut toks = rest.splitn(2, char::is_whitespace);
+            let field = toks.next().unwrap_or("").to_string();
+            let range_or_msgid = toks.next().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
+            Ok(Command::Hdr { field, range_or_msgid })
+        }
+
         "OVER" | "XOVER" => {
             if rest.is_empty() {
                 return Ok(Command::Over(None));
@@ -250,6 +264,13 @@ fn parse_article_ref(s: &str) -> Option<ArticleRef> {
         return Some(ArticleRef::Cid(cid_str.to_string()));
     }
     s.parse::<u64>().ok().map(ArticleRef::Number)
+}
+
+/// Parse an OVER/HDR range string: "n", "n-", or "n-m".
+///
+/// Public so that `lifecycle.rs` can reuse it for HDR range arguments.
+pub fn parse_range_pub(s: &str) -> ArticleRange {
+    parse_range(s)
 }
 
 /// Parse an OVER range string: "n", "n-", or "n-m".
@@ -449,6 +470,52 @@ mod tests {
     #[test]
     fn parse_stat_no_arg() {
         assert_eq!(parse_command("STAT\r\n"), Ok(Command::Stat(None)));
+    }
+
+    // ---- HDR ----
+
+    #[test]
+    fn parse_hdr_no_arg() {
+        assert_eq!(
+            parse_command("HDR Subject\r\n"),
+            Ok(Command::Hdr {
+                field: "Subject".into(),
+                range_or_msgid: None,
+            })
+        );
+    }
+
+    #[test]
+    fn parse_hdr_with_range() {
+        assert_eq!(
+            parse_command("HDR Subject 1-10\r\n"),
+            Ok(Command::Hdr {
+                field: "Subject".into(),
+                range_or_msgid: Some("1-10".into()),
+            })
+        );
+    }
+
+    #[test]
+    fn parse_hdr_with_message_id() {
+        assert_eq!(
+            parse_command("HDR Subject <foo@bar>\r\n"),
+            Ok(Command::Hdr {
+                field: "Subject".into(),
+                range_or_msgid: Some("<foo@bar>".into()),
+            })
+        );
+    }
+
+    #[test]
+    fn parse_hdr_lowercase_field() {
+        assert_eq!(
+            parse_command("hdr from\r\n"),
+            Ok(Command::Hdr {
+                field: "from".into(),
+                range_or_msgid: None,
+            })
+        );
     }
 
     // ---- OVER / XOVER ----

@@ -12,6 +12,7 @@ use usenet_ipfs_core::ArticleRootNode;
 use crate::{
     config::Config,
     post::{
+        find_header_boundary,
         ipfs_write::{write_ipld_article_to_ipfs, IpfsBlockStore},
         log_append::append_to_groups,
         pipeline::check_duplicate_msgid,
@@ -21,6 +22,7 @@ use crate::{
         command::{parse_command, ArticleRange, ArticleRef, Command, ListSubcommand, OverArg},
         commands::{
             fetch::{article_response, xcid_response, ArticleContent},
+            hdr::{extract_field, hdr_response, HdrRecord},
             list::GroupInfo,
             over::over_response,
             post::{complete_post, read_dot_terminated, DEFAULT_MAX_ARTICLE_BYTES},
@@ -293,6 +295,16 @@ async fn run_command_loop<R, W>(
         // OVER/XOVER: serve overview records from the overview index.
         if let Command::Over(ref arg) = cmd {
             let resp = handle_over_live(stores, ctx, arg.as_ref()).await;
+            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                return;
+            }
+            continue;
+        }
+
+        // HDR field-name [range|message-id]: serve a single header field from
+        // the overview index (RFC 3977 §8.5).
+        if let Command::Hdr { ref field, ref range_or_msgid } = cmd {
+            let resp = handle_hdr_live(stores, ctx, field, range_or_msgid.as_deref()).await;
             if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
                 return;
             }
@@ -638,18 +650,21 @@ async fn lookup_article_by_msgid(stores: &ServerStores, msgid: &str) -> Response
 /// Returns `(header_bytes, body_bytes)`. Both slices exclude the blank line
 /// itself. If no separator is found, the entire input is treated as headers.
 fn split_article(bytes: &[u8]) -> (Vec<u8>, Vec<u8>) {
-    // Look for \r\n\r\n first (canonical NNTP), then \n\n.
-    for i in 0..bytes.len().saturating_sub(3) {
-        if bytes[i..].starts_with(b"\r\n\r\n") {
-            return (bytes[..i].to_vec(), bytes[i + 4..].to_vec());
+    match find_header_boundary(bytes) {
+        Some(body_start) => {
+            // Determine separator length: 4 for \r\n\r\n, 2 for \n\n.
+            let sep_len = if body_start >= 4
+                && bytes[body_start - 4..body_start] == *b"\r\n\r\n"
+            {
+                4
+            } else {
+                2
+            };
+            let header_end = body_start - sep_len;
+            (bytes[..header_end].to_vec(), bytes[body_start..].to_vec())
         }
+        None => (bytes.to_vec(), vec![]),
     }
-    for i in 0..bytes.len().saturating_sub(1) {
-        if bytes[i..].starts_with(b"\n\n") {
-            return (bytes[..i].to_vec(), bytes[i + 2..].to_vec());
-        }
-    }
-    (bytes.to_vec(), vec![])
 }
 
 /// Extract `Message-ID` and `Newsgroups` from article header bytes.
@@ -661,8 +676,10 @@ fn split_article(bytes: &[u8]) -> (Vec<u8>, Vec<u8>) {
 fn extract_post_metadata(
     article_bytes: &[u8],
 ) -> Result<(String, Vec<usenet_ipfs_core::article::GroupName>), Response> {
-    let header_end = find_header_end(article_bytes).unwrap_or(article_bytes.len());
-    let header_section = &article_bytes[..header_end];
+    // Pass the bytes up to and including the blank line (or the full slice if
+    // none is found); mailparse::parse_headers stops at the blank line anyway.
+    let parse_end = find_header_boundary(article_bytes).unwrap_or(article_bytes.len());
+    let header_section = &article_bytes[..parse_end];
 
     let (parsed, _) = parse_headers(header_section)
         .map_err(|_| Response::new(441, "Could not parse article headers"))?;
@@ -697,20 +714,6 @@ fn extract_post_metadata(
     }
 
     Ok((message_id, newsgroups))
-}
-
-/// Return the byte offset of the start of the blank line that separates
-/// headers from body (`\r\n\r\n` or `\n\n`).
-fn find_header_end(bytes: &[u8]) -> Option<usize> {
-    for i in 0..bytes.len().saturating_sub(1) {
-        if bytes[i..].starts_with(b"\r\n\r\n") {
-            return Some(i + 2);
-        }
-        if bytes[i..].starts_with(b"\n\n") {
-            return Some(i + 1);
-        }
-    }
-    None
 }
 
 /// Extract the trimmed value of the first matching header field, or `None`.
@@ -932,6 +935,106 @@ async fn handle_over_live(
         }
     };
     over_response(records)
+}
+
+/// HDR field-name [range|message-id]: return one header field per article
+/// from the overview index (RFC 3977 §8.5).
+///
+/// Supported fields are those stored in the overview index: `Subject`, `From`,
+/// `Date`, `Message-ID`, `References`, `:bytes`, `:lines`.  Unknown fields
+/// return 501 per RFC 3977 §8.5.2.
+async fn handle_hdr_live(
+    stores: &ServerStores,
+    ctx: &SessionContext,
+    field: &str,
+    range_or_msgid: Option<&str>,
+) -> Response {
+    // Reject unsupported fields early.
+    let field_lower = field.to_ascii_lowercase();
+    let supported = matches!(
+        field_lower.as_str(),
+        "subject" | "from" | "date" | "message-id" | "references" | ":bytes" | ":lines"
+    );
+    if !supported {
+        return Response::new(501, "Field not supported");
+    }
+
+    // Message-ID form: does not require a currently selected newsgroup.
+    if let Some(arg) = range_or_msgid {
+        if arg.starts_with('<') {
+            return match stores.overview_store.query_by_msgid(arg).await {
+                Ok(Some(record)) => {
+                    let value = extract_field(&record, field).unwrap_or_default();
+                    hdr_response(&[HdrRecord {
+                        article_number: record.article_number,
+                        value,
+                    }])
+                }
+                Ok(None) => Response::no_article_with_message_id(),
+                Err(e) => {
+                    warn!("HDR msgid lookup error: {e}");
+                    Response::program_fault()
+                }
+            };
+        }
+    }
+
+    // Range form: requires a currently selected newsgroup.
+    if !ctx.state.group_selected() {
+        return Response::no_newsgroup_selected();
+    }
+    let group = match ctx.current_group.as_ref() {
+        Some(g) => g.as_str().to_string(),
+        None => return Response::no_newsgroup_selected(),
+    };
+
+    let (low, high) = match range_or_msgid {
+        None => {
+            let n = match ctx.current_article_number {
+                Some(n) => n,
+                None => return Response::current_article_invalid(),
+            };
+            (n, n)
+        }
+        Some(arg) => {
+            let range = crate::session::command::parse_range_pub(arg);
+            match range {
+                ArticleRange::Single(n) => (n, n),
+                ArticleRange::From(n) => {
+                    let (_, g_high) = match stores.article_numbers.group_range(&group).await {
+                        Ok(r) => r,
+                        Err(e) => {
+                            warn!("HDR group_range error: {e}");
+                            return Response::program_fault();
+                        }
+                    };
+                    (n, g_high)
+                }
+                ArticleRange::Range(lo, hi) => (lo, hi),
+            }
+        }
+    };
+
+    let records = match stores.overview_store.query_range(&group, low, high).await {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("HDR query_range error: {e}");
+            return Response::program_fault();
+        }
+    };
+
+    let hdr_records: Vec<HdrRecord> = records
+        .into_iter()
+        .map(|r| {
+            let value = extract_field(&r, field).unwrap_or_default();
+            HdrRecord {
+                article_number: r.article_number,
+                value,
+            }
+        })
+        .collect();
+
+    hdr_response(&hdr_records)
 }
 
 /// ARTICLE cid:<cid>: fetch an article directly by its IPFS CID.

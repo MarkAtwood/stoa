@@ -2,7 +2,7 @@ use tokio::io::{AsyncBufRead, AsyncBufReadExt};
 
 use usenet_ipfs_core::audit::{AuditEvent, AuditLoggerHandle};
 
-use crate::post::validate_headers::validate_post_headers;
+use crate::post::{find_header_boundary, validate_headers::validate_post_headers};
 use crate::session::response::Response;
 
 /// Default maximum article size (1 MiB) used when no config value is available.
@@ -112,8 +112,16 @@ pub fn complete_post(
 
     // Split at the first blank line to separate headers from body.
     // Accept both \r\n\r\n and \n\n as the separator.
-    let header_bytes = if let Some(pos) = find_header_end(article_bytes) {
-        &article_bytes[..pos]
+    let header_bytes = if let Some(body_start) = find_header_boundary(article_bytes) {
+        // Exclude the separator itself: 4 bytes for \r\n\r\n, 2 for \n\n.
+        let sep_len = if body_start >= 4
+            && article_bytes[body_start - 4..body_start] == *b"\r\n\r\n"
+        {
+            4
+        } else {
+            2
+        };
+        &article_bytes[..body_start - sep_len]
     } else {
         // No blank line found — treat the whole thing as headers.
         article_bytes
@@ -134,24 +142,6 @@ pub fn complete_post(
     }
 
     Ok(())
-}
-
-/// Find the byte offset of the start of the blank line that separates
-/// headers from body.  Returns the offset of the last byte of the header
-/// block (i.e. just before the blank line), or `None` if not found.
-///
-/// Recognises both `\r\n\r\n` and `\n\n`.
-fn find_header_end(bytes: &[u8]) -> Option<usize> {
-    // Search for \r\n\r\n first (canonical), then \n\n.
-    for i in 0..bytes.len().saturating_sub(1) {
-        if bytes[i..].starts_with(b"\r\n\r\n") {
-            return Some(i);
-        }
-        if bytes[i..].starts_with(b"\n\n") {
-            return Some(i);
-        }
-    }
-    None
 }
 
 /// Extract the trimmed value of the first matching header field, or `None`.

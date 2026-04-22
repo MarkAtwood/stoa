@@ -528,6 +528,11 @@ pub async fn run_session<S>(
                 }
                 // ─────────────────────────────────────────────────────────────
 
+                // NOTE: the presence of a Newsgroups: header in the incoming message
+                // does NOT auto-route it to an NNTP newsgroup. NNTP posting is handled
+                // explicitly via FileInto("newsgroup:...") in Sieve scripts. This is by
+                // design — see usenet-ipfs-euk.
+
                 // ─── Sieve delivery ──────────────────────────────────────────
                 // All inbound SMTP email is processed by Sieve.
                 //

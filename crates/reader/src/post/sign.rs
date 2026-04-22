@@ -10,6 +10,8 @@ use usenet_ipfs_core::signing::{self, Signature, SigningKey, VerifyingKey};
 
 pub use usenet_ipfs_core::signing::load_signing_key;
 
+use crate::post::find_header_boundary;
+
 /// The header name for the operator signature.
 pub const OPERATOR_SIG_HEADER: &str = "X-Usenet-IPFS-Sig";
 
@@ -34,13 +36,22 @@ pub fn sign_article(key: &SigningKey, article_bytes: &[u8]) -> (Vec<u8>, Vec<u8>
     let sig_value = URL_SAFE_NO_PAD.encode(&sig_bytes);
     let sig_line = format!("{OPERATOR_SIG_HEADER}: {sig_value}\r\n");
 
-    // Locate the end-of-headers boundary.
-    let out = if let Some(sep_pos) = find_header_end(article_bytes) {
-        // sep_pos is the index of the first byte of the blank line.
+    // Locate the end-of-headers boundary and insert the sig header immediately
+    // before the blank line.  `find_header_boundary` returns the first body byte;
+    // the blank line starts 2 bytes earlier for \r\n\r\n and 1 byte earlier for \n\n.
+    let out = if let Some(body_start) = find_header_boundary(article_bytes) {
+        let sep_len: usize = if body_start >= 4
+            && article_bytes[body_start - 4..body_start] == *b"\r\n\r\n"
+        {
+            2 // blank line = second \r\n; insert before it
+        } else {
+            1 // blank line = second \n; insert before it
+        };
+        let insert_at = body_start - sep_len;
         let mut out = Vec::with_capacity(article_bytes.len() + sig_line.len());
-        out.extend_from_slice(&article_bytes[..sep_pos]);
+        out.extend_from_slice(&article_bytes[..insert_at]);
         out.extend_from_slice(sig_line.as_bytes());
-        out.extend_from_slice(&article_bytes[sep_pos..]);
+        out.extend_from_slice(&article_bytes[insert_at..]);
         out
     } else {
         article_bytes.to_vec()
@@ -68,38 +79,16 @@ pub fn verify_article_sig(pubkey: &VerifyingKey, article_bytes: &[u8]) -> Result
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-/// Return the byte position of the start of the blank line that terminates
-/// the header section (`\r\n\r\n` or `\n\n`).
-///
-/// Returns `None` if no separator is found.
-fn find_header_end(bytes: &[u8]) -> Option<usize> {
-    // Look for \r\n\r\n first (standard NNTP CRLF).
-    for i in 0..bytes.len().saturating_sub(3) {
-        if bytes[i] == b'\r'
-            && bytes[i + 1] == b'\n'
-            && bytes[i + 2] == b'\r'
-            && bytes[i + 3] == b'\n'
-        {
-            return Some(i + 2); // position of the second \r\n
-        }
-    }
-    // Fall back to \n\n.
-    for i in 0..bytes.len().saturating_sub(1) {
-        if bytes[i] == b'\n' && bytes[i + 1] == b'\n' {
-            return Some(i + 1); // position of the second \n
-        }
-    }
-    None
-}
-
 /// Find the `X-Usenet-IPFS-Sig` header in `article_bytes`, decode its value,
 /// and return `(signature_bytes, article_bytes_without_sig_header)`.
 fn extract_sig_header(article_bytes: &[u8]) -> Result<(Vec<u8>, Vec<u8>), String> {
     // Work line by line in the header section only.
-    let header_end = find_header_end(article_bytes)
+    let body_start = find_header_boundary(article_bytes)
         .ok_or_else(|| "article has no header/body separator".to_string())?;
 
-    let header_section = &article_bytes[..header_end];
+    // Include the blank line in the slice so split_inclusive('\n') naturally
+    // stops iterating before body bytes while still covering all header lines.
+    let header_section = &article_bytes[..body_start];
 
     // Split on \r\n or \n.
     let header_str = std::str::from_utf8(header_section)
