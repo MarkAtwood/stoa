@@ -255,6 +255,8 @@ async fn transit_reader_shared_store() {
         article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
         overview_store: Arc::new(OverviewStore::new(reader_pool)),
         credential_store: Arc::new(CredentialStore::empty()),
+        client_cert_store: Arc::new(usenet_ipfs_reader::store::client_cert_store::ClientCertStore::empty()),
+        trusted_issuer_store: Arc::new(usenet_ipfs_auth::TrustedIssuerStore::empty()),
         clock: Arc::new(Mutex::new(HlcClock::new([0x01u8; 8], now_ms))),
         signing_key: Arc::new(usenet_ipfs_core::signing::SigningKey::from_bytes(
             &[0x42u8; 32],

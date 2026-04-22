@@ -297,12 +297,16 @@ mod tests {
     use axum::http::{Method, Request};
     use tower::ServiceExt as _;
 
-    use crate::config::{DatabaseConfig, LimitsConfig, ListenConfig, LogConfig, ReaderConfig, TlsConfig, UserConfig};
+    use crate::config::{AuthConfig, DatabaseConfig, LimitsConfig, ListenConfig, LogConfig, ReaderConfig, TlsConfig, UserConfig};
 
     fn test_config(users: Vec<UserConfig>) -> Arc<Config> {
         Arc::new(Config {
             hostname: "test.example.com".to_string(),
-            listen: ListenConfig { port_25: "127.0.0.1:0".into(), port_587: "127.0.0.1:0".into() },
+            listen: ListenConfig {
+                port_25: "127.0.0.1:0".into(),
+                port_587: "127.0.0.1:0".into(),
+                smtps_addr: None,
+            },
             tls: TlsConfig { cert_path: None, key_path: None },
             limits: LimitsConfig::default(),
             log: LogConfig::default(),
@@ -312,6 +316,7 @@ mod tests {
             database: DatabaseConfig::default(),
             sieve_admin: crate::config::SieveAdminConfig::default(),
             dns_resolver: "system".to_string(),
+            auth: AuthConfig::default(),
         })
     }
 
@@ -521,7 +526,11 @@ mod tests {
     fn test_config_with_token(users: Vec<UserConfig>, token: &str) -> Arc<Config> {
         Arc::new(Config {
             hostname: "test.example.com".to_string(),
-            listen: ListenConfig { port_25: "127.0.0.1:0".into(), port_587: "127.0.0.1:0".into() },
+            listen: ListenConfig {
+                port_25: "127.0.0.1:0".into(),
+                port_587: "127.0.0.1:0".into(),
+                smtps_addr: None,
+            },
             tls: TlsConfig { cert_path: None, key_path: None },
             limits: LimitsConfig::default(),
             log: LogConfig::default(),
@@ -534,6 +543,7 @@ mod tests {
                 ..Default::default()
             },
             dns_resolver: "system".to_string(),
+            auth: AuthConfig::default(),
         })
     }
 
@@ -677,6 +687,7 @@ mod tests {
             listen: ListenConfig {
                 port_25: "127.0.0.1:0".into(),
                 port_587: "127.0.0.1:0".into(),
+                smtps_addr: None,
             },
             tls: TlsConfig { cert_path: None, key_path: None },
             limits: LimitsConfig::default(),
@@ -692,6 +703,7 @@ mod tests {
                 max_script_bytes: 65_536,
             },
             dns_resolver: "system".to_string(),
+            auth: AuthConfig::default(),
         })
     }
 

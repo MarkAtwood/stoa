@@ -7,6 +7,7 @@ rust-version = "1.80"
 # This crate has no library. All content is in [[test]] targets.
 
 [dev-dependencies]
+usenet-ipfs-auth = { path = "../auth" }
 usenet-ipfs-transit = { path = "../transit" }
 usenet-ipfs-reader = { path = "../reader" }
 usenet-ipfs-core = { path = "../core" }

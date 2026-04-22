@@ -18,6 +18,20 @@ pub struct SessionContext {
     /// connections (port 119). There is no STARTTLS upgrade: connections are
     /// TLS or not from the first byte.
     pub tls_active: bool,
+    /// SHA-256 fingerprint of the client's TLS certificate, if one was
+    /// presented during the handshake.
+    ///
+    /// Format: `"sha256:<64-lowercase-hex-chars>"`.  `None` on plain
+    /// connections or when the client did not present a certificate.
+    /// Used by the AUTHINFO USER handler for password-free cert-based auth.
+    pub client_cert_fingerprint: Option<String>,
+    /// Raw DER bytes of the client's TLS leaf certificate.
+    ///
+    /// Stored alongside `client_cert_fingerprint` so that the AUTHINFO USER
+    /// handler can pass the cert to `TrustedIssuerStore::verify_and_extract_cn`
+    /// after fingerprint-based auth has been attempted.  `None` on plain
+    /// connections or when the client did not present a certificate.
+    pub client_cert_der: Option<Vec<u8>>,
     /// Username received from AUTHINFO USER, waiting for AUTHINFO PASS.
     pub pending_auth_user: Option<String>,
     /// Currently selected newsgroup.
@@ -63,6 +77,8 @@ impl SessionContext {
             },
             authenticated_user: None,
             tls_active,
+            client_cert_fingerprint: None,
+            client_cert_der: None,
             pending_auth_user: None,
             current_group: None,
             current_article_number: None,

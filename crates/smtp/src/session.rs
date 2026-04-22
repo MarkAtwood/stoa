@@ -3,12 +3,13 @@ use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
+use base64::Engine as _;
 use mail_auth::MessageAuthenticator;
 use sqlx::SqlitePool;
-use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
-use tokio::net::TcpStream;
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
+use usenet_ipfs_auth::CredentialStore;
 
 use crate::auth::verify_inbound;
 use crate::config::Config;
@@ -93,7 +94,20 @@ enum SessionState {
     Rcpt { ehlo_domain: String, from: String, to: Vec<String> },
 }
 
-/// Run a complete RFC 5321 SMTP session on the given TCP stream.
+#[allow(clippy::too_many_arguments)]
+/// Run a complete RFC 5321 SMTP session on the given stream.
+///
+/// `stream` may be a plain `TcpStream` (ports 25 / 587) or a TLS-wrapped
+/// stream (port 465 SMTPS).  The generic bound keeps this zero-cost while
+/// allowing both stream types without boxing.
+///
+/// `is_tls` records whether the session was accepted on the implicit-TLS
+/// SMTPS listener.  AUTH PLAIN is only advertised and accepted when
+/// `is_tls = true` to prevent credentials from being sent in the clear.
+///
+/// `credential_store` is the pre-built store used to verify AUTH PLAIN
+/// credentials.  Built once at startup from `config.auth` and shared across
+/// sessions.
 ///
 /// `auth` is optional: when `Some`, every accepted message is passed through
 /// the SPF/DKIM/DMARC/ARC pipeline before enqueuing.  When `None` the message
@@ -103,16 +117,20 @@ enum SessionState {
 /// `pool` is optional: when `Some` and `config.users` is non-empty, non-list
 /// messages are delivered inline via per-user Sieve scripts instead of being
 /// forwarded through the message queue.
-pub async fn run_session(
-    stream: TcpStream,
+pub async fn run_session<S>(
+    stream: S,
+    is_tls: bool,
     peer_addr: String,
     config: Arc<Config>,
+    credential_store: Arc<CredentialStore>,
     nntp_queue: Arc<NntpQueue>,
     auth: Option<Arc<MessageAuthenticator>>,
     pool: Option<SqlitePool>,
     sieve_cache: Option<SieveCache>,
-) {
-    let (read_half, mut write_half) = stream.into_split();
+) where
+    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+{
+    let (read_half, mut write_half) = tokio::io::split(stream);
     let mut reader = BufReader::new(read_half);
 
     let greeting = format!(
@@ -130,6 +148,7 @@ pub async fn run_session(
         .unwrap_or(IpAddr::from([127, 0, 0, 1]));
 
     let mut state = SessionState::Fresh;
+    let mut authenticated_user: Option<String> = None;
 
     loop {
         let line_buf = match read_command_line(
@@ -173,9 +192,15 @@ pub async fn run_session(
                 // not yet implemented (usenet-ipfs-ryw.3).  Advertising an
                 // extension we cannot complete causes MTAs that enforce
                 // STARTTLS-policy to fail delivery with a confusing error.
+                //
+                // AUTH PLAIN is advertised only on SMTPS (is_tls=true) to
+                // prevent credentials from being sent over a cleartext
+                // connection.
+                let auth_line =
+                    if is_tls && !credential_store.is_empty() { "250-AUTH PLAIN\r\n" } else { "" };
                 let resp = format!(
-                    "250-{}\r\n250-SIZE {}\r\n250-8BITMIME\r\n250-SMTPUTF8\r\n250-PIPELINING\r\n250 OK\r\n",
-                    config.hostname, config.limits.max_message_bytes
+                    "250-{}\r\n250-SIZE {}\r\n250-8BITMIME\r\n250-SMTPUTF8\r\n250-PIPELINING\r\n{}250 OK\r\n",
+                    config.hostname, config.limits.max_message_bytes, auth_line
                 );
                 if write_half.write_all(resp.as_bytes()).await.is_err() {
                     break;
@@ -189,6 +214,99 @@ pub async fn run_session(
                     break;
                 }
                 state = SessionState::Greeted { ehlo_domain: args.to_string() };
+            }
+
+            "AUTH" => {
+                // RFC 4954 §4: AUTH is only accepted on a TLS-protected
+                // connection.  On cleartext sessions reject with 534 to
+                // prevent credentials from being sent in the clear.
+                if !is_tls {
+                    if write_half
+                        .write_all(
+                            b"534 5.7.9 Encryption required for requested authentication mechanism\r\n",
+                        )
+                        .await
+                        .is_err()
+                    {
+                        break;
+                    }
+                    continue;
+                }
+                if authenticated_user.is_some() {
+                    if write_half
+                        .write_all(b"503 5.5.1 Already authenticated\r\n")
+                        .await
+                        .is_err()
+                    {
+                        break;
+                    }
+                    continue;
+                }
+                // Only SASL PLAIN is supported.
+                let mechanism_upper = args.to_ascii_uppercase();
+                if mechanism_upper == "PLAIN"
+                    || mechanism_upper.starts_with("PLAIN ")
+                {
+                    let initial_response = if args.len() > 5 { args[5..].trim() } else { "" };
+                    let b64 = if initial_response.is_empty() {
+                        // Two-step: send empty challenge, read response.
+                        if write_half.write_all(b"334 \r\n").await.is_err() {
+                            break;
+                        }
+                        match read_command_line(
+                            &mut reader,
+                            MAX_LINE_BYTES,
+                            config.limits.command_timeout_secs,
+                        )
+                        .await
+                        {
+                            CmdLine::Line(s) => s.trim_end_matches(['\r', '\n']).to_string(),
+                            _ => {
+                                let _ = write_half
+                                    .write_all(
+                                        b"535 5.7.8 Authentication credentials invalid\r\n",
+                                    )
+                                    .await;
+                                break;
+                            }
+                        }
+                    } else {
+                        initial_response.to_string()
+                    };
+                    match verify_sasl_plain(&credential_store, &b64).await {
+                        Some(username) => {
+                            info!(peer = %peer_addr, %username, "AUTH PLAIN succeeded");
+                            authenticated_user = Some(username);
+                            if write_half
+                                .write_all(b"235 2.7.0 Authentication successful\r\n")
+                                .await
+                                .is_err()
+                            {
+                                break;
+                            }
+                        }
+                        None => {
+                            warn!(peer = %peer_addr, "AUTH PLAIN failed");
+                            if write_half
+                                .write_all(
+                                    b"535 5.7.8 Authentication credentials invalid\r\n",
+                                )
+                                .await
+                                .is_err()
+                            {
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    if write_half
+                        .write_all(b"504 5.5.4 Unrecognized authentication type\r\n")
+                        .await
+                        .is_err()
+                    {
+                        break;
+                    }
+                }
             }
 
             "MAIL" => {
@@ -563,6 +681,42 @@ pub async fn run_session(
     info!(peer = %peer_addr, "session ended");
 }
 
+/// Verify a SASL PLAIN credential string against the credential store.
+///
+/// The PLAIN mechanism encodes credentials as base64(`authzid\0authcid\0passwd`)
+/// per RFC 4616 §2.  `authzid` is usually empty (authorization identity equals
+/// authentication identity).  A non-empty `authzid` is rejected — this server
+/// does not support proxy authentication.
+///
+/// Returns `Some(username)` (ASCII-lowercased) on success, `None` on any
+/// failure.  The password is never logged.
+async fn verify_sasl_plain(store: &CredentialStore, b64_response: &str) -> Option<String> {
+    let decoded = base64::engine::general_purpose::STANDARD
+        .decode(b64_response.trim())
+        .ok()?;
+    // Split on NUL: [authzid, authcid, passwd]
+    let parts: Vec<&[u8]> = decoded.splitn(3, |&b| b == 0).collect();
+    if parts.len() != 3 {
+        return None;
+    }
+    let authzid = std::str::from_utf8(parts[0]).ok()?;
+    let authcid = std::str::from_utf8(parts[1]).ok()?;
+    let passwd = std::str::from_utf8(parts[2]).ok()?;
+    // Empty authcid is not permitted by RFC 4616 §2.
+    if authcid.is_empty() {
+        return None;
+    }
+    // Non-empty authzid means proxy-auth — not supported, reject.
+    if !authzid.is_empty() {
+        return None;
+    }
+    if store.check(authcid, passwd).await {
+        Some(authcid.to_ascii_lowercase())
+    } else {
+        None
+    }
+}
+
 /// Load and evaluate the active Sieve script for `username`.
 /// Defaults to [`Keep`](usenet_ipfs_sieve::SieveAction::Keep) when no script
 /// is stored or the script fails to compile.
@@ -714,8 +868,8 @@ fn parse_angle_addr(args: &str) -> String {
 mod tests {
     use super::*;
     use crate::config::{
-        DatabaseConfig, LimitsConfig, ListenConfig, LogConfig, ReaderConfig, SieveAdminConfig,
-        TlsConfig, UserConfig,
+        AuthConfig, DatabaseConfig, LimitsConfig, ListenConfig, LogConfig, ReaderConfig,
+        SieveAdminConfig, TlsConfig, UserConfig,
     };
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -725,6 +879,7 @@ mod tests {
             listen: ListenConfig {
                 port_25: "127.0.0.1:0".to_string(),
                 port_587: "127.0.0.1:0".to_string(),
+                smtps_addr: None,
             },
             tls: TlsConfig {
                 cert_path: None,
@@ -746,6 +901,7 @@ mod tests {
             database: DatabaseConfig::default(),
             sieve_admin: SieveAdminConfig::default(),
             dns_resolver: "system".to_string(),
+            auth: AuthConfig::default(),
         })
     }
 
@@ -755,6 +911,7 @@ mod tests {
             listen: ListenConfig {
                 port_25: "127.0.0.1:0".to_string(),
                 port_587: "127.0.0.1:0".to_string(),
+                smtps_addr: None,
             },
             tls: TlsConfig { cert_path: None, key_path: None },
             limits: LimitsConfig {
@@ -770,6 +927,7 @@ mod tests {
             database: DatabaseConfig::default(),
             sieve_admin: SieveAdminConfig::default(),
             dns_resolver: "system".to_string(),
+            auth: AuthConfig::default(),
         })
     }
 
@@ -788,6 +946,7 @@ mod tests {
     ) -> (String, tempfile::TempDir) {
         let queue_dir = tempfile::tempdir().expect("tempdir");
         let nntp_queue = NntpQueue::new(queue_dir.path()).expect("NntpQueue::new");
+        let credential_store = Arc::new(CredentialStore::empty());
 
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await
@@ -798,7 +957,18 @@ mod tests {
         let queue2 = Arc::clone(&nntp_queue);
         let server_task = tokio::spawn(async move {
             let (stream, peer) = listener.accept().await.expect("accept");
-            run_session(stream, peer.to_string(), config2, queue2, None, pool, None).await;
+            run_session(
+                stream,
+                false,
+                peer.to_string(),
+                config2,
+                credential_store,
+                queue2,
+                None,
+                pool,
+                None,
+            )
+            .await;
         });
 
         let mut client = tokio::net::TcpStream::connect(addr).await.expect("connect");
@@ -934,6 +1104,7 @@ mod tests {
         }]);
         let queue_dir = tempfile::tempdir().expect("tempdir");
         let nntp_queue = NntpQueue::new(queue_dir.path()).expect("NntpQueue::new");
+        let credential_store = Arc::new(CredentialStore::empty());
 
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
@@ -944,7 +1115,18 @@ mod tests {
         let pool2 = pool.clone();
         tokio::spawn(async move {
             let (stream, peer) = listener.accept().await.unwrap();
-            run_session(stream, peer.to_string(), config2, queue2, Some(auth2), Some(pool2), None).await;
+            run_session(
+                stream,
+                false,
+                peer.to_string(),
+                config2,
+                credential_store,
+                queue2,
+                Some(auth2),
+                Some(pool2),
+                None,
+            )
+            .await;
         });
 
         let mut client = tokio::net::TcpStream::connect(addr).await.unwrap();
@@ -1266,6 +1448,7 @@ mod tests {
             listen: ListenConfig {
                 port_25: "127.0.0.1:0".to_string(),
                 port_587: "127.0.0.1:0".to_string(),
+                smtps_addr: None,
             },
             tls: TlsConfig {
                 cert_path: Some("/etc/ssl/cert.pem".into()),
@@ -1284,6 +1467,7 @@ mod tests {
             database: DatabaseConfig::default(),
             sieve_admin: SieveAdminConfig::default(),
             dns_resolver: "system".to_string(),
+            auth: AuthConfig::default(),
         });
 
         let client = b"EHLO client.example.com\r\nQUIT\r\n";
@@ -1308,6 +1492,7 @@ mod tests {
             listen: ListenConfig {
                 port_25: "127.0.0.1:0".to_string(),
                 port_587: "127.0.0.1:0".to_string(),
+                smtps_addr: None,
             },
             tls: TlsConfig { cert_path: None, key_path: None },
             limits: LimitsConfig {
@@ -1323,10 +1508,12 @@ mod tests {
             database: DatabaseConfig::default(),
             sieve_admin: SieveAdminConfig::default(),
             dns_resolver: "system".to_string(),
+            auth: AuthConfig::default(),
         });
 
         let queue_dir = tempfile::tempdir().expect("tempdir");
         let nntp_queue = NntpQueue::new(queue_dir.path()).expect("NntpQueue::new");
+        let credential_store = Arc::new(CredentialStore::empty());
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
 
@@ -1334,7 +1521,18 @@ mod tests {
         let queue2 = Arc::clone(&nntp_queue);
         let server_task = tokio::spawn(async move {
             let (stream, peer) = listener.accept().await.unwrap();
-            run_session(stream, peer.to_string(), config2, queue2, None, None, None).await;
+            run_session(
+                stream,
+                false,
+                peer.to_string(),
+                config2,
+                credential_store,
+                queue2,
+                None,
+                None,
+                None,
+            )
+            .await;
         });
 
         let mut client = tokio::net::TcpStream::connect(addr).await.unwrap();

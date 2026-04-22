@@ -1,0 +1,22 @@
+[package]
+name = "usenet-ipfs-auth"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+
+[lib]
+name = "usenet_ipfs_auth"
+path = "src/lib.rs"
+
+[dependencies]
+bcrypt = "0.15"
+ed25519-dalek = { version = "2" }
+hex = "0.4"
+serde = { version = "1", features = ["derive"] }
+sha2 = "0.10"
+tokio = { version = "1", features = ["rt"] }
+x509-parser = "0.16"
+
+[dev-dependencies]
+tempfile = "3"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

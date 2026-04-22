@@ -27,6 +27,7 @@ use usenet_ipfs_reader::{
     session::lifecycle::run_session,
     store::{
         article_numbers::ArticleNumberStore,
+        client_cert_store::ClientCertStore,
         credentials::CredentialStore,
         overview::OverviewStore,
         server_stores::ServerStores,
@@ -234,6 +235,8 @@ async fn nntp_conformance_via_nntplib() {
         article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
         overview_store: Arc::new(OverviewStore::new(reader_pool)),
         credential_store: Arc::new(CredentialStore::empty()),
+        client_cert_store: Arc::new(ClientCertStore::empty()),
+        trusted_issuer_store: Arc::new(usenet_ipfs_auth::TrustedIssuerStore::empty()),
         clock: Arc::new(Mutex::new(HlcClock::new([0x03u8; 8], now_ms))),
         signing_key: Arc::new(usenet_ipfs_core::signing::SigningKey::from_bytes(
             &[0x44u8; 32],

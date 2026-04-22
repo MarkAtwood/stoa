@@ -317,7 +317,7 @@ async fn main() {
                     &*ipfs,
                     &msgid_map_drain,
                     &*log_storage_drain,
-                    &*transit_pool_drain,
+                    &transit_pool_drain,
                     ctx,
                 )
                 .await

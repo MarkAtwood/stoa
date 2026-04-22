@@ -7,7 +7,11 @@
 use std::{fs::File, io::BufReader, sync::Arc};
 
 use rustls::ServerConfig;
+use rustls::pki_types::{CertificateDer, UnixTime};
+use rustls::server::danger::{ClientCertVerified, ClientCertVerifier};
+use rustls::{DigitallySignedStruct, DistinguishedName, Error, SignatureScheme};
 use rustls_pemfile::{certs, private_key};
+use sha2::Digest as _;
 
 /// Errors produced during TLS setup or handshake.
 #[derive(Debug)]
@@ -57,10 +61,102 @@ impl std::fmt::Debug for TlsAcceptor {
     }
 }
 
+/// A permissive `ClientCertVerifier` that requests but never rejects a client
+/// certificate.
+///
+/// All certificate validation (including fingerprint-to-username binding)
+/// happens at the application layer in the session context after the handshake.
+/// This verifier's sole job is to tell rustls "offer client auth, accept
+/// anything, never fail the handshake because of the cert".
+#[derive(Debug)]
+struct PermissiveClientAuth;
+
+impl ClientCertVerifier for PermissiveClientAuth {
+    fn offer_client_auth(&self) -> bool {
+        true
+    }
+
+    fn client_auth_mandatory(&self) -> bool {
+        false
+    }
+
+    fn root_hint_subjects(&self) -> &[DistinguishedName] {
+        &[]
+    }
+
+    fn verify_client_cert(
+        &self,
+        _end_entity: &CertificateDer<'_>,
+        _intermediates: &[CertificateDer<'_>],
+        _now: UnixTime,
+    ) -> Result<ClientCertVerified, Error> {
+        Ok(ClientCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        _message: &[u8],
+        _cert: &CertificateDer<'_>,
+        _dss: &DigitallySignedStruct,
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, Error> {
+        Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        _message: &[u8],
+        _cert: &CertificateDer<'_>,
+        _dss: &DigitallySignedStruct,
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, Error> {
+        Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
+        vec![
+            SignatureScheme::ECDSA_NISTP256_SHA256,
+            SignatureScheme::ECDSA_NISTP384_SHA384,
+            SignatureScheme::ECDSA_NISTP521_SHA512,
+            SignatureScheme::RSA_PSS_SHA256,
+            SignatureScheme::RSA_PSS_SHA384,
+            SignatureScheme::RSA_PSS_SHA512,
+            SignatureScheme::ED25519,
+            SignatureScheme::RSA_PKCS1_SHA256,
+            SignatureScheme::RSA_PKCS1_SHA384,
+            SignatureScheme::RSA_PKCS1_SHA512,
+        ]
+    }
+}
+
+/// Extract the SHA-256 fingerprint and raw DER bytes of the client's TLS leaf
+/// certificate.
+///
+/// Returns `(fingerprint, raw_der)` where:
+/// - `fingerprint` is `Some("sha256:<64-lowercase-hex-chars>")`.
+/// - `raw_der` is `Some(<leaf cert DER bytes>)`.
+///
+/// Both fields are `None` if no client certificate was presented.
+pub fn extract_client_cert_data(
+    tls_stream: &tokio_rustls::server::TlsStream<tokio::net::TcpStream>,
+) -> (Option<String>, Option<Vec<u8>>) {
+    let certs = match tls_stream.get_ref().1.peer_certificates() {
+        Some(c) => c,
+        None => return (None, None),
+    };
+    let leaf = match certs.first() {
+        Some(l) => l,
+        None => return (None, None),
+    };
+    let der = leaf.as_ref().to_vec();
+    let digest = sha2::Sha256::digest(&der);
+    let fingerprint = format!("sha256:{}", hex::encode(digest));
+    (Some(fingerprint), Some(der))
+}
+
 /// Build a `TlsAcceptor` from PEM certificate and private-key files.
 ///
 /// The resulting `ServerConfig` requires TLS 1.2 or higher; TLS 1.0 and 1.1
-/// are not offered.
+/// are not offered. Client certificates are requested but not required —
+/// fingerprint validation happens at the application layer.
 pub fn load_tls_acceptor(cert_path: &str, key_path: &str) -> Result<TlsAcceptor, TlsError> {
     // --- Load certificate chain ---
     let cert_file =
@@ -85,11 +181,13 @@ pub fn load_tls_acceptor(cert_path: &str, key_path: &str) -> Result<TlsAcceptor,
         })?;
 
     // --- Build ServerConfig with minimum TLS 1.2 ---
+    // Request but do not require a client certificate.  Fingerprint validation
+    // is performed at the application layer after the handshake.
     let config = ServerConfig::builder_with_protocol_versions(&[
         &rustls::version::TLS13,
         &rustls::version::TLS12,
     ])
-    .with_no_client_auth()
+    .with_client_cert_verifier(Arc::new(PermissiveClientAuth))
     .with_single_cert(cert_chain, private_key)
     .map_err(TlsError::Config)?;
 

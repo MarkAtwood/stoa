@@ -1,3 +1,4 @@
+pub mod auth_token;
 pub mod blob;
 pub mod config;
 pub mod email;
@@ -7,3 +8,4 @@ pub mod migrations;
 pub mod server;
 pub mod state;
 pub mod tls;
+pub mod token_store;

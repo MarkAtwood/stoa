@@ -25,3 +25,5 @@
 [05:13:58] COORDINATOR: claimed zzo.1 (SMTP receive daemon)
 [05:20:03] COORDINATOR: phase2 started — wave0 fan-out: zzo.1.1+1.2+1.3
 [05:22:10] COORDINATOR: wave0 closed, starting wave1: zzo.1.4 (session SM) + zzo.1.5 (STARTTLS)
+[04:22:00] COORDINATOR: wave 2 closed: 1c8.2 1c8.6 1c8.10
+[04:22:18] COORDINATOR: claimed wave 3: 1c8.7 1c8.11

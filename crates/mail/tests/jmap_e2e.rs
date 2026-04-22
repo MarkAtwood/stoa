@@ -23,6 +23,7 @@ use usenet_ipfs_reader::{
 use usenet_ipfs_mail::{
     server::{AppState, JmapStores, build_router},
     state::{flags::UserFlagsStore, version::StateStore},
+    token_store::TokenStore,
 };
 
 static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
@@ -111,8 +112,10 @@ async fn jmap_session_e2e() {
 
     let article_numbers = Arc::new(ArticleNumberStore::new(reader_pool.clone()));
     let overview_store = Arc::new(OverviewStore::new(reader_pool));
-    let state_store = Arc::new(StateStore::new(mail_pool.clone()));
-    let user_flags = Arc::new(UserFlagsStore::new(mail_pool));
+    let mail_pool_arc = Arc::new(mail_pool);
+    let state_store = Arc::new(StateStore::new((*mail_pool_arc).clone()));
+    let user_flags = Arc::new(UserFlagsStore::new((*mail_pool_arc).clone()));
+    let token_store = Arc::new(TokenStore::new(Arc::clone(&mail_pool_arc)));
 
     // Build sub-block CIDs (placeholder raw blocks — only their identity matters
     // for the root node structure; they don't need to be retrievable for this test).
@@ -177,6 +180,9 @@ async fn jmap_session_e2e() {
     let state = Arc::new(AppState {
         start_time: std::time::Instant::now(),
         jmap: Some(jmap_stores),
+        credential_store: Arc::new(usenet_ipfs_auth::CredentialStore::empty()),
+        auth_config: Arc::new(usenet_ipfs_auth::AuthConfig::default()),
+        token_store,
     });
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();

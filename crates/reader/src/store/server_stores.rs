@@ -21,8 +21,11 @@ use usenet_ipfs_core::hlc::HlcClock;
 use usenet_ipfs_core::msgid_map::MsgIdMap;
 use usenet_ipfs_core::signing::{generate_signing_key, SigningKey};
 
+use usenet_ipfs_auth::TrustedIssuerStore;
+
 use crate::post::ipfs_write::{IpfsBlockStore, MemIpfsStore, RustIpfsStore};
 use crate::store::article_numbers::ArticleNumberStore;
+use crate::store::client_cert_store::ClientCertStore;
 use crate::store::credentials::CredentialStore;
 use crate::store::overview::OverviewStore;
 
@@ -36,6 +39,14 @@ pub struct ServerStores {
     pub article_numbers: Arc<ArticleNumberStore>,
     pub overview_store: Arc<OverviewStore>,
     pub credential_store: Arc<CredentialStore>,
+    /// Client certificate fingerprint → username store for TLS cert-based auth.
+    pub client_cert_store: Arc<ClientCertStore>,
+    /// Trusted CA issuer store for issuer-chain certificate auth.
+    ///
+    /// Consulted after fingerprint-based auth fails: if the leaf cert was
+    /// signed by a configured CA and the CN matches the requested username,
+    /// the session is authenticated without a password.
+    pub trusted_issuer_store: Arc<TrustedIssuerStore>,
     /// HLC clock — shared across sessions, protected by a mutex.
     pub clock: Arc<Mutex<HlcClock>>,
     /// Operator signing key — ephemeral in-process key (no PEM file required).
@@ -62,6 +73,9 @@ impl ServerStores {
         let signing_key = load_or_generate_signing_key(&config.operator.signing_key_path)?;
         let node_id = hlc_node_id(&signing_key);
 
+        let trusted_issuer_store =
+            build_trusted_issuer_store(&config.auth.trusted_issuers)?;
+
         Ok(Self {
             ipfs_store: Arc::new(ipfs_store),
             msgid_map: Arc::new(MsgIdMap::new(core_pool)),
@@ -69,6 +83,8 @@ impl ServerStores {
             article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
             overview_store: Arc::new(OverviewStore::new(reader_pool)),
             credential_store: Arc::new(build_credential_store(&config.auth)?),
+            client_cert_store: Arc::new(ClientCertStore::from_config(&config.auth.client_certs)),
+            trusted_issuer_store: Arc::new(trusted_issuer_store),
             clock: Arc::new(Mutex::new(HlcClock::new(node_id, now_ms))),
             signing_key: Arc::new(signing_key),
         })
@@ -100,6 +116,8 @@ impl ServerStores {
             article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
             overview_store: Arc::new(OverviewStore::new(reader_pool)),
             credential_store: Arc::new(CredentialStore::empty()),
+            client_cert_store: Arc::new(ClientCertStore::empty()),
+            trusted_issuer_store: Arc::new(TrustedIssuerStore::empty()),
             clock: Arc::new(Mutex::new(HlcClock::new(node_id, now_ms))),
             signing_key: Arc::new(signing_key),
         }
@@ -144,6 +162,22 @@ async fn make_pool_with_core_migrations() -> SqlitePool {
         .await
         .expect("core migrations failed on in-memory pool");
     pool
+}
+
+/// Build a `TrustedIssuerStore` from the reader's `[auth]` trusted_issuers list.
+///
+/// Converts the reader's local `TrustedIssuerEntry` type to the auth crate's
+/// type, then delegates to `TrustedIssuerStore::from_config`.
+fn build_trusted_issuer_store(
+    entries: &[crate::config::TrustedIssuerEntry],
+) -> Result<TrustedIssuerStore, String> {
+    let auth_entries: Vec<usenet_ipfs_auth::TrustedIssuerEntry> = entries
+        .iter()
+        .map(|e| usenet_ipfs_auth::TrustedIssuerEntry {
+            cert_path: e.cert_path.clone(),
+        })
+        .collect();
+    TrustedIssuerStore::from_config(&auth_entries)
 }
 
 /// Build a `CredentialStore` from the `[auth]` section of the config.

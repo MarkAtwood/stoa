@@ -61,7 +61,18 @@ pub async fn run_session(
         };
         match crate::tls::accept_tls(&acceptor, stream).await {
             Ok(tls_stream) => {
-                run_session_io(tls_stream, peer_addr, config, true, stores).await;
+                let (client_cert_fp, client_cert_der) =
+                    crate::tls::extract_client_cert_data(&tls_stream);
+                run_session_io(
+                    tls_stream,
+                    peer_addr,
+                    config,
+                    true,
+                    client_cert_fp,
+                    client_cert_der,
+                    stores,
+                )
+                .await;
             }
             Err(e) => {
                 warn!(peer = %peer_addr, "TLS handshake failed: {e}");
@@ -287,7 +298,7 @@ async fn run_command_loop<R, W>(
             .unwrap_or("UNKNOWN")
             .to_uppercase();
         let cmd_start = std::time::Instant::now();
-        let resp = dispatch(ctx, cmd, &config.auth, None);
+        let resp = dispatch(ctx, cmd, &config.auth, &stores.client_cert_store, &stores.trusted_issuer_store, None);
         crate::metrics::NNTP_COMMAND_DURATION_SECONDS
             .with_label_values(&[cmd_label.as_str()])
             .observe(cmd_start.elapsed().as_secs_f64());
@@ -335,11 +346,18 @@ async fn run_command_loop<R, W>(
 /// Run the NNTP protocol loop on a generic async I/O stream.
 ///
 /// `is_tls`: true for NNTPS connections, false for plain.
+/// `client_cert_fingerprint`: SHA-256 fingerprint of the client's TLS cert, if
+/// one was presented during the handshake.  `None` for plain connections or
+/// when the client did not send a certificate.
+/// `client_cert_der`: raw DER bytes of the leaf certificate for issuer-based
+/// auth.  `None` for plain connections or when the client did not send a cert.
 async fn run_session_io<S>(
     stream: S,
     peer_addr: SocketAddr,
     config: &Config,
     is_tls: bool,
+    client_cert_fingerprint: Option<String>,
+    client_cert_der: Option<Vec<u8>>,
     stores: Arc<ServerStores>,
 ) where
     S: AsyncRead + AsyncWrite + Unpin + Send,
@@ -350,6 +368,8 @@ async fn run_session_io<S>(
     let auth_required = config.auth.required;
     let posting_allowed = true;
     let mut ctx = SessionContext::new(peer_addr, auth_required, posting_allowed, is_tls);
+    ctx.client_cert_fingerprint = client_cert_fingerprint;
+    ctx.client_cert_der = client_cert_der;
 
     let (reader, mut writer) = tokio::io::split(stream);
     let mut reader = BufReader::new(reader);

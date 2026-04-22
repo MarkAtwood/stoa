@@ -1,7 +1,10 @@
 use std::{path::PathBuf, sync::Arc, time::Instant};
 
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+use std::str::FromStr as _;
 use tracing::info;
-use usenet_ipfs_mail::{config::Config, server::AppState};
+use usenet_ipfs_auth::CredentialStore;
+use usenet_ipfs_mail::{config::Config, server::AppState, token_store::TokenStore};
 
 fn parse_args() -> PathBuf {
     let args: Vec<String> = std::env::args().collect();
@@ -59,7 +62,48 @@ async fn main() {
 
     info!(listen_addr = %addr, "usenet-ipfs-mail starting");
 
-    let state = Arc::new(AppState { start_time, jmap: None });
+    let mut credential_store = CredentialStore::from_credentials(&config.auth.users);
+    if let Some(ref path) = config.auth.credential_file {
+        if let Err(e) = credential_store.merge_from_file(path) {
+            eprintln!("error: failed to load credential file '{}': {}", path, e);
+            std::process::exit(1);
+        }
+    }
+
+    let db_url = format!("sqlite:{}", config.database.path);
+    let db_opts = match SqliteConnectOptions::from_str(&db_url) {
+        Ok(o) => o.create_if_missing(true),
+        Err(e) => {
+            eprintln!("error: invalid database path '{}': {}", config.database.path, e);
+            std::process::exit(1);
+        }
+    };
+    let pool = match SqlitePoolOptions::new()
+        .max_connections(5)
+        .connect_with(db_opts)
+        .await
+    {
+        Ok(p) => Arc::new(p),
+        Err(e) => {
+            eprintln!("error: failed to open database '{}': {}", config.database.path, e);
+            std::process::exit(1);
+        }
+    };
+
+    if let Err(e) = usenet_ipfs_mail::migrations::run_migrations(&pool).await {
+        eprintln!("error: database migration failed: {}", e);
+        std::process::exit(1);
+    }
+
+    let token_store = Arc::new(TokenStore::new(pool));
+
+    let state = Arc::new(AppState {
+        start_time,
+        jmap: None,
+        credential_store: Arc::new(credential_store),
+        auth_config: Arc::new(config.auth),
+        token_store,
+    });
 
     let shutdown = async {
         tokio::select! {

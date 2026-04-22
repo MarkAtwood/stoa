@@ -1,6 +1,8 @@
 use serde::Deserialize;
 use std::path::Path;
 
+pub use usenet_ipfs_auth::AuthConfig;
+
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub listen: ListenConfig,
@@ -29,6 +31,10 @@ pub struct Config {
     /// DNS and air-gapped deployments work correctly out of the box.
     #[serde(default = "default_dns_resolver")]
     pub dns_resolver: String,
+    /// SMTP AUTH PLAIN credentials.  Optional; when absent AUTH is not
+    /// advertised and no credentials are accepted.
+    #[serde(default)]
+    pub auth: AuthConfig,
 }
 
 fn default_dns_resolver() -> String {
@@ -157,6 +163,13 @@ impl Default for DeliveryConfig {
 pub struct ListenConfig {
     pub port_25: String,
     pub port_587: String,
+    /// Optional SMTPS listener address for implicit TLS on port 465.
+    ///
+    /// When set, a third TCP listener is bound at this address.  Clients must
+    /// initiate TLS immediately (no STARTTLS upgrade).  Requires
+    /// `tls.cert_path` and `tls.key_path` to be set.
+    #[serde(default)]
+    pub smtps_addr: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -286,6 +299,13 @@ impl Config {
             }
             _ => {}
         }
+        if self.listen.smtps_addr.is_some()
+            && (self.tls.cert_path.is_none() || self.tls.key_path.is_none())
+        {
+            return Err(ConfigError::Validation(
+                "listen.smtps_addr requires tls.cert_path and tls.key_path to be set".into(),
+            ));
+        }
         match self.dns_resolver.as_str() {
             "system" | "cloudflare" | "google" | "quad9" => {}
             other => {
@@ -354,6 +374,36 @@ cert_path = "/etc/ssl/certs/smtp.pem"
         let f = write_toml(toml);
         let err = Config::from_file(f.path()).expect_err("should fail");
         assert!(matches!(err, ConfigError::Validation(_)));
+    }
+
+    #[test]
+    fn smtps_addr_without_tls_fails_validation() {
+        let toml = r#"
+[listen]
+port_25 = "0.0.0.0:25"
+port_587 = "0.0.0.0:587"
+smtps_addr = "0.0.0.0:465"
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path()).expect_err("should fail");
+        assert!(matches!(err, ConfigError::Validation(_)));
+    }
+
+    #[test]
+    fn smtps_addr_with_tls_passes_validation() {
+        let toml = r#"
+[listen]
+port_25 = "0.0.0.0:25"
+port_587 = "0.0.0.0:587"
+smtps_addr = "0.0.0.0:465"
+
+[tls]
+cert_path = "/etc/ssl/certs/smtp.pem"
+key_path = "/etc/ssl/private/smtp.key"
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("should parse");
+        assert_eq!(cfg.listen.smtps_addr.as_deref(), Some("0.0.0.0:465"));
     }
 
     #[test]

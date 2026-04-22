@@ -4,15 +4,26 @@ use std::{
     time::Instant,
 };
 
-use axum::{Json, Router, extract::State, http::StatusCode, routing::{get, post}};
+use axum::{
+    Json, Router,
+    extract::{Extension, Request, State},
+    http::{StatusCode, header},
+    middleware::Next,
+    response::Response,
+    routing::{delete, get, post},
+};
 use serde_json::{Value, json};
 use tokio::net::TcpListener;
+use usenet_ipfs_auth::{AuthConfig, CredentialStore};
 use usenet_ipfs_reader::{
     post::ipfs_write::IpfsBlockStore,
     store::{article_numbers::ArticleNumberStore, overview::OverviewStore},
 };
 
-use crate::state::{flags::UserFlagsStore, version::StateStore};
+use crate::{
+    state::{flags::UserFlagsStore, version::StateStore},
+    token_store::TokenStore,
+};
 
 /// JMAP backing stores, wired together for the API handler.
 pub struct JmapStores {
@@ -27,19 +38,127 @@ pub struct JmapStores {
 pub struct AppState {
     pub start_time: Instant,
     pub jmap: Option<Arc<JmapStores>>,
+    pub credential_store: Arc<CredentialStore>,
+    pub auth_config: Arc<AuthConfig>,
+    pub token_store: Arc<TokenStore>,
+}
+
+/// Authenticated user identity extracted from HTTP Basic Auth.
+///
+/// Inserted into request extensions by `basic_auth_middleware` after
+/// successful credential verification.  Handlers receive it via
+/// `Extension<AuthenticatedUser>`.  In dev mode no `AuthenticatedUser`
+/// is inserted; handlers must use `Option<Extension<AuthenticatedUser>>`.
+#[derive(Clone)]
+pub struct AuthenticatedUser(pub String);
+
+/// Axum middleware that enforces HTTP Basic authentication on protected routes.
+///
+/// Dev mode (no credentials configured, auth not required) bypasses auth
+/// entirely and does NOT inject a fake `AuthenticatedUser`.
+///
+/// On success the `AuthenticatedUser` extension is inserted into the request
+/// so downstream handlers can read the authenticated username.
+///
+/// On failure a `401 Unauthorized` response with a `WWW-Authenticate` header
+/// is returned immediately.
+async fn basic_auth_middleware(
+    State(state): State<Arc<AppState>>,
+    mut req: Request,
+    next: Next,
+) -> Response {
+    if state.auth_config.is_dev_mode() {
+        return next.run(req).await;
+    }
+
+    let auth_header = req
+        .headers()
+        .get(header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_owned);
+
+    // Try Bearer token first.
+    if let Some(bearer_token) = auth_header
+        .as_deref()
+        .and_then(|h| h.strip_prefix("Bearer "))
+    {
+        match state.token_store.verify(bearer_token).await {
+            Ok(Some(username)) => {
+                req.extensions_mut().insert(AuthenticatedUser(username));
+                return next.run(req).await;
+            }
+            _ => return unauthorized_response(),
+        }
+    }
+
+    // Fall through to Basic auth.
+    let credentials: Option<(String, String)> = auth_header
+        .as_deref()
+        .and_then(|h: &str| h.strip_prefix("Basic "))
+        .and_then(|encoded: &str| {
+            data_encoding::BASE64
+                .decode(encoded.as_bytes())
+                .ok()
+        })
+        .and_then(|decoded: Vec<u8>| String::from_utf8(decoded).ok())
+        .and_then(|s: String| {
+            let mut parts = s.splitn(2, ':');
+            let user = parts.next()?.to_owned();
+            let pass = parts.next()?.to_owned();
+            Some((user, pass))
+        });
+
+    let (username, password) = match credentials {
+        Some(pair) => pair,
+        None => return unauthorized_response(),
+    };
+
+    if !state.credential_store.check(&username, &password).await {
+        return unauthorized_response();
+    }
+
+    req.extensions_mut().insert(AuthenticatedUser(username));
+    next.run(req).await
+}
+
+fn unauthorized_response() -> Response {
+    axum::response::Response::builder()
+        .status(StatusCode::UNAUTHORIZED)
+        .header(header::WWW_AUTHENTICATE, r#"Basic realm="usenet-ipfs""#)
+        .header(header::CONTENT_TYPE, "text/plain")
+        .body(axum::body::Body::from("401 Unauthorized"))
+        .unwrap()
 }
 
 /// Build the axum Router with all routes.
+///
+/// `/health` and `/.well-known/jmap` are public (no auth required).
+/// All `/jmap/*` routes are protected by `basic_auth_middleware`.
 pub fn build_router(state: Arc<AppState>) -> Router {
-    Router::new()
-        .route("/health", get(health_handler))
-        .route("/.well-known/jmap", get(well_known_jmap))
+    let protected = Router::new()
         .route("/jmap/session", get(jmap_session_handler))
         .route("/jmap/api", post(jmap_api_handler))
         .route(
             "/jmap/download/{account_id}/{blob_id}/{name}",
             get(crate::blob::blob_download),
         )
+        .route(
+            "/jmap/auth/token",
+            post(crate::auth_token::issue_token).get(crate::auth_token::list_tokens),
+        )
+        .route(
+            "/jmap/auth/token/{id}",
+            delete(crate::auth_token::revoke_token),
+        )
+        .route_layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            basic_auth_middleware,
+        ));
+
+    Router::new()
+        .route("/health", get(health_handler))
+        .route("/.well-known/jmap", get(well_known_jmap))
+        .merge(protected)
         .with_state(state)
 }
 
@@ -58,9 +177,13 @@ async fn well_known_jmap() -> impl axum::response::IntoResponse {
     )
 }
 
-async fn jmap_session_handler() -> Json<Value> {
-    // v1: return session for anonymous/single-user mode
-    let session = crate::jmap::session::build_session("anonymous", "http://localhost");
+async fn jmap_session_handler(
+    user: Option<Extension<AuthenticatedUser>>,
+) -> Json<Value> {
+    let username = user
+        .map(|Extension(u)| u.0)
+        .unwrap_or_else(|| "anonymous".to_string());
+    let session = crate::jmap::session::build_session(&username, "http://localhost");
     Json(serde_json::to_value(session).unwrap())
 }
 
@@ -231,24 +354,77 @@ pub async fn run_server(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::token_store::TokenStore;
+    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+    use std::str::FromStr as _;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use tokio::net::TcpListener;
+    use usenet_ipfs_auth::{AuthConfig, CredentialStore, UserCredential};
 
-    #[tokio::test]
-    async fn health_returns_200_with_ok() {
-        let state = Arc::new(AppState {
+    static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
+
+    async fn make_token_store() -> Arc<TokenStore> {
+        let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
+        let url = format!("file:server_test_{n}?mode=memory&cache=shared");
+        let opts = SqliteConnectOptions::from_str(&url)
+            .unwrap()
+            .create_if_missing(true);
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(opts)
+            .await
+            .expect("pool");
+        crate::migrations::run_migrations(&pool)
+            .await
+            .expect("migrations");
+        Arc::new(TokenStore::new(Arc::new(pool)))
+    }
+
+    /// Build an AppState in dev mode: `required = false`, no users, no credential file.
+    async fn dev_state() -> Arc<AppState> {
+        Arc::new(AppState {
             start_time: Instant::now(),
             jmap: None,
-        });
-        let app = build_router(state);
+            credential_store: Arc::new(CredentialStore::empty()),
+            auth_config: Arc::new(AuthConfig::default()),
+            token_store: make_token_store().await,
+        })
+    }
 
+    /// Build an AppState with a single user (bcrypt cost 4 for test speed).
+    async fn auth_state(username: &str, plaintext_password: &str) -> Arc<AppState> {
+        let hash = bcrypt::hash(plaintext_password, 4).expect("bcrypt::hash must not fail");
+        let users = vec![UserCredential {
+            username: username.to_string(),
+            password: hash,
+        }];
+        Arc::new(AppState {
+            start_time: Instant::now(),
+            jmap: None,
+            credential_store: Arc::new(CredentialStore::from_credentials(&users)),
+            auth_config: Arc::new(AuthConfig {
+                required: true,
+                users,
+                ..Default::default()
+            }),
+            token_store: make_token_store().await,
+        })
+    }
+
+    async fn spawn_server(state: Arc<AppState>) -> std::net::SocketAddr {
+        let app = build_router(state);
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
-
         tokio::spawn(async move {
             axum::serve(listener, app).await.unwrap();
         });
-
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        addr
+    }
+
+    #[tokio::test]
+    async fn health_returns_200_with_ok() {
+        let addr = spawn_server(dev_state().await).await;
 
         let resp = reqwest::Client::new()
             .get(format!("http://{addr}/health"))
@@ -264,20 +440,7 @@ mod tests {
 
     #[tokio::test]
     async fn well_known_jmap_redirects_to_session() {
-        let state = Arc::new(AppState {
-            start_time: Instant::now(),
-            jmap: None,
-        });
-        let app = build_router(state);
-
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let addr = listener.local_addr().unwrap();
-
-        tokio::spawn(async move {
-            axum::serve(listener, app).await.unwrap();
-        });
-
-        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        let addr = spawn_server(dev_state().await).await;
 
         let resp = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
@@ -294,21 +457,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn jmap_session_returns_200_with_capabilities() {
-        let state = Arc::new(AppState {
-            start_time: Instant::now(),
-            jmap: None,
-        });
-        let app = build_router(state);
-
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let addr = listener.local_addr().unwrap();
-
-        tokio::spawn(async move {
-            axum::serve(listener, app).await.unwrap();
-        });
-
-        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    async fn jmap_session_dev_mode_returns_200_with_capabilities() {
+        let addr = spawn_server(dev_state().await).await;
 
         let resp = reqwest::Client::new()
             .get(format!("http://{addr}/jmap/session"))
@@ -323,21 +473,77 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn jmap_session_no_credentials_returns_401() {
+        let addr = spawn_server(auth_state("alice", "correct-horse").await).await;
+
+        let resp = reqwest::Client::new()
+            .get(format!("http://{addr}/jmap/session"))
+            .send()
+            .await
+            .expect("request must succeed");
+
+        assert_eq!(resp.status(), 401);
+        let www_auth = resp
+            .headers()
+            .get("www-authenticate")
+            .unwrap()
+            .to_str()
+            .unwrap();
+        assert!(www_auth.contains("Basic"), "WWW-Authenticate must advertise Basic");
+        assert!(www_auth.contains("usenet-ipfs"), "realm must be usenet-ipfs");
+    }
+
+    #[tokio::test]
+    async fn jmap_session_wrong_password_returns_401() {
+        let addr = spawn_server(auth_state("alice", "correct-horse").await).await;
+
+        let resp = reqwest::Client::new()
+            .get(format!("http://{addr}/jmap/session"))
+            .basic_auth("alice", Some("wrong-password"))
+            .send()
+            .await
+            .expect("request must succeed");
+
+        assert_eq!(resp.status(), 401);
+    }
+
+    #[tokio::test]
+    async fn jmap_session_correct_credentials_returns_200_with_username() {
+        let addr = spawn_server(auth_state("alice", "correct-horse").await).await;
+
+        let resp = reqwest::Client::new()
+            .get(format!("http://{addr}/jmap/session"))
+            .basic_auth("alice", Some("correct-horse"))
+            .send()
+            .await
+            .expect("request must succeed");
+
+        assert_eq!(resp.status(), 200);
+        let body: serde_json::Value = resp.json().await.unwrap();
+        assert_eq!(body["username"], "alice");
+        let account_id = "u_alice";
+        assert!(
+            body["accounts"][account_id].is_object(),
+            "account u_alice must be present"
+        );
+    }
+
+    #[tokio::test]
+    async fn health_endpoint_is_public() {
+        let addr = spawn_server(auth_state("alice", "correct-horse").await).await;
+
+        let resp = reqwest::Client::new()
+            .get(format!("http://{addr}/health"))
+            .send()
+            .await
+            .expect("request must succeed");
+
+        assert_eq!(resp.status(), 200);
+    }
+
+    #[tokio::test]
     async fn blob_download_invalid_cid_returns_400() {
-        let state = Arc::new(AppState {
-            start_time: Instant::now(),
-            jmap: None,
-        });
-        let app = build_router(state);
-
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let addr = listener.local_addr().unwrap();
-
-        tokio::spawn(async move {
-            axum::serve(listener, app).await.unwrap();
-        });
-
-        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        let addr = spawn_server(dev_state().await).await;
 
         let resp = reqwest::Client::new()
             .get(format!("http://{addr}/jmap/download/acc1/not-a-cid/file.txt"))
@@ -346,5 +552,19 @@ mod tests {
             .expect("request must succeed");
 
         assert_eq!(resp.status(), 400);
+    }
+
+    #[tokio::test]
+    async fn blob_download_no_credentials_returns_401() {
+        let addr = spawn_server(auth_state("alice", "correct-horse").await).await;
+        let valid_cid = "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi";
+
+        let resp = reqwest::Client::new()
+            .get(format!("http://{addr}/jmap/download/u_alice/{valid_cid}/msg.eml"))
+            .send()
+            .await
+            .expect("request must succeed");
+
+        assert_eq!(resp.status(), 401);
     }
 }

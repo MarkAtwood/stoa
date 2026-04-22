@@ -52,6 +52,32 @@ pub struct UserCredential {
     pub password: String,
 }
 
+/// A TLS client certificate pinned to a username.
+///
+/// When a client presents a certificate whose SHA-256 fingerprint matches
+/// `sha256_fingerprint`, the session is authenticated as `username` without
+/// requiring a password. Only valid on NNTPS (port 563) connections.
+#[derive(Debug, Deserialize, Clone)]
+pub struct ClientCertEntry {
+    /// SHA-256 fingerprint of the leaf certificate DER, formatted as
+    /// `"sha256:<64-hex-chars>"`.  Case-insensitive on input.
+    pub sha256_fingerprint: String,
+    /// Username to authenticate when this certificate is presented.
+    pub username: String,
+}
+
+/// A trusted CA issuer for client certificate chain authentication.
+///
+/// When a client presents a certificate signed by one of these CAs, the leaf
+/// certificate's Common Name (CN) is used as the authenticated username.
+/// Only valid on NNTPS (port 563) connections.
+#[derive(Debug, Deserialize, Clone)]
+pub struct TrustedIssuerEntry {
+    /// Path to a PEM-encoded CA certificate.  The CA's public key is extracted
+    /// at startup and used for Ed25519 signature verification.
+    pub cert_path: String,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct AuthConfig {
     pub required: bool,
@@ -68,6 +94,21 @@ pub struct AuthConfig {
     /// inline `users` list.
     #[serde(default)]
     pub credential_file: Option<String>,
+    /// TLS client certificate pins.
+    ///
+    /// Each entry maps a certificate SHA-256 fingerprint to a username.
+    /// When a client presents a matching certificate over TLS, the session
+    /// is authenticated without a password exchange.
+    #[serde(default)]
+    pub client_certs: Vec<ClientCertEntry>,
+    /// Trusted CA issuers for client certificate chain authentication.
+    ///
+    /// When a client presents a certificate signed by one of these CAs, the
+    /// leaf certificate's CN is used as the username — no password required.
+    /// Attempted only after fingerprint-based auth has been tried first.
+    /// Only valid on NNTPS (port 563) connections.
+    #[serde(default)]
+    pub trusted_issuers: Vec<TrustedIssuerEntry>,
 }
 
 impl AuthConfig {

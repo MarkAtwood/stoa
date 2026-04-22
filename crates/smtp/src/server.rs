@@ -4,18 +4,24 @@ use mail_auth::MessageAuthenticator;
 use sqlx::SqlitePool;
 use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
+use usenet_ipfs_auth::CredentialStore;
 
 use crate::config::Config;
 use crate::queue::NntpQueue;
 use crate::session::{run_session, SieveCache};
+use crate::tls::{accept_tls, TlsAcceptor};
 
-/// Accept connections on both port-25 and port-587 listeners, spawning a
-/// `run_session` task for each.  Returns when both listeners close or an
-/// unrecoverable error occurs.
+/// Accept connections on the port-25, port-587, and optional SMTPS (port 465)
+/// listeners, spawning a `run_session` task for each.  Returns when all
+/// listeners close or an unrecoverable error occurs.
+///
+/// `listener_smtps` is optional: when `Some`, a third listener is active and
+/// connections accepted on it receive implicit TLS before SMTP begins.
 pub async fn run_server(
     listener_25: TcpListener,
     listener_587: TcpListener,
+    listener_smtps: Option<(TcpListener, TlsAcceptor)>,
     config: Arc<Config>,
     nntp_queue: Arc<NntpQueue>,
     pool: Option<SqlitePool>,
@@ -40,6 +46,19 @@ pub async fn run_server(
         }
     };
 
+    // Build the credential store once at startup and share it across sessions.
+    let credential_store = {
+        let mut store = CredentialStore::from_credentials(&config.auth.users);
+        if let Some(ref path) = config.auth.credential_file {
+            if let Err(e) = store.merge_from_file(path) {
+                warn!("failed to load credential_file {path}: {e}");
+            }
+        }
+        Arc::new(store)
+    };
+
+    let smtps_parts: Option<(TcpListener, TlsAcceptor)> = listener_smtps;
+
     let semaphore = Arc::new(Semaphore::new(config.limits.max_connections));
 
     loop {
@@ -53,44 +72,108 @@ pub async fn run_server(
             }
         };
 
-        let (stream, peer_addr) = tokio::select! {
-            result = listener_25.accept() => match result {
-                Ok(pair) => pair,
-                Err(e) => {
-                    error!("port_25 accept error: {e}");
-                    drop(permit);
-                    continue;
-                }
-            },
-            result = listener_587.accept() => match result {
-                Ok(pair) => pair,
-                Err(e) => {
-                    error!("port_587 accept error: {e}");
-                    drop(permit);
-                    continue;
-                }
-            },
-        };
+        // Unified accepted-connection enum so both branches of the select!
+        // produce the same type.  TLS handshake happens inline in the SMTPS
+        // branch so that handshake failures never reach the session.
+        enum Accepted {
+            Plain(tokio::net::TcpStream, std::net::SocketAddr),
+            Tls(Box<tokio_rustls::server::TlsStream<tokio::net::TcpStream>>, std::net::SocketAddr),
+        }
 
-        let peer_str = peer_addr.to_string();
-        info!(%peer_str, "accepted connection");
+        let accepted = if let Some((ref smtps_listener, ref tls_acceptor)) = smtps_parts {
+            tokio::select! {
+                result = listener_25.accept() => match result {
+                    Ok((s, a)) => Accepted::Plain(s, a),
+                    Err(e) => {
+                        error!("port_25 accept error: {e}");
+                        drop(permit);
+                        continue;
+                    }
+                },
+                result = listener_587.accept() => match result {
+                    Ok((s, a)) => Accepted::Plain(s, a),
+                    Err(e) => {
+                        error!("port_587 accept error: {e}");
+                        drop(permit);
+                        continue;
+                    }
+                },
+                result = smtps_listener.accept() => match result {
+                    Ok((tcp_stream, peer_addr)) => {
+                        match accept_tls(tls_acceptor, tcp_stream).await {
+                            Ok(tls_stream) => Accepted::Tls(Box::new(tls_stream), peer_addr),
+                            Err(e) => {
+                                debug!(peer = %peer_addr, "SMTPS TLS handshake failed: {e}");
+                                drop(permit);
+                                continue;
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        error!("smtps accept error: {e}");
+                        drop(permit);
+                        continue;
+                    }
+                },
+            }
+        } else {
+            tokio::select! {
+                result = listener_25.accept() => match result {
+                    Ok((s, a)) => Accepted::Plain(s, a),
+                    Err(e) => {
+                        error!("port_25 accept error: {e}");
+                        drop(permit);
+                        continue;
+                    }
+                },
+                result = listener_587.accept() => match result {
+                    Ok((s, a)) => Accepted::Plain(s, a),
+                    Err(e) => {
+                        error!("port_587 accept error: {e}");
+                        drop(permit);
+                        continue;
+                    }
+                },
+            }
+        };
 
         let config = config.clone();
         let nntp_queue = Arc::clone(&nntp_queue);
         let auth = auth.clone();
         let pool = pool.clone();
         let cache = sieve_cache.clone();
-        tokio::spawn(async move {
-            let _permit = permit; // released when session task ends
-            run_session(stream, peer_str, config, nntp_queue, auth, pool, cache).await;
-        });
+        let cred_store = Arc::clone(&credential_store);
+
+        match accepted {
+            Accepted::Plain(stream, peer_addr) => {
+                let peer_str = peer_addr.to_string();
+                info!(%peer_str, "accepted plaintext connection");
+                tokio::spawn(async move {
+                    let _permit = permit;
+                    run_session(stream, false, peer_str, config, cred_store, nntp_queue, auth, pool, cache)
+                        .await;
+                });
+            }
+            Accepted::Tls(tls_stream, peer_addr) => {
+                let peer_str = peer_addr.to_string();
+                info!(%peer_str, "accepted SMTPS connection");
+                tokio::spawn(async move {
+                    let _permit = permit;
+                    run_session(*tls_stream, true, peer_str, config, cred_store, nntp_queue, auth, pool, cache)
+                        .await;
+                });
+            }
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{DatabaseConfig, DeliveryConfig, LimitsConfig, ListenConfig, LogConfig, ReaderConfig, SieveAdminConfig, TlsConfig};
+    use crate::config::{
+        AuthConfig, DatabaseConfig, DeliveryConfig, LimitsConfig, ListenConfig, LogConfig,
+        ReaderConfig, SieveAdminConfig, TlsConfig,
+    };
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     fn test_config() -> Arc<Config> {
@@ -99,6 +182,7 @@ mod tests {
             listen: ListenConfig {
                 port_25: "127.0.0.1:0".to_string(),
                 port_587: "127.0.0.1:0".to_string(),
+                smtps_addr: None,
             },
             tls: TlsConfig { cert_path: None, key_path: None },
             limits: LimitsConfig {
@@ -117,6 +201,7 @@ mod tests {
             database: DatabaseConfig::default(),
             sieve_admin: SieveAdminConfig::default(),
             dns_resolver: "system".to_string(),
+            auth: AuthConfig::default(),
         })
     }
 
@@ -131,7 +216,7 @@ mod tests {
         let queue_dir = tempfile::tempdir().expect("tempdir");
         let nntp_queue = NntpQueue::new(queue_dir.path()).expect("NntpQueue::new");
 
-        tokio::spawn(run_server(listener_25, listener_587, config, nntp_queue, None, None));
+        tokio::spawn(run_server(listener_25, listener_587, None, config, nntp_queue, None, None));
 
         let mut client = tokio::net::TcpStream::connect(addr_25).await.unwrap();
         let mut buf = [0u8; 256];
@@ -156,7 +241,7 @@ mod tests {
         let queue_dir = tempfile::tempdir().expect("tempdir");
         let nntp_queue = NntpQueue::new(queue_dir.path()).expect("NntpQueue::new");
 
-        tokio::spawn(run_server(listener_25, listener_587, config, nntp_queue, None, None));
+        tokio::spawn(run_server(listener_25, listener_587, None, config, nntp_queue, None, None));
 
         // Connect to port_25 and port_587 concurrently.
         let (c1, c2) = tokio::join!(

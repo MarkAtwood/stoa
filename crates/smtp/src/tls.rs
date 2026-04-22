@@ -31,6 +31,30 @@ impl std::fmt::Display for TlsError {
 
 impl std::error::Error for TlsError {}
 
+/// A `tokio_rustls` TLS acceptor for the SMTPS listener.
+pub type TlsAcceptor = tokio_rustls::TlsAcceptor;
+
+/// Build a [`TlsAcceptor`] from PEM certificate and private-key files.
+///
+/// Loads the certificate chain and private key, constructs a `rustls::ServerConfig`
+/// requiring TLS 1.2 or higher, and wraps it in a `tokio_rustls::TlsAcceptor`.
+pub fn build_tls_acceptor(cert_path: &str, key_path: &str) -> Result<TlsAcceptor, TlsError> {
+    let server_config = load_tls_config(cert_path, key_path)?;
+    Ok(tokio_rustls::TlsAcceptor::from(server_config))
+}
+
+/// Perform the TLS handshake on an accepted TCP stream.
+///
+/// Returns the wrapped TLS stream on success, or a `TlsError` on handshake
+/// failure.  Handshake errors are non-fatal — the caller should drop the stream
+/// and continue accepting new connections.
+pub async fn accept_tls(
+    acceptor: &TlsAcceptor,
+    stream: tokio::net::TcpStream,
+) -> Result<tokio_rustls::server::TlsStream<tokio::net::TcpStream>, std::io::Error> {
+    acceptor.accept(stream).await
+}
+
 /// Build a `rustls::ServerConfig` from PEM certificate and private-key files.
 ///
 /// The returned `ServerConfig` requires TLS 1.2 or higher.
@@ -91,12 +115,14 @@ mod tests {
     #[test]
     fn tls_configured_both_set() {
         use crate::config::{
-            Config, DatabaseConfig, LimitsConfig, ListenConfig, LogConfig, ReaderConfig, TlsConfig,
+            AuthConfig, Config, DatabaseConfig, LimitsConfig, ListenConfig, LogConfig,
+            ReaderConfig, SieveAdminConfig, TlsConfig,
         };
         let cfg = Config {
             listen: ListenConfig {
                 port_25: "0.0.0.0:25".into(),
                 port_587: "0.0.0.0:587".into(),
+                smtps_addr: None,
             },
             hostname: "localhost".into(),
             tls: TlsConfig {
@@ -109,8 +135,9 @@ mod tests {
             delivery: crate::config::DeliveryConfig::default(),
             users: vec![],
             database: DatabaseConfig::default(),
-            sieve_admin: crate::config::SieveAdminConfig::default(),
+            sieve_admin: SieveAdminConfig::default(),
             dns_resolver: "system".to_string(),
+            auth: AuthConfig::default(),
         };
         assert!(tls_configured(&cfg));
     }
@@ -118,12 +145,14 @@ mod tests {
     #[test]
     fn tls_configured_neither_set() {
         use crate::config::{
-            Config, DatabaseConfig, LimitsConfig, ListenConfig, LogConfig, ReaderConfig, TlsConfig,
+            AuthConfig, Config, DatabaseConfig, LimitsConfig, ListenConfig, LogConfig,
+            ReaderConfig, SieveAdminConfig, TlsConfig,
         };
         let cfg = Config {
             listen: ListenConfig {
                 port_25: "0.0.0.0:25".into(),
                 port_587: "0.0.0.0:587".into(),
+                smtps_addr: None,
             },
             hostname: "localhost".into(),
             tls: TlsConfig {
@@ -136,8 +165,9 @@ mod tests {
             delivery: crate::config::DeliveryConfig::default(),
             users: vec![],
             database: DatabaseConfig::default(),
-            sieve_admin: crate::config::SieveAdminConfig::default(),
+            sieve_admin: SieveAdminConfig::default(),
             dns_resolver: "system".to_string(),
+            auth: AuthConfig::default(),
         };
         assert!(!tls_configured(&cfg));
     }

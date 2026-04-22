@@ -27,10 +27,14 @@ sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio-rustls"] }
 axum = "0.8"
 subtle = "2"
 usenet-ipfs-sieve = { path = "../sieve" }
+usenet-ipfs-auth = { path = "../auth" }
+base64 = "0.22"
 tempfile = "3"
 tower = { version = "0.5", features = ["util"] }
 
 [dev-dependencies]
+bcrypt = "0.15"
+rcgen = "0.13"
 # test-util enables tokio::time::pause() and tokio::time::advance() for
 # deterministic timeout testing without real sleeps.
 tokio = { version = "1", features = ["test-util"] }

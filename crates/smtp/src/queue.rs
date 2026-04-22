@@ -83,7 +83,7 @@ impl NntpQueue {
         };
         while let Ok(Some(entry)) = dir.next_entry().await {
             let path = entry.path();
-            if path.extension().map_or(false, |e| e == "msg") {
+            if path.extension().is_some_and(|e| e == "msg") {
                 match tokio::fs::read(&path).await {
                     Ok(bytes) => {
                         match nntp_client::post_article(nntp_addr, &bytes).await {

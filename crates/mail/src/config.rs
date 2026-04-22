@@ -1,6 +1,8 @@
 use serde::Deserialize;
 use std::path::Path;
 
+pub use usenet_ipfs_auth::{AuthConfig, UserCredential};
+
 // Config fields are read from TOML; server logic will consume them as epics are implemented.
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
@@ -40,31 +42,6 @@ impl Default for DatabaseConfig {
         Self {
             path: default_database_path(),
         }
-    }
-}
-
-#[derive(Debug, Deserialize)]
-pub struct UserCredential {
-    pub username: String,
-    pub password: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct AuthConfig {
-    pub required: bool,
-    /// User accounts for JMAP authentication.
-    ///
-    /// If empty and `required = false`, all credential attempts succeed
-    /// (development mode).
-    #[serde(default)]
-    pub users: Vec<UserCredential>,
-}
-
-impl AuthConfig {
-    /// Returns `true` when no credentials are configured and auth is not
-    /// required — the development / open-access mode.
-    pub fn is_dev_mode(&self) -> bool {
-        !self.required && self.users.is_empty()
     }
 }
 

@@ -9,6 +9,7 @@ use usenet_ipfs_smtp::{
     server::run_server,
     session::new_sieve_cache,
     sieve_admin, store,
+    tls::build_tls_acceptor,
 };
 
 fn parse_args() -> PathBuf {
@@ -72,6 +73,30 @@ async fn main() {
         }
     };
 
+    // Bind the optional SMTPS (port 465 implicit TLS) listener and build the
+    // TLS acceptor.  Both must succeed or startup aborts — a partially-bound
+    // server would silently drop SMTPS connections.
+    let listener_smtps = if let Some(ref smtps_addr) = config.listen.smtps_addr {
+        let cert_path = config.tls.cert_path.as_deref().unwrap_or("");
+        let key_path = config.tls.key_path.as_deref().unwrap_or("");
+        let acceptor = match build_tls_acceptor(cert_path, key_path) {
+            Ok(a) => a,
+            Err(e) => {
+                error!("failed to build SMTPS TLS acceptor: {e}");
+                std::process::exit(1);
+            }
+        };
+        match TcpListener::bind(smtps_addr).await {
+            Ok(l) => Some((l, acceptor)),
+            Err(e) => {
+                error!("failed to bind smtps_addr {smtps_addr}: {e}");
+                std::process::exit(1);
+            }
+        }
+    } else {
+        None
+    };
+
     // Open the Sieve delivery database only when local users are configured.
     let pool = if !config.users.is_empty() {
         match store::open(&config.database.path).await {
@@ -91,6 +116,7 @@ async fn main() {
     info!(
         port_25 = %config.listen.port_25,
         port_587 = %config.listen.port_587,
+        smtps = %config.listen.smtps_addr.as_deref().unwrap_or("disabled"),
         max_connections = config.limits.max_connections,
         "usenet-ipfs-smtp starting"
     );
@@ -124,7 +150,7 @@ async fn main() {
     }
 
     tokio::select! {
-        _ = run_server(listener_25, listener_587, config, nntp_queue, pool, sieve_cache) => {}
+        _ = run_server(listener_25, listener_587, listener_smtps, config, nntp_queue, pool, sieve_cache) => {}
         _ = tokio::signal::ctrl_c() => {
             info!("received CTRL-C, shutting down");
         }
