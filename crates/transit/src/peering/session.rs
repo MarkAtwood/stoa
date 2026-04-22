@@ -18,8 +18,8 @@ use usenet_ipfs_core::{msgid_map::MsgIdMap, validation::validate_message_id};
 use crate::peering::{
     blacklist::{check_and_blacklist, is_blacklisted, BlacklistConfig},
     ingestion::{
-        check_ingest, check_mode_guard, check_response, ihave_response, takethis_response,
-        IngestResult,
+        check_ingest, check_mode_guard, check_response, ihave_response, takethis_mode_guard,
+        takethis_response, IngestResult,
     },
     ingestion_queue::{IngestionSender, QueuedArticle},
     mode_stream::{capabilities_response, handle_mode_stream, PeeringMode},
@@ -46,6 +46,8 @@ pub struct PeeringShared {
     pub ingestion_sender: Arc<IngestionSender>,
     /// Libp2p peer identity string (used in tip advertisements).
     pub local_peer_id: String,
+    /// Local FQDN prepended to `Path:` on every ingested article (Son-of-RFC-1036 §3.3).
+    pub local_hostname: String,
     /// Per-IP rate limiter shared across all sessions.
     ///
     /// Keyed by peer IP (not IP:port) so that multiple simultaneous connections
@@ -151,7 +153,7 @@ pub async fn run_peering_session(stream: TcpStream, shared: Arc<PeeringShared>) 
             }
             "TAKETHIS" => {
                 let msgid = arg.to_owned();
-                if let Some(guard_resp) = check_mode_guard(mode) {
+                if let Some(guard_resp) = takethis_mode_guard(mode) {
                     Some(guard_resp.to_owned())
                 } else {
                     match read_dot_stuffed(&mut reader).await {

@@ -11,6 +11,7 @@ pub mod ipld;
 pub mod migrations;
 pub mod msgid_map;
 pub mod signing;
+pub mod util;
 pub mod validation;
 
 pub use article::{Article, ArticleBody, ArticleHeader, GroupName};

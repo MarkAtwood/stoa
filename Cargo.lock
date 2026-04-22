@@ -6033,6 +6033,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "usenet-ipfs-auth",
+ "usenet-ipfs-core",
  "usenet-ipfs-sieve",
 ]
 

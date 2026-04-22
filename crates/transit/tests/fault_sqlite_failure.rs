@@ -142,6 +142,7 @@ fn make_ctx(key: &SigningKey) -> PipelineCtx<'static> {
         operator_signature: key.sign(b""),
         gossip_tx: None,
         sender_peer_id: "test-peer-sqlite",
+        local_hostname: "test.local",
     }
 }
 

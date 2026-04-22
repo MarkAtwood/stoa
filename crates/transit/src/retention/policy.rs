@@ -30,6 +30,11 @@ impl std::fmt::Display for PolicyValidationError {
 impl std::error::Error for PolicyValidationError {}
 
 /// Metadata about an article used to evaluate pinning policy rules.
+///
+/// `group` holds the raw `Newsgroups:` header value, which may be a
+/// comma-separated list for cross-posted articles (e.g.
+/// `"comp.lang.rust, alt.test"`).  [`PinPolicy::should_pin`] splits on
+/// commas and pins the article if **any** listed group matches a pin rule.
 pub struct ArticleMeta {
     pub group: String,
     pub size_bytes: usize,
@@ -73,13 +78,31 @@ impl PinPolicy {
 
     /// Returns `true` if the article described by `meta` should be pinned.
     ///
-    /// Evaluates rules in order. The first rule whose group pattern and all
-    /// optional constraints match determines the outcome: `"pin"` → `true`,
-    /// `"skip"` → `false`. If no rule matches, returns `false`.
+    /// `meta.group` may be a comma-separated list of newsgroup names as it
+    /// appears in the `Newsgroups:` header (e.g. `"comp.lang.rust, alt.test"`).
+    /// Each group name is trimmed of whitespace and evaluated independently.
+    /// The article is pinned if **any** of its groups causes a rule to return
+    /// `"pin"` and no earlier group caused a rule to return `"skip"`.
+    ///
+    /// More precisely: rules are evaluated in declaration order for each
+    /// group in turn.  The first `(rule, group)` pair that fully matches
+    /// determines the outcome for that group.  If any group resolves to
+    /// `"pin"`, the article is pinned; if all groups resolve to `"skip"` or
+    /// no-match, the article is not pinned.
     pub fn should_pin(&self, meta: &ArticleMeta) -> bool {
-        for rule in &self.rules {
-            if Self::matches_rule(rule, meta) {
-                return rule.action == "pin";
+        for group in meta.group.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+            let single = ArticleMeta {
+                group: group.to_string(),
+                size_bytes: meta.size_bytes,
+                age_days: meta.age_days,
+            };
+            for rule in &self.rules {
+                if Self::matches_rule(rule, &single) {
+                    if rule.action == "pin" {
+                        return true;
+                    }
+                    break;
+                }
             }
         }
         false
@@ -334,6 +357,38 @@ mod tests {
             err,
             PolicyValidationError::UselessRule { rule_index: 0, .. }
         ));
+    }
+
+    #[test]
+    fn crosspost_pinned_if_any_group_is_pinned() {
+        // Policy: pin sci.math only.
+        // Article cross-posted to comp.lang.rust and sci.math → should be pinned.
+        let policy = PinPolicy::new(vec![pin_rule("sci.math", None, None, "pin")]);
+        let m = ArticleMeta {
+            group: "comp.lang.rust, sci.math".to_string(),
+            age_days: 1,
+            size_bytes: 512,
+        };
+        assert!(
+            policy.should_pin(&m),
+            "cross-post must be pinned when any listed group is in the policy"
+        );
+    }
+
+    #[test]
+    fn crosspost_not_pinned_when_no_group_matches() {
+        // Policy: pin sci.math only.
+        // Article cross-posted to comp.lang.rust and alt.test → should not be pinned.
+        let policy = PinPolicy::new(vec![pin_rule("sci.math", None, None, "pin")]);
+        let m = ArticleMeta {
+            group: "comp.lang.rust, alt.test".to_string(),
+            age_days: 1,
+            size_bytes: 512,
+        };
+        assert!(
+            !policy.should_pin(&m),
+            "cross-post must not be pinned when no listed group is in the policy"
+        );
     }
 
     #[test]

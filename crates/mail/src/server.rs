@@ -1,14 +1,18 @@
-use std::{net::SocketAddr, sync::Arc, time::Instant};
+use std::{
+    net::SocketAddr,
+    sync::Arc,
+    time::Instant,
+};
 
 use axum::{
+    Json, Router,
     extract::{Extension, Request, State},
-    http::{header, StatusCode},
+    http::{StatusCode, header},
     middleware::Next,
     response::Response,
     routing::{delete, get, post},
-    Json, Router,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::net::TcpListener;
 use usenet_ipfs_auth::{AuthConfig, CredentialStore};
 use usenet_ipfs_reader::{
@@ -37,6 +41,8 @@ pub struct AppState {
     pub credential_store: Arc<CredentialStore>,
     pub auth_config: Arc<AuthConfig>,
     pub token_store: Arc<TokenStore>,
+    /// External base URL used in JMAP session responses (e.g. `https://mail.example.com`).
+    pub base_url: String,
 }
 
 /// Authenticated user identity extracted from HTTP Basic Auth.
@@ -91,7 +97,11 @@ async fn basic_auth_middleware(
     let credentials: Option<(String, String)> = auth_header
         .as_deref()
         .and_then(|h: &str| h.strip_prefix("Basic "))
-        .and_then(|encoded: &str| data_encoding::BASE64.decode(encoded.as_bytes()).ok())
+        .and_then(|encoded: &str| {
+            data_encoding::BASE64
+                .decode(encoded.as_bytes())
+                .ok()
+        })
         .and_then(|decoded: Vec<u8>| String::from_utf8(decoded).ok())
         .and_then(|s: String| {
             let mut parts = s.splitn(2, ':');
@@ -169,11 +179,14 @@ async fn well_known_jmap() -> impl axum::response::IntoResponse {
     )
 }
 
-async fn jmap_session_handler(user: Option<Extension<AuthenticatedUser>>) -> Json<Value> {
+async fn jmap_session_handler(
+    State(state): State<Arc<AppState>>,
+    user: Option<Extension<AuthenticatedUser>>,
+) -> Json<Value> {
     let username = user
         .map(|Extension(u)| u.0)
         .unwrap_or_else(|| "anonymous".to_string());
-    let session = crate::jmap::session::build_session(&username, "http://localhost");
+    let session = crate::jmap::session::build_session(&username, &state.base_url);
     Json(serde_json::to_value(session).unwrap())
 }
 
@@ -200,11 +213,7 @@ async fn jmap_api_handler(
         } else {
             method.clone()
         };
-        method_responses.push(crate::jmap::types::Invocation(
-            response_name,
-            result,
-            call_id,
-        ));
+        method_responses.push(crate::jmap::types::Invocation(response_name, result, call_id));
     }
 
     let session_state = jmap
@@ -219,10 +228,7 @@ async fn jmap_api_handler(
         created_ids: None,
     };
 
-    (
-        StatusCode::OK,
-        Json(serde_json::to_value(response).unwrap()),
-    )
+    (StatusCode::OK, Json(serde_json::to_value(response).unwrap()))
 }
 
 async fn route_method(method: &str, args: Value, jmap: &JmapStores) -> Value {
@@ -241,8 +247,10 @@ async fn route_method(method: &str, args: Value, jmap: &JmapStores) -> Value {
                     is_subscribed: false,
                 })
                 .collect();
-            let ids_filter: Option<Vec<String>> =
-                args.get("ids").and_then(|v| v.as_array()).map(|arr| {
+            let ids_filter: Option<Vec<String>> = args
+                .get("ids")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
                     arr.iter()
                         .filter_map(|v| v.as_str().map(str::to_string))
                         .collect()
@@ -383,6 +391,19 @@ mod tests {
             credential_store: Arc::new(CredentialStore::empty()),
             auth_config: Arc::new(AuthConfig::default()),
             token_store: make_token_store().await,
+            base_url: "http://localhost".to_string(),
+        })
+    }
+
+    /// Build an AppState in dev mode with a custom base URL.
+    async fn dev_state_with_base_url(base_url: &str) -> Arc<AppState> {
+        Arc::new(AppState {
+            start_time: Instant::now(),
+            jmap: None,
+            credential_store: Arc::new(CredentialStore::empty()),
+            auth_config: Arc::new(AuthConfig::default()),
+            token_store: make_token_store().await,
+            base_url: base_url.to_string(),
         })
     }
 
@@ -403,6 +424,7 @@ mod tests {
                 ..Default::default()
             }),
             token_store: make_token_store().await,
+            base_url: "http://localhost".to_string(),
         })
     }
 
@@ -484,14 +506,8 @@ mod tests {
             .unwrap()
             .to_str()
             .unwrap();
-        assert!(
-            www_auth.contains("Basic"),
-            "WWW-Authenticate must advertise Basic"
-        );
-        assert!(
-            www_auth.contains("usenet-ipfs"),
-            "realm must be usenet-ipfs"
-        );
+        assert!(www_auth.contains("Basic"), "WWW-Authenticate must advertise Basic");
+        assert!(www_auth.contains("usenet-ipfs"), "realm must be usenet-ipfs");
     }
 
     #[tokio::test]
@@ -547,9 +563,7 @@ mod tests {
         let addr = spawn_server(dev_state().await).await;
 
         let resp = reqwest::Client::new()
-            .get(format!(
-                "http://{addr}/jmap/download/acc1/not-a-cid/file.txt"
-            ))
+            .get(format!("http://{addr}/jmap/download/acc1/not-a-cid/file.txt"))
             .send()
             .await
             .expect("request must succeed");
@@ -563,13 +577,60 @@ mod tests {
         let valid_cid = "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi";
 
         let resp = reqwest::Client::new()
-            .get(format!(
-                "http://{addr}/jmap/download/u_alice/{valid_cid}/msg.eml"
-            ))
+            .get(format!("http://{addr}/jmap/download/u_alice/{valid_cid}/msg.eml"))
             .send()
             .await
             .expect("request must succeed");
 
         assert_eq!(resp.status(), 401);
+    }
+
+    #[tokio::test]
+    async fn jmap_session_reflects_configured_base_url() {
+        let configured_base = "https://mail.example.com";
+        let addr = spawn_server(dev_state_with_base_url(configured_base).await).await;
+
+        let resp = reqwest::Client::new()
+            .get(format!("http://{addr}/jmap/session"))
+            .send()
+            .await
+            .expect("request must succeed");
+
+        assert_eq!(resp.status(), 200);
+        let body: serde_json::Value = resp.json().await.unwrap();
+        assert_eq!(
+            body["apiUrl"], "https://mail.example.com/jmap/api",
+            "apiUrl must reflect configured base_url"
+        );
+        assert!(
+            body["downloadUrl"]
+                .as_str()
+                .unwrap_or("")
+                .starts_with("https://mail.example.com/"),
+            "downloadUrl must reflect configured base_url"
+        );
+    }
+
+    #[tokio::test]
+    async fn jmap_session_username_reflects_authenticated_user() {
+        let addr = spawn_server(auth_state("bob", "hunter2").await).await;
+
+        let resp = reqwest::Client::new()
+            .get(format!("http://{addr}/jmap/session"))
+            .basic_auth("bob", Some("hunter2"))
+            .send()
+            .await
+            .expect("request must succeed");
+
+        assert_eq!(resp.status(), 200);
+        let body: serde_json::Value = resp.json().await.unwrap();
+        assert_eq!(
+            body["username"], "bob",
+            "username must reflect authenticated user"
+        );
+        assert!(
+            body["accounts"]["u_bob"].is_object(),
+            "account u_bob must be present for authenticated user bob"
+        );
     }
 }

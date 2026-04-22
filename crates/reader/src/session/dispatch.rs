@@ -758,6 +758,44 @@ mod tests {
         );
     }
 
+    /// RFC 3977 §6.1.1: when GROUP returns 411, the previously selected group
+    /// must remain selected (session state is unchanged).
+    #[test]
+    fn group_invalid_name_preserves_prior_group_selection() {
+        // Start with a valid group selected.
+        let mut ctx = ctx_group_selected(); // current_group = comp.lang.rust
+        let prior_group = ctx.current_group.clone();
+
+        // Push a syntactically-invalid name so the known_groups check passes.
+        ctx.known_groups
+            .push(crate::session::commands::list::GroupInfo {
+                name: "bad..name".into(),
+                high: 0,
+                low: 0,
+                posting_allowed: true,
+                description: String::new(),
+            });
+
+        let resp = dispatch(
+            &mut ctx,
+            Command::Group("bad..name".into()),
+            &empty_auth(),
+            &no_certs(),
+            &no_issuers(),
+            None,
+        );
+        assert_eq!(resp.code, 411, "invalid group name must return 411");
+        assert_eq!(
+            ctx.current_group, prior_group,
+            "prior group selection must be preserved after 411"
+        );
+        assert_eq!(
+            ctx.state,
+            SessionState::GroupSelected,
+            "session state must remain GroupSelected after 411"
+        );
+    }
+
     #[test]
     fn article_number_without_group_returns_412() {
         let mut ctx = ctx_active();

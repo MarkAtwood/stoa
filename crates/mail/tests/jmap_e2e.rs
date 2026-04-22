@@ -5,25 +5,25 @@
 //! Email/get works end-to-end.
 
 use std::str::FromStr as _;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use async_trait::async_trait;
 use cid::Cid;
 use multihash_codetable::{Code, MultihashDigest};
 use tokio::net::TcpListener;
 use usenet_ipfs_core::ipld::root_node::{ArticleMetadata, ArticleRootNode};
-use usenet_ipfs_mail::{
-    server::{build_router, AppState, JmapStores},
-    state::{flags::UserFlagsStore, version::StateStore},
-    token_store::TokenStore,
-};
 use usenet_ipfs_reader::{
     post::ipfs_write::{IpfsBlockStore, IpfsWriteError},
     store::{
         article_numbers::ArticleNumberStore,
-        overview::{extract_overview, OverviewStore},
+        overview::{OverviewStore, extract_overview},
     },
+};
+use usenet_ipfs_mail::{
+    server::{AppState, JmapStores, build_router},
+    state::{flags::UserFlagsStore, version::StateStore},
+    token_store::TokenStore,
 };
 
 static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
@@ -36,9 +36,7 @@ struct MemIpfs {
 
 impl MemIpfs {
     fn new() -> Self {
-        Self {
-            blocks: tokio::sync::RwLock::new(Default::default()),
-        }
+        Self { blocks: tokio::sync::RwLock::new(Default::default()) }
     }
 }
 
@@ -47,10 +45,7 @@ impl IpfsBlockStore for MemIpfs {
     async fn put_raw_block(&self, data: &[u8]) -> Result<Cid, IpfsWriteError> {
         let digest = Code::Sha2_256.digest(data);
         let cid = Cid::new_v1(0x71, digest);
-        self.blocks
-            .write()
-            .await
-            .insert(cid.to_bytes(), data.to_vec());
+        self.blocks.write().await.insert(cid.to_bytes(), data.to_vec());
         Ok(cid)
     }
 
@@ -131,11 +126,11 @@ async fn jmap_session_e2e() {
     // for the root node structure; they don't need to be retrievable for this test).
     let header_cid = {
         let digest = Code::Sha2_256.digest(b"e2e-header-block");
-        Cid::new_v1(0x55, digest)
+        Cid::new_v1(0x71, digest)
     };
     let body_cid = {
         let digest = Code::Sha2_256.digest(b"e2e-body-block");
-        Cid::new_v1(0x55, digest)
+        Cid::new_v1(0x71, digest)
     };
 
     // Build an ArticleRootNode and encode as DAG-CBOR so Email/get can decode it.
@@ -193,6 +188,7 @@ async fn jmap_session_e2e() {
         credential_store: Arc::new(usenet_ipfs_auth::CredentialStore::empty()),
         auth_config: Arc::new(usenet_ipfs_auth::AuthConfig::default()),
         token_store,
+        base_url: "http://localhost".to_string(),
     });
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -298,8 +294,5 @@ async fn jmap_session_e2e() {
         "returned email id must match the requested id"
     );
     let not_found = method_responses[0][1]["notFound"].as_array().unwrap();
-    assert!(
-        not_found.is_empty(),
-        "notFound must be empty for a valid CID"
-    );
+    assert!(not_found.is_empty(), "notFound must be empty for a valid CID");
 }

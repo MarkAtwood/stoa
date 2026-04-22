@@ -148,6 +148,80 @@ pub fn check_mode_guard(mode: PeeringMode) -> Option<&'static str> {
     }
 }
 
+/// Guard for the TAKETHIS command: TAKETHIS is only valid after MODE STREAM.
+///
+/// RFC 4644 §2.5: the server MUST NOT accept TAKETHIS unless MODE STREAM was
+/// successfully negotiated.  Returns `None` if `mode` is
+/// [`PeeringMode::Streaming`] (TAKETHIS allowed), or `Some(response)` with a
+/// 500 error line if the mode is [`PeeringMode::Ihave`] (TAKETHIS not
+/// permitted — 500 because the command is not available in this mode, not
+/// merely disallowed by policy).
+pub fn takethis_mode_guard(mode: PeeringMode) -> Option<&'static str> {
+    match mode {
+        PeeringMode::Streaming => None,
+        PeeringMode::Ihave => Some("500 Command not available in current mode\r\n"),
+    }
+}
+
+// ── Path: header mutation ─────────────────────────────────────────────────────
+
+/// Prepend `<hostname>!` to the `Path:` header, creating the header if absent.
+///
+/// Son-of-RFC-1036 §3.3: every transit hop MUST prepend its FQDN to the
+/// `Path:` header before storing or forwarding an article.
+///
+/// * If `Path:` is present: the new value is `<hostname>!<old-value>`.
+/// * If `Path:` is absent: `Path: <hostname>\r\n` is inserted just before
+///   the blank line that separates headers from body.
+pub fn prepend_path_header(article_bytes: Vec<u8>, hostname: &str) -> Vec<u8> {
+    let mut out: Vec<u8> = Vec::with_capacity(article_bytes.len() + hostname.len() + 10);
+    let mut path_found = false;
+    let mut in_body = false;
+
+    for line in article_bytes.split(|&b| b == b'\n') {
+        if in_body {
+            // The `split` iterator yields an empty trailing slice for input that ends
+            // with `\n`. Skip it to avoid appending a spurious extra newline.
+            if line.is_empty() {
+                continue;
+            }
+            out.extend_from_slice(line);
+            out.push(b'\n');
+            continue;
+        }
+
+        let trimmed = if line.last() == Some(&b'\r') {
+            &line[..line.len() - 1]
+        } else {
+            line
+        };
+
+        if trimmed.is_empty() {
+            if !path_found {
+                let new_path = format!("Path: {hostname}\r\n");
+                out.extend_from_slice(new_path.as_bytes());
+            }
+            in_body = true;
+            out.extend_from_slice(b"\r\n");
+            continue;
+        }
+
+        let lower = String::from_utf8_lossy(trimmed).to_ascii_lowercase();
+        if lower.starts_with("path:") {
+            let old_val = String::from_utf8_lossy(&trimmed["path:".len()..]);
+            let old_val = old_val.trim();
+            let new_line = format!("Path: {hostname}!{old_val}\r\n");
+            out.extend_from_slice(new_line.as_bytes());
+            path_found = true;
+        } else {
+            out.extend_from_slice(trimmed);
+            out.extend_from_slice(b"\r\n");
+        }
+    }
+
+    out
+}
+
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
 /// Returns `true` if the raw article bytes contain a header named `name`.
@@ -319,4 +393,73 @@ mod tests {
         let resp = check_mode_guard(PeeringMode::Ihave).expect("should return Some");
         assert!(resp.starts_with("401"));
     }
+
+    #[test]
+    fn takethis_mode_guard_streaming_allows() {
+        assert!(takethis_mode_guard(PeeringMode::Streaming).is_none());
+    }
+
+    #[test]
+    fn takethis_mode_guard_ihave_blocks_with_500() {
+        let resp = takethis_mode_guard(PeeringMode::Ihave).expect("should return Some");
+        assert!(
+            resp.starts_with("500"),
+            "RFC 4644 §2.5: TAKETHIS in IHAVE mode must return 500, got: {resp:?}"
+        );
+    }
+
+    // ── prepend_path_header tests ─────────────────────────────────────────────
+
+    #[test]
+    fn path_header_existing_gets_prepended() {
+        let article =
+            b"From: sender@example.com\r\nPath: peer.example.com\r\nMessage-ID: <x@y>\r\n\r\nBody.\r\n";
+        let result = prepend_path_header(article.to_vec(), "local.hostname");
+        let text = String::from_utf8(result).unwrap();
+        assert!(
+            text.contains("Path: local.hostname!peer.example.com\r\n"),
+            "Path: must be prepended: {text:?}"
+        );
+        assert!(
+            !text.contains("Path: peer.example.com\r\n"),
+            "old standalone Path: must not remain: {text:?}"
+        );
+    }
+
+    #[test]
+    fn path_header_absent_gets_inserted() {
+        let article =
+            b"From: sender@example.com\r\nMessage-ID: <x@y>\r\n\r\nBody.\r\n";
+        let result = prepend_path_header(article.to_vec(), "local.hostname");
+        let text = String::from_utf8(result).unwrap();
+        assert!(
+            text.contains("Path: local.hostname\r\n"),
+            "Path: must be inserted: {text:?}"
+        );
+    }
+
+    #[test]
+    fn path_header_body_preserved() {
+        let article =
+            b"From: sender@example.com\r\nPath: peer.example.com\r\n\r\nHello, world!\r\nSecond line.\r\n";
+        let result = prepend_path_header(article.to_vec(), "local.hostname");
+        let text = String::from_utf8(result).unwrap();
+        assert!(
+            text.ends_with("Hello, world!\r\nSecond line.\r\n"),
+            "body must be unchanged: {text:?}"
+        );
+    }
+
+    #[test]
+    fn path_header_multi_hop_chain() {
+        let article =
+            b"From: sender@example.com\r\nPath: hop2.example.com!hop1.example.com\r\n\r\nBody.\r\n";
+        let result = prepend_path_header(article.to_vec(), "local.hostname");
+        let text = String::from_utf8(result).unwrap();
+        assert!(
+            text.contains("Path: local.hostname!hop2.example.com!hop1.example.com\r\n"),
+            "multi-hop chain must be built correctly: {text:?}"
+        );
+    }
+
 }

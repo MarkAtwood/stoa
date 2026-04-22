@@ -98,6 +98,7 @@ async fn main() {
             operator_signature: signing_key.sign(b""),
             gossip_tx: None,
             sender_peer_id: "bench-peer",
+            local_hostname: "bench.local",
         };
         run_pipeline(article, &ipfs, &msgid_map, &log_storage, &transit_pool, ctx)
             .await
@@ -144,6 +145,7 @@ async fn main() {
             operator_signature: signing_key.sign(b""),
             gossip_tx: Some(&gossip_tx),
             sender_peer_id: "bench-peer",
+            local_hostname: "bench.local",
         };
         let t0 = Instant::now();
         run_pipeline(

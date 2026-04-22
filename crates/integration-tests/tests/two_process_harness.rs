@@ -289,6 +289,7 @@ async fn transit_reader_shared_store() {
         hlc: Arc::clone(&transit_hlc),
         ingestion_sender: Arc::clone(&ingestion_sender),
         local_peer_id: "integ-test-peer".to_string(),
+        local_hostname: "integ-test.local".to_string(),
         peer_rate_limiter: Arc::new(std::sync::Mutex::new(PeerRateLimiter::new(
             100.0,
             200,
@@ -322,6 +323,7 @@ async fn transit_reader_shared_store() {
                     operator_signature: sig,
                     gossip_tx: None,
                     sender_peer_id: "integ-test-peer",
+                    local_hostname: "integ-test.local",
                 };
                 let _ = run_pipeline(
                     &article.bytes,

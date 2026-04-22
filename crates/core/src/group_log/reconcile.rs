@@ -18,6 +18,11 @@ pub struct ReconcileResult {
     /// Entry IDs we have to offer the remote (we have them, remote doesn't).
     /// Capped at [`MAX_HAVE`] entries; further convergence happens in subsequent rounds.
     pub have: Vec<LogEntryId>,
+    /// `true` when the local BFS was cut short by the [`MAX_HAVE`] cap.
+    ///
+    /// Callers that need to know whether additional entries exist should
+    /// schedule a follow-up reconciliation round when this flag is set.
+    pub partial_have: bool,
 }
 
 /// Reconcile local and remote tip sets.
@@ -52,6 +57,8 @@ pub async fn reconcile<S: LogStorage>(
     let mut visited: HashSet<[u8; 32]> = HashSet::new();
     let mut queue: VecDeque<LogEntryId> = storage.list_tips(group).await?.into();
 
+    let mut partial_have = false;
+
     while let Some(entry_id) = queue.pop_front() {
         let key = *entry_id.as_bytes();
         if visited.contains(&key) {
@@ -62,6 +69,7 @@ pub async fn reconcile<S: LogStorage>(
         if !remote_set.contains(&key) {
             have.push(entry_id.clone());
             if have.len() >= MAX_HAVE {
+                partial_have = !queue.is_empty();
                 break;
             }
         }
@@ -76,7 +84,11 @@ pub async fn reconcile<S: LogStorage>(
         }
     }
 
-    Ok(ReconcileResult { want, have })
+    Ok(ReconcileResult {
+        want,
+        have,
+        partial_have,
+    })
 }
 
 #[cfg(test)]
@@ -152,6 +164,10 @@ mod tests {
             "have must be empty: {:?}",
             result.have
         );
+        assert!(
+            !result.partial_have,
+            "small graph must not be truncated"
+        );
     }
 
     // ── remote_has_new_tip ────────────────────────────────────────────────────
@@ -184,6 +200,7 @@ mod tests {
         );
         // local_id is not in remote_tips → appears in have
         assert_eq!(result.have, vec![local_id]);
+        assert!(!result.partial_have, "small graph must not be truncated");
     }
 
     // ── local_has_extra_entries ───────────────────────────────────────────────
@@ -235,6 +252,7 @@ mod tests {
             "genesis is known to remote, must not appear in have: {:?}",
             result.have,
         );
+        assert!(!result.partial_have, "small graph must not be truncated");
     }
 
     // ── symmetric_divergence ──────────────────────────────────────────────────
@@ -260,6 +278,7 @@ mod tests {
 
         assert_eq!(result.want, vec![remote_id], "remote entry must be in want");
         assert_eq!(result.have, vec![local_id], "local entry must be in have");
+        assert!(!result.partial_have, "small graph must not be truncated");
     }
 
     // ── commutativity ─────────────────────────────────────────────────────────

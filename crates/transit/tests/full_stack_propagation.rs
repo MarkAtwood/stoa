@@ -25,6 +25,7 @@ use tokio::sync::{mpsc, oneshot};
 use usenet_ipfs_core::{hlc::HlcTimestamp, msgid_map::MsgIdMap};
 use usenet_ipfs_transit::{
     gossip::tip_advert::handle_tip_advertisement,
+    peering::ingestion::prepend_path_header,
     peering::pipeline::{run_pipeline, IpfsStore, MemIpfsStore, PipelineCtx},
 };
 
@@ -264,6 +265,7 @@ async fn full_stack_propagation() {
         operator_signature: signing_key.sign(b""),
         gossip_tx: Some(&node_a.gossip_tx),
         sender_peer_id: &node_a.peer_id.to_string(),
+        local_hostname: "node-a.test.local",
     };
 
     // Run the transit pipeline on A: writes to IPFS, records msgid→CID,
@@ -338,13 +340,17 @@ async fn full_stack_propagation() {
     );
 
     // --- Simulate B fetching the article from A (out-of-band pull) ---
-    // In production, B would fetch the raw block from A via bitswap/request.
-    // Here we simulate that by writing the same article bytes into B's stores.
+    // In production, B fetches the raw block that A stored in IPFS via bitswap.
+    // A stored the article after prepending its hostname to the Path: header
+    // (Son-of-RFC-1036 §3.3). B must store the same mutated bytes to obtain
+    // the same CID.
+    let stored_bytes = prepend_path_header(article_bytes.clone(), "node-a.test.local");
+
     let ipfs_b = MemIpfsStore::new();
     let (msgid_map_b, _tmp_b) = make_msgid_map("full_stack_node_b").await;
 
     let cid_b = ipfs_b
-        .put_raw(&article_bytes)
+        .put_raw(&stored_bytes)
         .await
         .expect("writing article bytes to node B's IPFS store must succeed");
 
@@ -373,8 +379,9 @@ async fn full_stack_propagation() {
         "CID returned by reader lookup must be byte-identical to CID computed by transit A"
     );
 
-    // Verify the CID encodes the correct content: re-derive from article bytes.
-    let digest = Code::Sha2_256.digest(&article_bytes);
+    // Verify the CID encodes the correct content: re-derive from the stored bytes
+    // (article with Path: header prepended by transit A).
+    let digest = Code::Sha2_256.digest(&stored_bytes);
     let expected_cid = Cid::new_v1(0x55, digest);
     assert_eq!(
         reader_cid, expected_cid,

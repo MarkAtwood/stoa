@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use base64::Engine as _;
 use mail_auth::MessageAuthenticator;
@@ -10,6 +10,8 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
 use usenet_ipfs_auth::CredentialStore;
+
+use usenet_ipfs_core::util::epoch_to_rfc2822;
 
 use crate::auth::verify_inbound;
 use crate::config::Config;
@@ -492,20 +494,25 @@ pub async fn run_session<S>(
                     raw_bytes[..header_len].copy_from_slice(&header_bytes);
                 }
 
-                // ─── Message-ID synthesis ────────────────────────────────────
-                // RFC 5321 §6.4: a submission server SHOULD add a Message-ID
-                // if the message lacks one.  The NNTP injection path rejects
-                // articles without Message-ID, so we synthesize one here to
-                // prevent silent data loss (sender sees 250 OK, article never
-                // reaches Usenet).
-                if !routing::has_message_id_header(&raw_bytes) {
-                    let mid = routing::synthesize_message_id(&config.hostname);
-                    debug!(peer = %peer_addr, message_id = %mid, "synthesized missing Message-ID");
-                    let header_bytes = format!("Message-ID: {mid}\r\n").into_bytes();
-                    let header_len = header_bytes.len();
-                    raw_bytes.resize(raw_bytes.len() + header_len, 0);
-                    raw_bytes.rotate_right(header_len);
-                    raw_bytes[..header_len].copy_from_slice(&header_bytes);
+                // ─── Received: header (RFC 5321 §4.4) ────────────────────────
+                // Every MTA that accepts a message MUST prepend a Received:
+                // trace header.  This must be the outermost (first) header so
+                // it is prepended last, after Authentication-Results.
+                {
+                    let now_secs = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs() as i64;
+                    let date_str = epoch_to_rfc2822(now_secs);
+                    let received = format!(
+                        "Received: from {} ([{}]) by {} with SMTP; {}\r\n",
+                        ehlo_domain, client_ip, config.hostname, date_str
+                    );
+                    let received_bytes = received.into_bytes();
+                    let received_len = received_bytes.len();
+                    raw_bytes.resize(raw_bytes.len() + received_len, 0);
+                    raw_bytes.rotate_right(received_len);
+                    raw_bytes[..received_len].copy_from_slice(&received_bytes);
                 }
                 // ─────────────────────────────────────────────────────────────
 
@@ -1388,6 +1395,51 @@ mod tests {
         );
     }
 
+    // ── Received: header (RFC 5321 §4.4) ─────────────────────────────────────
+
+    /// Every accepted message must start with a Received: trace header.
+    #[tokio::test]
+    async fn test_received_header_prepended() {
+        let pool = open_test_db().await;
+        let config = test_config_with_users(vec![UserConfig {
+            username: "rcpt".to_string(),
+            email: "rcpt@example.com".to_string(),
+        }]);
+
+        let client = b"EHLO mail.sender.example\r\n\
+            MAIL FROM:<sender@example.com>\r\n\
+            RCPT TO:<rcpt@example.com>\r\n\
+            DATA\r\n\
+            From: sender@example.com\r\n\
+            To: rcpt@example.com\r\n\
+            Subject: Received header test\r\n\
+            \r\n\
+            Body.\r\n\
+            .\r\n\
+            QUIT\r\n";
+
+        let (response, _queue_dir) = drive_session_ext(client, config, Some(pool.clone())).await;
+        assert!(response.contains("250 OK"), "expected 250 after DATA: {response}");
+
+        let raw_bytes = crate::store::get_first_message_raw(&pool, "rcpt", "INBOX")
+            .await
+            .expect("message must be in INBOX");
+        let raw = std::str::from_utf8(&raw_bytes).expect("valid UTF-8");
+
+        assert!(
+            raw.starts_with("Received:"),
+            "stored message must start with Received: header, got:\n{raw}"
+        );
+        assert!(
+            raw.contains("mail.sender.example"),
+            "Received: header must contain EHLO domain: {raw}"
+        );
+        assert!(
+            raw.contains("test.example.com"),
+            "Received: header must contain local hostname: {raw}"
+        );
+    }
+
     // ── ryw.2: parse_angle_addr unit tests ───────────────────────────────────
 
     #[test]
@@ -1620,94 +1672,5 @@ mod tests {
         let pool = crate::store::open(":memory:").await.unwrap();
         let actions = sieve_for_user(&pool, "nobody", MINIMAL_MESSAGE, "a@example.com", "b@example.com", None).await;
         assert_eq!(actions, vec![usenet_ipfs_sieve::SieveAction::Keep]);
-    }
-
-    // ── Message-ID synthesis tests ────────────────────────────────────────
-
-    /// A message without a Message-ID header must receive a synthesized one.
-    #[tokio::test]
-    async fn test_message_without_message_id_gets_one_synthesized() {
-        let pool = open_test_db().await;
-        let config = test_config_with_users(vec![UserConfig {
-            username: "rcpt".to_string(),
-            email: "rcpt@example.com".to_string(),
-        }]);
-
-        let client = b"EHLO client.example.com\r\n\
-            MAIL FROM:<sender@example.com>\r\n\
-            RCPT TO:<rcpt@example.com>\r\n\
-            DATA\r\n\
-            From: sender@example.com\r\n\
-            To: rcpt@example.com\r\n\
-            Subject: No message-id here\r\n\
-            \r\n\
-            Body without Message-ID.\r\n\
-            .\r\n\
-            QUIT\r\n";
-
-        let (response, _queue_dir) = drive_session_ext(client, config, Some(pool.clone())).await;
-        assert!(
-            response.contains("250 OK"),
-            "expected 250 after DATA: {response}"
-        );
-
-        let raw_bytes = crate::store::get_first_message_raw(&pool, "rcpt", "INBOX")
-            .await
-            .expect("message must be in INBOX");
-        let raw = std::str::from_utf8(&raw_bytes).expect("valid UTF-8");
-        assert!(
-            raw.to_ascii_lowercase().contains("message-id:"),
-            "synthesized Message-ID must be present in delivered message:\n{raw}"
-        );
-        // The synthesized ID must include the server hostname.
-        assert!(
-            raw.contains("test.example.com"),
-            "synthesized Message-ID must contain the server hostname:\n{raw}"
-        );
-    }
-
-    /// A message that already has a Message-ID must not receive a second one.
-    #[tokio::test]
-    async fn test_message_with_message_id_is_unchanged() {
-        let pool = open_test_db().await;
-        let config = test_config_with_users(vec![UserConfig {
-            username: "rcpt".to_string(),
-            email: "rcpt@example.com".to_string(),
-        }]);
-
-        let client = b"EHLO client.example.com\r\n\
-            MAIL FROM:<sender@example.com>\r\n\
-            RCPT TO:<rcpt@example.com>\r\n\
-            DATA\r\n\
-            From: sender@example.com\r\n\
-            To: rcpt@example.com\r\n\
-            Subject: Has a message-id\r\n\
-            Message-ID: <original.id@sender.example.com>\r\n\
-            \r\n\
-            Body with existing Message-ID.\r\n\
-            .\r\n\
-            QUIT\r\n";
-
-        let (response, _queue_dir) = drive_session_ext(client, config, Some(pool.clone())).await;
-        assert!(
-            response.contains("250 OK"),
-            "expected 250 after DATA: {response}"
-        );
-
-        let raw_bytes = crate::store::get_first_message_raw(&pool, "rcpt", "INBOX")
-            .await
-            .expect("message must be in INBOX");
-        let raw = std::str::from_utf8(&raw_bytes).expect("valid UTF-8");
-
-        // Exactly one Message-ID header must be present.
-        let count = raw.to_ascii_lowercase().matches("message-id:").count();
-        assert_eq!(
-            count, 1,
-            "must have exactly one Message-ID header, got {count}:\n{raw}"
-        );
-        assert!(
-            raw.contains("<original.id@sender.example.com>"),
-            "original Message-ID must be preserved:\n{raw}"
-        );
     }
 }

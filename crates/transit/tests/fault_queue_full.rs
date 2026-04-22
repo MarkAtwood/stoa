@@ -150,6 +150,7 @@ async fn takethis_queue_full_returns_431_not_239() {
         ))),
         ingestion_sender: Arc::new(sender),
         local_peer_id: "test-peer".to_owned(),
+        local_hostname: "test.local".to_owned(),
         peer_rate_limiter: Arc::new(std::sync::Mutex::new(PeerRateLimiter::new(
             1000.0,
             10000,
@@ -260,6 +261,7 @@ async fn ihave_queue_full_returns_436_not_235() {
         ))),
         ingestion_sender: Arc::new(sender),
         local_peer_id: "test-peer".to_owned(),
+        local_hostname: "test.local".to_owned(),
         peer_rate_limiter: Arc::new(std::sync::Mutex::new(PeerRateLimiter::new(
             1000.0,
             10000,
@@ -361,6 +363,7 @@ async fn takethis_queue_not_full_returns_239() {
         ))),
         ingestion_sender: Arc::new(sender),
         local_peer_id: "test-peer".to_owned(),
+        local_hostname: "test.local".to_owned(),
         peer_rate_limiter: Arc::new(std::sync::Mutex::new(PeerRateLimiter::new(
             1000.0,
             10000,

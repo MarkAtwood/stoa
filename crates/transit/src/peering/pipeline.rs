@@ -132,6 +132,8 @@ pub struct PipelineCtx<'a> {
     pub gossip_tx: Option<&'a mpsc::Sender<(String, Vec<u8>)>>,
     /// Sending peer's identity string, embedded in tip advertisements.
     pub sender_peer_id: &'a str,
+    /// Local FQDN prepended to the `Path:` header (Son-of-RFC-1036 §3.3).
+    pub local_hostname: &'a str,
 }
 
 /// Result of running the store-and-forward pipeline.
@@ -176,6 +178,11 @@ where
     S: LogStorage,
 {
     use crate::gossip::tip_advert::TipAdvertisement;
+    use crate::peering::ingestion::prepend_path_header;
+
+    // 0. Prepend local hostname to Path: header (Son-of-RFC-1036 §3.3).
+    let article_bytes_owned = prepend_path_header(article_bytes.to_vec(), ctx.local_hostname);
+    let article_bytes = article_bytes_owned.as_slice();
 
     // 1. Write to IPFS.
     let t0 = Instant::now();
@@ -185,16 +192,15 @@ where
         .map_err(|e| format!("IPFS write failed: {e}"))?;
     let ipfs_write_latency_ms = t0.elapsed().as_millis() as u64;
 
-    // 2. Message-ID → CID.
-    let message_id =
-        extract_message_id(article_bytes).ok_or_else(|| "missing Message-ID header".to_string())?;
+    // 2+3. Parse Message-ID and Newsgroups in a single header scan.
+    let (message_id, group_name_strs) = parse_message_id_and_newsgroups(article_bytes)
+        .ok_or_else(|| "missing Message-ID header".to_string())?;
     msgid_map
         .insert(&message_id, &cid)
         .await
         .map_err(|e| format!("msgid insert failed: {e}"))?;
 
-    // 3. Parse Newsgroups: and append a log entry to each valid group.
-    let group_name_strs = parse_newsgroups(article_bytes);
+    // 3. Append a log entry to each valid group.
     let sig_bytes = ctx.operator_signature.to_bytes().to_vec();
 
     let mut appended_groups: Vec<String> = Vec::new();
@@ -298,6 +304,7 @@ where
 /// Scans the header section (lines before the first blank line) for
 /// `name:` (case-insensitive). Returns the trimmed value, or `None` if
 /// not found or the bytes are not valid UTF-8 on that line.
+#[cfg(test)]
 fn extract_header<'a>(article_bytes: &'a [u8], name: &str) -> Option<&'a str> {
     let name_lower = name.to_ascii_lowercase();
     let needle = format!("{name_lower}:");
@@ -319,6 +326,49 @@ fn extract_header<'a>(article_bytes: &'a [u8], name: &str) -> Option<&'a str> {
     None
 }
 
+/// Extract `Message-ID` and `Newsgroups` from article bytes in a single pass.
+///
+/// Returns `None` if `Message-ID` is absent. `Newsgroups` defaults to an
+/// empty list when the header is missing.
+fn parse_message_id_and_newsgroups(article_bytes: &[u8]) -> Option<(String, Vec<String>)> {
+    let mut message_id: Option<String> = None;
+    let mut newsgroups_val: Option<String> = None;
+
+    for line in article_bytes.split(|&b| b == b'\n') {
+        let trimmed = if line.last() == Some(&b'\r') {
+            &line[..line.len() - 1]
+        } else {
+            line
+        };
+        if trimmed.is_empty() {
+            break;
+        }
+        let s = match std::str::from_utf8(trimmed) {
+            Ok(s) => s,
+            Err(_) => continue,
+        };
+        let lower = s.to_ascii_lowercase();
+        if message_id.is_none() && lower.starts_with("message-id:") {
+            message_id = Some(s["message-id:".len()..].trim().to_owned());
+        } else if newsgroups_val.is_none() && lower.starts_with("newsgroups:") {
+            newsgroups_val = Some(s["newsgroups:".len()..].trim().to_owned());
+        }
+        if message_id.is_some() && newsgroups_val.is_some() {
+            break;
+        }
+    }
+
+    let mid = message_id?;
+    let groups = newsgroups_val
+        .unwrap_or_default()
+        .split(',')
+        .map(|s| s.trim().to_owned())
+        .filter(|s| !s.is_empty())
+        .collect();
+    Some((mid, groups))
+}
+
+#[cfg(test)]
 /// Parse the `Newsgroups:` header into a list of group name strings.
 fn parse_newsgroups(article_bytes: &[u8]) -> Vec<String> {
     let value = match extract_header(article_bytes, "Newsgroups") {
@@ -332,6 +382,7 @@ fn parse_newsgroups(article_bytes: &[u8]) -> Vec<String> {
         .collect()
 }
 
+#[cfg(test)]
 /// Extract the `Message-ID:` value from article bytes.
 fn extract_message_id(article_bytes: &[u8]) -> Option<String> {
     extract_header(article_bytes, "Message-ID").map(|s| s.to_owned())
@@ -394,6 +445,7 @@ mod tests {
             operator_signature: ed25519_dalek::Signer::sign(key, b""),
             gossip_tx: None,
             sender_peer_id: "peer1",
+            local_hostname: "local.test.example.com",
         }
     }
 
@@ -483,13 +535,17 @@ mod tests {
         let (cid_str, group_name, ingested_at_ms, byte_count) =
             row.expect("articles table must contain the ingested article");
 
+        // byte_count reflects the bytes written to IPFS — after prepend_path_header
+        // is applied. Compute the expected size independently.
+        let expected_bytes =
+            crate::peering::ingestion::prepend_path_header(article.clone(), "local.test.example.com");
         assert_eq!(cid_str, pr.cid.to_string());
         assert_eq!(group_name, "alt.test");
         assert!(
             ingested_at_ms >= before_ms && ingested_at_ms <= after_ms,
             "ingested_at_ms {ingested_at_ms} must be within [{before_ms}, {after_ms}]"
         );
-        assert_eq!(byte_count as usize, article.len());
+        assert_eq!(byte_count as usize, expected_bytes.len());
     }
 
     #[tokio::test]
@@ -506,6 +562,7 @@ mod tests {
             operator_signature: ed25519_dalek::Signer::sign(&key, b""),
             gossip_tx: Some(&tx),
             sender_peer_id: "peer1",
+            local_hostname: "local.test.example.com",
         };
         let transit_pool = make_transit_pool().await;
         let result = run_pipeline(&article, &ipfs, &msgid_map, &storage, &transit_pool, ctx).await;
@@ -589,6 +646,60 @@ mod tests {
         assert!(
             metrics.ipfs_write_latency_ms < 1000,
             "latency should be sub-second"
+        );
+    }
+
+    /// Son-of-RFC-1036 §3.3: the pipeline must prepend the local hostname to
+    /// the `Path:` header in the bytes written to IPFS.
+    #[tokio::test]
+    async fn pipeline_prepends_local_hostname_to_path_header() {
+        let ipfs = MemIpfsStore::new();
+        let (msgid_map, _tmp) = make_msgid_map().await;
+        let storage = usenet_ipfs_core::group_log::MemLogStorage::new();
+        let key = make_signing_key();
+        let transit_pool = make_transit_pool().await;
+
+        // Article with an existing Path: from a peer.
+        let article = format!(
+            "From: sender@example.com\r\n\
+             Date: Mon, 01 Jan 2024 00:00:00 +0000\r\n\
+             Message-ID: <path-test@example.com>\r\n\
+             Newsgroups: alt.test\r\n\
+             Subject: Path Test\r\n\
+             Path: peer.example.com\r\n\
+             \r\n\
+             Body.\r\n"
+        )
+        .into_bytes();
+
+        let (pr, _metrics) = run_pipeline(
+            &article,
+            &ipfs,
+            &msgid_map,
+            &storage,
+            &transit_pool,
+            make_ctx(&key, make_timestamp()),
+        )
+        .await
+        .unwrap();
+
+        // Retrieve the stored bytes from MemIpfsStore to verify Path: was patched.
+        let stored = ipfs
+            .blocks
+            .read()
+            .unwrap()
+            .get(&pr.cid.to_string())
+            .cloned()
+            .expect("block must be stored in MemIpfsStore");
+
+        let stored_text = String::from_utf8(stored).expect("stored bytes must be valid UTF-8");
+        assert!(
+            stored_text.contains("Path: local.test.example.com!peer.example.com\r\n"),
+            "stored article must have local hostname prepended to Path: header: {stored_text:?}"
+        );
+        assert!(
+            !stored_text.contains("Path: peer.example.com\r\n"),
+            "old standalone Path: must not remain in stored article: {stored_text:?}"
         );
     }
 }

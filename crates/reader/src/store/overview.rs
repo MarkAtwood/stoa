@@ -5,6 +5,14 @@
 
 use sqlx::SqlitePool;
 
+/// Maximum number of records returned by a single `query_range` call.
+///
+/// Prevents unbounded memory allocation when a client requests a very wide
+/// article range. RFC 3977 imposes no limit itself; 10 000 is a generous
+/// practical ceiling that fits within a single NNTP OVER response without
+/// per-connection buffering pressure.
+const MAX_OVER_RESULTS: usize = 10_000;
+
 /// SQLite row returned by `query_range`; mapped to `OverviewRecord`.
 #[derive(sqlx::FromRow)]
 struct OverviewRow {
@@ -105,8 +113,9 @@ impl OverviewStore {
 
     /// Query overview records for a range of article numbers (inclusive).
     ///
-    /// Returns records in ascending `article_number` order. Article numbers
-    /// within the range that have no record are silently skipped.
+    /// Returns records in ascending `article_number` order, capped at
+    /// [`MAX_OVER_RESULTS`]. Article numbers within the range that have no
+    /// record are silently skipped.
     pub async fn query_range(
         &self,
         group: &str,
@@ -121,11 +130,13 @@ impl OverviewStore {
               message_id, references_header, byte_count, line_count \
              FROM overview \
              WHERE group_name = ? AND article_number >= ? AND article_number <= ? \
-             ORDER BY article_number ASC",
+             ORDER BY article_number ASC \
+             LIMIT ?",
         )
         .bind(group)
         .bind(low)
         .bind(high)
+        .bind(MAX_OVER_RESULTS as i64)
         .fetch_all(&self.pool)
         .await?;
 
@@ -419,5 +430,36 @@ mod tests {
             "tab in subject must be stripped"
         );
         assert_eq!(rec.subject, "Hello World");
+    }
+
+    /// Inserting more than MAX_OVER_RESULTS articles and querying the full
+    /// range must return at most MAX_OVER_RESULTS records.
+    ///
+    /// This test verifies the LIMIT clause in query_range prevents unbounded
+    /// result sets when a client requests a very wide article range.
+    #[tokio::test]
+    async fn query_range_caps_at_max_over_results() {
+        let (store, _tmp) = make_store().await;
+        let total = MAX_OVER_RESULTS + 5;
+        for n in 1u64..=(total as u64) {
+            store
+                .insert("comp.lang.rust", &sample_record(n))
+                .await
+                .unwrap();
+        }
+        let results = store
+            .query_range("comp.lang.rust", 1, total as u64)
+            .await
+            .unwrap();
+        assert_eq!(
+            results.len(),
+            MAX_OVER_RESULTS,
+            "query_range must return at most MAX_OVER_RESULTS records"
+        );
+        assert_eq!(results[0].article_number, 1);
+        assert_eq!(
+            results[MAX_OVER_RESULTS - 1].article_number,
+            MAX_OVER_RESULTS as u64
+        );
     }
 }

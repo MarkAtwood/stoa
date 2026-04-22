@@ -58,50 +58,62 @@ impl std::fmt::Display for MboxImportSummary {
     }
 }
 
+/// Parse RFC 2822 headers from raw bytes into a map of name → value.
+///
+/// Scans the header section (before the first blank line) in a single pass.
+/// Header names are returned with their original casing. Folded header values
+/// (continuation lines starting with whitespace) are joined with a space.
+/// Only the first occurrence of each header name is retained.
+fn parse_headers_map(raw: &[u8]) -> std::collections::HashMap<String, String> {
+    use std::collections::HashMap;
+
+    let text = String::from_utf8_lossy(raw);
+    let mut map: HashMap<String, String> = HashMap::new();
+    let mut current_name: Option<String> = None;
+    let mut current_parts: Vec<String> = Vec::new();
+
+    for line in text.lines() {
+        if line.is_empty() {
+            break;
+        }
+        if line.starts_with(' ') || line.starts_with('\t') {
+            // Continuation of the current header.
+            current_parts.push(line.trim().to_string());
+        } else if let Some(colon) = line.find(':') {
+            // New header: flush the previous one first.
+            if let Some(n) = current_name.take() {
+                if !current_parts.is_empty() && !map.contains_key(&n) {
+                    map.insert(n, current_parts.join(" "));
+                }
+                current_parts.clear();
+            }
+            let name = line[..colon].to_string();
+            let value = line[colon + 1..].trim().to_string();
+            current_name = Some(name);
+            current_parts.push(value);
+        }
+    }
+    // Flush the final header.
+    if let Some(n) = current_name {
+        if !current_parts.is_empty() && !map.contains_key(&n) {
+            map.insert(n, current_parts.join(" "));
+        }
+    }
+
+    map
+}
+
 /// Extract a named header value from a raw RFC 2822 message byte slice.
 ///
 /// Performs case-insensitive header name matching and handles RFC 2822
 /// folded headers (continuation lines that start with whitespace).
 /// Only searches the header section (before the first blank line).
+#[cfg(test)]
 pub(crate) fn extract_header(raw: &[u8], name: &str) -> Option<String> {
-    let search = format!("{}:", name.to_ascii_lowercase());
-    let text = String::from_utf8_lossy(raw);
-    let mut in_target = false;
-    let mut value_parts: Vec<String> = Vec::new();
-
-    for line in text.lines() {
-        // Blank line signals end of headers.
-        if line.is_empty() {
-            if in_target {
-                break;
-            }
-            break;
-        }
-
-        // Continuation line (folded header).
-        if in_target && (line.starts_with(' ') || line.starts_with('\t')) {
-            value_parts.push(line.trim().to_string());
-            continue;
-        }
-
-        // Starting a new header — if we were accumulating, we're done.
-        if in_target {
-            break;
-        }
-
-        // Check if this line starts with our target header name.
-        if line.len() > search.len() && line[..search.len()].to_ascii_lowercase() == search {
-            let rest = line[search.len()..].trim();
-            value_parts.push(rest.to_string());
-            in_target = true;
-        }
-    }
-
-    if value_parts.is_empty() {
-        None
-    } else {
-        Some(value_parts.join(" "))
-    }
+    let map = parse_headers_map(raw);
+    map.into_iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case(name))
+        .map(|(_, v)| v)
 }
 
 /// Parse a single mbox file and return all messages.
@@ -147,9 +159,19 @@ pub async fn parse_mbox_file(path: &Path) -> Result<Vec<MboxMessage>, std::io::E
 }
 
 /// Build an `MboxMessage` from an accumulated raw byte buffer.
+///
+/// Parses the header section in a single pass to extract both `Newsgroups`
+/// and `Message-ID` without re-scanning the bytes per field.
 fn build_message(raw: Vec<u8>) -> MboxMessage {
-    let newsgroups = extract_header(&raw, "Newsgroups");
-    let message_id = extract_header(&raw, "Message-ID");
+    let map = parse_headers_map(&raw);
+    let newsgroups = map
+        .iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case("Newsgroups"))
+        .map(|(_, v)| v.clone());
+    let message_id = map
+        .iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case("Message-ID"))
+        .map(|(_, v)| v.clone());
     MboxMessage {
         raw,
         newsgroups,

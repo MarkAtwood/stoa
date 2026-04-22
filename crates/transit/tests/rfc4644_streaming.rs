@@ -13,7 +13,10 @@ use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::str::FromStr as _;
 use usenet_ipfs_core::{group_log::MemLogStorage, hlc::HlcTimestamp, msgid_map::MsgIdMap};
 use usenet_ipfs_transit::peering::{
-    ingestion::{check_ingest, check_mode_guard, check_response, ihave_response, IngestResult},
+    ingestion::{
+        check_ingest, check_mode_guard, check_response, ihave_response, takethis_mode_guard,
+        IngestResult,
+    },
     mode_stream::{capabilities_response, handle_mode_stream, PeeringMode},
     pipeline::{run_pipeline, MemIpfsStore, PipelineCtx},
 };
@@ -75,6 +78,7 @@ fn make_pipeline_ctx(key: &SigningKey, ts: HlcTimestamp) -> PipelineCtx<'static>
         operator_signature: key.sign(b""),
         gossip_tx: None,
         sender_peer_id: "test-peer",
+        local_hostname: "test.local",
     }
 }
 
@@ -148,6 +152,34 @@ fn check_requires_streaming_mode() {
     assert!(
         guard.is_none(),
         "CHECK must be permitted when in Streaming mode"
+    );
+}
+
+// ── Test 3b: TAKETHIS requires streaming mode ─────────────────────────────────
+
+/// RFC 4644 §2.5: TAKETHIS is only valid after MODE STREAM has been
+/// successfully negotiated.  Sending TAKETHIS in IHAVE mode must be rejected
+/// with 500 ("Command not available in current mode").  In streaming mode it
+/// must be permitted (guard returns None).
+#[test]
+fn takethis_requires_streaming_mode() {
+    // IHAVE mode: TAKETHIS must be blocked with 500.
+    let guard = takethis_mode_guard(PeeringMode::Ihave);
+    assert!(
+        guard.is_some(),
+        "TAKETHIS must be blocked when session is in IHAVE mode (MODE STREAM not negotiated)"
+    );
+    let resp = guard.unwrap();
+    assert!(
+        resp.starts_with("500"),
+        "RFC 4644 §2.5: TAKETHIS in IHAVE mode must return 500, got: {resp:?}"
+    );
+
+    // Streaming mode: TAKETHIS must be permitted.
+    let guard = takethis_mode_guard(PeeringMode::Streaming);
+    assert!(
+        guard.is_none(),
+        "TAKETHIS must be permitted when session is in Streaming mode"
     );
 }
 

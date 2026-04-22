@@ -42,6 +42,9 @@ pub struct OperatorConfig {
     /// If absent, an ephemeral key is generated each startup (dev mode only).
     #[serde(default)]
     pub signing_key_path: Option<String>,
+    /// Local FQDN for the `Path:` header (Son-of-RFC-1036 §3.3).
+    #[serde(default)]
+    pub hostname: Option<String>,
 }
 
 /// SQLite database configuration.

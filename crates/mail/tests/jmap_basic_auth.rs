@@ -7,18 +7,15 @@
 //! exercising the auth middleware from the outside via real HTTP requests.
 
 use std::str::FromStr as _;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
 use data_encoding::BASE64;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use tokio::net::TcpListener;
 use usenet_ipfs_auth::{AuthConfig, CredentialStore, UserCredential};
-use usenet_ipfs_mail::{
-    server::{build_router, AppState},
-    token_store::TokenStore,
-};
+use usenet_ipfs_mail::{server::{AppState, build_router}, token_store::TokenStore};
 
 static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
 
@@ -59,6 +56,7 @@ async fn auth_state_alice() -> Arc<AppState> {
             ..Default::default()
         }),
         token_store: make_token_store().await,
+        base_url: "http://localhost".to_string(),
     })
 }
 
@@ -71,16 +69,14 @@ async fn dev_state() -> Arc<AppState> {
         credential_store: Arc::new(CredentialStore::empty()),
         auth_config: Arc::new(AuthConfig::default()),
         token_store: make_token_store().await,
+        base_url: "http://localhost".to_string(),
     })
 }
 
 /// Encode `user:pass` as the value to use in an Authorization header.
 /// Returns the full header value e.g. `"Basic dXNlcjpwYXNz"`.
 fn basic_header(user: &str, pass: &str) -> String {
-    format!(
-        "Basic {}",
-        BASE64.encode(format!("{user}:{pass}").as_bytes())
-    )
+    format!("Basic {}", BASE64.encode(format!("{user}:{pass}").as_bytes()))
 }
 
 /// Spawn the mail server in-process on a random port. Returns the base URL.
@@ -339,11 +335,7 @@ async fn download_without_credentials_returns_401() {
         .await
         .expect("request must succeed");
 
-    assert_eq!(
-        resp.status(),
-        401,
-        "unauthenticated download must return 401"
-    );
+    assert_eq!(resp.status(), 401, "unauthenticated download must return 401");
 }
 
 // ── Test 8: Dev mode ──────────────────────────────────────────────────────────
@@ -368,7 +360,10 @@ async fn dev_mode_jmap_api_accessible_without_auth() {
     // 200 (no stores wired) or 503 (no JMAP stores) — either is fine.
     // What is NOT acceptable is 401.
     let status = resp.status().as_u16();
-    assert!(status != 401, "dev mode must not return 401; got {status}");
+    assert!(
+        status != 401,
+        "dev mode must not return 401; got {status}"
+    );
 }
 
 /// Dev mode: /jmap/session must be accessible without credentials.

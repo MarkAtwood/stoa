@@ -18,22 +18,47 @@ pub fn matches_wildmat(name: &str, pattern: &str) -> bool {
     wildmat_match(name.as_bytes(), pattern.as_bytes())
 }
 
+/// Iterative DP wildmat matching — O(text.len() * pattern.len()) time and space.
+///
+/// `dp[i][j]` is true when `text[..i]` matches `pattern[..j]`.
+/// This avoids the exponential blowup of recursive backtracking on patterns
+/// like `*a*a*a*a*a` matched against long strings of 'a' that end with a
+/// non-matching character.
 fn wildmat_match(text: &[u8], pattern: &[u8]) -> bool {
-    match (text, pattern) {
-        (_, []) => text.is_empty(),
-        (_, [b'*', rest @ ..]) => {
-            // Try matching the star against 0..=text.len() characters.
-            for i in 0..=text.len() {
-                if wildmat_match(&text[i..], rest) {
-                    return true;
+    let m = text.len();
+    let n = pattern.len();
+
+    // dp[i][j]: text[..i] matches pattern[..j]
+    let mut dp = vec![vec![false; n + 1]; m + 1];
+    dp[0][0] = true;
+
+    // A run of leading stars can match the empty prefix.
+    for j in 1..=n {
+        if pattern[j - 1] == b'*' {
+            dp[0][j] = dp[0][j - 1];
+        } else {
+            break;
+        }
+    }
+
+    for i in 1..=m {
+        for j in 1..=n {
+            match pattern[j - 1] {
+                b'*' => {
+                    // Star matches zero chars (dp[i][j-1]) or one more char (dp[i-1][j]).
+                    dp[i][j] = dp[i][j - 1] || dp[i - 1][j];
+                }
+                b'?' => {
+                    dp[i][j] = dp[i - 1][j - 1];
+                }
+                pc => {
+                    dp[i][j] = dp[i - 1][j - 1] && text[i - 1] == pc;
                 }
             }
-            false
         }
-        ([], _) => false,
-        ([_tc, trest @ ..], [b'?', prest @ ..]) => wildmat_match(trest, prest),
-        ([tc, trest @ ..], [pc, prest @ ..]) => tc == pc && wildmat_match(trest, prest),
     }
+
+    dp[m][n]
 }
 
 /// LIST ACTIVE [wildmat]: returns one line per matching group.
@@ -307,5 +332,29 @@ mod tests {
     fn wildmat_star_only() {
         assert!(matches_wildmat("anything.goes", "*"));
         assert!(matches_wildmat("", "*"));
+    }
+
+    /// Adversarial pattern that causes exponential backtracking in a recursive
+    /// implementation but runs in O(n*m) with the iterative DP approach.
+    ///
+    /// Pattern `*a*a*a*a*a*a*a*a*a` (no trailing star) cannot match a string
+    /// of 'a's followed by 'b' because the pattern requires the last character
+    /// to be 'a'.  A recursive matcher must exhaust all 2^18 backtracking paths
+    /// before determining this; the DP table fills in O(19 * 20) = O(380) steps.
+    #[test]
+    fn wildmat_no_catastrophic_backtracking() {
+        let pattern = "*a*a*a*a*a*a*a*a*a"; // ends with literal 'a', not '*'
+        let text = "aaaaaaaaaaaaaaaaaab"; // 18 'a's then 'b' — never matches
+
+        let start = std::time::Instant::now();
+        let result = matches_wildmat(text, pattern);
+        let elapsed = start.elapsed();
+
+        assert!(!result, "pattern must not match text ending in 'b'");
+        assert!(
+            elapsed.as_millis() < 100,
+            "wildmat must complete in <100 ms; took {}ms",
+            elapsed.as_millis()
+        );
     }
 }

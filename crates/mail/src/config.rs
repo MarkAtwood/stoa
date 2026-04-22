@@ -16,9 +16,17 @@ pub struct Config {
     pub log: LogConfig,
 }
 
+fn default_base_url() -> String {
+    "http://localhost".to_string()
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ListenConfig {
     pub addr: String,
+    /// The external base URL advertised in JMAP session responses,
+    /// e.g. `https://mail.example.com`. Defaults to `http://localhost`.
+    #[serde(default = "default_base_url")]
+    pub base_url: String,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -159,6 +167,27 @@ required = false
         assert!(cfg.tls.key_path.is_none());
         assert_eq!(cfg.log.level, "info");
         assert_eq!(cfg.log.format, "json");
+        assert_eq!(cfg.listen.base_url, "http://localhost");
+    }
+
+    #[test]
+    fn parse_explicit_base_url() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:443"
+base_url = "https://mail.example.com"
+
+[database]
+path = "/var/lib/usenet-ipfs/mail/mail.db"
+
+[auth]
+required = false
+
+[tls]
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("should parse");
+        assert_eq!(cfg.listen.base_url, "https://mail.example.com");
     }
 
     #[test]

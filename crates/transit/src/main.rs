@@ -264,6 +264,15 @@ async fn main() {
     let (ingestion_sender, mut ingestion_receiver) = ingestion_queue(1024);
     let ingestion_sender = Arc::new(ingestion_sender);
 
+    // ── Local hostname for Path: header (Son-of-RFC-1036 §3.3) ───────────────
+
+    let local_hostname: String = config
+        .operator
+        .hostname
+        .clone()
+        .unwrap_or_else(resolve_local_hostname);
+    info!(hostname = %local_hostname, "local hostname for Path: header");
+
     // ── Shared state for peering sessions ─────────────────────────────────────
 
     let shared = Arc::new(PeeringShared {
@@ -275,6 +284,7 @@ async fn main() {
         hlc: Arc::clone(&hlc),
         ingestion_sender: Arc::clone(&ingestion_sender),
         local_peer_id: peer_id.to_string(),
+        local_hostname: local_hostname.clone(),
         // Per-IP rate limiter: all connections from one host share this budget.
         // 200-article burst, 100 articles/sec sustained.
         peer_rate_limiter: Arc::new(std::sync::Mutex::new(PeerRateLimiter::new(
@@ -296,6 +306,7 @@ async fn main() {
         let hlc_drain = Arc::clone(&hlc);
         let gossip_tx_drain = gossip_tx;
         let local_peer_id = peer_id.to_string();
+        let local_hostname_drain = local_hostname;
         let transit_pool_drain = Arc::clone(&transit_pool);
 
         tokio::spawn(async move {
@@ -311,6 +322,7 @@ async fn main() {
                     operator_signature: sig,
                     gossip_tx: Some(&gossip_tx_drain),
                     sender_peer_id: &local_peer_id,
+                    local_hostname: &local_hostname_drain,
                 };
                 match run_pipeline(
                     &article.bytes,
@@ -421,6 +433,18 @@ async fn open_pool(path: &str) -> sqlx::SqlitePool {
             std::process::exit(1);
         }
     }
+}
+
+/// Resolve the local FQDN for use in the `Path:` header.
+///
+/// Tries `/etc/hostname` first (reliable on Linux), then falls back to
+/// `"localhost"`.  Operators should set `operator.hostname` in config.
+fn resolve_local_hostname() -> String {
+    std::fs::read_to_string("/etc/hostname")
+        .ok()
+        .map(|s| s.trim().to_owned())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "localhost".to_owned())
 }
 
 async fn sigterm() {
