@@ -10,7 +10,7 @@ use cid::Cid;
 use multihash_codetable::{Code, MultihashDigest};
 
 use crate::session::response::Response;
-use usenet_ipfs_core::msgid_map::MsgIdMap;
+use usenet_ipfs_core::{ipld::builder::build_article, msgid_map::MsgIdMap};
 
 // ---------------------------------------------------------------------------
 // Error type
@@ -47,6 +47,11 @@ impl std::error::Error for IpfsWriteError {}
 pub trait IpfsBlockStore: Send + Sync {
     /// Write a raw block to IPFS. Returns the CID of the stored block.
     async fn put_raw_block(&self, data: &[u8]) -> Result<Cid, IpfsWriteError>;
+
+    /// Store a block with a pre-computed CID (e.g. DAG-CBOR blocks from
+    /// `build_article`).  The caller is responsible for ensuring `cid` matches
+    /// the content of `data`.
+    async fn put_block(&self, cid: Cid, data: Vec<u8>) -> Result<(), IpfsWriteError>;
 
     /// Read a raw block from IPFS by CID. Returns the block bytes.
     async fn get_raw_block(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError>;
@@ -88,6 +93,11 @@ impl IpfsBlockStore for MemIpfsStore {
             .await
             .insert(cid.to_bytes(), data.to_vec());
         Ok(cid)
+    }
+
+    async fn put_block(&self, cid: Cid, data: Vec<u8>) -> Result<(), IpfsWriteError> {
+        self.blocks.write().await.insert(cid.to_bytes(), data);
+        Ok(())
     }
 
     async fn get_raw_block(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError> {
@@ -136,6 +146,16 @@ impl IpfsBlockStore for RustIpfsStore {
             .map_err(|e| IpfsWriteError::WriteFailed(e.to_string()))
     }
 
+    async fn put_block(&self, cid: Cid, data: Vec<u8>) -> Result<(), IpfsWriteError> {
+        let block = rust_ipfs::Block::new(cid, data)
+            .map_err(|e| IpfsWriteError::WriteFailed(e.to_string()))?;
+        self.ipfs
+            .put_block(&block)
+            .await
+            .map(|_| ())
+            .map_err(|e| IpfsWriteError::WriteFailed(e.to_string()))
+    }
+
     async fn get_raw_block(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError> {
         let block = self.ipfs.get_block(cid).await.map_err(|e| {
             let msg = e.to_string();
@@ -150,7 +170,7 @@ impl IpfsBlockStore for RustIpfsStore {
 }
 
 // ---------------------------------------------------------------------------
-// Pipeline function
+// Pipeline functions
 // ---------------------------------------------------------------------------
 
 /// Write a signed article to IPFS and record the Message-ID → CID mapping.
@@ -179,6 +199,76 @@ pub async fn write_article_to_ipfs(
         .map_err(|e| Response::new(441, format!("Posting failed: storage error: {e}")))?;
 
     Ok(cid)
+}
+
+/// Write a signed article to IPFS as a proper IPLD block set and record the
+/// Message-ID → root CID mapping.
+///
+/// Uses [`build_article`] to construct DAG-CBOR root (codec 0x71) plus raw
+/// header/body/MIME sub-blocks.  Every block is stored via [`put_block`] so
+/// that the root CID carries the correct DAG-CBOR codec required by
+/// [`verify_entry`].
+///
+/// Steps:
+/// 1. Split `article_bytes` into header and body sections.
+/// 2. Call [`build_article`] to produce the IPLD block set.
+/// 3. Store every block via `ipfs_store.put_block(cid, data)`.
+/// 4. Insert `(message_id, root_cid)` into `msgid_map` (idempotent).
+/// 5. Return `Ok(root_cid)` on success.
+pub async fn write_ipld_article_to_ipfs(
+    ipfs_store: &dyn IpfsBlockStore,
+    msgid_map: &MsgIdMap,
+    article_bytes: &[u8],
+    message_id: &str,
+    newsgroups: Vec<String>,
+    hlc_timestamp: u64,
+) -> Result<Cid, Response> {
+    // Split header and body.
+    let (header_bytes, body_bytes) = split_header_body(article_bytes);
+
+    // Build the IPLD block set.
+    let built = build_article(
+        &header_bytes,
+        &body_bytes,
+        message_id.to_owned(),
+        newsgroups,
+        hlc_timestamp,
+    )
+    .map_err(|e| Response::new(441, format!("Posting failed: IPLD build error: {e}")))?;
+
+    // Store all blocks.
+    for (cid, data) in built.blocks {
+        ipfs_store
+            .put_block(cid, data)
+            .await
+            .map_err(|e| Response::new(441, format!("Posting failed: IPFS write error: {e}")))?;
+    }
+
+    // Record Message-ID → root CID mapping.
+    msgid_map
+        .insert(message_id, &built.root_cid)
+        .await
+        .map_err(|e| Response::new(441, format!("Posting failed: storage error: {e}")))?;
+
+    Ok(built.root_cid)
+}
+
+/// Split raw article bytes at the first blank line separator.
+///
+/// Returns `(header_bytes, body_bytes)`.  The separator itself is consumed.
+/// If no blank line is found, returns `(article_bytes, [])`.
+fn split_header_body(bytes: &[u8]) -> (Vec<u8>, Vec<u8>) {
+    for i in 0..bytes.len().saturating_sub(3) {
+        if bytes[i..].starts_with(b"\r\n\r\n") {
+            return (bytes[..i].to_vec(), bytes[i + 4..].to_vec());
+        }
+    }
+    for i in 0..bytes.len().saturating_sub(1) {
+        if bytes[i..].starts_with(b"\n\n") {
+            return (bytes[..i].to_vec(), bytes[i + 2..].to_vec());
+        }
+    }
+    (bytes.to_vec(), vec![])
 }
 
 // ---------------------------------------------------------------------------
@@ -258,6 +348,13 @@ mod tests {
                 return Err(IpfsWriteError::WriteFailed("injected failure".into()));
             }
             self.inner.put_raw_block(data).await
+        }
+
+        async fn put_block(&self, cid: Cid, data: Vec<u8>) -> Result<(), IpfsWriteError> {
+            if self.should_fail() {
+                return Err(IpfsWriteError::WriteFailed("injected failure".into()));
+            }
+            self.inner.put_block(cid, data).await
         }
 
         async fn get_raw_block(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError> {

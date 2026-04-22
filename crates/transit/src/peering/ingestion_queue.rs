@@ -290,7 +290,10 @@ mod tests {
             sender.depth()
         );
         assert_eq!(
-            sender.metrics().accepted_total.load(std::sync::atomic::Ordering::Relaxed),
+            sender
+                .metrics()
+                .accepted_total
+                .load(std::sync::atomic::Ordering::Relaxed),
             accepted as u64,
             "accepted_total counter must match observed accepts"
         );

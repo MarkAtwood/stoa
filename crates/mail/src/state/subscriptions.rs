@@ -30,22 +30,22 @@ impl SubscriptionStore {
 
     /// Unsubscribe a user from a group (idempotent).
     pub async fn unsubscribe(&self, user_id: i64, group_name: &str) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            "DELETE FROM subscriptions WHERE user_id = ? AND group_name = ?",
-        )
-        .bind(user_id)
-        .bind(group_name)
-        .execute(&self.pool)
-        .await?;
+        sqlx::query("DELETE FROM subscriptions WHERE user_id = ? AND group_name = ?")
+            .bind(user_id)
+            .bind(group_name)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
     /// Return all group names a user is subscribed to.
     pub async fn list_subscribed(&self, user_id: i64) -> Result<Vec<String>, sqlx::Error> {
-        sqlx::query_scalar("SELECT group_name FROM subscriptions WHERE user_id = ? ORDER BY group_name")
-            .bind(user_id)
-            .fetch_all(&self.pool)
-            .await
+        sqlx::query_scalar(
+            "SELECT group_name FROM subscriptions WHERE user_id = ? ORDER BY group_name",
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await
     }
 
     /// Check whether a user is subscribed to a specific group.
@@ -65,8 +65,8 @@ impl SubscriptionStore {
 mod tests {
     use super::*;
     use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::str::FromStr as _;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
 
@@ -81,7 +81,9 @@ mod tests {
             .connect_with(opts)
             .await
             .expect("pool");
-        crate::migrations::run_migrations(&pool).await.expect("migrations");
+        crate::migrations::run_migrations(&pool)
+            .await
+            .expect("migrations");
         sqlx::query("INSERT INTO users (id, username, password_hash) VALUES (1, 'alice', 'x')")
             .execute(&pool)
             .await

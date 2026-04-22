@@ -26,10 +26,8 @@ pub fn handle_mailbox_get(groups: &[GroupInfo], ids: Option<&[String]>, state: &
         None => (all_mailboxes, vec![]),
         Some(requested) => {
             // Build lookup by id.
-            let by_id: HashMap<String, &Mailbox> = all_mailboxes
-                .iter()
-                .map(|m| (m.id.clone(), m))
-                .collect();
+            let by_id: HashMap<String, &Mailbox> =
+                all_mailboxes.iter().map(|m| (m.id.clone(), m)).collect();
             let mut found = Vec::new();
             let mut not_found = Vec::new();
             for id in requested {
@@ -57,8 +55,18 @@ mod tests {
 
     fn sample_groups() -> Vec<GroupInfo> {
         vec![
-            GroupInfo { name: "comp.lang.rust".to_string(), total_emails: 5, unread_emails: 2, is_subscribed: true },
-            GroupInfo { name: "alt.test".to_string(), total_emails: 1, unread_emails: 0, is_subscribed: false },
+            GroupInfo {
+                name: "comp.lang.rust".to_string(),
+                total_emails: 5,
+                unread_emails: 2,
+                is_subscribed: true,
+            },
+            GroupInfo {
+                name: "alt.test".to_string(),
+                total_emails: 1,
+                unread_emails: 0,
+                is_subscribed: false,
+            },
         ]
     }
 

@@ -60,7 +60,9 @@ pub fn has_newsgroups_header(raw_message: &[u8]) -> bool {
 
     let headers = &raw_message[..header_end];
     // Header at start of message or after a newline (handles both \r\n and \n).
-    headers.windows(12).any(|w| w.eq_ignore_ascii_case(b"\nNewsgroups:"))
+    headers
+        .windows(12)
+        .any(|w| w.eq_ignore_ascii_case(b"\nNewsgroups:"))
         || headers.len() >= 11 && headers[..11].eq_ignore_ascii_case(b"Newsgroups:")
 }
 
@@ -69,14 +71,25 @@ pub fn has_newsgroups_header(raw_message: &[u8]) -> bool {
 /// Prepends `"Newsgroups: <newsgroup>\r\n"` at the front of the message.
 /// Callers must ensure the message does not already have a `Newsgroups:`
 /// header; use [`has_newsgroups_header`] to check first.
-pub fn add_newsgroups_header(raw_message: &[u8], newsgroup: &str) -> Vec<u8> {
+///
+/// Returns `None` if `newsgroup` contains characters outside the set of valid
+/// RFC 3977 newsgroup name characters (ASCII alphanumeric, `.`, `-`, `+`,
+/// `_`). This prevents CRLF injection and null-byte injection into the
+/// synthesized header line.
+pub fn add_newsgroups_header(raw_message: &[u8], newsgroup: &str) -> Option<Vec<u8>> {
+    if newsgroup.is_empty()
+        || !newsgroup
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'+' | b'_'))
+    {
+        return None;
+    }
     let header = format!("Newsgroups: {newsgroup}\r\n");
     let mut result = Vec::with_capacity(header.len() + raw_message.len());
     result.extend_from_slice(header.as_bytes());
     result.extend_from_slice(raw_message);
-    result
+    Some(result)
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -188,7 +201,7 @@ mod tests {
     #[test]
     fn add_newsgroups_header_prepends() {
         let msg = b"From: a@b.com\r\n\r\nbody\r\n";
-        let result = add_newsgroups_header(msg, "comp.lang.rust");
+        let result = add_newsgroups_header(msg, "comp.lang.rust").unwrap();
         assert!(result.starts_with(b"Newsgroups: comp.lang.rust\r\n"));
         assert!(result.ends_with(b"From: a@b.com\r\n\r\nbody\r\n"));
     }
@@ -197,8 +210,19 @@ mod tests {
     fn add_newsgroups_header_correct_length() {
         let msg = b"Subject: test\r\n\r\nbody";
         let header = b"Newsgroups: misc.test\r\n";
-        let result = add_newsgroups_header(msg, "misc.test");
+        let result = add_newsgroups_header(msg, "misc.test").unwrap();
         assert_eq!(result.len(), header.len() + msg.len());
     }
 
+    #[test]
+    fn add_newsgroups_header_rejects_crlf_injection() {
+        assert!(add_newsgroups_header(b"body", "comp.test\r\nX-Evil: hdr").is_none());
+        assert!(add_newsgroups_header(b"body", "comp.test\nX-Evil: hdr").is_none());
+        assert!(add_newsgroups_header(b"body", "comp.test\0evil").is_none());
+    }
+
+    #[test]
+    fn add_newsgroups_header_rejects_empty() {
+        assert!(add_newsgroups_header(b"body", "").is_none());
+    }
 }

@@ -1,9 +1,9 @@
 use std::net::IpAddr;
 
 use mail_auth::{
-    AuthenticatedMessage, AuthenticationResults, DmarcResult, MessageAuthenticator,
     dmarc::{verify::DmarcParameters, Policy},
     spf::verify::SpfParameters,
+    AuthenticatedMessage, AuthenticationResults, DmarcResult, MessageAuthenticator,
 };
 use tracing::debug;
 

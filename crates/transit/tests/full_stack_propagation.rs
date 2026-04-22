@@ -284,10 +284,16 @@ async fn full_stack_propagation() {
             .unwrap();
         pool
     };
-    let (pipeline_result, _metrics) =
-        run_pipeline(&article_bytes, &ipfs_a, &msgid_map_a, &log_storage_a, &transit_pool, ctx_a)
-            .await
-            .expect("pipeline on node A must succeed");
+    let (pipeline_result, _metrics) = run_pipeline(
+        &article_bytes,
+        &ipfs_a,
+        &msgid_map_a,
+        &log_storage_a,
+        &transit_pool,
+        ctx_a,
+    )
+    .await
+    .expect("pipeline on node A must succeed");
 
     let cid_a = pipeline_result.cid;
     assert_eq!(

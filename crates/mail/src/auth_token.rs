@@ -1,8 +1,8 @@
 use axum::{
-    Json,
     extract::{Extension, Path, State},
     http::StatusCode,
     response::IntoResponse,
+    Json,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -42,9 +42,7 @@ pub async fn issue_token(
     user: Option<Extension<AuthenticatedUser>>,
     body: Option<Json<TokenIssueRequest>>,
 ) -> impl IntoResponse {
-    let username = user
-        .map(|Extension(u)| u.0)
-        .unwrap_or_default();
+    let username = user.map(|Extension(u)| u.0).unwrap_or_default();
 
     let (label, expires_in_days) = match body {
         Some(Json(req)) => (req.label, req.expires_in_days),
@@ -58,12 +56,14 @@ pub async fn issue_token(
     {
         Ok((token, id, expires_at)) => (
             StatusCode::CREATED,
-            Json(serde_json::to_value(TokenIssueResponse {
-                token,
-                id,
-                expires_at,
-            })
-            .unwrap()),
+            Json(
+                serde_json::to_value(TokenIssueResponse {
+                    token,
+                    id,
+                    expires_at,
+                })
+                .unwrap(),
+            ),
         ),
         Err(_) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -91,10 +91,7 @@ pub async fn list_tokens(
                     expires_at: t.expires_at,
                 })
                 .collect();
-            (
-                StatusCode::OK,
-                Json(serde_json::to_value(entries).unwrap()),
-            )
+            (StatusCode::OK, Json(serde_json::to_value(entries).unwrap()))
         }
         Err(_) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -115,10 +112,7 @@ pub async fn revoke_token(
 ) -> impl IntoResponse {
     let username = user.map(|Extension(u)| u.0).unwrap_or_default();
     match state.token_store.revoke(&username, &id).await {
-        Ok(true) => (
-            StatusCode::OK,
-            Json(serde_json::json!({"deleted": true})),
-        ),
+        Ok(true) => (StatusCode::OK, Json(serde_json::json!({"deleted": true}))),
         Ok(false) => (
             StatusCode::NOT_FOUND,
             Json(serde_json::json!({"error": "token not found"})),

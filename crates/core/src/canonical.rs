@@ -73,7 +73,6 @@ fn push_header(out: &mut Vec<u8>, name: &str, value: &str) {
     out.extend_from_slice(b"\r\n");
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -164,7 +163,7 @@ mod tests {
             .contains("Newsgroups: alt.atheism,sci.skeptic,talk.origins\r\n"));
     }
 
-/// Roundtrip consistency: canonical_bytes called twice on the same article
+    /// Roundtrip consistency: canonical_bytes called twice on the same article
     /// must return identical results (idempotency).
     #[test]
     fn canonical_bytes_idempotent() {

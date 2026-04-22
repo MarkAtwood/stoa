@@ -317,7 +317,9 @@ mod tests {
 
     async fn read_article(input: &[u8]) -> Vec<u8> {
         let mut reader = tokio::io::BufReader::new(input);
-        read_dot_terminated(&mut reader, DEFAULT_MAX_ARTICLE_BYTES).await.unwrap()
+        read_dot_terminated(&mut reader, DEFAULT_MAX_ARTICLE_BYTES)
+            .await
+            .unwrap()
     }
 
     #[tokio::test]

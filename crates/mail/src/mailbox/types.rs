@@ -105,14 +105,22 @@ mod tests {
             "humanities.classics",
         ];
         let ids: HashSet<String> = groups.iter().map(|g| mailbox_id_for_group(g)).collect();
-        assert_eq!(ids.len(), groups.len(), "all group names must produce unique ids");
+        assert_eq!(
+            ids.len(),
+            groups.len(),
+            "all group names must produce unique ids"
+        );
     }
 
     #[test]
     fn collision_test_50_groups() {
         let groups: Vec<String> = (0..50).map(|i| format!("comp.test.group{i}")).collect();
         let ids: HashSet<String> = groups.iter().map(|g| mailbox_id_for_group(g)).collect();
-        assert_eq!(ids.len(), 50, "50 distinct groups must produce 50 distinct ids");
+        assert_eq!(
+            ids.len(),
+            50,
+            "50 distinct groups must produce 50 distinct ids"
+        );
     }
 
     #[test]

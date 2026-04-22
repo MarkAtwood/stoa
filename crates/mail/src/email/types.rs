@@ -139,7 +139,11 @@ fn is_leap(y: u64) -> bool {
 }
 
 fn days_in_year(y: u64) -> u64 {
-    if is_leap(y) { 366 } else { 365 }
+    if is_leap(y) {
+        366
+    } else {
+        365
+    }
 }
 
 fn days_to_year_doy(mut days: u64) -> (u64, u64) {

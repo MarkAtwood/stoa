@@ -88,10 +88,7 @@ async fn do_post(addr: &str, article_bytes: &[u8]) -> Result<(), String> {
     if code == "240" || code == "250" {
         Ok(())
     } else {
-        Err(format!(
-            "NNTP article not accepted: {}",
-            line.trim_end()
-        ))
+        Err(format!("NNTP article not accepted: {}", line.trim_end()))
     }
 }
 
@@ -260,10 +257,7 @@ mod tests {
         let msg = b"From: a@b.com\r\n\r\nbody\r\n";
         let result = post_article(&addr, msg).await;
         assert!(result.is_err());
-        assert!(
-            result.unwrap_err().contains("440"),
-            "expected 440 in error"
-        );
+        assert!(result.unwrap_err().contains("440"), "expected 440 in error");
     }
 
     #[tokio::test]

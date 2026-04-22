@@ -171,30 +171,26 @@ pub async fn run_peering_session(stream: TcpStream, shared: Arc<PeeringShared>) 
                                     .check(&peer_ip)
                                     .is_none()
                                 {
-                                    enqueue_article(&shared, &msgid, article_bytes).await;
-                                    record_accepted(&registry, &peer_ip).await;
-                                    takethis_response(&result)
+                                    if enqueue_article(&shared, &msgid, article_bytes)
+                                        .await
+                                        .is_ok()
+                                    {
+                                        record_accepted(&registry, &peer_ip).await;
+                                        takethis_response(&result)
+                                    } else {
+                                        "431 Article too soon, try again later"
+                                    }
                                 } else {
                                     tracing::warn!(
                                         %peer_addr, %msgid,
                                         "TAKETHIS rate limit exceeded"
                                     );
-                                    record_and_maybe_blacklist(
-                                        &registry,
-                                        &shared,
-                                        &peer_ip,
-                                    )
-                                    .await;
+                                    record_and_maybe_blacklist(&registry, &shared, &peer_ip).await;
                                     "431 Article too soon, try again later"
                                 }
                             } else {
                                 if matches!(result, IngestResult::Rejected(_)) {
-                                    record_and_maybe_blacklist(
-                                        &registry,
-                                        &shared,
-                                        &peer_ip,
-                                    )
-                                    .await;
+                                    record_and_maybe_blacklist(&registry, &shared, &peer_ip).await;
                                 }
                                 takethis_response(&result)
                             };
@@ -230,30 +226,31 @@ pub async fn run_peering_session(stream: TcpStream, shared: Arc<PeeringShared>) 
                                         .check(&peer_ip)
                                         .is_none()
                                     {
-                                        enqueue_article(&shared, &msgid, article_bytes).await;
-                                        record_accepted(&registry, &peer_ip).await;
-                                        Some(ihave_response(&result).to_owned())
+                                        if enqueue_article(&shared, &msgid, article_bytes)
+                                            .await
+                                            .is_ok()
+                                        {
+                                            record_accepted(&registry, &peer_ip).await;
+                                            Some(ihave_response(&result).to_owned())
+                                        } else {
+                                            Some(
+                                                "436 Transfer failed, try again later\r\n"
+                                                    .to_owned(),
+                                            )
+                                        }
                                     } else {
                                         tracing::warn!(
                                             %peer_addr, %msgid,
                                             "IHAVE rate limit exceeded"
                                         );
-                                        record_and_maybe_blacklist(
-                                            &registry,
-                                            &shared,
-                                            &peer_ip,
-                                        )
-                                        .await;
+                                        record_and_maybe_blacklist(&registry, &shared, &peer_ip)
+                                            .await;
                                         Some("436 Transfer failed, try again later\r\n".to_owned())
                                     }
                                 } else {
                                     if matches!(result, IngestResult::Rejected(_)) {
-                                        record_and_maybe_blacklist(
-                                            &registry,
-                                            &shared,
-                                            &peer_ip,
-                                        )
-                                        .await;
+                                        record_and_maybe_blacklist(&registry, &shared, &peer_ip)
+                                            .await;
                                     }
                                     Some(ihave_response(&result).to_owned())
                                 }
@@ -310,8 +307,13 @@ async fn record_and_maybe_blacklist(
     if let Err(e) = registry.record_rejected(peer_ip, now_ms).await {
         tracing::warn!(%peer_ip, "record_rejected failed: {e}");
     }
-    match check_and_blacklist(&shared.transit_pool, peer_ip, now_ms, &shared.blacklist_config)
-        .await
+    match check_and_blacklist(
+        &shared.transit_pool,
+        peer_ip,
+        now_ms,
+        &shared.blacklist_config,
+    )
+    .await
     {
         Ok(true) => {
             tracing::warn!(%peer_ip, "peer blacklisted after repeated article rejections");
@@ -337,15 +339,24 @@ async fn check_msgid_only(msgid: &str, msgid_map: &MsgIdMap) -> IngestResult {
 
 /// Enqueue an accepted article into the ingestion queue.
 ///
-/// Logs a warning if the queue is full; the article is dropped in that case.
-async fn enqueue_article(shared: &PeeringShared, message_id: &str, bytes: Vec<u8>) {
+/// Returns `Err` if the queue is full.
+async fn enqueue_article(
+    shared: &PeeringShared,
+    message_id: &str,
+    bytes: Vec<u8>,
+) -> Result<(), &'static str> {
     let article = QueuedArticle {
         bytes,
         message_id: message_id.to_owned(),
     };
-    if let Err(e) = shared.ingestion_sender.try_enqueue(article).await {
-        tracing::warn!(message_id, "ingestion queue full, article dropped: {e}");
-    }
+    shared
+        .ingestion_sender
+        .try_enqueue(article)
+        .await
+        .map_err(|e| {
+            tracing::warn!(message_id, "ingestion queue full, article dropped: {e}");
+            "queue full"
+        })
 }
 
 /// Result of reading a dot-stuffed article from a peer.

@@ -9,7 +9,12 @@ use super::get::GroupInfo;
 /// Supports optional filter: `{isSubscribed: true}` returns only subscribed groups.
 /// Supports sort by name (ascending).
 /// `state` is the current JMAP Mailbox state string from StateStore.
-pub fn handle_mailbox_query(groups: &[GroupInfo], filter: Option<&Value>, _sort: Option<&Value>, state: &str) -> Value {
+pub fn handle_mailbox_query(
+    groups: &[GroupInfo],
+    filter: Option<&Value>,
+    _sort: Option<&Value>,
+    state: &str,
+) -> Value {
     let mut filtered: Vec<&GroupInfo> = groups.iter().collect();
 
     // Apply isSubscribed filter if present.
@@ -45,8 +50,18 @@ mod tests {
 
     fn sample_groups() -> Vec<GroupInfo> {
         vec![
-            GroupInfo { name: "comp.lang.rust".to_string(), total_emails: 5, unread_emails: 2, is_subscribed: true },
-            GroupInfo { name: "alt.test".to_string(), total_emails: 1, unread_emails: 0, is_subscribed: false },
+            GroupInfo {
+                name: "comp.lang.rust".to_string(),
+                total_emails: 5,
+                unread_emails: 2,
+                is_subscribed: true,
+            },
+            GroupInfo {
+                name: "alt.test".to_string(),
+                total_emails: 1,
+                unread_emails: 0,
+                is_subscribed: false,
+            },
         ]
     }
 
@@ -57,7 +72,10 @@ mod tests {
         assert_eq!(ids.len(), 2);
         // sorted: alt.test < comp.lang.rust
         assert_eq!(ids[0].as_str().unwrap(), mailbox_id_for_group("alt.test"));
-        assert_eq!(ids[1].as_str().unwrap(), mailbox_id_for_group("comp.lang.rust"));
+        assert_eq!(
+            ids[1].as_str().unwrap(),
+            mailbox_id_for_group("comp.lang.rust")
+        );
     }
 
     #[test]
@@ -66,7 +84,10 @@ mod tests {
         let resp = handle_mailbox_query(&sample_groups(), Some(&filter), None, "0");
         let ids = resp["ids"].as_array().unwrap();
         assert_eq!(ids.len(), 1);
-        assert_eq!(ids[0].as_str().unwrap(), mailbox_id_for_group("comp.lang.rust"));
+        assert_eq!(
+            ids[0].as_str().unwrap(),
+            mailbox_id_for_group("comp.lang.rust")
+        );
     }
 
     #[test]

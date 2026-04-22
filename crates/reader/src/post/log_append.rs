@@ -79,8 +79,7 @@ pub async fn append_to_groups<S: LogStorage>(
             let mut canonical = Vec::new();
             canonical.extend_from_slice(&hlc_ts.to_be_bytes());
             canonical.extend_from_slice(&article_cid.to_bytes());
-            let mut parent_bytes: Vec<Vec<u8>> =
-                parent_cids.iter().map(|c| c.to_bytes()).collect();
+            let mut parent_bytes: Vec<Vec<u8>> = parent_cids.iter().map(|c| c.to_bytes()).collect();
             parent_bytes.sort();
             for pb in &parent_bytes {
                 canonical.extend_from_slice(pb);

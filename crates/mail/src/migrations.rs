@@ -13,8 +13,8 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
 mod tests {
     use super::*;
     use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::str::FromStr as _;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
 
@@ -34,13 +34,17 @@ mod tests {
     #[tokio::test]
     async fn migrations_run_on_fresh_db() {
         let pool = make_pool().await;
-        run_migrations(&pool).await.expect("migrations must succeed");
+        run_migrations(&pool)
+            .await
+            .expect("migrations must succeed");
     }
 
     #[tokio::test]
     async fn migrations_idempotent() {
         let pool = make_pool().await;
         run_migrations(&pool).await.expect("first run");
-        run_migrations(&pool).await.expect("second run must also succeed");
+        run_migrations(&pool)
+            .await
+            .expect("second run must also succeed");
     }
 }

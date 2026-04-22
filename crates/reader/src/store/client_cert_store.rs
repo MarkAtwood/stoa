@@ -22,9 +22,7 @@ pub struct ClientCertStore {
 /// Accepts input with or without the `"sha256:"` prefix, and any case.
 fn normalise(fp: &str) -> String {
     let lower = fp.to_ascii_lowercase();
-    let hex_part = lower
-        .strip_prefix("sha256:")
-        .unwrap_or(&lower);
+    let hex_part = lower.strip_prefix("sha256:").unwrap_or(&lower);
     format!("sha256:{hex_part}")
 }
 

@@ -59,8 +59,7 @@ const RFC4616_TIM_AUTHZID_NONEMPTY_B64: &str = "dGltAHRpbQB0YW5zdGFhZmx0YW5zdGFh
 /// The hash is non-deterministic (random salt each call) but `bcrypt::verify`
 /// accepts any valid hash of the same password.
 fn make_tim_credential() -> UserCredential {
-    let hash = bcrypt::hash("tanstaafltanstaafl", 4)
-        .expect("bcrypt::hash must not fail at cost 4");
+    let hash = bcrypt::hash("tanstaafltanstaafl", 4).expect("bcrypt::hash must not fail at cost 4");
     UserCredential {
         username: "tim".to_string(),
         password: hash,
@@ -89,7 +88,10 @@ fn test_config(tim_credential: Option<UserCredential>) -> Arc<Config> {
             port_587: "127.0.0.1:0".to_string(),
             smtps_addr: None,
         },
-        tls: TlsConfig { cert_path: None, key_path: None },
+        tls: TlsConfig {
+            cert_path: None,
+            key_path: None,
+        },
         limits: LimitsConfig {
             max_message_bytes: 1_048_576,
             max_recipients: 10,
@@ -129,14 +131,24 @@ async fn drive(client_script: &[u8], is_tls: bool, config: Arc<Config>) -> Strin
     let server_task = tokio::spawn(async move {
         let (stream, peer) = listener.accept().await.expect("accept");
         let cred_store = Arc::new({
-            let mut s =
-                usenet_ipfs_auth::CredentialStore::from_credentials(&config2.auth.users);
+            let mut s = usenet_ipfs_auth::CredentialStore::from_credentials(&config2.auth.users);
             if let Some(ref p) = config2.auth.credential_file {
                 let _ = s.merge_from_file(p);
             }
             s
         });
-        run_session(stream, is_tls, peer.to_string(), config2, cred_store, queue2, None, None, None).await;
+        run_session(
+            stream,
+            is_tls,
+            peer.to_string(),
+            config2,
+            cred_store,
+            queue2,
+            None,
+            None,
+            None,
+        )
+        .await;
     });
 
     let mut client = tokio::net::TcpStream::connect(addr).await.expect("connect");
@@ -216,8 +228,7 @@ async fn auth_plain_on_tls_port_valid_credentials_returns_235() {
 async fn auth_plain_on_tls_port_wrong_password_returns_535() {
     let config = test_config(Some(make_tim_credential()));
 
-    let script =
-        b"EHLO client.example.com\r\nAUTH PLAIN AHRpbQB3cm9uZ3Bhc3N3b3Jk\r\nQUIT\r\n";
+    let script = b"EHLO client.example.com\r\nAUTH PLAIN AHRpbQB3cm9uZ3Bhc3N3b3Jk\r\nQUIT\r\n";
     let response = drive(script, true, config).await;
 
     assert!(
@@ -262,7 +273,8 @@ async fn auth_plain_malformed_base64_returns_535() {
 async fn auth_plain_invalid_nul_format_returns_535() {
     let config = test_config(Some(make_tim_credential()));
 
-    let script = b"EHLO client.example.com\r\nAUTH PLAIN bm90YW51bGxzZXBhcmF0ZWRzdHJpbmc=\r\nQUIT\r\n";
+    let script =
+        b"EHLO client.example.com\r\nAUTH PLAIN bm90YW51bGxzZXBhcmF0ZWRzdHJpbmc=\r\nQUIT\r\n";
     let response = drive(script, true, config).await;
 
     assert!(

@@ -6,9 +6,9 @@
 
 use std::{fs::File, io::BufReader, sync::Arc};
 
-use rustls::ServerConfig;
 use rustls::pki_types::{CertificateDer, UnixTime};
 use rustls::server::danger::{ClientCertVerified, ClientCertVerifier};
+use rustls::ServerConfig;
 use rustls::{DigitallySignedStruct, DistinguishedName, Error, SignatureScheme};
 use rustls_pemfile::{certs, private_key};
 use sha2::Digest as _;

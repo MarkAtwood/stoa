@@ -77,9 +77,8 @@ use usenet_ipfs_smtp::{
 /// Installs the ring crypto provider on first call so rustls can function.
 fn make_test_tls_pair() -> (Vec<u8>, TlsAcceptor, tempfile::TempDir) {
     install_crypto_provider();
-    let cert_key =
-        generate_simple_self_signed(vec!["localhost".to_string()])
-            .expect("rcgen self-signed cert generation must not fail");
+    let cert_key = generate_simple_self_signed(vec!["localhost".to_string()])
+        .expect("rcgen self-signed cert generation must not fail");
 
     let cert_pem = cert_key.cert.pem();
     let key_pem = cert_key.key_pair.serialize_pem();
@@ -92,11 +91,8 @@ fn make_test_tls_pair() -> (Vec<u8>, TlsAcceptor, tempfile::TempDir) {
     std::fs::write(&cert_path, cert_pem.as_bytes()).expect("write test cert PEM");
     std::fs::write(&key_path, key_pem.as_bytes()).expect("write test key PEM");
 
-    let acceptor = build_tls_acceptor(
-        cert_path.to_str().unwrap(),
-        key_path.to_str().unwrap(),
-    )
-    .expect("build_tls_acceptor must succeed for valid PEM cert+key");
+    let acceptor = build_tls_acceptor(cert_path.to_str().unwrap(), key_path.to_str().unwrap())
+        .expect("build_tls_acceptor must succeed for valid PEM cert+key");
 
     (cert_der, acceptor, dir)
 }
@@ -416,11 +412,8 @@ async fn plain_tcp_to_smtps_port_receives_no_smtp_greeting() {
     //       NOT an SMTP greeting starting with '2' (0x32).
     //   (c) EOF / connection reset — server drops the plain connection.
     let mut buf = [0u8; 16];
-    let result = tokio::time::timeout(
-        std::time::Duration::from_millis(500),
-        tcp.read(&mut buf),
-    )
-    .await;
+    let result =
+        tokio::time::timeout(std::time::Duration::from_millis(500), tcp.read(&mut buf)).await;
 
     match result {
         Ok(Ok(0)) => {
@@ -430,7 +423,8 @@ async fn plain_tcp_to_smtps_port_receives_no_smtp_greeting() {
             // Bytes received — must NOT be an SMTP greeting.
             let first = buf[0];
             assert_ne!(
-                first, b'2',
+                first,
+                b'2',
                 "SMTPS port must not send an SMTP '2xx' greeting to a plain TCP client; \
                  got first byte 0x{first:02x}, full received: {:?}",
                 &buf[..n]
@@ -498,7 +492,10 @@ async fn smtps_session_responds_to_ehlo() {
     let mut buf = [0u8; 512];
     let n = tls_stream.read(&mut buf).await.unwrap();
     let greeting = std::str::from_utf8(&buf[..n]).unwrap();
-    assert!(greeting.starts_with("220 "), "expected 220 greeting: {greeting:?}");
+    assert!(
+        greeting.starts_with("220 "),
+        "expected 220 greeting: {greeting:?}"
+    );
 
     // Send EHLO.
     tls_stream

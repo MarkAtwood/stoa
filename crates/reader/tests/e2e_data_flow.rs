@@ -217,9 +217,11 @@ async fn authinfo_rate_limiter_closes_after_max_failures() {
     let mut stores = ServerStores::new_mem().await;
     // Replace the empty store with one that has a known user — all wrong-password
     // checks will run real bcrypt verify (returning false) at low cost.
-    stores.credential_store = std::sync::Arc::new(CredentialStore::from_credentials(&[
-        UserCredential { username: "alice".to_string(), password: hash },
-    ]));
+    stores.credential_store =
+        std::sync::Arc::new(CredentialStore::from_credentials(&[UserCredential {
+            username: "alice".to_string(),
+            password: hash,
+        }]));
     let stores = std::sync::Arc::new(stores);
 
     // Config with auth.required=false but users=[alice] — disables dev mode so
@@ -232,7 +234,8 @@ async fn authinfo_rate_limiter_closes_after_max_failures() {
          [[auth.users]]\nusername = \"alice\"\npassword = \"placeholder\"\n\
          [tls]\n"
     );
-    let config: usenet_ipfs_reader::config::Config = toml::from_str(&toml).expect("config must parse");
+    let config: usenet_ipfs_reader::config::Config =
+        toml::from_str(&toml).expect("config must parse");
     let config = std::sync::Arc::new(config);
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -252,13 +255,19 @@ async fn authinfo_rate_limiter_closes_after_max_failures() {
     // Consume the greeting.
     let mut greeting = String::new();
     reader.read_line(&mut greeting).await.unwrap();
-    assert!(greeting.starts_with("200") || greeting.starts_with("201"), "greeting: {greeting}");
+    assert!(
+        greeting.starts_with("200") || greeting.starts_with("201"),
+        "greeting: {greeting}"
+    );
 
     // Send MAX_AUTH_FAILURES wrong passwords.  Each one should return 481.
     // The (MAX_AUTH_FAILURES)th failure should close the connection with 400.
     for attempt in 1..=MAX_AUTH_FAILURES {
         let user_resp = send_cmd(&mut write_half, &mut reader, "AUTHINFO USER alice").await;
-        assert!(user_resp.starts_with("381"), "attempt {attempt}: expected 381, got: {user_resp}");
+        assert!(
+            user_resp.starts_with("381"),
+            "attempt {attempt}: expected 381, got: {user_resp}"
+        );
 
         let pass_resp = send_cmd(&mut write_half, &mut reader, "AUTHINFO PASS wrong").await;
         if attempt < MAX_AUTH_FAILURES {

@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 use crate::jmap::types::MethodError;
 use crate::state::flags::UserFlagsStore;
 use usenet_ipfs_core::msgid_map::MsgIdMap;
-use usenet_ipfs_reader::post::ipfs_write::{IpfsBlockStore, write_article_to_ipfs};
+use usenet_ipfs_reader::post::ipfs_write::{write_article_to_ipfs, IpfsBlockStore};
 
 /// Handle Email/set — route to destroy/update/create sub-handlers.
 pub fn handle_email_set(args: Value) -> Result<Value, MethodError> {
@@ -29,9 +29,9 @@ pub fn handle_email_set(args: Value) -> Result<Value, MethodError> {
         for (id, patch) in update_map {
             // Check if patch attempts to change mailboxIds
             if patch.get("mailboxIds").is_some()
-                || patch.as_object().is_some_and(|m| {
-                    m.keys().any(|k| k.starts_with("mailboxIds/"))
-                })
+                || patch
+                    .as_object()
+                    .is_some_and(|m| m.keys().any(|k| k.starts_with("mailboxIds/")))
             {
                 not_updated.insert(
                     id.clone(),
@@ -63,7 +63,10 @@ pub async fn handle_keyword_update(
     update_map: &serde_json::Map<String, Value>,
     user_id: i64,
     flags_store: &UserFlagsStore,
-) -> (serde_json::Map<String, Value>, serde_json::Map<String, Value>) {
+) -> (
+    serde_json::Map<String, Value>,
+    serde_json::Map<String, Value>,
+) {
     let mut updated: serde_json::Map<String, Value> = serde_json::Map::new();
     let mut not_updated: serde_json::Map<String, Value> = serde_json::Map::new();
 
@@ -115,7 +118,10 @@ pub async fn handle_email_create(
     create_map: &serde_json::Map<String, Value>,
     ipfs: &dyn IpfsBlockStore,
     msgid_map: &MsgIdMap,
-) -> (serde_json::Map<String, Value>, serde_json::Map<String, Value>) {
+) -> (
+    serde_json::Map<String, Value>,
+    serde_json::Map<String, Value>,
+) {
     let mut created: serde_json::Map<String, Value> = serde_json::Map::new();
     let mut not_created: serde_json::Map<String, Value> = serde_json::Map::new();
 
@@ -251,17 +257,25 @@ mod tests {
         use crate::state::flags::UserFlagsStore;
         use multihash_codetable::{Code, MultihashDigest};
         use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-        use std::sync::atomic::{AtomicUsize, Ordering};
         use std::str::FromStr as _;
+        use std::sync::atomic::{AtomicUsize, Ordering};
 
         static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
         let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
         let url = format!("file:kw_update_test_{n}?mode=memory&cache=shared");
-        let opts = SqliteConnectOptions::from_str(&url).unwrap().create_if_missing(true);
-        let pool = SqlitePoolOptions::new().max_connections(1).connect_with(opts).await.unwrap();
+        let opts = SqliteConnectOptions::from_str(&url)
+            .unwrap()
+            .create_if_missing(true);
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(opts)
+            .await
+            .unwrap();
         crate::migrations::run_migrations(&pool).await.unwrap();
         sqlx::query("INSERT INTO users (id, username, password_hash) VALUES (1, 'alice', 'x')")
-            .execute(&pool).await.unwrap();
+            .execute(&pool)
+            .await
+            .unwrap();
         let flags_store = UserFlagsStore::new(pool);
 
         let cid = cid::Cid::new_v1(0x71, Code::Sha2_256.digest(b"test-article"));
@@ -271,10 +285,18 @@ mod tests {
         update_map.insert(cid_str.clone(), json!({"keywords": {"$seen": true}}));
 
         let (updated, not_updated) = handle_keyword_update(&update_map, 1, &flags_store).await;
-        assert!(not_updated.is_empty(), "should not have errors: {:?}", not_updated);
+        assert!(
+            not_updated.is_empty(),
+            "should not have errors: {:?}",
+            not_updated
+        );
         assert!(updated.contains_key(&cid_str));
 
-        let flags = flags_store.get_flags(1, &cid).await.unwrap().expect("must exist");
+        let flags = flags_store
+            .get_flags(1, &cid)
+            .await
+            .unwrap()
+            .expect("must exist");
         assert!(flags.seen);
     }
 
@@ -288,17 +310,22 @@ mod tests {
             .connect("sqlite::memory:")
             .await
             .unwrap();
-        usenet_ipfs_core::migrations::run_migrations(&pool).await.unwrap();
+        usenet_ipfs_core::migrations::run_migrations(&pool)
+            .await
+            .unwrap();
         let msgid_map = usenet_ipfs_core::msgid_map::MsgIdMap::new(pool);
         let ipfs = MemIpfsStore::new();
 
         let mut create_map = serde_json::Map::new();
-        create_map.insert("c1".to_string(), json!({
-            "mailboxIds": {"somemailboxid": true},
-            "from": [{"email": "alice@example.com"}],
-            "subject": "Test Create",
-            "textBody": [{"value": "Hello, world!"}]
-        }));
+        create_map.insert(
+            "c1".to_string(),
+            json!({
+                "mailboxIds": {"somemailboxid": true},
+                "from": [{"email": "alice@example.com"}],
+                "subject": "Test Create",
+                "textBody": [{"value": "Hello, world!"}]
+            }),
+        );
 
         let (created, not_created) = handle_email_create(&create_map, &ipfs, &msgid_map).await;
         assert!(not_created.is_empty(), "should succeed: {:?}", not_created);

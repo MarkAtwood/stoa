@@ -138,9 +138,18 @@ async fn from_credentials_accepts_multiple_users() {
         },
     ];
     let store = CredentialStore::from_credentials(&users);
-    assert!(store.check("user-a", "pass-a").await, "user-a must be accepted");
-    assert!(store.check("user-b", "pass-b").await, "user-b must be accepted");
-    assert!(!store.check("user-a", "pass-b").await, "cross-user password must be rejected");
+    assert!(
+        store.check("user-a", "pass-a").await,
+        "user-a must be accepted"
+    );
+    assert!(
+        store.check("user-b", "pass-b").await,
+        "user-b must be accepted"
+    );
+    assert!(
+        !store.check("user-a", "pass-b").await,
+        "cross-user password must be rejected"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -151,7 +160,10 @@ async fn from_credentials_accepts_multiple_users() {
 fn from_file_loads_valid_credentials() {
     let hash = bcrypt::hash("filepass", 4).expect("bcrypt::hash");
     // Independently confirm hash validity.
-    assert!(bcrypt::verify("filepass", &hash).unwrap_or(false), "oracle check");
+    assert!(
+        bcrypt::verify("filepass", &hash).unwrap_or(false),
+        "oracle check"
+    );
 
     let contents = format!("# comment line\nbob:{hash}\n\nalice:dummyhash\n");
     let tmp = tempfile::NamedTempFile::new().expect("tempfile");
@@ -168,7 +180,10 @@ fn from_file_loads_valid_credentials() {
 #[test]
 fn from_file_returns_err_for_missing_file() {
     let result = CredentialStore::from_file("/nonexistent/path/__auth_test_creds.txt");
-    assert!(result.is_err(), "from_file must return Err for a missing file");
+    assert!(
+        result.is_err(),
+        "from_file must return Err for a missing file"
+    );
 }
 
 #[test]
@@ -189,7 +204,10 @@ fn from_file_skips_blank_lines_and_comments() {
     let tmp = tempfile::NamedTempFile::new().expect("tempfile");
     std::fs::write(tmp.path(), &contents).expect("write");
     let result = CredentialStore::from_file(tmp.path().to_str().unwrap());
-    assert!(result.is_ok(), "blank lines and comments must not cause an error");
+    assert!(
+        result.is_ok(),
+        "blank lines and comments must not cause an error"
+    );
 }
 
 #[test]
@@ -201,7 +219,10 @@ fn from_file_last_duplicate_wins() {
     std::fs::write(tmp.path(), &contents).expect("write");
     // from_file must succeed (duplicates allowed, last wins).
     let result = CredentialStore::from_file(tmp.path().to_str().unwrap());
-    assert!(result.is_ok(), "duplicate usernames must not cause an error; last wins");
+    assert!(
+        result.is_ok(),
+        "duplicate usernames must not cause an error; last wins"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -246,7 +267,10 @@ async fn merge_from_file_overrides_inline_credential() {
 fn merge_from_file_returns_err_for_missing_file() {
     let mut store = CredentialStore::empty();
     let result = store.merge_from_file("/nonexistent/path/__auth_test_merge.txt");
-    assert!(result.is_err(), "merge_from_file must return Err for a missing file");
+    assert!(
+        result.is_err(),
+        "merge_from_file must return Err for a missing file"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -273,7 +297,9 @@ async fn unknown_user_check_takes_bcrypt_time_not_microseconds() {
     }]);
 
     let before = Instant::now();
-    let result = store.check("unknown-user-does-not-exist", "any-password").await;
+    let result = store
+        .check("unknown-user-does-not-exist", "any-password")
+        .await;
     let elapsed = before.elapsed();
 
     assert!(!result, "unknown user must be rejected");
@@ -333,7 +359,10 @@ fn auth_config_struct_is_from_auth_crate() {
         client_certs: vec![],
         trusted_issuers: vec![],
     };
-    assert!(config.is_dev_mode(), "empty AuthConfig with required=false must be dev mode");
+    assert!(
+        config.is_dev_mode(),
+        "empty AuthConfig with required=false must be dev mode"
+    );
 }
 
 #[test]
@@ -360,7 +389,10 @@ fn auth_config_with_users_is_not_dev_mode() {
         client_certs: vec![],
         trusted_issuers: vec![],
     };
-    assert!(!config.is_dev_mode(), "AuthConfig with users must not be dev mode");
+    assert!(
+        !config.is_dev_mode(),
+        "AuthConfig with users must not be dev mode"
+    );
 }
 
 #[test]

@@ -44,10 +44,7 @@ pub async fn handle_email_get(
     })
 }
 
-async fn fetch_email(
-    id: &str,
-    ipfs: &dyn IpfsBlockStore,
-) -> Result<Option<Email>, String> {
+async fn fetch_email(id: &str, ipfs: &dyn IpfsBlockStore) -> Result<Option<Email>, String> {
     // Parse CID.
     let cid = Cid::try_from(id).map_err(|e| format!("invalid CID: {e}"))?;
 
@@ -65,8 +62,8 @@ async fn fetch_email(
     };
 
     // Decode DAG-CBOR to ArticleRootNode.
-    let root: ArticleRootNode = serde_ipld_dagcbor::from_slice(&raw)
-        .map_err(|e| format!("CBOR decode error: {e}"))?;
+    let root: ArticleRootNode =
+        serde_ipld_dagcbor::from_slice(&raw).map_err(|e| format!("CBOR decode error: {e}"))?;
 
     // Map to Email (no header_map in v1 — DAG-CBOR of root doesn't include headers inline).
     let email = Email::from_root_node(&cid, &root, None, HashMap::new(), None);
@@ -88,7 +85,9 @@ mod tests {
 
     impl MemIpfs {
         fn new() -> Self {
-            Self { blocks: tokio::sync::RwLock::new(std::collections::HashMap::new()) }
+            Self {
+                blocks: tokio::sync::RwLock::new(std::collections::HashMap::new()),
+            }
         }
     }
 
@@ -97,11 +96,22 @@ mod tests {
         async fn put_raw_block(&self, data: &[u8]) -> Result<Cid, IpfsWriteError> {
             let digest = Code::Sha2_256.digest(data);
             let cid = Cid::new_v1(0x71, digest);
-            self.blocks.write().await.insert(cid.to_bytes(), data.to_vec());
+            self.blocks
+                .write()
+                .await
+                .insert(cid.to_bytes(), data.to_vec());
             Ok(cid)
         }
+        async fn put_block(&self, cid: Cid, data: Vec<u8>) -> Result<(), IpfsWriteError> {
+            self.blocks.write().await.insert(cid.to_bytes(), data);
+            Ok(())
+        }
         async fn get_raw_block(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError> {
-            self.blocks.read().await.get(&cid.to_bytes()).cloned()
+            self.blocks
+                .read()
+                .await
+                .get(&cid.to_bytes())
+                .cloned()
                 .ok_or_else(|| IpfsWriteError::NotFound(cid.to_string()))
         }
     }

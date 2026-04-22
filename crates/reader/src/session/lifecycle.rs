@@ -7,10 +7,12 @@ use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader
 use tokio::net::TcpStream;
 use tracing::{debug, info, warn};
 
+use usenet_ipfs_core::ArticleRootNode;
+
 use crate::{
     config::Config,
     post::{
-        ipfs_write::write_article_to_ipfs,
+        ipfs_write::{write_ipld_article_to_ipfs, IpfsBlockStore},
         log_append::append_to_groups,
         pipeline::check_duplicate_msgid,
         sign::{sign_article, verify_article_sig},
@@ -19,6 +21,7 @@ use crate::{
         command::{parse_command, ArticleRange, ArticleRef, Command, ListSubcommand, OverArg},
         commands::{
             fetch::{article_response, xcid_response, ArticleContent},
+            list::GroupInfo,
             over::over_response,
             post::{complete_post, read_dot_terminated, DEFAULT_MAX_ARTICLE_BYTES},
         },
@@ -83,6 +86,31 @@ pub async fn run_session(
     }
 }
 
+/// Populate `ctx.known_groups` from the article_numbers store.
+///
+/// Called once at the start of each session so that GROUP and LIST commands
+/// can return 411 for newsgroups not currently carried by this server.
+/// Groups that have at least one article are considered "carried".
+async fn load_known_groups(stores: &ServerStores, ctx: &mut SessionContext) {
+    match stores.article_numbers.list_groups().await {
+        Ok(groups) => {
+            ctx.known_groups = groups
+                .into_iter()
+                .map(|(name, low, high)| GroupInfo {
+                    name,
+                    low,
+                    high,
+                    posting_allowed: true,
+                    description: String::new(),
+                })
+                .collect();
+        }
+        Err(e) => {
+            warn!("load_known_groups: article_numbers.list_groups failed: {e}");
+        }
+    }
+}
+
 /// Run a plain-text NNTP session (port 119, no TLS).
 ///
 /// AUTHINFO returns 483 if `auth.required = true` — callers must connect
@@ -99,6 +127,7 @@ async fn run_plain_session(
     let auth_required = config.auth.required;
     let posting_allowed = true;
     let mut ctx = SessionContext::new(peer_addr, auth_required, posting_allowed, false);
+    load_known_groups(&stores, &mut ctx).await;
 
     let (read_half, mut write_half) = stream.into_split();
     let mut reader = BufReader::new(read_half);
@@ -118,7 +147,15 @@ async fn run_plain_session(
         return;
     }
 
-    run_command_loop(&mut reader, &mut write_half, &mut ctx, peer_addr, config, &stores).await;
+    run_command_loop(
+        &mut reader,
+        &mut write_half,
+        &mut ctx,
+        peer_addr,
+        config,
+        &stores,
+    )
+    .await;
 
     let elapsed = start.elapsed();
     info!(peer = %peer_addr, elapsed_ms = elapsed.as_millis(), "plain session ended");
@@ -250,6 +287,16 @@ async fn run_command_loop<R, W>(
         }
 
         // AUTHINFO PASS: async bcrypt credential check via CredentialStore.
+        // RFC 3977 §7.1.1 / RFC 4643: if auth.required and TLS not active, reject 483.
+        if let Command::AuthinfoPass(_) = cmd {
+            if config.auth.required && !ctx.tls_active {
+                let resp = Response::new(483, "Encryption required for authentication");
+                if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                    return;
+                }
+                continue;
+            }
+        }
         if let Command::AuthinfoPass(ref password) = cmd {
             let username = match ctx.pending_auth_user.take() {
                 Some(u) => u,
@@ -298,7 +345,14 @@ async fn run_command_loop<R, W>(
             .unwrap_or("UNKNOWN")
             .to_uppercase();
         let cmd_start = std::time::Instant::now();
-        let resp = dispatch(ctx, cmd, &config.auth, &stores.client_cert_store, &stores.trusted_issuer_store, None);
+        let resp = dispatch(
+            ctx,
+            cmd,
+            &config.auth,
+            &stores.client_cert_store,
+            &stores.trusted_issuer_store,
+            None,
+        );
         crate::metrics::NNTP_COMMAND_DURATION_SECONDS
             .with_label_values(&[cmd_label.as_str()])
             .observe(cmd_start.elapsed().as_secs_f64());
@@ -320,7 +374,11 @@ async fn run_command_loop<R, W>(
                     // Article exceeded the size limit.  The stream was drained to
                     // the dot-terminator, so the connection is still valid.
                     warn!(peer = %peer_addr, "post rejected: article too large");
-                    if writer.write_all(b"441 Article too large\r\n").await.is_err() {
+                    if writer
+                        .write_all(b"441 Article too large\r\n")
+                        .await
+                        .is_err()
+                    {
                         return;
                     }
                     continue;
@@ -370,6 +428,7 @@ async fn run_session_io<S>(
     let mut ctx = SessionContext::new(peer_addr, auth_required, posting_allowed, is_tls);
     ctx.client_cert_fingerprint = client_cert_fingerprint;
     ctx.client_cert_der = client_cert_der;
+    load_known_groups(&stores, &mut ctx).await;
 
     let (reader, mut writer) = tokio::io::split(stream);
     let mut reader = BufReader::new(reader);
@@ -387,7 +446,15 @@ async fn run_session_io<S>(
         return;
     }
 
-    run_command_loop(&mut reader, &mut writer, &mut ctx, peer_addr, config, &stores).await;
+    run_command_loop(
+        &mut reader,
+        &mut writer,
+        &mut ctx,
+        peer_addr,
+        config,
+        &stores,
+    )
+    .await;
 
     let elapsed = start.elapsed();
     info!(peer = %peer_addr, elapsed_ms = elapsed.as_millis(), "session ended");
@@ -399,8 +466,11 @@ async fn run_session_io<S>(
 /// 1. Validate headers via `complete_post` (sync).
 /// 2. Check for duplicate message-id.
 /// 3. Sign the article with the operator key.
-/// 4. Write signed bytes to IPFS and record in msgid_map.
-/// 5. Append to group logs and assign local article numbers.
+/// 4. Generate HLC timestamps (one per destination group).
+/// 5. Write signed bytes to IPFS as an IPLD block set (DAG-CBOR root, 0x71)
+///    and record the msgid → root CID mapping.
+/// 6. Append to group logs and assign local article numbers.
+/// 7. Index overview fields.
 ///
 /// Returns 240 on success or a 441 error response on failure.
 async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Response {
@@ -426,22 +496,7 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
     // canonical bytes inside append_to_groups, where parent CIDs are known.
     let (signed_bytes, _) = sign_article(&stores.signing_key, article_bytes);
 
-    // Step 4: Write to IPFS and record msgid → CID.
-    let cid = match write_article_to_ipfs(
-        stores.ipfs_store.as_ref(),
-        &stores.msgid_map,
-        &signed_bytes,
-        &message_id,
-    )
-    .await
-    {
-        Ok(cid) => cid,
-        Err(resp) => return resp,
-    };
-
-    // Step 5: Append to group logs and assign article numbers.
-    //
-    // Generate HLC timestamps under the clock mutex, then release the mutex
+    // Step 4: Generate HLC timestamps under the clock mutex, then release
     // before any async I/O so concurrent POSTs are not serialised by it.
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -454,6 +509,27 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
             .map(|_| clock.send(now_ms).wall_ms)
             .collect()
     };
+    // Use the primary HLC timestamp for the IPLD root node metadata.
+    let primary_hlc = hlc_timestamps.first().copied().unwrap_or(now_ms);
+    let newsgroups_str: Vec<String> = newsgroups.iter().map(|g| g.as_str().to_owned()).collect();
+
+    // Step 5: Write to IPFS as a proper IPLD block set (root CID codec 0x71)
+    // and record msgid → root CID.
+    let cid = match write_ipld_article_to_ipfs(
+        stores.ipfs_store.as_ref(),
+        &stores.msgid_map,
+        &signed_bytes,
+        &message_id,
+        newsgroups_str,
+        primary_hlc,
+    )
+    .await
+    {
+        Ok(cid) => cid,
+        Err(resp) => return resp,
+    };
+
+    // Step 6: Append to group logs and assign article numbers.
     let append_result = match append_to_groups(
         stores.log_storage.as_ref(),
         &stores.article_numbers,
@@ -468,7 +544,7 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
         Err(resp) => return resp,
     };
 
-    // Step 6: Index overview fields for each assigned (group, article_number).
+    // Step 7: Index overview fields for each assigned (group, article_number).
     let (header_bytes, body_bytes) = split_article(&signed_bytes);
     let mut overview = extract_overview(&header_bytes, &body_bytes);
     for (group, article_number) in &append_result.assignments {
@@ -479,6 +555,36 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
     }
 
     Response::new(240, "Article received OK")
+}
+
+/// Reconstruct wire-format article bytes from an IPLD DAG-CBOR root CID.
+///
+/// Fetches the root block (codec 0x71, DAG-CBOR `ArticleRootNode`), then
+/// fetches the header and body sub-blocks referenced by the root, and
+/// concatenates them as `header_bytes + "\r\n\r\n" + body_bytes`.
+async fn fetch_article_wire_bytes(
+    ipfs_store: &dyn IpfsBlockStore,
+    root_cid: &Cid,
+) -> Result<Vec<u8>, String> {
+    let root_bytes = ipfs_store
+        .get_raw_block(root_cid)
+        .await
+        .map_err(|e| format!("IPFS fetch root block {root_cid}: {e:?}"))?;
+    let root: ArticleRootNode = serde_ipld_dagcbor::from_slice(&root_bytes)
+        .map_err(|e| format!("DAG-CBOR decode ArticleRootNode from {root_cid}: {e}"))?;
+    let header_bytes = ipfs_store
+        .get_raw_block(&root.header_cid)
+        .await
+        .map_err(|e| format!("IPFS fetch header block {}: {e:?}", root.header_cid))?;
+    let body_bytes = ipfs_store
+        .get_raw_block(&root.body_cid)
+        .await
+        .map_err(|e| format!("IPFS fetch body block {}: {e:?}", root.body_cid))?;
+    let mut wire = Vec::with_capacity(header_bytes.len() + 4 + body_bytes.len());
+    wire.extend_from_slice(&header_bytes);
+    wire.extend_from_slice(b"\r\n\r\n");
+    wire.extend_from_slice(&body_bytes);
+    Ok(wire)
 }
 
 /// Look up an article by Message-ID from stores and return a 220/430 response.
@@ -492,16 +598,16 @@ async fn lookup_article_by_msgid(stores: &ServerStores, msgid: &str) -> Response
         }
     };
 
-    let raw_bytes = match stores.ipfs_store.get_raw_block(&cid).await {
+    let wire_bytes = match fetch_article_wire_bytes(stores.ipfs_store.as_ref(), &cid).await {
         Ok(b) => b,
         Err(e) => {
-            warn!("IPFS get_raw_block error for cid {cid}: {e}");
+            warn!("fetch_article_wire_bytes error for cid {cid}: {e}");
             return Response::program_fault();
         }
     };
 
-    // Split the stored bytes into header and body sections.
-    let (header_bytes, body_bytes) = split_article(&raw_bytes);
+    // Split the wire bytes into header and body sections.
+    let (header_bytes, body_bytes) = split_article(&wire_bytes);
 
     let content = ArticleContent {
         article_number: 0,
@@ -559,8 +665,7 @@ fn extract_post_metadata(
         }
     }
 
-    let message_id =
-        message_id.ok_or_else(|| Response::new(441, "Missing Message-ID header"))?;
+    let message_id = message_id.ok_or_else(|| Response::new(441, "Missing Message-ID header"))?;
     let newsgroups_val =
         newsgroups_val.ok_or_else(|| Response::new(441, "Missing Newsgroups header"))?;
 
@@ -678,15 +783,16 @@ async fn handle_xverify(
     }
 
     if verify_sig {
-        let raw_bytes = match stores.ipfs_store.get_raw_block(&actual_cid).await {
-            Ok(b) => b,
-            Err(e) => {
-                warn!("XVERIFY IPFS get error: {e}");
-                return Response::program_fault();
-            }
-        };
+        let wire_bytes =
+            match fetch_article_wire_bytes(stores.ipfs_store.as_ref(), &actual_cid).await {
+                Ok(b) => b,
+                Err(e) => {
+                    warn!("XVERIFY fetch wire bytes error: {e}");
+                    return Response::program_fault();
+                }
+            };
         let pubkey = stores.signing_key.verifying_key();
-        if verify_article_sig(&pubkey, &raw_bytes).is_err() {
+        if verify_article_sig(&pubkey, &wire_bytes).is_err() {
             return Response::new(542, "Signature verification failed");
         }
     }
@@ -698,9 +804,10 @@ async fn handle_xverify(
 
 /// GROUP groupname: select a group and return live article count and range.
 ///
-/// Returns 411 for an invalid group name. Returns 211 with live (low, high,
-/// count) from the article_numbers store for any valid name (count=0 for
-/// groups that have no articles yet).
+/// Returns 411 for an invalid group name or for a group not carried by this
+/// server (RFC 3977 §6.1.1). A group is considered carried if it has at least
+/// one article in the article_numbers store. Returns 211 with live (low, high,
+/// count) for carried groups.
 async fn handle_group_live(
     stores: &ServerStores,
     ctx: &mut SessionContext,
@@ -710,6 +817,19 @@ async fn handle_group_live(
         Ok(g) => g,
         Err(_) => return Response::no_such_newsgroup(),
     };
+    // RFC 3977 §6.1.1: return 411 if the group is not served by this server.
+    // Query list_groups() live so that articles posted during the session are
+    // immediately visible (no stale session-start cache).
+    let carried = match stores.article_numbers.list_groups().await {
+        Ok(groups) => groups.into_iter().any(|(n, _, _)| n == name),
+        Err(e) => {
+            warn!("handle_group_live: list_groups error for {name}: {e}");
+            return Response::program_fault();
+        }
+    };
+    if !carried {
+        return Response::no_such_newsgroup();
+    }
     let (low, high) = match stores.article_numbers.group_range(name).await {
         Ok(r) => r,
         Err(e) => {
@@ -810,11 +930,11 @@ async fn lookup_article_by_cid(stores: &ServerStores, cid_str: &str) -> Response
         Ok(c) => c,
         Err(_) => return Response::syntax_error(),
     };
-    let raw_bytes = match stores.ipfs_store.get_raw_block(&cid).await {
+    let wire_bytes = match fetch_article_wire_bytes(stores.ipfs_store.as_ref(), &cid).await {
         Ok(b) => b,
         Err(_) => return Response::no_article_with_message_id(),
     };
-    let (header_bytes, body_bytes) = split_article(&raw_bytes);
+    let (header_bytes, body_bytes) = split_article(&wire_bytes);
     let headers_str = String::from_utf8_lossy(&header_bytes);
     let message_id = extract_header_value(&headers_str, "Message-ID").unwrap_or_default();
     let content = ArticleContent {
@@ -900,8 +1020,7 @@ mod tests {
     #[tokio::test]
     async fn post_pipeline_log_entry_signature_verifies() {
         let stores = ServerStores::new_mem().await;
-        let article =
-            minimal_article("comp.test", "Signature Verify", "<sigverify@test.example>");
+        let article = minimal_article("comp.test", "Signature Verify", "<sigverify@test.example>");
 
         let resp = run_post_pipeline(&article, &stores).await;
         assert_eq!(

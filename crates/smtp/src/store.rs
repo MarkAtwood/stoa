@@ -126,7 +126,10 @@ pub async fn list_scripts(
     .bind(username)
     .fetch_all(pool)
     .await?;
-    Ok(rows.into_iter().map(|(name, active)| (name, active != 0)).collect())
+    Ok(rows
+        .into_iter()
+        .map(|(name, active)| (name, active != 0))
+        .collect())
 }
 
 /// Fetch the raw bytes of a named script for `username`, or `None` if not found.
@@ -150,13 +153,12 @@ pub async fn delete_script(
     username: &str,
     script_name: &str,
 ) -> Result<bool, sqlx::Error> {
-    let result = sqlx::query(
-        "DELETE FROM user_sieve_scripts WHERE username = ? AND script_name = ?",
-    )
-    .bind(username)
-    .bind(script_name)
-    .execute(pool)
-    .await?;
+    let result =
+        sqlx::query("DELETE FROM user_sieve_scripts WHERE username = ? AND script_name = ?")
+            .bind(username)
+            .bind(script_name)
+            .execute(pool)
+            .await?;
     Ok(result.rows_affected() > 0)
 }
 
@@ -183,12 +185,10 @@ pub async fn set_active(
     }
 
     // Deactivate all scripts for this user, then activate the target.
-    sqlx::query(
-        "UPDATE user_sieve_scripts SET active = 0 WHERE username = ?",
-    )
-    .bind(username)
-    .execute(&mut *tx)
-    .await?;
+    sqlx::query("UPDATE user_sieve_scripts SET active = 0 WHERE username = ?")
+        .bind(username)
+        .execute(&mut *tx)
+        .await?;
 
     sqlx::query(
         "UPDATE user_sieve_scripts SET active = 1, updated_at = datetime('now')
@@ -257,9 +257,16 @@ mod tests {
     async fn open_memory_and_deliver() {
         let pool = open(":memory:").await.expect("open");
 
-        deliver(&pool, "alice", "INBOX", "sender@example.com", "alice@example.com", b"hello")
-            .await
-            .expect("deliver");
+        deliver(
+            &pool,
+            "alice",
+            "INBOX",
+            "sender@example.com",
+            "alice@example.com",
+            b"hello",
+        )
+        .await
+        .expect("deliver");
 
         let count = count_messages(&pool, "alice", "INBOX").await;
         assert_eq!(count, 1);

@@ -33,12 +33,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use usenet_ipfs_auth::TrustedIssuerStore;
 use usenet_ipfs_reader::{
     config::{AuthConfig, ClientCertEntry},
-    session::{
-        command::Command,
-        context::SessionContext,
-        dispatch::dispatch,
-        state::SessionState,
-    },
+    session::{command::Command, context::SessionContext, dispatch::dispatch, state::SessionState},
     store::client_cert_store::ClientCertStore,
 };
 
@@ -126,8 +121,7 @@ fn cert_auth_matching_username_returns_281() {
         None,
     );
     assert_eq!(
-        resp.code,
-        281,
+        resp.code, 281,
         "AUTHINFO USER alice with matching cert fingerprint must return 281 (RFC 4643 §2)"
     );
 }
@@ -194,8 +188,7 @@ fn cert_auth_case_insensitive_fingerprint_in_context() {
         None,
     );
     assert_eq!(
-        resp.code,
-        281,
+        resp.code, 281,
         "cert bypass must work when context fingerprint is uppercase"
     );
 }
@@ -223,8 +216,7 @@ fn cert_auth_username_mismatch_does_not_bypass() {
         None,
     );
     assert_ne!(
-        resp.code,
-        281,
+        resp.code, 281,
         "AUTHINFO USER bob with alice's cert MUST NOT return 281 — username mismatch"
     );
     assert!(
@@ -298,8 +290,7 @@ fn no_cert_authinfo_user_returns_381() {
         None,
     );
     assert_eq!(
-        resp.code,
-        381,
+        resp.code, 381,
         "AUTHINFO USER without a client cert must return 381 (need password)"
     );
 }
@@ -347,8 +338,7 @@ fn cert_fingerprint_not_in_store_returns_381() {
         None,
     );
     assert_ne!(
-        resp.code,
-        281,
+        resp.code, 281,
         "AUTHINFO USER with an unconfigured cert fingerprint must not return 281"
     );
 }
@@ -369,13 +359,11 @@ fn empty_cert_store_disables_cert_bypass() {
         None,
     );
     assert_ne!(
-        resp.code,
-        281,
+        resp.code, 281,
         "empty ClientCertStore must not bypass auth even when a cert fingerprint is present"
     );
     assert_eq!(
-        resp.code,
-        381,
+        resp.code, 381,
         "empty ClientCertStore must return 381 (need password)"
     );
 }
@@ -409,8 +397,7 @@ fn cert_bypass_does_not_apply_on_plain_connection_with_required_auth() {
         None,
     );
     assert_eq!(
-        resp.code,
-        483,
+        resp.code, 483,
         "plain connection with auth.required=true must return 483, not 281"
     );
 }

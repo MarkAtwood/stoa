@@ -1,18 +1,14 @@
-use std::{
-    net::SocketAddr,
-    sync::Arc,
-    time::Instant,
-};
+use std::{net::SocketAddr, sync::Arc, time::Instant};
 
 use axum::{
-    Json, Router,
     extract::{Extension, Request, State},
-    http::{StatusCode, header},
+    http::{header, StatusCode},
     middleware::Next,
     response::Response,
     routing::{delete, get, post},
+    Json, Router,
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use tokio::net::TcpListener;
 use usenet_ipfs_auth::{AuthConfig, CredentialStore};
 use usenet_ipfs_reader::{
@@ -95,11 +91,7 @@ async fn basic_auth_middleware(
     let credentials: Option<(String, String)> = auth_header
         .as_deref()
         .and_then(|h: &str| h.strip_prefix("Basic "))
-        .and_then(|encoded: &str| {
-            data_encoding::BASE64
-                .decode(encoded.as_bytes())
-                .ok()
-        })
+        .and_then(|encoded: &str| data_encoding::BASE64.decode(encoded.as_bytes()).ok())
         .and_then(|decoded: Vec<u8>| String::from_utf8(decoded).ok())
         .and_then(|s: String| {
             let mut parts = s.splitn(2, ':');
@@ -177,9 +169,7 @@ async fn well_known_jmap() -> impl axum::response::IntoResponse {
     )
 }
 
-async fn jmap_session_handler(
-    user: Option<Extension<AuthenticatedUser>>,
-) -> Json<Value> {
+async fn jmap_session_handler(user: Option<Extension<AuthenticatedUser>>) -> Json<Value> {
     let username = user
         .map(|Extension(u)| u.0)
         .unwrap_or_else(|| "anonymous".to_string());
@@ -210,7 +200,11 @@ async fn jmap_api_handler(
         } else {
             method.clone()
         };
-        method_responses.push(crate::jmap::types::Invocation(response_name, result, call_id));
+        method_responses.push(crate::jmap::types::Invocation(
+            response_name,
+            result,
+            call_id,
+        ));
     }
 
     let session_state = jmap
@@ -225,7 +219,10 @@ async fn jmap_api_handler(
         created_ids: None,
     };
 
-    (StatusCode::OK, Json(serde_json::to_value(response).unwrap()))
+    (
+        StatusCode::OK,
+        Json(serde_json::to_value(response).unwrap()),
+    )
 }
 
 async fn route_method(method: &str, args: Value, jmap: &JmapStores) -> Value {
@@ -244,10 +241,8 @@ async fn route_method(method: &str, args: Value, jmap: &JmapStores) -> Value {
                     is_subscribed: false,
                 })
                 .collect();
-            let ids_filter: Option<Vec<String>> = args
-                .get("ids")
-                .and_then(|v| v.as_array())
-                .map(|arr| {
+            let ids_filter: Option<Vec<String>> =
+                args.get("ids").and_then(|v| v.as_array()).map(|arr| {
                     arr.iter()
                         .filter_map(|v| v.as_str().map(str::to_string))
                         .collect()
@@ -489,8 +484,14 @@ mod tests {
             .unwrap()
             .to_str()
             .unwrap();
-        assert!(www_auth.contains("Basic"), "WWW-Authenticate must advertise Basic");
-        assert!(www_auth.contains("usenet-ipfs"), "realm must be usenet-ipfs");
+        assert!(
+            www_auth.contains("Basic"),
+            "WWW-Authenticate must advertise Basic"
+        );
+        assert!(
+            www_auth.contains("usenet-ipfs"),
+            "realm must be usenet-ipfs"
+        );
     }
 
     #[tokio::test]
@@ -546,7 +547,9 @@ mod tests {
         let addr = spawn_server(dev_state().await).await;
 
         let resp = reqwest::Client::new()
-            .get(format!("http://{addr}/jmap/download/acc1/not-a-cid/file.txt"))
+            .get(format!(
+                "http://{addr}/jmap/download/acc1/not-a-cid/file.txt"
+            ))
             .send()
             .await
             .expect("request must succeed");
@@ -560,7 +563,9 @@ mod tests {
         let valid_cid = "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi";
 
         let resp = reqwest::Client::new()
-            .get(format!("http://{addr}/jmap/download/u_alice/{valid_cid}/msg.eml"))
+            .get(format!(
+                "http://{addr}/jmap/download/u_alice/{valid_cid}/msg.eml"
+            ))
             .send()
             .await
             .expect("request must succeed");

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use tracing::{info, warn};
@@ -85,26 +85,24 @@ impl NntpQueue {
             let path = entry.path();
             if path.extension().is_some_and(|e| e == "msg") {
                 match tokio::fs::read(&path).await {
-                    Ok(bytes) => {
-                        match nntp_client::post_article(nntp_addr, &bytes).await {
-                            Ok(()) => {
-                                if let Err(e) = tokio::fs::remove_file(&path).await {
-                                    warn!(
-                                        path = %path.display(),
-                                        "nntp queue: failed to remove delivered file: {e}"
-                                    );
-                                } else {
-                                    info!("nntp queue: article delivered");
-                                }
-                            }
-                            Err(e) => {
+                    Ok(bytes) => match nntp_client::post_article(nntp_addr, &bytes).await {
+                        Ok(()) => {
+                            if let Err(e) = tokio::fs::remove_file(&path).await {
                                 warn!(
                                     path = %path.display(),
-                                    "nntp queue: delivery failed, will retry: {e}"
+                                    "nntp queue: failed to remove delivered file: {e}"
                                 );
+                            } else {
+                                info!("nntp queue: article delivered");
                             }
                         }
-                    }
+                        Err(e) => {
+                            warn!(
+                                path = %path.display(),
+                                "nntp queue: delivery failed, will retry: {e}"
+                            );
+                        }
+                    },
                     Err(e) => {
                         warn!(path = %path.display(), "nntp queue: failed to read file: {e}");
                     }
@@ -168,6 +166,9 @@ mod tests {
         let parent = tempfile::tempdir().expect("tempdir");
         let queue_dir = parent.path().join("sub").join("queue");
         NntpQueue::new(&queue_dir).expect("NntpQueue::new should create dir");
-        assert!(queue_dir.is_dir(), "queue_dir should exist after NntpQueue::new");
+        assert!(
+            queue_dir.is_dir(),
+            "queue_dir should exist after NntpQueue::new"
+        );
     }
 }

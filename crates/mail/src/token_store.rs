@@ -54,8 +54,7 @@ impl TokenStore {
             .expect("system time before UNIX epoch")
             .as_secs() as i64;
 
-        let expires_at: Option<i64> =
-            expires_in_days.map(|days| now_secs + days * 86_400);
+        let expires_at: Option<i64> = expires_in_days.map(|days| now_secs + days * 86_400);
 
         sqlx::query(
             "INSERT INTO bearer_tokens (id, token_hash, username, label, created_at, expires_at)
@@ -132,13 +131,11 @@ impl TokenStore {
     /// Returns `true` if a row was deleted, `false` if not found or not owned
     /// by `username`.
     pub async fn revoke(&self, username: &str, token_id: &str) -> Result<bool, sqlx::Error> {
-        let result = sqlx::query(
-            "DELETE FROM bearer_tokens WHERE id = ? AND username = ?",
-        )
-        .bind(token_id)
-        .bind(username)
-        .execute(self.pool.as_ref())
-        .await?;
+        let result = sqlx::query("DELETE FROM bearer_tokens WHERE id = ? AND username = ?")
+            .bind(token_id)
+            .bind(username)
+            .execute(self.pool.as_ref())
+            .await?;
 
         Ok(result.rows_affected() > 0)
     }
@@ -164,7 +161,9 @@ mod tests {
             .connect_with(opts)
             .await
             .expect("pool");
-        crate::migrations::run_migrations(&pool).await.expect("migrations");
+        crate::migrations::run_migrations(&pool)
+            .await
+            .expect("migrations");
         TokenStore::new(Arc::new(pool))
     }
 
@@ -207,7 +206,10 @@ mod tests {
     #[tokio::test]
     async fn list_tokens_excludes_hash() {
         let store = make_store().await;
-        let (_raw1, id1, _) = store.issue("alice", Some("cli".to_string()), None).await.unwrap();
+        let (_raw1, id1, _) = store
+            .issue("alice", Some("cli".to_string()), None)
+            .await
+            .unwrap();
         let (_raw2, id2, _) = store.issue("alice", None, None).await.unwrap();
         let tokens = store.list("alice").await.unwrap();
         assert_eq!(tokens.len(), 2);

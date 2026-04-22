@@ -4,12 +4,8 @@ use tokio::net::TcpListener;
 use tracing::{error, info};
 
 use usenet_ipfs_smtp::{
-    config::Config,
-    queue::NntpQueue,
-    server::run_server,
-    session::new_sieve_cache,
-    sieve_admin, store,
-    tls::build_tls_acceptor,
+    config::Config, queue::NntpQueue, server::run_server, session::new_sieve_cache, sieve_admin,
+    store, tls::build_tls_acceptor,
 };
 
 fn parse_args() -> PathBuf {
@@ -125,7 +121,10 @@ async fn main() {
     let nntp_queue = match NntpQueue::new(&config.delivery.queue_dir) {
         Ok(q) => q,
         Err(e) => {
-            error!("failed to create NNTP queue dir {}: {e}", config.delivery.queue_dir);
+            error!(
+                "failed to create NNTP queue dir {}: {e}",
+                config.delivery.queue_dir
+            );
             std::process::exit(1);
         }
     };
@@ -135,13 +134,19 @@ async fn main() {
     let config = Arc::new(config);
 
     // Create the Sieve script cache (shared by sessions and the admin API).
-    let sieve_cache = if pool.is_some() { Some(new_sieve_cache()) } else { None };
+    let sieve_cache = if pool.is_some() {
+        Some(new_sieve_cache())
+    } else {
+        None
+    };
 
     // Start the Sieve admin HTTP API when local users are configured.
     if let Some(ref admin_pool) = pool {
         let admin_config = Arc::clone(&config);
         let admin_pool = admin_pool.clone();
-        let admin_cache = sieve_cache.clone().expect("cache is Some when pool is Some");
+        let admin_cache = sieve_cache
+            .clone()
+            .expect("cache is Some when pool is Some");
         if let Err(e) = sieve_admin::start_sieve_admin_server(admin_config, admin_pool, admin_cache)
         {
             eprintln!("error: sieve admin server: {e}");

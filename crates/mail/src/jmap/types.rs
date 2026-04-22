@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
 
 /// A single method call in a JMAP Request.
 /// Tuple: (method_name, arguments, call_id)
@@ -65,19 +65,31 @@ pub struct MethodError {
 
 impl MethodError {
     pub fn unknown_method() -> Self {
-        Self { error_type: ErrorType::Other, description: Some("unknownMethod".to_string()) }
+        Self {
+            error_type: ErrorType::Other,
+            description: Some("unknownMethod".to_string()),
+        }
     }
 
     pub fn invalid_arguments(description: impl Into<String>) -> Self {
-        Self { error_type: ErrorType::InvalidArguments, description: Some(description.into()) }
+        Self {
+            error_type: ErrorType::InvalidArguments,
+            description: Some(description.into()),
+        }
     }
 
     pub fn not_found() -> Self {
-        Self { error_type: ErrorType::NotFound, description: None }
+        Self {
+            error_type: ErrorType::NotFound,
+            description: None,
+        }
     }
 
     pub fn forbidden() -> Self {
-        Self { error_type: ErrorType::Forbidden, description: None }
+        Self {
+            error_type: ErrorType::Forbidden,
+            description: None,
+        }
     }
 }
 
@@ -123,12 +135,18 @@ mod tests {
             created_ids: None,
         };
         let json = serde_json::to_string(&resp).unwrap();
-        assert!(!json.contains("createdIds"), "null createdIds must be omitted: {json}");
+        assert!(
+            !json.contains("createdIds"),
+            "null createdIds must be omitted: {json}"
+        );
     }
 
     #[test]
     fn error_type_serializes_camel_case() {
-        let err = MethodError { error_type: ErrorType::InvalidArguments, description: None };
+        let err = MethodError {
+            error_type: ErrorType::InvalidArguments,
+            description: None,
+        };
         let json = serde_json::to_string(&err).unwrap();
         assert!(json.contains("invalidArguments"), "got: {json}");
     }

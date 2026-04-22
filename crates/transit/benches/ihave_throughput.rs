@@ -146,9 +146,16 @@ async fn main() {
             sender_peer_id: "bench-peer",
         };
         let t0 = Instant::now();
-        run_pipeline(article, &ipfs2, &msgid_map2, &log_storage2, &transit_pool2, ctx)
-            .await
-            .expect("pipeline must succeed");
+        run_pipeline(
+            article,
+            &ipfs2,
+            &msgid_map2,
+            &log_storage2,
+            &transit_pool2,
+            ctx,
+        )
+        .await
+        .expect("pipeline must succeed");
         latencies.push(t0.elapsed());
     }
 

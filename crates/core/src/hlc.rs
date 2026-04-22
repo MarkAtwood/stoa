@@ -201,7 +201,11 @@ mod tests {
         assert_eq!(t.logical, 0, "logical must reset after wall advance");
         // The new timestamp must be strictly greater than the seed.
         assert!(
-            t > HlcTimestamp { wall_ms: 1000, logical: u32::MAX, node_id: NODE_A },
+            t > HlcTimestamp {
+                wall_ms: 1000,
+                logical: u32::MAX,
+                node_id: NODE_A
+            },
             "post-overflow timestamp must be greater than pre-overflow"
         );
     }
@@ -223,7 +227,10 @@ mod tests {
             node_id: NODE_B,
         };
         let t = clock.receive(1000, &observed);
-        assert_eq!(t.wall_ms, 1001, "wall must advance when logical overflows in receive");
+        assert_eq!(
+            t.wall_ms, 1001,
+            "wall must advance when logical overflows in receive"
+        );
         assert_eq!(t.logical, 0);
     }
 
@@ -237,7 +244,10 @@ mod tests {
             node_id: NODE_B,
         };
         let t = clock.receive(500, &observed);
-        assert_eq!(t.wall_ms, 1001, "wall must advance when observed.logical overflows");
+        assert_eq!(
+            t.wall_ms, 1001,
+            "wall must advance when observed.logical overflows"
+        );
         assert_eq!(t.logical, 0);
     }
 

@@ -1,9 +1,9 @@
 use axum::{
-    Extension,
     body::Body,
     extract::Path,
-    http::{StatusCode, header},
+    http::{header, StatusCode},
     response::Response,
+    Extension,
 };
 
 use crate::server::AuthenticatedUser;

@@ -15,12 +15,11 @@ impl StateStore {
     /// Return the current state string for a scope.
     /// Returns "0" if the scope has never been written.
     pub async fn get_state(&self, scope: &str) -> Result<String, sqlx::Error> {
-        let version: Option<i64> = sqlx::query_scalar(
-            "SELECT version FROM state_version WHERE scope = ?",
-        )
-        .bind(scope)
-        .fetch_optional(&self.pool)
-        .await?;
+        let version: Option<i64> =
+            sqlx::query_scalar("SELECT version FROM state_version WHERE scope = ?")
+                .bind(scope)
+                .fetch_optional(&self.pool)
+                .await?;
         Ok(version.unwrap_or(0).to_string())
     }
 
@@ -41,8 +40,8 @@ impl StateStore {
 mod tests {
     use super::*;
     use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::str::FromStr as _;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
 
@@ -57,7 +56,9 @@ mod tests {
             .connect_with(opts)
             .await
             .expect("pool");
-        crate::migrations::run_migrations(&pool).await.expect("migrations");
+        crate::migrations::run_migrations(&pool)
+            .await
+            .expect("migrations");
         StateStore::new(pool)
     }
 

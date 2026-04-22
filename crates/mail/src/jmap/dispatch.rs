@@ -60,8 +60,7 @@ impl Dispatcher {
     ///
     /// Returns `Err(String)` for non-JSON or non-`Request` bodies (caller should return 400).
     pub fn dispatch_bytes(&self, body: &[u8]) -> Result<Response, String> {
-        let request: Request =
-            serde_json::from_slice(body).map_err(|e| format!("notJSON: {e}"))?;
+        let request: Request = serde_json::from_slice(body).map_err(|e| format!("notJSON: {e}"))?;
         Ok(self.dispatch(request))
     }
 }

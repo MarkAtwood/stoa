@@ -95,7 +95,10 @@ pub enum ValidationError {
     DateOutOfRange(String),
     InvalidGroupInNewsgroups(String),
     EmptyNewsgroups,
-    TooManyNewsgroups { count: usize, limit: usize },
+    TooManyNewsgroups {
+        count: usize,
+        limit: usize,
+    },
 }
 
 impl fmt::Display for ValidationError {

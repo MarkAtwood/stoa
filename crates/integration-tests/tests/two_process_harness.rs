@@ -8,8 +8,8 @@
 
 mod common;
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use cid::Cid;
@@ -23,20 +23,16 @@ use usenet_ipfs_reader::{
     post::ipfs_write::{IpfsBlockStore, IpfsWriteError},
     session::lifecycle::run_session,
     store::{
-        article_numbers::ArticleNumberStore,
-        credentials::CredentialStore,
-        overview::OverviewStore,
+        article_numbers::ArticleNumberStore, credentials::CredentialStore, overview::OverviewStore,
         server_stores::ServerStores,
     },
 };
-use usenet_ipfs_transit::{
-    peering::{
-        blacklist::BlacklistConfig,
-        ingestion_queue::ingestion_queue,
-        pipeline::{IpfsError, IpfsStore, PipelineCtx, run_pipeline},
-        rate_limit::{ExhaustionAction, PeerRateLimiter},
-        session::{PeeringShared, run_peering_session},
-    },
+use usenet_ipfs_transit::peering::{
+    blacklist::BlacklistConfig,
+    ingestion_queue::ingestion_queue,
+    pipeline::{run_pipeline, IpfsError, IpfsStore, PipelineCtx},
+    rate_limit::{ExhaustionAction, PeerRateLimiter},
+    session::{run_peering_session, PeeringShared},
 };
 
 // ── Shared IPFS adapter ───────────────────────────────────────────────────────
@@ -80,6 +76,11 @@ impl IpfsBlockStore for SharedIpfs {
             .await
             .insert(cid.to_bytes(), data.to_vec());
         Ok(cid)
+    }
+
+    async fn put_block(&self, cid: Cid, data: Vec<u8>) -> Result<(), IpfsWriteError> {
+        self.blocks.write().await.insert(cid.to_bytes(), data);
+        Ok(())
     }
 
     async fn get_raw_block(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError> {
@@ -255,7 +256,9 @@ async fn transit_reader_shared_store() {
         article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
         overview_store: Arc::new(OverviewStore::new(reader_pool)),
         credential_store: Arc::new(CredentialStore::empty()),
-        client_cert_store: Arc::new(usenet_ipfs_reader::store::client_cert_store::ClientCertStore::empty()),
+        client_cert_store: Arc::new(
+            usenet_ipfs_reader::store::client_cert_store::ClientCertStore::empty(),
+        ),
         trusted_issuer_store: Arc::new(usenet_ipfs_auth::TrustedIssuerStore::empty()),
         clock: Arc::new(Mutex::new(HlcClock::new([0x01u8; 8], now_ms))),
         signing_key: Arc::new(usenet_ipfs_core::signing::SigningKey::from_bytes(
@@ -266,12 +269,10 @@ async fn transit_reader_shared_store() {
     // ── Transit stores ────────────────────────────────────────────────────────
 
     let transit_core_pool = make_transit_core_pool().await;
-    let transit_log_storage = Arc::new(
-        usenet_ipfs_core::group_log::SqliteLogStorage::new(transit_core_pool),
-    );
-    let transit_signing_key = Arc::new(
-        ed25519_dalek::SigningKey::from_bytes(&[0x43u8; 32]),
-    );
+    let transit_log_storage = Arc::new(usenet_ipfs_core::group_log::SqliteLogStorage::new(
+        transit_core_pool,
+    ));
+    let transit_signing_key = Arc::new(ed25519_dalek::SigningKey::from_bytes(&[0x43u8; 32]));
     let transit_hlc = Arc::new(Mutex::new(HlcClock::new([0x02u8; 8], now_ms)));
 
     let (ingestion_sender, mut ingestion_receiver) = ingestion_queue(64);
@@ -432,7 +433,9 @@ async fn transit_reader_shared_store() {
         "ARTICLE must include Subject header"
     );
     assert!(
-        article_lines.iter().any(|l| l.contains("Integration test body")),
+        article_lines
+            .iter()
+            .any(|l| l.contains("Integration test body")),
         "ARTICLE must include body text"
     );
 

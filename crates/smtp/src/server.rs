@@ -77,7 +77,10 @@ pub async fn run_server(
         // branch so that handshake failures never reach the session.
         enum Accepted {
             Plain(tokio::net::TcpStream, std::net::SocketAddr),
-            Tls(Box<tokio_rustls::server::TlsStream<tokio::net::TcpStream>>, std::net::SocketAddr),
+            Tls(
+                Box<tokio_rustls::server::TlsStream<tokio::net::TcpStream>>,
+                std::net::SocketAddr,
+            ),
         }
 
         let accepted = if let Some((ref smtps_listener, ref tls_acceptor)) = smtps_parts {
@@ -150,8 +153,10 @@ pub async fn run_server(
                 info!(%peer_str, "accepted plaintext connection");
                 tokio::spawn(async move {
                     let _permit = permit;
-                    run_session(stream, false, peer_str, config, cred_store, nntp_queue, auth, pool, cache)
-                        .await;
+                    run_session(
+                        stream, false, peer_str, config, cred_store, nntp_queue, auth, pool, cache,
+                    )
+                    .await;
                 });
             }
             Accepted::Tls(tls_stream, peer_addr) => {
@@ -159,8 +164,18 @@ pub async fn run_server(
                 info!(%peer_str, "accepted SMTPS connection");
                 tokio::spawn(async move {
                     let _permit = permit;
-                    run_session(*tls_stream, true, peer_str, config, cred_store, nntp_queue, auth, pool, cache)
-                        .await;
+                    run_session(
+                        *tls_stream,
+                        true,
+                        peer_str,
+                        config,
+                        cred_store,
+                        nntp_queue,
+                        auth,
+                        pool,
+                        cache,
+                    )
+                    .await;
                 });
             }
         }
@@ -184,7 +199,10 @@ mod tests {
                 port_587: "127.0.0.1:0".to_string(),
                 smtps_addr: None,
             },
-            tls: TlsConfig { cert_path: None, key_path: None },
+            tls: TlsConfig {
+                cert_path: None,
+                key_path: None,
+            },
             limits: LimitsConfig {
                 max_message_bytes: 1_048_576,
                 max_recipients: 10,
@@ -216,7 +234,15 @@ mod tests {
         let queue_dir = tempfile::tempdir().expect("tempdir");
         let nntp_queue = NntpQueue::new(queue_dir.path()).expect("NntpQueue::new");
 
-        tokio::spawn(run_server(listener_25, listener_587, None, config, nntp_queue, None, None));
+        tokio::spawn(run_server(
+            listener_25,
+            listener_587,
+            None,
+            config,
+            nntp_queue,
+            None,
+            None,
+        ));
 
         let mut client = tokio::net::TcpStream::connect(addr_25).await.unwrap();
         let mut buf = [0u8; 256];
@@ -241,7 +267,15 @@ mod tests {
         let queue_dir = tempfile::tempdir().expect("tempdir");
         let nntp_queue = NntpQueue::new(queue_dir.path()).expect("NntpQueue::new");
 
-        tokio::spawn(run_server(listener_25, listener_587, None, config, nntp_queue, None, None));
+        tokio::spawn(run_server(
+            listener_25,
+            listener_587,
+            None,
+            config,
+            nntp_queue,
+            None,
+            None,
+        ));
 
         // Connect to port_25 and port_587 concurrently.
         let (c1, c2) = tokio::join!(

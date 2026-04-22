@@ -55,7 +55,10 @@ pub fn build_session(username: &str, base_url: &str) -> SessionResource {
 
     let account_id = format!("u_{username}");
     let mut account_capabilities: HashMap<String, Value> = HashMap::new();
-    account_capabilities.insert("urn:ietf:params:jmap:mail".to_string(), serde_json::json!({}));
+    account_capabilities.insert(
+        "urn:ietf:params:jmap:mail".to_string(),
+        serde_json::json!({}),
+    );
 
     let mut accounts: HashMap<String, AccountInfo> = HashMap::new();
     accounts.insert(

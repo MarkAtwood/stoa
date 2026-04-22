@@ -45,16 +45,14 @@ pub fn handle_email_query(
     if let Some(f) = filter {
         if let Some(after) = f.get("after").and_then(|v| v.as_str()) {
             if let Some(after_ts) = parse_rfc3339_timestamp(after) {
-                filtered.retain(|e| {
-                    parse_rfc3339_timestamp(&e.date).map_or(true, |ts| ts > after_ts)
-                });
+                filtered
+                    .retain(|e| parse_rfc3339_timestamp(&e.date).map_or(true, |ts| ts > after_ts));
             }
         }
         if let Some(before) = f.get("before").and_then(|v| v.as_str()) {
             if let Some(before_ts) = parse_rfc3339_timestamp(before) {
-                filtered.retain(|e| {
-                    parse_rfc3339_timestamp(&e.date).map_or(true, |ts| ts < before_ts)
-                });
+                filtered
+                    .retain(|e| parse_rfc3339_timestamp(&e.date).map_or(true, |ts| ts < before_ts));
             }
         }
         if let Some(from_filter) = f.get("from").and_then(|v| v.as_str()) {
@@ -136,14 +134,8 @@ mod tests {
         let ids = resp["ids"].as_array().unwrap();
         assert_eq!(ids.len(), 3);
         // Newest first: article-c (2026-04-03) > article-b (2026-04-02) > article-a (2026-04-01)
-        assert_eq!(
-            ids[0].as_str().unwrap(),
-            test_cid(b"article-c").to_string()
-        );
-        assert_eq!(
-            ids[2].as_str().unwrap(),
-            test_cid(b"article-a").to_string()
-        );
+        assert_eq!(ids[0].as_str().unwrap(), test_cid(b"article-c").to_string());
+        assert_eq!(ids[2].as_str().unwrap(), test_cid(b"article-a").to_string());
     }
 
     #[test]
@@ -152,7 +144,11 @@ mod tests {
         let filter = json!({"subject": "rust"});
         let resp = handle_email_query(&entries, Some(&filter), 0, None, "0");
         let ids = resp["ids"].as_array().unwrap();
-        assert_eq!(ids.len(), 2, "Should match 'Rust is great' and 'Another Rust post'");
+        assert_eq!(
+            ids.len(),
+            2,
+            "Should match 'Rust is great' and 'Another Rust post'"
+        );
     }
 
     #[test]
@@ -162,10 +158,7 @@ mod tests {
         let resp = handle_email_query(&entries, Some(&filter), 0, None, "0");
         let ids = resp["ids"].as_array().unwrap();
         assert_eq!(ids.len(), 1);
-        assert_eq!(
-            ids[0].as_str().unwrap(),
-            test_cid(b"article-b").to_string()
-        );
+        assert_eq!(ids[0].as_str().unwrap(), test_cid(b"article-b").to_string());
     }
 
     #[test]
@@ -174,7 +167,11 @@ mod tests {
         let filter = json!({"after": "2026-04-01T20:00:00Z"});
         let resp = handle_email_query(&entries, Some(&filter), 0, None, "0");
         let ids = resp["ids"].as_array().unwrap();
-        assert_eq!(ids.len(), 2, "Should return articles from 2026-04-02 and 2026-04-03");
+        assert_eq!(
+            ids.len(),
+            2,
+            "Should return articles from 2026-04-02 and 2026-04-03"
+        );
     }
 
     #[test]
@@ -183,7 +180,11 @@ mod tests {
         let filter = json!({"before": "2026-04-02T20:00:00Z"});
         let resp = handle_email_query(&entries, Some(&filter), 0, None, "0");
         let ids = resp["ids"].as_array().unwrap();
-        assert_eq!(ids.len(), 2, "Should return articles from 2026-04-01 and 2026-04-02");
+        assert_eq!(
+            ids.len(),
+            2,
+            "Should return articles from 2026-04-01 and 2026-04-02"
+        );
     }
 
     #[test]
@@ -213,8 +214,11 @@ mod tests {
         // 23:00+05:00 = 23:00 - 5:00 = 18:00 UTC
         // 20:00Z = 20:00 UTC
         // So tz-b (20:00 UTC) is newer; should appear first.
-        assert_eq!(ids[0].as_str().unwrap(), test_cid(b"tz-b").to_string(),
-            "20:00Z (newer) should sort before 23:00+05:00 (18:00 UTC)");
+        assert_eq!(
+            ids[0].as_str().unwrap(),
+            test_cid(b"tz-b").to_string(),
+            "20:00Z (newer) should sort before 23:00+05:00 (18:00 UTC)"
+        );
     }
 
     #[test]
@@ -230,7 +234,11 @@ mod tests {
         let resp = handle_email_query(&entries, None, 1, Some(1), "0");
         let ids = resp["ids"].as_array().unwrap();
         assert_eq!(ids.len(), 1, "limit=1 should return exactly 1 item");
-        assert_eq!(resp["total"].as_u64().unwrap(), 3, "total must reflect full count");
+        assert_eq!(
+            resp["total"].as_u64().unwrap(),
+            3,
+            "total must reflect full count"
+        );
     }
 
     #[test]

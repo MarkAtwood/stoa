@@ -30,7 +30,7 @@ use data_encoding::BASE64;
 use tokio::net::TcpListener;
 use usenet_ipfs_auth::{AuthConfig, CredentialStore, UserCredential};
 use usenet_ipfs_mail::{
-    server::{AppState, build_router},
+    server::{build_router, AppState},
     token_store::TokenStore,
 };
 
@@ -115,7 +115,10 @@ fn auth_app_state_two_users(token_store: Arc<TokenStore>) -> Arc<AppState> {
 
 /// Encode `user:pass` as a Basic Authorization header value.
 fn basic_header(user: &str, pass: &str) -> String {
-    format!("Basic {}", BASE64.encode(format!("{user}:{pass}").as_bytes()))
+    format!(
+        "Basic {}",
+        BASE64.encode(format!("{user}:{pass}").as_bytes())
+    )
 }
 
 /// Spawn the mail server on a random port. Returns the base URL.
@@ -179,7 +182,11 @@ async fn post_token_valid_basic_auth_returns_201_with_token_id_expires_at() {
         .await
         .expect("request must succeed");
 
-    assert_eq!(resp.status(), 201, "valid Basic auth must return 201 Created");
+    assert_eq!(
+        resp.status(),
+        201,
+        "valid Basic auth must return 201 Created"
+    );
 
     let body: serde_json::Value = resp.json().await.expect("body must be JSON");
 
@@ -198,20 +205,16 @@ async fn post_token_valid_basic_auth_returns_201_with_token_id_expires_at() {
     );
 
     let id = body["id"].as_str().unwrap();
-    assert!(
-        is_uuid_v4(id),
-        "\"id\" must be a UUID v4, got: {id}"
-    );
+    assert!(is_uuid_v4(id), "\"id\" must be a UUID v4, got: {id}");
 
     // Token must be a non-empty string (base64url encoded bytes).
     let token = body["token"].as_str().unwrap();
-    assert!(
-        !token.is_empty(),
-        "\"token\" must be a non-empty string"
-    );
+    assert!(!token.is_empty(), "\"token\" must be a non-empty string");
     // base64url chars: A-Z, a-z, 0-9, -, _  (RFC 4648 §5, no padding).
     assert!(
-        token.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_'),
+        token
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_'),
         "\"token\" must be base64url-encoded (chars: A-Za-z0-9-_); got: {token}"
     );
 }
@@ -237,7 +240,10 @@ async fn bearer_token_grants_access_to_protected_endpoint() {
         .expect("issue request must succeed");
     assert_eq!(issue_resp.status(), 201, "token issuance must return 201");
     let body: serde_json::Value = issue_resp.json().await.unwrap();
-    let token = body["token"].as_str().expect("token must be a string").to_string();
+    let token = body["token"]
+        .as_str()
+        .expect("token must be a string")
+        .to_string();
 
     // Use the token on /jmap/session.
     let resp = reqwest::Client::new()
@@ -256,7 +262,10 @@ async fn bearer_token_grants_access_to_protected_endpoint() {
         status != 403,
         "valid Bearer token must not return 403; got {status}"
     );
-    assert_eq!(status, 200, "valid Bearer token on /jmap/session must return 200");
+    assert_eq!(
+        status, 200,
+        "valid Bearer token on /jmap/session must return 200"
+    );
 }
 
 // ── Test 3: Wrong/invalid Bearer token → 401 ──────────────────────────────────
@@ -307,12 +316,13 @@ async fn expired_token_is_rejected_with_401() {
         .await
         .expect("direct issue must succeed");
     assert!(
-        expires_at.is_some() && expires_at.unwrap() < {
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs() as i64
-        },
+        expires_at.is_some()
+            && expires_at.unwrap() < {
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs() as i64
+            },
         "expires_at must be in the past for this test to be meaningful"
     );
 
@@ -353,8 +363,14 @@ async fn delete_token_revokes_access() {
         .expect("issue request must succeed");
     assert_eq!(issue_resp.status(), 201, "token issuance must return 201");
     let body: serde_json::Value = issue_resp.json().await.unwrap();
-    let token = body["token"].as_str().expect("token must be a string").to_string();
-    let id = body["id"].as_str().expect("id must be a string").to_string();
+    let token = body["token"]
+        .as_str()
+        .expect("token must be a string")
+        .to_string();
+    let id = body["id"]
+        .as_str()
+        .expect("id must be a string")
+        .to_string();
 
     // Verify the token works before revocation.
     let pre_resp = reqwest::Client::new()
@@ -509,9 +525,16 @@ async fn user_b_cannot_revoke_user_a_token() {
         .send()
         .await
         .expect("issue request must succeed");
-    assert_eq!(issue_resp.status(), 201, "alice token issuance must return 201");
+    assert_eq!(
+        issue_resp.status(),
+        201,
+        "alice token issuance must return 201"
+    );
     let body: serde_json::Value = issue_resp.json().await.unwrap();
-    let alice_token_id = body["id"].as_str().expect("id must be a string").to_string();
+    let alice_token_id = body["id"]
+        .as_str()
+        .expect("id must be a string")
+        .to_string();
 
     // Bob attempts to delete Alice's token by its id.
     let del_resp = reqwest::Client::new()
@@ -653,7 +676,10 @@ async fn bearer_token_session_identity_matches_issuing_user() {
         .expect("issue request must succeed");
     assert_eq!(issue_resp.status(), 201, "token issuance must return 201");
     let body: serde_json::Value = issue_resp.json().await.unwrap();
-    let token = body["token"].as_str().expect("token must be a string").to_string();
+    let token = body["token"]
+        .as_str()
+        .expect("token must be a string")
+        .to_string();
 
     let session_resp = reqwest::Client::new()
         .get(format!("{base}/jmap/session"))
@@ -862,7 +888,10 @@ fn uuid_v4_helper_correctly_validates_format() {
     );
 
     // Invalid: wrong number of segments.
-    assert!(!is_uuid_v4("f47ac10b-58cc-4372-a567"), "short UUID must fail");
+    assert!(
+        !is_uuid_v4("f47ac10b-58cc-4372-a567"),
+        "short UUID must fail"
+    );
 
     // Invalid: non-hex character.
     assert!(

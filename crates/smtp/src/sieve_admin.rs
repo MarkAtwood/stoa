@@ -17,13 +17,13 @@
 use std::sync::Arc;
 
 use axum::{
-    Router,
     body::Bytes,
     extract::{Path, State},
     http::{Request, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::{delete, get, post, put},
+    Router,
 };
 use sqlx::SqlitePool;
 use tokio::net::TcpListener;
@@ -127,13 +127,20 @@ async fn run_admin_server(config: Arc<Config>, pool: SqlitePool, sieve_cache: Si
         }
     };
 
-    let state = AdminState { config, pool, sieve_cache };
+    let state = AdminState {
+        config,
+        pool,
+        sieve_cache,
+    };
     let app = Router::new()
         .route("/admin/sieve/{username}", get(list_scripts))
         .route("/admin/sieve/{username}/{name}", get(get_script))
         .route("/admin/sieve/{username}/{name}", put(put_script))
         .route("/admin/sieve/{username}/{name}", delete(delete_script))
-        .route("/admin/sieve/{username}/{name}/activate", post(activate_script))
+        .route(
+            "/admin/sieve/{username}/{name}/activate",
+            post(activate_script),
+        )
         .route("/admin/sieve/check", post(check_script))
         .layer(middleware::from_fn_with_state(
             state.clone(),
@@ -151,10 +158,7 @@ async fn run_admin_server(config: Arc<Config>, pool: SqlitePool, sieve_cache: Si
 
 /// GET /admin/sieve/{username}
 /// Returns a JSON array of `{"name": "...", "active": true|false}` objects.
-async fn list_scripts(
-    State(s): State<AdminState>,
-    Path(username): Path<String>,
-) -> Response {
+async fn list_scripts(State(s): State<AdminState>, Path(username): Path<String>) -> Response {
     if !user_exists(&s, &username) {
         return (StatusCode::NOT_FOUND, "user not found").into_response();
     }
@@ -162,9 +166,7 @@ async fn list_scripts(
         Ok(scripts) => {
             let json = scripts
                 .iter()
-                .map(|(name, active)| {
-                    format!(r#"{{"name":{:?},"active":{}}}"#, name, active)
-                })
+                .map(|(name, active)| format!(r#"{{"name":{:?},"active":{}}}"#, name, active))
                 .collect::<Vec<_>>()
                 .join(",");
             (
@@ -220,7 +222,10 @@ async fn put_script(
         return (StatusCode::PAYLOAD_TOO_LARGE, "script exceeds size limit").into_response();
     }
     if let Err(e) = usenet_ipfs_sieve::compile(&body) {
-        return (StatusCode::UNPROCESSABLE_ENTITY, format!("Sieve parse error: {e}"))
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            format!("Sieve parse error: {e}"),
+        )
             .into_response();
     }
     match store::save_script(&s.pool, &username, &name, &body, false).await {
@@ -280,9 +285,11 @@ async fn activate_script(
 async fn check_script(body: Bytes) -> Response {
     match usenet_ipfs_sieve::compile(&body) {
         Ok(_) => (StatusCode::OK, "OK").into_response(),
-        Err(e) => {
-            (StatusCode::UNPROCESSABLE_ENTITY, format!("Sieve parse error: {e}")).into_response()
-        }
+        Err(e) => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            format!("Sieve parse error: {e}"),
+        )
+            .into_response(),
     }
 }
 
@@ -297,7 +304,10 @@ mod tests {
     use axum::http::{Method, Request};
     use tower::ServiceExt as _;
 
-    use crate::config::{AuthConfig, DatabaseConfig, LimitsConfig, ListenConfig, LogConfig, ReaderConfig, TlsConfig, UserConfig};
+    use crate::config::{
+        AuthConfig, DatabaseConfig, LimitsConfig, ListenConfig, LogConfig, ReaderConfig, TlsConfig,
+        UserConfig,
+    };
 
     fn test_config(users: Vec<UserConfig>) -> Arc<Config> {
         Arc::new(Config {
@@ -307,7 +317,10 @@ mod tests {
                 port_587: "127.0.0.1:0".into(),
                 smtps_addr: None,
             },
-            tls: TlsConfig { cert_path: None, key_path: None },
+            tls: TlsConfig {
+                cert_path: None,
+                key_path: None,
+            },
             limits: LimitsConfig::default(),
             log: LogConfig::default(),
             reader: ReaderConfig::default(),
@@ -321,7 +334,10 @@ mod tests {
     }
 
     fn alice() -> UserConfig {
-        UserConfig { username: "alice".into(), email: "alice@example.com".into() }
+        UserConfig {
+            username: "alice".into(),
+            email: "alice@example.com".into(),
+        }
     }
 
     async fn app_with_alice() -> (Router, SqlitePool) {
@@ -333,20 +349,29 @@ mod tests {
         let pool = crate::store::open(":memory:").await.expect("open db");
         let config = test_config(vec![alice()]);
         let cache = crate::session::new_sieve_cache();
-        let state = AdminState { config, pool: pool.clone(), sieve_cache: cache.clone() };
+        let state = AdminState {
+            config,
+            pool: pool.clone(),
+            sieve_cache: cache.clone(),
+        };
         let app = Router::new()
             .route("/admin/sieve/{username}", get(list_scripts))
             .route("/admin/sieve/{username}/{name}", get(get_script))
             .route("/admin/sieve/{username}/{name}", put(put_script))
             .route("/admin/sieve/{username}/{name}", delete(delete_script))
-            .route("/admin/sieve/{username}/{name}/activate", post(activate_script))
+            .route(
+                "/admin/sieve/{username}/{name}/activate",
+                post(activate_script),
+            )
             .route("/admin/sieve/check", post(check_script))
             .with_state(state);
         (app, pool, cache)
     }
 
     async fn response_body(resp: axum::response::Response) -> String {
-        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         String::from_utf8_lossy(&bytes).into_owned()
     }
 
@@ -404,7 +429,9 @@ mod tests {
     #[tokio::test]
     async fn getscript_returns_stored_bytes() {
         let (app, pool) = app_with_alice().await;
-        store::save_script(&pool, "alice", "work", b"discard;", false).await.unwrap();
+        store::save_script(&pool, "alice", "work", b"discard;", false)
+            .await
+            .unwrap();
 
         let req = Request::builder()
             .method(Method::GET)
@@ -432,8 +459,12 @@ mod tests {
     #[tokio::test]
     async fn listscripts_returns_names_and_active_flag() {
         let (app, pool) = app_with_alice().await;
-        store::save_script(&pool, "alice", "a", b"keep;", false).await.unwrap();
-        store::save_script(&pool, "alice", "b", b"discard;", true).await.unwrap();
+        store::save_script(&pool, "alice", "a", b"keep;", false)
+            .await
+            .unwrap();
+        store::save_script(&pool, "alice", "b", b"discard;", true)
+            .await
+            .unwrap();
 
         let req = Request::builder()
             .method(Method::GET)
@@ -450,7 +481,9 @@ mod tests {
     #[tokio::test]
     async fn deletescript_removes_row() {
         let (app, pool) = app_with_alice().await;
-        store::save_script(&pool, "alice", "tmp", b"keep;", false).await.unwrap();
+        store::save_script(&pool, "alice", "tmp", b"keep;", false)
+            .await
+            .unwrap();
 
         let req = Request::builder()
             .method(Method::DELETE)
@@ -478,8 +511,12 @@ mod tests {
     #[tokio::test]
     async fn setactive_switches_active_script() {
         let (app, pool) = app_with_alice().await;
-        store::save_script(&pool, "alice", "first", b"keep;", true).await.unwrap();
-        store::save_script(&pool, "alice", "second", b"discard;", false).await.unwrap();
+        store::save_script(&pool, "alice", "first", b"keep;", true)
+            .await
+            .unwrap();
+        store::save_script(&pool, "alice", "second", b"discard;", false)
+            .await
+            .unwrap();
 
         let req = Request::builder()
             .method(Method::POST)
@@ -531,7 +568,10 @@ mod tests {
                 port_587: "127.0.0.1:0".into(),
                 smtps_addr: None,
             },
-            tls: TlsConfig { cert_path: None, key_path: None },
+            tls: TlsConfig {
+                cert_path: None,
+                key_path: None,
+            },
             limits: LimitsConfig::default(),
             log: LogConfig::default(),
             reader: ReaderConfig::default(),
@@ -551,13 +591,20 @@ mod tests {
         let pool = crate::store::open(":memory:").await.expect("open db");
         let config = test_config_with_token(vec![alice()], token);
         let cache = crate::session::new_sieve_cache();
-        let state = AdminState { config, pool, sieve_cache: cache };
+        let state = AdminState {
+            config,
+            pool,
+            sieve_cache: cache,
+        };
         Router::new()
             .route("/admin/sieve/{username}", get(list_scripts))
             .route("/admin/sieve/{username}/{name}", get(get_script))
             .route("/admin/sieve/{username}/{name}", put(put_script))
             .route("/admin/sieve/{username}/{name}", delete(delete_script))
-            .route("/admin/sieve/{username}/{name}/activate", post(activate_script))
+            .route(
+                "/admin/sieve/{username}/{name}/activate",
+                post(activate_script),
+            )
             .route("/admin/sieve/check", post(check_script))
             .layer(middleware::from_fn_with_state(
                 state.clone(),
@@ -632,7 +679,9 @@ mod tests {
     #[tokio::test]
     async fn delete_script_invalidates_cache_entry() {
         let (app, pool, cache) = app_with_alice_and_cache().await;
-        store::save_script(&pool, "alice", "tmp", b"keep;", true).await.unwrap();
+        store::save_script(&pool, "alice", "tmp", b"keep;", true)
+            .await
+            .unwrap();
 
         cache.lock().await.insert(
             "alice".to_string(),
@@ -655,7 +704,9 @@ mod tests {
     #[tokio::test]
     async fn activate_script_invalidates_cache_entry() {
         let (app, pool, cache) = app_with_alice_and_cache().await;
-        store::save_script(&pool, "alice", "s", b"discard;", false).await.unwrap();
+        store::save_script(&pool, "alice", "s", b"discard;", false)
+            .await
+            .unwrap();
 
         cache.lock().await.insert(
             "alice".to_string(),
@@ -689,7 +740,10 @@ mod tests {
                 port_587: "127.0.0.1:0".into(),
                 smtps_addr: None,
             },
-            tls: TlsConfig { cert_path: None, key_path: None },
+            tls: TlsConfig {
+                cert_path: None,
+                key_path: None,
+            },
             limits: LimitsConfig::default(),
             log: LogConfig::default(),
             reader: ReaderConfig::default(),
@@ -713,7 +767,10 @@ mod tests {
         let cache = crate::session::new_sieve_cache();
         let config = fail_closed_config("0.0.0.0:4190", None, false);
         let result = start_sieve_admin_server(config, pool, cache);
-        assert!(result.is_err(), "expected Err for non-loopback without token");
+        assert!(
+            result.is_err(),
+            "expected Err for non-loopback without token"
+        );
         let msg = result.unwrap_err();
         assert!(
             msg.contains("non-loopback"),
@@ -727,7 +784,11 @@ mod tests {
         let cache = crate::session::new_sieve_cache();
         let config = fail_closed_config("0.0.0.0:0", Some("secret"), false);
         let result = start_sieve_admin_server(config, pool, cache);
-        assert!(result.is_ok(), "expected Ok for non-loopback with token: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "expected Ok for non-loopback with token: {:?}",
+            result.err()
+        );
     }
 
     #[tokio::test]
@@ -736,6 +797,10 @@ mod tests {
         let cache = crate::session::new_sieve_cache();
         let config = fail_closed_config("0.0.0.0:0", None, true);
         let result = start_sieve_admin_server(config, pool, cache);
-        assert!(result.is_ok(), "expected Ok when allow_non_loopback=true: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "expected Ok when allow_non_loopback=true: {:?}",
+            result.err()
+        );
     }
 }

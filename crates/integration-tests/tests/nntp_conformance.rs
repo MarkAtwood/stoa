@@ -11,8 +11,8 @@
 
 mod common;
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use cid::Cid;
@@ -26,11 +26,8 @@ use usenet_ipfs_reader::{
     post::ipfs_write::{IpfsBlockStore, IpfsWriteError},
     session::lifecycle::run_session,
     store::{
-        article_numbers::ArticleNumberStore,
-        client_cert_store::ClientCertStore,
-        credentials::CredentialStore,
-        overview::OverviewStore,
-        server_stores::ServerStores,
+        article_numbers::ArticleNumberStore, client_cert_store::ClientCertStore,
+        credentials::CredentialStore, overview::OverviewStore, server_stores::ServerStores,
     },
 };
 
@@ -58,6 +55,11 @@ impl IpfsBlockStore for MemIpfs {
             .await
             .insert(cid.to_bytes(), data.to_vec());
         Ok(cid)
+    }
+
+    async fn put_block(&self, cid: Cid, data: Vec<u8>) -> Result<(), IpfsWriteError> {
+        self.blocks.write().await.insert(cid.to_bytes(), data);
+        Ok(())
     }
 
     async fn get_raw_block(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError> {

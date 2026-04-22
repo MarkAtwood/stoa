@@ -73,8 +73,7 @@ impl ServerStores {
         let signing_key = load_or_generate_signing_key(&config.operator.signing_key_path)?;
         let node_id = hlc_node_id(&signing_key);
 
-        let trusted_issuer_store =
-            build_trusted_issuer_store(&config.auth.trusted_issuers)?;
+        let trusted_issuer_store = build_trusted_issuer_store(&config.auth.trusted_issuers)?;
 
         Ok(Self {
             ipfs_store: Arc::new(ipfs_store),

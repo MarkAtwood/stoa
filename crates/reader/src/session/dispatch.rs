@@ -51,9 +51,7 @@ pub fn dispatch(
     // Precondition: Authenticating state — only auth/setup commands allowed.
     if ctx.state == SessionState::Authenticating {
         return match cmd {
-            Command::Capabilities => {
-                Response::capabilities_with_ctx(ctx.posting_allowed, true)
-            }
+            Command::Capabilities => Response::capabilities_with_ctx(ctx.posting_allowed, true),
             Command::Quit => Response::closing_connection(),
             Command::AuthinfoUser(username) => {
                 // RFC 3977 §7.1.1: if TLS is required but not active, reject with 483.
@@ -109,9 +107,7 @@ pub fn dispatch(
 
     // Normal dispatch (Active or GroupSelected).
     match cmd {
-        Command::Capabilities => {
-            Response::capabilities_with_ctx(ctx.posting_allowed, false)
-        }
+        Command::Capabilities => Response::capabilities_with_ctx(ctx.posting_allowed, false),
         Command::ModeReader => {
             if ctx.posting_allowed {
                 Response::service_available_posting_allowed()
@@ -240,7 +236,6 @@ fn check_credentials(auth_config: &AuthConfig, username: &str, password: &str) -
         .any(|u| u.username == username && u.password == password)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -319,7 +314,14 @@ mod tests {
     #[test]
     fn test_authenticating_quit_allowed() {
         let mut ctx = ctx_authenticating();
-        let resp = dispatch(&mut ctx, Command::Quit, &empty_auth(), &no_certs(), &no_issuers(), None);
+        let resp = dispatch(
+            &mut ctx,
+            Command::Quit,
+            &empty_auth(),
+            &no_certs(),
+            &no_issuers(),
+            None,
+        );
         assert_eq!(resp.code, 205);
     }
 
@@ -364,28 +366,56 @@ mod tests {
     #[test]
     fn test_active_next_without_group_gets_412() {
         let mut ctx = ctx_active();
-        let resp = dispatch(&mut ctx, Command::Next, &empty_auth(), &no_certs(), &no_issuers(), None);
+        let resp = dispatch(
+            &mut ctx,
+            Command::Next,
+            &empty_auth(),
+            &no_certs(),
+            &no_issuers(),
+            None,
+        );
         assert_eq!(resp.code, 412);
     }
 
     #[test]
     fn test_group_selected_next_returns_stub() {
         let mut ctx = ctx_group_selected();
-        let resp = dispatch(&mut ctx, Command::Next, &empty_auth(), &no_certs(), &no_issuers(), None);
+        let resp = dispatch(
+            &mut ctx,
+            Command::Next,
+            &empty_auth(),
+            &no_certs(),
+            &no_issuers(),
+            None,
+        );
         assert_eq!(resp.code, 423);
     }
 
     #[test]
     fn test_post_not_permitted() {
         let mut ctx = SessionContext::new(test_addr(), false, false, false);
-        let resp = dispatch(&mut ctx, Command::Post, &empty_auth(), &no_certs(), &no_issuers(), None);
+        let resp = dispatch(
+            &mut ctx,
+            Command::Post,
+            &empty_auth(),
+            &no_certs(),
+            &no_issuers(),
+            None,
+        );
         assert_eq!(resp.code, 440);
     }
 
     #[test]
     fn test_post_permitted_stub() {
         let mut ctx = ctx_active();
-        let resp = dispatch(&mut ctx, Command::Post, &empty_auth(), &no_certs(), &no_issuers(), None);
+        let resp = dispatch(
+            &mut ctx,
+            Command::Post,
+            &empty_auth(),
+            &no_certs(),
+            &no_issuers(),
+            None,
+        );
         assert_eq!(resp.code, 340);
     }
 
@@ -393,19 +423,43 @@ mod tests {
     fn test_capabilities_always_works() {
         let mut ctx_a = ctx_authenticating();
         assert_eq!(
-            dispatch(&mut ctx_a, Command::Capabilities, &empty_auth(), &no_certs(), &no_issuers(), None).code,
+            dispatch(
+                &mut ctx_a,
+                Command::Capabilities,
+                &empty_auth(),
+                &no_certs(),
+                &no_issuers(),
+                None
+            )
+            .code,
             101
         );
 
         let mut ctx_b = ctx_active();
         assert_eq!(
-            dispatch(&mut ctx_b, Command::Capabilities, &empty_auth(), &no_certs(), &no_issuers(), None).code,
+            dispatch(
+                &mut ctx_b,
+                Command::Capabilities,
+                &empty_auth(),
+                &no_certs(),
+                &no_issuers(),
+                None
+            )
+            .code,
             101
         );
 
         let mut ctx_c = ctx_group_selected();
         assert_eq!(
-            dispatch(&mut ctx_c, Command::Capabilities, &empty_auth(), &no_certs(), &no_issuers(), None).code,
+            dispatch(
+                &mut ctx_c,
+                Command::Capabilities,
+                &empty_auth(),
+                &no_certs(),
+                &no_issuers(),
+                None
+            )
+            .code,
             101
         );
     }
@@ -413,7 +467,14 @@ mod tests {
     #[test]
     fn test_capabilities_active_contains_version_2() {
         let mut ctx = ctx_active();
-        let resp = dispatch(&mut ctx, Command::Capabilities, &empty_auth(), &no_certs(), &no_issuers(), None);
+        let resp = dispatch(
+            &mut ctx,
+            Command::Capabilities,
+            &empty_auth(),
+            &no_certs(),
+            &no_issuers(),
+            None,
+        );
         assert_eq!(resp.code, 101);
         assert!(resp.body.iter().any(|l| l == "VERSION 2"));
     }
@@ -421,35 +482,70 @@ mod tests {
     #[test]
     fn test_capabilities_posting_allowed_includes_post() {
         let mut ctx = ctx_active(); // posting_allowed = true
-        let resp = dispatch(&mut ctx, Command::Capabilities, &empty_auth(), &no_certs(), &no_issuers(), None);
+        let resp = dispatch(
+            &mut ctx,
+            Command::Capabilities,
+            &empty_auth(),
+            &no_certs(),
+            &no_issuers(),
+            None,
+        );
         assert!(resp.body.iter().any(|l| l == "POST"));
     }
 
     #[test]
     fn test_capabilities_posting_not_allowed_excludes_post() {
         let mut ctx = SessionContext::new(test_addr(), false, false, false);
-        let resp = dispatch(&mut ctx, Command::Capabilities, &empty_auth(), &no_certs(), &no_issuers(), None);
+        let resp = dispatch(
+            &mut ctx,
+            Command::Capabilities,
+            &empty_auth(),
+            &no_certs(),
+            &no_issuers(),
+            None,
+        );
         assert!(!resp.body.iter().any(|l| l == "POST"));
     }
 
     #[test]
     fn test_mode_reader_posting_allowed_returns_200() {
         let mut ctx = ctx_active(); // posting_allowed = true
-        let resp = dispatch(&mut ctx, Command::ModeReader, &empty_auth(), &no_certs(), &no_issuers(), None);
+        let resp = dispatch(
+            &mut ctx,
+            Command::ModeReader,
+            &empty_auth(),
+            &no_certs(),
+            &no_issuers(),
+            None,
+        );
         assert_eq!(resp.code, 200);
     }
 
     #[test]
     fn test_mode_reader_posting_not_allowed_returns_201() {
         let mut ctx = SessionContext::new(test_addr(), false, false, false);
-        let resp = dispatch(&mut ctx, Command::ModeReader, &empty_auth(), &no_certs(), &no_issuers(), None);
+        let resp = dispatch(
+            &mut ctx,
+            Command::ModeReader,
+            &empty_auth(),
+            &no_certs(),
+            &no_issuers(),
+            None,
+        );
         assert_eq!(resp.code, 201);
     }
 
     #[test]
     fn test_quit_returns_205() {
         let mut ctx = ctx_active();
-        let resp = dispatch(&mut ctx, Command::Quit, &empty_auth(), &no_certs(), &no_issuers(), None);
+        let resp = dispatch(
+            &mut ctx,
+            Command::Quit,
+            &empty_auth(),
+            &no_certs(),
+            &no_issuers(),
+            None,
+        );
         assert_eq!(resp.code, 205);
     }
 
@@ -457,7 +553,14 @@ mod tests {
     fn starttls_always_returns_502() {
         // STARTTLS is not supported — implicit TLS (NNTPS port 563) is used instead.
         let mut ctx = SessionContext::new(test_addr(), false, true, false);
-        let resp = dispatch(&mut ctx, Command::StartTls, &empty_auth(), &no_certs(), &no_issuers(), None);
+        let resp = dispatch(
+            &mut ctx,
+            Command::StartTls,
+            &empty_auth(),
+            &no_certs(),
+            &no_issuers(),
+            None,
+        );
         assert_eq!(resp.code, 502);
     }
 
@@ -475,7 +578,14 @@ mod tests {
         };
         // tls_active=true: TLS session, auth is allowed.
         let mut ctx = SessionContext::new(test_addr(), false, true, true);
-        dispatch(&mut ctx, Command::AuthinfoUser("alice".into()), &auth, &no_certs(), &no_issuers(), None);
+        dispatch(
+            &mut ctx,
+            Command::AuthinfoUser("alice".into()),
+            &auth,
+            &no_certs(),
+            &no_issuers(),
+            None,
+        );
         let resp = dispatch(
             &mut ctx,
             Command::AuthinfoPass("secret".into()),
@@ -501,8 +611,22 @@ mod tests {
         };
         // tls_active=true: TLS session, auth is allowed.
         let mut ctx = SessionContext::new(test_addr(), false, true, true);
-        dispatch(&mut ctx, Command::AuthinfoUser("alice".into()), &auth, &no_certs(), &no_issuers(), None);
-        let resp = dispatch(&mut ctx, Command::AuthinfoPass("wrong".into()), &auth, &no_certs(), &no_issuers(), None);
+        dispatch(
+            &mut ctx,
+            Command::AuthinfoUser("alice".into()),
+            &auth,
+            &no_certs(),
+            &no_issuers(),
+            None,
+        );
+        let resp = dispatch(
+            &mut ctx,
+            Command::AuthinfoPass("wrong".into()),
+            &auth,
+            &no_certs(),
+            &no_issuers(),
+            None,
+        );
         assert_eq!(resp.code, 481);
     }
 
@@ -520,8 +644,18 @@ mod tests {
             trusted_issuers: vec![],
         };
         let mut ctx = SessionContext::new(test_addr(), false, true, false);
-        let resp = dispatch(&mut ctx, Command::AuthinfoUser("alice".into()), &auth, &no_certs(), &no_issuers(), None);
-        assert_eq!(resp.code, 483, "AUTHINFO on plain must return 483 when required=true");
+        let resp = dispatch(
+            &mut ctx,
+            Command::AuthinfoUser("alice".into()),
+            &auth,
+            &no_certs(),
+            &no_issuers(),
+            None,
+        );
+        assert_eq!(
+            resp.code, 483,
+            "AUTHINFO on plain must return 483 when required=true"
+        );
     }
 
     #[test]
@@ -543,7 +677,14 @@ mod tests {
         // STARTTLS is not advertised on any connection type.
         for tls_active in [false, true] {
             let mut ctx = SessionContext::new(test_addr(), false, true, tls_active);
-            let resp = dispatch(&mut ctx, Command::Capabilities, &empty_auth(), &no_certs(), &no_issuers(), None);
+            let resp = dispatch(
+                &mut ctx,
+                Command::Capabilities,
+                &empty_auth(),
+                &no_certs(),
+                &no_issuers(),
+                None,
+            );
             assert!(
                 !resp.body.iter().any(|l| l == "STARTTLS"),
                 "STARTTLS must not appear in CAPABILITIES (tls_active={tls_active})"
