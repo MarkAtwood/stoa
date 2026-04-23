@@ -10,10 +10,9 @@
 //!                           └─> [CLOSE / EXPUNGE] ──> Authenticated
 //!   Any state ──> [LOGOUT] ──> Logout  (session ends)
 //! ```
-//!
-//! Command handlers for AUTH, SELECT, FETCH, etc. are added in later waves
-//! (r8u.6 – r8u.17).  The skeleton here handles the event loop, sends the
-//! greeting, and returns BAD for any command not yet implemented.
+
+pub mod auth;
+pub mod commands;
 
 use std::{net::SocketAddr, sync::Arc};
 
@@ -32,6 +31,8 @@ use tracing::{debug, info, warn};
 
 use crate::config::Config;
 
+use auth::AuthProgress;
+
 /// IMAP session state.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ImapState {
@@ -46,8 +47,11 @@ pub struct SessionContext {
     pub pool: Arc<SqlitePool>,
     pub config: Arc<Config>,
     pub peer: SocketAddr,
+    /// Whether the transport is TLS (IMAPS or post-STARTTLS).
     pub tls: bool,
     pub state: ImapState,
+    /// In-progress multi-step authentication state.
+    pub auth_progress: AuthProgress,
 }
 
 /// Entry point for a plain-text IMAP connection.
@@ -64,6 +68,7 @@ pub async fn run_session_plain(
         peer,
         tls: false,
         state: ImapState::NotAuthenticated,
+        auth_progress: AuthProgress::None,
     };
     run_session_inner(imap_stream, ctx).await;
 }
@@ -83,6 +88,7 @@ pub async fn run_session_tls(
         peer,
         tls: true,
         state: ImapState::NotAuthenticated,
+        auth_progress: AuthProgress::None,
     };
     run_session_inner(imap_stream, ctx).await;
 }
@@ -121,27 +127,36 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
             }
 
             Event::ResponseSent { .. } => {
-                // Completion tracking per-handle is added in later waves.
+                // Per-handle delivery tracking is added in later waves.
             }
 
             Event::CommandReceived { command } => {
                 let tag = command.tag;
                 match command.body {
+                    CommandBody::Capability => {
+                        server.enqueue_data(commands::capability_data(ctx.tls));
+                        server.enqueue_status(commands::capability_ok(tag));
+                    }
+
+                    CommandBody::Noop => {
+                        server.enqueue_status(commands::noop_ok(tag));
+                    }
+
                     CommandBody::Logout => {
                         // RFC 3501 §6.1.3: send untagged BYE, then tagged OK.
                         server.enqueue_status(
-                            Status::bye(None, "Logging out").expect("static bye is valid"),
+                            Status::bye(None, "Logging out").expect("static bye"),
                         );
                         server.enqueue_status(
                             Status::ok(Some(tag), None, "LOGOUT completed")
-                                .expect("static ok is valid"),
+                                .expect("static ok"),
                         );
                         ctx.state = ImapState::Logout;
                         drain_responses(&mut stream, &mut server).await;
                         break;
                     }
 
-                    // All other commands are handled in later waves (r8u.6 – r8u.17).
+                    // All other commands are implemented in later waves (r8u.9 – r8u.17).
                     _ => {
                         server.enqueue_status(
                             Status::bad(
@@ -149,34 +164,49 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
                                 None,
                                 "Command not yet implemented in this server version",
                             )
-                            .expect("static bad is valid"),
+                            .expect("static bad"),
                         );
                     }
                 }
             }
 
             Event::CommandAuthenticateReceived { command_authenticate } => {
-                // AUTH handling is added in r8u.7 / r8u.8.
-                // Must call authenticate_finish to unblock the state machine.
-                let no = Status::no(
-                    Some(command_authenticate.tag),
-                    None,
-                    "Authentication not yet implemented",
-                )
-                .expect("static no is valid");
-                server.authenticate_finish(no).ok();
+                let tag = command_authenticate.tag;
+                let mechanism = command_authenticate.mechanism;
+                let initial_response = command_authenticate.initial_response;
+
+                if !ctx.tls {
+                    // RFC 3501: LOGINDISABLED means no authentication before TLS.
+                    let no = Status::no(Some(tag), None, "LOGINDISABLED: authenticate over TLS")
+                        .expect("static no");
+                    server.authenticate_finish(no).ok();
+                } else if let Some(username) = auth::handle_authenticate_start(
+                    &mut server,
+                    &ctx.config,
+                    &mut ctx.auth_progress,
+                    tag,
+                    mechanism,
+                    initial_response,
+                ) {
+                    ctx.state = ImapState::Authenticated { username };
+                }
             }
 
-            Event::AuthenticateDataReceived { .. } => {
-                // Should not arrive here: we call authenticate_finish without
-                // calling authenticate_continue.
-                warn!(peer = %ctx.peer, "unexpected AuthenticateDataReceived");
+            Event::AuthenticateDataReceived { authenticate_data } => {
+                if let Some(username) = auth::handle_authenticate_data(
+                    &mut server,
+                    &ctx.config,
+                    &mut ctx.auth_progress,
+                    authenticate_data,
+                ) {
+                    ctx.state = ImapState::Authenticated { username };
+                }
             }
 
             Event::IdleCommandReceived { tag } => {
                 // IDLE handling is added in r8u.16.
                 let no = Status::no(Some(tag), None, "IDLE not yet implemented")
-                    .expect("static no is valid");
+                    .expect("static no");
                 server.idle_reject(no).ok();
             }
 
