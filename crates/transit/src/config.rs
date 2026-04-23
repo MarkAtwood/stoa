@@ -3,6 +3,7 @@ use std::path::Path;
 
 use crate::retention::policy::{PinPolicy, PolicyValidationError};
 use crate::retention::remote_pin_client::PinningApiKey;
+use crate::staging::StagingConfig;
 
 // Config fields are read from TOML; server logic will consume them as epics are implemented.
 #[allow(dead_code)]
@@ -31,6 +32,10 @@ pub struct Config {
     /// IPNS publishing configuration.  Optional; IPNS publishing is disabled by default.
     #[serde(default)]
     pub ipns: IpnsConfig,
+    /// Write-ahead staging area.  Optional; omit to use the in-memory
+    /// ingestion queue only (current default behaviour).
+    #[serde(default)]
+    pub staging: Option<StagingConfig>,
 }
 
 /// Operator identity configuration.

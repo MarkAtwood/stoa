@@ -28,6 +28,7 @@ use crate::peering::{
     pipeline::IpfsStore,
     rate_limit::PeerRateLimiter,
 };
+use crate::staging::StagingStore;
 
 /// State shared across all peering sessions (and the pipeline drain task).
 pub struct PeeringShared {
@@ -59,6 +60,11 @@ pub struct PeeringShared {
     pub transit_pool: Arc<sqlx::SqlitePool>,
     /// Blacklist policy configuration.
     pub blacklist_config: BlacklistConfig,
+    /// Write-ahead staging store.  When `Some`, accepted articles are written
+    /// to disk before this function returns to the peer; a separate drain task
+    /// processes them through the IPFS pipeline.  When `None`, articles are
+    /// enqueued to the in-memory [`IngestionSender`] instead.
+    pub staging: Option<Arc<StagingStore>>,
     /// Trusted peer public keys for ed25519 challenge-response auth.
     ///
     /// Non-empty → every inbound connection must complete the mutual handshake
@@ -377,26 +383,38 @@ async fn check_msgid_only(msgid: &str, msgid_map: &MsgIdMap) -> IngestResult {
     }
 }
 
-/// Enqueue an accepted article into the ingestion queue.
+/// Enqueue an accepted article for pipeline processing.
 ///
-/// Returns `Err` if the queue is full.
+/// When [`PeeringShared::staging`] is `Some`, the article is written to the
+/// on-disk staging area and `Ok(())` is returned immediately — the drain task
+/// will process it asynchronously.  Returns `Err` if the staging area is at
+/// capacity (caller should respond 436/439 so the peer retries later).
+///
+/// When staging is `None`, the article is enqueued into the shared in-memory
+/// [`IngestionSender`].  Returns `Err` if the queue is full.
 async fn enqueue_article(
     shared: &PeeringShared,
     message_id: &str,
     bytes: Vec<u8>,
 ) -> Result<(), &'static str> {
-    let article = QueuedArticle {
-        bytes,
-        message_id: message_id.to_owned(),
-    };
-    shared
-        .ingestion_sender
-        .try_enqueue(article)
-        .await
-        .map_err(|e| {
-            tracing::warn!(message_id, "ingestion queue full, article dropped: {e}");
-            "queue full"
-        })
+    if let Some(ref staging) = shared.staging {
+        return match staging.try_stage(message_id, &bytes).await {
+            Ok(true) => Ok(()),
+            Ok(false) => {
+                tracing::warn!(message_id, "staging area full, article rejected");
+                Err("staging full")
+            }
+            Err(e) => {
+                tracing::warn!(message_id, "staging error: {e}");
+                Err("staging error")
+            }
+        };
+    }
+    let article = QueuedArticle { bytes, message_id: message_id.to_owned() };
+    shared.ingestion_sender.try_enqueue(article).await.map_err(|e| {
+        tracing::warn!(message_id, "ingestion queue full, article dropped: {e}");
+        "queue full"
+    })
 }
 
 /// Result of reading a dot-stuffed article from a peer.

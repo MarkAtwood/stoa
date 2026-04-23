@@ -27,6 +27,7 @@ use usenet_ipfs_transit::{
         ipns_publisher::{IpnsEvent, IpnsPublisher},
         remote_pin_worker::RemotePinWorker,
     },
+    staging::StagingStore,
 };
 
 fn parse_args() -> PathBuf {
@@ -362,6 +363,23 @@ async fn main() {
         None
     };
 
+    // ── Write-ahead staging area (optional) ───────────────────────────────────
+
+    let staging_store: Option<Arc<StagingStore>> = if let Some(staging_cfg) = config.staging {
+        match tokio::fs::create_dir_all(&staging_cfg.path).await {
+            Ok(()) => {
+                info!(path = %staging_cfg.path, "write-ahead staging directory ready");
+                Some(Arc::new(StagingStore::new(staging_cfg, Arc::clone(&transit_pool))))
+            }
+            Err(e) => {
+                eprintln!("error: could not create staging directory: {e}");
+                std::process::exit(1);
+            }
+        }
+    } else {
+        None
+    };
+
     // ── Shared state for peering sessions ─────────────────────────────────────
 
     let shared = Arc::new(PeeringShared {
@@ -384,6 +402,7 @@ async fn main() {
         blacklist_config: BlacklistConfig::default(),
         trusted_keys,
         tls_acceptor,
+        staging: staging_store.clone(),
     });
 
     // ── Pipeline drain task ───────────────────────────────────────────────────
@@ -396,6 +415,14 @@ async fn main() {
         .iter()
         .map(|s| (s.name.clone(), s.groups.clone()))
         .collect();
+
+    // Pre-clone values that both drain tasks need.  Sender::clone is cheap
+    // (shares the channel), String::clone is a heap copy.
+    let gossip_tx_staging = gossip_tx.clone();
+    let ipns_tx_staging = ipns_tx.clone();
+    let local_hostname_staging = local_hostname.clone();
+    let peer_id_staging = peer_id.to_string();
+    let pin_service_filters_staging = pin_service_filters.clone();
 
     {
         let ipfs = Arc::clone(&ipfs_store);
@@ -491,6 +518,125 @@ async fn main() {
                 }
             }
             info!("ingestion drain task stopped");
+        });
+    }
+
+    // ── Staging drain task (only when [staging] is configured) ────────────────
+
+    if let Some(staging) = staging_store {
+        // Log how many articles survived the previous run.
+        match staging.pending_count().await {
+            Ok(n) if n > 0 => info!(count = n, "re-draining staged articles from previous run"),
+            _ => {}
+        }
+
+        let ipfs = Arc::clone(&ipfs_store);
+        let msgid_map_drain = Arc::clone(&msgid_map);
+        let log_storage_drain = Arc::clone(&log_storage);
+        let signing_key_drain = Arc::clone(&signing_key);
+        let hlc_drain = Arc::clone(&hlc);
+        let gossip_tx_drain = gossip_tx_staging;
+        let local_peer_id = peer_id_staging;
+        let local_hostname_drain = local_hostname_staging;
+        let transit_pool_drain = Arc::clone(&transit_pool);
+        let ipns_tx_drain = ipns_tx_staging;
+        let pin_service_filters = pin_service_filters_staging;
+
+        tokio::spawn(async move {
+            loop {
+                match staging.drain_one().await {
+                    Ok(None) => {
+                        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                    }
+                    Ok(Some(article)) => {
+                        let now_ms = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap()
+                            .as_millis() as u64;
+                        let timestamp = hlc_drain.lock().await.send(now_ms);
+                        let sig = signing_key_drain.sign(article.bytes.as_slice());
+                        let ctx = PipelineCtx {
+                            timestamp,
+                            operator_signature: sig,
+                            gossip_tx: Some(&gossip_tx_drain),
+                            sender_peer_id: &local_peer_id,
+                            local_hostname: &local_hostname_drain,
+                        };
+                        match run_pipeline(
+                            &article.bytes,
+                            &*ipfs,
+                            &msgid_map_drain,
+                            &*log_storage_drain,
+                            &transit_pool_drain,
+                            ctx,
+                        )
+                        .await
+                        {
+                            Ok((result, _metrics)) => {
+                                info!(
+                                    cid = %result.cid,
+                                    groups = ?result.groups,
+                                    msgid = %article.message_id,
+                                    "staged article ingested"
+                                );
+                                if let Some(ref tx) = ipns_tx_drain {
+                                    for group in &result.groups {
+                                        let event = IpnsEvent {
+                                            group: group.clone(),
+                                            cid: result.cid,
+                                        };
+                                        if let Err(e) = tx.try_send(event) {
+                                            warn!(group, "IPNS channel full, skipping publish: {e}");
+                                        }
+                                    }
+                                }
+                                if !pin_service_filters.is_empty() {
+                                    let cid_str = result.cid.to_string();
+                                    for (svc_name, svc_groups) in &pin_service_filters {
+                                        let should_pin = svc_groups.is_empty()
+                                            || result.groups.iter().any(|g| {
+                                                svc_groups.iter().any(|p| {
+                                                    group_matches_pattern(g, p)
+                                                })
+                                            });
+                                        if should_pin {
+                                            if let Err(e) = sqlx::query(
+                                                "INSERT OR IGNORE INTO remote_pin_jobs \
+                                                 (cid, service_name) VALUES (?1, ?2)",
+                                            )
+                                            .bind(&cid_str)
+                                            .bind(svc_name)
+                                            .execute(&*transit_pool_drain)
+                                            .await
+                                            {
+                                                warn!(
+                                                    cid = %cid_str,
+                                                    service = %svc_name,
+                                                    "failed to enqueue remote pin job: {e}"
+                                                );
+                                            }
+                                        }
+                                    }
+                                }
+                                if let Err(e) = staging.complete(&article).await {
+                                    warn!(
+                                        msgid = %article.message_id,
+                                        "could not complete staging record: {e}"
+                                    );
+                                }
+                            }
+                            Err(e) => {
+                                warn!(msgid = %article.message_id, "staged article pipeline failed: {e}");
+                                // Leave the row in place; it will be retried on next drain_one().
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        warn!("staging drain error: {e}");
+                        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                    }
+                }
+            }
         });
     }
 

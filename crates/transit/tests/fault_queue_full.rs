@@ -160,6 +160,7 @@ async fn takethis_queue_full_returns_431_not_239() {
         blacklist_config: BlacklistConfig::default(),
         trusted_keys: Vec::new(),
         tls_acceptor: None,
+        staging: None,
     });
 
     let (listener, addr) = bind_listener().await;
@@ -279,6 +280,7 @@ async fn ihave_queue_full_returns_436_not_235() {
         blacklist_config: BlacklistConfig::default(),
         trusted_keys: Vec::new(),
         tls_acceptor: None,
+        staging: None,
     });
 
     let (listener, addr) = bind_listener().await;
@@ -389,6 +391,7 @@ async fn takethis_queue_not_full_returns_239() {
         blacklist_config: BlacklistConfig::default(),
         trusted_keys: Vec::new(),
         tls_acceptor: None,
+        staging: None,
     });
 
     let (listener, addr) = bind_listener().await;
