@@ -6075,10 +6075,12 @@ dependencies = [
  "subtle",
  "tempfile",
  "tokio",
+ "tokio-rustls",
  "toml",
  "tracing",
  "tracing-subscriber",
  "usenet-ipfs-core",
+ "usenet-ipfs-tls",
 ]
 
 [[package]]

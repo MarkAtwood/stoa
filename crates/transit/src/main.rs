@@ -283,6 +283,24 @@ async fn main() {
             Vec::new()
         });
 
+    // ── Optional TLS acceptor for inbound peering ─────────────────────────────
+
+    let tls_acceptor: Option<Arc<tokio_rustls::TlsAcceptor>> =
+        if let Some(ref tls_cfg) = config.tls {
+            match usenet_ipfs_tls::load_tls_server_config(&tls_cfg.cert_path, &tls_cfg.key_path) {
+                Ok(server_config) => {
+                    info!("peering TLS enabled");
+                    Some(Arc::new(tokio_rustls::TlsAcceptor::from(server_config)))
+                }
+                Err(e) => {
+                    eprintln!("error: failed to load peering TLS config: {e}");
+                    std::process::exit(1);
+                }
+            }
+        } else {
+            None
+        };
+
     // ── Shared state for peering sessions ─────────────────────────────────────
 
     let shared = Arc::new(PeeringShared {
@@ -304,6 +322,7 @@ async fn main() {
         transit_pool: Arc::clone(&transit_pool),
         blacklist_config: BlacklistConfig::default(),
         trusted_keys,
+        tls_acceptor,
     });
 
     // ── Pipeline drain task ───────────────────────────────────────────────────
@@ -417,11 +436,24 @@ async fn main() {
 
 async fn accept_loop(listener: TcpListener, shared: Arc<PeeringShared>) -> std::io::Result<()> {
     loop {
-        let (stream, peer_addr) = listener.accept().await?;
+        let (stream, addr) = listener.accept().await?;
+        let peer_addr = addr.to_string();
+        let peer_ip = addr.ip().to_string();
         tracing::debug!(%peer_addr, "new peering connection");
         let shared = Arc::clone(&shared);
         tokio::spawn(async move {
-            run_peering_session(stream, shared).await;
+            if let Some(ref acceptor) = shared.tls_acceptor {
+                match acceptor.accept(stream).await {
+                    Ok(tls_stream) => {
+                        run_peering_session(tls_stream, peer_addr, peer_ip, shared).await;
+                    }
+                    Err(e) => {
+                        tracing::warn!(%peer_addr, "peering TLS accept failed: {e}");
+                    }
+                }
+            } else {
+                run_peering_session(stream, peer_addr, peer_ip, shared).await;
+            }
         });
     }
 }

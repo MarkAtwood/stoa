@@ -23,6 +23,10 @@ pub struct Config {
     pub operator: OperatorConfig,
     #[serde(default)]
     pub peering: PeeringConfig,
+    /// TLS for the inbound peering TCP listener.  Optional; plain TCP is used
+    /// when this section is absent (suitable for LAN / loopback peering).
+    #[serde(default)]
+    pub tls: Option<TlsConfig>,
 }
 
 /// Operator identity configuration.
@@ -163,6 +167,22 @@ impl Default for LogConfig {
 #[derive(Debug, Deserialize)]
 pub struct ListenConfig {
     pub addr: String,
+}
+
+/// TLS configuration for the inbound peering TCP listener.
+///
+/// When present, the peering listener wraps every accepted connection with
+/// rustls before handing it to the session handler.  Plain TCP peers that do
+/// not speak TLS will fail the handshake and be dropped.
+///
+/// Leave this section absent to accept plain TCP connections (LAN or loopback
+/// peering, or when a TLS terminator sits in front of the daemon).
+#[derive(Debug, Deserialize)]
+pub struct TlsConfig {
+    /// Path to the PEM-encoded certificate chain (leaf first).
+    pub cert_path: String,
+    /// Path to the PEM-encoded private key.
+    pub key_path: String,
 }
 
 /// One entry in the structured `[[peers.peer]]` table.

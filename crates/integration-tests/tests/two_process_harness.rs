@@ -298,6 +298,7 @@ async fn transit_reader_shared_store() {
         transit_pool: Arc::clone(&transit_db_pool),
         blacklist_config: BlacklistConfig::default(),
         trusted_keys: Vec::new(),
+        tls_acceptor: None,
     });
 
     // ── Pipeline drain task ───────────────────────────────────────────────────
@@ -367,9 +368,11 @@ async fn transit_reader_shared_store() {
         let shared = Arc::clone(&transit_shared);
         tokio::spawn(async move {
             loop {
-                let (stream, _) = transit_listener.accept().await.unwrap();
+                let (stream, addr) = transit_listener.accept().await.unwrap();
                 let s = Arc::clone(&shared);
-                tokio::spawn(async move { run_peering_session(stream, s).await });
+                tokio::spawn(async move {
+                    run_peering_session(stream, addr.to_string(), addr.ip().to_string(), s).await;
+                });
             }
         });
     }

@@ -8,9 +8,9 @@
 
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::TcpStream;
+use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::{mpsc, Mutex};
+use tokio_rustls;
 
 use usenet_ipfs_core::group_log::SqliteLogStorage;
 use usenet_ipfs_core::{msgid_map::MsgIdMap, validation::validate_message_id};
@@ -65,22 +65,31 @@ pub struct PeeringShared {
     /// before any NNTP bytes are exchanged.  Empty → auth is skipped (port
     /// must be firewalled in that case).
     pub trusted_keys: Vec<ed25519_dalek::VerifyingKey>,
+    /// Optional rustls acceptor for TLS-wrapped inbound connections.
+    ///
+    /// `Some` → every accepted connection is TLS-upgraded before any NNTP
+    /// bytes.  `None` → plain TCP is used (suitable for LAN / loopback or
+    /// when a TLS terminator sits in front of the daemon).
+    pub tls_acceptor: Option<Arc<tokio_rustls::TlsAcceptor>>,
 }
 
-/// Handle one inbound NNTP peering TCP connection.
+/// Handle one inbound NNTP peering connection.
+///
+/// `stream` may be a plain `TcpStream` or a TLS-wrapped stream — the generic
+/// bound keeps this zero-cost while supporting both without boxing.
+/// `peer_addr` and `peer_ip` are extracted by the caller (from the TCP
+/// `accept()` return value) and passed in so this function can operate on any
+/// stream type.
 ///
 /// Returns when the peer disconnects or sends QUIT.
-pub async fn run_peering_session(stream: TcpStream, shared: Arc<PeeringShared>) {
-    let peer_sock = stream.peer_addr();
-    let peer_addr = peer_sock
-        .as_ref()
-        .map(|a| a.to_string())
-        .unwrap_or_else(|_| "unknown".to_string());
-    // Key by IP (without port) so all connections from one host share a
-    // rate-limit bucket and blacklist entry.
-    let peer_ip = peer_sock
-        .map(|a| a.ip().to_string())
-        .unwrap_or_else(|_| "unknown".to_string());
+pub async fn run_peering_session<S>(
+    stream: S,
+    peer_addr: String,
+    peer_ip: String,
+    shared: Arc<PeeringShared>,
+) where
+    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+{
 
     tracing::debug!(%peer_addr, "peering connection accepted");
 
@@ -106,7 +115,7 @@ pub async fn run_peering_session(stream: TcpStream, shared: Arc<PeeringShared>) 
         Ok(false) => {}
     }
 
-    let (mut reader_half, mut writer) = stream.into_split();
+    let (mut reader_half, mut writer) = tokio::io::split(stream);
 
     // Mutual ed25519 challenge-response handshake before any NNTP bytes.
     // Runs only when the operator has configured trusted peer keys.
@@ -408,9 +417,10 @@ enum DotStuffedResult {
 /// content exceeds the limit, switches to drain mode (reads until the
 /// terminator without accumulating) and returns [`DotStuffedResult::TooLarge`].
 /// This keeps the NNTP connection valid so a 437/439 rejection can be sent.
-async fn read_dot_stuffed(
-    reader: &mut BufReader<tokio::net::tcp::OwnedReadHalf>,
-) -> DotStuffedResult {
+async fn read_dot_stuffed<R>(reader: &mut BufReader<R>) -> DotStuffedResult
+where
+    R: AsyncRead + Unpin,
+{
     use crate::peering::ingestion::MAX_ARTICLE_BYTES;
 
     let mut buf = Vec::new();
