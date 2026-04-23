@@ -64,6 +64,10 @@ impl IpfsStore for SharedIpfs {
             .insert(cid.to_bytes(), data.to_vec());
         Ok(cid)
     }
+
+    async fn get_raw(&self, cid: &Cid) -> Result<Option<Vec<u8>>, IpfsError> {
+        Ok(self.blocks.read().await.get(&cid.to_bytes()).cloned())
+    }
 }
 
 #[async_trait]

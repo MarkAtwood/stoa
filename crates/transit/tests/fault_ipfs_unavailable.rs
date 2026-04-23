@@ -64,6 +64,16 @@ impl IpfsStore for FailingIpfsStore {
             self.inner.put_raw(data).await
         }
     }
+
+    async fn get_raw(&self, cid: &Cid) -> Result<Option<Vec<u8>>, IpfsError> {
+        if self.should_fail.load(Ordering::SeqCst) {
+            Err(IpfsError::WriteFailed(
+                "simulated IPFS unavailable".to_string(),
+            ))
+        } else {
+            self.inner.get_raw(cid).await
+        }
+    }
 }
 
 // ── Test helpers ──────────────────────────────────────────────────────────────

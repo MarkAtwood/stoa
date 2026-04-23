@@ -460,6 +460,7 @@ async fn main() {
                 start_time,
                 config.admin.bearer_token.clone(),
                 config.admin.rate_limit_rpm,
+                Arc::clone(&ipfs_store),
             ) {
                 eprintln!("error: admin server: {e}");
                 std::process::exit(1);

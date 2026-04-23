@@ -45,6 +45,13 @@ impl std::error::Error for IpfsError {}
 pub trait IpfsStore: Send + Sync {
     /// Write `data` to IPFS. Returns the CID of the stored block.
     async fn put_raw(&self, data: &[u8]) -> Result<Cid, IpfsError>;
+
+    /// Fetch the raw block bytes for `cid`.
+    ///
+    /// Returns `None` if the block is not locally available (not pinned,
+    /// not yet retrieved from the network). Returns `Err` on I/O or
+    /// internal errors.
+    async fn get_raw(&self, cid: &Cid) -> Result<Option<Vec<u8>>, IpfsError>;
 }
 
 // ── In-memory IPFS store for tests ───────────────────────────────────────────
@@ -80,6 +87,15 @@ impl IpfsStore for MemIpfsStore {
             .insert(cid.to_string(), data.to_vec());
         Ok(cid)
     }
+
+    async fn get_raw(&self, cid: &Cid) -> Result<Option<Vec<u8>>, IpfsError> {
+        Ok(self
+            .blocks
+            .read()
+            .unwrap()
+            .get(&cid.to_string())
+            .cloned())
+    }
 }
 
 // ── Production rust-ipfs store ────────────────────────────────────────────────
@@ -114,6 +130,25 @@ impl IpfsStore for RustIpfsStore {
             .put_block(&block)
             .await
             .map_err(|e| IpfsError::WriteFailed(e.to_string()))
+    }
+
+    async fn get_raw(&self, cid: &Cid) -> Result<Option<Vec<u8>>, IpfsError> {
+        match self.ipfs.get_block(cid).await {
+            Ok(block) => Ok(Some(block.data().to_vec())),
+            Err(e) => {
+                // rust-ipfs returns an error when a block is not locally available.
+                // Treat as "not found" rather than a hard error — CAR export skips missing blocks.
+                let msg = e.to_string();
+                if msg.contains("not found")
+                    || msg.contains("Not Found")
+                    || msg.contains("BlockNotFound")
+                {
+                    Ok(None)
+                } else {
+                    Err(IpfsError::WriteFailed(msg))
+                }
+            }
+        }
     }
 }
 

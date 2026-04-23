@@ -19,6 +19,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 
+use crate::peering::pipeline::IpfsStore;
+
 struct RateLimitState {
     /// Tokens available (fractional).
     tokens: f64,
@@ -94,6 +96,7 @@ pub fn start_admin_server(
     start_time: Instant,
     bearer_token: Option<String>,
     rate_limit_rpm: u32,
+    ipfs: Arc<dyn IpfsStore>,
 ) -> Result<(), String> {
     if !addr.ip().is_loopback() && bearer_token.is_none() {
         return Err(format!(
@@ -118,6 +121,7 @@ pub fn start_admin_server(
                     let pool = Arc::clone(&pool);
                     let bearer_token = Arc::clone(&bearer_token);
                     let rate_limiter = Arc::clone(&rate_limiter);
+                    let ipfs = Arc::clone(&ipfs);
                     tokio::spawn(async move {
                         if let Err(e) = handle_admin_connection(
                             stream,
@@ -125,6 +129,7 @@ pub fn start_admin_server(
                             start_time,
                             bearer_token.as_deref(),
                             &rate_limiter,
+                            &*ipfs,
                         )
                         .await
                         {
@@ -147,6 +152,7 @@ async fn handle_admin_connection(
     start_time: Instant,
     bearer_token: Option<&str>,
     rate_limiter: &RateLimiter,
+    ipfs: &dyn IpfsStore,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let peer_ip = stream.peer_addr()?.ip();
     let mut reader = BufReader::new(stream);
@@ -304,6 +310,40 @@ async fn handle_admin_connection(
                 .await?;
             }
         },
+        "/export/car" => {
+            let group = extract_query_param(query, "group")
+                .filter(|g| !g.is_empty());
+            if let Some(group) = group {
+                let limit: i64 = extract_query_param(query, "limit")
+                    .and_then(|s| s.parse::<i64>().ok())
+                    .unwrap_or(1000)
+                    .min(10000)
+                    .max(1);
+                match crate::export::build_export_car(pool, ipfs, &group, limit).await {
+                    Ok(car_bytes) => {
+                        write_binary_car(&mut writer, &car_bytes).await?;
+                    }
+                    Err(e) => {
+                        tracing::warn!("admin /export/car error: {e}");
+                        write_json(
+                            &mut writer,
+                            500,
+                            "Internal Server Error",
+                            r#"{"error":"internal server error"}"#,
+                        )
+                        .await?;
+                    }
+                }
+            } else {
+                write_json(
+                    &mut writer,
+                    400,
+                    "Bad Request",
+                    r#"{"error":"missing group parameter"}"#,
+                )
+                .await?;
+            }
+        }
         _ => {
             write_json(&mut writer, 404, "Not Found", r#"{"error":"not found"}"#).await?;
         }
@@ -364,6 +404,19 @@ async fn write_json<W: AsyncWrite + Unpin>(
         "HTTP/1.1 {status} {status_text}\r\nContent-Type: application/json\r\nContent-Length: {content_length}\r\n\r\n{body}"
     );
     writer.write_all(response.as_bytes()).await
+}
+
+/// Write a CARv1 binary response with the standard IPLD CAR content-type.
+async fn write_binary_car<W: AsyncWrite + Unpin>(
+    writer: &mut W,
+    body: &[u8],
+) -> std::io::Result<()> {
+    let content_length = body.len();
+    let header = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: application/vnd.ipld.car; version=1\r\nContent-Length: {content_length}\r\n\r\n"
+    );
+    writer.write_all(header.as_bytes()).await?;
+    writer.write_all(body).await
 }
 
 pub(crate) fn build_health_json(start_time: Instant) -> String {

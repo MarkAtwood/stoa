@@ -74,3 +74,5 @@
 [22:58:14] COORDINATOR: e0v phase1 done — 9 beads in 4 waves
 [22:58:14] COORDINATOR: e0v phase2 done — all 9 beads implemented, 49 tests pass
 [22:58:14] COORDINATOR: e0v complete
+[23:00:40] COORDINATOR: claimed epic usenet-ipfs-pbc (CAR file export)
+[23:04:30] COORDINATOR: pbc phase1 done — 5 beads in linear chain
