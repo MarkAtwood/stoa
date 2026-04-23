@@ -117,6 +117,14 @@ impl RustIpfsStore {
             .map_err(|e| e.to_string())?;
         Ok(Self { ipfs })
     }
+
+    /// Return a cheaply-cloned handle to the underlying IPFS node.
+    ///
+    /// Used by the IPNS publisher to call `ipfs.publish_ipns()` without going
+    /// through the `IpfsStore` trait (which does not expose IPNS operations).
+    pub fn ipfs_handle(&self) -> rust_ipfs::Ipfs {
+        self.ipfs.clone()
+    }
 }
 
 #[async_trait]

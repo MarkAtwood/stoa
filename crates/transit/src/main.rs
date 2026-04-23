@@ -23,7 +23,10 @@ use usenet_ipfs_transit::{
         rate_limit::{ExhaustionAction, PeerRateLimiter},
         session::{run_peering_session, PeeringShared},
     },
-    retention::remote_pin_worker::RemotePinWorker,
+    retention::{
+        ipns_publisher::{IpnsEvent, IpnsPublisher},
+        remote_pin_worker::RemotePinWorker,
+    },
 };
 
 fn parse_args() -> PathBuf {
@@ -122,15 +125,53 @@ async fn main() {
     // ── rust-ipfs node (y3o) ──────────────────────────────────────────────────
 
     info!("starting rust-ipfs node");
+    let rust_store = match RustIpfsStore::new().await {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("error: failed to start IPFS node: {e}");
+            std::process::exit(1);
+        }
+    };
+    // Extract the IPFS handle before boxing so the IPNS publisher can use it.
+    let ipfs_for_ipns = if config.ipns.enabled {
+        Some(rust_store.ipfs_handle())
+    } else {
+        None
+    };
     let ipfs_store: Arc<dyn usenet_ipfs_transit::peering::pipeline::IpfsStore> =
-        match RustIpfsStore::new().await {
-            Ok(s) => Arc::new(s),
-            Err(e) => {
-                eprintln!("error: failed to start IPFS node: {e}");
-                std::process::exit(1);
-            }
-        };
+        Arc::new(rust_store);
     info!("rust-ipfs node started");
+
+    // ── IPNS channel ──────────────────────────────────────────────────────────
+
+    let ipns_tx: Option<tokio::sync::mpsc::Sender<IpnsEvent>> = if config.ipns.enabled {
+        let (tx, rx) = tokio::sync::mpsc::channel::<IpnsEvent>(256);
+        let ipfs_handle = ipfs_for_ipns.clone().expect("ipfs_for_ipns set when enabled");
+        let interval = config.ipns.republish_interval_secs;
+        tokio::spawn(IpnsPublisher::new(ipfs_handle, interval).run(rx));
+        info!("IPNS publishing enabled (interval {}s)", config.ipns.republish_interval_secs);
+        Some(tx)
+    } else {
+        None
+    };
+
+    // Derive the IPNS path string (/ipns/<peer_id>) for the admin endpoint.
+    // Only set when IPNS is enabled; the admin /ipns endpoint returns null otherwise.
+    let ipns_path_string: Option<String> = if let Some(ref ipfs) = ipfs_for_ipns {
+        match ipfs.identity(None).await {
+            Ok(info) => {
+                let path = format!("/ipns/{}", info.peer_id);
+                info!(ipns_path = %path, "IPNS address ready");
+                Some(path)
+            }
+            Err(e) => {
+                warn!("IPNS: failed to get node peer identity: {e}");
+                None
+            }
+        }
+    } else {
+        None
+    };
 
     // ── Operator signing key ──────────────────────────────────────────────────
 
@@ -367,6 +408,7 @@ async fn main() {
         let local_hostname_drain = local_hostname;
         let transit_pool_drain = Arc::clone(&transit_pool);
         let ingestion_sender_drain = Arc::clone(&ingestion_sender);
+        let ipns_tx_drain = ipns_tx;
 
         tokio::spawn(async move {
             while let Some(article) = ingestion_receiver.recv().await {
@@ -402,6 +444,19 @@ async fn main() {
                             msgid = %article.message_id,
                             "article ingested"
                         );
+                        // Notify IPNS publisher of new article tip per group.
+                        if let Some(ref tx) = ipns_tx_drain {
+                            for group in &result.groups {
+                                let event = IpnsEvent {
+                                    group: group.clone(),
+                                    cid: result.cid,
+                                };
+                                if let Err(e) = tx.try_send(event) {
+                                    warn!(group, "IPNS channel full, skipping publish: {e}");
+                                }
+                            }
+                        }
+
                         // Enqueue for external pinning services whose group filter matches.
                         if !pin_service_filters.is_empty() {
                             let cid_str = result.cid.to_string();
@@ -461,6 +516,7 @@ async fn main() {
                 config.admin.bearer_token.clone(),
                 config.admin.rate_limit_rpm,
                 Arc::clone(&ipfs_store),
+                ipns_path_string.clone(),
             ) {
                 eprintln!("error: admin server: {e}");
                 std::process::exit(1);

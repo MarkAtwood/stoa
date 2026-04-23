@@ -28,6 +28,9 @@ pub struct Config {
     /// when this section is absent (suitable for LAN / loopback peering).
     #[serde(default)]
     pub tls: Option<TlsConfig>,
+    /// IPNS publishing configuration.  Optional; IPNS publishing is disabled by default.
+    #[serde(default)]
+    pub ipns: IpnsConfig,
 }
 
 /// Operator identity configuration.
@@ -52,6 +55,36 @@ pub struct OperatorConfig {
     /// Local FQDN for the `Path:` header (Son-of-RFC-1036 §3.3).
     #[serde(default)]
     pub hostname: Option<String>,
+}
+
+/// IPNS publishing configuration.
+///
+/// When `enabled` is true, the transit daemon publishes a signed IPNS record
+/// after each article ingestion.  The record points to a JSON index block that
+/// maps every active newsgroup to its most-recently-ingested article CID.
+/// The stable IPNS address is derived from the node's libp2p peer identity key.
+#[derive(Debug, Deserialize)]
+pub struct IpnsConfig {
+    /// Publish IPNS records after each article ingestion.  Default: false.
+    #[serde(default)]
+    pub enabled: bool,
+    /// Minimum interval between consecutive IPNS publishes, in seconds.
+    /// Prevents excessive DHT traffic on high-volume ingest.  Default: 3600.
+    #[serde(default = "default_ipns_republish_interval")]
+    pub republish_interval_secs: u64,
+}
+
+fn default_ipns_republish_interval() -> u64 {
+    3600
+}
+
+impl Default for IpnsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            republish_interval_secs: default_ipns_republish_interval(),
+        }
+    }
 }
 
 /// SQLite database configuration.

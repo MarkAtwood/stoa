@@ -11,6 +11,7 @@
 //! - `GET /peers`            — list of active (non-blacklisted) peers
 //! - `GET /metrics`          — Prometheus text format (delegates to [`crate::metrics`])
 //! - `GET /pinning/remote`   — per-service job counts from the remote pin jobs table
+//! - `GET /ipns`             — IPNS address and latest article CID per group
 
 use sqlx::SqlitePool;
 use std::collections::HashMap;
@@ -97,6 +98,7 @@ pub fn start_admin_server(
     bearer_token: Option<String>,
     rate_limit_rpm: u32,
     ipfs: Arc<dyn IpfsStore>,
+    ipns_path: Option<String>,
 ) -> Result<(), String> {
     if !addr.ip().is_loopback() && bearer_token.is_none() {
         return Err(format!(
@@ -106,6 +108,7 @@ pub fn start_admin_server(
     }
     let bearer_token = Arc::new(bearer_token);
     let rate_limiter = Arc::new(RateLimiter::new(rate_limit_rpm));
+    let ipns_path = Arc::new(ipns_path);
     tokio::spawn(async move {
         let listener = match tokio::net::TcpListener::bind(addr).await {
             Ok(l) => l,
@@ -122,6 +125,7 @@ pub fn start_admin_server(
                     let bearer_token = Arc::clone(&bearer_token);
                     let rate_limiter = Arc::clone(&rate_limiter);
                     let ipfs = Arc::clone(&ipfs);
+                    let ipns_path = Arc::clone(&ipns_path);
                     tokio::spawn(async move {
                         if let Err(e) = handle_admin_connection(
                             stream,
@@ -130,6 +134,7 @@ pub fn start_admin_server(
                             bearer_token.as_deref(),
                             &rate_limiter,
                             &*ipfs,
+                            ipns_path.as_deref(),
                         )
                         .await
                         {
@@ -153,6 +158,7 @@ async fn handle_admin_connection(
     bearer_token: Option<&str>,
     rate_limiter: &RateLimiter,
     ipfs: &dyn IpfsStore,
+    ipns_path: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let peer_ip = stream.peer_addr()?.ip();
     let mut reader = BufReader::new(stream);
@@ -344,6 +350,19 @@ async fn handle_admin_connection(
                 .await?;
             }
         }
+        "/ipns" => match build_ipns_json(pool, ipns_path).await {
+            Ok(body) => write_json(&mut writer, 200, "OK", &body).await?,
+            Err(e) => {
+                tracing::warn!("admin /ipns error: {e}");
+                write_json(
+                    &mut writer,
+                    500,
+                    "Internal Server Error",
+                    r#"{"error":"internal server error"}"#,
+                )
+                .await?;
+            }
+        },
         _ => {
             write_json(&mut writer, 404, "Not Found", r#"{"error":"not found"}"#).await?;
         }
@@ -548,6 +567,49 @@ pub(crate) async fn build_peers_json(pool: &SqlitePool) -> Result<String, sqlx::
     Ok(serde_json::to_string(&peers).unwrap_or_else(|_| "[]".to_string()))
 }
 
+/// Build JSON for `GET /ipns`.
+///
+/// Returns the stable IPNS address for this node and the latest article CID
+/// per group, alphabetically sorted.
+///
+/// Format:
+/// ```json
+/// {"ipns_path":"/ipns/<peer_id>","groups":{"comp.lang.rust":"<cid>",...}}
+/// ```
+///
+/// `ipns_path` is `null` when IPNS is disabled.
+pub(crate) async fn build_ipns_json(
+    pool: &SqlitePool,
+    ipns_path: Option<&str>,
+) -> Result<String, sqlx::Error> {
+    // One row per group: the CID with the highest ingested_at_ms.
+    // Correlated subquery is supported in SQLite and avoids a GROUP BY/JOIN.
+    let rows: Vec<(String, String)> = sqlx::query_as(
+        "SELECT group_name, cid FROM articles \
+         WHERE ingested_at_ms = (\
+           SELECT MAX(ingested_at_ms) FROM articles a2 \
+           WHERE a2.group_name = articles.group_name\
+         ) \
+         ORDER BY group_name",
+    )
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
+
+    // Build a JSON object (serde_json::Map preserves insertion order, which is
+    // alphabetical here because the SQL result is ORDER BY group_name).
+    let mut groups = serde_json::Map::new();
+    for (group, cid) in rows {
+        groups.insert(group, serde_json::Value::String(cid));
+    }
+
+    let obj = serde_json::json!({
+        "ipns_path": ipns_path,
+        "groups": groups,
+    });
+    Ok(obj.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -699,6 +761,90 @@ mod tests {
         let v: serde_json::Value = serde_json::from_str(&json).unwrap();
         assert!(v.is_array(), "expected JSON array, got: {json}");
         assert_eq!(v.as_array().unwrap().len(), 0, "expected empty array: {json}");
+    }
+
+    // ── /ipns endpoint tests ───────────────────────────────────────────────────
+
+    /// Empty articles table returns correct JSON with null ipns_path and empty groups.
+    #[tokio::test]
+    async fn build_ipns_json_empty_db_no_path() {
+        let pool = make_pool().await;
+        let json = build_ipns_json(&pool, None).await.unwrap();
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert!(v["ipns_path"].is_null(), "ipns_path must be null when disabled: {json}");
+        assert!(v["groups"].is_object(), "groups must be object: {json}");
+        assert_eq!(
+            v["groups"].as_object().unwrap().len(),
+            0,
+            "groups must be empty: {json}"
+        );
+    }
+
+    /// With an IPNS path and no articles, groups is empty but ipns_path is populated.
+    #[tokio::test]
+    async fn build_ipns_json_with_path_no_articles() {
+        let pool = make_pool().await;
+        let json = build_ipns_json(&pool, Some("/ipns/12D3KooW...")).await.unwrap();
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(
+            v["ipns_path"],
+            "/ipns/12D3KooW...",
+            "ipns_path must match supplied value: {json}"
+        );
+        assert_eq!(
+            v["groups"].as_object().unwrap().len(),
+            0,
+            "no articles → empty groups: {json}"
+        );
+    }
+
+    /// Latest CID per group is returned; older articles are not included.
+    #[tokio::test]
+    async fn build_ipns_json_returns_latest_cid_per_group() {
+        let pool = make_pool().await;
+
+        // Insert two articles for comp.lang.rust: older then newer.
+        sqlx::query(
+            "INSERT INTO articles (cid, group_name, ingested_at_ms) \
+             VALUES ('cid-old', 'comp.lang.rust', 1000), \
+                    ('cid-new', 'comp.lang.rust', 2000)",
+        )
+        .execute(&*pool)
+        .await
+        .unwrap();
+
+        let json = build_ipns_json(&pool, Some("/ipns/abc")).await.unwrap();
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let groups = v["groups"].as_object().unwrap();
+        assert_eq!(
+            groups.get("comp.lang.rust").and_then(|v| v.as_str()),
+            Some("cid-new"),
+            "must return newest CID, not older: {json}"
+        );
+        assert_eq!(groups.len(), 1, "one group in output: {json}");
+    }
+
+    /// Groups appear in alphabetical order in the JSON output.
+    #[tokio::test]
+    async fn build_ipns_json_groups_alphabetical() {
+        let pool = make_pool().await;
+
+        sqlx::query(
+            "INSERT INTO articles (cid, group_name, ingested_at_ms) \
+             VALUES ('cid-z', 'sci.math', 1000), \
+                    ('cid-a', 'alt.test', 1000), \
+                    ('cid-c', 'comp.lang.rust', 1000)",
+        )
+        .execute(&*pool)
+        .await
+        .unwrap();
+
+        let json = build_ipns_json(&pool, None).await.unwrap();
+        let alt_pos = json.find("alt.test").expect("alt.test must appear");
+        let comp_pos = json.find("comp.lang.rust").expect("comp.lang.rust must appear");
+        let sci_pos = json.find("sci.math").expect("sci.math must appear");
+        assert!(alt_pos < comp_pos, "alt.test must precede comp.lang.rust");
+        assert!(comp_pos < sci_pos, "comp.lang.rust must precede sci.math");
     }
 
     /// Inserting jobs for two services returns one object per service with correct counts.

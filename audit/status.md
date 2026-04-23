@@ -76,3 +76,8 @@
 [22:58:14] COORDINATOR: e0v complete
 [23:00:40] COORDINATOR: claimed epic usenet-ipfs-pbc (CAR file export)
 [23:04:30] COORDINATOR: pbc phase1 done — 5 beads in linear chain
+Phase markers reset for new epic
+[06:22:41] COORDINATOR: starting new epic loop pass
+[06:23:23] COORDINATOR: claimed epic usenet-ipfs-fwm (IPNS publishing)
+[06:27:21] COORDINATOR: research complete — one-IPNS-per-node/index design chosen; creating beads
+[06:28:46] COORDINATOR: phase1 done, 6 beads created, wave 0 unblocked
