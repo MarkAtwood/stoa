@@ -546,149 +546,54 @@ pub async fn run_session<S>(
                 // When no local user matches a recipient the message is
                 // accepted (250 OK) but produces no Sieve actions — the
                 // sending MTA's responsibility ends at 250.
-
-                // Collect Sieve actions for every addressed local user.
-                let mut deliveries: Vec<(String, String, Vec<usenet_ipfs_sieve::SieveAction>)> =
-                    Vec::new();
-                for recipient_email in &to {
-                    if let Some(user) = config
-                        .users
-                        .iter()
-                        .find(|u| u.email.eq_ignore_ascii_case(recipient_email))
-                    {
-                        let actions = if let Some(db_pool) = pool.as_ref() {
-                            let sieve_timeout = tokio::time::Duration::from_millis(
-                                config.limits.sieve_eval_timeout_ms,
-                            );
-                            let username = user.username.clone();
-                            match tokio::time::timeout(
-                                sieve_timeout,
-                                sieve_for_user(
-                                    db_pool,
-                                    &username,
-                                    &raw_bytes,
-                                    &from,
-                                    recipient_email,
-                                    sieve_cache.as_ref(),
-                                ),
-                            )
+                match sieve_delivery(
+                    &config,
+                    pool.as_ref(),
+                    &to,
+                    &raw_bytes,
+                    &from,
+                    sieve_cache.as_ref(),
+                    &nntp_queue,
+                    &peer_addr,
+                )
+                .await
+                {
+                    SieveOutcome::Rejected(reason) => {
+                        // Log the per-recipient rejection reason for operator
+                        // diagnostics, but do NOT echo it back to the sender.
+                        // In multi-recipient envelopes, exposing the per-user
+                        // reason would reveal which recipient's Sieve policy
+                        // triggered the reject, leaking BCC recipient identity.
+                        let safe: String = reason
+                            .chars()
+                            .filter(|c| c.is_ascii_graphic() || *c == ' ')
+                            .take(200)
+                            .collect();
+                        warn!(peer = %peer_addr, from = %from, %safe, "Sieve reject");
+                        SMTP_MESSAGES_REJECTED_TOTAL.with_label_values(&["policy"]).inc();
+                        if write_half
+                            .write_all(b"550 Message rejected by recipient policy\r\n")
                             .await
-                            {
-                                Ok(actions) => actions,
-                                Err(_elapsed) => {
-                                    tracing::warn!(%username, "Sieve evaluation timed out; defaulting to Keep");
-                                    crate::metrics::SMTP_SIEVE_EVAL_TIMEOUTS_TOTAL.inc();
-                                    vec![usenet_ipfs_sieve::SieveAction::Keep]
-                                }
-                            }
-                        } else {
-                            vec![usenet_ipfs_sieve::SieveAction::Keep]
-                        };
-                        deliveries.push((
-                            user.username.clone(),
-                            recipient_email.clone(),
-                            actions,
-                        ));
-                    }
-                }
-
-                // If any script wants to reject, reject the whole transaction.
-                let mut reject_reason: Option<String> = None;
-                'find_reject: for (_, _, actions) in &deliveries {
-                    for action in actions {
-                        if let usenet_ipfs_sieve::SieveAction::Reject(r) = action {
-                            reject_reason = Some(r.clone());
-                            break 'find_reject;
+                            .is_err()
+                        {
+                            break;
                         }
                     }
-                }
-
-                if let Some(reason) = reject_reason {
-                    // Filter to printable ASCII + space only.  is_ascii_graphic()
-                    // excludes CR (0x0d) and LF (0x0a), preventing a malicious
-                    // Sieve script from injecting additional SMTP response lines
-                    // via embedded CRLF sequences in the 550 response text.
-                    let safe: String = reason
-                        .chars()
-                        .filter(|c| c.is_ascii_graphic() || *c == ' ')
-                        .take(200)
-                        .collect();
-                    warn!(peer = %peer_addr, from = %from, %safe, "Sieve reject");
-                    SMTP_MESSAGES_REJECTED_TOTAL
-                        .with_label_values(&["policy"])
-                        .inc();
-                    if write_half
-                        .write_all(format!("550 {}\r\n", safe).as_bytes())
-                        .await
-                        .is_err()
-                    {
-                        break;
-                    }
-                    state = SessionState::Greeted { ehlo_domain };
-                    continue;
-                }
-
-                // No reject — apply Keep / FileInto / Discard per recipient.
-                // Track whether any NNTP enqueue fails so we can 452.
-                let mut nntp_queue_error = false;
-                for (username, email, actions) in deliveries {
-                    for action in actions {
-                        match action {
-                            usenet_ipfs_sieve::SieveAction::Keep => {
-                                if let Some(db_pool) = pool.as_ref() {
-                                    if let Err(e) = store::deliver(
-                                        db_pool, &username, "INBOX", &from, &email, &raw_bytes,
-                                    )
-                                    .await
-                                    {
-                                        warn!(peer = %peer_addr, %username, "deliver to INBOX failed: {e}");
-                                    }
-                                } else {
-                                    warn!(peer = %peer_addr, %username, "Sieve Keep: no database configured, message not stored");
-                                }
-                            }
-                            usenet_ipfs_sieve::SieveAction::FileInto(folder) => {
-                                if let Some(newsgroup) = folder.strip_prefix("newsgroup:") {
-                                    let article = if routing::has_newsgroups_header(&raw_bytes) {
-                                        raw_bytes.to_vec()
-                                    } else {
-                                        routing::add_newsgroups_header(&raw_bytes, newsgroup)
-                                    };
-                                    if let Err(e) = nntp_queue.enqueue(&article).await {
-                                        warn!(peer = %peer_addr, %newsgroup, "NNTP queue write failed: {e}");
-                                        nntp_queue_error = true;
-                                    }
-                                } else if let Some(db_pool) = pool.as_ref() {
-                                    if let Err(e) = store::deliver(
-                                        db_pool, &username, &folder, &from, &email, &raw_bytes,
-                                    )
-                                    .await
-                                    {
-                                        warn!(peer = %peer_addr, %username, %folder, "deliver to folder failed: {e}");
-                                    }
-                                } else {
-                                    warn!(peer = %peer_addr, %username, %folder, "Sieve FileInto: no database configured, message not stored");
-                                }
-                            }
-                            usenet_ipfs_sieve::SieveAction::Discard => {
-                                info!(peer = %peer_addr, %username, "Sieve discard — message dropped");
-                            }
-                            usenet_ipfs_sieve::SieveAction::Reject(_) => {}
+                    SieveOutcome::Accepted { nntp_queue_error } => {
+                        let reply: &[u8] = if nntp_queue_error {
+                            b"452 4.3.1 Queue write failed - try again later\r\n"
+                        } else {
+                            SMTP_MESSAGES_ACCEPTED_TOTAL.inc();
+                            SMTP_DATA_BYTES_TOTAL.inc_by(raw_bytes.len() as f64);
+                            b"250 OK\r\n"
+                        };
+                        if write_half.write_all(reply).await.is_err() {
+                            break;
                         }
                     }
                 }
                 // ─────────────────────────────────────────────────────────────
 
-                let reply: &[u8] = if nntp_queue_error {
-                    b"452 4.3.1 Queue write failed - try again later\r\n"
-                } else {
-                    SMTP_MESSAGES_ACCEPTED_TOTAL.inc();
-                    SMTP_DATA_BYTES_TOTAL.inc_by(raw_bytes.len() as f64);
-                    b"250 OK\r\n"
-                };
-                if write_half.write_all(reply).await.is_err() {
-                    break;
-                }
                 state = SessionState::Greeted { ehlo_domain };
             }
 
@@ -787,6 +692,139 @@ async fn verify_sasl_plain(store: &CredentialStore, b64_response: &str) -> Optio
 /// Load and evaluate the active Sieve script for `username`.
 /// Defaults to [`Keep`](usenet_ipfs_sieve::SieveAction::Keep) when no script
 /// is stored or the script fails to compile.
+/// Outcome of [`sieve_delivery`].
+enum SieveOutcome {
+    /// At least one recipient's Sieve script issued a `Reject` action.
+    /// The inner string is the raw (unsanitised) rejection reason for logging;
+    /// it must not be forwarded verbatim to the sender (BCC privacy).
+    Rejected(String),
+    /// No rejection; message was processed for all recipients.
+    /// `nntp_queue_error` is `true` if at least one newsgroup enqueue failed.
+    Accepted { nntp_queue_error: bool },
+}
+
+/// Evaluate Sieve filters for all addressed local users and apply the
+/// resulting actions (Keep → INBOX, FileInto → folder or newsgroup, Discard,
+/// Reject).
+///
+/// Returns [`SieveOutcome::Rejected`] if any script issued a reject — the
+/// caller is responsible for sending the 550 response and incrementing the
+/// reject metric.  Returns [`SieveOutcome::Accepted`] otherwise, with a flag
+/// indicating whether any newsgroup enqueue failed (caller sends 452 vs 250).
+async fn sieve_delivery(
+    config: &Config,
+    pool: Option<&SqlitePool>,
+    to: &[String],
+    raw_bytes: &[u8],
+    from: &str,
+    sieve_cache: Option<&SieveCache>,
+    nntp_queue: &NntpQueue,
+    peer_addr: &str,
+) -> SieveOutcome {
+    // Collect Sieve actions for every addressed local user.
+    let mut deliveries: Vec<(String, String, Vec<usenet_ipfs_sieve::SieveAction>)> = Vec::new();
+    for recipient_email in to {
+        if let Some(user) = config
+            .users
+            .iter()
+            .find(|u| u.email.eq_ignore_ascii_case(recipient_email))
+        {
+            let actions = if let Some(db_pool) = pool {
+                let sieve_timeout =
+                    tokio::time::Duration::from_millis(config.limits.sieve_eval_timeout_ms);
+                let username = user.username.clone();
+                match tokio::time::timeout(
+                    sieve_timeout,
+                    sieve_for_user(
+                        db_pool,
+                        &username,
+                        raw_bytes,
+                        from,
+                        recipient_email,
+                        sieve_cache,
+                    ),
+                )
+                .await
+                {
+                    Ok(actions) => actions,
+                    Err(_elapsed) => {
+                        tracing::warn!(%username, "Sieve evaluation timed out; defaulting to Keep");
+                        crate::metrics::SMTP_SIEVE_EVAL_TIMEOUTS_TOTAL.inc();
+                        vec![usenet_ipfs_sieve::SieveAction::Keep]
+                    }
+                }
+            } else {
+                vec![usenet_ipfs_sieve::SieveAction::Keep]
+            };
+            deliveries.push((user.username.clone(), recipient_email.clone(), actions));
+        }
+    }
+
+    // If any script wants to reject, reject the whole transaction.
+    for (_, _, actions) in &deliveries {
+        for action in actions {
+            if let usenet_ipfs_sieve::SieveAction::Reject(r) = action {
+                return SieveOutcome::Rejected(r.clone());
+            }
+        }
+    }
+
+    // No reject — apply Keep / FileInto / Discard per recipient.
+    let mut nntp_queue_error = false;
+    for (username, email, actions) in deliveries {
+        for action in actions {
+            match action {
+                usenet_ipfs_sieve::SieveAction::Keep => {
+                    if let Some(db_pool) = pool {
+                        if let Err(e) =
+                            store::deliver(db_pool, &username, "INBOX", from, &email, raw_bytes)
+                                .await
+                        {
+                            warn!(peer = %peer_addr, %username, "deliver to INBOX failed: {e}");
+                        }
+                    } else {
+                        warn!(
+                            peer = %peer_addr, %username,
+                            "Sieve Keep: no database configured, message not stored"
+                        );
+                    }
+                }
+                usenet_ipfs_sieve::SieveAction::FileInto(folder) => {
+                    if let Some(newsgroup) = folder.strip_prefix("newsgroup:") {
+                        let article = if routing::has_newsgroups_header(raw_bytes) {
+                            raw_bytes.to_vec()
+                        } else {
+                            routing::add_newsgroups_header(raw_bytes, newsgroup)
+                        };
+                        if let Err(e) = nntp_queue.enqueue(&article).await {
+                            warn!(peer = %peer_addr, %newsgroup, "NNTP queue write failed: {e}");
+                            nntp_queue_error = true;
+                        }
+                    } else if let Some(db_pool) = pool {
+                        if let Err(e) =
+                            store::deliver(db_pool, &username, &folder, from, &email, raw_bytes)
+                                .await
+                        {
+                            warn!(peer = %peer_addr, %username, %folder, "deliver to folder failed: {e}");
+                        }
+                    } else {
+                        warn!(
+                            peer = %peer_addr, %username, %folder,
+                            "Sieve FileInto: no database configured, message not stored"
+                        );
+                    }
+                }
+                usenet_ipfs_sieve::SieveAction::Discard => {
+                    info!(peer = %peer_addr, %username, "Sieve discard — message dropped");
+                }
+                usenet_ipfs_sieve::SieveAction::Reject(_) => {}
+            }
+        }
+    }
+
+    SieveOutcome::Accepted { nntp_queue_error }
+}
+
 async fn sieve_for_user(
     pool: &SqlitePool,
     username: &str,
