@@ -13,6 +13,7 @@
 
 pub mod auth;
 pub mod commands;
+pub mod mailbox;
 
 use std::{net::SocketAddr, sync::Arc};
 
@@ -32,6 +33,10 @@ use tracing::{debug, info, warn};
 use crate::config::Config;
 
 use auth::AuthProgress;
+use mailbox::{
+    handle_list, handle_select, handle_status, list_mailbox_to_string, select_status_responses,
+    select_untagged_data,
+};
 
 /// IMAP session state.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -156,7 +161,135 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
                         break;
                     }
 
-                    // All other commands are implemented in later waves (r8u.9 – r8u.17).
+                    CommandBody::Select { mailbox, .. } => {
+                        match ctx.state {
+                            ImapState::Authenticated { ref username }
+                            | ImapState::Selected { ref username, .. } => {
+                                let username = username.clone();
+                                match handle_select(
+                                    &ctx.pool,
+                                    tag,
+                                    mailbox,
+                                    false,
+                                )
+                                .await
+                                {
+                                    Ok(result) => {
+                                        let mailbox_name = result.mailbox_name.clone();
+                                        for d in select_untagged_data() {
+                                            server.enqueue_data(d);
+                                        }
+                                        for s in select_status_responses(&result) {
+                                            server.enqueue_status(s);
+                                        }
+                                        server.enqueue_status(result.tagged_ok);
+                                        ctx.state = ImapState::Selected {
+                                            username,
+                                            mailbox: mailbox_name,
+                                            read_only: false,
+                                        };
+                                    }
+                                    Err(no) => {
+                                        server.enqueue_status(no);
+                                    }
+                                }
+                            }
+                            _ => {
+                                server.enqueue_status(
+                                    Status::no(Some(tag), None, "Not in authenticated state")
+                                        .expect("static no"),
+                                );
+                            }
+                        }
+                    }
+
+                    CommandBody::Examine { mailbox, .. } => {
+                        match ctx.state {
+                            ImapState::Authenticated { ref username }
+                            | ImapState::Selected { ref username, .. } => {
+                                let username = username.clone();
+                                match handle_select(&ctx.pool, tag, mailbox, true).await {
+                                    Ok(result) => {
+                                        let mailbox_name = result.mailbox_name.clone();
+                                        for d in select_untagged_data() {
+                                            server.enqueue_data(d);
+                                        }
+                                        for s in select_status_responses(&result) {
+                                            server.enqueue_status(s);
+                                        }
+                                        server.enqueue_status(result.tagged_ok);
+                                        ctx.state = ImapState::Selected {
+                                            username,
+                                            mailbox: mailbox_name,
+                                            read_only: true,
+                                        };
+                                    }
+                                    Err(no) => {
+                                        server.enqueue_status(no);
+                                    }
+                                }
+                            }
+                            _ => {
+                                server.enqueue_status(
+                                    Status::no(Some(tag), None, "Not in authenticated state")
+                                        .expect("static no"),
+                                );
+                            }
+                        }
+                    }
+
+                    CommandBody::List { reference, mailbox_wildcard } => {
+                        match ctx.state {
+                            ImapState::Authenticated { .. }
+                            | ImapState::Selected { .. } => {
+                                let wildcard = list_mailbox_to_string(&mailbox_wildcard);
+                                for d in handle_list(&ctx.pool, &reference, &wildcard).await {
+                                    server.enqueue_data(d);
+                                }
+                                server.enqueue_status(
+                                    Status::ok(Some(tag), None, "LIST complete")
+                                        .expect("static ok"),
+                                );
+                            }
+                            _ => {
+                                server.enqueue_status(
+                                    Status::no(Some(tag), None, "Not in authenticated state")
+                                        .expect("static no"),
+                                );
+                            }
+                        }
+                    }
+
+                    CommandBody::Status { mailbox, item_names } => {
+                        match ctx.state {
+                            ImapState::Authenticated { .. }
+                            | ImapState::Selected { .. } => {
+                                match handle_status(&ctx.pool, mailbox, item_names.as_ref()).await {
+                                    Some(data) => {
+                                        server.enqueue_data(data);
+                                        server.enqueue_status(
+                                            Status::ok(Some(tag), None, "STATUS complete")
+                                                .expect("static ok"),
+                                        );
+                                    }
+                                    None => {
+                                        server.enqueue_status(
+                                            Status::no(Some(tag), None, "No such mailbox")
+                                                .expect("static no"),
+                                        );
+                                    }
+                                }
+                            }
+                            _ => {
+                                server.enqueue_status(
+                                    Status::no(Some(tag), None, "Not in authenticated state")
+                                        .expect("static no"),
+                                );
+                            }
+                        }
+                    }
+
+                    // All other commands are implemented in later waves (r8u.11 – r8u.17).
                     _ => {
                         server.enqueue_status(
                             Status::bad(
