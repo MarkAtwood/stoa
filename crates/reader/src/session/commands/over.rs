@@ -58,6 +58,7 @@ mod tests {
             references: "".into(),
             byte_count: 100,
             line_count: 5,
+            did_sig_valid: None,
         }
     }
 

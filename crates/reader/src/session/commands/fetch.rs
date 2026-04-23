@@ -1,4 +1,5 @@
 use cid::Cid;
+use tracing::debug;
 
 use crate::session::response::Response;
 
@@ -13,6 +14,12 @@ pub struct ArticleContent {
     /// The article CID from the msgid→CID map, if available.
     /// Used to inject X-Usenet-IPFS-CID into ARTICLE and HEAD responses.
     pub cid: Option<Cid>,
+    /// DID signature verification result from the overview index.
+    ///
+    /// `None`  — no `X-Usenet-IPFS-DID-Sig` header was present (header omitted).
+    /// `Some(false)` — signature verification failed.
+    /// `Some(true)`  — signature verified successfully.
+    pub did_sig_valid: Option<bool>,
 }
 
 /// Apply dot-stuffing to article output: prepend '.' to any line starting with '.'.
@@ -82,12 +89,31 @@ fn cid_header_line(content: &ArticleContent) -> Option<String> {
         .map(|c| format!("X-Usenet-IPFS-CID: {c}"))
 }
 
+/// Build the X-Usenet-IPFS-DID-Verified header line string for injection into responses.
+///
+/// Returns `None` when no DID signature was present on the article (i.e.
+/// `did_sig_valid` is `None`).  Returns `Some("X-Usenet-IPFS-DID-Verified: true")`
+/// or `Some("X-Usenet-IPFS-DID-Verified: false")` when a verification result is known.
+fn did_verified_header_line(content: &ArticleContent) -> Option<String> {
+    content
+        .did_sig_valid
+        .map(|v| format!("X-Usenet-IPFS-DID-Verified: {v}"))
+}
+
 /// ARTICLE response: 220 + article_number + message_id, followed by headers,
 /// a blank line, and the dot-stuffed body. Terminated by ".".
 pub fn article_response(content: &ArticleContent) -> Response {
     let mut body = bytes_to_lines(&content.header_bytes);
     if let Some(cid_line) = cid_header_line(content) {
         body.push(cid_line);
+    }
+    if let Some(did_line) = did_verified_header_line(content) {
+        debug!(
+            message_id = %content.message_id,
+            did_sig_valid = ?content.did_sig_valid,
+            "injecting X-Usenet-IPFS-DID-Verified header"
+        );
+        body.push(did_line);
     }
     body.push(String::new()); // blank line separating headers from body
     body.extend(dot_stuffed_lines(&content.body_bytes));
@@ -108,6 +134,14 @@ pub fn head_response(content: &ArticleContent) -> Response {
     let mut body = bytes_to_lines(&content.header_bytes);
     if let Some(cid_line) = cid_header_line(content) {
         body.push(cid_line);
+    }
+    if let Some(did_line) = did_verified_header_line(content) {
+        debug!(
+            message_id = %content.message_id,
+            did_sig_valid = ?content.did_sig_valid,
+            "injecting X-Usenet-IPFS-DID-Verified header"
+        );
+        body.push(did_line);
     }
     Response {
         code: 221,
@@ -165,6 +199,7 @@ mod tests {
             header_bytes: b"Subject: Test\r\nFrom: foo@bar.com".to_vec(),
             body_bytes: b"Hello\r\n.dotted line\r\n".to_vec(),
             cid: None,
+            did_sig_valid: None,
         }
     }
 
@@ -214,6 +249,7 @@ mod tests {
             header_bytes: b"Subject: X".to_vec(),
             body_bytes: b".starts with dot\r\n".to_vec(),
             cid: None,
+            did_sig_valid: None,
         };
         let resp = article_response(&content);
         // The dot-stuffed line should appear as "..starts with dot" in the body lines.
@@ -238,5 +274,88 @@ mod tests {
         assert!(!resp.body.iter().any(|l| l.contains("Subject: Test")));
         // Body text must be present.
         assert!(resp.body.iter().any(|l| l.contains("Hello")));
+    }
+
+    #[test]
+    fn article_response_injects_did_verified_true() {
+        let content = ArticleContent {
+            article_number: 1,
+            message_id: "<did@example.com>".into(),
+            header_bytes: b"Subject: DID test".to_vec(),
+            body_bytes: b"body\r\n".to_vec(),
+            cid: None,
+            did_sig_valid: Some(true),
+        };
+        let resp = article_response(&content);
+        assert!(
+            resp.body
+                .iter()
+                .any(|l| l == "X-Usenet-IPFS-DID-Verified: true"),
+            "expected X-Usenet-IPFS-DID-Verified: true in article response"
+        );
+    }
+
+    #[test]
+    fn article_response_injects_did_verified_false() {
+        let content = ArticleContent {
+            article_number: 2,
+            message_id: "<did-bad@example.com>".into(),
+            header_bytes: b"Subject: DID bad".to_vec(),
+            body_bytes: b"body\r\n".to_vec(),
+            cid: None,
+            did_sig_valid: Some(false),
+        };
+        let resp = article_response(&content);
+        assert!(
+            resp.body
+                .iter()
+                .any(|l| l == "X-Usenet-IPFS-DID-Verified: false"),
+            "expected X-Usenet-IPFS-DID-Verified: false in article response"
+        );
+    }
+
+    #[test]
+    fn article_response_omits_did_verified_when_none() {
+        let content = test_content(); // did_sig_valid: None
+        let resp = article_response(&content);
+        assert!(
+            !resp
+                .body
+                .iter()
+                .any(|l| l.starts_with("X-Usenet-IPFS-DID-Verified:")),
+            "X-Usenet-IPFS-DID-Verified must be absent when did_sig_valid is None"
+        );
+    }
+
+    #[test]
+    fn head_response_injects_did_verified_true() {
+        let content = ArticleContent {
+            article_number: 3,
+            message_id: "<head-did@example.com>".into(),
+            header_bytes: b"Subject: HEAD DID test".to_vec(),
+            body_bytes: b"body\r\n".to_vec(),
+            cid: None,
+            did_sig_valid: Some(true),
+        };
+        let resp = head_response(&content);
+        assert!(
+            resp.body
+                .iter()
+                .any(|l| l == "X-Usenet-IPFS-DID-Verified: true"),
+            "expected X-Usenet-IPFS-DID-Verified: true in head response"
+        );
+    }
+
+    #[test]
+    fn head_response_omits_did_verified_when_none() {
+        let content = test_content(); // did_sig_valid: None
+        let resp = head_response(&content);
+        assert!(
+            !resp
+                .body
+                .iter()
+                .any(|l| l.starts_with("X-Usenet-IPFS-DID-Verified:")),
+            "X-Usenet-IPFS-DID-Verified must be absent when did_sig_valid is None"
+        );
     }
 }

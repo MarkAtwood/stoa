@@ -62,6 +62,7 @@ mod tests {
             references: "<41@example.com>".to_string(),
             byte_count: 512,
             line_count: 10,
+            did_sig_valid: None,
         }
     }
 

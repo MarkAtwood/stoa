@@ -180,6 +180,7 @@ fn article_response_on_success_returns_220() {
         header_bytes: b"Subject: Test\r\nFrom: a@b.com".to_vec(),
         body_bytes: b"Hello world.\r\n".to_vec(),
         cid: None,
+        did_sig_valid: None,
     };
     let resp = article_response(&content);
     assert_eq!(
@@ -219,6 +220,7 @@ fn head_response_on_success_returns_221() {
         header_bytes: b"Subject: Head Test".to_vec(),
         body_bytes: b"".to_vec(),
         cid: None,
+        did_sig_valid: None,
     };
     let resp = head_response(&content);
     assert_eq!(
@@ -251,6 +253,7 @@ fn body_response_on_success_returns_222() {
         header_bytes: b"Subject: Body Test".to_vec(),
         body_bytes: b"Body text.\r\n".to_vec(),
         cid: None,
+        did_sig_valid: None,
     };
     let resp = body_response(&content);
     assert_eq!(

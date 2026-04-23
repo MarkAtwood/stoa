@@ -18,4 +18,6 @@ async-trait = "0.1"
 cid = "0.11"
 multihash-codetable = { version = "0.2", features = ["sha2"] }
 ed25519-dalek = { version = "2", features = ["rand_core"] }
+bs58 = "0.4"
+base64 = "0.22"
 toml = "0.8"

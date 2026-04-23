@@ -549,6 +549,12 @@ dependencies = [
 
 [[package]]
 name = "bs58"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "771fe0050b883fcc3ea2359b1a96bcfbc090b7116eae7c3c512c7a083fdf23d3"
+
+[[package]]
+name = "bs58"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf88ba1141d185c399bee5288d850d63b8369520c1eafc32a0430b5b6c287bf4"
@@ -2776,7 +2782,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0c7892c221730ba55f7196e98b0b8ba5e04b4155651736036628e9f73ed6fc3"
 dependencies = [
  "asn1_der",
- "bs58",
+ "bs58 0.5.1",
  "ed25519-dalek",
  "hkdf",
  "k256",
@@ -6254,6 +6260,8 @@ name = "usenet-ipfs-integration-tests"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "base64",
+ "bs58 0.4.0",
  "cid",
  "ed25519-dalek",
  "multihash-codetable",
@@ -6311,8 +6319,10 @@ dependencies = [
  "async-trait",
  "base64",
  "bcrypt",
+ "bs58 0.4.0",
  "chrono",
  "cid",
+ "ed25519-dalek",
  "hex",
  "lazy_static",
  "mailparse",

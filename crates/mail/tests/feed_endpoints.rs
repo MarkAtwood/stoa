@@ -151,6 +151,7 @@ fn make_record(n: u64, subject: &str, message_id: &str) -> OverviewRecord {
         references: String::new(),
         byte_count: 100,
         line_count: 5,
+        did_sig_valid: None,
     }
 }
 

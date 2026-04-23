@@ -529,6 +529,37 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
         return resp;
     }
 
+    // DID author signature verification (optional, non-blocking).
+    // Must happen BEFORE operator signing so we verify against the original
+    // article bytes (the author signed before the operator sig header existed).
+    let did_sig_valid: Option<bool> = {
+        use crate::post::did_passthrough::{extract_did_sig, header_section};
+        use crate::post::did_verify::verify_did_sig;
+        let header_bytes = header_section(article_bytes);
+        if let Some(header_val) = extract_did_sig(header_bytes) {
+            match verify_did_sig(article_bytes, &header_val) {
+                Ok(valid) => {
+                    tracing::debug!(
+                        msgid = %message_id,
+                        verified = valid,
+                        "DID author signature checked"
+                    );
+                    Some(valid)
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        msgid = %message_id,
+                        error = %e,
+                        "DID author signature verification error"
+                    );
+                    None
+                }
+            }
+        } else {
+            None
+        }
+    };
+
     // Step 3: Sign the article.
     // Produces signed_bytes with the X-Usenet-IPFS-Sig header inserted.
     // The group log entry signature is computed separately over log entry
@@ -586,6 +617,7 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
     // Step 7: Index overview fields for each assigned (group, article_number).
     let (header_bytes, body_bytes) = split_article(&signed_bytes);
     let mut overview = extract_overview(&header_bytes, &body_bytes);
+    overview.did_sig_valid = did_sig_valid;
     for (group, article_number) in &append_result.assignments {
         overview.article_number = *article_number;
         if let Err(e) = stores.overview_store.insert(group, &overview).await {
@@ -674,12 +706,23 @@ async fn lookup_article_by_msgid(stores: &ServerStores, msgid: &str) -> Response
     // Split the wire bytes into header and body sections.
     let (header_bytes, body_bytes) = split_article(&wire_bytes);
 
+    // Look up DID signature verification result from the overview index.
+    // Silently omit the header on lookup error — do not fail the ARTICLE command.
+    let did_sig_valid = stores
+        .overview_store
+        .query_by_msgid(msgid)
+        .await
+        .ok()
+        .flatten()
+        .and_then(|r| r.did_sig_valid);
+
     let content = ArticleContent {
         article_number: 0,
         message_id: msgid.to_string(),
         header_bytes,
         body_bytes,
         cid: Some(cid),
+        did_sig_valid,
     };
 
     article_response(&content)
@@ -1091,12 +1134,24 @@ async fn lookup_article_by_cid(stores: &ServerStores, cid_str: &str) -> Response
     let (header_bytes, body_bytes) = split_article(&wire_bytes);
     let headers_str = String::from_utf8_lossy(&header_bytes);
     let message_id = extract_header_value(&headers_str, "Message-ID").unwrap_or_default();
+
+    // Look up DID signature verification result from the overview index.
+    // Silently omit the header on lookup error — do not fail the ARTICLE command.
+    let did_sig_valid = stores
+        .overview_store
+        .query_by_msgid(&message_id)
+        .await
+        .ok()
+        .flatten()
+        .and_then(|r| r.did_sig_valid);
+
     let content = ArticleContent {
         article_number: 0,
         message_id,
         header_bytes,
         body_bytes,
         cid: Some(cid),
+        did_sig_valid,
     };
     article_response(&content)
 }

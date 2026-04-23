@@ -24,9 +24,10 @@ struct OverviewRow {
     references_header: String,
     byte_count: i64,
     line_count: i64,
+    did_sig_valid: Option<i64>,
 }
 
-/// The 7 RFC 3977 overview fields for one article.
+/// The 7 RFC 3977 overview fields for one article, plus optional DID sig status.
 #[derive(Debug, Clone)]
 pub struct OverviewRecord {
     pub article_number: u64,
@@ -37,6 +38,12 @@ pub struct OverviewRecord {
     pub references: String,
     pub byte_count: u64,
     pub line_count: u64,
+    /// DID signature verification result.
+    ///
+    /// `None`  — no `X-Usenet-IPFS-DID-Sig` header was present.
+    /// `Some(false)` — signature verification failed.
+    /// `Some(true)`  — signature verified successfully.
+    pub did_sig_valid: Option<bool>,
 }
 
 /// Stores and retrieves overview records from SQLite.
@@ -56,12 +63,13 @@ impl OverviewStore {
         let article_number = record.article_number as i64;
         let byte_count = record.byte_count as i64;
         let line_count = record.line_count as i64;
+        let did_sig_valid: Option<i64> = record.did_sig_valid.map(|v| v as i64);
 
         sqlx::query(
             "INSERT OR IGNORE INTO overview \
              (group_name, article_number, subject, from_header, date_header, \
-              message_id, references_header, byte_count, line_count) \
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              message_id, references_header, byte_count, line_count, did_sig_valid) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(group)
         .bind(article_number)
@@ -72,6 +80,7 @@ impl OverviewStore {
         .bind(&record.references)
         .bind(byte_count)
         .bind(line_count)
+        .bind(did_sig_valid)
         .execute(&self.pool)
         .await?;
 
@@ -89,7 +98,7 @@ impl OverviewStore {
     ) -> Result<Option<OverviewRecord>, sqlx::Error> {
         let row: Option<OverviewRow> = sqlx::query_as(
             "SELECT article_number, subject, from_header, date_header, \
-             message_id, references_header, byte_count, line_count \
+             message_id, references_header, byte_count, line_count, did_sig_valid \
              FROM overview \
              WHERE message_id = ? \
              ORDER BY article_number ASC \
@@ -108,6 +117,7 @@ impl OverviewStore {
             references: r.references_header,
             byte_count: r.byte_count as u64,
             line_count: r.line_count as u64,
+            did_sig_valid: r.did_sig_valid.map(|v| v != 0),
         }))
     }
 
@@ -127,7 +137,7 @@ impl OverviewStore {
 
         let rows: Vec<OverviewRow> = sqlx::query_as(
             "SELECT article_number, subject, from_header, date_header, \
-              message_id, references_header, byte_count, line_count \
+              message_id, references_header, byte_count, line_count, did_sig_valid \
              FROM overview \
              WHERE group_name = ? AND article_number >= ? AND article_number <= ? \
              ORDER BY article_number ASC \
@@ -151,6 +161,7 @@ impl OverviewStore {
                 references: row.references_header,
                 byte_count: row.byte_count as u64,
                 line_count: row.line_count as u64,
+                did_sig_valid: row.did_sig_valid.map(|v| v != 0),
             })
             .collect())
     }
@@ -228,6 +239,7 @@ pub fn extract_overview(header_bytes: &[u8], body_bytes: &[u8]) -> OverviewRecor
         references: sanitize_overview_field(&references),
         byte_count,
         line_count,
+        did_sig_valid: None,
     }
 }
 
@@ -275,6 +287,7 @@ mod tests {
             references: String::new(),
             byte_count: 100,
             line_count: 5,
+            did_sig_valid: None,
         }
     }
 

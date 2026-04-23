@@ -80,6 +80,8 @@ impl Response {
             "XVERIFY".to_string(),
             "XGET".to_string(),
             "X-CID-LOCATOR".to_string(),
+            // DID signature verification header extension
+            "X-USENET-IPFS-DID-VERIFIED".to_string(),
         ];
         if posting_allowed {
             caps.push("POST".to_string());
@@ -271,6 +273,15 @@ mod tests {
         assert!(
             !r.body.iter().any(|l| l == "STARTTLS"),
             "STARTTLS must not appear in CAPABILITIES"
+        );
+    }
+
+    #[test]
+    fn capabilities_includes_did_verified_extension() {
+        let r = Response::capabilities_with_ctx(false, false);
+        assert!(
+            r.body.iter().any(|l| l == "X-USENET-IPFS-DID-VERIFIED"),
+            "X-USENET-IPFS-DID-VERIFIED must appear in CAPABILITIES"
         );
     }
 
