@@ -11,8 +11,6 @@ pub enum DidSigError {
     InvalidKeyEncoding(String),
     /// The signature bytes could not be decoded from base64url.
     InvalidSignatureEncoding(String),
-    /// The signature was syntactically valid but did not verify against the key and article.
-    VerificationFailed,
 }
 
 impl std::fmt::Display for DidSigError {
@@ -26,7 +24,6 @@ impl std::fmt::Display for DidSigError {
             DidSigError::InvalidSignatureEncoding(msg) => {
                 write!(f, "invalid signature encoding: {msg}")
             }
-            DidSigError::VerificationFailed => write!(f, "DID signature verification failed"),
         }
     }
 }
@@ -65,10 +62,11 @@ pub fn parse_did_key(did_url: &str) -> Result<ed25519_dalek::VerifyingKey, DidSi
         .into_vec()
         .map_err(|e| DidSigError::InvalidKeyEncoding(e.to_string()))?;
 
-    // 4. Check multicodec prefix.
+    // 4. Check multicodec prefix (must be Ed25519, varint 0xed01).
+    // A wrong prefix means the key type is unsupported, not the DID method.
     if decoded.len() < 2 || decoded[..2] != MULTICODEC_ED25519_PUB {
-        return Err(DidSigError::UnsupportedMethod(
-            "not an Ed25519 did:key (multicodec prefix mismatch)".into(),
+        return Err(DidSigError::InvalidKeyEncoding(
+            "not an Ed25519 did:key (multicodec prefix mismatch; only 0xed01 is supported)".into(),
         ));
     }
 
@@ -223,8 +221,8 @@ mod tests {
         let did_url = format!("did:key:z{b58}");
         let result = parse_did_key(&did_url);
         assert!(
-            matches!(result, Err(DidSigError::UnsupportedMethod(_))),
-            "expected UnsupportedMethod for wrong multicodec, got: {result:?}"
+            matches!(result, Err(DidSigError::InvalidKeyEncoding(_))),
+            "expected InvalidKeyEncoding for wrong multicodec, got: {result:?}"
         );
     }
 

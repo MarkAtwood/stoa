@@ -1200,7 +1200,9 @@ async fn handle_nntp_search(
         SearchKey::Since | SearchKey::Before => {
             return b"501 Date range search not yet implemented\r\n".to_vec();
         }
-        SearchKey::Body | SearchKey::Text => value.to_owned(),
+        // Body targets the article body only; Text searches all indexed fields.
+        SearchKey::Body => format!("body_text:\"{}\"", escape_tantivy_query(value)),
+        SearchKey::Text => value.to_owned(),
     };
 
     match idx.search_in_group(&group, &query_str, 10_000).await {
