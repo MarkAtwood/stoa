@@ -73,7 +73,7 @@ async fn main() {
 
     info!(
         listen_addr = %config.listen.addr,
-        peer_count = config.peers.addresses.len(),
+        peer_count = config.peers.addresses.len() + config.peers.peer.len(),
         group_count = config.groups.names.len(),
         "usenet-ipfs-transit starting"
     );

@@ -165,9 +165,37 @@ pub struct ListenConfig {
     pub addr: String,
 }
 
-#[derive(Debug, Deserialize)]
+/// One entry in the structured `[[peers.peer]]` table.
+#[derive(Debug, Deserialize, Default)]
+pub struct PeerEntry {
+    /// Socket address of the peer (IP:port or hostname:port).
+    pub addr: String,
+    /// Connect with TLS. Requires `cert_sha256`. Default: false.
+    #[serde(default)]
+    pub tls: bool,
+    /// Pinned SHA-256 fingerprint of the peer's DER certificate.
+    ///
+    /// Required when `tls = true`. Format: colon-separated lowercase hex bytes,
+    /// e.g. `"aa:bb:cc:..."`. Validation rejects `tls = true` without this field.
+    #[serde(default)]
+    pub cert_sha256: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Default)]
 pub struct PeersConfig {
+    /// Legacy flat list of peer addresses (backward-compatible).
+    ///
+    /// Entries here are equivalent to `[[peers.peer]]` with `tls = false` and
+    /// no cert pin.  Supported for existing configs; new deployments should use
+    /// the structured `peer` table instead.
+    #[serde(default)]
     pub addresses: Vec<String>,
+    /// Structured per-peer table with optional TLS and cert-pin metadata.
+    ///
+    /// Use `[[peers.peer]]` in TOML to add entries.  Validated at startup:
+    /// `tls = true` without `cert_sha256` is rejected.
+    #[serde(default)]
+    pub peer: Vec<PeerEntry>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -287,6 +315,14 @@ impl Config {
         }
         for name in &self.groups.names {
             validate_group_name(name)?;
+        }
+        for peer in &self.peers.peer {
+            if peer.tls && peer.cert_sha256.is_none() {
+                return Err(ConfigError::Validation(format!(
+                    "peers.peer entry '{}': tls = true requires cert_sha256 to be set",
+                    peer.addr
+                )));
+            }
         }
         // Fail fast if the signing key path is configured but unreadable.
         // Better to catch this at startup than discover it when an article arrives.
@@ -584,6 +620,86 @@ max_age_days = 30
         assert!(
             check_admin_addr(&admin).is_none(),
             "default config must not warn"
+        );
+    }
+
+    /// New structured [[peers.peer]] tables parse correctly alongside
+    /// the legacy addresses list.
+    #[test]
+    fn structured_peer_table_parses() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = ["192.0.2.1:119"]
+
+[[peers.peer]]
+addr = "192.0.2.2:119"
+tls = true
+cert_sha256 = "aa:bb:cc"
+
+[[peers.peer]]
+addr = "192.0.2.3:119"
+
+[groups]
+names = ["comp.test"]
+
+[ipfs]
+api_url = "http://127.0.0.1:5001"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("should parse");
+        assert_eq!(cfg.peers.addresses.len(), 1);
+        assert_eq!(cfg.peers.peer.len(), 2);
+        let tls_peer = &cfg.peers.peer[0];
+        assert_eq!(tls_peer.addr, "192.0.2.2:119");
+        assert!(tls_peer.tls);
+        assert_eq!(tls_peer.cert_sha256.as_deref(), Some("aa:bb:cc"));
+        let plain_peer = &cfg.peers.peer[1];
+        assert_eq!(plain_peer.addr, "192.0.2.3:119");
+        assert!(!plain_peer.tls);
+    }
+
+    /// tls = true without cert_sha256 must fail validation.
+    #[test]
+    fn tls_without_cert_sha256_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[[peers.peer]]
+addr = "192.0.2.10:119"
+tls = true
+
+[groups]
+names = []
+
+[ipfs]
+api_url = "http://127.0.0.1:5001"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path()).expect_err("should fail");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
         );
     }
 }
