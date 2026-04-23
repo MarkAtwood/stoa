@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use cid::Cid;
+use data_encoding::BASE64URL_NOPAD;
 use serde::{Deserialize, Serialize};
 use usenet_ipfs_core::ipld::{
     header_map::{HeaderMapNode, HeaderValue},
@@ -57,6 +58,18 @@ pub struct Email {
     /// recognise this property may ignore it per RFC 8620 §3.3.
     #[serde(rename = "x-usenet-ipfs-cid")]
     pub ipfs_cid: String,
+    /// Custom property: base64url-no-pad encoded operator Ed25519 signature.
+    ///
+    /// Present only when the article carries an `X-Usenet-IPFS-Sig` operator
+    /// signature (i.e. `metadata.operator_signature` is non-empty).  Absent
+    /// on unsigned articles.  Clients can verify by downloading the blob,
+    /// stripping this header value, and running ed25519 verify over the
+    /// resulting bytes against the operator's public key.
+    #[serde(
+        rename = "x-usenet-ipfs-sig",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub ipfs_sig: Option<String>,
 }
 
 impl Email {
@@ -97,6 +110,13 @@ impl Email {
             .and_then(|hm| get_single(hm, "references"))
             .map(|s| s.split_whitespace().map(str::to_string).collect());
 
+        // Encode operator signature bytes as base64url-no-pad, or None if unsigned.
+        let ipfs_sig = if root.metadata.operator_signature.is_empty() {
+            None
+        } else {
+            Some(BASE64URL_NOPAD.encode(&root.metadata.operator_signature))
+        };
+
         Email {
             id: cid_str.clone(),
             blob_id: cid_str.clone(),
@@ -111,6 +131,7 @@ impl Email {
             references,
             preview,
             ipfs_cid: cid_str,
+            ipfs_sig,
         }
     }
 }
@@ -372,5 +393,81 @@ mod tests {
     #[test]
     fn parse_addresses_empty_returns_empty() {
         assert!(parse_addresses("").is_empty());
+    }
+
+    fn dummy_root_signed(
+        newsgroups: Vec<String>,
+        hlc_ms: u64,
+        byte_count: u64,
+        sig_bytes: Vec<u8>,
+    ) -> ArticleRootNode {
+        ArticleRootNode {
+            schema_version: 1,
+            header_cid: dummy_cid(b"header"),
+            header_map_cid: None,
+            body_cid: dummy_cid(b"body"),
+            mime_cid: None,
+            metadata: ArticleMetadata {
+                message_id: "<test@example.com>".to_string(),
+                newsgroups,
+                hlc_timestamp: hlc_ms,
+                operator_signature: sig_bytes,
+                byte_count,
+                line_count: 1,
+                content_type_summary: "text/plain".to_string(),
+            },
+        }
+    }
+
+    #[test]
+    fn ipfs_sig_absent_when_unsigned() {
+        // Oracle: empty operator_signature bytes → field must not appear in JSON.
+        let cid = dummy_cid(b"unsigned");
+        let root = dummy_root(vec!["comp.test".to_string()], 1_000_000_000_000, 64);
+        let email = Email::from_root_node(&cid, &root, None, HashMap::new(), None);
+        assert!(email.ipfs_sig.is_none(), "unsigned article must have None ipfs_sig");
+        let json = serde_json::to_string(&email).unwrap();
+        assert!(
+            !json.contains("x-usenet-ipfs-sig"),
+            "unsigned article must omit x-usenet-ipfs-sig from JSON"
+        );
+    }
+
+    #[test]
+    fn ipfs_sig_present_when_signed() {
+        // Oracle: base64url-no-pad([0x01,0x02,0x03,0x04]) = "AQIDBA" (standard test vector).
+        let sig_bytes = vec![0x01u8, 0x02, 0x03, 0x04];
+        let cid = dummy_cid(b"signed");
+        let root =
+            dummy_root_signed(vec!["comp.test".to_string()], 1_000_000_000_000, 64, sig_bytes);
+        let email = Email::from_root_node(&cid, &root, None, HashMap::new(), None);
+        assert_eq!(
+            email.ipfs_sig.as_deref(),
+            Some("AQIDBA"),
+            "base64url-no-pad encoding of [0x01,0x02,0x03,0x04] must equal AQIDBA"
+        );
+    }
+
+    #[test]
+    fn ipfs_sig_serializes_in_json_and_roundtrips() {
+        // Oracle: base64url-no-pad([0x01,0x02,0x03,0x04]) = "AQIDBA"; decode back yields original.
+        let sig_bytes = vec![0x01u8, 0x02, 0x03, 0x04];
+        let cid = dummy_cid(b"signed_rt");
+        let root = dummy_root_signed(
+            vec!["comp.test".to_string()],
+            1_000_000_000_000,
+            64,
+            sig_bytes.clone(),
+        );
+        let email = Email::from_root_node(&cid, &root, None, HashMap::new(), None);
+        let json = serde_json::to_string(&email).unwrap();
+        assert!(
+            json.contains("\"x-usenet-ipfs-sig\""),
+            "signed article must include x-usenet-ipfs-sig key in JSON"
+        );
+        // Decode the serialized value and verify it matches the original bytes.
+        let sig_val = email.ipfs_sig.as_deref().unwrap();
+        let decoded = BASE64URL_NOPAD.decode(sig_val.as_bytes()).unwrap();
+        assert_eq!(decoded, sig_bytes, "base64url-no-pad decode must recover original bytes");
     }
 }

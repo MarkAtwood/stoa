@@ -82,3 +82,5 @@ Phase markers reset for new epic
 [06:27:21] COORDINATOR: research complete — one-IPNS-per-node/index design chosen; creating beads
 [06:28:46] COORDINATOR: phase1 done, 6 beads created, wave 0 unblocked
 [07:07:52] COORDINATOR: claimed epic usenet-ipfs-r8u (IMAP server)
+[14:00:43] COORDINATOR: an4 closed (superseded by existing JMAP blob download). Starting 02d JMAP path analysis.
+[14:03:40] COORDINATOR: 3am closed (x-usenet-ipfs-sig in Email/get). 02d superseded. Checking remaining ready epics.
