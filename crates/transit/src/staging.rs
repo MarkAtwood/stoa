@@ -134,16 +134,11 @@ impl StagingStore {
     /// Returns `Ok(true)` if the article was staged, `Ok(false)` if either
     /// capacity limit is already reached (caller should return 436/439 to the
     /// peer).  Returns `Err` only on I/O or DB failures.
-    pub async fn try_stage(
-        &self,
-        message_id: &str,
-        bytes: &[u8],
-    ) -> Result<bool, StagingError> {
+    pub async fn try_stage(&self, message_id: &str, bytes: &[u8]) -> Result<bool, StagingError> {
         // Check entry limit.
-        let (count,): (i64,) =
-            sqlx::query_as("SELECT COUNT(*) FROM transit_staging")
-                .fetch_one(&*self.pool)
-                .await?;
+        let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM transit_staging")
+            .fetch_one(&*self.pool)
+            .await?;
         if count as u64 >= self.config.max_entries {
             return Ok(false);
         }
@@ -212,7 +207,12 @@ impl StagingStore {
         };
 
         let bytes = fs::read(&file_path).await?;
-        Ok(Some(StagedArticle { id, message_id, bytes, file_path }))
+        Ok(Some(StagedArticle {
+            id,
+            message_id,
+            bytes,
+            file_path,
+        }))
     }
 
     /// Remove the staging file and its DB row after the pipeline has
@@ -233,10 +233,9 @@ impl StagingStore {
     /// Used at startup to log how many articles survived the previous run and
     /// will be re-drained.
     pub async fn pending_count(&self) -> Result<u64, StagingError> {
-        let (count,): (i64,) =
-            sqlx::query_as("SELECT COUNT(*) FROM transit_staging")
-                .fetch_one(&*self.pool)
-                .await?;
+        let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM transit_staging")
+            .fetch_one(&*self.pool)
+            .await?;
         Ok(count as u64)
     }
 }
@@ -294,19 +293,17 @@ mod tests {
         assert!(ok, "should have staged the article");
 
         // Row in DB.
-        let (count,): (i64,) =
-            sqlx::query_as("SELECT COUNT(*) FROM transit_staging")
-                .fetch_one(&*pool)
-                .await
-                .unwrap();
+        let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM transit_staging")
+            .fetch_one(&*pool)
+            .await
+            .unwrap();
         assert_eq!(count, 1);
 
         // File on disk.
-        let row: (String,) =
-            sqlx::query_as("SELECT file_path FROM transit_staging")
-                .fetch_one(&*pool)
-                .await
-                .unwrap();
+        let row: (String,) = sqlx::query_as("SELECT file_path FROM transit_staging")
+            .fetch_one(&*pool)
+            .await
+            .unwrap();
         assert!(
             std::path::Path::new(&row.0).exists(),
             "staging file must exist"
@@ -322,7 +319,11 @@ mod tests {
         let body = b"From: x@y\r\n\r\nhello\r\n";
         store.try_stage("<x@y>", body).await.unwrap();
 
-        let article = store.drain_one().await.unwrap().expect("should have one article");
+        let article = store
+            .drain_one()
+            .await
+            .unwrap()
+            .expect("should have one article");
         assert_eq!(article.message_id, "<x@y>");
         assert_eq!(article.bytes, body);
     }
@@ -348,12 +349,14 @@ mod tests {
 
         store.complete(&article).await.unwrap();
 
-        assert!(!std::path::Path::new(&path).exists(), "file must be deleted");
-        let (count,): (i64,) =
-            sqlx::query_as("SELECT COUNT(*) FROM transit_staging")
-                .fetch_one(&*pool)
-                .await
-                .unwrap();
+        assert!(
+            !std::path::Path::new(&path).exists(),
+            "file must be deleted"
+        );
+        let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM transit_staging")
+            .fetch_one(&*pool)
+            .await
+            .unwrap();
         assert_eq!(count, 0, "row must be deleted");
     }
 
@@ -369,7 +372,10 @@ mod tests {
         };
         let store = StagingStore::new(config, pool);
 
-        assert!(store.try_stage("<one@a>", b"x").await.unwrap(), "first should succeed");
+        assert!(
+            store.try_stage("<one@a>", b"x").await.unwrap(),
+            "first should succeed"
+        );
         let second = store.try_stage("<two@a>", b"y").await.unwrap();
         assert!(!second, "second must fail: max_entries=1 already reached");
     }

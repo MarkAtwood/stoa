@@ -126,7 +126,10 @@ mod tests {
             .await
             .unwrap();
         // CARv1 with zero roots and zero blocks: only the header.
-        assert!(!car.is_empty(), "CAR must not be empty (header always present)");
+        assert!(
+            !car.is_empty(),
+            "CAR must not be empty (header always present)"
+        );
         // Decode varint at start to find header length, confirm no trailing bytes.
         let mut header_len: u64 = 0;
         let mut shift = 0u32;

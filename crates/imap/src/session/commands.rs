@@ -59,25 +59,71 @@ mod tests {
     #[test]
     fn capability_list_plain_includes_logindisabled() {
         let caps = capability_list(false);
-        assert!(caps.as_ref().contains(&Capability::Imap4Rev1), "IMAP4rev1 must always be present");
-        assert!(caps.as_ref().contains(&Capability::LoginDisabled), "LOGINDISABLED must be present without TLS");
-        assert!(!caps.as_ref().contains(&Capability::Auth(AuthMechanism::Plain)), "AUTH=PLAIN must not be advertised without TLS");
-        assert!(caps.as_ref().contains(&Capability::Enable), "ENABLE must always be present");
-        assert!(caps.as_ref().contains(&Capability::Unselect), "UNSELECT must always be present");
+        assert!(
+            caps.as_ref().contains(&Capability::Imap4Rev1),
+            "IMAP4rev1 must always be present"
+        );
+        assert!(
+            caps.as_ref().contains(&Capability::LoginDisabled),
+            "LOGINDISABLED must be present without TLS"
+        );
+        assert!(
+            !caps
+                .as_ref()
+                .contains(&Capability::Auth(AuthMechanism::Plain)),
+            "AUTH=PLAIN must not be advertised without TLS"
+        );
+        assert!(
+            caps.as_ref().contains(&Capability::Enable),
+            "ENABLE must always be present"
+        );
+        assert!(
+            caps.as_ref().contains(&Capability::Unselect),
+            "UNSELECT must always be present"
+        );
     }
 
     #[test]
     fn capability_list_tls_includes_auth_mechanisms() {
         let caps = capability_list(true);
-        assert!(caps.as_ref().contains(&Capability::Imap4Rev1), "IMAP4rev1 must always be present");
-        assert!(caps.as_ref().contains(&Capability::Auth(AuthMechanism::Plain)), "AUTH=PLAIN must be present with TLS");
-        assert!(caps.as_ref().contains(&Capability::Auth(AuthMechanism::Login)), "AUTH=LOGIN must be present with TLS");
-        assert!(!caps.as_ref().contains(&Capability::LoginDisabled), "LOGINDISABLED must not be present with TLS");
-        assert!(caps.as_ref().contains(&Capability::Idle), "IDLE must be advertised with TLS");
-        assert!(caps.as_ref().contains(&Capability::Enable), "ENABLE must always be present");
-        assert!(caps.as_ref().contains(&Capability::Unselect), "UNSELECT must always be present");
-        assert!(caps.as_ref().contains(&Capability::UidPlus), "UIDPLUS must be present with TLS");
-        assert!(caps.as_ref().contains(&Capability::Move), "MOVE must be present with TLS");
+        assert!(
+            caps.as_ref().contains(&Capability::Imap4Rev1),
+            "IMAP4rev1 must always be present"
+        );
+        assert!(
+            caps.as_ref()
+                .contains(&Capability::Auth(AuthMechanism::Plain)),
+            "AUTH=PLAIN must be present with TLS"
+        );
+        assert!(
+            caps.as_ref()
+                .contains(&Capability::Auth(AuthMechanism::Login)),
+            "AUTH=LOGIN must be present with TLS"
+        );
+        assert!(
+            !caps.as_ref().contains(&Capability::LoginDisabled),
+            "LOGINDISABLED must not be present with TLS"
+        );
+        assert!(
+            caps.as_ref().contains(&Capability::Idle),
+            "IDLE must be advertised with TLS"
+        );
+        assert!(
+            caps.as_ref().contains(&Capability::Enable),
+            "ENABLE must always be present"
+        );
+        assert!(
+            caps.as_ref().contains(&Capability::Unselect),
+            "UNSELECT must always be present"
+        );
+        assert!(
+            caps.as_ref().contains(&Capability::UidPlus),
+            "UIDPLUS must be present with TLS"
+        );
+        assert!(
+            caps.as_ref().contains(&Capability::Move),
+            "MOVE must be present with TLS"
+        );
     }
 
     #[test]

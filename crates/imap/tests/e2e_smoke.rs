@@ -20,7 +20,9 @@ use usenet_ipfs_imap::{
 
 /// Build an in-memory pool with the IMAP schema applied.
 async fn test_pool() -> Arc<sqlx::SqlitePool> {
-    let pool = sqlx::SqlitePool::connect("sqlite::memory:").await.expect("in-memory pool");
+    let pool = sqlx::SqlitePool::connect("sqlite::memory:")
+        .await
+        .expect("in-memory pool");
     sqlx::query(
         "CREATE TABLE imap_uid_validity (
             mailbox     TEXT    NOT NULL PRIMARY KEY,
@@ -48,8 +50,13 @@ async fn test_pool() -> Arc<sqlx::SqlitePool> {
 
 fn test_config() -> Arc<usenet_ipfs_imap::config::Config> {
     Arc::new(usenet_ipfs_imap::config::Config {
-        listen: ListenConfig { addr: "127.0.0.1:0".into(), tls_addr: None },
-        database: DatabaseConfig { path: ":memory:".into() },
+        listen: ListenConfig {
+            addr: "127.0.0.1:0".into(),
+            tls_addr: None,
+        },
+        database: DatabaseConfig {
+            path: ":memory:".into(),
+        },
         limits: LimitsConfig::default(),
         auth: AuthConfig {
             mechanisms: vec!["PLAIN".into(), "LOGIN".into()],
@@ -58,7 +65,10 @@ fn test_config() -> Arc<usenet_ipfs_imap::config::Config> {
                 password: "testpass".into(),
             }],
         },
-        tls: TlsConfig { cert_path: None, key_path: None },
+        tls: TlsConfig {
+            cert_path: None,
+            key_path: None,
+        },
         admin: AdminConfig::default(),
         log: LogConfig::default(),
     })
@@ -94,7 +104,10 @@ async fn smoke_greeting_capability_noop_logout() {
 
     // Greeting.
     let greeting = read_line(&mut rd).await;
-    assert!(greeting.starts_with("* OK"), "expected greeting, got: {greeting}");
+    assert!(
+        greeting.starts_with("* OK"),
+        "expected greeting, got: {greeting}"
+    );
 
     // CAPABILITY.
     wr.write_all(b"T01 CAPABILITY\r\n").await.expect("write");
@@ -108,8 +121,14 @@ async fn smoke_greeting_capability_noop_logout() {
         !cap_data.contains("AUTH=PLAIN"),
         "plain session must not advertise AUTH=PLAIN, got: {cap_data}"
     );
-    assert!(cap_data.contains("ENABLE"), "ENABLE must always be advertised, got: {cap_data}");
-    assert!(cap_data.contains("UNSELECT"), "UNSELECT must always be advertised, got: {cap_data}");
+    assert!(
+        cap_data.contains("ENABLE"),
+        "ENABLE must always be advertised, got: {cap_data}"
+    );
+    assert!(
+        cap_data.contains("UNSELECT"),
+        "UNSELECT must always be advertised, got: {cap_data}"
+    );
     let cap_ok = read_line(&mut rd).await;
     assert!(cap_ok.starts_with("T01 OK"), "got: {cap_ok}");
 
@@ -149,9 +168,14 @@ async fn smoke_unknown_command_returns_bad() {
     let _ = read_line(&mut rd).await;
 
     // COPY (unimplemented) → BAD.
-    wr.write_all(b"U01 COPY 1:* INBOX\r\n").await.expect("write");
+    wr.write_all(b"U01 COPY 1:* INBOX\r\n")
+        .await
+        .expect("write");
     let bad = read_line(&mut rd).await;
-    assert!(bad.starts_with("U01 BAD"), "expected BAD for unimplemented command, got: {bad}");
+    assert!(
+        bad.starts_with("U01 BAD"),
+        "expected BAD for unimplemented command, got: {bad}"
+    );
 
     // Clean shutdown.
     wr.write_all(b"U02 LOGOUT\r\n").await.expect("write");

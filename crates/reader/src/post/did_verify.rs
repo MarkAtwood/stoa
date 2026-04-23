@@ -45,12 +45,10 @@ const MULTICODEC_ED25519_PUB: [u8; 2] = [0xed, 0x01];
 /// The `z` prefix is the multibase indicator for base58btc.
 pub fn parse_did_key(did_url: &str) -> Result<ed25519_dalek::VerifyingKey, DidSigError> {
     // 1. Must start with "did:key:"
-    let multibase_id = did_url
-        .strip_prefix("did:key:")
-        .ok_or_else(|| {
-            let method = did_url.split(':').nth(1).unwrap_or("unknown");
-            DidSigError::UnsupportedMethod(method.to_owned())
-        })?;
+    let multibase_id = did_url.strip_prefix("did:key:").ok_or_else(|| {
+        let method = did_url.split(':').nth(1).unwrap_or("unknown");
+        DidSigError::UnsupportedMethod(method.to_owned())
+    })?;
 
     // 2. Multibase 'z' prefix = base58btc.
     let b58_str = multibase_id.strip_prefix('z').ok_or_else(|| {
@@ -99,15 +97,12 @@ pub fn parse_did_key(did_url: &str) -> Result<ed25519_dalek::VerifyingKey, DidSi
 /// Returns `Ok(true)` if the signature verifies, `Ok(false)` if verification
 /// fails (wrong key, tampered content, etc.), or `Err` if the header value
 /// cannot be parsed.
-pub fn verify_did_sig(
-    article_bytes: &[u8],
-    header_value: &str,
-) -> Result<bool, DidSigError> {
+pub fn verify_did_sig(article_bytes: &[u8], header_value: &str) -> Result<bool, DidSigError> {
     // 1. Split header_value into (did_url, sig_b64).
     //    Split on the LAST space so did-urls with embedded spaces (unusual) still work.
-    let last_space = header_value.rfind(' ').ok_or_else(|| {
-        DidSigError::InvalidFormat("expected '<did-url> <base64url-sig>'".into())
-    })?;
+    let last_space = header_value
+        .rfind(' ')
+        .ok_or_else(|| DidSigError::InvalidFormat("expected '<did-url> <base64url-sig>'".into()))?;
     let did_url = header_value[..last_space].trim();
     let sig_b64 = header_value[last_space + 1..].trim();
 
@@ -168,8 +163,7 @@ mod tests {
     // All values below are hardcoded from that single Python run.
 
     const TEST_DID_KEY: &str = "did:key:z6MkehRgf7yJbgaGfYsdoAsKdBPE3dj2CYhowQdcjqSJgvVd";
-    const TEST_PUB_HEX: &str =
-        "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8";
+    const TEST_PUB_HEX: &str = "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8";
     const TEST_SIG_B64: &str =
         "P-hOa6ZB6pbFXp9kjpWXZSpADgh45PfFfviTPJbatZu3Dz5caID0Sp22jBbxiXfJn7AkmjTnUkiMpA6NnT2rBA";
     const WRONG_SIG_B64: &str =
@@ -247,11 +241,7 @@ mod tests {
     fn verify_did_sig_valid() {
         let header_value = format!("{TEST_DID_KEY} {TEST_SIG_B64}");
         let result = verify_did_sig(ARTICLE_BYTES, &header_value);
-        assert_eq!(
-            result.unwrap(),
-            true,
-            "expected valid signature to verify"
-        );
+        assert_eq!(result.unwrap(), true, "expected valid signature to verify");
     }
 
     #[test]
@@ -295,8 +285,7 @@ mod tests {
         //
         // ARTICLE_BYTES = "From: ...\r\nSubject: ...\r\n\r\nBody text.\r\n"
         // Insert the DID-Sig header line immediately before the blank line.
-        let header_line =
-            format!("X-Usenet-IPFS-DID-Sig: {TEST_DID_KEY} {TEST_SIG_B64}\r\n");
+        let header_line = format!("X-Usenet-IPFS-DID-Sig: {TEST_DID_KEY} {TEST_SIG_B64}\r\n");
         // Find the position of the blank line (\r\n\r\n); insert after the
         // second \r\n (i.e. right at the start of \r\n that forms the blank line).
         let insert_pos = ARTICLE_BYTES

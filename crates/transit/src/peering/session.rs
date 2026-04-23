@@ -410,11 +410,18 @@ async fn enqueue_article(
             }
         };
     }
-    let article = QueuedArticle { bytes, message_id: message_id.to_owned() };
-    shared.ingestion_sender.try_enqueue(article).await.map_err(|e| {
-        tracing::warn!(message_id, "ingestion queue full, article dropped: {e}");
-        "queue full"
-    })
+    let article = QueuedArticle {
+        bytes,
+        message_id: message_id.to_owned(),
+    };
+    shared
+        .ingestion_sender
+        .try_enqueue(article)
+        .await
+        .map_err(|e| {
+            tracing::warn!(message_id, "ingestion queue full, article dropped: {e}");
+            "queue full"
+        })
 }
 
 /// Result of reading a dot-stuffed article from a peer.

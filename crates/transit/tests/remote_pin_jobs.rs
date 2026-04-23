@@ -39,21 +39,21 @@ async fn make_pool() -> Arc<sqlx::SqlitePool> {
 async fn insert_or_ignore_enqueues_job_as_pending() {
     let pool = make_pool().await;
 
-    sqlx::query(
-        "INSERT OR IGNORE INTO remote_pin_jobs (cid, service_name) VALUES (?1, ?2)",
+    sqlx::query("INSERT OR IGNORE INTO remote_pin_jobs (cid, service_name) VALUES (?1, ?2)")
+        .bind("QmTest1")
+        .bind("pinata")
+        .execute(&*pool)
+        .await
+        .unwrap();
+
+    let row = sqlx::query(
+        "SELECT status, attempt_count FROM remote_pin_jobs WHERE cid = ?1 AND service_name = ?2",
     )
     .bind("QmTest1")
     .bind("pinata")
-    .execute(&*pool)
+    .fetch_one(&*pool)
     .await
     .unwrap();
-
-    let row = sqlx::query("SELECT status, attempt_count FROM remote_pin_jobs WHERE cid = ?1 AND service_name = ?2")
-        .bind("QmTest1")
-        .bind("pinata")
-        .fetch_one(&*pool)
-        .await
-        .unwrap();
 
     let status: String = row.get("status");
     let attempt_count: i64 = row.get("attempt_count");
@@ -68,24 +68,24 @@ async fn unique_constraint_prevents_duplicate_per_service() {
     let pool = make_pool().await;
 
     // First insert succeeds.
-    sqlx::query(
-        "INSERT OR IGNORE INTO remote_pin_jobs (cid, service_name) VALUES (?1, ?2)",
-    )
-    .bind("QmDup1")
-    .bind("web3")
-    .execute(&*pool)
-    .await
-    .unwrap();
+    sqlx::query("INSERT OR IGNORE INTO remote_pin_jobs (cid, service_name) VALUES (?1, ?2)")
+        .bind("QmDup1")
+        .bind("web3")
+        .execute(&*pool)
+        .await
+        .unwrap();
 
     // Second insert for same (cid, service_name) must be silently ignored.
-    let result = sqlx::query(
-        "INSERT OR IGNORE INTO remote_pin_jobs (cid, service_name) VALUES (?1, ?2)",
-    )
-    .bind("QmDup1")
-    .bind("web3")
-    .execute(&*pool)
-    .await;
-    assert!(result.is_ok(), "INSERT OR IGNORE must not error on duplicate");
+    let result =
+        sqlx::query("INSERT OR IGNORE INTO remote_pin_jobs (cid, service_name) VALUES (?1, ?2)")
+            .bind("QmDup1")
+            .bind("web3")
+            .execute(&*pool)
+            .await;
+    assert!(
+        result.is_ok(),
+        "INSERT OR IGNORE must not error on duplicate"
+    );
 
     // Only one row must exist.
     let count: i64 = sqlx::query_scalar(
@@ -102,23 +102,19 @@ async fn unique_constraint_prevents_duplicate_per_service() {
 async fn same_cid_different_services_creates_two_rows() {
     let pool = make_pool().await;
 
-    sqlx::query(
-        "INSERT OR IGNORE INTO remote_pin_jobs (cid, service_name) VALUES (?1, ?2)",
-    )
-    .bind("QmShared")
-    .bind("pinata")
-    .execute(&*pool)
-    .await
-    .unwrap();
+    sqlx::query("INSERT OR IGNORE INTO remote_pin_jobs (cid, service_name) VALUES (?1, ?2)")
+        .bind("QmShared")
+        .bind("pinata")
+        .execute(&*pool)
+        .await
+        .unwrap();
 
-    sqlx::query(
-        "INSERT OR IGNORE INTO remote_pin_jobs (cid, service_name) VALUES (?1, ?2)",
-    )
-    .bind("QmShared")
-    .bind("filebase")
-    .execute(&*pool)
-    .await
-    .unwrap();
+    sqlx::query("INSERT OR IGNORE INTO remote_pin_jobs (cid, service_name) VALUES (?1, ?2)")
+        .bind("QmShared")
+        .bind("filebase")
+        .execute(&*pool)
+        .await
+        .unwrap();
 
     let count: i64 =
         sqlx::query_scalar("SELECT COUNT(*) FROM remote_pin_jobs WHERE cid = 'QmShared'")
@@ -158,14 +154,16 @@ async fn group_filter_empty_means_pin_all_groups() {
         }
     }
 
-    let count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM remote_pin_jobs WHERE service_name = ?1",
-    )
-    .bind(svc_name)
-    .fetch_one(&*pool)
-    .await
-    .unwrap();
-    assert_eq!(count, 3, "all 3 groups should be enqueued when filter is empty");
+    let count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM remote_pin_jobs WHERE service_name = ?1")
+            .bind(svc_name)
+            .fetch_one(&*pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        count, 3,
+        "all 3 groups should be enqueued when filter is empty"
+    );
 }
 
 /// Group filter matching: pattern `comp.*` matches comp groups but not alt.
@@ -174,17 +172,12 @@ async fn group_filter_pattern_matches_prefix() {
     let pool = make_pool().await;
     let svc_name = "comp-only";
 
-    let all_groups = [
-        "comp.lang.rust",
-        "comp.os.linux",
-        "alt.test",
-        "sci.math",
-    ];
+    let all_groups = ["comp.lang.rust", "comp.os.linux", "alt.test", "sci.math"];
     let svc_groups = vec!["comp.*".to_string()];
 
     for group in &all_groups {
-        let should_pin = svc_groups.is_empty()
-            || svc_groups.iter().any(|p| group_matches_pattern(group, p));
+        let should_pin =
+            svc_groups.is_empty() || svc_groups.iter().any(|p| group_matches_pattern(group, p));
         if should_pin {
             sqlx::query(
                 "INSERT OR IGNORE INTO remote_pin_jobs (cid, service_name) VALUES (?1, ?2)",
@@ -197,13 +190,12 @@ async fn group_filter_pattern_matches_prefix() {
         }
     }
 
-    let count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM remote_pin_jobs WHERE service_name = ?1",
-    )
-    .bind(svc_name)
-    .fetch_one(&*pool)
-    .await
-    .unwrap();
+    let count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM remote_pin_jobs WHERE service_name = ?1")
+            .bind(svc_name)
+            .fetch_one(&*pool)
+            .await
+            .unwrap();
     assert_eq!(count, 2, "only comp.* groups should be enqueued");
 }
 
@@ -221,15 +213,13 @@ async fn admin_pinning_remote_endpoint_returns_stats() {
         ("Qm5", "web3", "failed"),
     ];
     for (cid, svc, status) in inserts {
-        sqlx::query(
-            "INSERT INTO remote_pin_jobs (cid, service_name, status) VALUES (?1, ?2, ?3)",
-        )
-        .bind(cid)
-        .bind(svc)
-        .bind(status)
-        .execute(&*pool)
-        .await
-        .unwrap();
+        sqlx::query("INSERT INTO remote_pin_jobs (cid, service_name, status) VALUES (?1, ?2, ?3)")
+            .bind(cid)
+            .bind(svc)
+            .bind(status)
+            .execute(&*pool)
+            .await
+            .unwrap();
     }
 
     let json = build_pinning_remote_json(&*pool).await.unwrap();

@@ -2,12 +2,12 @@
 
 pub mod article;
 pub mod audit;
-pub mod ipfs;
 pub mod canonical;
 pub mod cid_util;
 pub mod error;
 pub mod group_log;
 pub mod hlc;
+pub mod ipfs;
 pub mod ipld;
 pub mod migrations;
 pub mod msgid_map;

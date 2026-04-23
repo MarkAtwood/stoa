@@ -89,12 +89,7 @@ impl IpfsStore for MemIpfsStore {
     }
 
     async fn get_raw(&self, cid: &Cid) -> Result<Option<Vec<u8>>, IpfsError> {
-        Ok(self
-            .blocks
-            .read()
-            .unwrap()
-            .get(&cid.to_string())
-            .cloned())
+        Ok(self.blocks.read().unwrap().get(&cid.to_string()).cloned())
     }
 }
 

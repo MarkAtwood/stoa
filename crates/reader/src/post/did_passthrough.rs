@@ -15,13 +15,12 @@ pub(crate) fn header_section(article_bytes: &[u8]) -> &[u8] {
             // Determine separator length by inspecting the bytes at the
             // separator position.  If the article uses \r\n\r\n the separator
             // is 4 bytes; for bare \n\n it is 2 bytes.
-            let sep_len = if body_start >= 4
-                && article_bytes[body_start - 4..body_start] == *b"\r\n\r\n"
-            {
-                4usize
-            } else {
-                2usize
-            };
+            let sep_len =
+                if body_start >= 4 && article_bytes[body_start - 4..body_start] == *b"\r\n\r\n" {
+                    4usize
+                } else {
+                    2usize
+                };
             // Return headers including the final \r\n (or \n) of the last
             // header line (i.e. exclude only the blank line).
             &article_bytes[..body_start - sep_len + if sep_len == 4 { 2 } else { 1 }]
@@ -128,7 +127,8 @@ mod tests {
     #[test]
     fn body_injection_is_ignored() {
         // An attacker plants the header in the body; it must not be extracted.
-        let article = b"From: a@b\r\nSubject: test\r\n\r\nX-Usenet-IPFS-DID-Sig: did:key:z6Mk...\r\n";
+        let article =
+            b"From: a@b\r\nSubject: test\r\n\r\nX-Usenet-IPFS-DID-Sig: did:key:z6Mk...\r\n";
         assert_eq!(extract_did_sig(article), None);
     }
 

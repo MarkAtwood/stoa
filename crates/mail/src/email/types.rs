@@ -65,10 +65,7 @@ pub struct Email {
     /// on unsigned articles.  Clients can verify by downloading the blob,
     /// stripping this header value, and running ed25519 verify over the
     /// resulting bytes against the operator's public key.
-    #[serde(
-        rename = "x-usenet-ipfs-sig",
-        skip_serializing_if = "Option::is_none"
-    )]
+    #[serde(rename = "x-usenet-ipfs-sig", skip_serializing_if = "Option::is_none")]
     pub ipfs_sig: Option<String>,
 }
 
@@ -425,7 +422,10 @@ mod tests {
         let cid = dummy_cid(b"unsigned");
         let root = dummy_root(vec!["comp.test".to_string()], 1_000_000_000_000, 64);
         let email = Email::from_root_node(&cid, &root, None, HashMap::new(), None);
-        assert!(email.ipfs_sig.is_none(), "unsigned article must have None ipfs_sig");
+        assert!(
+            email.ipfs_sig.is_none(),
+            "unsigned article must have None ipfs_sig"
+        );
         let json = serde_json::to_string(&email).unwrap();
         assert!(
             !json.contains("x-usenet-ipfs-sig"),
@@ -438,8 +438,12 @@ mod tests {
         // Oracle: base64url-no-pad([0x01,0x02,0x03,0x04]) = "AQIDBA" (standard test vector).
         let sig_bytes = vec![0x01u8, 0x02, 0x03, 0x04];
         let cid = dummy_cid(b"signed");
-        let root =
-            dummy_root_signed(vec!["comp.test".to_string()], 1_000_000_000_000, 64, sig_bytes);
+        let root = dummy_root_signed(
+            vec!["comp.test".to_string()],
+            1_000_000_000_000,
+            64,
+            sig_bytes,
+        );
         let email = Email::from_root_node(&cid, &root, None, HashMap::new(), None);
         assert_eq!(
             email.ipfs_sig.as_deref(),
@@ -468,6 +472,9 @@ mod tests {
         // Decode the serialized value and verify it matches the original bytes.
         let sig_val = email.ipfs_sig.as_deref().unwrap();
         let decoded = BASE64URL_NOPAD.decode(sig_val.as_bytes()).unwrap();
-        assert_eq!(decoded, sig_bytes, "base64url-no-pad decode must recover original bytes");
+        assert_eq!(
+            decoded, sig_bytes,
+            "base64url-no-pad decode must recover original bytes"
+        );
     }
 }

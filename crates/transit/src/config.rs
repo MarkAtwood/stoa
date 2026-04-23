@@ -435,7 +435,8 @@ impl Config {
             }
         }
         // Validate external pinning service entries.
-        let mut seen_service_names: std::collections::HashSet<&str> = std::collections::HashSet::new();
+        let mut seen_service_names: std::collections::HashSet<&str> =
+            std::collections::HashSet::new();
         for svc in &self.pinning.external_services {
             if svc.name.is_empty() {
                 return Err(ConfigError::Validation(
@@ -1000,8 +1001,7 @@ schedule = "0 3 * * *"
 max_age_days = 30
 "#;
         let f = write_toml(toml);
-        let err =
-            Config::from_file(f.path()).expect_err("zero timeout should fail validation");
+        let err = Config::from_file(f.path()).expect_err("zero timeout should fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"

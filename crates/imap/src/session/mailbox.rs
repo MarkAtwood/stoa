@@ -45,12 +45,24 @@ pub async fn handle_select(
         Status::no(Some(tag.clone()), None, "Internal error").expect("static no")
     })?;
 
-    let ok_code = if read_only { Code::ReadOnly } else { Code::ReadWrite };
-    let ok_text = if read_only { "EXAMINE complete" } else { "SELECT complete" };
-    let tagged_ok =
-        Status::ok(Some(tag), Some(ok_code), ok_text).expect("static ok is valid");
+    let ok_code = if read_only {
+        Code::ReadOnly
+    } else {
+        Code::ReadWrite
+    };
+    let ok_text = if read_only {
+        "EXAMINE complete"
+    } else {
+        "SELECT complete"
+    };
+    let tagged_ok = Status::ok(Some(tag), Some(ok_code), ok_text).expect("static ok is valid");
 
-    Ok(SelectResult { uidvalidity, next_uid, mailbox_name: name, tagged_ok })
+    Ok(SelectResult {
+        uidvalidity,
+        next_uid,
+        mailbox_name: name,
+        tagged_ok,
+    })
 }
 
 /// Build the untagged `Data` responses for SELECT/EXAMINE.
@@ -68,15 +80,12 @@ pub fn select_untagged_data() -> Vec<Data<'static>> {
 
 /// Build the untagged `* OK [CODE] text` responses for SELECT/EXAMINE.
 pub fn select_status_responses(result: &SelectResult) -> Vec<Status<'static>> {
-    let uidvalidity =
-        NonZeroU32::new(result.uidvalidity).unwrap_or(NonZeroU32::new(1).unwrap());
+    let uidvalidity = NonZeroU32::new(result.uidvalidity).unwrap_or(NonZeroU32::new(1).unwrap());
     let next_uid = NonZeroU32::new(result.next_uid).unwrap_or(NonZeroU32::new(1).unwrap());
 
     vec![
-        Status::ok(None, Some(Code::UidValidity(uidvalidity)), "UIDs valid")
-            .expect("static ok"),
-        Status::ok(None, Some(Code::UidNext(next_uid)), "Predicted next UID")
-            .expect("static ok"),
+        Status::ok(None, Some(Code::UidValidity(uidvalidity)), "UIDs valid").expect("static ok"),
+        Status::ok(None, Some(Code::UidNext(next_uid)), "Predicted next UID").expect("static ok"),
         Status::ok(
             None,
             Some(Code::PermanentFlags(permanent_flags())),
@@ -114,18 +123,17 @@ pub async fn handle_list(
         format!("{prefix}.{wildcard}")
     };
 
-    let rows: Vec<(String,)> = match sqlx::query_as(
-        "SELECT mailbox FROM imap_uid_validity ORDER BY mailbox",
-    )
-    .fetch_all(pool)
-    .await
-    {
-        Ok(r) => r,
-        Err(e) => {
-            debug!("DB error in LIST: {e}");
-            return vec![];
-        }
-    };
+    let rows: Vec<(String,)> =
+        match sqlx::query_as("SELECT mailbox FROM imap_uid_validity ORDER BY mailbox")
+            .fetch_all(pool)
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                debug!("DB error in LIST: {e}");
+                return vec![];
+            }
+        };
 
     rows.into_iter()
         .filter(|(name,)| glob_match(&pattern, name))
@@ -151,13 +159,12 @@ pub async fn handle_status(
     item_names: &[StatusDataItemName],
 ) -> Option<Data<'static>> {
     let name = mailbox_name(&mailbox);
-    let row: Option<(i64, i64)> = sqlx::query_as(
-        "SELECT uidvalidity, next_uid FROM imap_uid_validity WHERE mailbox = ?",
-    )
-    .bind(&name)
-    .fetch_optional(pool)
-    .await
-    .unwrap_or(None);
+    let row: Option<(i64, i64)> =
+        sqlx::query_as("SELECT uidvalidity, next_uid FROM imap_uid_validity WHERE mailbox = ?")
+            .bind(&name)
+            .fetch_optional(pool)
+            .await
+            .unwrap_or(None);
 
     let (uidvalidity, next_uid) = match row {
         Some((v, n)) => (v as u32, n as u32),
@@ -171,22 +178,22 @@ pub async fn handle_status(
             StatusDataItemName::Recent => items.push(StatusDataItem::Recent(0)),
             StatusDataItemName::Unseen => items.push(StatusDataItem::Unseen(0)),
             StatusDataItemName::Deleted => items.push(StatusDataItem::Deleted(0)),
-            StatusDataItemName::DeletedStorage => {
-                items.push(StatusDataItem::DeletedStorage(0))
-            }
+            StatusDataItemName::DeletedStorage => items.push(StatusDataItem::DeletedStorage(0)),
             StatusDataItemName::UidNext => {
                 let uid = NonZeroU32::new(next_uid).unwrap_or(NonZeroU32::new(1).unwrap());
                 items.push(StatusDataItem::UidNext(uid));
             }
             StatusDataItemName::UidValidity => {
-                let uv =
-                    NonZeroU32::new(uidvalidity).unwrap_or(NonZeroU32::new(1).unwrap());
+                let uv = NonZeroU32::new(uidvalidity).unwrap_or(NonZeroU32::new(1).unwrap());
                 items.push(StatusDataItem::UidValidity(uv));
             }
         }
     }
 
-    Some(Data::Status { mailbox, items: Cow::Owned(items) })
+    Some(Data::Status {
+        mailbox,
+        items: Cow::Owned(items),
+    })
 }
 
 // ── Database helpers ──────────────────────────────────────────────────────────
@@ -239,7 +246,13 @@ pub async fn get_or_create_uidvalidity(
 // ── Flag helpers ──────────────────────────────────────────────────────────────
 
 fn system_flags() -> Vec<Flag<'static>> {
-    vec![Flag::Answered, Flag::Flagged, Flag::Deleted, Flag::Seen, Flag::Draft]
+    vec![
+        Flag::Answered,
+        Flag::Flagged,
+        Flag::Deleted,
+        Flag::Seen,
+        Flag::Draft,
+    ]
 }
 
 fn permanent_flags() -> Vec<FlagPerm<'static>> {
@@ -259,9 +272,7 @@ fn permanent_flags() -> Vec<FlagPerm<'static>> {
 pub fn mailbox_name(mailbox: &Mailbox<'_>) -> String {
     match mailbox {
         Mailbox::Inbox => "INBOX".to_owned(),
-        Mailbox::Other(other) => {
-            String::from_utf8_lossy(other.inner().as_ref()).into_owned()
-        }
+        Mailbox::Other(other) => String::from_utf8_lossy(other.inner().as_ref()).into_owned(),
     }
 }
 
@@ -279,9 +290,7 @@ fn glob_bytes(pat: &[u8], s: &[u8]) -> bool {
     match (pat.first(), s.first()) {
         (None, None) => true,
         (None, Some(_)) => false,
-        (Some(b'*'), _) => {
-            glob_bytes(&pat[1..], s) || (!s.is_empty() && glob_bytes(pat, &s[1..]))
-        }
+        (Some(b'*'), _) => glob_bytes(&pat[1..], s) || (!s.is_empty() && glob_bytes(pat, &s[1..])),
         (Some(b'%'), _) => {
             glob_bytes(&pat[1..], s)
                 || (s.first() != Some(&b'.') && !s.is_empty() && glob_bytes(pat, &s[1..]))
@@ -367,8 +376,12 @@ mod tests {
     #[tokio::test]
     async fn uidvalidity_is_stable_across_calls() {
         let pool = make_pool().await;
-        let (v1, n1) = get_or_create_uidvalidity(&pool, "comp.lang.rust").await.unwrap();
-        let (v2, n2) = get_or_create_uidvalidity(&pool, "comp.lang.rust").await.unwrap();
+        let (v1, n1) = get_or_create_uidvalidity(&pool, "comp.lang.rust")
+            .await
+            .unwrap();
+        let (v2, n2) = get_or_create_uidvalidity(&pool, "comp.lang.rust")
+            .await
+            .unwrap();
         assert_eq!(v1, v2, "UIDVALIDITY must not change on re-access");
         assert_eq!(n1, n2);
         assert!(v1 >= 1);
@@ -393,15 +406,22 @@ mod tests {
     #[tokio::test]
     async fn handle_status_returns_uidvalidity_for_known_mailbox() {
         let pool = make_pool().await;
-        let (expected_uv, _) =
-            get_or_create_uidvalidity(&pool, "comp.lang.rust").await.unwrap();
+        let (expected_uv, _) = get_or_create_uidvalidity(&pool, "comp.lang.rust")
+            .await
+            .unwrap();
         let mailbox = Mailbox::try_from("comp.lang.rust".to_owned()).unwrap();
-        let data =
-            handle_status(&pool, mailbox, &[StatusDataItemName::UidValidity]).await;
-        assert!(data.is_some(), "STATUS should return data for known mailbox");
+        let data = handle_status(&pool, mailbox, &[StatusDataItemName::UidValidity]).await;
+        assert!(
+            data.is_some(),
+            "STATUS should return data for known mailbox"
+        );
         if let Some(Data::Status { items, .. }) = data {
             let uv = items.iter().find_map(|item| {
-                if let StatusDataItem::UidValidity(v) = item { Some(v.get()) } else { None }
+                if let StatusDataItem::UidValidity(v) = item {
+                    Some(v.get())
+                } else {
+                    None
+                }
             });
             assert_eq!(
                 uv,
@@ -418,13 +438,20 @@ mod tests {
         // Verifies the DB query path executes and returns results consistent with
         // glob_match logic (which is tested exhaustively in the sync tests above).
         let pool = make_pool().await;
-        get_or_create_uidvalidity(&pool, "comp.lang.rust").await.unwrap();
-        get_or_create_uidvalidity(&pool, "comp.lang.c").await.unwrap();
+        get_or_create_uidvalidity(&pool, "comp.lang.rust")
+            .await
+            .unwrap();
+        get_or_create_uidvalidity(&pool, "comp.lang.c")
+            .await
+            .unwrap();
         get_or_create_uidvalidity(&pool, "alt.test").await.unwrap();
 
         // With Mailbox::Inbox as reference the prefix is "INBOX", so the effective
         // pattern is "INBOX.*" — none of our seeded mailboxes match.
         let data = handle_list(&pool, &Mailbox::Inbox, "*").await;
-        assert!(data.is_empty(), "INBOX.* should not match any comp.* or alt.* entries");
+        assert!(
+            data.is_empty(),
+            "INBOX.* should not match any comp.* or alt.* entries"
+        );
     }
 }

@@ -184,7 +184,9 @@ impl KuboHttpClient {
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
-            return Err(KuboError::Api(format!("name/publish HTTP {status}: {body}")));
+            return Err(KuboError::Api(format!(
+                "name/publish HTTP {status}: {body}"
+            )));
         }
 
         let parsed: NamePublishResponse = resp.json().await?;

@@ -66,7 +66,10 @@ async fn read_multiline(r: &mut BufReader<tokio::io::ReadHalf<TcpStream>>) -> Ve
 ///
 /// The server loop runs in a background task and accepts connections for the
 /// lifetime of the test (dropped when the test exits).
-async fn start_server() -> (std::net::SocketAddr, Arc<usenet_ipfs_reader::config::Config>) {
+async fn start_server() -> (
+    std::net::SocketAddr,
+    Arc<usenet_ipfs_reader::config::Config>,
+) {
     let stores = Arc::new(ServerStores::new_mem().await);
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
@@ -171,8 +174,7 @@ async fn did_sig_valid_article_gets_verified_true() {
 
         // Sign the base article bytes
         let sig = signing_key.sign(article_base.as_bytes());
-        let sig_b64 =
-            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(sig.to_bytes());
+        let sig_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(sig.to_bytes());
 
         // Build full article: insert DID-Sig header before the blank line
         let header_line = format!("X-Usenet-IPFS-DID-Sig: {did_key} {sig_b64}\r\n");
@@ -237,8 +239,7 @@ async fn did_sig_wrong_sig_gets_verified_false() {
         let sig = signing_key.sign(article_base.as_bytes());
         let mut sig_bytes = sig.to_bytes();
         sig_bytes[63] ^= 0xff;
-        let sig_b64 =
-            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(sig_bytes);
+        let sig_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(sig_bytes);
 
         let header_line = format!("X-Usenet-IPFS-DID-Sig: {did_key} {sig_b64}\r\n");
         let blank_pos = article_base.find("\r\n\r\n").unwrap();

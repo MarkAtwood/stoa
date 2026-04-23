@@ -137,9 +137,7 @@ impl KuboBlockStore {
     }
 
     fn cache_path(&self, cid: &Cid) -> Option<std::path::PathBuf> {
-        self.cache_dir
-            .as_ref()
-            .map(|dir| dir.join(cid.to_string()))
+        self.cache_dir.as_ref().map(|dir| dir.join(cid.to_string()))
     }
 
     async fn cache_get(&self, cid: &Cid) -> Option<Vec<u8>> {
@@ -504,5 +502,4 @@ mod tests {
             "MemIpfsStore put/get roundtrip must be exact"
         );
     }
-
 }

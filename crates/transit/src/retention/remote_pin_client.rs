@@ -154,7 +154,10 @@ impl RemotePinClient {
         let resp = self
             .client
             .post(&url)
-            .header(reqwest::header::AUTHORIZATION, self.api_key.as_bearer_header())
+            .header(
+                reqwest::header::AUTHORIZATION,
+                self.api_key.as_bearer_header(),
+            )
             .json(&body)
             .send()
             .await
@@ -168,7 +171,10 @@ impl RemotePinClient {
         let resp = self
             .client
             .get(&url)
-            .header(reqwest::header::AUTHORIZATION, self.api_key.as_bearer_header())
+            .header(
+                reqwest::header::AUTHORIZATION,
+                self.api_key.as_bearer_header(),
+            )
             .send()
             .await
             .map_err(|e| RemotePinError::Transport(e.to_string()))?;
@@ -181,7 +187,10 @@ impl RemotePinClient {
         let resp = self
             .client
             .delete(&url)
-            .header(reqwest::header::AUTHORIZATION, self.api_key.as_bearer_header())
+            .header(
+                reqwest::header::AUTHORIZATION,
+                self.api_key.as_bearer_header(),
+            )
             .send()
             .await
             .map_err(|e| RemotePinError::Transport(e.to_string()))?;
@@ -321,7 +330,12 @@ mod tests {
         let client = test_client(&server.uri());
         let err = client.submit("QmFake123", "test").await.unwrap_err();
         assert!(
-            matches!(err, RemotePinError::RateLimited { retry_after_secs: 42 }),
+            matches!(
+                err,
+                RemotePinError::RateLimited {
+                    retry_after_secs: 42
+                }
+            ),
             "expected RateLimited(42), got: {err}"
         );
     }

@@ -163,7 +163,10 @@ mod tests {
         let json = build_index_json(&groups);
         let s = std::str::from_utf8(&json).unwrap();
 
-        assert!(s.starts_with(r#"{"version":1,"groups":{"#), "JSON must start with correct prefix");
+        assert!(
+            s.starts_with(r#"{"version":1,"groups":{"#),
+            "JSON must start with correct prefix"
+        );
         assert!(s.ends_with("}}"), "JSON must end with double closing brace");
         assert!(
             s.contains(r#""comp.lang.rust":""#),
@@ -191,7 +194,9 @@ mod tests {
         let s = std::str::from_utf8(&json).unwrap();
 
         let alt_pos = s.find("alt.test").expect("alt.test must appear in output");
-        let comp_pos = s.find("comp.lang.rust").expect("comp.lang.rust must appear in output");
+        let comp_pos = s
+            .find("comp.lang.rust")
+            .expect("comp.lang.rust must appear in output");
         assert!(
             alt_pos < comp_pos,
             "alt.test must appear before comp.lang.rust (alphabetical ordering)"
@@ -208,8 +213,8 @@ mod tests {
         groups.insert("comp.test".to_string(), make_cid(b"comp block"));
 
         let json = build_index_json(&groups);
-        let v: serde_json::Value = serde_json::from_slice(&json)
-            .expect("build_index_json must produce valid JSON");
+        let v: serde_json::Value =
+            serde_json::from_slice(&json).expect("build_index_json must produce valid JSON");
 
         assert_eq!(v["version"], 1, "version must be 1");
         assert!(v["groups"].is_object(), "groups must be a JSON object");

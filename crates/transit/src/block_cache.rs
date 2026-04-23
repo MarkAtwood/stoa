@@ -111,7 +111,11 @@ impl BlockCache {
     /// Caller must ensure the cache directory exists before calling; use
     /// [`tokio::fs::create_dir_all`] at startup.
     pub fn new(config: CacheConfig, pool: Arc<SqlitePool>, inner: Arc<dyn IpfsStore>) -> Self {
-        Self { config, pool, inner }
+        Self {
+            config,
+            pool,
+            inner,
+        }
     }
 
     /// Check the local cache for `cid`.  On a hit, updates `last_access` and
@@ -131,13 +135,11 @@ impl BlockCache {
 
         // Update last_access for LRU ordering.
         let now = unix_nanos();
-        let _ = sqlx::query(
-            "UPDATE transit_block_cache SET last_access = ? WHERE cid = ?",
-        )
-        .bind(now)
-        .bind(&cid_str)
-        .execute(&*self.pool)
-        .await;
+        let _ = sqlx::query("UPDATE transit_block_cache SET last_access = ? WHERE cid = ?")
+            .bind(now)
+            .bind(&cid_str)
+            .execute(&*self.pool)
+            .await;
 
         debug!(cid = %cid_str, "cache hit");
         Some(bytes)
@@ -195,10 +197,11 @@ impl BlockCache {
     /// are added.
     async fn evict_for(&self, incoming_bytes: u64) -> Result<(), CacheError> {
         loop {
-            let (count, total_bytes): (i64, i64) =
-                sqlx::query_as("SELECT COUNT(*), COALESCE(SUM(byte_size), 0) FROM transit_block_cache")
-                    .fetch_one(&*self.pool)
-                    .await?;
+            let (count, total_bytes): (i64, i64) = sqlx::query_as(
+                "SELECT COUNT(*), COALESCE(SUM(byte_size), 0) FROM transit_block_cache",
+            )
+            .fetch_one(&*self.pool)
+            .await?;
 
             let needs_eviction = (count as u64 + 1 > self.config.max_entries)
                 || (total_bytes as u64 + incoming_bytes > self.config.max_bytes);
@@ -316,17 +319,21 @@ mod tests {
     async fn put_raw_then_get_raw_serves_from_cache() {
         let dir = tempfile::tempdir().unwrap();
         let pool = make_pool().await;
-        let cache = make_cache(dir.path().to_str().unwrap(), pool.clone(), 100, 10 * 1024 * 1024);
+        let cache = make_cache(
+            dir.path().to_str().unwrap(),
+            pool.clone(),
+            100,
+            10 * 1024 * 1024,
+        );
 
         let data = b"hello from ipfs";
         let cid = cache.put_raw(data).await.unwrap();
 
         // Verify the row exists in cache.
-        let (count,): (i64,) =
-            sqlx::query_as("SELECT COUNT(*) FROM transit_block_cache")
-                .fetch_one(&*pool)
-                .await
-                .unwrap();
+        let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM transit_block_cache")
+            .fetch_one(&*pool)
+            .await
+            .unwrap();
         assert_eq!(count, 1, "entry must be cached after put_raw");
 
         // get_raw should return from cache without touching inner store.
@@ -351,22 +358,20 @@ mod tests {
         );
 
         // Cache is initially empty.
-        let (count,): (i64,) =
-            sqlx::query_as("SELECT COUNT(*) FROM transit_block_cache")
-                .fetch_one(&*pool)
-                .await
-                .unwrap();
+        let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM transit_block_cache")
+            .fetch_one(&*pool)
+            .await
+            .unwrap();
         assert_eq!(count, 0);
 
         let result = cache.get_raw(&cid).await.unwrap();
         assert_eq!(result.as_deref(), Some(data.as_slice()));
 
         // Cache should now have the entry.
-        let (count2,): (i64,) =
-            sqlx::query_as("SELECT COUNT(*) FROM transit_block_cache")
-                .fetch_one(&*pool)
-                .await
-                .unwrap();
+        let (count2,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM transit_block_cache")
+            .fetch_one(&*pool)
+            .await
+            .unwrap();
         assert_eq!(count2, 1, "miss should populate the cache");
     }
 
@@ -386,11 +391,10 @@ mod tests {
         // Adding a 3rd entry must evict cid2 (oldest last_access).
         let _cid3 = cache.put_raw(b"block three").await.unwrap();
 
-        let (count,): (i64,) =
-            sqlx::query_as("SELECT COUNT(*) FROM transit_block_cache")
-                .fetch_one(&*pool)
-                .await
-                .unwrap();
+        let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM transit_block_cache")
+            .fetch_one(&*pool)
+            .await
+            .unwrap();
         assert_eq!(count, 2, "after eviction, should have exactly max_entries");
 
         // cid2 must have been evicted.

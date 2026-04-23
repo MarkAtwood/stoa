@@ -47,8 +47,14 @@ use mailbox::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ImapState {
     NotAuthenticated,
-    Authenticated { username: String },
-    Selected { username: String, mailbox: String, read_only: bool },
+    Authenticated {
+        username: String,
+    },
+    Selected {
+        username: String,
+        mailbox: String,
+        read_only: bool,
+    },
     Logout,
 }
 
@@ -120,8 +126,7 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
         }
     };
     let mut options = Options::default();
-    options.max_literal_size =
-        ctx.config.limits.max_literal_bytes.min(u32::MAX as u64) as u32;
+    options.max_literal_size = ctx.config.limits.max_literal_bytes.min(u32::MAX as u64) as u32;
     let mut server = Server::new(options, greeting);
 
     info!(peer = %ctx.peer, tls = ctx.tls, "IMAP session started");
@@ -158,159 +163,143 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
 
                     CommandBody::Logout => {
                         // RFC 3501 §6.1.3: send untagged BYE, then tagged OK.
-                        server.enqueue_status(
-                            Status::bye(None, "Logging out").expect("static bye"),
-                        );
+                        server
+                            .enqueue_status(Status::bye(None, "Logging out").expect("static bye"));
                         let last = server.enqueue_status(
-                            Status::ok(Some(tag), None, "LOGOUT completed")
-                                .expect("static ok"),
+                            Status::ok(Some(tag), None, "LOGOUT completed").expect("static ok"),
                         );
                         ctx.state = ImapState::Logout;
                         drain_until(&mut stream, &mut server, last).await;
                         break;
                     }
 
-                    CommandBody::Select { mailbox, .. } => {
-                        match ctx.state {
-                            ImapState::Authenticated { ref username }
-                            | ImapState::Selected { ref username, .. } => {
-                                let username = username.clone();
-                                match handle_select(
-                                    &ctx.pool,
-                                    tag,
-                                    mailbox,
-                                    false,
-                                )
-                                .await
-                                {
-                                    Ok(result) => {
-                                        let mailbox_name = result.mailbox_name.clone();
-                                        for d in select_untagged_data() {
-                                            server.enqueue_data(d);
-                                        }
-                                        for s in select_status_responses(&result) {
-                                            server.enqueue_status(s);
-                                        }
-                                        server.enqueue_status(result.tagged_ok);
-                                        ctx.state = ImapState::Selected {
-                                            username,
-                                            mailbox: mailbox_name,
-                                            read_only: false,
-                                        };
+                    CommandBody::Select { mailbox, .. } => match ctx.state {
+                        ImapState::Authenticated { ref username }
+                        | ImapState::Selected { ref username, .. } => {
+                            let username = username.clone();
+                            match handle_select(&ctx.pool, tag, mailbox, false).await {
+                                Ok(result) => {
+                                    let mailbox_name = result.mailbox_name.clone();
+                                    for d in select_untagged_data() {
+                                        server.enqueue_data(d);
                                     }
-                                    Err(no) => {
-                                        server.enqueue_status(no);
+                                    for s in select_status_responses(&result) {
+                                        server.enqueue_status(s);
                                     }
+                                    server.enqueue_status(result.tagged_ok);
+                                    ctx.state = ImapState::Selected {
+                                        username,
+                                        mailbox: mailbox_name,
+                                        read_only: false,
+                                    };
+                                }
+                                Err(no) => {
+                                    server.enqueue_status(no);
                                 }
                             }
-                            _ => {
-                                server.enqueue_status(
-                                    Status::no(Some(tag), None, "Not in authenticated state")
-                                        .expect("static no"),
-                                );
-                            }
                         }
-                    }
+                        _ => {
+                            server.enqueue_status(
+                                Status::no(Some(tag), None, "Not in authenticated state")
+                                    .expect("static no"),
+                            );
+                        }
+                    },
 
-                    CommandBody::Examine { mailbox, .. } => {
-                        match ctx.state {
-                            ImapState::Authenticated { ref username }
-                            | ImapState::Selected { ref username, .. } => {
-                                let username = username.clone();
-                                match handle_select(&ctx.pool, tag, mailbox, true).await {
-                                    Ok(result) => {
-                                        let mailbox_name = result.mailbox_name.clone();
-                                        for d in select_untagged_data() {
-                                            server.enqueue_data(d);
-                                        }
-                                        for s in select_status_responses(&result) {
-                                            server.enqueue_status(s);
-                                        }
-                                        server.enqueue_status(result.tagged_ok);
-                                        ctx.state = ImapState::Selected {
-                                            username,
-                                            mailbox: mailbox_name,
-                                            read_only: true,
-                                        };
+                    CommandBody::Examine { mailbox, .. } => match ctx.state {
+                        ImapState::Authenticated { ref username }
+                        | ImapState::Selected { ref username, .. } => {
+                            let username = username.clone();
+                            match handle_select(&ctx.pool, tag, mailbox, true).await {
+                                Ok(result) => {
+                                    let mailbox_name = result.mailbox_name.clone();
+                                    for d in select_untagged_data() {
+                                        server.enqueue_data(d);
                                     }
-                                    Err(no) => {
-                                        server.enqueue_status(no);
+                                    for s in select_status_responses(&result) {
+                                        server.enqueue_status(s);
                                     }
+                                    server.enqueue_status(result.tagged_ok);
+                                    ctx.state = ImapState::Selected {
+                                        username,
+                                        mailbox: mailbox_name,
+                                        read_only: true,
+                                    };
+                                }
+                                Err(no) => {
+                                    server.enqueue_status(no);
                                 }
                             }
-                            _ => {
-                                server.enqueue_status(
-                                    Status::no(Some(tag), None, "Not in authenticated state")
-                                        .expect("static no"),
-                                );
-                            }
                         }
-                    }
+                        _ => {
+                            server.enqueue_status(
+                                Status::no(Some(tag), None, "Not in authenticated state")
+                                    .expect("static no"),
+                            );
+                        }
+                    },
 
-                    CommandBody::List { reference, mailbox_wildcard } => {
-                        match ctx.state {
-                            ImapState::Authenticated { .. }
-                            | ImapState::Selected { .. } => {
-                                let wildcard = list_mailbox_to_string(&mailbox_wildcard);
-                                for d in handle_list(&ctx.pool, &reference, &wildcard).await {
-                                    server.enqueue_data(d);
+                    CommandBody::List {
+                        reference,
+                        mailbox_wildcard,
+                    } => match ctx.state {
+                        ImapState::Authenticated { .. } | ImapState::Selected { .. } => {
+                            let wildcard = list_mailbox_to_string(&mailbox_wildcard);
+                            for d in handle_list(&ctx.pool, &reference, &wildcard).await {
+                                server.enqueue_data(d);
+                            }
+                            server.enqueue_status(
+                                Status::ok(Some(tag), None, "LIST complete").expect("static ok"),
+                            );
+                        }
+                        _ => {
+                            server.enqueue_status(
+                                Status::no(Some(tag), None, "Not in authenticated state")
+                                    .expect("static no"),
+                            );
+                        }
+                    },
+
+                    CommandBody::Status {
+                        mailbox,
+                        item_names,
+                    } => match ctx.state {
+                        ImapState::Authenticated { .. } | ImapState::Selected { .. } => {
+                            match handle_status(&ctx.pool, mailbox, item_names.as_ref()).await {
+                                Some(data) => {
+                                    server.enqueue_data(data);
+                                    server.enqueue_status(
+                                        Status::ok(Some(tag), None, "STATUS complete")
+                                            .expect("static ok"),
+                                    );
                                 }
-                                server.enqueue_status(
-                                    Status::ok(Some(tag), None, "LIST complete")
-                                        .expect("static ok"),
-                                );
-                            }
-                            _ => {
-                                server.enqueue_status(
-                                    Status::no(Some(tag), None, "Not in authenticated state")
-                                        .expect("static no"),
-                                );
-                            }
-                        }
-                    }
-
-                    CommandBody::Status { mailbox, item_names } => {
-                        match ctx.state {
-                            ImapState::Authenticated { .. }
-                            | ImapState::Selected { .. } => {
-                                match handle_status(&ctx.pool, mailbox, item_names.as_ref()).await {
-                                    Some(data) => {
-                                        server.enqueue_data(data);
-                                        server.enqueue_status(
-                                            Status::ok(Some(tag), None, "STATUS complete")
-                                                .expect("static ok"),
-                                        );
-                                    }
-                                    None => {
-                                        server.enqueue_status(
-                                            Status::no(Some(tag), None, "No such mailbox")
-                                                .expect("static no"),
-                                        );
-                                    }
+                                None => {
+                                    server.enqueue_status(
+                                        Status::no(Some(tag), None, "No such mailbox")
+                                            .expect("static no"),
+                                    );
                                 }
                             }
-                            _ => {
-                                server.enqueue_status(
-                                    Status::no(Some(tag), None, "Not in authenticated state")
-                                        .expect("static no"),
-                                );
-                            }
                         }
-                    }
+                        _ => {
+                            server.enqueue_status(
+                                Status::no(Some(tag), None, "Not in authenticated state")
+                                    .expect("static no"),
+                            );
+                        }
+                    },
 
-                    CommandBody::Fetch { .. } => {
-                        match ctx.state {
-                            ImapState::Selected { .. } => {
-                                server.enqueue_status(handle_fetch(tag));
-                            }
-                            _ => {
-                                server.enqueue_status(
-                                    Status::no(Some(tag), None, "Not in selected state")
-                                        .expect("static no"),
-                                );
-                            }
+                    CommandBody::Fetch { .. } => match ctx.state {
+                        ImapState::Selected { .. } => {
+                            server.enqueue_status(handle_fetch(tag));
                         }
-                    }
+                        _ => {
+                            server.enqueue_status(
+                                Status::no(Some(tag), None, "Not in selected state")
+                                    .expect("static no"),
+                            );
+                        }
+                    },
 
                     CommandBody::Store {
                         sequence_set,
@@ -319,49 +308,49 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
                         flags,
                         uid,
                         ..
-                    } => {
-                        match ctx.state {
-                            ImapState::Selected { ref username, ref mailbox, .. } => {
-                                let username = username.clone();
-                                let mailbox = mailbox.clone();
-                                let status = handle_store(
-                                    &ctx.pool,
-                                    &username,
-                                    &mailbox,
-                                    tag,
-                                    &sequence_set,
-                                    kind,
-                                    store_response,
-                                    &flags,
-                                    uid,
-                                )
-                                .await;
-                                server.enqueue_status(status);
-                            }
-                            _ => {
-                                server.enqueue_status(
-                                    Status::no(Some(tag), None, "Not in selected state")
-                                        .expect("static no"),
-                                );
-                            }
+                    } => match ctx.state {
+                        ImapState::Selected {
+                            ref username,
+                            ref mailbox,
+                            ..
+                        } => {
+                            let username = username.clone();
+                            let mailbox = mailbox.clone();
+                            let status = handle_store(
+                                &ctx.pool,
+                                &username,
+                                &mailbox,
+                                tag,
+                                &sequence_set,
+                                kind,
+                                store_response,
+                                &flags,
+                                uid,
+                            )
+                            .await;
+                            server.enqueue_status(status);
                         }
-                    }
+                        _ => {
+                            server.enqueue_status(
+                                Status::no(Some(tag), None, "Not in selected state")
+                                    .expect("static no"),
+                            );
+                        }
+                    },
 
-                    CommandBody::Search { uid, .. } => {
-                        match ctx.state {
-                            ImapState::Selected { .. } => {
-                                let (data, status) = handle_search(tag, uid);
-                                server.enqueue_data(data);
-                                server.enqueue_status(status);
-                            }
-                            _ => {
-                                server.enqueue_status(
-                                    Status::no(Some(tag), None, "Not in selected state")
-                                        .expect("static no"),
-                                );
-                            }
+                    CommandBody::Search { uid, .. } => match ctx.state {
+                        ImapState::Selected { .. } => {
+                            let (data, status) = handle_search(tag, uid);
+                            server.enqueue_data(data);
+                            server.enqueue_status(status);
                         }
-                    }
+                        _ => {
+                            server.enqueue_status(
+                                Status::no(Some(tag), None, "Not in selected state")
+                                    .expect("static no"),
+                            );
+                        }
+                    },
 
                     CommandBody::Expunge => {
                         match ctx.state {
@@ -403,24 +392,22 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
                     }
 
                     // UNSELECT (RFC 3691) — deselect without expunging \Deleted.
-                    CommandBody::Unselect => {
-                        match ctx.state {
-                            ImapState::Selected { ref username, .. } => {
-                                let username = username.clone();
-                                ctx.state = ImapState::Authenticated { username };
-                                server.enqueue_status(
-                                    Status::ok(Some(tag), None, "UNSELECT complete")
-                                        .expect("static ok"),
-                                );
-                            }
-                            _ => {
-                                server.enqueue_status(
-                                    Status::no(Some(tag), None, "Not in selected state")
-                                        .expect("static no"),
-                                );
-                            }
+                    CommandBody::Unselect => match ctx.state {
+                        ImapState::Selected { ref username, .. } => {
+                            let username = username.clone();
+                            ctx.state = ImapState::Authenticated { username };
+                            server.enqueue_status(
+                                Status::ok(Some(tag), None, "UNSELECT complete")
+                                    .expect("static ok"),
+                            );
                         }
-                    }
+                        _ => {
+                            server.enqueue_status(
+                                Status::no(Some(tag), None, "Not in selected state")
+                                    .expect("static no"),
+                            );
+                        }
+                    },
 
                     // ENABLE (RFC 5161) — we acknowledge the command but activate no
                     // enableable capabilities in this implementation.
@@ -428,7 +415,9 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
                         match ctx.state {
                             ImapState::Authenticated { .. } | ImapState::Selected { .. } => {
                                 // Return empty * ENABLED list: no capabilities activated.
-                                server.enqueue_data(Data::Enabled { capabilities: vec![] });
+                                server.enqueue_data(Data::Enabled {
+                                    capabilities: vec![],
+                                });
                                 server.enqueue_status(
                                     Status::ok(Some(tag), None, "ENABLE complete")
                                         .expect("static ok"),
@@ -444,40 +433,35 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
                     }
 
                     // UID EXPUNGE (RFC 4315) — no-op with 0 messages.
-                    CommandBody::ExpungeUid { .. } => {
-                        match ctx.state {
-                            ImapState::Selected { .. } => {
-                                server.enqueue_status(
-                                    Status::ok(Some(tag), None, "UID EXPUNGE complete")
-                                        .expect("static ok"),
-                                );
-                            }
-                            _ => {
-                                server.enqueue_status(
-                                    Status::no(Some(tag), None, "Not in selected state")
-                                        .expect("static no"),
-                                );
-                            }
+                    CommandBody::ExpungeUid { .. } => match ctx.state {
+                        ImapState::Selected { .. } => {
+                            server.enqueue_status(
+                                Status::ok(Some(tag), None, "UID EXPUNGE complete")
+                                    .expect("static ok"),
+                            );
                         }
-                    }
+                        _ => {
+                            server.enqueue_status(
+                                Status::no(Some(tag), None, "Not in selected state")
+                                    .expect("static no"),
+                            );
+                        }
+                    },
 
                     // MOVE (RFC 6851) — no-op with 0 messages; returns OK.
-                    CommandBody::Move { .. } => {
-                        match ctx.state {
-                            ImapState::Selected { .. } => {
-                                server.enqueue_status(
-                                    Status::ok(Some(tag), None, "MOVE complete")
-                                        .expect("static ok"),
-                                );
-                            }
-                            _ => {
-                                server.enqueue_status(
-                                    Status::no(Some(tag), None, "Not in selected state")
-                                        .expect("static no"),
-                                );
-                            }
+                    CommandBody::Move { .. } => match ctx.state {
+                        ImapState::Selected { .. } => {
+                            server.enqueue_status(
+                                Status::ok(Some(tag), None, "MOVE complete").expect("static ok"),
+                            );
                         }
-                    }
+                        _ => {
+                            server.enqueue_status(
+                                Status::no(Some(tag), None, "Not in selected state")
+                                    .expect("static no"),
+                            );
+                        }
+                    },
 
                     // APPEND — not supported until article storage is wired.
                     CommandBody::Append { .. } => {
@@ -501,7 +485,9 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
                 }
             }
 
-            Event::CommandAuthenticateReceived { command_authenticate } => {
+            Event::CommandAuthenticateReceived {
+                command_authenticate,
+            } => {
                 let tag = command_authenticate.tag;
                 let mechanism = command_authenticate.mechanism;
                 let initial_response = command_authenticate.initial_response;
@@ -534,26 +520,20 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
                 }
             }
 
-            Event::IdleCommandReceived { tag } => {
-                match ctx.state {
-                    ImapState::Authenticated { .. } | ImapState::Selected { .. } => {
-                        let ccr = CommandContinuationRequest::basic(None, "idling")
-                            .expect("static CCR is valid");
-                        if server.idle_accept(ccr).is_ok() {
-                            ctx.idle_tag = Some(tag);
-                        }
-                    }
-                    _ => {
-                        let no = Status::no(
-                            Some(tag),
-                            None,
-                            "Not in authenticated state",
-                        )
-                        .expect("static no");
-                        server.idle_reject(no).ok();
+            Event::IdleCommandReceived { tag } => match ctx.state {
+                ImapState::Authenticated { .. } | ImapState::Selected { .. } => {
+                    let ccr = CommandContinuationRequest::basic(None, "idling")
+                        .expect("static CCR is valid");
+                    if server.idle_accept(ccr).is_ok() {
+                        ctx.idle_tag = Some(tag);
                     }
                 }
-            }
+                _ => {
+                    let no = Status::no(Some(tag), None, "Not in authenticated state")
+                        .expect("static no");
+                    server.idle_reject(no).ok();
+                }
+            },
 
             Event::IdleDoneReceived => {
                 if let Some(tag) = ctx.idle_tag.take() {
@@ -606,8 +586,12 @@ mod tests {
 
     #[test]
     fn imap_state_authenticated_stores_username() {
-        let state = ImapState::Authenticated { username: "alice".into() };
-        assert!(matches!(state, ImapState::Authenticated { ref username, .. } if username == "alice"));
+        let state = ImapState::Authenticated {
+            username: "alice".into(),
+        };
+        assert!(
+            matches!(state, ImapState::Authenticated { ref username, .. } if username == "alice")
+        );
     }
 
     #[test]
@@ -617,14 +601,26 @@ mod tests {
             mailbox: "comp.lang.rust".into(),
             read_only: false,
         };
-        assert!(matches!(rw, ImapState::Selected { read_only: false, .. }));
+        assert!(matches!(
+            rw,
+            ImapState::Selected {
+                read_only: false,
+                ..
+            }
+        ));
 
         let ro = ImapState::Selected {
             username: "alice".into(),
             mailbox: "comp.lang.rust".into(),
             read_only: true,
         };
-        assert!(matches!(ro, ImapState::Selected { read_only: true, .. }));
+        assert!(matches!(
+            ro,
+            ImapState::Selected {
+                read_only: true,
+                ..
+            }
+        ));
     }
 
     #[test]

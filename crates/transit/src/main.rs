@@ -19,7 +19,7 @@ use usenet_ipfs_transit::{
         auth::parse_trusted_peer_keys,
         blacklist::BlacklistConfig,
         ingestion_queue::ingestion_queue,
-        pipeline::{run_pipeline, PipelineCtx, KuboStore},
+        pipeline::{run_pipeline, KuboStore, PipelineCtx},
         rate_limit::{ExhaustionAction, PeerRateLimiter},
         session::{run_peering_session, PeeringShared},
     },
@@ -159,10 +159,15 @@ async fn main() {
 
     let ipns_tx: Option<tokio::sync::mpsc::Sender<IpnsEvent>> = if config.ipns.enabled {
         let (tx, rx) = tokio::sync::mpsc::channel::<IpnsEvent>(256);
-        let client = kubo_client_for_ipns.clone().expect("kubo_client_for_ipns set when enabled");
+        let client = kubo_client_for_ipns
+            .clone()
+            .expect("kubo_client_for_ipns set when enabled");
         let interval = config.ipns.republish_interval_secs;
         tokio::spawn(IpnsPublisher::new(client, interval).run(rx));
-        info!("IPNS publishing enabled (interval {}s)", config.ipns.republish_interval_secs);
+        info!(
+            "IPNS publishing enabled (interval {}s)",
+            config.ipns.republish_interval_secs
+        );
         Some(tx)
     } else {
         None
@@ -381,7 +386,10 @@ async fn main() {
         match tokio::fs::create_dir_all(&staging_cfg.path).await {
             Ok(()) => {
                 info!(path = %staging_cfg.path, "write-ahead staging directory ready");
-                Some(Arc::new(StagingStore::new(staging_cfg, Arc::clone(&transit_pool))))
+                Some(Arc::new(StagingStore::new(
+                    staging_cfg,
+                    Arc::clone(&transit_pool),
+                )))
             }
             Err(e) => {
                 eprintln!("error: could not create staging directory: {e}");
@@ -598,7 +606,10 @@ async fn main() {
                                             cid: result.cid,
                                         };
                                         if let Err(e) = tx.try_send(event) {
-                                            warn!(group, "IPNS channel full, skipping publish: {e}");
+                                            warn!(
+                                                group,
+                                                "IPNS channel full, skipping publish: {e}"
+                                            );
                                         }
                                     }
                                 }
@@ -607,9 +618,9 @@ async fn main() {
                                     for (svc_name, svc_groups) in &pin_service_filters {
                                         let should_pin = svc_groups.is_empty()
                                             || result.groups.iter().any(|g| {
-                                                svc_groups.iter().any(|p| {
-                                                    group_matches_pattern(g, p)
-                                                })
+                                                svc_groups
+                                                    .iter()
+                                                    .any(|p| group_matches_pattern(g, p))
                                             });
                                         if should_pin {
                                             if let Err(e) = sqlx::query(
