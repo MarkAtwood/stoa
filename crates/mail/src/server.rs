@@ -208,6 +208,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/health", get(health_handler))
         .route("/metrics", get(metrics_handler))
         .route("/.well-known/jmap", get(well_known_jmap))
+        .route("/feed/{*path}", get(crate::feed::feed_handler))
         .merge(protected)
         .layer(cors_layer)
         .with_state(state)

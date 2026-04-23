@@ -2,6 +2,7 @@ pub mod auth_token;
 pub mod blob;
 pub mod config;
 pub mod email;
+pub mod feed;
 pub mod jmap;
 pub mod landing;
 pub mod mailbox;
