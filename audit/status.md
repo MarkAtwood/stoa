@@ -53,3 +53,24 @@
 [03:56:36] REVIEW round 1 sao: P0=0 P1=1 P2=2
 [03:57:54] COORDINATOR: sao review done
 [03:57:58] COORDINATOR: sao complete
+[03:58:25] COORDINATOR: claimed epic usenet-ipfs-58r
+[04:05:13] COORDINATOR: GAP analysis complete. Design decisions: did:key only (no did:web), inline base58btc via bs58 crate, sign over full article bytes minus DID sig header, did_sig_valid stored in overview table only (skip IPLD schema bump), 9 beads in 5 waves
+[04:07:20] COORDINATOR: 58r phase1 done — 9 beads in 5 waves
+[04:20:46] COORDINATOR: wave 0 closed: 58r.1 58r.2 58r.3
+[04:22:05] COORDINATOR: wave 1 closed: 58r.4
+[04:23:41] COORDINATOR: wave 1b closed: 58r.5
+[04:27:32] COORDINATOR: wave 2 closed: 58r.6 (10 tests pass)
+[04:32:40] COORDINATOR: wave 3 closed: 58r.7 (316 tests pass)
+[04:39:51] COORDINATOR: wave 4a closed: 58r.8 (322 tests pass)
+[04:42:40] COORDINATOR: wave 4b closed: 58r.9 — all beads done
+[04:58:15] COORDINATOR: 58r phase2 complete — 322 reader tests, 125 mail tests, 6 integration tests all pass
+[04:58:22] COORDINATOR: review round 1, epic usenet-ipfs-bg9
+[05:04:03] REVIEW round 1: P0=3 P1=1 P2=10
+[05:14:50] COORDINATOR: fix wave done, starting review round 2, epic usenet-ipfs-6q5
+[05:17:38] COORDINATOR: review round 2: P0=0 P1=0 P2=0 — stopping condition met
+[05:29:00] COORDINATOR: 58r complete
+[05:29:45] COORDINATOR: starting epic usenet-ipfs-e0v (external pinning)
+[05:32:19] COORDINATOR: e0v phase0 done
+[22:58:14] COORDINATOR: e0v phase1 done — 9 beads in 4 waves
+[22:58:14] COORDINATOR: e0v phase2 done — all 9 beads implemented, 49 tests pass
+[22:58:14] COORDINATOR: e0v complete

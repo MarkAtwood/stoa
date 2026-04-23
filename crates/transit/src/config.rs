@@ -2,6 +2,7 @@ use serde::Deserialize;
 use std::path::Path;
 
 use crate::retention::policy::{PinPolicy, PolicyValidationError};
+use crate::retention::remote_pin_client::PinningApiKey;
 
 // Config fields are read from TOML; server logic will consume them as epics are implemented.
 #[allow(dead_code)]
@@ -228,9 +229,56 @@ pub struct IpfsConfig {
     pub api_url: String,
 }
 
+/// Configuration for one external IPFS pinning service.
+///
+/// External services implement the IPFS Remote Pinning API spec
+/// (https://ipfs.github.io/pinning-services-api-spec/).
+/// Compatible services include Pinata, web3.storage, Filebase, and others.
+#[derive(Debug, Deserialize)]
+pub struct ExternalPinServiceConfig {
+    /// Human-readable name (used in logs and the admin API). Must be unique.
+    pub name: String,
+    /// Base URL of the Remote Pinning API endpoint. Must use HTTPS.
+    /// Example: `"https://api.pinata.cloud/psa"`
+    pub endpoint: String,
+    /// Bearer token for authenticating with the pinning service.
+    pub api_key: PinningApiKey,
+    /// HTTP connect timeout in seconds. Must be ≥ 1. Default: 10.
+    #[serde(default = "default_pin_connect_timeout_secs")]
+    pub connect_timeout_secs: u64,
+    /// HTTP request timeout in seconds. Must be ≥ 1. Default: 30.
+    #[serde(default = "default_pin_request_timeout_secs")]
+    pub request_timeout_secs: u64,
+    /// Optional glob patterns for newsgroup names to include.
+    /// Empty means "pin articles from all groups". Patterns are matched
+    /// against each newsgroup in the article's Newsgroups header.
+    /// Example: `["comp.*", "sci.*"]`
+    #[serde(default)]
+    pub groups: Vec<String>,
+    /// Maximum submission attempts per CID before marking as failed. Default: 5.
+    #[serde(default = "default_pin_max_attempts")]
+    pub max_attempts: u32,
+}
+
+fn default_pin_connect_timeout_secs() -> u64 {
+    10
+}
+
+fn default_pin_request_timeout_secs() -> u64 {
+    30
+}
+
+fn default_pin_max_attempts() -> u32 {
+    5
+}
+
 #[derive(Debug, Deserialize)]
 pub struct PinningConfig {
     pub rules: Vec<String>,
+    /// External IPFS pinning services to replicate articles to.
+    /// Uses the IPFS Remote Pinning API spec. Optional; default empty.
+    #[serde(default)]
+    pub external_services: Vec<ExternalPinServiceConfig>,
 }
 
 // GC fields are read from config for future use by the GC scheduler (not yet implemented).
@@ -344,6 +392,46 @@ impl Config {
                 )));
             }
         }
+        // Validate external pinning service entries.
+        let mut seen_service_names: std::collections::HashSet<&str> = std::collections::HashSet::new();
+        for svc in &self.pinning.external_services {
+            if svc.name.is_empty() {
+                return Err(ConfigError::Validation(
+                    "pinning.external_services: service name must not be empty".into(),
+                ));
+            }
+            if !seen_service_names.insert(svc.name.as_str()) {
+                return Err(ConfigError::Validation(format!(
+                    "pinning.external_services: duplicate service name '{}'",
+                    svc.name
+                )));
+            }
+            if !svc.endpoint.starts_with("https://") {
+                return Err(ConfigError::Validation(format!(
+                    "pinning.external_services '{}': endpoint must use HTTPS, got '{}'",
+                    svc.name, svc.endpoint
+                )));
+            }
+            if svc.connect_timeout_secs == 0 {
+                return Err(ConfigError::Validation(format!(
+                    "pinning.external_services '{}': connect_timeout_secs must be ≥ 1",
+                    svc.name
+                )));
+            }
+            if svc.request_timeout_secs == 0 {
+                return Err(ConfigError::Validation(format!(
+                    "pinning.external_services '{}': request_timeout_secs must be ≥ 1",
+                    svc.name
+                )));
+            }
+            if svc.max_attempts == 0 {
+                return Err(ConfigError::Validation(format!(
+                    "pinning.external_services '{}': max_attempts must be ≥ 1",
+                    svc.name
+                )));
+            }
+        }
+
         // Fail fast if the signing key path is configured but unreadable.
         // Better to catch this at startup than discover it when an article arrives.
         if let Some(ref path) = self.operator.signing_key_path {
@@ -717,6 +805,161 @@ max_age_days = 30
 "#;
         let f = write_toml(toml);
         let err = Config::from_file(f.path()).expect_err("should fail");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn external_pin_service_parses() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[ipfs]
+api_url = "http://127.0.0.1:5001"
+
+[pinning]
+rules = ["pin-all"]
+
+[[pinning.external_services]]
+name = "pinata"
+endpoint = "https://api.pinata.cloud/psa"
+api_key = "secret-token"
+groups = ["comp.*"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("should parse");
+        assert_eq!(cfg.pinning.external_services.len(), 1);
+        let svc = &cfg.pinning.external_services[0];
+        assert_eq!(svc.name, "pinata");
+        assert_eq!(svc.endpoint, "https://api.pinata.cloud/psa");
+        assert_eq!(svc.groups, vec!["comp.*"]);
+        assert_eq!(svc.connect_timeout_secs, 10);
+        assert_eq!(svc.request_timeout_secs, 30);
+        assert_eq!(svc.max_attempts, 5);
+        // api_key must be redacted in Debug output
+        assert!(!format!("{:?}", svc.api_key).contains("secret-token"));
+    }
+
+    #[test]
+    fn external_pin_service_http_endpoint_rejected() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[ipfs]
+api_url = "http://127.0.0.1:5001"
+
+[pinning]
+rules = ["pin-all"]
+
+[[pinning.external_services]]
+name = "insecure"
+endpoint = "http://api.pinata.cloud/psa"
+api_key = "token"
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path()).expect_err("HTTP endpoint should fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn external_pin_service_duplicate_name_rejected() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[ipfs]
+api_url = "http://127.0.0.1:5001"
+
+[pinning]
+rules = ["pin-all"]
+
+[[pinning.external_services]]
+name = "pinata"
+endpoint = "https://api.pinata.cloud/psa"
+api_key = "token-1"
+
+[[pinning.external_services]]
+name = "pinata"
+endpoint = "https://api.web3.storage/pins"
+api_key = "token-2"
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let err =
+            Config::from_file(f.path()).expect_err("duplicate service name should fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn external_pin_service_zero_timeout_rejected() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[ipfs]
+api_url = "http://127.0.0.1:5001"
+
+[pinning]
+rules = ["pin-all"]
+
+[[pinning.external_services]]
+name = "pinata"
+endpoint = "https://api.pinata.cloud/psa"
+api_key = "token"
+connect_timeout_secs = 0
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let err =
+            Config::from_file(f.path()).expect_err("zero timeout should fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"

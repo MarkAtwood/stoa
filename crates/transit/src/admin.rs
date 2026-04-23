@@ -10,6 +10,7 @@
 //! - `GET /log-tip?group=X`  — tip CID and entry count for a group log
 //! - `GET /peers`            — list of active (non-blacklisted) peers
 //! - `GET /metrics`          — Prometheus text format (delegates to [`crate::metrics`])
+//! - `GET /pinning/remote`   — per-service job counts from the remote pin jobs table
 
 use sqlx::SqlitePool;
 use std::collections::HashMap;
@@ -290,6 +291,19 @@ async fn handle_admin_connection(
             );
             writer.write_all(response.as_bytes()).await?;
         }
+        "/pinning/remote" => match build_pinning_remote_json(pool).await {
+            Ok(body) => write_json(&mut writer, 200, "OK", &body).await?,
+            Err(e) => {
+                tracing::warn!("admin /pinning/remote error: {e}");
+                write_json(
+                    &mut writer,
+                    500,
+                    "Internal Server Error",
+                    r#"{"error":"internal server error"}"#,
+                )
+                .await?;
+            }
+        },
         _ => {
             write_json(&mut writer, 404, "Not Found", r#"{"error":"not found"}"#).await?;
         }
@@ -413,6 +427,51 @@ pub(crate) async fn build_log_tip_json(pool: &SqlitePool, group: &str) -> Option
         ),
         _ => None,
     }
+}
+
+/// Build JSON stats for `GET /pinning/remote`.
+///
+/// Returns a JSON array with one object per service name found in the
+/// `remote_pin_jobs` table, showing counts by status.
+///
+/// Example response:
+/// ```json
+/// [{"service":"pinata","pending":2,"queued":1,"pinning":0,"pinned":10,"failed":0}]
+/// ```
+pub async fn build_pinning_remote_json(pool: &SqlitePool) -> Result<String, sqlx::Error> {
+    // Aggregate counts per (service_name, status) in one query.
+    let rows: Vec<(String, String, i64)> = sqlx::query_as(
+        "SELECT service_name, status, COUNT(*) as cnt \
+         FROM remote_pin_jobs \
+         GROUP BY service_name, status \
+         ORDER BY service_name, status",
+    )
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
+
+    // Pivot into per-service objects.
+    let mut by_service: std::collections::BTreeMap<String, serde_json::Value> =
+        std::collections::BTreeMap::new();
+
+    for (svc, status, count) in rows {
+        let entry = by_service.entry(svc.clone()).or_insert_with(|| {
+            serde_json::json!({
+                "service": svc,
+                "pending": 0i64,
+                "queued": 0i64,
+                "pinning": 0i64,
+                "pinned": 0i64,
+                "failed": 0i64,
+            })
+        });
+        if let Some(v) = entry.get_mut(status.as_str()) {
+            *v = serde_json::json!(count);
+        }
+    }
+
+    let result: Vec<serde_json::Value> = by_service.into_values().collect();
+    Ok(serde_json::to_string(&result).unwrap_or_else(|_| "[]".to_string()))
 }
 
 pub(crate) async fn build_peers_json(pool: &SqlitePool) -> Result<String, sqlx::Error> {
@@ -575,5 +634,59 @@ mod tests {
         assert!(limiter.check_and_consume(ip1));
         assert!(!limiter.check_and_consume(ip1)); // ip1 exhausted
         assert!(limiter.check_and_consume(ip2)); // ip2 still has token
+    }
+
+    // ── /pinning/remote endpoint tests ────────────────────────────────────────
+
+    /// Empty table returns an empty array.
+    #[tokio::test]
+    async fn pinning_remote_empty_table_returns_empty_array() {
+        let pool = make_pool().await;
+        let json = build_pinning_remote_json(&pool).await.unwrap();
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert!(v.is_array(), "expected JSON array, got: {json}");
+        assert_eq!(v.as_array().unwrap().len(), 0, "expected empty array: {json}");
+    }
+
+    /// Inserting jobs for two services returns one object per service with correct counts.
+    #[tokio::test]
+    async fn pinning_remote_counts_by_service_and_status() {
+        let pool = make_pool().await;
+
+        // Seed three rows for "pinata": 2 pending, 1 pinned.
+        sqlx::query(
+            "INSERT INTO remote_pin_jobs (cid, service_name, status) \
+             VALUES ('Qm1', 'pinata', 'pending'), \
+                    ('Qm2', 'pinata', 'pending'), \
+                    ('Qm3', 'pinata', 'pinned')",
+        )
+        .execute(&*pool)
+        .await
+        .unwrap();
+
+        // Seed one row for "web3": 1 queued.
+        sqlx::query(
+            "INSERT INTO remote_pin_jobs (cid, service_name, status) VALUES ('Qm4', 'web3', 'queued')",
+        )
+        .execute(&*pool)
+        .await
+        .unwrap();
+
+        let json = build_pinning_remote_json(&pool).await.unwrap();
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let arr = v.as_array().expect("expected array");
+        assert_eq!(arr.len(), 2, "expected 2 service entries: {json}");
+
+        // BTreeMap ordering: "pinata" < "web3"
+        let pinata = &arr[0];
+        assert_eq!(pinata["service"], "pinata");
+        assert_eq!(pinata["pending"], 2);
+        assert_eq!(pinata["pinned"], 1);
+        assert_eq!(pinata["queued"], 0);
+
+        let web3 = &arr[1];
+        assert_eq!(web3["service"], "web3");
+        assert_eq!(web3["queued"], 1);
+        assert_eq!(web3["pending"], 0);
     }
 }

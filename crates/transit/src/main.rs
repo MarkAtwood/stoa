@@ -23,6 +23,7 @@ use usenet_ipfs_transit::{
         rate_limit::{ExhaustionAction, PeerRateLimiter},
         session::{run_peering_session, PeeringShared},
     },
+    retention::remote_pin_worker::RemotePinWorker,
 };
 
 fn parse_args() -> PathBuf {
@@ -96,6 +97,26 @@ async fn main() {
     if let Err(e) = usenet_ipfs_transit::migrations::run_migrations(&transit_pool).await {
         eprintln!("error: transit database migration failed: {e}");
         std::process::exit(1);
+    }
+
+    // ── Remote pinning worker ─────────────────────────────────────────────────
+    if !config.pinning.external_services.is_empty() {
+        match RemotePinWorker::from_config(
+            (*transit_pool).clone(),
+            &config.pinning.external_services,
+        ) {
+            Ok(worker) => {
+                info!(
+                    services = config.pinning.external_services.len(),
+                    "remote pin worker started"
+                );
+                tokio::spawn(worker.run());
+            }
+            Err(e) => {
+                eprintln!("error: failed to build remote pin worker: {e}");
+                std::process::exit(1);
+            }
+        }
     }
 
     // ── rust-ipfs node (y3o) ──────────────────────────────────────────────────
@@ -326,6 +347,15 @@ async fn main() {
 
     // ── Pipeline drain task ───────────────────────────────────────────────────
 
+    // Extract (service_name, groups) pairs for the pipeline hook.
+    // Avoids moving the full config (with PinningApiKey) into the async closure.
+    let pin_service_filters: Vec<(String, Vec<String>)> = config
+        .pinning
+        .external_services
+        .iter()
+        .map(|s| (s.name.clone(), s.groups.clone()))
+        .collect();
+
     {
         let ipfs = Arc::clone(&ipfs_store);
         let msgid_map_drain = Arc::clone(&msgid_map);
@@ -372,6 +402,33 @@ async fn main() {
                             msgid = %article.message_id,
                             "article ingested"
                         );
+                        // Enqueue for external pinning services whose group filter matches.
+                        if !pin_service_filters.is_empty() {
+                            let cid_str = result.cid.to_string();
+                            for (svc_name, svc_groups) in &pin_service_filters {
+                                let should_pin = svc_groups.is_empty()
+                                    || result.groups.iter().any(|g| {
+                                        svc_groups.iter().any(|p| group_matches_pattern(g, p))
+                                    });
+                                if should_pin {
+                                    if let Err(e) = sqlx::query(
+                                        "INSERT OR IGNORE INTO remote_pin_jobs \
+                                         (cid, service_name) VALUES (?1, ?2)",
+                                    )
+                                    .bind(&cid_str)
+                                    .bind(svc_name)
+                                    .execute(&*transit_pool_drain)
+                                    .await
+                                    {
+                                        warn!(
+                                            cid = %cid_str,
+                                            service = %svc_name,
+                                            "failed to enqueue remote pin job: {e}"
+                                        );
+                                    }
+                                }
+                            }
+                        }
                     }
                     Err(e) => {
                         warn!(msgid = %article.message_id, "pipeline failed: {e}");
@@ -476,6 +533,20 @@ async fn open_pool(path: &str, pool_size: u32) -> sqlx::SqlitePool {
             eprintln!("error: failed to open database '{path}': {e}");
             std::process::exit(1);
         }
+    }
+}
+
+/// Return true if `group` matches the newsgroup glob `pattern`.
+///
+/// Rules:
+/// - If `pattern` ends with `*`, it matches any group that starts with the
+///   prefix before `*`. Example: `"comp.*"` matches `"comp.lang.rust"`.
+/// - Otherwise, exact match only.
+fn group_matches_pattern(group: &str, pattern: &str) -> bool {
+    if let Some(prefix) = pattern.strip_suffix('*') {
+        group.starts_with(prefix)
+    } else {
+        group == pattern
     }
 }
 

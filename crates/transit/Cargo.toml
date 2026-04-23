@@ -47,3 +47,4 @@ tempfile = "3"
 tokio = { version = "1", features = ["full", "macros", "rt-multi-thread"] }
 multihash-codetable = { version = "0.2", features = ["sha2"] }
 proptest = "1"
+wiremock = "0.6"
