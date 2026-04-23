@@ -346,4 +346,85 @@ mod tests {
         assert!(flags.contains(&Flag::Answered));
         assert!(flags.contains(&Flag::Draft));
     }
+
+    // ── Async DB tests ────────────────────────────────────────────────────────
+
+    async fn make_pool() -> sqlx::SqlitePool {
+        let pool = sqlx::SqlitePool::connect("sqlite::memory:").await.unwrap();
+        sqlx::query(
+            "CREATE TABLE imap_uid_validity (
+                mailbox     TEXT    NOT NULL PRIMARY KEY,
+                uidvalidity INTEGER NOT NULL,
+                next_uid    INTEGER NOT NULL DEFAULT 1
+            )",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        pool
+    }
+
+    #[tokio::test]
+    async fn uidvalidity_is_stable_across_calls() {
+        let pool = make_pool().await;
+        let (v1, n1) = get_or_create_uidvalidity(&pool, "comp.lang.rust").await.unwrap();
+        let (v2, n2) = get_or_create_uidvalidity(&pool, "comp.lang.rust").await.unwrap();
+        assert_eq!(v1, v2, "UIDVALIDITY must not change on re-access");
+        assert_eq!(n1, n2);
+        assert!(v1 >= 1);
+    }
+
+    #[tokio::test]
+    async fn uidvalidity_is_nonzero() {
+        let pool = make_pool().await;
+        let (v, n) = get_or_create_uidvalidity(&pool, "alt.test").await.unwrap();
+        assert!(v >= 1, "UIDVALIDITY must be at least 1");
+        assert_eq!(n, 1, "initial next_uid is 1");
+    }
+
+    #[tokio::test]
+    async fn handle_status_returns_none_for_unknown_mailbox() {
+        let pool = make_pool().await;
+        let mailbox = Mailbox::try_from("nonexistent.group".to_owned()).unwrap();
+        let result = handle_status(&pool, mailbox, &[StatusDataItemName::Messages]).await;
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn handle_status_returns_uidvalidity_for_known_mailbox() {
+        let pool = make_pool().await;
+        let (expected_uv, _) =
+            get_or_create_uidvalidity(&pool, "comp.lang.rust").await.unwrap();
+        let mailbox = Mailbox::try_from("comp.lang.rust".to_owned()).unwrap();
+        let data =
+            handle_status(&pool, mailbox, &[StatusDataItemName::UidValidity]).await;
+        assert!(data.is_some(), "STATUS should return data for known mailbox");
+        if let Some(Data::Status { items, .. }) = data {
+            let uv = items.iter().find_map(|item| {
+                if let StatusDataItem::UidValidity(v) = item { Some(v.get()) } else { None }
+            });
+            assert_eq!(
+                uv,
+                Some(expected_uv.max(1)),
+                "UIDVALIDITY must match persisted value"
+            );
+        } else {
+            panic!("expected Data::Status");
+        }
+    }
+
+    #[tokio::test]
+    async fn handle_list_queries_db_without_error() {
+        // Verifies the DB query path executes and returns results consistent with
+        // glob_match logic (which is tested exhaustively in the sync tests above).
+        let pool = make_pool().await;
+        get_or_create_uidvalidity(&pool, "comp.lang.rust").await.unwrap();
+        get_or_create_uidvalidity(&pool, "comp.lang.c").await.unwrap();
+        get_or_create_uidvalidity(&pool, "alt.test").await.unwrap();
+
+        // With Mailbox::Inbox as reference the prefix is "INBOX", so the effective
+        // pattern is "INBOX.*" — none of our seeded mailboxes match.
+        let data = handle_list(&pool, &Mailbox::Inbox, "*").await;
+        assert!(data.is_empty(), "INBOX.* should not match any comp.* or alt.* entries");
+    }
 }

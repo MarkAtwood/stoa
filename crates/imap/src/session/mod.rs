@@ -13,6 +13,7 @@
 
 pub mod auth;
 pub mod commands;
+pub mod fetch;
 pub mod mailbox;
 
 use std::{net::SocketAddr, sync::Arc};
@@ -20,9 +21,10 @@ use std::{net::SocketAddr, sync::Arc};
 use imap_next::{
     imap_types::{
         command::CommandBody,
-        response::{Greeting, Status},
+        core::Tag,
+        response::{CommandContinuationRequest, Greeting, Status, StatusBody, StatusKind, Tagged},
     },
-    server::{Event, Options, Server},
+    server::{Event, Options, ResponseHandle, Server},
     stream::Stream,
 };
 use sqlx::SqlitePool;
@@ -33,6 +35,7 @@ use tracing::{debug, info, warn};
 use crate::config::Config;
 
 use auth::AuthProgress;
+use fetch::{handle_fetch, handle_search, handle_store};
 use mailbox::{
     handle_list, handle_select, handle_status, list_mailbox_to_string, select_status_responses,
     select_untagged_data,
@@ -57,6 +60,8 @@ pub struct SessionContext {
     pub state: ImapState,
     /// In-progress multi-step authentication state.
     pub auth_progress: AuthProgress,
+    /// Tag saved when IDLE is accepted; consumed on DONE to send the tagged OK.
+    pub idle_tag: Option<Tag<'static>>,
 }
 
 /// Entry point for a plain-text IMAP connection.
@@ -74,6 +79,7 @@ pub async fn run_session_plain(
         tls: false,
         state: ImapState::NotAuthenticated,
         auth_progress: AuthProgress::None,
+        idle_tag: None,
     };
     run_session_inner(imap_stream, ctx).await;
 }
@@ -94,6 +100,7 @@ pub async fn run_session_tls(
         tls: true,
         state: ImapState::NotAuthenticated,
         auth_progress: AuthProgress::None,
+        idle_tag: None,
     };
     run_session_inner(imap_stream, ctx).await;
 }
@@ -152,12 +159,12 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
                         server.enqueue_status(
                             Status::bye(None, "Logging out").expect("static bye"),
                         );
-                        server.enqueue_status(
+                        let last = server.enqueue_status(
                             Status::ok(Some(tag), None, "LOGOUT completed")
                                 .expect("static ok"),
                         );
                         ctx.state = ImapState::Logout;
-                        drain_responses(&mut stream, &mut server).await;
+                        drain_until(&mut stream, &mut server, last).await;
                         break;
                     }
 
@@ -289,7 +296,137 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
                         }
                     }
 
-                    // All other commands are implemented in later waves (r8u.11 – r8u.17).
+                    CommandBody::Fetch { .. } => {
+                        match ctx.state {
+                            ImapState::Selected { .. } => {
+                                server.enqueue_status(handle_fetch(tag));
+                            }
+                            _ => {
+                                server.enqueue_status(
+                                    Status::no(Some(tag), None, "Not in selected state")
+                                        .expect("static no"),
+                                );
+                            }
+                        }
+                    }
+
+                    CommandBody::Store {
+                        sequence_set,
+                        kind,
+                        response: store_response,
+                        flags,
+                        uid,
+                        ..
+                    } => {
+                        match ctx.state {
+                            ImapState::Selected { ref username, ref mailbox, .. } => {
+                                let username = username.clone();
+                                let mailbox = mailbox.clone();
+                                let status = handle_store(
+                                    &ctx.pool,
+                                    &username,
+                                    &mailbox,
+                                    tag,
+                                    &sequence_set,
+                                    kind,
+                                    store_response,
+                                    &flags,
+                                    uid,
+                                )
+                                .await;
+                                server.enqueue_status(status);
+                            }
+                            _ => {
+                                server.enqueue_status(
+                                    Status::no(Some(tag), None, "Not in selected state")
+                                        .expect("static no"),
+                                );
+                            }
+                        }
+                    }
+
+                    CommandBody::Search { uid, .. } => {
+                        match ctx.state {
+                            ImapState::Selected { .. } => {
+                                let (data, status) = handle_search(tag, uid);
+                                server.enqueue_data(data);
+                                server.enqueue_status(status);
+                            }
+                            _ => {
+                                server.enqueue_status(
+                                    Status::no(Some(tag), None, "Not in selected state")
+                                        .expect("static no"),
+                                );
+                            }
+                        }
+                    }
+
+                    CommandBody::Expunge => {
+                        match ctx.state {
+                            ImapState::Selected { .. } => {
+                                // No messages to expunge (EXISTS=0); tagged OK suffices.
+                                server.enqueue_status(
+                                    Status::ok(Some(tag), None, "EXPUNGE complete")
+                                        .expect("static ok"),
+                                );
+                            }
+                            _ => {
+                                server.enqueue_status(
+                                    Status::no(Some(tag), None, "Not in selected state")
+                                        .expect("static no"),
+                                );
+                            }
+                        }
+                    }
+
+                    CommandBody::Close => {
+                        match ctx.state {
+                            ImapState::Selected { ref username, .. } => {
+                                let username = username.clone();
+                                // Implicitly expunge deleted messages (no-op, EXISTS=0),
+                                // then deselect: transition back to Authenticated.
+                                ctx.state = ImapState::Authenticated { username };
+                                server.enqueue_status(
+                                    Status::ok(Some(tag), None, "CLOSE complete")
+                                        .expect("static ok"),
+                                );
+                            }
+                            _ => {
+                                server.enqueue_status(
+                                    Status::no(Some(tag), None, "Not in selected state")
+                                        .expect("static no"),
+                                );
+                            }
+                        }
+                    }
+
+                    // UID EXPUNGE (RFC 4315) — no-op with 0 messages.
+                    CommandBody::ExpungeUid { .. } => {
+                        match ctx.state {
+                            ImapState::Selected { .. } => {
+                                server.enqueue_status(
+                                    Status::ok(Some(tag), None, "UID EXPUNGE complete")
+                                        .expect("static ok"),
+                                );
+                            }
+                            _ => {
+                                server.enqueue_status(
+                                    Status::no(Some(tag), None, "Not in selected state")
+                                        .expect("static no"),
+                                );
+                            }
+                        }
+                    }
+
+                    // APPEND — not supported until article storage is wired.
+                    CommandBody::Append { .. } => {
+                        server.enqueue_status(
+                            Status::no(Some(tag), None, "APPEND not yet supported")
+                                .expect("static no"),
+                        );
+                    }
+
+                    // Remaining commands (COPY, RENAME, …) are not yet implemented.
                     _ => {
                         server.enqueue_status(
                             Status::bad(
@@ -337,14 +474,41 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
             }
 
             Event::IdleCommandReceived { tag } => {
-                // IDLE handling is added in r8u.16.
-                let no = Status::no(Some(tag), None, "IDLE not yet implemented")
-                    .expect("static no");
-                server.idle_reject(no).ok();
+                match ctx.state {
+                    ImapState::Authenticated { .. } | ImapState::Selected { .. } => {
+                        let ccr = CommandContinuationRequest::basic(None, "idling")
+                            .expect("static CCR is valid");
+                        if server.idle_accept(ccr).is_ok() {
+                            ctx.idle_tag = Some(tag);
+                        }
+                    }
+                    _ => {
+                        let no = Status::no(
+                            Some(tag),
+                            None,
+                            "Not in authenticated state",
+                        )
+                        .expect("static no");
+                        server.idle_reject(no).ok();
+                    }
+                }
             }
 
             Event::IdleDoneReceived => {
-                warn!(peer = %ctx.peer, "unexpected IdleDoneReceived");
+                if let Some(tag) = ctx.idle_tag.take() {
+                    let ok = Status::Tagged(Tagged {
+                        tag,
+                        body: StatusBody {
+                            kind: StatusKind::Ok,
+                            code: None,
+                            text: imap_next::imap_types::core::Text::try_from("IDLE terminated")
+                                .expect("static text"),
+                        },
+                    });
+                    server.enqueue_status(ok);
+                } else {
+                    warn!(peer = %ctx.peer, "unexpected IdleDoneReceived");
+                }
             }
         }
     }
@@ -352,11 +516,14 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
     info!(peer = %ctx.peer, "IMAP session ended");
 }
 
-/// Drive the event loop until all queued responses have been sent.
-async fn drain_responses(stream: &mut Stream, server: &mut Server) {
+/// Drive the event loop until the response identified by `target` has been sent.
+///
+/// All responses enqueued *before* `target` will be sent first (queue is FIFO),
+/// so this flushes everything up to and including the target handle.
+async fn drain_until(stream: &mut Stream, server: &mut Server, target: ResponseHandle) {
     loop {
         match stream.next(&mut *server).await {
-            Ok(Event::ResponseSent { .. }) => break,
+            Ok(Event::ResponseSent { handle, .. }) if handle == target => break,
             Ok(_) => {}
             Err(e) => {
                 debug!("drain error: {e}");
