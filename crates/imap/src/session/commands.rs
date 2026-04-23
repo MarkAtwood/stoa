@@ -23,6 +23,9 @@ pub fn capability_list(tls: bool) -> Vec1<Capability<'static>> {
     } else {
         caps.push(Capability::LoginDisabled);
     }
+    // ENABLE and UNSELECT are not TLS-dependent.
+    caps.push(Capability::Enable);
+    caps.push(Capability::Unselect);
     // Safety: always at least one element (Imap4Rev1).
     Vec1::unvalidated(caps)
 }
@@ -51,27 +54,23 @@ mod tests {
     #[test]
     fn capability_list_plain_includes_logindisabled() {
         let caps = capability_list(false);
-        let has_imap4 = caps.as_ref().contains(&Capability::Imap4Rev1);
-        let has_logindisabled = caps.as_ref().contains(&Capability::LoginDisabled);
-        let has_auth_plain = caps.as_ref().contains(&Capability::Auth(AuthMechanism::Plain));
-        assert!(has_imap4, "IMAP4rev1 must always be present");
-        assert!(has_logindisabled, "LOGINDISABLED must be present without TLS");
-        assert!(!has_auth_plain, "AUTH=PLAIN must not be advertised without TLS");
+        assert!(caps.as_ref().contains(&Capability::Imap4Rev1), "IMAP4rev1 must always be present");
+        assert!(caps.as_ref().contains(&Capability::LoginDisabled), "LOGINDISABLED must be present without TLS");
+        assert!(!caps.as_ref().contains(&Capability::Auth(AuthMechanism::Plain)), "AUTH=PLAIN must not be advertised without TLS");
+        assert!(caps.as_ref().contains(&Capability::Enable), "ENABLE must always be present");
+        assert!(caps.as_ref().contains(&Capability::Unselect), "UNSELECT must always be present");
     }
 
     #[test]
     fn capability_list_tls_includes_auth_mechanisms() {
         let caps = capability_list(true);
-        let has_imap4 = caps.as_ref().contains(&Capability::Imap4Rev1);
-        let has_plain = caps.as_ref().contains(&Capability::Auth(AuthMechanism::Plain));
-        let has_login = caps.as_ref().contains(&Capability::Auth(AuthMechanism::Login));
-        let has_logindisabled = caps.as_ref().contains(&Capability::LoginDisabled);
-        let has_idle = caps.as_ref().contains(&Capability::Idle);
-        assert!(has_imap4, "IMAP4rev1 must always be present");
-        assert!(has_plain, "AUTH=PLAIN must be present with TLS");
-        assert!(has_login, "AUTH=LOGIN must be present with TLS");
-        assert!(!has_logindisabled, "LOGINDISABLED must not be present with TLS");
-        assert!(has_idle, "IDLE must be advertised with TLS");
+        assert!(caps.as_ref().contains(&Capability::Imap4Rev1), "IMAP4rev1 must always be present");
+        assert!(caps.as_ref().contains(&Capability::Auth(AuthMechanism::Plain)), "AUTH=PLAIN must be present with TLS");
+        assert!(caps.as_ref().contains(&Capability::Auth(AuthMechanism::Login)), "AUTH=LOGIN must be present with TLS");
+        assert!(!caps.as_ref().contains(&Capability::LoginDisabled), "LOGINDISABLED must not be present with TLS");
+        assert!(caps.as_ref().contains(&Capability::Idle), "IDLE must be advertised with TLS");
+        assert!(caps.as_ref().contains(&Capability::Enable), "ENABLE must always be present");
+        assert!(caps.as_ref().contains(&Capability::Unselect), "UNSELECT must always be present");
     }
 
     #[test]

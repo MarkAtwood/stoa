@@ -22,7 +22,9 @@ use imap_next::{
     imap_types::{
         command::CommandBody,
         core::Tag,
-        response::{CommandContinuationRequest, Greeting, Status, StatusBody, StatusKind, Tagged},
+        response::{
+            CommandContinuationRequest, Data, Greeting, Status, StatusBody, StatusKind, Tagged,
+        },
     },
     server::{Event, Options, ResponseHandle, Server},
     stream::Stream,
@@ -394,6 +396,47 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
                             _ => {
                                 server.enqueue_status(
                                     Status::no(Some(tag), None, "Not in selected state")
+                                        .expect("static no"),
+                                );
+                            }
+                        }
+                    }
+
+                    // UNSELECT (RFC 3691) — deselect without expunging \Deleted.
+                    CommandBody::Unselect => {
+                        match ctx.state {
+                            ImapState::Selected { ref username, .. } => {
+                                let username = username.clone();
+                                ctx.state = ImapState::Authenticated { username };
+                                server.enqueue_status(
+                                    Status::ok(Some(tag), None, "UNSELECT complete")
+                                        .expect("static ok"),
+                                );
+                            }
+                            _ => {
+                                server.enqueue_status(
+                                    Status::no(Some(tag), None, "Not in selected state")
+                                        .expect("static no"),
+                                );
+                            }
+                        }
+                    }
+
+                    // ENABLE (RFC 5161) — we acknowledge the command but activate no
+                    // enableable capabilities in this implementation.
+                    CommandBody::Enable { .. } => {
+                        match ctx.state {
+                            ImapState::Authenticated { .. } | ImapState::Selected { .. } => {
+                                // Return empty * ENABLED list: no capabilities activated.
+                                server.enqueue_data(Data::Enabled { capabilities: vec![] });
+                                server.enqueue_status(
+                                    Status::ok(Some(tag), None, "ENABLE complete")
+                                        .expect("static ok"),
+                                );
+                            }
+                            _ => {
+                                server.enqueue_status(
+                                    Status::no(Some(tag), None, "Not in authenticated state")
                                         .expect("static no"),
                                 );
                             }

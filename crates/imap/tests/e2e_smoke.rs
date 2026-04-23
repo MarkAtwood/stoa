@@ -108,6 +108,8 @@ async fn smoke_greeting_capability_noop_logout() {
         !cap_data.contains("AUTH=PLAIN"),
         "plain session must not advertise AUTH=PLAIN, got: {cap_data}"
     );
+    assert!(cap_data.contains("ENABLE"), "ENABLE must always be advertised, got: {cap_data}");
+    assert!(cap_data.contains("UNSELECT"), "UNSELECT must always be advertised, got: {cap_data}");
     let cap_ok = read_line(&mut rd).await;
     assert!(cap_ok.starts_with("T01 OK"), "got: {cap_ok}");
 
