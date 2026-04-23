@@ -227,7 +227,10 @@ where
     // 3. Append a log entry to each valid group.
     let sig_bytes = ctx.operator_signature.to_bytes().to_vec();
 
-    let mut appended_groups: Vec<String> = Vec::new();
+    // Pairs of (group_name, entry_id) for successful appends; entry_id is used
+    // in tip advertisements so that peers can reconcile via LogEntryId, not
+    // the raw article CID.
+    let mut appended_groups: Vec<(String, usenet_ipfs_core::group_log::LogEntryId)> = Vec::new();
     for group_name_str in &group_name_strs {
         let group = match GroupName::new(group_name_str.clone()) {
             Ok(g) => g,
@@ -244,15 +247,16 @@ where
             // Genesis entry: no parent chain; peers reconcile via CRDT.
             parent_cids: vec![],
         };
-        if let Err(e) =
-            usenet_ipfs_core::group_log::append::append(log_storage, &group, entry).await
-        {
-            tracing::warn!("log append failed for group {group_name_str}: {e}");
-        } else {
-            crate::metrics::ARTICLES_INGESTED_GROUP_TOTAL
-                .with_label_values(&[group_name_str])
-                .inc();
-            appended_groups.push(group_name_str.clone());
+        match usenet_ipfs_core::group_log::append::append(log_storage, &group, entry).await {
+            Err(e) => {
+                tracing::warn!("log append failed for group {group_name_str}: {e}");
+            }
+            Ok(entry_id) => {
+                crate::metrics::ARTICLES_INGESTED_GROUP_TOTAL
+                    .with_label_values(&[group_name_str])
+                    .inc();
+                appended_groups.push((group_name_str.clone(), entry_id));
+            }
         }
     }
 
@@ -288,13 +292,14 @@ where
     }
 
     // 4. Publish tip advertisements (best-effort).
+    // Advertise the LogEntryId wrapped as a CID so that receiving peers can
+    // use the digest directly as a LogEntryId during reconciliation.
     if let Some(tx) = ctx.gossip_tx {
-        for group_name_str in &group_name_strs {
-            // Build the advertisement using the existing TipAdvertisement type
-            // so the wire format stays consistent with handle_tip_advertisement.
+        for (group_name_str, entry_id) in &appended_groups {
+            let tip_cid_str = entry_id.to_cid().to_string();
             let advert = TipAdvertisement {
                 group_name: group_name_str.clone(),
-                tip_cids: vec![cid.to_string()],
+                tip_cids: vec![tip_cid_str],
                 hlc_ms: ctx.timestamp.wall_ms,
                 hlc_logical: ctx.timestamp.logical,
                 hlc_node_id: hex::encode(ctx.timestamp.node_id),
@@ -309,10 +314,12 @@ where
         }
     }
 
+    let group_names: Vec<String> = appended_groups.into_iter().map(|(name, _)| name).collect();
+
     Ok((
         PipelineResult {
             cid,
-            groups: appended_groups,
+            groups: group_names,
         },
         PipelineMetrics {
             articles_ingested_total: 1,

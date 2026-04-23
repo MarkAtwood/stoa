@@ -20,6 +20,42 @@ impl LogEntryId {
     }
 }
 
+impl LogEntryId {
+    /// Convert this `LogEntryId` to a CIDv1 (codec 0x71 DAG-CBOR, SHA-256 multihash = self).
+    ///
+    /// The 32-byte `LogEntryId` is wrapped directly as the multihash digest.
+    /// Used for tip advertisements and the XCID protocol.
+    pub fn to_cid(&self) -> cid::Cid {
+        use multihash_codetable::Multihash;
+        // SHA2-256 multihash code = 0x12; 32 bytes is always valid.
+        let mh =
+            Multihash::wrap(0x12, self.as_bytes()).expect("32 bytes is always valid for SHA-256");
+        cid::Cid::new_v1(0x71, mh)
+    }
+
+    /// Derive the `LogEntryId` from a `LogEntry`'s canonical byte representation.
+    ///
+    /// Mirrors the computation in `append::compute_entry_id`; used by the XCID
+    /// client to verify that a fetched entry matches the requested ID.
+    pub fn from_entry(entry: &LogEntry) -> Self {
+        use crate::canonical::entry_id_bytes;
+        use multihash_codetable::{Code, MultihashDigest};
+        let input = entry_id_bytes(
+            entry.hlc_timestamp,
+            &entry.article_cid,
+            &entry.operator_signature,
+            &entry.parent_cids,
+        );
+        let digest = Code::Sha2_256.digest(&input);
+        LogEntryId::from_bytes(
+            digest
+                .digest()
+                .try_into()
+                .expect("SHA2-256 digest is always 32 bytes"),
+        )
+    }
+}
+
 impl fmt::Display for LogEntryId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", hex::encode(self.0))

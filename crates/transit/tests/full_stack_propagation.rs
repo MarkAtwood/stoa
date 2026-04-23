@@ -22,7 +22,7 @@ use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::str::FromStr as _;
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
-use usenet_ipfs_core::{hlc::HlcTimestamp, msgid_map::MsgIdMap};
+use usenet_ipfs_core::{group_log::LogStorage as _, hlc::HlcTimestamp, msgid_map::MsgIdMap};
 use usenet_ipfs_transit::{
     gossip::tip_advert::handle_tip_advertisement,
     peering::ingestion::prepend_path_header,
@@ -329,14 +329,37 @@ async fn full_stack_propagation() {
         "advertisement must carry exactly one tip CID"
     );
 
-    // The tip CID string received over the wire must match what A computed.
+    // The tip CID encodes the LogEntryId (not the raw article CID).  Verify by
+    // extracting the 32-byte digest from the wire CID and checking it matches
+    // the actual tip ID stored in node A's log.
     let tip_cid_str = &advert.tip_cids[0];
     let cid_from_wire: Cid = tip_cid_str
         .parse()
         .unwrap_or_else(|e| panic!("tip CID must be a valid CID string: {e}"));
+
+    // Fetch A's actual tip LogEntryId from its log storage.
+    let group_name =
+        usenet_ipfs_core::article::GroupName::new(newsgroup).expect("valid group name");
+    let tips_a = log_storage_a
+        .list_tips(&group_name)
+        .await
+        .expect("list_tips must succeed");
     assert_eq!(
+        tips_a.len(),
+        1,
+        "node A must have exactly one tip after one ingestion"
+    );
+    let expected_entry_id = &tips_a[0];
+    let expected_tip_cid = expected_entry_id.to_cid();
+
+    assert_eq!(
+        cid_from_wire, expected_tip_cid,
+        "CID received by B over gossipsub must be the LogEntryId CID of A's log tip"
+    );
+    // Also confirm it is NOT the raw article CID (validates the fix).
+    assert_ne!(
         cid_from_wire, cid_a,
-        "CID received by B over gossipsub must equal CID computed by A"
+        "tip CID must be the LogEntryId CID, not the raw IPFS article CID"
     );
 
     // --- Simulate B fetching the article from A (out-of-band pull) ---

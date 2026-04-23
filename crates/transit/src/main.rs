@@ -6,7 +6,7 @@ use rand_core::OsRng;
 use tokio::{net::TcpListener, sync::Mutex};
 use tracing::{info, warn};
 use usenet_ipfs_core::{
-    group_log::{backfill, reconcile, LogEntryId, SqliteLogStorage, VerifiedEntry},
+    group_log::{backfill, reconcile, LogEntryId, SqliteLogStorage},
     hlc::HlcClock,
     msgid_map::MsgIdMap,
     GroupName,
@@ -22,6 +22,7 @@ use usenet_ipfs_transit::{
         pipeline::{run_pipeline, KuboStore, PipelineCtx},
         rate_limit::{ExhaustionAction, PeerRateLimiter},
         session::{run_peering_session, PeeringShared},
+        xcid_client::XcidClient,
     },
     retention::{
         ipns_publisher::{IpnsEvent, IpnsPublisher},
@@ -240,11 +241,30 @@ async fn main() {
         }
     }
 
+    // ── Trusted peer keys (needed for both gossip backfill and peering auth) ────
+
+    let trusted_keys = parse_trusted_peer_keys(&config.peering.trusted_peers).unwrap_or_else(|e| {
+        warn!("invalid trusted_peers key in config: {e} — peering auth disabled");
+        Vec::new()
+    });
+
+    // ── XCID client for gossip backfill ───────────────────────────────────────
+
+    let xcid_peer_addresses: Vec<String> = config
+        .peers
+        .addresses
+        .iter()
+        .cloned()
+        .chain(config.peers.peer.iter().map(|p| p.addr.clone()))
+        .collect();
+    let xcid_client = Arc::new(XcidClient::new(xcid_peer_addresses, trusted_keys.clone()));
+
     // Wire inbound gossip tips → group-log reconciliation.
     let gossip_tx = gossip_handle.tx;
     let mut gossip_rx = gossip_handle.rx;
     {
         let log_storage_gossip = Arc::clone(&log_storage);
+        let xcid_client_gossip = Arc::clone(&xcid_client);
         tokio::spawn(async move {
             while let Some((_topic, data)) = gossip_rx.recv().await {
                 let Some(advert) = handle_tip_advertisement(&data) else {
@@ -297,23 +317,20 @@ async fn main() {
                     "gossip: reconcile result"
                 );
 
-                // Backfill missing entries.
-                // v1: peer block fetch is not yet implemented; log and move on.
-                // When this stub is replaced, the callback must return VerifiedEntry
-                // produced by verify_signature() — the type enforces the invariant.
+                // Backfill missing entries via XCID peer block fetch.
                 for entry_id in &result.want {
-                    let fetch = |_: LogEntryId| async {
-                        Err::<VerifiedEntry, String>(
-                            "v1: peer block fetch not yet implemented".to_string(),
-                        )
+                    let xcid = Arc::clone(&xcid_client_gossip);
+                    let fetch = move |id: LogEntryId| {
+                        let c = Arc::clone(&xcid);
+                        async move { c.fetch_entry(&id).await }
                     };
                     match backfill(&*log_storage_gossip, entry_id.clone(), fetch).await {
                         Ok(n) if n > 0 => {
-                            info!(group = %group, fetched = n, "gossip: backfilled entries");
+                            info!(group = %group, fetched = n, "gossip: backfilled entries via xcid");
                         }
                         Ok(_) => {}
                         Err(e) => {
-                            warn!(group = %group, entry = %entry_id, "gossip: backfill failed: {e}");
+                            warn!(group = %group, entry = %entry_id, "gossip: xcid backfill failed: {e}");
                         }
                     }
                 }
@@ -354,13 +371,6 @@ async fn main() {
         .clone()
         .unwrap_or_else(resolve_local_hostname);
     info!(hostname = %local_hostname, "local hostname for Path: header");
-
-    // ── Trusted peer keys for auth handshake ─────────────────────────────────
-
-    let trusted_keys = parse_trusted_peer_keys(&config.peering.trusted_peers).unwrap_or_else(|e| {
-        warn!("invalid trusted_peers key in config: {e} — peering auth disabled");
-        Vec::new()
-    });
 
     // ── Optional TLS acceptor for inbound peering ─────────────────────────────
 
