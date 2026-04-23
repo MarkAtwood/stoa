@@ -19,7 +19,7 @@ use usenet_ipfs_transit::{
         auth::parse_trusted_peer_keys,
         blacklist::BlacklistConfig,
         ingestion_queue::ingestion_queue,
-        pipeline::{run_pipeline, PipelineCtx, RustIpfsStore},
+        pipeline::{run_pipeline, PipelineCtx, KuboStore},
         rate_limit::{ExhaustionAction, PeerRateLimiter},
         session::{run_peering_session, PeeringShared},
     },
@@ -123,25 +123,18 @@ async fn main() {
         }
     }
 
-    // ── rust-ipfs node (y3o) ──────────────────────────────────────────────────
+    // ── Kubo IPFS store ───────────────────────────────────────────────────────
 
-    info!("starting rust-ipfs node");
-    let rust_store = match RustIpfsStore::new().await {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("error: failed to start IPFS node: {e}");
-            std::process::exit(1);
-        }
-    };
-    // Extract the IPFS handle before boxing so the IPNS publisher can use it.
-    let ipfs_for_ipns = if config.ipns.enabled {
-        Some(rust_store.ipfs_handle())
+    info!(api_url = %config.ipfs.api_url, "connecting to Kubo IPFS node");
+    let kubo_store = KuboStore::new(&config.ipfs.api_url);
+    // Extract the Kubo client before boxing so the IPNS publisher can use it.
+    let kubo_client_for_ipns = if config.ipns.enabled {
+        Some(kubo_store.kubo_client())
     } else {
         None
     };
     let mut ipfs_store: Arc<dyn usenet_ipfs_transit::peering::pipeline::IpfsStore> =
-        Arc::new(rust_store);
-    info!("rust-ipfs node started");
+        Arc::new(kubo_store);
 
     // ── Block cache (optional) ─────────────────────────────────────────────────
 
@@ -166,9 +159,9 @@ async fn main() {
 
     let ipns_tx: Option<tokio::sync::mpsc::Sender<IpnsEvent>> = if config.ipns.enabled {
         let (tx, rx) = tokio::sync::mpsc::channel::<IpnsEvent>(256);
-        let ipfs_handle = ipfs_for_ipns.clone().expect("ipfs_for_ipns set when enabled");
+        let client = kubo_client_for_ipns.clone().expect("kubo_client_for_ipns set when enabled");
         let interval = config.ipns.republish_interval_secs;
-        tokio::spawn(IpnsPublisher::new(ipfs_handle, interval).run(rx));
+        tokio::spawn(IpnsPublisher::new(client, interval).run(rx));
         info!("IPNS publishing enabled (interval {}s)", config.ipns.republish_interval_secs);
         Some(tx)
     } else {
@@ -177,15 +170,15 @@ async fn main() {
 
     // Derive the IPNS path string (/ipns/<peer_id>) for the admin endpoint.
     // Only set when IPNS is enabled; the admin /ipns endpoint returns null otherwise.
-    let ipns_path_string: Option<String> = if let Some(ref ipfs) = ipfs_for_ipns {
-        match ipfs.identity(None).await {
-            Ok(info) => {
-                let path = format!("/ipns/{}", info.peer_id);
+    let ipns_path_string: Option<String> = if let Some(ref client) = kubo_client_for_ipns {
+        match client.node_id().await {
+            Ok(peer_id) => {
+                let path = format!("/ipns/{peer_id}");
                 info!(ipns_path = %path, "IPNS address ready");
                 Some(path)
             }
             Err(e) => {
-                warn!("IPNS: failed to get node peer identity: {e}");
+                warn!("IPNS: failed to get Kubo node peer identity: {e}");
                 None
             }
         }

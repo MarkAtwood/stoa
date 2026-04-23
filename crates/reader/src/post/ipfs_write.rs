@@ -1,9 +1,8 @@
 //! IPFS block write abstraction and CID recording for the POST pipeline.
 //!
 //! `IpfsBlockStore` abstracts raw block storage so that tests can use an
-//! in-memory implementation (`MemIpfsStore`) without a running IPFS node.
-//! The production implementation backed by `rust-ipfs` will be wired in
-//! when the daemon is set up.
+//! in-memory implementation (`MemIpfsStore`) without a running Kubo node.
+//! The production implementation is [`KuboBlockStore`].
 
 use async_trait::async_trait;
 use cid::Cid;
@@ -42,7 +41,7 @@ impl std::error::Error for IpfsWriteError {}
 
 /// Abstraction over IPFS raw block storage.
 ///
-/// In production: backed by `rust-ipfs`. In tests: backed by `MemIpfsStore`.
+/// In production: backed by a Kubo daemon via [`KuboBlockStore`]. In tests: backed by [`MemIpfsStore`].
 #[async_trait]
 pub trait IpfsBlockStore: Send + Sync {
     /// Write a raw block to IPFS. Returns the CID of the stored block.
@@ -111,61 +110,89 @@ impl IpfsBlockStore for MemIpfsStore {
 }
 
 // ---------------------------------------------------------------------------
-// Production rust-ipfs implementation
+// Production Kubo implementation
 // ---------------------------------------------------------------------------
 
-/// IPFS block store backed by `rust-ipfs` 0.15 (in-process node).
+/// IPFS block store backed by a Kubo daemon via its HTTP RPC API.
 ///
-/// Blocks are stored in the node's local repository. No external IPFS daemon
-/// is required. `rust_ipfs::Ipfs` is `Clone`; the handle is cheaply shared.
-pub struct RustIpfsStore {
-    ipfs: rust_ipfs::Ipfs,
+/// Optionally wraps a local filesystem cache: blocks are read from disk on
+/// cache hits and written through to both disk and Kubo on puts. The cache
+/// directory holds one file per CID (named by the CID's string representation).
+/// No LRU eviction is performed; disk management is the operator's responsibility.
+pub struct KuboBlockStore {
+    client: usenet_ipfs_core::ipfs::KuboHttpClient,
+    cache_dir: Option<std::path::PathBuf>,
 }
 
-impl RustIpfsStore {
-    /// Start an in-process IPFS node and return a store backed by it.
-    pub async fn new() -> Result<Self, String> {
-        let ipfs = rust_ipfs::builder::DefaultIpfsBuilder::new()
-            .start()
-            .await
-            .map_err(|e| e.to_string())?;
-        Ok(Self { ipfs })
+impl KuboBlockStore {
+    /// Create a store targeting the Kubo daemon at `api_url`.
+    ///
+    /// If `cache_dir` is `Some`, blocks are cached in that directory.
+    /// The directory must already exist.
+    pub fn new(api_url: &str, cache_dir: Option<std::path::PathBuf>) -> Self {
+        Self {
+            client: usenet_ipfs_core::ipfs::KuboHttpClient::new(api_url),
+            cache_dir,
+        }
+    }
+
+    fn cache_path(&self, cid: &Cid) -> Option<std::path::PathBuf> {
+        self.cache_dir
+            .as_ref()
+            .map(|dir| dir.join(cid.to_string()))
+    }
+
+    async fn cache_get(&self, cid: &Cid) -> Option<Vec<u8>> {
+        let path = self.cache_path(cid)?;
+        tokio::fs::read(&path).await.ok()
+    }
+
+    async fn cache_put(&self, cid: &Cid, bytes: &[u8]) {
+        if let Some(path) = self.cache_path(cid) {
+            if let Err(e) = tokio::fs::write(&path, bytes).await {
+                tracing::warn!(cid = %cid, "block cache write failed: {e}");
+            }
+        }
     }
 }
 
 #[async_trait]
-impl IpfsBlockStore for RustIpfsStore {
+impl IpfsBlockStore for KuboBlockStore {
     async fn put_raw_block(&self, data: &[u8]) -> Result<Cid, IpfsWriteError> {
-        let digest = Code::Sha2_256.digest(data);
-        let cid = Cid::new_v1(0x55, digest);
-        let block = rust_ipfs::Block::new(cid, data.to_vec())
-            .map_err(|e| IpfsWriteError::WriteFailed(e.to_string()))?;
-        self.ipfs
-            .put_block(&block)
+        let cid = self
+            .client
+            .block_put(data, 0x55)
             .await
-            .map_err(|e| IpfsWriteError::WriteFailed(e.to_string()))
+            .map_err(|e| IpfsWriteError::WriteFailed(e.to_string()))?;
+        self.cache_put(&cid, data).await;
+        Ok(cid)
     }
 
     async fn put_block(&self, cid: Cid, data: Vec<u8>) -> Result<(), IpfsWriteError> {
-        let block = rust_ipfs::Block::new(cid, data)
-            .map_err(|e| IpfsWriteError::WriteFailed(e.to_string()))?;
-        self.ipfs
-            .put_block(&block)
+        self.client
+            .block_put(&data, cid.codec())
             .await
-            .map(|_| ())
-            .map_err(|e| IpfsWriteError::WriteFailed(e.to_string()))
+            .map_err(|e| IpfsWriteError::WriteFailed(e.to_string()))?;
+        self.cache_put(&cid, &data).await;
+        Ok(())
     }
 
     async fn get_raw_block(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError> {
-        let block = self.ipfs.get_block(cid).await.map_err(|e| {
-            let msg = e.to_string();
-            if msg.contains("not found") || msg.contains("NotFound") {
-                IpfsWriteError::NotFound(msg)
-            } else {
-                IpfsWriteError::NotReachable(msg)
+        if let Some(bytes) = self.cache_get(cid).await {
+            return Ok(bytes);
+        }
+        match self
+            .client
+            .block_get(cid)
+            .await
+            .map_err(|e| IpfsWriteError::NotReachable(e.to_string()))?
+        {
+            Some(bytes) => {
+                self.cache_put(cid, &bytes).await;
+                Ok(bytes)
             }
-        })?;
-        Ok(block.data().to_vec())
+            None => Err(IpfsWriteError::NotFound(cid.to_string())),
+        }
     }
 }
 
@@ -478,17 +505,4 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn rust_ipfs_roundtrip() {
-        let store = RustIpfsStore::new()
-            .await
-            .expect("RustIpfsStore must start");
-        let data = b"From: bench@usenet-ipfs.test\r\nSubject: RustIpfs Test\r\n\r\nBody.\r\n";
-        let cid = store.put_raw_block(data).await.expect("put must succeed");
-        let retrieved = store.get_raw_block(&cid).await.expect("get must succeed");
-        assert_eq!(
-            retrieved, data,
-            "RustIpfsStore put/get roundtrip must be exact"
-        );
-    }
 }

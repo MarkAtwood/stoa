@@ -34,7 +34,6 @@ prometheus = "0.14"
 subtle = "2"
 lazy_static = "1.5.0"
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
-rust-ipfs = "0.15"
 tokio-rustls = "0.26"
 usenet-ipfs-tls = { path = "../tls" }
 

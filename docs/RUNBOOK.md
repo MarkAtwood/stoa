@@ -11,8 +11,9 @@ Before deploying, understand these v1 constraints:
 
 | Limitation | Detail |
 |-----------|--------|
+| **Requires Kubo** | Both daemons require a running Kubo (go-ipfs) node. They fail at startup if the Kubo API is unreachable. Articles are stored durably in Kubo's block store and survive daemon restarts. |
 | **Ephemeral signing key (transit)** | Transit generates a new Ed25519 key at each startup. Cross-peer signature verification is not reliable across restarts. A warning is emitted at startup. |
-| **In-memory storage (reader)** | The reader daemon stores article numbers, the overview index, and the message-ID map in in-memory SQLite. All reader state is lost on restart; articles must be re-ingested. |
+| **In-memory reader index** | The reader daemon stores article numbers, the overview index, and the message-ID map in in-memory SQLite. Index state is lost on reader restart; Kubo still holds article bytes and they can be re-indexed. |
 | **No peer block fetch** | When gossip reconciliation finds missing entries, the fetch is stubbed out. Remote entries are logged as warnings but not retrieved. |
 | **TLS not yet advertised** | TLS infrastructure is wired but STARTTLS is not yet advertised in CAPABILITIES. |
 
@@ -22,6 +23,15 @@ Before deploying, understand these v1 constraints:
 
 - Rust stable toolchain (rustup: https://rustup.rs)
 - Git
+- Kubo (go-ipfs): https://docs.ipfs.tech/install/command-line/
+
+Start the Kubo daemon before starting either usenet-ipfs daemon:
+
+```bash
+ipfs daemon
+```
+
+Kubo must be reachable at `http://127.0.0.1:5001` (the default) or at the `api_url` configured in each daemon's `[ipfs]` section.
 
 ---
 
@@ -70,9 +80,11 @@ names = [
 ]
 
 [ipfs]
-# rust-ipfs is embedded in the transit daemon. This field is reserved
-# for future external-node support; the value is not currently used.
-api_url = "http://127.0.0.1:5001"
+# Kubo HTTP RPC API URL. Kubo must be running before starting this daemon.
+api_url    = "http://127.0.0.1:5001"
+# Optional local block cache directory. Created at startup if absent.
+# Recommended: avoids re-fetching blocks from Kubo on every read.
+cache_path = "/var/cache/usenet-ipfs/blocks"
 
 [pinning]
 rules = ["pin-all-ingress"]
@@ -144,9 +156,9 @@ Other admin endpoints:
 
 The reader daemon takes a single flag: `--config <path>`.
 
-> **Note**: the reader currently stores all state in in-memory SQLite. Article
-> numbers, the overview index, and the message-ID map are rebuilt from scratch
-> on each restart. This is a v1 limitation tracked as a future issue.
+> **Note**: the reader stores article numbers, the overview index, and the
+> message-ID map in in-memory SQLite. Index state is rebuilt from scratch on
+> each restart. Article bytes are durable in Kubo. This is a v1 limitation.
 
 Create `reader.toml`:
 
@@ -157,6 +169,10 @@ addr = "0.0.0.0:119"
 [limits]
 max_connections = 100
 command_timeout_secs = 30
+
+[ipfs]
+api_url    = "http://127.0.0.1:5001"
+cache_path = "/var/cache/usenet-ipfs/blocks"
 
 [auth]
 required = false   # set true and add [[auth.users]] for production

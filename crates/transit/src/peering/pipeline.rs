@@ -39,8 +39,8 @@ impl std::error::Error for IpfsError {}
 
 /// Abstraction over IPFS raw block storage.
 ///
-/// The trait is object-safe and mockable; production code will implement it
-/// against `rust-ipfs` 0.15; tests use [`MemIpfsStore`].
+/// The trait is object-safe and mockable; production code uses [`KuboStore`]
+/// backed by a Kubo daemon; tests use [`MemIpfsStore`].
 #[async_trait]
 pub trait IpfsStore: Send + Sync {
     /// Write `data` to IPFS. Returns the CID of the stored block.
@@ -98,65 +98,49 @@ impl IpfsStore for MemIpfsStore {
     }
 }
 
-// ── Production rust-ipfs store ────────────────────────────────────────────────
+// ── Production Kubo store ─────────────────────────────────────────────────────
 
-/// IPFS block store backed by `rust-ipfs` 0.15 (in-process node).
+/// IPFS block store backed by a Kubo daemon via its HTTP RPC API.
 ///
-/// Blocks are stored in the node's local repository. No external IPFS daemon
-/// is required. `rust_ipfs::Ipfs` is `Clone`; the handle is cheaply shared.
-pub struct RustIpfsStore {
-    ipfs: rust_ipfs::Ipfs,
+/// Requires a running Kubo node reachable at the configured `api_url`.
+/// `KuboStore` is cheaply cloneable — the underlying `KuboHttpClient` holds
+/// only a `reqwest::Client` (connection-pooled) and the API URL string.
+pub struct KuboStore {
+    client: usenet_ipfs_core::ipfs::KuboHttpClient,
 }
 
-impl RustIpfsStore {
-    /// Start an in-process IPFS node and return a store backed by it.
-    pub async fn new() -> Result<Self, String> {
-        let ipfs = rust_ipfs::builder::DefaultIpfsBuilder::new()
-            .start()
-            .await
-            .map_err(|e| e.to_string())?;
-        Ok(Self { ipfs })
+impl KuboStore {
+    /// Create a store targeting the Kubo daemon at `api_url`
+    /// (e.g. `"http://127.0.0.1:5001"`).
+    pub fn new(api_url: &str) -> Self {
+        Self {
+            client: usenet_ipfs_core::ipfs::KuboHttpClient::new(api_url),
+        }
     }
 
-    /// Return a cheaply-cloned handle to the underlying IPFS node.
+    /// Return a clone of the underlying Kubo HTTP client.
     ///
-    /// Used by the IPNS publisher to call `ipfs.publish_ipns()` without going
-    /// through the `IpfsStore` trait (which does not expose IPNS operations).
-    pub fn ipfs_handle(&self) -> rust_ipfs::Ipfs {
-        self.ipfs.clone()
+    /// Used by the IPNS publisher to call `name_publish` without going through
+    /// the `IpfsStore` trait.
+    pub fn kubo_client(&self) -> usenet_ipfs_core::ipfs::KuboHttpClient {
+        self.client.clone()
     }
 }
 
 #[async_trait]
-impl IpfsStore for RustIpfsStore {
+impl IpfsStore for KuboStore {
     async fn put_raw(&self, data: &[u8]) -> Result<Cid, IpfsError> {
-        let digest = Code::Sha2_256.digest(data);
-        let cid = Cid::new_v1(0x55, digest);
-        let block = rust_ipfs::Block::new(cid, data.to_vec())
-            .map_err(|e| IpfsError::WriteFailed(e.to_string()))?;
-        self.ipfs
-            .put_block(&block)
+        self.client
+            .block_put(data, 0x55)
             .await
             .map_err(|e| IpfsError::WriteFailed(e.to_string()))
     }
 
     async fn get_raw(&self, cid: &Cid) -> Result<Option<Vec<u8>>, IpfsError> {
-        match self.ipfs.get_block(cid).await {
-            Ok(block) => Ok(Some(block.data().to_vec())),
-            Err(e) => {
-                // rust-ipfs returns an error when a block is not locally available.
-                // Treat as "not found" rather than a hard error — CAR export skips missing blocks.
-                let msg = e.to_string();
-                if msg.contains("not found")
-                    || msg.contains("Not Found")
-                    || msg.contains("BlockNotFound")
-                {
-                    Ok(None)
-                } else {
-                    Err(IpfsError::WriteFailed(msg))
-                }
-            }
-        }
+        self.client
+            .block_get(cid)
+            .await
+            .map_err(|e| IpfsError::WriteFailed(e.to_string()))
     }
 }
 

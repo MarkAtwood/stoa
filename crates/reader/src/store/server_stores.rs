@@ -23,7 +23,7 @@ use usenet_ipfs_core::signing::{generate_signing_key, SigningKey};
 
 use usenet_ipfs_auth::TrustedIssuerStore;
 
-use crate::post::ipfs_write::{IpfsBlockStore, MemIpfsStore, RustIpfsStore};
+use crate::post::ipfs_write::{IpfsBlockStore, KuboBlockStore, MemIpfsStore};
 use crate::search::TantivySearchIndex;
 use crate::store::article_numbers::ArticleNumberStore;
 use crate::store::client_cert_store::ClientCertStore;
@@ -57,14 +57,21 @@ pub struct ServerStores {
 }
 
 impl ServerStores {
-    /// Construct a `ServerStores` backed by a real `RustIpfsStore` in-process
-    /// node, credential store from config, and in-memory SQLite databases.
-    ///
-    /// Returns `Err` if the IPFS node fails to start.
+    /// Construct a `ServerStores` backed by a `KuboBlockStore` (Kubo HTTP RPC)
+    /// with optional local FS cache, credential store from config, and in-memory
+    /// SQLite databases.
     pub async fn new_with_ipfs(config: &crate::config::Config) -> Result<Self, String> {
-        let ipfs_store = RustIpfsStore::new()
-            .await
-            .map_err(|e| format!("IPFS node startup failed: {e}"))?;
+        let cache_dir = config
+            .ipfs
+            .cache_path
+            .as_deref()
+            .map(std::path::PathBuf::from);
+        if let Some(ref dir) = cache_dir {
+            tokio::fs::create_dir_all(dir)
+                .await
+                .map_err(|e| format!("failed to create IPFS cache dir '{}': {e}", dir.display()))?;
+        }
+        let ipfs_store = KuboBlockStore::new(&config.ipfs.api_url, cache_dir);
         let reader_pool = make_pool_with_reader_migrations().await;
         let core_pool = make_pool_with_core_migrations().await;
 

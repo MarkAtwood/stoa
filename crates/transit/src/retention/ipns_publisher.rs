@@ -2,7 +2,7 @@
 //!
 //! The record points to a JSON index block that maps every active newsgroup to
 //! its most-recently-ingested article CID.  The stable IPNS address is the
-//! node's libp2p peer identity key (one address per node).
+//! Kubo node's libp2p peer identity key (one address per node).
 //!
 //! Resolvers: IPNS → index CID → fetch JSON block → look up group by name.
 //!
@@ -16,7 +16,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 
-use rust_ipfs::path::IpfsPath;
+use usenet_ipfs_core::ipfs::KuboHttpClient;
 
 /// Event sent by the drain task each time an article is successfully ingested.
 pub struct IpnsEvent {
@@ -28,7 +28,7 @@ pub struct IpnsEvent {
 
 /// Background worker that maintains a per-group CID index and publishes it via IPNS.
 pub struct IpnsPublisher {
-    ipfs: rust_ipfs::Ipfs,
+    client: KuboHttpClient,
     /// Most-recently-seen CID per group, in alphabetical order.
     groups: BTreeMap<String, Cid>,
     /// Minimum milliseconds between consecutive IPNS publishes.
@@ -38,9 +38,9 @@ pub struct IpnsPublisher {
 }
 
 impl IpnsPublisher {
-    pub fn new(ipfs: rust_ipfs::Ipfs, republish_interval_secs: u64) -> Self {
+    pub fn new(client: KuboHttpClient, republish_interval_secs: u64) -> Self {
         Self {
-            ipfs,
+            client,
             groups: BTreeMap::new(),
             republish_interval_ms: republish_interval_secs.saturating_mul(1000),
             last_publish_ms: 0,
@@ -64,27 +64,18 @@ impl IpnsPublisher {
         info!("IPNS publisher stopped");
     }
 
-    /// Build the JSON index, store it as an IPFS block, then publish IPNS.
+    /// Build the JSON index, store it as an IPFS block in Kubo, then publish IPNS.
     async fn update_and_publish(&self) {
         let json_bytes = build_index_json(&self.groups);
         let digest = Code::Sha2_256.digest(&json_bytes);
         let index_cid = Cid::new_v1(0x55, digest);
 
-        let block = match rust_ipfs::Block::new(index_cid, json_bytes) {
-            Ok(b) => b,
-            Err(e) => {
-                warn!("IPNS publisher: failed to construct index block: {e}");
-                return;
-            }
-        };
-
-        if let Err(e) = self.ipfs.put_block(&block).await {
+        if let Err(e) = self.client.block_put(&json_bytes, 0x55).await {
             warn!("IPNS publisher: failed to store index block: {e}");
             return;
         }
 
-        let path = IpfsPath::from(index_cid);
-        match self.ipfs.publish_ipns(&path).await {
+        match self.client.name_publish(&index_cid).await {
             Ok(ipns_path) => {
                 info!(
                     groups = self.groups.len(),
@@ -94,7 +85,7 @@ impl IpnsPublisher {
                 );
             }
             Err(e) => {
-                warn!("IPNS publisher: publish_ipns failed: {e}");
+                warn!("IPNS publisher: name/publish failed: {e}");
             }
         }
     }

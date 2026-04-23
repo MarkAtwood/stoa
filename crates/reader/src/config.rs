@@ -10,6 +10,8 @@ pub struct Config {
     pub auth: AuthConfig,
     pub tls: TlsConfig,
     #[serde(default)]
+    pub ipfs: IpfsConfig,
+    #[serde(default)]
     pub admin: AdminConfig,
     #[serde(default)]
     pub log: LogConfig,
@@ -17,6 +19,33 @@ pub struct Config {
     pub operator: OperatorConfig,
     #[serde(default)]
     pub search: SearchConfig,
+}
+
+/// Kubo IPFS node connection and local block cache settings.
+#[derive(Debug, Deserialize)]
+pub struct IpfsConfig {
+    /// Kubo HTTP RPC API URL (e.g. `"http://127.0.0.1:5001"`).
+    #[serde(default = "IpfsConfig::default_api_url")]
+    pub api_url: String,
+    /// Directory for the local block cache. Created at startup if absent.
+    /// Omit to disable caching (every block fetch goes directly to Kubo).
+    #[serde(default)]
+    pub cache_path: Option<String>,
+}
+
+impl IpfsConfig {
+    fn default_api_url() -> String {
+        "http://127.0.0.1:5001".to_owned()
+    }
+}
+
+impl Default for IpfsConfig {
+    fn default() -> Self {
+        Self {
+            api_url: Self::default_api_url(),
+            cache_path: None,
+        }
+    }
 }
 
 /// Operator identity configuration.
