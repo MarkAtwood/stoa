@@ -22,6 +22,9 @@ pub fn capability_list(tls: bool) -> Vec1<Capability<'static>> {
         caps.push(Capability::Idle);
         caps.push(Capability::UidPlus);
         caps.push(Capability::Move);
+        // SASL-IR (RFC 4959): client may include initial response in AUTHENTICATE;
+        // we already handle CommandAuthenticateReceived.initial_response.
+        caps.push(Capability::SaslIr);
     } else {
         caps.push(Capability::LoginDisabled);
     }
