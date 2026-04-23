@@ -23,6 +23,8 @@ pub struct ReconcileResult {
     pub want: Vec<LogEntryId>,
     /// Entry IDs we have to offer the remote (we have them, remote doesn't).
     /// Capped at [`MAX_HAVE`] entries; further convergence happens in subsequent rounds.
+    /// If `have.len() == MAX_HAVE`, the result is truncated; callers should
+    /// issue another reconciliation round to retrieve remaining entries.
     pub have: Vec<LogEntryId>,
     /// `true` when the local BFS was cut short by the [`MAX_HAVE`] cap.
     ///

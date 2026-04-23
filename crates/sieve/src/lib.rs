@@ -49,6 +49,11 @@ pub fn evaluate(
     context.set_envelope(Envelope::To, envelope_to);
 
     let mut actions: Vec<SieveAction> = Vec::new();
+    // has_terminal must be set true for any action that constitutes a final
+    // disposition per RFC 5228 §4.1.  If it remains false after all events,
+    // an implicit Keep is inserted (see the block after the loop).
+    // Any new Action variant that constitutes a final disposition MUST set
+    // has_terminal = true in the corresponding match arm below.
     let mut has_terminal = false;
     let mut input = Input::script("main", Arc::clone(&script.0));
 
