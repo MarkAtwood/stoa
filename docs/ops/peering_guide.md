@@ -182,6 +182,63 @@ configured:           true
 
 ---
 
+## Tor Hidden Service Configuration
+
+No application code changes are needed to expose the NNTP, JMAP, IMAP, or SMTP listeners as Tor hidden services. Configure the external Tor daemon and bind the server listeners to `127.0.0.1` to prevent direct clearnet access.
+
+### 1. Bind listeners to loopback
+
+In your `transit.toml` (or reader/mail config), set every listener address to `127.0.0.1`:
+
+```toml
+[listen]
+addr = "127.0.0.1:119"        # NNTP peering
+
+[smtp]
+addr = "127.0.0.1:25"
+smtps_addr = "127.0.0.1:465"
+```
+
+Binding to `127.0.0.1` ensures the service is not reachable on the public network interface. Tor forwards traffic from the `.onion` port to the local address.
+
+### 2. Configure torrc
+
+Add a `HiddenServiceDir` and one `HiddenServicePort` directive per listener port you want to expose:
+
+```
+HiddenServiceDir /var/lib/tor/usenet-ipfs/
+HiddenServicePort 119  127.0.0.1:119
+HiddenServicePort 25   127.0.0.1:25
+HiddenServicePort 465  127.0.0.1:465
+HiddenServicePort 143  127.0.0.1:143
+```
+
+Reload or restart Tor after editing `torrc`. Tor will create the hidden service directory and write the `.onion` address to `hostname`:
+
+```
+cat /var/lib/tor/usenet-ipfs/hostname
+# → youraddress.onion
+```
+
+### 3. Distribute the .onion address to peers
+
+Share `youraddress.onion:119` with peers who should connect. Add it to their `[peers]` config:
+
+```toml
+[[peers.peer]]
+addr = "youraddress.onion:119"
+```
+
+Peer connections over Tor use the same NNTP transit protocol and ed25519 auth handshake as clearnet connections. The Tor daemon handles the transport; the application sees a normal TCP connection.
+
+### Notes
+
+- Gossipsub uses libp2p's own transport stack. Tor hidden services only affect the NNTP TCP listeners, not the gossipsub mesh.
+- The admin endpoint should always be bound to `127.0.0.1` (the default) and is not exposed via Tor.
+- For high-volume transit peering, Tor's bandwidth and latency constraints may be a bottleneck. Consider reserving Tor for reader-facing ports (`143`, `465`) and using clearnet (firewalled) for peering port `119`.
+
+---
+
 ## Troubleshooting
 
 ### Peer not connecting
