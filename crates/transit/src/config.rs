@@ -205,6 +205,17 @@ pub struct PeeringConfig {
     /// Per-IP rate limit burst: max burst articles. Default: 200.
     #[serde(default = "default_rate_limit_burst")]
     pub rate_limit_burst: u64,
+    /// Trusted peer public keys for ed25519 challenge-response authentication.
+    ///
+    /// Each entry must be of the form `"ed25519:<64-lowercase-hex-digits>"`.
+    /// When non-empty, every inbound peering connection must complete the
+    /// mutual handshake with a key in this list before any NNTP bytes are
+    /// exchanged.  Connections that fail or time out are dropped silently.
+    ///
+    /// When empty (the default) authentication is skipped — the port MUST be
+    /// firewalled to trusted peers in that case.
+    #[serde(default)]
+    pub trusted_peers: Vec<String>,
 }
 
 fn default_ingestion_queue_capacity() -> usize {
@@ -225,6 +236,7 @@ impl Default for PeeringConfig {
             ingestion_queue_capacity: default_ingestion_queue_capacity(),
             rate_limit_rps: default_rate_limit_rps(),
             rate_limit_burst: default_rate_limit_burst(),
+            trusted_peers: Vec::new(),
         }
     }
 }

@@ -297,6 +297,7 @@ async fn transit_reader_shared_store() {
         ))),
         transit_pool: Arc::clone(&transit_db_pool),
         blacklist_config: BlacklistConfig::default(),
+        trusted_keys: Vec::new(),
     });
 
     // ── Pipeline drain task ───────────────────────────────────────────────────

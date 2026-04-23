@@ -16,6 +16,7 @@ use usenet_ipfs_transit::{
     config::{check_admin_addr, Config},
     gossip::{swarm::start_swarm, tip_advert::handle_tip_advertisement},
     peering::{
+        auth::parse_trusted_peer_keys,
         blacklist::BlacklistConfig,
         ingestion_queue::ingestion_queue,
         pipeline::{run_pipeline, PipelineCtx, RustIpfsStore},
@@ -274,6 +275,14 @@ async fn main() {
         .unwrap_or_else(resolve_local_hostname);
     info!(hostname = %local_hostname, "local hostname for Path: header");
 
+    // ── Trusted peer keys for auth handshake ─────────────────────────────────
+
+    let trusted_keys = parse_trusted_peer_keys(&config.peering.trusted_peers)
+        .unwrap_or_else(|e| {
+            warn!("invalid trusted_peers key in config: {e} — peering auth disabled");
+            Vec::new()
+        });
+
     // ── Shared state for peering sessions ─────────────────────────────────────
 
     let shared = Arc::new(PeeringShared {
@@ -294,6 +303,7 @@ async fn main() {
         ))),
         transit_pool: Arc::clone(&transit_pool),
         blacklist_config: BlacklistConfig::default(),
+        trusted_keys,
     });
 
     // ── Pipeline drain task ───────────────────────────────────────────────────

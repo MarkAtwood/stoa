@@ -16,6 +16,7 @@ use usenet_ipfs_core::group_log::SqliteLogStorage;
 use usenet_ipfs_core::{msgid_map::MsgIdMap, validation::validate_message_id};
 
 use crate::peering::{
+    auth::run_auth_handshake,
     blacklist::{check_and_blacklist, is_blacklisted, BlacklistConfig},
     ingestion::{
         check_ingest, check_mode_guard, check_response, ihave_response, takethis_mode_guard,
@@ -58,6 +59,12 @@ pub struct PeeringShared {
     pub transit_pool: Arc<sqlx::SqlitePool>,
     /// Blacklist policy configuration.
     pub blacklist_config: BlacklistConfig,
+    /// Trusted peer public keys for ed25519 challenge-response auth.
+    ///
+    /// Non-empty → every inbound connection must complete the mutual handshake
+    /// before any NNTP bytes are exchanged.  Empty → auth is skipped (port
+    /// must be firewalled in that case).
+    pub trusted_keys: Vec<ed25519_dalek::VerifyingKey>,
 }
 
 /// Handle one inbound NNTP peering TCP connection.
@@ -99,7 +106,30 @@ pub async fn run_peering_session(stream: TcpStream, shared: Arc<PeeringShared>) 
         Ok(false) => {}
     }
 
-    let (reader_half, mut writer) = stream.into_split();
+    let (mut reader_half, mut writer) = stream.into_split();
+
+    // Mutual ed25519 challenge-response handshake before any NNTP bytes.
+    // Runs only when the operator has configured trusted peer keys.
+    // On failure the connection is dropped silently — do not leak the reason.
+    if !shared.trusted_keys.is_empty() {
+        match run_auth_handshake(
+            &mut reader_half,
+            &mut writer,
+            &shared.signing_key,
+            &shared.trusted_keys,
+        )
+        .await
+        {
+            Ok(_remote_pubkey) => {
+                tracing::debug!(%peer_addr, "peering auth handshake succeeded");
+            }
+            Err(e) => {
+                tracing::warn!(%peer_addr, error = %e, "peering auth handshake failed");
+                return;
+            }
+        }
+    }
+
     let mut reader = BufReader::new(reader_half);
     let mut mode = PeeringMode::Ihave;
 
