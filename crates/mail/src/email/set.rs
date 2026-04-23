@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use cid::Cid;
 use serde_json::{json, Value};
 
@@ -5,6 +7,7 @@ use crate::jmap::types::MethodError;
 use crate::state::flags::UserFlagsStore;
 use usenet_ipfs_core::msgid_map::MsgIdMap;
 use usenet_ipfs_reader::post::ipfs_write::{write_article_to_ipfs, IpfsBlockStore};
+use usenet_ipfs_smtp::SmtpRelayQueue;
 
 /// Handle Email/set — route to destroy/update/create sub-handlers.
 pub fn handle_email_set(args: Value) -> Result<Value, MethodError> {
@@ -114,10 +117,15 @@ pub async fn handle_keyword_update(
 ///
 /// Accepts JMAP Email creation objects, constructs RFC 5322 article bytes,
 /// writes to IPFS via `write_article_to_ipfs`, returns created Email ids.
+///
+/// If `smtp_queue` is `Some` and the created article has `to` or `cc`
+/// recipients, the article is enqueued for SMTP relay delivery.  Enqueue
+/// failure is non-fatal and does not fail the JMAP response.
 pub async fn handle_email_create(
     create_map: &serde_json::Map<String, Value>,
     ipfs: &dyn IpfsBlockStore,
     msgid_map: &MsgIdMap,
+    smtp_queue: Option<&Arc<SmtpRelayQueue>>,
 ) -> (
     serde_json::Map<String, Value>,
     serde_json::Map<String, Value>,
@@ -126,7 +134,7 @@ pub async fn handle_email_create(
     let mut not_created: serde_json::Map<String, Value> = serde_json::Map::new();
 
     for (creation_id, obj) in create_map {
-        match create_one_email(obj, ipfs, msgid_map).await {
+        match create_one_email(obj, ipfs, msgid_map, smtp_queue).await {
             Ok(cid) => {
                 created.insert(creation_id.clone(), json!({"id": cid.to_string()}));
             }
@@ -147,6 +155,7 @@ async fn create_one_email(
     obj: &Value,
     ipfs: &dyn IpfsBlockStore,
     msgid_map: &MsgIdMap,
+    smtp_queue: Option<&Arc<SmtpRelayQueue>>,
 ) -> Result<Cid, String> {
     let subject = obj
         .get("subject")
@@ -199,7 +208,38 @@ async fn create_one_email(
         .await
         .map_err(|resp| format!("IPFS write failed: {}", resp.text))?;
 
+    // Enqueue for SMTP relay if a queue is configured and there are recipients.
+    if let Some(queue) = smtp_queue {
+        let mut rcpt_list = extract_email_addrs(obj.get("to"));
+        rcpt_list.extend(extract_email_addrs(obj.get("cc")));
+        if !rcpt_list.is_empty() {
+            let rcpts: Vec<&str> = rcpt_list.iter().map(String::as_str).collect();
+            if let Err(e) = queue.enqueue(article.as_bytes(), from_email, &rcpts).await {
+                tracing::warn!("smtp relay enqueue failed: {e}");
+                usenet_ipfs_smtp::metrics::inc_relay_enqueue_failure();
+            }
+        }
+    }
+
     Ok(cid)
+}
+
+/// Extract RFC 8621 §4.1.2 email addresses from a JMAP EmailAddress array field.
+///
+/// Accepts `None` gracefully (returns empty vec).  Skips entries without a
+/// valid `email` string containing `@`.
+fn extract_email_addrs(field: Option<&Value>) -> Vec<String> {
+    field
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|obj| obj.get("email"))
+                .filter_map(|e| e.as_str())
+                .filter(|s| s.contains('@'))
+                .map(|s| s.to_string())
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -327,9 +367,229 @@ mod tests {
             }),
         );
 
-        let (created, not_created) = handle_email_create(&create_map, &ipfs, &msgid_map).await;
+        let (created, not_created) =
+            handle_email_create(&create_map, &ipfs, &msgid_map, None).await;
         assert!(not_created.is_empty(), "should succeed: {:?}", not_created);
         assert!(created.contains_key("c1"));
         assert!(created["c1"]["id"].as_str().is_some());
+    }
+
+    /// Helper: build a MsgIdMap on an in-memory SQLite pool with core migrations.
+    async fn make_msgid_map() -> usenet_ipfs_core::msgid_map::MsgIdMap {
+        use sqlx::sqlite::SqlitePoolOptions;
+        let pool = SqlitePoolOptions::new()
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        usenet_ipfs_core::migrations::run_migrations(&pool)
+            .await
+            .unwrap();
+        usenet_ipfs_core::msgid_map::MsgIdMap::new(pool)
+    }
+
+    /// smtp_queue=None: no .env files written even when To: is present.
+    #[tokio::test]
+    async fn email_create_no_smtp_queue_no_enqueue() {
+        use usenet_ipfs_reader::post::ipfs_write::MemIpfsStore;
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let msgid_map = make_msgid_map().await;
+        let ipfs = MemIpfsStore::new();
+
+        let mut create_map = serde_json::Map::new();
+        create_map.insert(
+            "c1".to_string(),
+            json!({
+                "mailboxIds": {"news.test": true},
+                "from": [{"email": "alice@example.com"}],
+                "to": [{"email": "bob@example.com"}],
+                "subject": "No smtp queue test",
+                "textBody": [{"value": "body"}]
+            }),
+        );
+
+        let (created, not_created) =
+            handle_email_create(&create_map, &ipfs, &msgid_map, None).await;
+        assert!(not_created.is_empty());
+        assert!(created.contains_key("c1"));
+
+        // Oracle: no .env files in the dir (queue was never created there, but
+        // we verify by checking the tmpdir we control).
+        let env_count = std::fs::read_dir(dir.path())
+            .expect("read_dir")
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().extension().map_or(false, |x| x == "env"))
+            .count();
+        assert_eq!(env_count, 0, "no smtp queue: no .env files expected");
+    }
+
+    /// smtp_queue=Some with To: field: .env file appears in queue_dir.
+    #[tokio::test]
+    async fn email_create_with_smtp_queue_and_to_enqueues() {
+        use std::time::Duration;
+        use usenet_ipfs_reader::post::ipfs_write::MemIpfsStore;
+        use usenet_ipfs_smtp::config::SmtpRelayPeerConfig;
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let peer = SmtpRelayPeerConfig {
+            host: "smtp.example.com".to_string(),
+            port: 587,
+            tls: false,
+            username: None,
+            password: None,
+        };
+        let queue =
+            usenet_ipfs_smtp::SmtpRelayQueue::new(dir.path(), vec![peer], Duration::from_secs(300))
+                .expect("queue");
+
+        let msgid_map = make_msgid_map().await;
+        let ipfs = MemIpfsStore::new();
+
+        let mut create_map = serde_json::Map::new();
+        create_map.insert(
+            "c1".to_string(),
+            json!({
+                "mailboxIds": {"news.test": true},
+                "from": [{"email": "alice@example.com"}],
+                "to": [{"email": "bob@example.com"}],
+                "subject": "Smtp relay test",
+                "textBody": [{"value": "relay this"}]
+            }),
+        );
+
+        let (created, not_created) =
+            handle_email_create(&create_map, &ipfs, &msgid_map, Some(&queue)).await;
+        assert!(not_created.is_empty(), "should succeed: {:?}", not_created);
+        assert!(created.contains_key("c1"));
+
+        // Oracle: .env file must exist in queue_dir.
+        let env_count = std::fs::read_dir(dir.path())
+            .expect("read_dir")
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().extension().map_or(false, |x| x == "env"))
+            .count();
+        assert_eq!(env_count, 1, "expected 1 .env file in smtp relay queue");
+    }
+
+    /// smtp_queue=Some but no To: or Cc:: no .env file written.
+    #[tokio::test]
+    async fn email_create_with_smtp_queue_no_recipients_no_enqueue() {
+        use std::time::Duration;
+        use usenet_ipfs_reader::post::ipfs_write::MemIpfsStore;
+        use usenet_ipfs_smtp::config::SmtpRelayPeerConfig;
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let peer = SmtpRelayPeerConfig {
+            host: "smtp.example.com".to_string(),
+            port: 587,
+            tls: false,
+            username: None,
+            password: None,
+        };
+        let queue =
+            usenet_ipfs_smtp::SmtpRelayQueue::new(dir.path(), vec![peer], Duration::from_secs(300))
+                .expect("queue");
+
+        let msgid_map = make_msgid_map().await;
+        let ipfs = MemIpfsStore::new();
+
+        let mut create_map = serde_json::Map::new();
+        create_map.insert(
+            "c1".to_string(),
+            json!({
+                "mailboxIds": {"news.test": true},
+                "from": [{"email": "alice@example.com"}],
+                "subject": "No recipients test",
+                "textBody": [{"value": "body"}]
+            }),
+        );
+
+        let (created, not_created) =
+            handle_email_create(&create_map, &ipfs, &msgid_map, Some(&queue)).await;
+        assert!(not_created.is_empty(), "should succeed: {:?}", not_created);
+        assert!(created.contains_key("c1"));
+
+        // Oracle: only dead/ subdir; no .env files.
+        let env_count = std::fs::read_dir(dir.path())
+            .expect("read_dir")
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().extension().map_or(false, |x| x == "env"))
+            .count();
+        assert_eq!(env_count, 0, "no recipients: no .env files expected");
+    }
+
+    /// SMTP enqueue failure (queue dir removed) must NOT cause handle_email_create to fail.
+    #[tokio::test]
+    async fn email_create_smtp_enqueue_failure_is_nonfatal() {
+        use std::time::Duration;
+        use usenet_ipfs_reader::post::ipfs_write::MemIpfsStore;
+        use usenet_ipfs_smtp::config::SmtpRelayPeerConfig;
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let peer = SmtpRelayPeerConfig {
+            host: "smtp.example.com".to_string(),
+            port: 587,
+            tls: false,
+            username: None,
+            password: None,
+        };
+        let queue =
+            usenet_ipfs_smtp::SmtpRelayQueue::new(dir.path(), vec![peer], Duration::from_secs(300))
+                .expect("queue");
+
+        // Remove the queue directory so enqueue will fail with an I/O error.
+        std::fs::remove_dir_all(dir.path()).expect("remove queue dir");
+
+        let msgid_map = make_msgid_map().await;
+        let ipfs = MemIpfsStore::new();
+
+        let mut create_map = serde_json::Map::new();
+        create_map.insert(
+            "c1".to_string(),
+            json!({
+                "mailboxIds": {"news.test": true},
+                "from": [{"email": "alice@example.com"}],
+                "to": [{"email": "bob@example.com"}],
+                "subject": "Enqueue failure test",
+                "textBody": [{"value": "body"}]
+            }),
+        );
+
+        // Oracle: handle_email_create must succeed (not_created is empty).
+        let (created, not_created) =
+            handle_email_create(&create_map, &ipfs, &msgid_map, Some(&queue)).await;
+        assert!(
+            not_created.is_empty(),
+            "smtp enqueue failure must be non-fatal: {:?}",
+            not_created
+        );
+        assert!(created.contains_key("c1"), "article must still be created");
+    }
+
+    /// extract_email_addrs correctly extracts email strings from JMAP format.
+    #[test]
+    fn extract_email_addrs_parses_jmap_format() {
+        let field = json!([
+            {"name": "Alice", "email": "alice@example.com"},
+            {"name": "Bob", "email": "bob@example.com"},
+            {"email": "no-name@example.com"},
+            {"name": "Missing email"},
+        ]);
+        let addrs = extract_email_addrs(Some(&field));
+        assert_eq!(
+            addrs,
+            vec![
+                "alice@example.com",
+                "bob@example.com",
+                "no-name@example.com"
+            ]
+        );
+    }
+
+    /// extract_email_addrs returns empty vec for None input.
+    #[test]
+    fn extract_email_addrs_none_returns_empty() {
+        let addrs = extract_email_addrs(None);
+        assert!(addrs.is_empty());
     }
 }

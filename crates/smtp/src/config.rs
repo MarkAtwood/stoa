@@ -1,4 +1,5 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::path::Path;
 
 pub use usenet_ipfs_auth::AuthConfig;
@@ -149,6 +150,61 @@ impl Default for ReaderConfig {
     }
 }
 
+fn default_relay_port() -> u16 {
+    587
+}
+
+fn default_true() -> bool {
+    true
+}
+
+/// Configuration for a single outbound SMTP relay peer.
+///
+/// At least one relay peer must be configured for outbound email delivery.
+/// If `smtp_relay_peers` is empty, delivery is a no-op (no error at startup;
+/// messages are queued but never sent).
+///
+/// # Security
+/// `password` is never serialized back to TOML output and never appears in
+/// `Debug` output — it is always shown as `<redacted>`.
+#[derive(Clone, Deserialize, Serialize)]
+pub struct SmtpRelayPeerConfig {
+    /// Hostname or IP address of the relay MTA.
+    pub host: String,
+    /// TCP port. Defaults to 587 (submission with STARTTLS).
+    #[serde(default = "default_relay_port")]
+    pub port: u16,
+    /// Whether to use TLS (STARTTLS on submission, or implicit TLS on 465).
+    /// Defaults to `true`.
+    #[serde(default = "default_true")]
+    pub tls: bool,
+    /// SMTP AUTH username, if the relay requires authentication.
+    #[serde(default)]
+    pub username: Option<String>,
+    /// SMTP AUTH password. Never serialized; never logged.
+    #[serde(default, skip_serializing)]
+    pub password: Option<String>,
+}
+
+impl fmt::Debug for SmtpRelayPeerConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SmtpRelayPeerConfig")
+            .field("host", &self.host)
+            .field("port", &self.port)
+            .field("tls", &self.tls)
+            .field("username", &self.username)
+            .field("password", &self.password.as_ref().map(|_| "<redacted>"))
+            .finish()
+    }
+}
+
+impl SmtpRelayPeerConfig {
+    /// Returns `"host:port"` for use in log messages and connection targets.
+    pub fn host_port(&self) -> String {
+        format!("{}:{}", self.host, self.port)
+    }
+}
+
 fn default_queue_dir() -> String {
     "smtp-queue".to_string()
 }
@@ -157,7 +213,19 @@ fn default_nntp_retry_secs() -> u64 {
     60
 }
 
-/// Configuration for the durable NNTP injection queue.
+fn default_smtp_relay_queue_dir() -> String {
+    "smtp-relay-queue".to_string()
+}
+
+fn default_smtp_relay_retry_secs() -> u64 {
+    60
+}
+
+fn default_peer_down_secs() -> u64 {
+    300
+}
+
+/// Configuration for the durable NNTP injection queue and outbound SMTP relay.
 #[derive(Debug, Deserialize)]
 pub struct DeliveryConfig {
     /// Directory for queued outbound NNTP articles. Created on startup if absent.
@@ -166,6 +234,19 @@ pub struct DeliveryConfig {
     /// Seconds between retry scans when NNTP delivery fails. Defaults to 60.
     #[serde(default = "default_nntp_retry_secs")]
     pub nntp_retry_secs: u64,
+    /// Outbound SMTP relay peers. If empty, no SMTP relay delivery is performed.
+    #[serde(default)]
+    pub smtp_relay_peers: Vec<SmtpRelayPeerConfig>,
+    /// Directory for queued outbound SMTP relay messages. Created on startup if absent.
+    #[serde(default = "default_smtp_relay_queue_dir")]
+    pub smtp_relay_queue_dir: String,
+    /// Seconds between retry scans when SMTP relay delivery fails. Defaults to 60.
+    #[serde(default = "default_smtp_relay_retry_secs")]
+    pub smtp_relay_retry_secs: u64,
+    /// Seconds a peer is kept in the "down" state after a delivery failure before
+    /// being retried. Defaults to 300.
+    #[serde(default = "default_peer_down_secs")]
+    pub smtp_peer_down_secs: u64,
 }
 
 impl Default for DeliveryConfig {
@@ -173,6 +254,10 @@ impl Default for DeliveryConfig {
         Self {
             queue_dir: default_queue_dir(),
             nntp_retry_secs: default_nntp_retry_secs(),
+            smtp_relay_peers: Vec::new(),
+            smtp_relay_queue_dir: default_smtp_relay_queue_dir(),
+            smtp_relay_retry_secs: default_smtp_relay_retry_secs(),
+            smtp_peer_down_secs: default_peer_down_secs(),
         }
     }
 }
@@ -341,6 +426,39 @@ impl Config {
                 )));
             }
         }
+        for peer in &self.delivery.smtp_relay_peers {
+            if peer.host.is_empty() {
+                return Err(ConfigError::Validation(
+                    "smtp relay peer host must not be empty".into(),
+                ));
+            }
+            if peer.port == 0 {
+                return Err(ConfigError::Validation(
+                    "smtp relay peer port must be > 0".into(),
+                ));
+            }
+            match (&peer.username, &peer.password) {
+                (Some(_), None) => {
+                    return Err(ConfigError::Validation(
+                        "smtp relay peer has username but no password".into(),
+                    ));
+                }
+                (None, Some(_)) => {
+                    return Err(ConfigError::Validation(
+                        "smtp relay peer has password but no username".into(),
+                    ));
+                }
+                _ => {}
+            }
+        }
+        if !self.delivery.smtp_relay_peers.is_empty()
+            && self.delivery.smtp_relay_queue_dir.trim().is_empty()
+        {
+            return Err(ConfigError::Validation(
+                "delivery.smtp_relay_queue_dir must not be empty when relay peers are configured"
+                    .into(),
+            ));
+        }
         Ok(())
     }
 }
@@ -445,5 +563,112 @@ port_587 = "0.0.0.0:587"
         let f = write_toml(toml);
         let err = Config::from_file(f.path()).expect_err("should fail");
         assert!(matches!(err, ConfigError::Validation(_)));
+    }
+
+    #[test]
+    fn relay_peers_empty_default() {
+        let toml = r#"
+[listen]
+port_25 = "0.0.0.0:25"
+port_587 = "0.0.0.0:587"
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("should parse");
+        assert!(cfg.delivery.smtp_relay_peers.is_empty());
+        assert_eq!(cfg.delivery.smtp_relay_queue_dir, "smtp-relay-queue");
+        assert_eq!(cfg.delivery.smtp_relay_retry_secs, 60);
+        assert_eq!(cfg.delivery.smtp_peer_down_secs, 300);
+    }
+
+    #[test]
+    fn relay_peer_defaults() {
+        let toml = r#"
+[listen]
+port_25 = "0.0.0.0:25"
+port_587 = "0.0.0.0:587"
+
+[[delivery.smtp_relay_peers]]
+host = "smtp.example.com"
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("should parse");
+        assert_eq!(cfg.delivery.smtp_relay_peers.len(), 1);
+        assert_eq!(cfg.delivery.smtp_relay_peers[0].port, 587);
+        assert!(cfg.delivery.smtp_relay_peers[0].tls);
+        assert_eq!(
+            cfg.delivery.smtp_relay_peers[0].host_port(),
+            "smtp.example.com:587"
+        );
+    }
+
+    #[test]
+    fn relay_peer_debug_redacts_password() {
+        let peer = SmtpRelayPeerConfig {
+            host: "smtp.example.com".to_string(),
+            port: 587,
+            tls: true,
+            username: Some("user".to_string()),
+            password: Some("supersecret".to_string()),
+        };
+        let debug_str = format!("{:?}", peer);
+        assert!(!debug_str.contains("supersecret"));
+        assert!(debug_str.contains("redacted"));
+    }
+
+    #[test]
+    fn relay_peer_username_without_password_fails_validation() {
+        let toml = r#"
+[listen]
+port_25 = "0.0.0.0:25"
+port_587 = "0.0.0.0:587"
+
+[[delivery.smtp_relay_peers]]
+host = "smtp.example.com"
+username = "user"
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path()).expect_err("should fail");
+        match err {
+            ConfigError::Validation(msg) => assert!(msg.contains("password")),
+            other => panic!("expected Validation, got {other}"),
+        }
+    }
+
+    #[test]
+    fn relay_peer_empty_host_fails_validation() {
+        let toml = r#"
+[listen]
+port_25 = "0.0.0.0:25"
+port_587 = "0.0.0.0:587"
+
+[[delivery.smtp_relay_peers]]
+host = ""
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path()).expect_err("should fail");
+        assert!(matches!(err, ConfigError::Validation(_)));
+    }
+
+    #[test]
+    fn relay_peers_with_empty_queue_dir_fails_validation() {
+        let toml = r#"
+[listen]
+port_25 = "0.0.0.0:25"
+port_587 = "0.0.0.0:587"
+
+[delivery]
+smtp_relay_queue_dir = "   "
+
+[[delivery.smtp_relay_peers]]
+host = "smtp.example.com"
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path()).expect_err("should fail");
+        match err {
+            ConfigError::Validation(msg) => {
+                assert!(msg.contains("smtp_relay_queue_dir"))
+            }
+            other => panic!("expected Validation, got {other}"),
+        }
     }
 }

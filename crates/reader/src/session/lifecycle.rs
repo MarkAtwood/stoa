@@ -17,6 +17,7 @@ use crate::{
         log_append::append_to_groups,
         pipeline::check_duplicate_msgid,
         sign::{sign_article, verify_article_sig},
+        smtp_relay::maybe_enqueue_smtp_relay,
     },
     search::{ArticleIndexRequest, SearchError},
     session::{
@@ -650,6 +651,11 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
             tracing::warn!(error = %e, "search index commit failed");
         }
     }
+
+    // Step 9: Best-effort SMTP relay for email recipients.
+    // Enqueue only when the article has email addresses in To: or Cc:.
+    // Failure is non-fatal — POST already succeeded.
+    maybe_enqueue_smtp_relay(stores.smtp_relay_queue.as_ref(), &signed_bytes).await;
 
     Response::new(240, "Article received OK")
 }

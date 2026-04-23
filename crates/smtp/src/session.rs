@@ -723,6 +723,7 @@ enum SieveOutcome {
 /// caller is responsible for sending the 550 response and incrementing the
 /// reject metric.  Returns [`SieveOutcome::Accepted`] otherwise, with a flag
 /// indicating whether any newsgroup enqueue failed (caller sends 452 vs 250).
+#[allow(clippy::too_many_arguments)]
 async fn sieve_delivery(
     config: &Config,
     pool: Option<&SqlitePool>,

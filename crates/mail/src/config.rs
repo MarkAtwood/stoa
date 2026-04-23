@@ -1,6 +1,8 @@
 use serde::Deserialize;
 use std::path::Path;
 
+pub use usenet_ipfs_smtp::config::SmtpRelayPeerConfig;
+
 pub use usenet_ipfs_auth::{AuthConfig, UserCredential};
 
 // Config fields are read from TOML; server logic will consume them as epics are implemented.
@@ -16,6 +18,8 @@ pub struct Config {
     pub log: LogConfig,
     #[serde(default)]
     pub cors: CorsConfig,
+    #[serde(default)]
+    pub delivery: DeliveryConfig,
 }
 
 fn default_base_url() -> String {
@@ -90,6 +94,35 @@ pub struct CorsConfig {
     pub enabled: bool,
     /// Allowed origins. Use ["*"] for permissive. Default: empty (deny all cross-origin).
     pub allowed_origins: Vec<String>,
+}
+
+fn default_smtp_relay_queue_dir() -> String {
+    "/var/lib/usenet-ipfs/mail/smtp-relay-queue".to_string()
+}
+
+fn default_smtp_relay_retry_secs() -> u64 {
+    60
+}
+
+fn default_smtp_peer_down_secs() -> u64 {
+    300
+}
+
+/// Configuration for outbound SMTP relay delivery from the JMAP Email/set create path.
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(default)]
+pub struct DeliveryConfig {
+    /// Outbound SMTP relay peers. If empty, no SMTP relay delivery is performed.
+    pub smtp_relay_peers: Vec<SmtpRelayPeerConfig>,
+    /// Directory for queued outbound SMTP relay messages. Created on startup if absent.
+    #[serde(default = "default_smtp_relay_queue_dir")]
+    pub smtp_relay_queue_dir: String,
+    /// Seconds between relay queue drain scans. Defaults to 60.
+    #[serde(default = "default_smtp_relay_retry_secs")]
+    pub smtp_relay_retry_secs: u64,
+    /// Seconds a peer stays in the "down" state after failure before retry. Defaults to 300.
+    #[serde(default = "default_smtp_peer_down_secs")]
+    pub smtp_peer_down_secs: u64,
 }
 
 #[derive(Debug)]

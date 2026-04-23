@@ -22,6 +22,7 @@ use usenet_ipfs_core::msgid_map::MsgIdMap;
 use usenet_ipfs_core::signing::{generate_signing_key, SigningKey};
 
 use usenet_ipfs_auth::TrustedIssuerStore;
+use usenet_ipfs_smtp::SmtpRelayQueue;
 
 use crate::post::ipfs_write::{IpfsBlockStore, KuboBlockStore, MemIpfsStore};
 use crate::search::TantivySearchIndex;
@@ -54,6 +55,8 @@ pub struct ServerStores {
     pub signing_key: Arc<SigningKey>,
     /// Full-text search index (Tantivy-backed). None when search is disabled.
     pub search_index: Option<Arc<TantivySearchIndex>>,
+    /// Outbound SMTP relay queue. None when smtp_relay is not configured.
+    pub smtp_relay_queue: Option<Arc<SmtpRelayQueue>>,
 }
 
 impl ServerStores {
@@ -85,6 +88,9 @@ impl ServerStores {
 
         let trusted_issuer_store = build_trusted_issuer_store(&config.auth.trusted_issuers)?;
 
+        let smtp_relay_queue = build_smtp_relay_queue(&config.smtp_relay)
+            .map_err(|e| format!("smtp relay queue init failed: {e}"))?;
+
         Ok(Self {
             ipfs_store: Arc::new(ipfs_store),
             msgid_map: Arc::new(MsgIdMap::new(core_pool)),
@@ -99,6 +105,7 @@ impl ServerStores {
             search_index: TantivySearchIndex::open(&config.search)
                 .map_err(|e| format!("search index init failed: {e}"))?
                 .map(Arc::new),
+            smtp_relay_queue,
         })
     }
 
@@ -139,6 +146,7 @@ impl ServerStores {
                         .expect("in-memory tantivy index cannot fail"),
                 ))
             },
+            smtp_relay_queue: None,
         }
     }
 
@@ -169,6 +177,7 @@ impl ServerStores {
             clock: Arc::new(Mutex::new(HlcClock::new(node_id, now_ms))),
             signing_key: Arc::new(signing_key),
             search_index: None,
+            smtp_relay_queue: None,
         }
     }
 }
@@ -271,6 +280,26 @@ fn load_or_generate_signing_key(path: &Option<String>) -> Result<SigningKey, Str
             Ok(key)
         }
     }
+}
+
+/// Construct a `SmtpRelayQueue` from the reader's `[smtp_relay]` config section.
+///
+/// Returns `None` when `queue_dir` is absent or `peers` is empty — both
+/// conditions disable relay.  Returns `Err` only if the queue directory
+/// cannot be created.
+fn build_smtp_relay_queue(
+    cfg: &crate::config::SmtpRelayConfig,
+) -> std::io::Result<Option<Arc<SmtpRelayQueue>>> {
+    let queue_dir = match cfg.queue_dir.as_deref() {
+        Some(d) if !d.is_empty() => d,
+        _ => return Ok(None),
+    };
+    if cfg.peers.is_empty() {
+        return Ok(None);
+    }
+    let down_backoff = std::time::Duration::from_secs(cfg.peer_down_secs);
+    let queue = SmtpRelayQueue::new(queue_dir, cfg.peers.clone(), down_backoff)?;
+    Ok(Some(queue))
 }
 
 /// Derive the 8-byte HLC node ID from the operator signing key.

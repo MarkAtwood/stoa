@@ -109,6 +109,23 @@ async fn make_mail_pool(tag: &str) -> sqlx::SqlitePool {
     pool
 }
 
+async fn make_core_pool(tag: &str) -> sqlx::SqlitePool {
+    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
+    let url = format!("file:auth_core_{tag}_{n}?mode=memory&cache=shared");
+    let opts = sqlx::sqlite::SqliteConnectOptions::from_str(&url)
+        .expect("valid url")
+        .create_if_missing(true);
+    let pool = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(opts)
+        .await
+        .expect("core pool");
+    usenet_ipfs_core::migrations::run_migrations(&pool)
+        .await
+        .expect("core migrations");
+    pool
+}
+
 /// Spin up a dev-mode JMAP server and return its base URL.
 ///
 /// Dev mode: no HTTP authentication required, canonical accountId = `u_anonymous`.
@@ -116,15 +133,18 @@ async fn spawn_dev_server(tag: &str) -> String {
     let reader_pool = make_reader_pool(tag).await;
     let mail_pool = make_mail_pool(tag).await;
     let mail_pool_arc = Arc::new(mail_pool);
+    let core_pool = make_core_pool(tag).await;
 
     let ipfs = Arc::new(MemIpfs::new());
     let jmap_stores = Arc::new(JmapStores {
         ipfs: ipfs as Arc<dyn IpfsBlockStore>,
+        msgid_map: Arc::new(usenet_ipfs_core::msgid_map::MsgIdMap::new(core_pool)),
         article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
         overview_store: Arc::new(OverviewStore::new(reader_pool)),
         user_flags: Arc::new(UserFlagsStore::new((*mail_pool_arc).clone())),
         state_store: Arc::new(StateStore::new((*mail_pool_arc).clone())),
         search_index: None,
+        smtp_relay_queue: None,
     });
 
     let state = Arc::new(AppState {

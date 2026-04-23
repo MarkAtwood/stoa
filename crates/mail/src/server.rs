@@ -12,11 +12,13 @@ use serde_json::{json, Value};
 use tokio::net::TcpListener;
 use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer, ExposeHeaders};
 use usenet_ipfs_auth::{AuthConfig, CredentialStore};
+use usenet_ipfs_core::msgid_map::MsgIdMap;
 use usenet_ipfs_reader::{
     post::ipfs_write::IpfsBlockStore,
     search::TantivySearchIndex,
     store::{article_numbers::ArticleNumberStore, overview::OverviewStore},
 };
+use usenet_ipfs_smtp::SmtpRelayQueue;
 
 use crate::{
     config::CorsConfig,
@@ -27,6 +29,7 @@ use crate::{
 /// JMAP backing stores, wired together for the API handler.
 pub struct JmapStores {
     pub ipfs: Arc<dyn IpfsBlockStore>,
+    pub msgid_map: Arc<MsgIdMap>,
     pub article_numbers: Arc<ArticleNumberStore>,
     pub overview_store: Arc<OverviewStore>,
     pub user_flags: Arc<UserFlagsStore>,
@@ -34,6 +37,8 @@ pub struct JmapStores {
     /// Full-text search index for Email/query `text` filter.
     /// `None` means search is disabled; text filters return empty results.
     pub search_index: Option<Arc<TantivySearchIndex>>,
+    /// Outbound SMTP relay queue. `None` means no relay peers configured.
+    pub smtp_relay_queue: Option<Arc<SmtpRelayQueue>>,
 }
 
 #[derive(Clone)]
@@ -479,6 +484,52 @@ async fn route_method(
             crate::email::get::handle_email_get(&ids, jmap.ipfs.as_ref(), None).await
         }
 
+        "Email/set" => {
+            let mut result = match crate::email::set::handle_email_set(args.clone()) {
+                Ok(v) => v,
+                Err(e) => return serde_json::to_value(&e).unwrap_or(json!({})),
+            };
+
+            // Handle keyword updates.
+            if let Some(update_map) = args.get("update").and_then(|v| v.as_object()) {
+                let user_id: i64 = 1; // TODO(user-state): resolve from canonical_account_id
+                let (updated, not_updated) =
+                    crate::email::set::handle_keyword_update(update_map, user_id, &jmap.user_flags)
+                        .await;
+                if !updated.is_empty() {
+                    result["updated"] = Value::Object(updated);
+                }
+                if !not_updated.is_empty() {
+                    let existing = result["notUpdated"]
+                        .as_object()
+                        .cloned()
+                        .unwrap_or_default();
+                    let mut merged = existing;
+                    merged.extend(not_updated);
+                    result["notUpdated"] = Value::Object(merged);
+                }
+            }
+
+            // Handle creates.
+            if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
+                let (created, not_created) = crate::email::set::handle_email_create(
+                    create_map,
+                    jmap.ipfs.as_ref(),
+                    &jmap.msgid_map,
+                    jmap.smtp_relay_queue.as_ref(),
+                )
+                .await;
+                if !created.is_empty() {
+                    result["created"] = Value::Object(created);
+                }
+                if !not_created.is_empty() {
+                    result["notCreated"] = Value::Object(not_created);
+                }
+            }
+
+            result
+        }
+
         _ => serde_json::to_value(crate::jmap::types::MethodError::unknown_method())
             .unwrap_or(json!({})),
     }
@@ -621,14 +672,30 @@ mod tests {
         // Pool for reader-crate stores (ArticleNumberStore, OverviewStore).
         let reader_pool = make_reader_pool(&format!("jmap_reader_{n}")).await;
 
+        // Pool for core-crate stores (MsgIdMap).
+        let core_url = format!("file:jmap_core_{n}?mode=memory&cache=shared");
+        let core_opts = SqliteConnectOptions::from_str(&core_url)
+            .unwrap()
+            .create_if_missing(true);
+        let core_pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(core_opts)
+            .await
+            .expect("core pool");
+        usenet_ipfs_core::migrations::run_migrations(&core_pool)
+            .await
+            .expect("core migrations");
+
         let ipfs = Arc::new(MemIpfsStore::new());
         let stores = Arc::new(JmapStores {
             ipfs: ipfs.clone(),
+            msgid_map: Arc::new(usenet_ipfs_core::msgid_map::MsgIdMap::new(core_pool)),
             article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
             overview_store: Arc::new(OverviewStore::new(reader_pool)),
             user_flags: Arc::new(UserFlagsStore::new(mail_pool.clone())),
             state_store: Arc::new(StateStore::new(mail_pool.clone())),
             search_index: None,
+            smtp_relay_queue: None,
         });
         let state = Arc::new(AppState {
             start_time: Instant::now(),

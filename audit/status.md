@@ -84,3 +84,18 @@ Phase markers reset for new epic
 [07:07:52] COORDINATOR: claimed epic usenet-ipfs-r8u (IMAP server)
 [14:00:43] COORDINATOR: an4 closed (superseded by existing JMAP blob download). Starting 02d JMAP path analysis.
 [14:03:40] COORDINATOR: 3am closed (x-usenet-ipfs-sig in Email/get). 02d superseded. Checking remaining ready epics.
+[18:24:41] COORDINATOR: claimed epic usenet-ipfs-f120 (SMTP outbound delivery)
+[18:29:22] COORDINATOR: phase1 research complete — raw SMTP client (nntp_client.rs pattern), no new deps, 11 beads in 5 waves
+[18:33:02] COORDINATOR: phase1 done — 9 beads in 5 waves (f120.1-f120.9), wave 0 unblocked
+[18:37:04] COORDINATOR: wave 0 closed: f120.1 f120.2 — 128 tests pass
+[18:44:21] COORDINATOR: wave 1 closed: f120.3 f120.4 — 157 tests pass
+[18:47:36] COORDINATOR: f120.6 (SmtpRelayQueue) closed — 163 tests pass
+[18:49:32] COORDINATOR: f120.8 (metrics) closed — 167 tests pass
+[19:07:00] COORDINATOR: wave 3 closed: f120.5 f120.7 — all workspace tests pass
+[19:12:48] COORDINATOR: wave 4 closed: f120.9 — 4 E2E tests pass (happy path, transient, permanent, round-robin)
+[19:12:55] COORDINATOR: review round 1, epic usenet-ipfs-8j1c
+[19:18:43] REVIEW round 1: P0=1 P1=2 P2=2
+[19:37:36] COORDINATOR: fix wave done, starting review round 2
+[19:37:38] COORDINATOR: review round 2, epic usenet-ipfs-ht96
+[19:38:34] REVIEW round 2: P0=0 P1=0 P2=0 — stopping condition met
+[19:38:45] COORDINATOR: f120 complete

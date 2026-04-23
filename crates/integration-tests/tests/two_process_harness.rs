@@ -269,6 +269,7 @@ async fn transit_reader_shared_store() {
             &[0x42u8; 32],
         )),
         search_index: None,
+        smtp_relay_queue: None,
     });
 
     // ── Transit stores ────────────────────────────────────────────────────────

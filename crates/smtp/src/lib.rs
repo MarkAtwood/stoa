@@ -3,9 +3,18 @@ pub mod config;
 pub mod metrics;
 pub mod nntp_client;
 pub mod queue;
+pub mod relay_client;
+pub mod relay_error;
+pub mod relay_health;
+pub mod relay_queue;
 pub mod routing;
 pub mod server;
 pub mod session;
 pub mod sieve_admin;
 pub mod store;
 pub mod tls;
+
+pub use relay_client::{deliver_via_relay, dot_stuff, RelayEnvelope};
+pub use relay_error::SmtpRelayError;
+pub use relay_health::PeerHealthState;
+pub use relay_queue::SmtpRelayQueue;

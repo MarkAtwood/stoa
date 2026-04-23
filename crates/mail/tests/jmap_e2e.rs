@@ -105,6 +105,23 @@ async fn make_mail_pool() -> sqlx::SqlitePool {
     pool
 }
 
+async fn make_core_pool() -> sqlx::SqlitePool {
+    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
+    let url = format!("file:e2e_core_{n}?mode=memory&cache=shared");
+    let opts = sqlx::sqlite::SqliteConnectOptions::from_str(&url)
+        .expect("valid url")
+        .create_if_missing(true);
+    let pool = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(opts)
+        .await
+        .expect("core pool");
+    usenet_ipfs_core::migrations::run_migrations(&pool)
+        .await
+        .expect("core migrations");
+    pool
+}
+
 // ── Test ───────────────────────────────────────────────────────────────────────
 
 #[tokio::test]
@@ -119,6 +136,7 @@ async fn jmap_session_e2e() {
     let ipfs = Arc::new(MemIpfs::new());
     let reader_pool = make_reader_pool().await;
     let mail_pool = make_mail_pool().await;
+    let core_pool = make_core_pool().await;
 
     let article_numbers = Arc::new(ArticleNumberStore::new(reader_pool.clone()));
     let overview_store = Arc::new(OverviewStore::new(reader_pool));
@@ -182,11 +200,13 @@ async fn jmap_session_e2e() {
     // Start mail server with stores.
     let jmap_stores = Arc::new(JmapStores {
         ipfs: Arc::clone(&ipfs) as Arc<dyn IpfsBlockStore>,
+        msgid_map: Arc::new(usenet_ipfs_core::msgid_map::MsgIdMap::new(core_pool)),
         article_numbers: Arc::clone(&article_numbers),
         overview_store: Arc::clone(&overview_store),
         user_flags: Arc::clone(&user_flags),
         state_store: Arc::clone(&state_store),
         search_index: None,
+        smtp_relay_queue: None,
     });
     let state = Arc::new(AppState {
         start_time: std::time::Instant::now(),

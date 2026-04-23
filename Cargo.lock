@@ -5578,6 +5578,7 @@ dependencies = [
  "usenet-ipfs-auth",
  "usenet-ipfs-core",
  "usenet-ipfs-reader",
+ "usenet-ipfs-smtp",
  "usenet-ipfs-tls",
  "uuid",
 ]
@@ -5615,6 +5616,7 @@ dependencies = [
  "tracing-subscriber",
  "usenet-ipfs-auth",
  "usenet-ipfs-core",
+ "usenet-ipfs-smtp",
  "usenet-ipfs-tls",
 ]
 
@@ -5641,6 +5643,7 @@ dependencies = [
  "rustls",
  "rustls-pemfile",
  "serde",
+ "serde_json",
  "sqlx",
  "subtle",
  "tempfile",
@@ -5654,6 +5657,7 @@ dependencies = [
  "usenet-ipfs-core",
  "usenet-ipfs-sieve",
  "usenet-ipfs-tls",
+ "webpki-roots 0.26.11",
 ]
 
 [[package]]

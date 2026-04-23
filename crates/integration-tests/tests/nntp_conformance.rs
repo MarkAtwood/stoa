@@ -244,6 +244,7 @@ async fn nntp_conformance_via_nntplib() {
             &[0x44u8; 32],
         )),
         search_index: None,
+        smtp_relay_queue: None,
     });
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();

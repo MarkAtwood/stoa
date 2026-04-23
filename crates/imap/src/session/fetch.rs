@@ -26,7 +26,11 @@ pub fn handle_fetch(tag: Tag<'static>) -> Status<'static> {
 /// Returns `* SEARCH` (empty result list) + tagged OK.
 pub fn handle_search(tag: Tag<'static>, uid: bool) -> (Data<'static>, Status<'static>) {
     let data = Data::Search(vec![]);
-    let text = if uid { "UID SEARCH complete" } else { "SEARCH complete" };
+    let text = if uid {
+        "UID SEARCH complete"
+    } else {
+        "SEARCH complete"
+    };
     let ok = Status::ok(Some(tag), None, text).expect("static ok");
     (data, ok)
 }
@@ -35,6 +39,7 @@ pub fn handle_search(tag: Tag<'static>, uid: bool) -> (Data<'static>, Status<'st
 ///
 /// With 0 messages the sequence set matches nothing so flag storage is a
 /// no-op.  Returns tagged OK with no `* n FETCH (FLAGS ...)` untagged data.
+#[allow(clippy::too_many_arguments)]
 pub async fn handle_store(
     _pool: &SqlitePool,
     _username: &str,

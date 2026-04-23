@@ -4,6 +4,7 @@ pub mod ipfs_write;
 pub mod log_append;
 pub mod pipeline;
 pub mod sign;
+pub mod smtp_relay;
 pub mod validate_headers;
 
 /// Find the byte offset of the first byte of the body in an RFC 5322 article.

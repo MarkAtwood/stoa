@@ -72,6 +72,23 @@ async fn make_mail_pool() -> sqlx::SqlitePool {
     pool
 }
 
+async fn make_core_pool() -> sqlx::SqlitePool {
+    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
+    let url = format!("file:feed_core_{n}?mode=memory&cache=shared");
+    let opts = SqliteConnectOptions::from_str(&url)
+        .expect("valid url")
+        .create_if_missing(true);
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(opts)
+        .await
+        .expect("core pool");
+    usenet_ipfs_core::migrations::run_migrations(&pool)
+        .await
+        .expect("core migrations");
+    pool
+}
+
 // ── AppState builders ─────────────────────────────────────────────────────────
 
 /// Build an AppState with `jmap: None` (for tests that don't need store data).
@@ -96,6 +113,7 @@ async fn state_with_jmap() -> (Arc<AppState>, Arc<ArticleNumberStore>, Arc<Overv
     let reader_pool = make_reader_pool().await;
     let mail_pool = make_mail_pool().await;
     let mail_pool_arc = Arc::new(mail_pool);
+    let core_pool = make_core_pool().await;
 
     let article_numbers = Arc::new(ArticleNumberStore::new(reader_pool.clone()));
     let overview_store = Arc::new(OverviewStore::new(reader_pool));
@@ -103,11 +121,13 @@ async fn state_with_jmap() -> (Arc<AppState>, Arc<ArticleNumberStore>, Arc<Overv
 
     let jmap = Arc::new(JmapStores {
         ipfs,
+        msgid_map: Arc::new(usenet_ipfs_core::msgid_map::MsgIdMap::new(core_pool)),
         article_numbers: Arc::clone(&article_numbers),
         overview_store: Arc::clone(&overview_store),
         user_flags: Arc::new(UserFlagsStore::new((*mail_pool_arc).clone())),
         state_store: Arc::new(StateStore::new((*mail_pool_arc).clone())),
         search_index: None,
+        smtp_relay_queue: None,
     });
 
     let state = Arc::new(AppState {

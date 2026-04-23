@@ -19,6 +19,35 @@ pub struct Config {
     pub operator: OperatorConfig,
     #[serde(default)]
     pub search: SearchConfig,
+    #[serde(default)]
+    pub smtp_relay: SmtpRelayConfig,
+}
+
+/// Configuration for outbound SMTP relay of posted articles.
+///
+/// When `peers` is non-empty and `queue_dir` is set, articles that arrive
+/// via NNTP POST and contain email recipients in their `To:` or `Cc:` headers
+/// are enqueued for SMTP relay delivery.  Failures are non-fatal — the NNTP
+/// POST still returns 240.
+#[derive(Debug, Deserialize, Default)]
+pub struct SmtpRelayConfig {
+    /// Directory for queued outbound SMTP relay messages.
+    /// When absent, SMTP relay is disabled regardless of `peers`.
+    #[serde(default)]
+    pub queue_dir: Option<String>,
+    /// Outbound SMTP relay peers.  An empty list disables relay delivery.
+    #[serde(default)]
+    pub peers: Vec<usenet_ipfs_smtp::config::SmtpRelayPeerConfig>,
+    /// Seconds a peer stays in the "down" state after a delivery failure
+    /// before being retried.  Defaults to 300.
+    #[serde(default = "SmtpRelayConfig::default_peer_down_secs")]
+    pub peer_down_secs: u64,
+}
+
+impl SmtpRelayConfig {
+    fn default_peer_down_secs() -> u64 {
+        300
+    }
 }
 
 /// Kubo IPFS node connection and local block cache settings.

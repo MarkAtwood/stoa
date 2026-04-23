@@ -31,6 +31,8 @@ usenet-ipfs-tls = { path = "../tls" }
 usenet-ipfs-sieve = { path = "../sieve" }
 usenet-ipfs-auth = { path = "../auth" }
 base64 = "0.22"
+webpki-roots = "0.26"
+serde_json = "1"
 tempfile = "3"
 tower = { version = "0.5", features = ["util"] }
 prometheus = { version = "0.14", default-features = false }

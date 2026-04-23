@@ -317,14 +317,12 @@ async fn handle_admin_connection(
             }
         },
         "/export/car" => {
-            let group = extract_query_param(query, "group")
-                .filter(|g| !g.is_empty());
+            let group = extract_query_param(query, "group").filter(|g| !g.is_empty());
             if let Some(group) = group {
                 let limit: i64 = extract_query_param(query, "limit")
                     .and_then(|s| s.parse::<i64>().ok())
                     .unwrap_or(1000)
-                    .min(10000)
-                    .max(1);
+                    .clamp(1, 10000);
                 match crate::export::build_export_car(pool, ipfs, &group, limit).await {
                     Ok(car_bytes) => {
                         write_binary_car(&mut writer, &car_bytes).await?;
@@ -760,7 +758,11 @@ mod tests {
         let json = build_pinning_remote_json(&pool).await.unwrap();
         let v: serde_json::Value = serde_json::from_str(&json).unwrap();
         assert!(v.is_array(), "expected JSON array, got: {json}");
-        assert_eq!(v.as_array().unwrap().len(), 0, "expected empty array: {json}");
+        assert_eq!(
+            v.as_array().unwrap().len(),
+            0,
+            "expected empty array: {json}"
+        );
     }
 
     // ── /ipns endpoint tests ───────────────────────────────────────────────────
@@ -771,7 +773,10 @@ mod tests {
         let pool = make_pool().await;
         let json = build_ipns_json(&pool, None).await.unwrap();
         let v: serde_json::Value = serde_json::from_str(&json).unwrap();
-        assert!(v["ipns_path"].is_null(), "ipns_path must be null when disabled: {json}");
+        assert!(
+            v["ipns_path"].is_null(),
+            "ipns_path must be null when disabled: {json}"
+        );
         assert!(v["groups"].is_object(), "groups must be object: {json}");
         assert_eq!(
             v["groups"].as_object().unwrap().len(),
@@ -784,11 +789,12 @@ mod tests {
     #[tokio::test]
     async fn build_ipns_json_with_path_no_articles() {
         let pool = make_pool().await;
-        let json = build_ipns_json(&pool, Some("/ipns/12D3KooW...")).await.unwrap();
+        let json = build_ipns_json(&pool, Some("/ipns/12D3KooW..."))
+            .await
+            .unwrap();
         let v: serde_json::Value = serde_json::from_str(&json).unwrap();
         assert_eq!(
-            v["ipns_path"],
-            "/ipns/12D3KooW...",
+            v["ipns_path"], "/ipns/12D3KooW...",
             "ipns_path must match supplied value: {json}"
         );
         assert_eq!(
@@ -841,7 +847,9 @@ mod tests {
 
         let json = build_ipns_json(&pool, None).await.unwrap();
         let alt_pos = json.find("alt.test").expect("alt.test must appear");
-        let comp_pos = json.find("comp.lang.rust").expect("comp.lang.rust must appear");
+        let comp_pos = json
+            .find("comp.lang.rust")
+            .expect("comp.lang.rust must appear");
         let sci_pos = json.find("sci.math").expect("sci.math must appear");
         assert!(alt_pos < comp_pos, "alt.test must precede comp.lang.rust");
         assert!(comp_pos < sci_pos, "comp.lang.rust must precede sci.math");

@@ -24,9 +24,10 @@ use crate::config::Config;
 /// `CommandAuthenticateReceived` starts a new auth flow.  Subsequent
 /// `AuthenticateDataReceived` events advance the flow until it completes or
 /// is aborted.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum AuthProgress {
     /// No authentication in progress.
+    #[default]
     None,
     /// AUTH=PLAIN continuation: waiting for `\0user\0password` payload.
     PlainExpectingPayload { tag: Tag<'static> },
@@ -36,19 +37,12 @@ pub enum AuthProgress {
     LoginExpectingPassword { tag: Tag<'static>, username: String },
 }
 
-impl Default for AuthProgress {
-    fn default() -> Self {
-        Self::None
-    }
-}
-
 /// Verify username/password against the configured user list.
 ///
 /// Password comparison is constant-time (via `subtle`).
 pub fn verify_credentials(config: &Config, username: &str, password: &str) -> bool {
     config.auth.users.iter().any(|cred| {
-        cred.username == username
-            && bool::from(cred.password.as_bytes().ct_eq(password.as_bytes()))
+        cred.username == username && bool::from(cred.password.as_bytes().ct_eq(password.as_bytes()))
     })
 }
 
@@ -133,7 +127,10 @@ pub fn handle_authenticate_data(
         }
 
         // AUTH=LOGIN step 2: password received.
-        (AuthProgress::LoginExpectingPassword { tag, username }, AuthenticateData::Continue(payload)) => {
+        (
+            AuthProgress::LoginExpectingPassword { tag, username },
+            AuthenticateData::Continue(payload),
+        ) => {
             let password = match std::str::from_utf8(payload.declassify().as_ref()) {
                 Ok(p) => p,
                 Err(_) => {
@@ -145,13 +142,12 @@ pub fn handle_authenticate_data(
             };
 
             if verify_credentials(config, &username, password) {
-                let ok = Status::ok(Some(tag), None, "Authentication successful")
-                    .expect("static ok");
+                let ok =
+                    Status::ok(Some(tag), None, "Authentication successful").expect("static ok");
                 server.authenticate_finish(ok).ok();
                 Some(username)
             } else {
-                let no =
-                    Status::no(Some(tag), None, "Invalid credentials").expect("static no");
+                let no = Status::no(Some(tag), None, "Invalid credentials").expect("static no");
                 server.authenticate_finish(no).ok();
                 None
             }
@@ -204,8 +200,7 @@ fn plain_finish(
 ) -> Option<String> {
     let parts: Vec<&[u8]> = payload.splitn(3, |&b| b == 0).collect();
     if parts.len() != 3 {
-        let no =
-            Status::no(tag, None, "Invalid PLAIN payload format").expect("static no is valid");
+        let no = Status::no(tag, None, "Invalid PLAIN payload format").expect("static no is valid");
         server.authenticate_finish(no).ok();
         return None;
     }
@@ -241,18 +236,11 @@ fn plain_finish(
 }
 
 /// Start AUTH=LOGIN: send the username challenge.
-fn handle_login_start(
-    server: &mut Server,
-    auth_progress: &mut AuthProgress,
-    tag: Tag<'static>,
-) {
+fn handle_login_start(server: &mut Server, auth_progress: &mut AuthProgress, tag: Tag<'static>) {
     // Raw bytes b"Username:" — imap-codec encodes them to base64 on the wire.
     let ccr = CommandContinuationRequest::base64(b"Username:" as &[u8]);
-    match server.authenticate_continue(ccr) {
-        Ok(_) => {
-            *auth_progress = AuthProgress::LoginExpectingUsername { tag };
-        }
-        Err(_) => {}
+    if server.authenticate_continue(ccr).is_ok() {
+        *auth_progress = AuthProgress::LoginExpectingUsername { tag };
     }
 }
 
@@ -263,8 +251,13 @@ mod tests {
     fn make_config(users: &[(&str, &str)]) -> Config {
         use crate::config::*;
         Config {
-            listen: ListenConfig { addr: "127.0.0.1:143".into(), tls_addr: None },
-            database: DatabaseConfig { path: "/tmp/test.db".into() },
+            listen: ListenConfig {
+                addr: "127.0.0.1:143".into(),
+                tls_addr: None,
+            },
+            database: DatabaseConfig {
+                path: "/tmp/test.db".into(),
+            },
             limits: LimitsConfig::default(),
             auth: AuthConfig {
                 mechanisms: vec!["PLAIN".into(), "LOGIN".into()],
@@ -276,7 +269,10 @@ mod tests {
                     })
                     .collect(),
             },
-            tls: TlsConfig { cert_path: None, key_path: None },
+            tls: TlsConfig {
+                cert_path: None,
+                key_path: None,
+            },
             admin: AdminConfig::default(),
             log: LogConfig::default(),
         }
