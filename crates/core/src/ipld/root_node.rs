@@ -65,7 +65,8 @@ pub struct ArticleMetadata {
     /// Hybrid Logical Clock timestamp (milliseconds since Unix epoch).
     pub hlc_timestamp: u64,
     /// Ed25519 signature by the operator key over the root node CID bytes.
-    /// Empty until signing is wired in (l62.2.6).
+    /// Empty (`vec![]`) until the signing pipeline is wired up; callers must
+    /// not interpret an empty signature as a valid one.
     pub operator_signature: Vec<u8>,
     /// Total byte count of the article (header + body wire bytes).
     pub byte_count: u64,

@@ -203,7 +203,8 @@ pub async fn set_active(
     Ok(true)
 }
 
-/// Count messages in a specific mailbox (used in tests).
+/// Count messages in a specific mailbox.
+#[cfg(test)]
 pub async fn count_messages(pool: &SqlitePool, username: &str, mailbox: &str) -> i64 {
     sqlx::query_scalar::<_, i64>(
         "SELECT COUNT(*) FROM mailbox_messages WHERE username = ? AND mailbox = ?",
@@ -215,7 +216,8 @@ pub async fn count_messages(pool: &SqlitePool, username: &str, mailbox: &str) ->
     .unwrap_or(0)
 }
 
-/// Fetch raw message bytes of the first message in a mailbox (used in tests).
+/// Fetch raw message bytes of the first message in a mailbox.
+#[cfg(test)]
 pub async fn get_first_message_raw(
     pool: &SqlitePool,
     username: &str,
@@ -232,7 +234,8 @@ pub async fn get_first_message_raw(
     .flatten()
 }
 
-/// Fetch the envelope_from of the first message in a mailbox (used in tests).
+/// Fetch the envelope_from of the first message in a mailbox.
+#[cfg(test)]
 pub async fn get_first_envelope_from(
     pool: &SqlitePool,
     username: &str,

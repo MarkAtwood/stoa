@@ -278,6 +278,9 @@ fn parse_range(s: &str) -> ArticleRange {
     if let Some(dash_pos) = s.find('-') {
         let lo_str = &s[..dash_pos];
         let hi_str = &s[dash_pos + 1..];
+        // Invalid token defaults to 0. Article 0 does not exist, so the
+        // session will return 423 No Such Article, which is the correct
+        // response for a malformed range.
         let lo = lo_str.parse::<u64>().unwrap_or(0);
         if hi_str.is_empty() {
             ArticleRange::From(lo)
@@ -286,6 +289,7 @@ fn parse_range(s: &str) -> ArticleRange {
             ArticleRange::Range(lo, hi)
         }
     } else {
+        // Same rationale: 0 → 423 No Such Article.
         ArticleRange::Single(s.parse::<u64>().unwrap_or(0))
     }
 }

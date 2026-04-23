@@ -718,6 +718,12 @@ pub async fn run_session<S>(
             }
 
             "STARTTLS" => {
+                // STARTTLS upgrade is not yet implemented. Return 454 rather
+                // than 502 (command not implemented) so that MTAs that
+                // opportunistically offer STARTTLS but do not require it
+                // gracefully fall back to plaintext. Advertising STARTTLS in
+                // EHLO would cause STARTTLS-policy enforcers to fail delivery,
+                // so it is omitted from EHLO until a full implementation exists.
                 if write_half
                     .write_all(b"454 TLS not available\r\n")
                     .await

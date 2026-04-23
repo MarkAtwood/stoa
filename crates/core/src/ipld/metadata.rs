@@ -89,7 +89,9 @@ pub fn extract_content_type_summary(header_bytes: &[u8]) -> String {
 /// - `hlc_timestamp`: the HLC timestamp for this entry (caller-provided)
 ///
 /// Returns a partially-filled ArticleMetadata; `operator_signature` is
-/// set to empty bytes (signing is wired in l62.2.6).
+/// set to empty bytes because the signing pipeline is not yet wired up.
+/// Callers that need a signed article must populate the field after this
+/// function returns.
 pub fn compute_metadata(
     header_bytes: &[u8],
     body_bytes: &[u8],
