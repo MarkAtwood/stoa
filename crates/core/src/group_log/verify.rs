@@ -188,6 +188,7 @@ pub async fn verify_entry<S: LogStorage>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::canonical::entry_id_bytes;
     use crate::group_log::mem_storage::MemLogStorage;
     use crate::signing::SigningKey;
     use multihash_codetable::Multihash;
@@ -270,10 +271,12 @@ mod tests {
 
         // Compute entry id the same way append.rs does (includes sig bytes).
         let entry_id = {
-            let mut input = Vec::new();
-            input.extend_from_slice(&entry.hlc_timestamp.to_be_bytes());
-            input.extend_from_slice(&entry.article_cid.to_bytes());
-            input.extend_from_slice(&entry.operator_signature);
+            let input = entry_id_bytes(
+                entry.hlc_timestamp,
+                &entry.article_cid,
+                &entry.operator_signature,
+                &entry.parent_cids,
+            );
             let digest = Code::Sha2_256.digest(&input);
             LogEntryId::from_bytes(digest.digest().try_into().expect("32 bytes"))
         };
@@ -357,10 +360,12 @@ mod tests {
         };
         sign_entry(&mut parent_entry, &key);
         let parent_id = {
-            let mut input = Vec::new();
-            input.extend_from_slice(&parent_entry.hlc_timestamp.to_be_bytes());
-            input.extend_from_slice(&parent_entry.article_cid.to_bytes());
-            input.extend_from_slice(&parent_entry.operator_signature);
+            let input = entry_id_bytes(
+                parent_entry.hlc_timestamp,
+                &parent_entry.article_cid,
+                &parent_entry.operator_signature,
+                &parent_entry.parent_cids,
+            );
             let digest = Code::Sha2_256.digest(&input);
             LogEntryId::from_bytes(digest.digest().try_into().expect("32 bytes"))
         };

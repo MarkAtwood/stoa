@@ -5968,6 +5968,7 @@ dependencies = [
  "usenet-ipfs-auth",
  "usenet-ipfs-core",
  "usenet-ipfs-reader",
+ "usenet-ipfs-tls",
  "uuid",
 ]
 
@@ -6001,6 +6002,7 @@ dependencies = [
  "tracing-subscriber",
  "usenet-ipfs-auth",
  "usenet-ipfs-core",
+ "usenet-ipfs-tls",
 ]
 
 [[package]]
@@ -6038,6 +6040,15 @@ dependencies = [
  "usenet-ipfs-auth",
  "usenet-ipfs-core",
  "usenet-ipfs-sieve",
+ "usenet-ipfs-tls",
+]
+
+[[package]]
+name = "usenet-ipfs-tls"
+version = "0.1.0"
+dependencies = [
+ "rustls",
+ "rustls-pemfile",
 ]
 
 [[package]]

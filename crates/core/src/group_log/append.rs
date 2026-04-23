@@ -1,4 +1,5 @@
 use crate::article::GroupName;
+use crate::canonical::entry_id_bytes;
 use crate::error::StorageError;
 use crate::group_log::storage::LogStorage;
 use crate::group_log::types::{LogEntry, LogEntryId};
@@ -49,17 +50,12 @@ impl From<StorageError> for AppendError {
 /// Sorting the parents ensures the ID is the same regardless of the order
 /// they appear in the slice.
 fn compute_entry_id(entry: &LogEntry) -> LogEntryId {
-    let mut input = Vec::new();
-    input.extend_from_slice(&entry.hlc_timestamp.to_be_bytes());
-    input.extend_from_slice(&entry.article_cid.to_bytes());
-    input.extend_from_slice(&entry.operator_signature);
-
-    let mut parent_bytes: Vec<Vec<u8>> = entry.parent_cids.iter().map(|c| c.to_bytes()).collect();
-    parent_bytes.sort();
-    for pb in &parent_bytes {
-        input.extend_from_slice(pb);
-    }
-
+    let input = entry_id_bytes(
+        entry.hlc_timestamp,
+        &entry.article_cid,
+        &entry.operator_signature,
+        &entry.parent_cids,
+    );
     let digest = Code::Sha2_256.digest(&input);
     LogEntryId::from_bytes(
         digest

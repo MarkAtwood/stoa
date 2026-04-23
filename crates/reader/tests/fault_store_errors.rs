@@ -186,6 +186,25 @@ fn article_response_on_success_returns_220() {
         resp.code, 220,
         "RFC 3977 §6.2.1: successful ARTICLE must yield 220"
     );
+    // RFC 3977 §6.2.1: status line is "220 n <msgid> Article follows".
+    assert_eq!(
+        resp.text, "1 <test@example.com> Article follows",
+        "status line must carry article number and message-id"
+    );
+    assert!(resp.multiline, "ARTICLE response must be multiline");
+    // Body must contain headers, blank separator, then body text.
+    assert!(
+        resp.body.contains(&"Subject: Test".to_string()),
+        "body must include headers"
+    );
+    let blank_pos = resp.body.iter().position(|l| l.is_empty());
+    let body_pos = resp.body.iter().position(|l| l.contains("Hello world."));
+    assert!(blank_pos.is_some(), "body must have blank line separating headers from body");
+    assert!(body_pos.is_some(), "body must include body text");
+    assert!(
+        blank_pos.unwrap() < body_pos.unwrap(),
+        "blank line must appear before body text"
+    );
 }
 
 /// HEAD succeeds with 221; confirms the branch taken when storage delivers data.
@@ -203,6 +222,21 @@ fn head_response_on_success_returns_221() {
         resp.code, 221,
         "RFC 3977 §6.2.2: successful HEAD must yield 221"
     );
+    // RFC 3977 §6.2.2: status line is "221 n <msgid> Headers follow".
+    assert_eq!(
+        resp.text, "2 <head@example.com> Headers follow",
+        "status line must carry article number and message-id"
+    );
+    assert!(resp.multiline, "HEAD response must be multiline");
+    // HEAD body contains only headers — no blank line, no body text.
+    assert!(
+        resp.body.contains(&"Subject: Head Test".to_string()),
+        "body must include header line"
+    );
+    assert!(
+        !resp.body.iter().any(|l| l.is_empty()),
+        "HEAD response body must not contain a blank line (no body section)"
+    );
 }
 
 /// BODY succeeds with 222; confirms the branch taken when storage delivers data.
@@ -219,6 +253,21 @@ fn body_response_on_success_returns_222() {
     assert_eq!(
         resp.code, 222,
         "RFC 3977 §6.2.3: successful BODY must yield 222"
+    );
+    // RFC 3977 §6.2.3: status line is "222 n <msgid> Body follows".
+    assert_eq!(
+        resp.text, "3 <body@example.com> Body follows",
+        "status line must carry article number and message-id"
+    );
+    assert!(resp.multiline, "BODY response must be multiline");
+    // BODY response contains only body text — no headers.
+    assert!(
+        resp.body.contains(&"Body text.".to_string()),
+        "body must include body text"
+    );
+    assert!(
+        !resp.body.iter().any(|l| l.contains("Subject:")),
+        "BODY response must not contain headers"
     );
 }
 

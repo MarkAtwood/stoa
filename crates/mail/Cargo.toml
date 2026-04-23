@@ -32,6 +32,7 @@ uuid = { version = "1", features = ["v4"] }
 rand = "0.8"
 mailparse = "0.15"
 usenet-ipfs-core = { path = "../core" }
+usenet-ipfs-tls = { path = "../tls" }
 usenet-ipfs-reader = { path = "../reader" }
 usenet-ipfs-auth = { path = "../auth" }
 serde_ipld_dagcbor = "0.6"

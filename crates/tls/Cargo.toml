@@ -1,0 +1,13 @@
+[package]
+name = "usenet-ipfs-tls"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+
+[lib]
+name = "usenet_ipfs_tls"
+path = "src/lib.rs"
+
+[dependencies]
+rustls = { version = "0.23", default-features = false, features = ["std", "tls12"] }
+rustls-pemfile = "2"

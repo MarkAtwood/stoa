@@ -93,6 +93,34 @@ pub fn log_entry_canonical_bytes(
     out
 }
 
+/// Compute the byte string from which a [`LogEntryId`] is derived.
+///
+/// Layout: `hlc_timestamp` as 8 big-endian bytes, `article_cid` bytes,
+/// `operator_signature` bytes, then each parent CID's bytes sorted
+/// lexicographically.
+///
+/// Unlike [`log_entry_canonical_bytes`] (which is signed over and therefore
+/// excludes the signature), this function *includes* the signature so that
+/// two entries that are identical except for their signature produce
+/// different IDs.
+pub fn entry_id_bytes(
+    hlc_timestamp: u64,
+    article_cid: &Cid,
+    operator_signature: &[u8],
+    parent_cids: &[Cid],
+) -> Vec<u8> {
+    let mut out = Vec::new();
+    out.extend_from_slice(&hlc_timestamp.to_be_bytes());
+    out.extend_from_slice(&article_cid.to_bytes());
+    out.extend_from_slice(operator_signature);
+    let mut parent_bytes: Vec<Vec<u8>> = parent_cids.iter().map(|c| c.to_bytes()).collect();
+    parent_bytes.sort();
+    for pb in &parent_bytes {
+        out.extend_from_slice(pb);
+    }
+    out
+}
+
 fn push_header(out: &mut Vec<u8>, name: &str, value: &str) {
     out.extend_from_slice(name.as_bytes());
     out.extend_from_slice(b": ");

@@ -3,52 +3,21 @@
 //! When TLS is configured, wraps the TCP stream in a rustls ServerConnection.
 //! The `NntpStream` enum unifies plain and TLS streams so the session handler
 //! does not need to know which variant is active.
+//!
+//! PEM loading is delegated to `usenet-ipfs-tls`; this module adds the
+//! NNTP-specific `PermissiveClientAuth` verifier for mutual TLS and the
+//! `extract_client_cert_data` helper for fingerprint-based auth.
 
-use std::{fs::File, io::BufReader, sync::Arc};
+use std::sync::Arc;
 
 use rustls::pki_types::{CertificateDer, UnixTime};
 use rustls::server::danger::{ClientCertVerified, ClientCertVerifier};
 use rustls::ServerConfig;
 use rustls::{DigitallySignedStruct, DistinguishedName, Error, SignatureScheme};
-use rustls_pemfile::{certs, private_key};
 use sha2::Digest as _;
+use usenet_ipfs_tls::{load_cert_chain, load_private_key};
 
-/// Errors produced during TLS setup or handshake.
-#[derive(Debug)]
-pub enum TlsError {
-    /// Failed to read or parse the certificate file.
-    CertLoad(String, std::io::Error),
-    /// Failed to read or parse the private key file.
-    KeyLoad(String, std::io::Error),
-    /// Failed to build the rustls `ServerConfig`.
-    Config(rustls::Error),
-    /// TLS handshake with the client failed.
-    Handshake(std::io::Error),
-}
-
-impl std::fmt::Display for TlsError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TlsError::CertLoad(path, e) => {
-                write!(f, "failed to load TLS certificate from '{path}': {e}")
-            }
-            TlsError::KeyLoad(path, e) => {
-                write!(f, "failed to load TLS private key from '{path}': {e}")
-            }
-            TlsError::Config(e) => write!(f, "TLS server config error: {e}"),
-            TlsError::Handshake(e) => write!(f, "TLS handshake failed: {e}"),
-        }
-    }
-}
-
-impl std::error::Error for TlsError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            TlsError::CertLoad(_, e) | TlsError::KeyLoad(_, e) | TlsError::Handshake(e) => Some(e),
-            TlsError::Config(e) => Some(e),
-        }
-    }
-}
+pub use usenet_ipfs_tls::TlsError;
 
 /// A rustls-backed TLS acceptor for incoming TCP connections.
 pub struct TlsAcceptor {
@@ -157,28 +126,12 @@ pub fn extract_client_cert_data(
 /// The resulting `ServerConfig` requires TLS 1.2 or higher; TLS 1.0 and 1.1
 /// are not offered. Client certificates are requested but not required —
 /// fingerprint validation happens at the application layer.
+///
+/// PEM loading is handled by `usenet-ipfs-tls`; the NNTP-specific
+/// `PermissiveClientAuth` verifier is assembled here.
 pub fn load_tls_acceptor(cert_path: &str, key_path: &str) -> Result<TlsAcceptor, TlsError> {
-    // --- Load certificate chain ---
-    let cert_file =
-        File::open(cert_path).map_err(|e| TlsError::CertLoad(cert_path.to_string(), e))?;
-    let cert_chain: Vec<rustls::pki_types::CertificateDer<'static>> =
-        certs(&mut BufReader::new(cert_file))
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| TlsError::CertLoad(cert_path.to_string(), e))?;
-
-    // --- Load private key ---
-    let key_file = File::open(key_path).map_err(|e| TlsError::KeyLoad(key_path.to_string(), e))?;
-    let private_key = private_key(&mut BufReader::new(key_file))
-        .map_err(|e| TlsError::KeyLoad(key_path.to_string(), e))?
-        .ok_or_else(|| {
-            TlsError::KeyLoad(
-                key_path.to_string(),
-                std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    "no private key found in PEM",
-                ),
-            )
-        })?;
+    let cert_chain = load_cert_chain(cert_path)?;
+    let private_key = load_private_key(key_path)?;
 
     // --- Build ServerConfig with minimum TLS 1.2 ---
     // Request but do not require a client certificate.  Fingerprint validation
@@ -197,15 +150,15 @@ pub fn load_tls_acceptor(cert_path: &str, key_path: &str) -> Result<TlsAcceptor,
 }
 
 /// Perform the TLS handshake on an already-accepted TCP stream.
+///
+/// Returns the wrapped TLS stream on success, or an `std::io::Error` on
+/// handshake failure. Handshake errors are non-fatal — the caller should log
+/// and drop the stream.
 pub async fn accept_tls(
     acceptor: &TlsAcceptor,
     stream: tokio::net::TcpStream,
-) -> Result<tokio_rustls::server::TlsStream<tokio::net::TcpStream>, TlsError> {
-    acceptor
-        .inner
-        .accept(stream)
-        .await
-        .map_err(TlsError::Handshake)
+) -> Result<tokio_rustls::server::TlsStream<tokio::net::TcpStream>, std::io::Error> {
+    acceptor.inner.accept(stream).await
 }
 
 #[cfg(test)]
