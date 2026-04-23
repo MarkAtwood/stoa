@@ -304,6 +304,7 @@ async fn transit_reader_shared_store() {
         blacklist_config: BlacklistConfig::default(),
         trusted_keys: Vec::new(),
         tls_acceptor: None,
+        staging: None,
     });
 
     // ── Pipeline drain task ───────────────────────────────────────────────────
