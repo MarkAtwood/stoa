@@ -52,7 +52,7 @@ async fn main() {
     let start_time = Instant::now();
     let config_path = parse_args();
 
-    let config = match Config::from_file(&config_path) {
+    let mut config = match Config::from_file(&config_path) {
         Ok(c) => c,
         Err(e) => {
             eprintln!(
@@ -139,9 +139,28 @@ async fn main() {
     } else {
         None
     };
-    let ipfs_store: Arc<dyn usenet_ipfs_transit::peering::pipeline::IpfsStore> =
+    let mut ipfs_store: Arc<dyn usenet_ipfs_transit::peering::pipeline::IpfsStore> =
         Arc::new(rust_store);
     info!("rust-ipfs node started");
+
+    // ── Block cache (optional) ─────────────────────────────────────────────────
+
+    if let Some(cache_cfg) = config.cache.take() {
+        match tokio::fs::create_dir_all(&cache_cfg.path).await {
+            Ok(()) => {
+                info!(path = %cache_cfg.path, "block cache directory ready");
+                ipfs_store = Arc::new(usenet_ipfs_transit::block_cache::BlockCache::new(
+                    cache_cfg,
+                    Arc::clone(&transit_pool),
+                    ipfs_store,
+                ));
+            }
+            Err(e) => {
+                eprintln!("error: could not create block cache directory: {e}");
+                std::process::exit(1);
+            }
+        }
+    }
 
     // ── IPNS channel ──────────────────────────────────────────────────────────
 

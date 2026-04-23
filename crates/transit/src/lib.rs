@@ -1,4 +1,5 @@
 pub mod admin;
+pub mod block_cache;
 pub mod car_writer;
 pub mod cli;
 pub mod config;

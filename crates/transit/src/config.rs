@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use std::path::Path;
 
+use crate::block_cache::CacheConfig;
 use crate::retention::policy::{PinPolicy, PolicyValidationError};
 use crate::retention::remote_pin_client::PinningApiKey;
 use crate::staging::StagingConfig;
@@ -36,6 +37,9 @@ pub struct Config {
     /// ingestion queue only (current default behaviour).
     #[serde(default)]
     pub staging: Option<StagingConfig>,
+    /// Local LRU block cache for IPFS content.  Optional; omit to disable.
+    #[serde(default)]
+    pub cache: Option<CacheConfig>,
 }
 
 /// Operator identity configuration.
