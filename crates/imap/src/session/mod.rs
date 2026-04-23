@@ -461,6 +461,24 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
                         }
                     }
 
+                    // MOVE (RFC 6851) — no-op with 0 messages; returns OK.
+                    CommandBody::Move { .. } => {
+                        match ctx.state {
+                            ImapState::Selected { .. } => {
+                                server.enqueue_status(
+                                    Status::ok(Some(tag), None, "MOVE complete")
+                                        .expect("static ok"),
+                                );
+                            }
+                            _ => {
+                                server.enqueue_status(
+                                    Status::no(Some(tag), None, "Not in selected state")
+                                        .expect("static no"),
+                                );
+                            }
+                        }
+                    }
+
                     // APPEND — not supported until article storage is wired.
                     CommandBody::Append { .. } => {
                         server.enqueue_status(

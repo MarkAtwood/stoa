@@ -11,7 +11,7 @@ use imap_next::imap_types::{
 /// Build the server capability list.
 ///
 /// Before TLS: advertise `LOGINDISABLED` (no plaintext auth on insecure channel).
-/// After TLS: advertise `AUTH=PLAIN`, `AUTH=LOGIN`, `IDLE`.
+/// After TLS: advertise `AUTH=PLAIN`, `AUTH=LOGIN`, `IDLE`, `UIDPLUS`, `MOVE`.
 ///
 /// `IMAP4rev1` is always first per RFC 3501 §7.2.1.
 pub fn capability_list(tls: bool) -> Vec1<Capability<'static>> {
@@ -20,10 +20,12 @@ pub fn capability_list(tls: bool) -> Vec1<Capability<'static>> {
         caps.push(Capability::Auth(AuthMechanism::Plain));
         caps.push(Capability::Auth(AuthMechanism::Login));
         caps.push(Capability::Idle);
+        caps.push(Capability::UidPlus);
+        caps.push(Capability::Move);
     } else {
         caps.push(Capability::LoginDisabled);
     }
-    // ENABLE and UNSELECT are not TLS-dependent.
+    // These extensions are not TLS-dependent.
     caps.push(Capability::Enable);
     caps.push(Capability::Unselect);
     // Safety: always at least one element (Imap4Rev1).
@@ -71,6 +73,8 @@ mod tests {
         assert!(caps.as_ref().contains(&Capability::Idle), "IDLE must be advertised with TLS");
         assert!(caps.as_ref().contains(&Capability::Enable), "ENABLE must always be present");
         assert!(caps.as_ref().contains(&Capability::Unselect), "UNSELECT must always be present");
+        assert!(caps.as_ref().contains(&Capability::UidPlus), "UIDPLUS must be present with TLS");
+        assert!(caps.as_ref().contains(&Capability::Move), "MOVE must be present with TLS");
     }
 
     #[test]
