@@ -148,18 +148,18 @@ pub fn dispatch(
                 }
             }
         },
-        Command::Hdr { ref range_or_msgid, .. } => {
-            match range_or_msgid.as_deref() {
-                Some(arg) if arg.starts_with('<') => Response::hdr_follows(vec![]),
-                _ => {
-                    if !ctx.state.group_selected() {
-                        Response::no_group_selected()
-                    } else {
-                        Response::hdr_follows(vec![])
-                    }
+        Command::Hdr {
+            ref range_or_msgid, ..
+        } => match range_or_msgid.as_deref() {
+            Some(arg) if arg.starts_with('<') => Response::hdr_follows(vec![]),
+            _ => {
+                if !ctx.state.group_selected() {
+                    Response::no_group_selected()
+                } else {
+                    Response::hdr_follows(vec![])
                 }
             }
-        }
+        },
         Command::Post => {
             if !ctx.posting_allowed {
                 Response::posting_not_permitted()
@@ -228,6 +228,11 @@ pub fn dispatch(
                     }
                 }
             }
+        }
+        Command::Search { .. } => {
+            // Full handler lives in lifecycle.rs (intercepted before dispatch).
+            // This arm should be unreachable but must compile.
+            Response::new(500, "Internal error: SEARCH not intercepted")
         }
         _ => Response::information_follows(),
     }

@@ -5,25 +5,25 @@
 //! Email/get works end-to-end.
 
 use std::str::FromStr as _;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use cid::Cid;
 use multihash_codetable::{Code, MultihashDigest};
 use tokio::net::TcpListener;
 use usenet_ipfs_core::ipld::root_node::{ArticleMetadata, ArticleRootNode};
+use usenet_ipfs_mail::{
+    server::{build_router, AppState, JmapStores},
+    state::{flags::UserFlagsStore, version::StateStore},
+    token_store::TokenStore,
+};
 use usenet_ipfs_reader::{
     post::ipfs_write::{IpfsBlockStore, IpfsWriteError},
     store::{
         article_numbers::ArticleNumberStore,
-        overview::{OverviewStore, extract_overview},
+        overview::{extract_overview, OverviewStore},
     },
-};
-use usenet_ipfs_mail::{
-    server::{AppState, JmapStores, build_router},
-    state::{flags::UserFlagsStore, version::StateStore},
-    token_store::TokenStore,
 };
 
 static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
@@ -36,7 +36,9 @@ struct MemIpfs {
 
 impl MemIpfs {
     fn new() -> Self {
-        Self { blocks: tokio::sync::RwLock::new(Default::default()) }
+        Self {
+            blocks: tokio::sync::RwLock::new(Default::default()),
+        }
     }
 }
 
@@ -45,7 +47,10 @@ impl IpfsBlockStore for MemIpfs {
     async fn put_raw_block(&self, data: &[u8]) -> Result<Cid, IpfsWriteError> {
         let digest = Code::Sha2_256.digest(data);
         let cid = Cid::new_v1(0x71, digest);
-        self.blocks.write().await.insert(cid.to_bytes(), data.to_vec());
+        self.blocks
+            .write()
+            .await
+            .insert(cid.to_bytes(), data.to_vec());
         Ok(cid)
     }
 
@@ -181,6 +186,7 @@ async fn jmap_session_e2e() {
         overview_store: Arc::clone(&overview_store),
         user_flags: Arc::clone(&user_flags),
         state_store: Arc::clone(&state_store),
+        search_index: None,
     });
     let state = Arc::new(AppState {
         start_time: std::time::Instant::now(),
@@ -300,5 +306,8 @@ async fn jmap_session_e2e() {
         "returned email id must match the requested id"
     );
     let not_found = method_responses[0][1]["notFound"].as_array().unwrap();
-    assert!(not_found.is_empty(), "notFound must be empty for a valid CID");
+    assert!(
+        not_found.is_empty(),
+        "notFound must be empty for a valid CID"
+    );
 }

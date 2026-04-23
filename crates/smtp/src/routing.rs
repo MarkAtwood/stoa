@@ -63,7 +63,9 @@ pub fn has_newsgroups_header(raw_message: &[u8]) -> bool {
 
     let headers = &raw_message[..header_end];
     // Header at start of message or after a newline (handles both \r\n and \n).
-    headers.windows(12).any(|w| w.eq_ignore_ascii_case(b"\nNewsgroups:"))
+    headers
+        .windows(12)
+        .any(|w| w.eq_ignore_ascii_case(b"\nNewsgroups:"))
         || headers.len() >= 11 && headers[..11].eq_ignore_ascii_case(b"Newsgroups:")
 }
 
@@ -125,7 +127,6 @@ pub fn add_newsgroups_header(raw_message: &[u8], newsgroup: &str) -> Vec<u8> {
     result.extend_from_slice(raw_message);
     result
 }
-
 
 #[cfg(test)]
 mod tests {

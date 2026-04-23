@@ -430,7 +430,11 @@ mod tests {
         );
 
         for (cid, _) in &parsed.blocks {
-            assert_eq!(cid.codec(), CODEC_RAW, "all blocks must use CODEC_RAW codec (0x55)");
+            assert_eq!(
+                cid.codec(),
+                CODEC_RAW,
+                "all blocks must use CODEC_RAW codec (0x55)"
+            );
         }
     }
 }

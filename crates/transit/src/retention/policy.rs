@@ -90,7 +90,12 @@ impl PinPolicy {
     /// `"pin"`, the article is pinned; if all groups resolve to `"skip"` or
     /// no-match, the article is not pinned.
     pub fn should_pin(&self, meta: &ArticleMeta) -> bool {
-        for group in meta.group.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+        for group in meta
+            .group
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
             let single = ArticleMeta {
                 group: group.to_string(),
                 size_bytes: meta.size_bytes,

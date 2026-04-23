@@ -179,10 +179,7 @@ mod tests {
             "have must be empty: {:?}",
             result.have
         );
-        assert!(
-            !result.partial_have,
-            "small graph must not be truncated"
-        );
+        assert!(!result.partial_have, "small graph must not be truncated");
     }
 
     // ── remote_has_new_tip ────────────────────────────────────────────────────

@@ -539,8 +539,10 @@ mod tests {
 
         // byte_count reflects the bytes written to IPFS — after prepend_path_header
         // is applied. Compute the expected size independently.
-        let expected_bytes =
-            crate::peering::ingestion::prepend_path_header(article.clone(), "local.test.example.com");
+        let expected_bytes = crate::peering::ingestion::prepend_path_header(
+            article.clone(),
+            "local.test.example.com",
+        );
         assert_eq!(cid_str, pr.cid.to_string());
         assert_eq!(group_name, "alt.test");
         assert!(

@@ -13,21 +13,21 @@
 //!   MUST return an `accountNotFound` error."
 
 use std::str::FromStr as _;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use cid::Cid;
 use multihash_codetable::{Code, MultihashDigest};
 use tokio::net::TcpListener;
+use usenet_ipfs_mail::{
+    server::{build_router, AppState, JmapStores},
+    state::{flags::UserFlagsStore, version::StateStore},
+    token_store::TokenStore,
+};
 use usenet_ipfs_reader::{
     post::ipfs_write::{IpfsBlockStore, IpfsWriteError},
     store::{article_numbers::ArticleNumberStore, overview::OverviewStore},
-};
-use usenet_ipfs_mail::{
-    server::{AppState, JmapStores, build_router},
-    state::{flags::UserFlagsStore, version::StateStore},
-    token_store::TokenStore,
 };
 
 static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
@@ -40,7 +40,9 @@ struct MemIpfs {
 
 impl MemIpfs {
     fn new() -> Self {
-        Self { blocks: tokio::sync::RwLock::new(Default::default()) }
+        Self {
+            blocks: tokio::sync::RwLock::new(Default::default()),
+        }
     }
 }
 
@@ -49,7 +51,10 @@ impl IpfsBlockStore for MemIpfs {
     async fn put_raw_block(&self, data: &[u8]) -> Result<Cid, IpfsWriteError> {
         let digest = Code::Sha2_256.digest(data);
         let cid = Cid::new_v1(0x71, digest);
-        self.blocks.write().await.insert(cid.to_bytes(), data.to_vec());
+        self.blocks
+            .write()
+            .await
+            .insert(cid.to_bytes(), data.to_vec());
         Ok(cid)
     }
 
@@ -119,6 +124,7 @@ async fn spawn_dev_server(tag: &str) -> String {
         overview_store: Arc::new(OverviewStore::new(reader_pool)),
         user_flags: Arc::new(UserFlagsStore::new((*mail_pool_arc).clone())),
         state_store: Arc::new(StateStore::new((*mail_pool_arc).clone())),
+        search_index: None,
     });
 
     let state = Arc::new(AppState {
@@ -187,7 +193,10 @@ async fn email_get_wrong_account_id_returns_account_not_found() {
     let canonical = session["primaryAccounts"]["urn:ietf:params:jmap:mail"]
         .as_str()
         .expect("primaryAccounts must contain urn:ietf:params:jmap:mail");
-    assert_eq!(canonical, "u_anonymous", "dev-mode canonical accountId must be u_anonymous");
+    assert_eq!(
+        canonical, "u_anonymous",
+        "dev-mode canonical accountId must be u_anonymous"
+    );
 
     // Use a different, non-existent account id.
     let invocation = jmap_call(

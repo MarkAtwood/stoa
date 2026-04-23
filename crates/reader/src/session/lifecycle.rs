@@ -18,8 +18,11 @@ use crate::{
         pipeline::check_duplicate_msgid,
         sign::{sign_article, verify_article_sig},
     },
+    search::{ArticleIndexRequest, SearchError},
     session::{
-        command::{parse_command, ArticleRange, ArticleRef, Command, ListSubcommand, OverArg},
+        command::{
+            parse_command, ArticleRange, ArticleRef, Command, ListSubcommand, OverArg, SearchKey,
+        },
         commands::{
             fetch::{article_response, xcid_response, ArticleContent},
             hdr::{extract_field, hdr_response, HdrRecord},
@@ -263,11 +266,9 @@ async fn run_command_loop<R, W>(
 
         // XGET: fetch a raw IPFS block by CID and return it base64-encoded.
         if let Command::Xget(ref cid_str) = cmd {
-            let resp = crate::session::commands::xget::handle_xget(
-                cid_str,
-                stores.ipfs_store.as_ref(),
-            )
-            .await;
+            let resp =
+                crate::session::commands::xget::handle_xget(cid_str, stores.ipfs_store.as_ref())
+                    .await;
             if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
                 return;
             }
@@ -303,7 +304,11 @@ async fn run_command_loop<R, W>(
 
         // HDR field-name [range|message-id]: serve a single header field from
         // the overview index (RFC 3977 §8.5).
-        if let Command::Hdr { ref field, ref range_or_msgid } = cmd {
+        if let Command::Hdr {
+            ref field,
+            ref range_or_msgid,
+        } = cmd
+        {
             let resp = handle_hdr_live(stores, ctx, field, range_or_msgid.as_deref()).await;
             if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
                 return;
@@ -358,6 +363,15 @@ async fn run_command_loop<R, W>(
                 if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
                     return;
                 }
+            }
+            continue;
+        }
+
+        // SEARCH key value: full-text search within the current group.
+        if let Command::Search { ref key, ref value } = cmd {
+            let resp = handle_nntp_search(stores, ctx, key, value).await;
+            if writer.write_all(&resp).await.is_err() {
+                return;
             }
             continue;
         }
@@ -579,6 +593,32 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
         }
     }
 
+    // Step 8: Best-effort full-text search indexing.
+    // Failures are logged but never cause the POST to fail.
+    if let Some(ref idx) = stores.search_index {
+        for (group, article_number) in &append_result.assignments {
+            let req = ArticleIndexRequest {
+                message_id: &message_id,
+                newsgroup: group,
+                article_num: *article_number,
+                subject: &overview.subject,
+                from: &overview.from,
+                date_str: &overview.date,
+                body_bytes: &body_bytes,
+            };
+            if let Err(e) = idx.index_article(&req).await {
+                tracing::warn!(
+                    message_id = %message_id,
+                    error = %e,
+                    "search index failed; article still accepted"
+                );
+            }
+        }
+        if let Err(e) = idx.commit().await {
+            tracing::warn!(error = %e, "search index commit failed");
+        }
+    }
+
     Response::new(240, "Article received OK")
 }
 
@@ -653,9 +693,7 @@ fn split_article(bytes: &[u8]) -> (Vec<u8>, Vec<u8>) {
     match find_header_boundary(bytes) {
         Some(body_start) => {
             // Determine separator length: 4 for \r\n\r\n, 2 for \n\n.
-            let sep_len = if body_start >= 4
-                && bytes[body_start - 4..body_start] == *b"\r\n\r\n"
-            {
+            let sep_len = if body_start >= 4 && bytes[body_start - 4..body_start] == *b"\r\n\r\n" {
                 4
             } else {
                 2
@@ -1063,6 +1101,75 @@ async fn lookup_article_by_cid(stores: &ServerStores, cid_str: &str) -> Response
     article_response(&content)
 }
 
+/// Escape characters that have special meaning in Tantivy's query parser.
+/// This allows literal user input to be used in field:value queries safely.
+fn escape_tantivy_query(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for ch in s.chars() {
+        match ch {
+            '+' | '-' | '&' | '|' | '!' | '(' | ')' | '{' | '}' | '[' | ']' | '^' | '"' | '~'
+            | '*' | '?' | ':' | '\\' | '/' => {
+                out.push('\\');
+                out.push(ch);
+            }
+            _ => out.push(ch),
+        }
+    }
+    out
+}
+
+/// SEARCH key value: execute a full-text search within the current newsgroup.
+///
+/// Requires a selected newsgroup (412 otherwise). Returns 503 if the search
+/// index is not available. On success, returns 100 followed by a list of
+/// matching article numbers, dot-terminated.
+async fn handle_nntp_search(
+    stores: &ServerStores,
+    ctx: &SessionContext,
+    key: &SearchKey,
+    value: &str,
+) -> Vec<u8> {
+    let group = match &ctx.current_group {
+        Some(g) => g.as_str().to_owned(),
+        None => return b"412 No newsgroup selected\r\n".to_vec(),
+    };
+
+    let idx = match &stores.search_index {
+        Some(i) => i,
+        None => return b"503 Search not available\r\n".to_vec(),
+    };
+
+    let query_str = match key {
+        SearchKey::Subject => format!("subject:\"{}\"", escape_tantivy_query(value)),
+        SearchKey::From => format!("from_header:\"{}\"", escape_tantivy_query(value)),
+        SearchKey::Since | SearchKey::Before => {
+            return b"501 Date range search not yet implemented\r\n".to_vec();
+        }
+        SearchKey::Body | SearchKey::Text => value.to_owned(),
+    };
+
+    match idx.search_in_group(&group, &query_str, 10_000).await {
+        Ok(nums) => {
+            if nums.is_empty() {
+                return b"100 Article list follows\r\n.\r\n".to_vec();
+            }
+            let mut resp = b"100 Article list follows\r\n".to_vec();
+            for n in nums {
+                resp.extend_from_slice(format!("{n}\r\n").as_bytes());
+            }
+            resp.extend_from_slice(b".\r\n");
+            resp
+        }
+        Err(SearchError::QueryTooLong { len, max }) => {
+            format!("501 Query too long ({len} bytes, max {max})\r\n").into_bytes()
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "SEARCH failed");
+            b"451 Program error\r\n".to_vec()
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1203,5 +1310,113 @@ mod tests {
         assert_eq!(records[0].article_number, 1);
         assert_eq!(records[0].subject, "Integration Test");
         assert_eq!(records[0].message_id, "<integ@test.example>");
+    }
+
+    // ── SEARCH lifecycle tests ────────────────────────────────────────────
+
+    /// SEARCH without a selected group must return 412.
+    #[tokio::test]
+    async fn nntp_search_no_group_returns_412() {
+        let stores = ServerStores::new_mem().await;
+        let ctx = crate::session::context::SessionContext::new(
+            "127.0.0.1:1234".parse().unwrap(),
+            false,
+            true,
+            false,
+        );
+        let resp = handle_nntp_search(&stores, &ctx, &SearchKey::Subject, "hello").await;
+        assert!(
+            resp.starts_with(b"412"),
+            "must return 412 when no group is selected; got: {:?}",
+            String::from_utf8_lossy(&resp)
+        );
+    }
+
+    #[test]
+    fn escape_tantivy_query_escapes_parens_and_colons() {
+        let input = "foo(bar):baz";
+        let escaped = escape_tantivy_query(input);
+        assert!(escaped.contains("\\("), "( must be escaped");
+        assert!(escaped.contains("\\:"), ": must be escaped");
+        assert!(!escaped.contains("foo("), "unescaped ( must not remain");
+    }
+
+    /// SEARCH with search_index = None must return 503.
+    #[tokio::test]
+    async fn nntp_search_no_index_returns_503() {
+        let stores = ServerStores::new_mem_no_search().await;
+        let mut ctx = crate::session::context::SessionContext::new(
+            "127.0.0.1:1234".parse().unwrap(),
+            false,
+            true,
+            false,
+        );
+        ctx.current_group = Some(usenet_ipfs_core::article::GroupName::new("misc.test").unwrap());
+        ctx.state = crate::session::state::SessionState::GroupSelected;
+
+        let resp = handle_nntp_search(&stores, &ctx, &SearchKey::Subject, "hello").await;
+        assert!(
+            resp.starts_with(b"503"),
+            "must return 503 when search index is None; got: {:?}",
+            String::from_utf8_lossy(&resp)
+        );
+    }
+
+    // ── ld7.12: Since/Before return 501, not a free-text date query ───────
+
+    /// SEARCH SINCE must return 501, not silently pass the date string as a
+    /// free-text query.  Oracle: the 501 response is the only correct answer
+    /// for a key whose semantics require a dedicated date-range implementation.
+    #[tokio::test]
+    async fn nntp_search_since_returns_501() {
+        let stores = ServerStores::new_mem().await;
+        let mut ctx = crate::session::context::SessionContext::new(
+            "127.0.0.1:1234".parse().unwrap(),
+            false,
+            true,
+            false,
+        );
+        ctx.current_group = Some(usenet_ipfs_core::article::GroupName::new("misc.test").unwrap());
+        ctx.state = crate::session::state::SessionState::GroupSelected;
+
+        let resp = handle_nntp_search(
+            &stores,
+            &ctx,
+            &SearchKey::Since,
+            "Mon, 01 Jan 2024 00:00:00 +0000",
+        )
+        .await;
+        assert!(
+            resp.starts_with(b"501"),
+            "SEARCH SINCE must return 501 (not implemented), got: {:?}",
+            String::from_utf8_lossy(&resp)
+        );
+    }
+
+    /// SEARCH BEFORE must also return 501.
+    #[tokio::test]
+    async fn nntp_search_before_returns_501() {
+        let stores = ServerStores::new_mem().await;
+        let mut ctx = crate::session::context::SessionContext::new(
+            "127.0.0.1:1234".parse().unwrap(),
+            false,
+            true,
+            false,
+        );
+        ctx.current_group = Some(usenet_ipfs_core::article::GroupName::new("misc.test").unwrap());
+        ctx.state = crate::session::state::SessionState::GroupSelected;
+
+        let resp = handle_nntp_search(
+            &stores,
+            &ctx,
+            &SearchKey::Before,
+            "Mon, 01 Jan 2024 00:00:00 +0000",
+        )
+        .await;
+        assert!(
+            resp.starts_with(b"501"),
+            "SEARCH BEFORE must return 501 (not implemented), got: {:?}",
+            String::from_utf8_lossy(&resp)
+        );
     }
 }

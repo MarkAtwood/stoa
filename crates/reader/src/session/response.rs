@@ -74,6 +74,7 @@ impl Response {
             "OVER".to_string(),
             "HDR".to_string(),
             "LIST ACTIVE NEWSGROUPS".to_string(),
+            "SEARCH".to_string(),
             // CID extension capabilities (ADR-0007)
             "XCID".to_string(),
             "XVERIFY".to_string(),

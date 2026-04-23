@@ -243,6 +243,7 @@ async fn nntp_conformance_via_nntplib() {
         signing_key: Arc::new(usenet_ipfs_core::signing::SigningKey::from_bytes(
             &[0x44u8; 32],
         )),
+        search_index: None,
     });
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();

@@ -5,6 +5,7 @@ pub mod config;
 pub mod metrics;
 pub mod migrations;
 pub mod post;
+pub mod search;
 pub mod session;
 pub mod store;
 pub mod tls;

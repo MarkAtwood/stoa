@@ -90,7 +90,6 @@ pub async fn run_peering_session<S>(
 ) where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
-
     tracing::debug!(%peer_addr, "peering connection accepted");
 
     // Register peer if not yet known; then check blacklist.

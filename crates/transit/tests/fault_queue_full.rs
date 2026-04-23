@@ -166,7 +166,13 @@ async fn takethis_queue_full_returns_431_not_239() {
     let shared_clone = Arc::clone(&shared);
     tokio::spawn(async move {
         let (stream, addr) = listener.accept().await.unwrap();
-        run_peering_session(stream, addr.to_string(), addr.ip().to_string(), shared_clone).await;
+        run_peering_session(
+            stream,
+            addr.to_string(),
+            addr.ip().to_string(),
+            shared_clone,
+        )
+        .await;
     });
 
     let client = TcpStream::connect(addr).await.unwrap();
@@ -279,7 +285,13 @@ async fn ihave_queue_full_returns_436_not_235() {
     let shared_clone = Arc::clone(&shared);
     tokio::spawn(async move {
         let (stream, addr) = listener.accept().await.unwrap();
-        run_peering_session(stream, addr.to_string(), addr.ip().to_string(), shared_clone).await;
+        run_peering_session(
+            stream,
+            addr.to_string(),
+            addr.ip().to_string(),
+            shared_clone,
+        )
+        .await;
     });
 
     let client = TcpStream::connect(addr).await.unwrap();
@@ -383,7 +395,13 @@ async fn takethis_queue_not_full_returns_239() {
     let shared_clone = Arc::clone(&shared);
     tokio::spawn(async move {
         let (stream, addr) = listener.accept().await.unwrap();
-        run_peering_session(stream, addr.to_string(), addr.ip().to_string(), shared_clone).await;
+        run_peering_session(
+            stream,
+            addr.to_string(),
+            addr.ip().to_string(),
+            shared_clone,
+        )
+        .await;
     });
 
     let client = TcpStream::connect(addr).await.unwrap();

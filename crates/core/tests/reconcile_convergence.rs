@@ -125,9 +125,7 @@ async fn converge(
         return max_rounds;
     }
 
-    panic!(
-        "did not converge within {max_rounds} rounds; a_tips={a_tips:?}, b_tips={b_tips:?}"
-    );
+    panic!("did not converge within {max_rounds} rounds; a_tips={a_tips:?}, b_tips={b_tips:?}");
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

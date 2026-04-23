@@ -277,29 +277,28 @@ async fn main() {
 
     // ── Trusted peer keys for auth handshake ─────────────────────────────────
 
-    let trusted_keys = parse_trusted_peer_keys(&config.peering.trusted_peers)
-        .unwrap_or_else(|e| {
-            warn!("invalid trusted_peers key in config: {e} — peering auth disabled");
-            Vec::new()
-        });
+    let trusted_keys = parse_trusted_peer_keys(&config.peering.trusted_peers).unwrap_or_else(|e| {
+        warn!("invalid trusted_peers key in config: {e} — peering auth disabled");
+        Vec::new()
+    });
 
     // ── Optional TLS acceptor for inbound peering ─────────────────────────────
 
-    let tls_acceptor: Option<Arc<tokio_rustls::TlsAcceptor>> =
-        if let Some(ref tls_cfg) = config.tls {
-            match usenet_ipfs_tls::load_tls_server_config(&tls_cfg.cert_path, &tls_cfg.key_path) {
-                Ok(server_config) => {
-                    info!("peering TLS enabled");
-                    Some(Arc::new(tokio_rustls::TlsAcceptor::from(server_config)))
-                }
-                Err(e) => {
-                    eprintln!("error: failed to load peering TLS config: {e}");
-                    std::process::exit(1);
-                }
+    let tls_acceptor: Option<Arc<tokio_rustls::TlsAcceptor>> = if let Some(ref tls_cfg) = config.tls
+    {
+        match usenet_ipfs_tls::load_tls_server_config(&tls_cfg.cert_path, &tls_cfg.key_path) {
+            Ok(server_config) => {
+                info!("peering TLS enabled");
+                Some(Arc::new(tokio_rustls::TlsAcceptor::from(server_config)))
             }
-        } else {
-            None
-        };
+            Err(e) => {
+                eprintln!("error: failed to load peering TLS config: {e}");
+                std::process::exit(1);
+            }
+        }
+    } else {
+        None
+    };
 
     // ── Shared state for peering sessions ─────────────────────────────────────
 

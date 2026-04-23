@@ -12,6 +12,7 @@ fn parse_rfc3339_timestamp(date_str: &str) -> Option<i64> {
 /// An overview record enriched with its CID.
 pub struct EmailOverviewEntry {
     pub cid: Cid,
+    pub message_id: String,
     pub subject: String,
     pub from: String,
     pub date: String,
@@ -26,9 +27,16 @@ pub struct EmailOverviewEntry {
 ///   - `before`: String — RFC 3339 date; include only emails received before
 ///   - `from`: String — substring match in from header
 ///   - `subject`: String — case-insensitive substring match in subject
+///   - `text`: String — full-text search; caller must resolve to message-IDs
+///     and pass them in `text_search_results`
 ///
 /// `entries` is all emails in the target mailbox, pre-fetched by the caller.
 /// The caller is responsible for filtering to the right group.
+///
+/// `text_search_results` is `Some(set)` when the filter contains a `text`
+/// field and the caller has already executed a full-text search.  Only entries
+/// whose `message_id` appears in the set are kept.  `None` means no text
+/// filter is active (all entries pass this check).
 ///
 /// `state` is the current JMAP Email query state string from StateStore.
 ///
@@ -39,6 +47,7 @@ pub fn handle_email_query(
     position: u64,
     limit: Option<u64>,
     state: &str,
+    text_search_results: Option<std::collections::HashSet<String>>,
 ) -> Value {
     let mut filtered: Vec<&EmailOverviewEntry> = entries.iter().collect();
 
@@ -63,6 +72,10 @@ pub fn handle_email_query(
             let lower = subj_filter.to_lowercase();
             filtered.retain(|e| e.subject.to_lowercase().contains(&lower));
         }
+    }
+
+    if let Some(ref id_set) = text_search_results {
+        filtered.retain(|e| id_set.contains(&e.message_id));
     }
 
     // Sort by date descending (newest first) using parsed timestamps.
@@ -105,6 +118,7 @@ mod tests {
         vec![
             EmailOverviewEntry {
                 cid: test_cid(b"article-a"),
+                message_id: "<article-a@example.com>".to_string(),
                 subject: "Rust is great".to_string(),
                 from: "alice@example.com".to_string(),
                 date: "2026-04-01T10:00:00Z".to_string(),
@@ -112,6 +126,7 @@ mod tests {
             },
             EmailOverviewEntry {
                 cid: test_cid(b"article-b"),
+                message_id: "<article-b@example.com>".to_string(),
                 subject: "Testing JMAP".to_string(),
                 from: "bob@example.com".to_string(),
                 date: "2026-04-02T10:00:00Z".to_string(),
@@ -119,6 +134,7 @@ mod tests {
             },
             EmailOverviewEntry {
                 cid: test_cid(b"article-c"),
+                message_id: "<article-c@example.com>".to_string(),
                 subject: "Another Rust post".to_string(),
                 from: "carol@example.com".to_string(),
                 date: "2026-04-03T10:00:00Z".to_string(),
@@ -130,7 +146,7 @@ mod tests {
     #[test]
     fn no_filter_returns_all_sorted_desc() {
         let entries = make_entries();
-        let resp = handle_email_query(&entries, None, 0, None, "0");
+        let resp = handle_email_query(&entries, None, 0, None, "0", None);
         let ids = resp["ids"].as_array().unwrap();
         assert_eq!(ids.len(), 3);
         // Newest first: article-c (2026-04-03) > article-b (2026-04-02) > article-a (2026-04-01)
@@ -142,7 +158,7 @@ mod tests {
     fn filter_by_subject_substring() {
         let entries = make_entries();
         let filter = json!({"subject": "rust"});
-        let resp = handle_email_query(&entries, Some(&filter), 0, None, "0");
+        let resp = handle_email_query(&entries, Some(&filter), 0, None, "0", None);
         let ids = resp["ids"].as_array().unwrap();
         assert_eq!(
             ids.len(),
@@ -155,7 +171,7 @@ mod tests {
     fn filter_by_from() {
         let entries = make_entries();
         let filter = json!({"from": "bob"});
-        let resp = handle_email_query(&entries, Some(&filter), 0, None, "0");
+        let resp = handle_email_query(&entries, Some(&filter), 0, None, "0", None);
         let ids = resp["ids"].as_array().unwrap();
         assert_eq!(ids.len(), 1);
         assert_eq!(ids[0].as_str().unwrap(), test_cid(b"article-b").to_string());
@@ -165,7 +181,7 @@ mod tests {
     fn filter_after_date() {
         let entries = make_entries();
         let filter = json!({"after": "2026-04-01T20:00:00Z"});
-        let resp = handle_email_query(&entries, Some(&filter), 0, None, "0");
+        let resp = handle_email_query(&entries, Some(&filter), 0, None, "0", None);
         let ids = resp["ids"].as_array().unwrap();
         assert_eq!(
             ids.len(),
@@ -178,7 +194,7 @@ mod tests {
     fn filter_before_date() {
         let entries = make_entries();
         let filter = json!({"before": "2026-04-02T20:00:00Z"});
-        let resp = handle_email_query(&entries, Some(&filter), 0, None, "0");
+        let resp = handle_email_query(&entries, Some(&filter), 0, None, "0", None);
         let ids = resp["ids"].as_array().unwrap();
         assert_eq!(
             ids.len(),
@@ -195,6 +211,7 @@ mod tests {
         let entries = vec![
             EmailOverviewEntry {
                 cid: test_cid(b"tz-a"),
+                message_id: "<tz-a@example.com>".to_string(),
                 subject: "TZ test A".to_string(),
                 from: "a@example.com".to_string(),
                 date: "2026-04-01T23:00:00+05:00".to_string(),
@@ -202,13 +219,14 @@ mod tests {
             },
             EmailOverviewEntry {
                 cid: test_cid(b"tz-b"),
+                message_id: "<tz-b@example.com>".to_string(),
                 subject: "TZ test B".to_string(),
                 from: "b@example.com".to_string(),
                 date: "2026-04-01T20:00:00Z".to_string(),
                 byte_count: 200,
             },
         ];
-        let resp = handle_email_query(&entries, None, 0, None, "0");
+        let resp = handle_email_query(&entries, None, 0, None, "0", None);
         let ids = resp["ids"].as_array().unwrap();
         // tz-b (18:00 UTC) is later than tz-a (18:00 UTC)... wait
         // 23:00+05:00 = 23:00 - 5:00 = 18:00 UTC
@@ -224,14 +242,14 @@ mod tests {
     #[test]
     fn state_string_is_passed_through() {
         let entries = make_entries();
-        let resp = handle_email_query(&entries, None, 0, None, "42");
+        let resp = handle_email_query(&entries, None, 0, None, "42", None);
         assert_eq!(resp["queryState"].as_str().unwrap(), "42");
     }
 
     #[test]
     fn pagination_position_and_limit() {
         let entries = make_entries();
-        let resp = handle_email_query(&entries, None, 1, Some(1), "0");
+        let resp = handle_email_query(&entries, None, 1, Some(1), "0", None);
         let ids = resp["ids"].as_array().unwrap();
         assert_eq!(ids.len(), 1, "limit=1 should return exactly 1 item");
         assert_eq!(
@@ -244,9 +262,59 @@ mod tests {
     #[test]
     fn empty_result() {
         let entries: Vec<EmailOverviewEntry> = vec![];
-        let resp = handle_email_query(&entries, None, 0, None, "0");
+        let resp = handle_email_query(&entries, None, 0, None, "0", None);
         let ids = resp["ids"].as_array().unwrap();
         assert!(ids.is_empty());
         assert_eq!(resp["total"].as_u64().unwrap(), 0);
+    }
+
+    #[test]
+    fn text_search_results_filters_by_message_id() {
+        let entries = make_entries();
+        // Simulate: search index returned only article-b's message-id.
+        let matched: std::collections::HashSet<String> =
+            ["<article-b@example.com>".to_string()].into();
+        let resp = handle_email_query(&entries, None, 0, None, "0", Some(matched));
+        let ids = resp["ids"].as_array().unwrap();
+        assert_eq!(
+            ids.len(),
+            1,
+            "only the article matching the text search must be returned"
+        );
+        assert_eq!(ids[0].as_str().unwrap(), test_cid(b"article-b").to_string());
+    }
+
+    #[test]
+    fn text_search_empty_set_returns_no_results() {
+        let entries = make_entries();
+        let matched: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let resp = handle_email_query(&entries, None, 0, None, "0", Some(matched));
+        let ids = resp["ids"].as_array().unwrap();
+        assert!(
+            ids.is_empty(),
+            "empty search result set must produce empty response"
+        );
+        assert_eq!(resp["total"].as_u64().unwrap(), 0);
+    }
+
+    #[test]
+    fn text_search_combined_with_subject_filter() {
+        let entries = make_entries();
+        // Search matched article-a and article-c (both have "Rust" in subject),
+        // but subject filter "great" further restricts to article-a only.
+        let matched: std::collections::HashSet<String> = [
+            "<article-a@example.com>".to_string(),
+            "<article-c@example.com>".to_string(),
+        ]
+        .into();
+        let filter = json!({"subject": "great"});
+        let resp = handle_email_query(&entries, Some(&filter), 0, None, "0", Some(matched));
+        let ids = resp["ids"].as_array().unwrap();
+        assert_eq!(
+            ids.len(),
+            1,
+            "text+subject combined filter must intersect both"
+        );
+        assert_eq!(ids[0].as_str().unwrap(), test_cid(b"article-a").to_string());
     }
 }

@@ -32,8 +32,7 @@ fn dummy_hash() -> &'static str {
 /// matches.
 pub fn verify_bcrypt_sync(hash: Option<&str>, password: &str) -> bool {
     let hash = hash.unwrap_or_else(|| dummy_hash());
-    bcrypt::verify(password, hash).unwrap_or(false)
-        && hash != dummy_hash()
+    bcrypt::verify(password, hash).unwrap_or(false) && hash != dummy_hash()
 }
 
 /// Bcrypt-hashed credential store.

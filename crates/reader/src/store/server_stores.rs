@@ -24,6 +24,7 @@ use usenet_ipfs_core::signing::{generate_signing_key, SigningKey};
 use usenet_ipfs_auth::TrustedIssuerStore;
 
 use crate::post::ipfs_write::{IpfsBlockStore, MemIpfsStore, RustIpfsStore};
+use crate::search::TantivySearchIndex;
 use crate::store::article_numbers::ArticleNumberStore;
 use crate::store::client_cert_store::ClientCertStore;
 use crate::store::credentials::CredentialStore;
@@ -51,6 +52,8 @@ pub struct ServerStores {
     pub clock: Arc<Mutex<HlcClock>>,
     /// Operator signing key — ephemeral in-process key (no PEM file required).
     pub signing_key: Arc<SigningKey>,
+    /// Full-text search index (Tantivy-backed). None when search is disabled.
+    pub search_index: Option<Arc<TantivySearchIndex>>,
 }
 
 impl ServerStores {
@@ -86,6 +89,9 @@ impl ServerStores {
             trusted_issuer_store: Arc::new(trusted_issuer_store),
             clock: Arc::new(Mutex::new(HlcClock::new(node_id, now_ms))),
             signing_key: Arc::new(signing_key),
+            search_index: TantivySearchIndex::open(&config.search)
+                .map_err(|e| format!("search index init failed: {e}"))?
+                .map(Arc::new),
         })
     }
 
@@ -119,6 +125,43 @@ impl ServerStores {
             trusted_issuer_store: Arc::new(TrustedIssuerStore::empty()),
             clock: Arc::new(Mutex::new(HlcClock::new(node_id, now_ms))),
             signing_key: Arc::new(signing_key),
+            search_index: {
+                let cfg = crate::config::SearchConfig::default();
+                Some(Arc::new(
+                    TantivySearchIndex::open_in_memory(&cfg)
+                        .expect("in-memory tantivy index cannot fail"),
+                ))
+            },
+        }
+    }
+
+    /// Identical to `new_mem` but with `search_index: None`, for testing
+    /// the 503 code path when search is disabled.
+    #[cfg(test)]
+    pub async fn new_mem_no_search() -> Self {
+        let reader_pool = make_pool_with_reader_migrations().await;
+        let core_pool = make_pool_with_core_migrations().await;
+
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+
+        let signing_key = generate_signing_key();
+        let node_id = hlc_node_id(&signing_key);
+
+        Self {
+            ipfs_store: Arc::new(MemIpfsStore::new()),
+            msgid_map: Arc::new(MsgIdMap::new(core_pool)),
+            log_storage: Arc::new(MemLogStorage::new()),
+            article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
+            overview_store: Arc::new(OverviewStore::new(reader_pool)),
+            credential_store: Arc::new(CredentialStore::empty()),
+            client_cert_store: Arc::new(ClientCertStore::empty()),
+            trusted_issuer_store: Arc::new(TrustedIssuerStore::empty()),
+            clock: Arc::new(Mutex::new(HlcClock::new(node_id, now_ms))),
+            signing_key: Arc::new(signing_key),
+            search_index: None,
         }
     }
 }

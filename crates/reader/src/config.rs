@@ -15,6 +15,8 @@ pub struct Config {
     pub log: LogConfig,
     #[serde(default)]
     pub operator: OperatorConfig,
+    #[serde(default)]
+    pub search: SearchConfig,
 }
 
 /// Operator identity configuration.
@@ -28,6 +30,47 @@ pub struct OperatorConfig {
     /// cross-verified.  Set this for any production deployment.
     #[serde(default)]
     pub signing_key_path: Option<String>,
+}
+
+/// Full-text search configuration (Tantivy-backed).
+#[derive(Debug, Deserialize, Clone)]
+pub struct SearchConfig {
+    /// Directory where Tantivy index is stored. None = search disabled.
+    pub index_dir: Option<String>,
+    /// Max total index size in bytes before old entries are evicted (soft limit).
+    #[serde(default = "SearchConfig::default_max_index_bytes")]
+    pub max_index_bytes: u64,
+    /// Max bytes of body text indexed per article (truncate beyond this).
+    #[serde(default = "SearchConfig::default_body_index_max_bytes")]
+    pub body_index_max_bytes: usize,
+    /// Max length of a SEARCH query string (bytes) before rejecting with syntax error.
+    #[serde(default = "SearchConfig::default_max_query_len")]
+    pub max_query_len: usize,
+}
+
+impl Default for SearchConfig {
+    fn default() -> Self {
+        Self {
+            index_dir: None,
+            max_index_bytes: Self::default_max_index_bytes(),
+            body_index_max_bytes: Self::default_body_index_max_bytes(),
+            max_query_len: Self::default_max_query_len(),
+        }
+    }
+}
+
+impl SearchConfig {
+    fn default_max_index_bytes() -> u64 {
+        10_737_418_240 // 10 GiB
+    }
+
+    fn default_body_index_max_bytes() -> usize {
+        102_400 // 100 KiB
+    }
+
+    fn default_max_query_len() -> usize {
+        4096
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -482,5 +525,16 @@ required = false
             check_admin_addr(&admin).is_ok(),
             "default config must be Ok"
         );
+    }
+
+    #[test]
+    fn search_config_defaults_to_disabled() {
+        let cfg = SearchConfig::default();
+        assert!(
+            cfg.index_dir.is_none(),
+            "search must be disabled by default"
+        );
+        assert_eq!(cfg.body_index_max_bytes, 102_400);
+        assert_eq!(cfg.max_query_len, 4096);
     }
 }

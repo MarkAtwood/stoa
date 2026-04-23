@@ -99,12 +99,19 @@ mod tests {
         let cid = store.put_raw_block(payload).await.unwrap();
 
         let resp = handle_xget(&cid.to_string(), &store).await;
-        assert_eq!(resp.code, 290, "expected 290, got: {} {}", resp.code, resp.text);
+        assert_eq!(
+            resp.code, 290,
+            "expected 290, got: {} {}",
+            resp.code, resp.text
+        );
         assert!(resp.multiline);
 
         // Confirm mandatory headers are present.
         let body_str = resp.body.join("\r\n");
-        assert!(body_str.contains("MIME-Version: 1.0"), "missing MIME-Version");
+        assert!(
+            body_str.contains("MIME-Version: 1.0"),
+            "missing MIME-Version"
+        );
         assert!(
             body_str.contains("Content-Transfer-Encoding: base64"),
             "missing CTE header"
@@ -126,9 +133,6 @@ mod tests {
         let decoded = base64::engine::general_purpose::STANDARD
             .decode(&b64_str)
             .expect("base64 body must decode cleanly");
-        assert_eq!(
-            decoded, payload,
-            "decoded body must match original payload"
-        );
+        assert_eq!(decoded, payload, "decoded body must match original payload");
     }
 }

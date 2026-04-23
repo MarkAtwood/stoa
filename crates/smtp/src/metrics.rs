@@ -5,27 +5,26 @@
 /// renders text/plain in Prometheus exposition format.
 use std::sync::LazyLock;
 
-use prometheus::{Counter, CounterVec, IntCounter, Opts, register_counter, register_counter_vec, register_int_counter};
+use prometheus::{
+    register_counter, register_counter_vec, register_int_counter, Counter, CounterVec, IntCounter,
+    Opts,
+};
 
 /// Total number of inbound TCP connections accepted.
 pub static SMTP_CONNECTIONS_TOTAL: LazyLock<Counter> = LazyLock::new(|| {
-    register_counter!(
-        Opts::new(
-            "smtp_connections_total",
-            "Total number of inbound SMTP connections accepted"
-        )
-    )
+    register_counter!(Opts::new(
+        "smtp_connections_total",
+        "Total number of inbound SMTP connections accepted"
+    ))
     .expect("failed to register smtp_connections_total")
 });
 
 /// Total number of messages that completed DATA and were accepted (250 OK).
 pub static SMTP_MESSAGES_ACCEPTED_TOTAL: LazyLock<Counter> = LazyLock::new(|| {
-    register_counter!(
-        Opts::new(
-            "smtp_messages_accepted_total",
-            "Total number of messages accepted after DATA"
-        )
-    )
+    register_counter!(Opts::new(
+        "smtp_messages_accepted_total",
+        "Total number of messages accepted after DATA"
+    ))
     .expect("failed to register smtp_messages_accepted_total")
 });
 
@@ -48,12 +47,10 @@ pub static SMTP_MESSAGES_REJECTED_TOTAL: LazyLock<CounterVec> = LazyLock::new(||
 /// Total number of message body bytes accepted (after dot-unstuffing, before
 /// prepending Received: and Authentication-Results: trace headers).
 pub static SMTP_DATA_BYTES_TOTAL: LazyLock<Counter> = LazyLock::new(|| {
-    register_counter!(
-        Opts::new(
-            "smtp_data_bytes_total",
-            "Total bytes of message body accepted through DATA"
-        )
-    )
+    register_counter!(Opts::new(
+        "smtp_data_bytes_total",
+        "Total bytes of message body accepted through DATA"
+    ))
     .expect("failed to register smtp_data_bytes_total")
 });
 

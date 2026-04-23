@@ -40,13 +40,12 @@ pub fn sign_article(key: &SigningKey, article_bytes: &[u8]) -> (Vec<u8>, Vec<u8>
     // before the blank line.  `find_header_boundary` returns the first body byte;
     // the blank line starts 2 bytes earlier for \r\n\r\n and 1 byte earlier for \n\n.
     let out = if let Some(body_start) = find_header_boundary(article_bytes) {
-        let sep_len: usize = if body_start >= 4
-            && article_bytes[body_start - 4..body_start] == *b"\r\n\r\n"
-        {
-            2 // blank line = second \r\n; insert before it
-        } else {
-            1 // blank line = second \n; insert before it
-        };
+        let sep_len: usize =
+            if body_start >= 4 && article_bytes[body_start - 4..body_start] == *b"\r\n\r\n" {
+                2 // blank line = second \r\n; insert before it
+            } else {
+                1 // blank line = second \n; insert before it
+            };
         let insert_at = body_start - sep_len;
         let mut out = Vec::with_capacity(article_bytes.len() + sig_line.len());
         out.extend_from_slice(&article_bytes[..insert_at]);

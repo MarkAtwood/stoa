@@ -264,6 +264,7 @@ async fn transit_reader_shared_store() {
         signing_key: Arc::new(usenet_ipfs_core::signing::SigningKey::from_bytes(
             &[0x42u8; 32],
         )),
+        search_index: None,
     });
 
     // ── Transit stores ────────────────────────────────────────────────────────

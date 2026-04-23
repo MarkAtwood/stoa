@@ -5,8 +5,8 @@
 //! can be called at startup to validate the paths before the server accepts
 //! connections.
 
-pub use usenet_ipfs_tls::TlsError;
 use usenet_ipfs_tls::load_tls_server_config;
+pub use usenet_ipfs_tls::TlsError;
 
 use rustls::ServerConfig;
 use std::sync::Arc;

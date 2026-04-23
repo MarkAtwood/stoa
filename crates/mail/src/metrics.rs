@@ -68,9 +68,7 @@ mod tests {
 
     #[test]
     fn counter_increments() {
-        JMAP_REQUESTS_TOTAL
-            .with_label_values(&["Email/get"])
-            .inc();
+        JMAP_REQUESTS_TOTAL.with_label_values(&["Email/get"]).inc();
         let output = String::from_utf8(gather_metrics()).unwrap();
         assert!(
             output.contains("jmap_requests_total"),

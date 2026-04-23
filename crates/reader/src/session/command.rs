@@ -27,6 +27,33 @@ pub enum ListSubcommand {
     OverviewFmt,
 }
 
+/// Key specifying what field to search in an NNTP SEARCH command.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SearchKey {
+    Subject,
+    From,
+    Body,
+    Text,
+    Since,
+    Before,
+}
+
+impl std::str::FromStr for SearchKey {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_uppercase().as_str() {
+            "SUBJECT" => Ok(Self::Subject),
+            "FROM" => Ok(Self::From),
+            "BODY" => Ok(Self::Body),
+            "TEXT" => Ok(Self::Text),
+            "SINCE" => Ok(Self::Since),
+            "BEFORE" => Ok(Self::Before),
+            _ => Err(()),
+        }
+    }
+}
+
 /// All RFC 3977 commands (plus standard additive extensions).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Command {
@@ -80,6 +107,12 @@ pub enum Command {
     Hdr {
         field: String,
         range_or_msgid: Option<String>,
+    },
+    /// `SEARCH <key> <value>` — non-standard full-text search extension.
+    /// Advertised in CAPABILITIES as "SEARCH". Requires GROUP context.
+    Search {
+        key: SearchKey,
+        value: String,
     },
     /// Any unrecognized command, stored verbatim for logging/500 response.
     Unknown(String),
@@ -192,6 +225,29 @@ pub fn parse_command(line: &str) -> Result<Command, ParseError> {
         "BODY" => Ok(Command::Body(parse_article_ref(rest))),
         "STAT" => Ok(Command::Stat(parse_article_ref(rest))),
 
+        "SEARCH" => {
+            // Split on first whitespace: "SUBJECT foo bar" → key="SUBJECT", value="foo bar"
+            let (key_str, value_str) = rest
+                .split_once(|c: char| c.is_ascii_whitespace())
+                .map(|(k, v)| (k.trim(), v.trim()))
+                .unwrap_or((rest.trim(), ""));
+
+            let key = key_str
+                .parse::<SearchKey>()
+                .map_err(|_| ParseError::Unknown(format!("unknown search key: {key_str}")))?;
+
+            if value_str.is_empty() {
+                return Err(ParseError::Unknown(
+                    "SEARCH requires a value argument".to_owned(),
+                ));
+            }
+
+            Ok(Command::Search {
+                key,
+                value: value_str.to_owned(),
+            })
+        }
+
         "XCID" => {
             let arg = if rest.is_empty() {
                 None
@@ -219,8 +275,14 @@ pub fn parse_command(line: &str) -> Result<Command, ParseError> {
         "HDR" => {
             let mut toks = rest.splitn(2, char::is_whitespace);
             let field = toks.next().unwrap_or("").to_string();
-            let range_or_msgid = toks.next().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
-            Ok(Command::Hdr { field, range_or_msgid })
+            let range_or_msgid = toks
+                .next()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty());
+            Ok(Command::Hdr {
+                field,
+                range_or_msgid,
+            })
         }
 
         "OVER" | "XOVER" => {
@@ -672,5 +734,51 @@ mod tests {
     #[test]
     fn no_crlf_accepted() {
         assert_eq!(parse_command("QUIT"), Ok(Command::Quit));
+    }
+}
+
+#[cfg(test)]
+mod search_key_tests {
+    use super::*;
+
+    #[test]
+    fn parse_search_subject() {
+        let cmd = parse_command("SEARCH SUBJECT rust programming").unwrap();
+        assert!(matches!(
+            cmd,
+            Command::Search {
+                key: SearchKey::Subject,
+                ref value
+            } if value == "rust programming"
+        ));
+    }
+
+    #[test]
+    fn parse_search_body_single_word() {
+        let cmd = parse_command("SEARCH BODY hello").unwrap();
+        assert!(matches!(
+            cmd,
+            Command::Search {
+                key: SearchKey::Body,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn parse_search_unknown_key_returns_error() {
+        assert!(parse_command("SEARCH BADKEY value").is_err());
+    }
+
+    #[test]
+    fn parse_search_missing_value_returns_error() {
+        assert!(parse_command("SEARCH BODY").is_err());
+    }
+
+    #[test]
+    fn search_key_case_insensitive() {
+        assert_eq!("subject".parse::<SearchKey>(), Ok(SearchKey::Subject));
+        assert_eq!("BODY".parse::<SearchKey>(), Ok(SearchKey::Body));
+        assert_eq!("BADKEY".parse::<SearchKey>(), Err(()));
     }
 }

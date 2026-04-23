@@ -114,13 +114,12 @@ pub fn complete_post(
     // Accept both \r\n\r\n and \n\n as the separator.
     let header_bytes = if let Some(body_start) = find_header_boundary(article_bytes) {
         // Exclude the separator itself: 4 bytes for \r\n\r\n, 2 for \n\n.
-        let sep_len = if body_start >= 4
-            && article_bytes[body_start - 4..body_start] == *b"\r\n\r\n"
-        {
-            4
-        } else {
-            2
-        };
+        let sep_len =
+            if body_start >= 4 && article_bytes[body_start - 4..body_start] == *b"\r\n\r\n" {
+                4
+            } else {
+                2
+            };
         &article_bytes[..body_start - sep_len]
     } else {
         // No blank line found — treat the whole thing as headers.

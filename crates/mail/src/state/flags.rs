@@ -87,8 +87,7 @@ impl UserFlagsStore {
         let rows: Vec<Vec<u8>> = query.fetch_all(&self.pool).await?;
         rows.into_iter()
             .map(|bytes| {
-                Cid::try_from(bytes.as_slice())
-                    .map_err(|e| sqlx::Error::Decode(Box::new(e)))
+                Cid::try_from(bytes.as_slice()).map_err(|e| sqlx::Error::Decode(Box::new(e)))
             })
             .collect()
     }
@@ -100,8 +99,8 @@ mod tests {
     use cid::Cid;
     use multihash_codetable::{Code, MultihashDigest};
     use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::str::FromStr as _;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
 
@@ -120,7 +119,9 @@ mod tests {
             .connect_with(opts)
             .await
             .expect("pool");
-        crate::migrations::run_migrations(&pool).await.expect("migrations");
+        crate::migrations::run_migrations(&pool)
+            .await
+            .expect("migrations");
         sqlx::query("INSERT INTO users (id, username, password_hash) VALUES (1, 'alice', 'x')")
             .execute(&pool)
             .await
@@ -164,7 +165,10 @@ mod tests {
         let c2 = test_cid(b"unseen-article");
         store.set_flags(1, &c1, true, false).await.unwrap();
         store.set_flags(1, &c2, false, false).await.unwrap();
-        let seen_cids = store.list_cids_with_flag(1, Some(true), None).await.unwrap();
+        let seen_cids = store
+            .list_cids_with_flag(1, Some(true), None)
+            .await
+            .unwrap();
         assert_eq!(seen_cids.len(), 1);
         assert_eq!(seen_cids[0], c1);
     }

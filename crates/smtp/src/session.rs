@@ -95,9 +95,18 @@ where
 #[derive(Debug)]
 enum SessionState {
     Fresh,
-    Greeted { ehlo_domain: String },
-    Mail { ehlo_domain: String, from: String },
-    Rcpt { ehlo_domain: String, from: String, to: Vec<String> },
+    Greeted {
+        ehlo_domain: String,
+    },
+    Mail {
+        ehlo_domain: String,
+        from: String,
+    },
+    Rcpt {
+        ehlo_domain: String,
+        from: String,
+        to: Vec<String>,
+    },
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -141,10 +150,7 @@ pub async fn run_session<S>(
     let (read_half, mut write_half) = tokio::io::split(stream);
     let mut reader = BufReader::new(read_half);
 
-    let greeting = format!(
-        "220 {} ESMTP usenet-ipfs-smtp\r\n",
-        config.hostname
-    );
+    let greeting = format!("220 {} ESMTP usenet-ipfs-smtp\r\n", config.hostname);
     if write_half.write_all(greeting.as_bytes()).await.is_err() {
         return;
     }
@@ -204,8 +210,11 @@ pub async fn run_session<S>(
                 // AUTH PLAIN is advertised only on SMTPS (is_tls=true) to
                 // prevent credentials from being sent over a cleartext
                 // connection.
-                let auth_line =
-                    if is_tls && !credential_store.is_empty() { "250-AUTH PLAIN\r\n" } else { "" };
+                let auth_line = if is_tls && !credential_store.is_empty() {
+                    "250-AUTH PLAIN\r\n"
+                } else {
+                    ""
+                };
                 let resp = format!(
                     "250-{}\r\n250-SIZE {}\r\n250-8BITMIME\r\n250-SMTPUTF8\r\n250-PIPELINING\r\n{}250 OK\r\n",
                     config.hostname, config.limits.max_message_bytes, auth_line
@@ -213,7 +222,9 @@ pub async fn run_session<S>(
                 if write_half.write_all(resp.as_bytes()).await.is_err() {
                     break;
                 }
-                state = SessionState::Greeted { ehlo_domain: args.to_string() };
+                state = SessionState::Greeted {
+                    ehlo_domain: args.to_string(),
+                };
             }
 
             "HELO" => {
@@ -221,7 +232,9 @@ pub async fn run_session<S>(
                 if write_half.write_all(resp.as_bytes()).await.is_err() {
                     break;
                 }
-                state = SessionState::Greeted { ehlo_domain: args.to_string() };
+                state = SessionState::Greeted {
+                    ehlo_domain: args.to_string(),
+                };
             }
 
             "AUTH" => {
@@ -252,9 +265,7 @@ pub async fn run_session<S>(
                 }
                 // Only SASL PLAIN is supported.
                 let mechanism_upper = args.to_ascii_uppercase();
-                if mechanism_upper == "PLAIN"
-                    || mechanism_upper.starts_with("PLAIN ")
-                {
+                if mechanism_upper == "PLAIN" || mechanism_upper.starts_with("PLAIN ") {
                     let initial_response = if args.len() > 5 { args[5..].trim() } else { "" };
                     let b64 = if initial_response.is_empty() {
                         // Two-step: send empty challenge, read response.
@@ -271,9 +282,7 @@ pub async fn run_session<S>(
                             CmdLine::Line(s) => s.trim_end_matches(['\r', '\n']).to_string(),
                             _ => {
                                 let _ = write_half
-                                    .write_all(
-                                        b"535 5.7.8 Authentication credentials invalid\r\n",
-                                    )
+                                    .write_all(b"535 5.7.8 Authentication credentials invalid\r\n")
                                     .await;
                                 break;
                             }
@@ -296,9 +305,7 @@ pub async fn run_session<S>(
                         None => {
                             warn!(peer = %peer_addr, "AUTH PLAIN failed");
                             if write_half
-                                .write_all(
-                                    b"535 5.7.8 Authentication credentials invalid\r\n",
-                                )
+                                .write_all(b"535 5.7.8 Authentication credentials invalid\r\n")
                                 .await
                                 .is_err()
                             {
@@ -361,7 +368,10 @@ pub async fn run_session<S>(
                 }
 
                 match state {
-                    SessionState::Mail { ref ehlo_domain, ref from } => {
+                    SessionState::Mail {
+                        ref ehlo_domain,
+                        ref from,
+                    } => {
                         let ehlo_domain = ehlo_domain.clone();
                         let from_clone = from.clone();
                         if write_half.write_all(b"250 OK\r\n").await.is_err() {
@@ -404,9 +414,11 @@ pub async fn run_session<S>(
             "DATA" => {
                 // Must be in Rcpt state with at least one recipient.
                 let (ehlo_domain, from, to) = match state {
-                    SessionState::Rcpt { ref ehlo_domain, ref from, ref to } if !to.is_empty() => {
-                        (ehlo_domain.clone(), from.clone(), to.clone())
-                    }
+                    SessionState::Rcpt {
+                        ref ehlo_domain,
+                        ref from,
+                        ref to,
+                    } if !to.is_empty() => (ehlo_domain.clone(), from.clone(), to.clone()),
                     _ => {
                         if write_half
                             .write_all(b"503 Bad sequence of commands\r\n")
@@ -484,9 +496,7 @@ pub async fn run_session<S>(
                             .with_label_values(&["policy"])
                             .inc();
                         if write_half
-                            .write_all(
-                                b"550 5.7.1 Message rejected due to DMARC policy\r\n",
-                            )
+                            .write_all(b"550 5.7.1 Message rejected due to DMARC policy\r\n")
                             .await
                             .is_err()
                         {
@@ -570,7 +580,9 @@ pub async fn run_session<S>(
                             .take(200)
                             .collect();
                         warn!(peer = %peer_addr, from = %from, %safe, "Sieve reject");
-                        SMTP_MESSAGES_REJECTED_TOTAL.with_label_values(&["policy"]).inc();
+                        SMTP_MESSAGES_REJECTED_TOTAL
+                            .with_label_values(&["policy"])
+                            .inc();
                         if write_half
                             .write_all(b"550 Message rejected by recipient policy\r\n")
                             .await
@@ -849,7 +861,10 @@ async fn sieve_for_user(
             Ok(compiled) => {
                 let compiled = Arc::new(compiled);
                 if let Some(cache) = cache {
-                    cache.lock().await.insert(username.to_owned(), Arc::clone(&compiled));
+                    cache
+                        .lock()
+                        .await
+                        .insert(username.to_owned(), Arc::clone(&compiled));
                 }
                 usenet_ipfs_sieve::evaluate(&compiled, raw_message, envelope_from, envelope_to)
             }
@@ -1019,7 +1034,10 @@ mod tests {
                 port_587: "127.0.0.1:0".to_string(),
                 smtps_addr: None,
             },
-            tls: TlsConfig { cert_path: None, key_path: None },
+            tls: TlsConfig {
+                cert_path: None,
+                key_path: None,
+            },
             limits: LimitsConfig {
                 max_message_bytes: 1_048_576,
                 max_recipients: 10,
@@ -1027,7 +1045,10 @@ mod tests {
                 max_connections: 10,
                 sieve_eval_timeout_ms: 5_000,
             },
-            log: LogConfig { level: "info".to_string(), format: "json".to_string() },
+            log: LogConfig {
+                level: "info".to_string(),
+                format: "json".to_string(),
+            },
             reader: ReaderConfig::default(),
             delivery: crate::config::DeliveryConfig::default(),
             users,
@@ -1039,7 +1060,9 @@ mod tests {
     }
 
     async fn open_test_db() -> SqlitePool {
-        crate::store::open(":memory:").await.expect("open in-memory DB")
+        crate::store::open(":memory:")
+            .await
+            .expect("open in-memory DB")
     }
 
     /// Drive a session with the given config and optional pool.
@@ -1083,7 +1106,10 @@ mod tests {
         client.shutdown().await.expect("shutdown");
 
         let mut response = String::new();
-        client.read_to_string(&mut response).await.expect("read response");
+        client
+            .read_to_string(&mut response)
+            .await
+            .expect("read response");
         server_task.await.expect("server task");
 
         (response, queue_dir)
@@ -1119,7 +1145,10 @@ mod tests {
 
         let (response, _queue_dir) = drive_session(client).await;
 
-        assert!(response.starts_with("220 "), "expected greeting, got: {response}");
+        assert!(
+            response.starts_with("220 "),
+            "expected greeting, got: {response}"
+        );
         assert!(response.contains("250"), "expected 250 after EHLO");
         assert!(response.contains("354"), "expected 354 DATA prompt");
         assert!(response.contains("250 OK"), "expected 250 after DATA");
@@ -1154,7 +1183,10 @@ mod tests {
             response.starts_with("220 "),
             "expected greeting, got: {response}"
         );
-        assert!(response.contains("221 Bye"), "expected 221 Bye, got: {response}");
+        assert!(
+            response.contains("221 Bye"),
+            "expected 221 Bye, got: {response}"
+        );
     }
 
     #[tokio::test]
@@ -1257,7 +1289,8 @@ mod tests {
 
         assert!(response.contains("250 OK"), "expected 250 after DATA");
 
-        let raw_bytes = crate::store::get_first_message_raw(&pool, "rcpt", "INBOX").await
+        let raw_bytes = crate::store::get_first_message_raw(&pool, "rcpt", "INBOX")
+            .await
             .expect("message must be in INBOX");
         let raw = std::str::from_utf8(&raw_bytes).expect("valid UTF-8");
         assert!(
@@ -1323,7 +1356,10 @@ mod tests {
         let pool_clone = pool.clone();
         let (response, _) = drive_session_ext(FULL_MSG, config, Some(pool_clone)).await;
 
-        assert!(response.contains("250 OK"), "expected 250 OK, got: {response}");
+        assert!(
+            response.contains("250 OK"),
+            "expected 250 OK, got: {response}"
+        );
         let count = crate::store::count_messages(&pool, "alice", "INBOX").await;
         assert_eq!(count, 1, "expected 1 message in INBOX");
     }
@@ -1345,7 +1381,10 @@ mod tests {
         let pool_clone = pool.clone();
         let (response, _) = drive_session_ext(FULL_MSG, config, Some(pool_clone)).await;
 
-        assert!(response.contains("250 OK"), "expected 250 OK, got: {response}");
+        assert!(
+            response.contains("250 OK"),
+            "expected 250 OK, got: {response}"
+        );
         let count_work = crate::store::count_messages(&pool, "alice", "Work").await;
         let count_inbox = crate::store::count_messages(&pool, "alice", "INBOX").await;
         assert_eq!(count_work, 1, "expected 1 message in Work");
@@ -1363,7 +1402,10 @@ mod tests {
         let pool_clone = pool.clone();
         let (response, _) = drive_session_ext(FULL_MSG, config, Some(pool_clone)).await;
 
-        assert!(response.contains("250 OK"), "expected 250 OK (discard still accepts), got: {response}");
+        assert!(
+            response.contains("250 OK"),
+            "expected 250 OK (discard still accepts), got: {response}"
+        );
         let count = crate::store::count_messages(&pool, "alice", "INBOX").await;
         assert_eq!(count, 0, "expected 0 messages — message was discarded");
     }
@@ -1409,8 +1451,15 @@ mod tests {
         let pool_clone = pool.clone();
         let (response, queue_dir) = drive_session_ext(FULL_MSG, config, Some(pool_clone)).await;
 
-        assert!(response.contains("250 OK"), "expected 250 OK, got: {response}");
-        assert_eq!(count_queued(&queue_dir), 1, "expected 1 article in NNTP queue");
+        assert!(
+            response.contains("250 OK"),
+            "expected 250 OK, got: {response}"
+        );
+        assert_eq!(
+            count_queued(&queue_dir),
+            1,
+            "expected 1 article in NNTP queue"
+        );
 
         // The queued file should contain the Newsgroups: header.
         let files: Vec<_> = std::fs::read_dir(queue_dir.path())
@@ -1420,7 +1469,10 @@ mod tests {
             .collect();
         let bytes = std::fs::read(files[0].path()).expect("read queue file");
         let text = std::str::from_utf8(&bytes).expect("valid UTF-8");
-        assert!(text.contains("Newsgroups: comp.test"), "queued article must have Newsgroups header");
+        assert!(
+            text.contains("Newsgroups: comp.test"),
+            "queued article must have Newsgroups header"
+        );
 
         // Nothing in INBOX.
         let count = crate::store::count_messages(&pool, "alice", "INBOX").await;
@@ -1457,8 +1509,15 @@ mod tests {
         let config = test_config_with_users(vec![alice()]);
         let (response, queue_dir) = drive_session_ext(msg_with_ng, config, Some(pool)).await;
 
-        assert!(response.contains("250 OK"), "expected 250 OK, got: {response}");
-        assert_eq!(count_queued(&queue_dir), 1, "expected 1 article in NNTP queue");
+        assert!(
+            response.contains("250 OK"),
+            "expected 250 OK, got: {response}"
+        );
+        assert_eq!(
+            count_queued(&queue_dir),
+            1,
+            "expected 1 article in NNTP queue"
+        );
 
         let files: Vec<_> = std::fs::read_dir(queue_dir.path())
             .expect("read_dir")
@@ -1469,7 +1528,10 @@ mod tests {
         let text = std::str::from_utf8(&bytes).expect("valid UTF-8");
 
         // Original Newsgroups: must be present.
-        assert!(text.contains("Newsgroups: alt.test"), "original Newsgroups header must be preserved");
+        assert!(
+            text.contains("Newsgroups: alt.test"),
+            "original Newsgroups header must be preserved"
+        );
         // Must not have a duplicate.
         assert_eq!(
             text.matches("Newsgroups:").count(),
@@ -1502,7 +1564,10 @@ mod tests {
             QUIT\r\n";
 
         let (response, _queue_dir) = drive_session_ext(client, config, Some(pool.clone())).await;
-        assert!(response.contains("250 OK"), "expected 250 after DATA: {response}");
+        assert!(
+            response.contains("250 OK"),
+            "expected 250 after DATA: {response}"
+        );
 
         let raw_bytes = crate::store::get_first_message_raw(&pool, "rcpt", "INBOX")
             .await
@@ -1533,7 +1598,10 @@ mod tests {
     #[test]
     fn parse_angle_addr_with_size_param() {
         // Modern MTAs send SIZE on MAIL FROM; the address must not include it.
-        assert_eq!(parse_angle_addr("FROM:<foo@bar.com> SIZE=12345"), "foo@bar.com");
+        assert_eq!(
+            parse_angle_addr("FROM:<foo@bar.com> SIZE=12345"),
+            "foo@bar.com"
+        );
     }
 
     #[test]
@@ -1578,9 +1646,13 @@ mod tests {
             QUIT\r\n";
 
         let (response, _queue_dir) = drive_session_ext(client, config, Some(pool.clone())).await;
-        assert!(response.contains("250 OK"), "expected 250 after DATA: {response}");
+        assert!(
+            response.contains("250 OK"),
+            "expected 250 after DATA: {response}"
+        );
 
-        let envelope_from = crate::store::get_first_envelope_from(&pool, "rcpt", "INBOX").await
+        let envelope_from = crate::store::get_first_envelope_from(&pool, "rcpt", "INBOX")
+            .await
             .expect("message must be in INBOX");
         assert_eq!(
             envelope_from, "sender@example.com",
@@ -1613,7 +1685,10 @@ mod tests {
                 max_connections: 10,
                 sieve_eval_timeout_ms: 5_000,
             },
-            log: LogConfig { level: "info".to_string(), format: "json".to_string() },
+            log: LogConfig {
+                level: "info".to_string(),
+                format: "json".to_string(),
+            },
             reader: ReaderConfig::default(),
             delivery: crate::config::DeliveryConfig::default(),
             users: vec![],
@@ -1630,7 +1705,10 @@ mod tests {
             !response.contains("STARTTLS"),
             "STARTTLS must not appear in EHLO until implemented: {response}"
         );
-        assert!(response.contains("250"), "expected 250 EHLO response: {response}");
+        assert!(
+            response.contains("250"),
+            "expected 250 EHLO response: {response}"
+        );
     }
 
     // ── ryw.1 + ryw.4: timeout test ──────────────────────────────────────────
@@ -1647,7 +1725,10 @@ mod tests {
                 port_587: "127.0.0.1:0".to_string(),
                 smtps_addr: None,
             },
-            tls: TlsConfig { cert_path: None, key_path: None },
+            tls: TlsConfig {
+                cert_path: None,
+                key_path: None,
+            },
             limits: LimitsConfig {
                 max_message_bytes: 1_048_576,
                 max_recipients: 10,
@@ -1655,7 +1736,10 @@ mod tests {
                 max_connections: 10,
                 sieve_eval_timeout_ms: 5_000,
             },
-            log: LogConfig { level: "info".to_string(), format: "json".to_string() },
+            log: LogConfig {
+                level: "info".to_string(),
+                format: "json".to_string(),
+            },
             reader: ReaderConfig::default(),
             delivery: crate::config::DeliveryConfig::default(),
             users: vec![],
@@ -1719,10 +1803,20 @@ mod tests {
     #[tokio::test]
     async fn sieve_for_user_populates_cache_on_first_call() {
         let pool = crate::store::open(":memory:").await.unwrap();
-        crate::store::save_script(&pool, "alice", "default", b"keep;", true).await.unwrap();
+        crate::store::save_script(&pool, "alice", "default", b"keep;", true)
+            .await
+            .unwrap();
 
         let cache = new_sieve_cache();
-        sieve_for_user(&pool, "alice", MINIMAL_MESSAGE, "a@example.com", "b@example.com", Some(&cache)).await;
+        sieve_for_user(
+            &pool,
+            "alice",
+            MINIMAL_MESSAGE,
+            "a@example.com",
+            "b@example.com",
+            Some(&cache),
+        )
+        .await;
 
         assert!(
             cache.lock().await.contains_key("alice"),
@@ -1733,21 +1827,45 @@ mod tests {
     #[tokio::test]
     async fn sieve_for_user_uses_cached_script_after_db_removal() {
         let pool = crate::store::open(":memory:").await.unwrap();
-        crate::store::save_script(&pool, "alice", "default", b"discard;", true).await.unwrap();
+        crate::store::save_script(&pool, "alice", "default", b"discard;", true)
+            .await
+            .unwrap();
 
         let cache = new_sieve_cache();
         // First call: DB load, cache populated, script is Discard.
-        let actions = sieve_for_user(&pool, "alice", MINIMAL_MESSAGE, "a@example.com", "b@example.com", Some(&cache)).await;
+        let actions = sieve_for_user(
+            &pool,
+            "alice",
+            MINIMAL_MESSAGE,
+            "a@example.com",
+            "b@example.com",
+            Some(&cache),
+        )
+        .await;
         assert!(
-            actions.iter().any(|a| *a == usenet_ipfs_sieve::SieveAction::Discard),
+            actions
+                .iter()
+                .any(|a| *a == usenet_ipfs_sieve::SieveAction::Discard),
             "expected Discard from compiled script"
         );
 
         // Remove from DB — subsequent call must use the cache, still Discard.
-        crate::store::delete_script(&pool, "alice", "default").await.unwrap();
-        let actions2 = sieve_for_user(&pool, "alice", MINIMAL_MESSAGE, "a@example.com", "b@example.com", Some(&cache)).await;
+        crate::store::delete_script(&pool, "alice", "default")
+            .await
+            .unwrap();
+        let actions2 = sieve_for_user(
+            &pool,
+            "alice",
+            MINIMAL_MESSAGE,
+            "a@example.com",
+            "b@example.com",
+            Some(&cache),
+        )
+        .await;
         assert!(
-            actions2.iter().any(|a| *a == usenet_ipfs_sieve::SieveAction::Discard),
+            actions2
+                .iter()
+                .any(|a| *a == usenet_ipfs_sieve::SieveAction::Discard),
             "expected Discard from cache even after DB removal"
         );
     }
@@ -1755,7 +1873,15 @@ mod tests {
     #[tokio::test]
     async fn sieve_for_user_no_cache_falls_back_to_keep_when_no_script() {
         let pool = crate::store::open(":memory:").await.unwrap();
-        let actions = sieve_for_user(&pool, "nobody", MINIMAL_MESSAGE, "a@example.com", "b@example.com", None).await;
+        let actions = sieve_for_user(
+            &pool,
+            "nobody",
+            MINIMAL_MESSAGE,
+            "a@example.com",
+            "b@example.com",
+            None,
+        )
+        .await;
         assert_eq!(actions, vec![usenet_ipfs_sieve::SieveAction::Keep]);
     }
 }

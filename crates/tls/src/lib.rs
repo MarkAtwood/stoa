@@ -76,8 +76,7 @@ pub fn load_tls_server_config(
 pub fn load_cert_chain(
     cert_path: &str,
 ) -> Result<Vec<rustls::pki_types::CertificateDer<'static>>, TlsError> {
-    let file = File::open(cert_path)
-        .map_err(|e| TlsError::CertLoad(cert_path.to_string(), e))?;
+    let file = File::open(cert_path).map_err(|e| TlsError::CertLoad(cert_path.to_string(), e))?;
     certs(&mut BufReader::new(file))
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| TlsError::CertLoad(cert_path.to_string(), e))
@@ -89,8 +88,7 @@ pub fn load_cert_chain(
 pub fn load_private_key(
     key_path: &str,
 ) -> Result<rustls::pki_types::PrivateKeyDer<'static>, TlsError> {
-    let file = File::open(key_path)
-        .map_err(|e| TlsError::KeyLoad(key_path.to_string(), e))?;
+    let file = File::open(key_path).map_err(|e| TlsError::KeyLoad(key_path.to_string(), e))?;
     private_key(&mut BufReader::new(file))
         .map_err(|e| TlsError::KeyLoad(key_path.to_string(), e))?
         .ok_or_else(|| {

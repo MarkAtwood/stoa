@@ -428,8 +428,7 @@ mod tests {
 
     #[test]
     fn path_header_absent_gets_inserted() {
-        let article =
-            b"From: sender@example.com\r\nMessage-ID: <x@y>\r\n\r\nBody.\r\n";
+        let article = b"From: sender@example.com\r\nMessage-ID: <x@y>\r\n\r\nBody.\r\n";
         let result = prepend_path_header(article.to_vec(), "local.hostname");
         let text = String::from_utf8(result).unwrap();
         assert!(
@@ -461,5 +460,4 @@ mod tests {
             "multi-hop chain must be built correctly: {text:?}"
         );
     }
-
 }

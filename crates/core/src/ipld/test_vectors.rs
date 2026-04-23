@@ -160,8 +160,8 @@ mod tests {
             decoded.schema_version, 1,
             "schema_version must be 1 after decode"
         );
-        let expected_header_cid = Cid::from_str(TV1_EXPECTED_HEADER_CID)
-            .expect("TV1 header CID constant must parse");
+        let expected_header_cid =
+            Cid::from_str(TV1_EXPECTED_HEADER_CID).expect("TV1 header CID constant must parse");
         assert_eq!(
             decoded.header_cid, expected_header_cid,
             "decoded header_cid must match SHA-256 oracle"
@@ -355,8 +355,8 @@ mod tests {
                 .expect("TV2 root block bytes must deserialize");
 
         assert_eq!(decoded.schema_version, 1, "TV2 schema_version must be 1");
-        let expected_header_cid = Cid::from_str(TV2_EXPECTED_HEADER_CID)
-            .expect("TV2 header CID constant must parse");
+        let expected_header_cid =
+            Cid::from_str(TV2_EXPECTED_HEADER_CID).expect("TV2 header CID constant must parse");
         assert_eq!(
             decoded.header_cid, expected_header_cid,
             "TV2 decoded header_cid must match SHA-256 oracle"
@@ -584,8 +584,8 @@ mod tests {
                 .expect("TV3 root block bytes must deserialize");
 
         assert_eq!(decoded.schema_version, 1, "TV3 schema_version must be 1");
-        let expected_header_cid = Cid::from_str(TV3_EXPECTED_HEADER_CID)
-            .expect("TV3 header CID constant must parse");
+        let expected_header_cid =
+            Cid::from_str(TV3_EXPECTED_HEADER_CID).expect("TV3 header CID constant must parse");
         assert_eq!(
             decoded.header_cid, expected_header_cid,
             "TV3 decoded header_cid must match SHA-256 oracle"
@@ -785,8 +785,8 @@ mod tests {
                 .expect("TV4 root block bytes must deserialize");
 
         assert_eq!(decoded.schema_version, 1, "TV4 schema_version must be 1");
-        let expected_header_cid = Cid::from_str(TV4_EXPECTED_HEADER_CID)
-            .expect("TV4 header CID constant must parse");
+        let expected_header_cid =
+            Cid::from_str(TV4_EXPECTED_HEADER_CID).expect("TV4 header CID constant must parse");
         assert_eq!(
             decoded.header_cid, expected_header_cid,
             "TV4 decoded header_cid must match SHA-256 oracle"

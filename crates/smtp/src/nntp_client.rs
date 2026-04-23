@@ -87,10 +87,7 @@ async fn do_post(
             .await
             .map_err(|e| format!("failed to read AUTHINFO USER response: {e}"))?;
         if !line.starts_with("381") {
-            return Err(format!(
-                "AUTHINFO USER failed: {}",
-                line.trim_end()
-            ));
+            return Err(format!("AUTHINFO USER failed: {}", line.trim_end()));
         }
         line.clear();
 
@@ -104,10 +101,7 @@ async fn do_post(
             .await
             .map_err(|e| format!("failed to read AUTHINFO PASS response: {e}"))?;
         if !line.starts_with("281") {
-            return Err(format!(
-                "AUTHINFO PASS failed: {}",
-                line.trim_end()
-            ));
+            return Err(format!("AUTHINFO PASS failed: {}", line.trim_end()));
         }
         line.clear();
     }
@@ -159,7 +153,10 @@ async fn do_post(
         if code == "240" || code == "250" {
             break;
         } else if code == "437" {
-            return Err(format!("NNTP 437: article permanently rejected: {}", line.trim_end()));
+            return Err(format!(
+                "NNTP 437: article permanently rejected: {}",
+                line.trim_end()
+            ));
         } else if code == "436" {
             attempt += 1;
             if attempt >= config.max_retries {
@@ -520,17 +517,29 @@ mod tests {
             line.clear();
             reader.read_line(&mut line).await.expect("read POST 1");
             assert_eq!(line.trim_end(), "POST");
-            writer.write_all(b"340 Send article\r\n").await.expect("write 340");
+            writer
+                .write_all(b"340 Send article\r\n")
+                .await
+                .expect("write 340");
             read_until_eoa(&mut reader).await;
-            writer.write_all(b"436 Try again later\r\n").await.expect("write 436");
+            writer
+                .write_all(b"436 Try again later\r\n")
+                .await
+                .expect("write 436");
 
             // Attempt 2: 240
             line.clear();
             reader.read_line(&mut line).await.expect("read POST 2");
             assert_eq!(line.trim_end(), "POST");
-            writer.write_all(b"340 Send article\r\n").await.expect("write 340");
+            writer
+                .write_all(b"340 Send article\r\n")
+                .await
+                .expect("write 340");
             read_until_eoa(&mut reader).await;
-            writer.write_all(b"240 Article received ok\r\n").await.expect("write 240");
+            writer
+                .write_all(b"240 Article received ok\r\n")
+                .await
+                .expect("write 240");
 
             // ARTICLE verify
             line.clear();
@@ -577,9 +586,15 @@ mod tests {
                 line.clear();
                 reader.read_line(&mut line).await.expect("read POST");
                 assert_eq!(line.trim_end(), "POST");
-                writer.write_all(b"340 Send article\r\n").await.expect("write 340");
+                writer
+                    .write_all(b"340 Send article\r\n")
+                    .await
+                    .expect("write 340");
                 read_until_eoa(&mut reader).await;
-                writer.write_all(b"436 Deferred\r\n").await.expect("write 436");
+                writer
+                    .write_all(b"436 Deferred\r\n")
+                    .await
+                    .expect("write 436");
             }
         });
 
@@ -615,23 +630,41 @@ mod tests {
                 .expect("write greeting");
 
             // AUTHINFO USER
-            reader.read_line(&mut line).await.expect("read authinfo user");
+            reader
+                .read_line(&mut line)
+                .await
+                .expect("read authinfo user");
             assert_eq!(line.trim_end(), "AUTHINFO USER testuser");
-            writer.write_all(b"381 Enter password\r\n").await.expect("write 381");
+            writer
+                .write_all(b"381 Enter password\r\n")
+                .await
+                .expect("write 381");
 
             // AUTHINFO PASS
             line.clear();
-            reader.read_line(&mut line).await.expect("read authinfo pass");
+            reader
+                .read_line(&mut line)
+                .await
+                .expect("read authinfo pass");
             assert_eq!(line.trim_end(), "AUTHINFO PASS secret");
-            writer.write_all(b"281 Authentication accepted\r\n").await.expect("write 281");
+            writer
+                .write_all(b"281 Authentication accepted\r\n")
+                .await
+                .expect("write 281");
 
             // POST
             line.clear();
             reader.read_line(&mut line).await.expect("read POST");
             assert_eq!(line.trim_end(), "POST");
-            writer.write_all(b"340 Send article\r\n").await.expect("write 340");
+            writer
+                .write_all(b"340 Send article\r\n")
+                .await
+                .expect("write 340");
             read_until_eoa(&mut reader).await;
-            writer.write_all(b"240 Article received ok\r\n").await.expect("write 240");
+            writer
+                .write_all(b"240 Article received ok\r\n")
+                .await
+                .expect("write 240");
 
             // ARTICLE verify
             line.clear();
@@ -674,13 +707,25 @@ mod tests {
                 .expect("write greeting");
 
             // AUTHINFO USER
-            reader.read_line(&mut line).await.expect("read authinfo user");
-            writer.write_all(b"381 Enter password\r\n").await.expect("write 381");
+            reader
+                .read_line(&mut line)
+                .await
+                .expect("read authinfo user");
+            writer
+                .write_all(b"381 Enter password\r\n")
+                .await
+                .expect("write 381");
 
             // AUTHINFO PASS — reject
             line.clear();
-            reader.read_line(&mut line).await.expect("read authinfo pass");
-            writer.write_all(b"482 Authentication failed\r\n").await.expect("write 482");
+            reader
+                .read_line(&mut line)
+                .await
+                .expect("read authinfo pass");
+            writer
+                .write_all(b"482 Authentication failed\r\n")
+                .await
+                .expect("write 482");
         });
 
         let config = NntpClientConfig {
@@ -716,14 +761,23 @@ mod tests {
                 .expect("write greeting");
 
             reader.read_line(&mut line).await.expect("read POST");
-            writer.write_all(b"340 Send article\r\n").await.expect("write 340");
+            writer
+                .write_all(b"340 Send article\r\n")
+                .await
+                .expect("write 340");
             read_until_eoa(&mut reader).await;
-            writer.write_all(b"240 Article received ok\r\n").await.expect("write 240");
+            writer
+                .write_all(b"240 Article received ok\r\n")
+                .await
+                .expect("write 240");
 
             // ARTICLE verify: return 430
             line.clear();
             reader.read_line(&mut line).await.expect("read ARTICLE");
-            writer.write_all(b"430 No such article\r\n").await.expect("write 430");
+            writer
+                .write_all(b"430 No such article\r\n")
+                .await
+                .expect("write 430");
 
             // QUIT
             line.clear();

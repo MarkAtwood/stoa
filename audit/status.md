@@ -28,3 +28,13 @@
 [04:22:00] COORDINATOR: wave 2 closed: 1c8.2 1c8.6 1c8.10
 [04:22:18] COORDINATOR: claimed wave 3: 1c8.7 1c8.11
 [21:05:38] COORDINATOR: R7 epic complete
+[01:15:06] COORDINATOR: claimed epic usenet-ipfs-9tz (full-text search)
+[01:22:22] COORDINATOR: phase1 done — 10 beads created in 4 waves
+[01:35:52] COORDINATOR: wave 0 closed: 9tz.1 9tz.2 9tz.3
+[02:02:03] COORDINATOR: wave 1 closed: 9tz.4 9tz.5
+[02:17:05] COORDINATOR: wave 2 closed: 9tz.6 9tz.7 9tz.8
+[02:24:49] COORDINATOR: wave 3 closed: 9tz.9
+[02:36:28] COORDINATOR: wave 4 closed: 9tz.10 — all beads done
+[02:36:35] COORDINATOR: review round 1, epic usenet-ipfs-ld7
+[02:40:50] REVIEW round 1: P0=0 P1=3 P2=6 opinion=5
+[03:11:53] COORDINATOR: fix wave done, starting review round 2

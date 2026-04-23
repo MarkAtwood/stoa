@@ -199,7 +199,10 @@ fn article_response_on_success_returns_220() {
     );
     let blank_pos = resp.body.iter().position(|l| l.is_empty());
     let body_pos = resp.body.iter().position(|l| l.contains("Hello world."));
-    assert!(blank_pos.is_some(), "body must have blank line separating headers from body");
+    assert!(
+        blank_pos.is_some(),
+        "body must have blank line separating headers from body"
+    );
     assert!(body_pos.is_some(), "body must include body text");
     assert!(
         blank_pos.unwrap() < body_pos.unwrap(),

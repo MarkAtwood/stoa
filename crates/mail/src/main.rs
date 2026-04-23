@@ -74,7 +74,10 @@ async fn main() {
     let db_opts = match SqliteConnectOptions::from_str(&db_url) {
         Ok(o) => o.create_if_missing(true),
         Err(e) => {
-            eprintln!("error: invalid database path '{}': {}", config.database.path, e);
+            eprintln!(
+                "error: invalid database path '{}': {}",
+                config.database.path, e
+            );
             std::process::exit(1);
         }
     };
@@ -85,7 +88,10 @@ async fn main() {
     {
         Ok(p) => Arc::new(p),
         Err(e) => {
-            eprintln!("error: failed to open database '{}': {}", config.database.path, e);
+            eprintln!(
+                "error: failed to open database '{}': {}",
+                config.database.path, e
+            );
             std::process::exit(1);
         }
     };

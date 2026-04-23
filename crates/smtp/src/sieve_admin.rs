@@ -321,10 +321,7 @@ async fn get_metrics() -> Response {
     }
     (
         StatusCode::OK,
-        [(
-            "Content-Type",
-            encoder.format_type(),
-        )],
+        [("Content-Type", encoder.format_type())],
         buf,
     )
         .into_response()

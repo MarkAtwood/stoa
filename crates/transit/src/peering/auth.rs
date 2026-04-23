@@ -38,7 +38,7 @@
 
 use std::time::Duration;
 
-use ed25519_dalek::{Signature, SigningKey, Signer, VerifyingKey};
+use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use rand_core::{OsRng, RngCore};
 use subtle::ConstantTimeEq;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -91,14 +91,11 @@ impl From<std::io::Error> for PeeringAuthError {
 /// are not exactly 32 bytes, or the bytes are not a valid Ed25519 public key.
 pub fn parse_trusted_peer_key(s: &str) -> Result<VerifyingKey, PeeringAuthError> {
     let hex_part = s.strip_prefix("ed25519:").ok_or_else(|| {
-        PeeringAuthError::InvalidKeyFormat(format!(
-            "entry must start with 'ed25519:': {s:?}"
-        ))
+        PeeringAuthError::InvalidKeyFormat(format!("entry must start with 'ed25519:': {s:?}"))
     })?;
 
-    let bytes = hex::decode(hex_part).map_err(|e| {
-        PeeringAuthError::InvalidKeyFormat(format!("invalid hex in {s:?}: {e}"))
-    })?;
+    let bytes = hex::decode(hex_part)
+        .map_err(|e| PeeringAuthError::InvalidKeyFormat(format!("invalid hex in {s:?}: {e}")))?;
 
     let key_bytes: [u8; 32] = bytes
         .as_slice()

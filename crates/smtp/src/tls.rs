@@ -3,8 +3,8 @@
 //! Delegates PEM loading to `usenet-ipfs-tls` and adds SMTP-specific helpers
 //! (`build_tls_acceptor`, `accept_tls`, `tls_configured`).
 
-pub use usenet_ipfs_tls::TlsError;
 use usenet_ipfs_tls::load_tls_server_config;
+pub use usenet_ipfs_tls::TlsError;
 
 /// A `tokio_rustls` TLS acceptor for the SMTPS listener.
 pub type TlsAcceptor = tokio_rustls::TlsAcceptor;
