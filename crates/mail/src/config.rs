@@ -14,6 +14,8 @@ pub struct Config {
     pub auth: AuthConfig,
     #[serde(default)]
     pub log: LogConfig,
+    #[serde(default)]
+    pub cors: CorsConfig,
 }
 
 fn default_base_url() -> String {
@@ -79,6 +81,15 @@ impl Default for LogConfig {
             format: default_log_format(),
         }
     }
+}
+
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+#[serde(default)]
+pub struct CorsConfig {
+    /// Enable CORS headers. Default: false (CORS disabled).
+    pub enabled: bool,
+    /// Allowed origins. Use ["*"] for permissive. Default: empty (deny all cross-origin).
+    pub allowed_origins: Vec<String>,
 }
 
 #[derive(Debug)]

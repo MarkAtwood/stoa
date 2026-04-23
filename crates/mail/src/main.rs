@@ -110,6 +110,7 @@ async fn main() {
         auth_config: Arc::new(config.auth),
         token_store,
         base_url: config.listen.base_url.clone(),
+        cors: config.cors.clone(),
     });
 
     let shutdown = async {

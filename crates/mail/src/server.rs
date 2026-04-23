@@ -2,7 +2,7 @@ use std::{net::SocketAddr, sync::Arc, time::Instant};
 
 use axum::{
     extract::{Extension, Request, State},
-    http::{header, StatusCode},
+    http::{header, HeaderName, Method, StatusCode},
     middleware::Next,
     response::Response,
     routing::{delete, get, post},
@@ -10,6 +10,7 @@ use axum::{
 };
 use serde_json::{json, Value};
 use tokio::net::TcpListener;
+use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer, ExposeHeaders};
 use usenet_ipfs_auth::{AuthConfig, CredentialStore};
 use usenet_ipfs_reader::{
     post::ipfs_write::IpfsBlockStore,
@@ -18,6 +19,7 @@ use usenet_ipfs_reader::{
 };
 
 use crate::{
+    config::CorsConfig,
     state::{flags::UserFlagsStore, version::StateStore},
     token_store::TokenStore,
 };
@@ -43,6 +45,7 @@ pub struct AppState {
     pub token_store: Arc<TokenStore>,
     /// External base URL used in JMAP session responses (e.g. `https://mail.example.com`).
     pub base_url: String,
+    pub cors: CorsConfig,
 }
 
 /// Authenticated user identity extracted from HTTP Basic Auth.
@@ -128,11 +131,58 @@ fn unauthorized_response() -> Response {
         .unwrap()
 }
 
+fn build_cors_layer(cors_config: &CorsConfig) -> CorsLayer {
+    if !cors_config.enabled {
+        return CorsLayer::new();
+    }
+    let origins_wildcard = cors_config.allowed_origins.iter().any(|o| o == "*");
+    if origins_wildcard {
+        return CorsLayer::permissive();
+    }
+    if cors_config.allowed_origins.is_empty() {
+        tracing::warn!("cors.enabled=true but allowed_origins is empty; CORS disabled");
+        return CorsLayer::new();
+    }
+    let parsed: Vec<axum::http::HeaderValue> = cors_config
+        .allowed_origins
+        .iter()
+        .filter_map(|o| {
+            o.parse::<axum::http::HeaderValue>().ok().or_else(|| {
+                tracing::error!(origin = %o, "invalid CORS origin, skipping");
+                None
+            })
+        })
+        .collect();
+    if parsed.is_empty() {
+        tracing::warn!("all configured CORS origins were invalid; CORS disabled");
+        return CorsLayer::new();
+    }
+    CorsLayer::new()
+        .allow_origin(AllowOrigin::list(parsed))
+        .allow_methods(AllowMethods::list([
+            Method::GET,
+            Method::POST,
+            Method::DELETE,
+            Method::OPTIONS,
+        ]))
+        .allow_headers(AllowHeaders::list([
+            header::AUTHORIZATION,
+            header::CONTENT_TYPE,
+        ]))
+        .expose_headers(ExposeHeaders::list([
+            HeaderName::from_static("x-usenet-ipfs-cid"),
+            HeaderName::from_static("x-usenet-ipfs-root-cid"),
+        ]))
+}
+
 /// Build the axum Router with all routes.
 ///
-/// `/health` and `/.well-known/jmap` are public (no auth required).
+/// `GET /`, `/health`, `/metrics`, and `/.well-known/jmap` are public (no auth required).
 /// All `/jmap/*` routes are protected by `basic_auth_middleware`.
+/// The CORS layer (if enabled) wraps all routes.
 pub fn build_router(state: Arc<AppState>) -> Router {
+    let cors_layer = build_cors_layer(&state.cors);
+
     let protected = Router::new()
         .route("/jmap/session", get(jmap_session_handler))
         .route("/jmap/api", post(jmap_api_handler))
@@ -154,10 +204,12 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         ));
 
     Router::new()
+        .route("/", get(crate::landing::landing_page))
         .route("/health", get(health_handler))
         .route("/metrics", get(metrics_handler))
         .route("/.well-known/jmap", get(well_known_jmap))
         .merge(protected)
+        .layer(cors_layer)
         .with_state(state)
 }
 
@@ -489,6 +541,7 @@ mod tests {
             auth_config: Arc::new(AuthConfig::default()),
             token_store: make_token_store().await,
             base_url: "http://localhost".to_string(),
+            cors: crate::config::CorsConfig::default(),
         })
     }
 
@@ -501,6 +554,7 @@ mod tests {
             auth_config: Arc::new(AuthConfig::default()),
             token_store: make_token_store().await,
             base_url: base_url.to_string(),
+            cors: crate::config::CorsConfig::default(),
         })
     }
 
@@ -522,6 +576,7 @@ mod tests {
             }),
             token_store: make_token_store().await,
             base_url: "http://localhost".to_string(),
+            cors: crate::config::CorsConfig::default(),
         })
     }
 
@@ -581,6 +636,7 @@ mod tests {
             auth_config: Arc::new(AuthConfig::default()),
             token_store: Arc::new(TokenStore::new(Arc::new(mail_pool))),
             base_url: "http://localhost".to_string(),
+            cors: crate::config::CorsConfig::default(),
         });
         (state, ipfs)
     }
@@ -866,6 +922,126 @@ mod tests {
             .expect("request must succeed");
 
         assert_eq!(resp.status(), 404, "absent CID must return 404");
+    }
+
+    #[tokio::test]
+    async fn get_root_returns_html() {
+        let addr = spawn_server(dev_state().await).await;
+        let resp = reqwest::Client::new()
+            .get(format!("http://{addr}/"))
+            .send()
+            .await
+            .expect("request must succeed");
+        assert_eq!(resp.status(), 200, "GET / must return 200");
+        let ct = resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
+        assert!(
+            ct.contains("text/html"),
+            "content-type must be text/html, got: {ct}"
+        );
+        let body = resp.text().await.expect("body must be readable");
+        assert!(
+            body.contains("usenet-ipfs"),
+            "body must mention usenet-ipfs, got first 200 chars: {}",
+            &body[..200.min(body.len())]
+        );
+    }
+
+    #[tokio::test]
+    async fn cors_disabled_no_headers_on_response() {
+        // Default CorsConfig has enabled=false; no CORS headers should appear.
+        let addr = spawn_server(dev_state().await).await;
+        let resp = reqwest::Client::new()
+            .get(format!("http://{addr}/health"))
+            .header("Origin", "https://evil.example.com")
+            .send()
+            .await
+            .expect("request must succeed");
+        assert_eq!(resp.status(), 200);
+        let acao = resp.headers().get("access-control-allow-origin");
+        assert!(
+            acao.is_none(),
+            "CORS disabled: no Access-Control-Allow-Origin header expected, got: {acao:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn cors_wildcard_allows_any_origin() {
+        let state = Arc::new(AppState {
+            start_time: Instant::now(),
+            jmap: None,
+            credential_store: Arc::new(CredentialStore::empty()),
+            auth_config: Arc::new(AuthConfig::default()),
+            token_store: make_token_store().await,
+            base_url: "http://localhost".to_string(),
+            cors: crate::config::CorsConfig {
+                enabled: true,
+                allowed_origins: vec!["*".to_string()],
+            },
+        });
+        let addr = spawn_server(state).await;
+        let resp = reqwest::Client::new()
+            .get(format!("http://{addr}/health"))
+            .header("Origin", "https://anyapp.example.com")
+            .send()
+            .await
+            .expect("request must succeed");
+        assert_eq!(resp.status(), 200);
+        let acao = resp
+            .headers()
+            .get("access-control-allow-origin")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
+        assert_eq!(
+            acao, "*",
+            "wildcard CORS must respond with Access-Control-Allow-Origin: *"
+        );
+        // Security invariant: wildcard origin must NOT have allow-credentials.
+        let creds = resp.headers().get("access-control-allow-credentials");
+        assert!(
+            creds.is_none(),
+            "wildcard CORS must not set Access-Control-Allow-Credentials"
+        );
+    }
+
+    #[tokio::test]
+    async fn cors_specific_origin_preflight() {
+        let state = Arc::new(AppState {
+            start_time: Instant::now(),
+            jmap: None,
+            credential_store: Arc::new(CredentialStore::empty()),
+            auth_config: Arc::new(AuthConfig::default()),
+            token_store: make_token_store().await,
+            base_url: "http://localhost".to_string(),
+            cors: crate::config::CorsConfig {
+                enabled: true,
+                allowed_origins: vec!["https://client.example.com".to_string()],
+            },
+        });
+        let addr = spawn_server(state).await;
+        let resp = reqwest::Client::new()
+            .request(reqwest::Method::OPTIONS, format!("http://{addr}/jmap/api"))
+            .header("Origin", "https://client.example.com")
+            .header("Access-Control-Request-Method", "POST")
+            .header(
+                "Access-Control-Request-Headers",
+                "Authorization, Content-Type",
+            )
+            .send()
+            .await
+            .expect("preflight must succeed");
+        let acao = resp
+            .headers()
+            .get("access-control-allow-origin")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
+        assert_eq!(
+            acao, "https://client.example.com",
+            "specific origin preflight must echo the origin back"
+        );
     }
 
     /// When search_index is None and the JMAP filter contains a non-empty "text"

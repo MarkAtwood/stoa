@@ -134,6 +134,7 @@ async fn spawn_dev_server(tag: &str) -> String {
         auth_config: Arc::new(usenet_ipfs_auth::AuthConfig::default()),
         token_store: Arc::new(TokenStore::new(Arc::clone(&mail_pool_arc))),
         base_url: "http://localhost".to_string(),
+        cors: usenet_ipfs_mail::config::CorsConfig::default(),
     });
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();

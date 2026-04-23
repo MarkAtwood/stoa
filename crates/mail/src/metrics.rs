@@ -51,6 +51,15 @@ mod tests {
 
     #[test]
     fn metric_names_present() {
+        // Observe a dummy value for each vec metric so their HELP/TYPE lines appear in
+        // gather() output regardless of which other tests have run first.  CounterVec and
+        // HistogramVec only emit output after at least one label-set is observed.
+        JMAP_REQUESTS_TOTAL
+            .with_label_values(&["_test"])
+            .inc_by(0.0);
+        JMAP_REQUEST_DURATION_SECONDS
+            .with_label_values(&["_test"])
+            .observe(0.0);
         let output = String::from_utf8(gather_metrics()).unwrap();
         assert!(
             output.contains("jmap_requests_total"),

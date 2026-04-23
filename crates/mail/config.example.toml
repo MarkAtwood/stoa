@@ -1,0 +1,38 @@
+# usenet-ipfs-mail example configuration
+# Copy to mail.toml and edit before running usenet-ipfs-mail.
+
+[listen]
+addr = "0.0.0.0:8080"
+# REQUIRED: set to the externally-reachable hostname.
+# Used in JMAP session object URLs (apiUrl, downloadUrl, etc.).
+# Blob downloads and client autodiscovery will not work from a remote
+# browser unless this matches the URL the browser actually connects to.
+base_url = "https://mail.example.com"
+
+[cors]
+# Enable CORS headers so browser-based JMAP clients can connect.
+enabled = true
+# Use ["*"] to allow any origin (open/public servers).
+# Use a specific list for production: ["https://mail.example.com"]
+allowed_origins = ["*"]
+
+[database]
+path = "/var/lib/usenet-ipfs/mail/mail.db"
+
+[auth]
+required = true
+
+[[auth.users]]
+username = "alice"
+# bcrypt hash of the password. Generate with: htpasswd -bnBC 12 "" "password" | tr -d ":\n" | sed "s/\$2y/\$2b/"
+password_hash = "$2b$12$examplehashexamplehashexamplehashexamplehashexamplehashe"
+
+[tls]
+# Leave empty for plaintext HTTP (use a reverse proxy for TLS termination).
+# Set both fields to enable direct TLS:
+# cert_path = "/etc/ssl/certs/mail.crt"
+# key_path = "/etc/ssl/private/mail.key"
+
+[log]
+level = "info"
+format = "json"   # or "text" for human-readable output

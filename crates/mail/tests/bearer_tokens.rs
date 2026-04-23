@@ -64,6 +64,7 @@ fn dev_app_state(token_store: Arc<TokenStore>) -> Arc<AppState> {
         auth_config: Arc::new(AuthConfig::default()),
         token_store,
         base_url: "http://localhost".to_string(),
+        cors: usenet_ipfs_mail::config::CorsConfig::default(),
     })
 }
 
@@ -85,6 +86,7 @@ fn auth_app_state_alice(token_store: Arc<TokenStore>) -> Arc<AppState> {
         }),
         token_store,
         base_url: "http://localhost".to_string(),
+        cors: usenet_ipfs_mail::config::CorsConfig::default(),
     })
 }
 
@@ -113,6 +115,7 @@ fn auth_app_state_two_users(token_store: Arc<TokenStore>) -> Arc<AppState> {
         }),
         token_store,
         base_url: "http://localhost".to_string(),
+        cors: usenet_ipfs_mail::config::CorsConfig::default(),
     })
 }
 

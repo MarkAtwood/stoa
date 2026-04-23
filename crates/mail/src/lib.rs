@@ -3,6 +3,7 @@ pub mod blob;
 pub mod config;
 pub mod email;
 pub mod jmap;
+pub mod landing;
 pub mod mailbox;
 pub mod metrics;
 pub mod migrations;

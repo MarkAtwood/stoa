@@ -60,6 +60,7 @@ async fn auth_state_alice() -> Arc<AppState> {
         }),
         token_store: make_token_store().await,
         base_url: "http://localhost".to_string(),
+        cors: usenet_ipfs_mail::config::CorsConfig::default(),
     })
 }
 
@@ -73,6 +74,7 @@ async fn dev_state() -> Arc<AppState> {
         auth_config: Arc::new(AuthConfig::default()),
         token_store: make_token_store().await,
         base_url: "http://localhost".to_string(),
+        cors: usenet_ipfs_mail::config::CorsConfig::default(),
     })
 }
 

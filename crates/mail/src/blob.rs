@@ -142,6 +142,7 @@ mod tests {
             auth_config: Arc::new(AuthConfig::default()),
             token_store: Arc::new(crate::token_store::TokenStore::new(Arc::new(pool))),
             base_url: "http://localhost".to_string(),
+            cors: crate::config::CorsConfig::default(),
         })
     }
 

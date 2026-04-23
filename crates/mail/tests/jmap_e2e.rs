@@ -195,6 +195,7 @@ async fn jmap_session_e2e() {
         auth_config: Arc::new(usenet_ipfs_auth::AuthConfig::default()),
         token_store,
         base_url: "http://localhost".to_string(),
+        cors: usenet_ipfs_mail::config::CorsConfig::default(),
     });
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();

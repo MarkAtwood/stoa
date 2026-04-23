@@ -1,3 +1,24 @@
+//! JMAP Session Resource (RFC 8620 §2).
+//!
+//! # Implementation status
+//!
+//! The session object advertises all required RFC 8620 fields and the following
+//! optional URLs, which are partially or not yet implemented:
+//!
+//! - **`uploadUrl`** – advertised but the `/jmap/upload` endpoint is not wired in v1.
+//!   Clients attempting upload will receive a 404 or 405 response.
+//! - **`eventSourceUrl`** – advertised but the `/jmap/eventsource` endpoint is not wired in v1.
+//!   Server-Sent Events / push notifications are deferred to a future epic.
+//! - **`state`** – hardcoded to `"0"` in v1; dynamic session state change tracking is deferred.
+//!
+//! # Operator requirement
+//!
+//! `[listen] base_url` in the server config **must** be set to the externally-reachable
+//! server hostname (e.g. `https://mail.example.com`).  All URLs in the session object
+//! (apiUrl, downloadUrl, uploadUrl, eventSourceUrl) are derived from this value.
+//! Leaving it as the default `http://localhost` will break blob downloads and
+//! client autodiscovery for remote browsers.
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
