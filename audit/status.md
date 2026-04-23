@@ -81,3 +81,4 @@ Phase markers reset for new epic
 [06:23:23] COORDINATOR: claimed epic usenet-ipfs-fwm (IPNS publishing)
 [06:27:21] COORDINATOR: research complete — one-IPNS-per-node/index design chosen; creating beads
 [06:28:46] COORDINATOR: phase1 done, 6 beads created, wave 0 unblocked
+[07:07:52] COORDINATOR: claimed epic usenet-ipfs-r8u (IMAP server)

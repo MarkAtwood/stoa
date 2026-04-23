@@ -8,5 +8,6 @@ members = [
     "crates/mail",
     "crates/sieve",
     "crates/smtp",
+    "crates/imap",
     "crates/integration-tests",
 ]

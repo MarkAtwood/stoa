@@ -1,0 +1,35 @@
+[package]
+name = "usenet-ipfs-imap"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+
+[lib]
+name = "usenet_ipfs_imap"
+path = "src/lib.rs"
+
+[[bin]]
+name = "usenet-ipfs-imap"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+usenet-ipfs-core = { path = "../core" }
+usenet-ipfs-tls = { path = "../tls" }
+sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio-rustls", "macros", "migrate"] }
+imap-next = "0.3.4"
+imap-codec = "2.0.0-alpha.7"
+imap-types = "2.0.0-alpha.6"
+tokio-rustls = "0.26"
+rustls = { version = "0.23", default-features = false, features = ["std", "tls12"] }
+rustls-pemfile = "2"
+base64 = "0.22"
+subtle = "2"
+
+[dev-dependencies]
+tempfile = "3"
+tokio = { version = "1", features = ["full", "macros", "rt-multi-thread"] }

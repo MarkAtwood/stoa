@@ -1,0 +1,1 @@
+Phase 1 complete: 19 beads created (r8u.1–r8u.19), dependency graph wired across all 7 waves (W0→W1→W2→W3→W4→W5→W6). Research complete: imap-next 0.3.4 / imap-codec 2.0.0-alpha.7 / imap-types 2.0.0-alpha.6 selected. Implementation begins with Wave 0 (r8u.1 crate skeleton, r8u.2 config, r8u.3 DB migration) in parallel.

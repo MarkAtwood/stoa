@@ -3,6 +3,15 @@
 version = 4
 
 [[package]]
+name = "abnf-core"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec182d1f071b906a9f59269c89af101515a5cbe58f723eb6717e7fe7445c0dea"
+dependencies = [
+ "nom",
+]
+
+[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -555,6 +564,23 @@ checksum = "e412e2cd0f2b2d93e02543ceae7917b3c70331573df19ee046bcbc35e45e87d7"
 dependencies = [
  "byteorder",
  "cipher",
+]
+
+[[package]]
+name = "bounded-static"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0beb903daa49b43bcafb5d5eebe633f9ad638d8b16cd08f95fb05ee7bd099321"
+
+[[package]]
+name = "bounded-static-derive"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0af050e27e5d57aa14975f97fe47a134c46a390f91819f23a625319a7111bfa"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -2365,6 +2391,47 @@ dependencies = [
  "tokio",
  "url",
  "xmltree",
+]
+
+[[package]]
+name = "imap-codec"
+version = "2.0.0-alpha.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "82ae8750fd2186ff82f159a1d0a86e73c284d28e70e9ec3e316ccb10e273e082"
+dependencies = [
+ "abnf-core",
+ "base64",
+ "chrono",
+ "imap-types",
+ "log",
+ "nom",
+]
+
+[[package]]
+name = "imap-next"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d88dafacf7bec8e7f4baad4518232144beadfa9b4ea3de4911f879ce74b7316a"
+dependencies = [
+ "bytes",
+ "imap-codec",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-rustls",
+ "tracing",
+]
+
+[[package]]
+name = "imap-types"
+version = "2.0.0-alpha.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e31d8480b20e8416d52f20b737a159bd925219273aedb023caa12190ca42781c"
+dependencies = [
+ "base64",
+ "bounded-static",
+ "bounded-static-derive",
+ "chrono",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -6281,6 +6348,29 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "usenet-ipfs-imap"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "imap-codec",
+ "imap-next",
+ "imap-types",
+ "rustls",
+ "rustls-pemfile",
+ "serde",
+ "sqlx",
+ "subtle",
+ "tempfile",
+ "tokio",
+ "tokio-rustls",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+ "usenet-ipfs-core",
+ "usenet-ipfs-tls",
 ]
 
 [[package]]
