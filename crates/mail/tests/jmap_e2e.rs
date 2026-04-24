@@ -44,7 +44,7 @@ impl MemIpfs {
 
 #[async_trait]
 impl IpfsBlockStore for MemIpfs {
-    async fn put_raw_block(&self, data: &[u8]) -> Result<Cid, IpfsWriteError> {
+    async fn put_raw(&self, data: &[u8]) -> Result<Cid, IpfsWriteError> {
         let digest = Code::Sha2_256.digest(data);
         let cid = Cid::new_v1(0x71, digest);
         self.blocks
@@ -59,7 +59,7 @@ impl IpfsBlockStore for MemIpfs {
         Ok(())
     }
 
-    async fn get_raw_block(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError> {
+    async fn get_raw(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError> {
         self.blocks
             .read()
             .await
@@ -175,9 +175,9 @@ async fn jmap_session_e2e() {
     };
     let cbor = serde_ipld_dagcbor::to_vec(&root).expect("DAG-CBOR encode must succeed");
     let cid = ipfs
-        .put_raw_block(&cbor)
+        .put_raw(&cbor)
         .await
-        .expect("put_raw_block must succeed");
+        .expect("put_raw must succeed");
 
     // Assign article number in article_numbers store.
     let article_number = article_numbers

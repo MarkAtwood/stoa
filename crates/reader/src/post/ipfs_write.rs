@@ -45,7 +45,7 @@ impl std::error::Error for IpfsWriteError {}
 #[async_trait]
 pub trait IpfsBlockStore: Send + Sync {
     /// Write a raw block to IPFS. Returns the CID of the stored block.
-    async fn put_raw_block(&self, data: &[u8]) -> Result<Cid, IpfsWriteError>;
+    async fn put_raw(&self, data: &[u8]) -> Result<Cid, IpfsWriteError>;
 
     /// Store a block with a pre-computed CID (e.g. DAG-CBOR blocks from
     /// `build_article`).  The caller is responsible for ensuring `cid` matches
@@ -53,12 +53,12 @@ pub trait IpfsBlockStore: Send + Sync {
     async fn put_block(&self, cid: Cid, data: Vec<u8>) -> Result<(), IpfsWriteError>;
 
     /// Read a raw block from IPFS by CID. Returns the block bytes.
-    async fn get_raw_block(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError>;
+    async fn get_raw(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError>;
 
     /// Mark `cid` for deletion.
     ///
     /// The default implementation signals that deletion is deferred — callers
-    /// must not assume the block is gone until `get_raw_block` returns `NotFound`.
+    /// must not assume the block is gone until `get_raw` returns `NotFound`.
     /// Override to provide backend-specific behaviour.
     async fn delete(
         &self,
@@ -76,8 +76,8 @@ pub trait IpfsBlockStore: Send + Sync {
 
 /// In-memory IPFS block store for use in unit tests.
 ///
-/// Computes CIDv1 RAW SHA2-256 on `put_raw_block`, stores the block keyed by
-/// the CID's raw bytes, and returns the same bytes on `get_raw_block`.
+/// Computes CIDv1 RAW SHA2-256 on `put_raw`, stores the block keyed by
+/// the CID's raw bytes, and returns the same bytes on `get_raw`.
 pub struct MemIpfsStore {
     blocks: tokio::sync::RwLock<std::collections::HashMap<Vec<u8>, Vec<u8>>>,
 }
@@ -98,7 +98,7 @@ impl Default for MemIpfsStore {
 
 #[async_trait]
 impl IpfsBlockStore for MemIpfsStore {
-    async fn put_raw_block(&self, data: &[u8]) -> Result<Cid, IpfsWriteError> {
+    async fn put_raw(&self, data: &[u8]) -> Result<Cid, IpfsWriteError> {
         let digest = Code::Sha2_256.digest(data);
         let cid = Cid::new_v1(0x55, digest);
         self.blocks
@@ -113,7 +113,7 @@ impl IpfsBlockStore for MemIpfsStore {
         Ok(())
     }
 
-    async fn get_raw_block(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError> {
+    async fn get_raw(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError> {
         self.blocks
             .read()
             .await
@@ -170,7 +170,7 @@ impl KuboBlockStore {
 
 #[async_trait]
 impl IpfsBlockStore for KuboBlockStore {
-    async fn put_raw_block(&self, data: &[u8]) -> Result<Cid, IpfsWriteError> {
+    async fn put_raw(&self, data: &[u8]) -> Result<Cid, IpfsWriteError> {
         let cid = self
             .client
             .block_put(data, 0x55)
@@ -189,7 +189,7 @@ impl IpfsBlockStore for KuboBlockStore {
         Ok(())
     }
 
-    async fn get_raw_block(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError> {
+    async fn get_raw(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError> {
         if let Some(bytes) = self.cache_get(cid).await {
             return Ok(bytes);
         }
@@ -283,7 +283,7 @@ pub fn build_block_store(
 /// Write a signed article to IPFS and record the Message-ID → CID mapping.
 ///
 /// Steps:
-/// 1. Write block to IPFS via `ipfs_store.put_raw_block(article_bytes)`.
+/// 1. Write block to IPFS via `ipfs_store.put_raw(article_bytes)`.
 ///    The returned CID is CIDv1 RAW SHA2-256 of `article_bytes`.
 /// 2. Insert `(message_id, cid)` into `msgid_map` (idempotent).
 /// 3. Return `Ok(cid)` on success.
@@ -296,7 +296,7 @@ pub async fn write_article_to_ipfs(
     message_id: &str,
 ) -> Result<Cid, Response> {
     let cid = ipfs_store
-        .put_raw_block(article_bytes)
+        .put_raw(article_bytes)
         .await
         .map_err(|e| Response::new(441, format!("Posting failed: IPFS write error: {e}")))?;
 
@@ -450,11 +450,11 @@ mod tests {
 
     #[async_trait]
     impl IpfsBlockStore for FailingIpfsStore {
-        async fn put_raw_block(&self, data: &[u8]) -> Result<Cid, IpfsWriteError> {
+        async fn put_raw(&self, data: &[u8]) -> Result<Cid, IpfsWriteError> {
             if self.should_fail() {
                 return Err(IpfsWriteError::WriteFailed("injected failure".into()));
             }
-            self.inner.put_raw_block(data).await
+            self.inner.put_raw(data).await
         }
 
         async fn put_block(&self, cid: Cid, data: Vec<u8>) -> Result<(), IpfsWriteError> {
@@ -464,11 +464,11 @@ mod tests {
             self.inner.put_block(cid, data).await
         }
 
-        async fn get_raw_block(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError> {
+        async fn get_raw(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError> {
             if self.should_fail() {
                 return Err(IpfsWriteError::WriteFailed("injected failure".into()));
             }
-            self.inner.get_raw_block(cid).await
+            self.inner.get_raw(cid).await
         }
     }
 
@@ -477,8 +477,8 @@ mod tests {
         let store = MemIpfsStore::new();
         let data = b"From: user@example.com\r\nSubject: Test\r\n\r\nBody.\r\n";
 
-        let cid1 = store.put_raw_block(data).await.unwrap();
-        let cid2 = store.put_raw_block(data).await.unwrap();
+        let cid1 = store.put_raw(data).await.unwrap();
+        let cid2 = store.put_raw(data).await.unwrap();
 
         assert_eq!(cid1, cid2, "same bytes must produce the same CID");
     }
@@ -507,8 +507,8 @@ mod tests {
         let store = MemIpfsStore::new();
         let data = b"From: user@example.com\r\nSubject: Test\r\n\r\nBody.\r\n";
 
-        let cid = store.put_raw_block(data).await.unwrap();
-        let retrieved = store.get_raw_block(&cid).await.unwrap();
+        let cid = store.put_raw(data).await.unwrap();
+        let retrieved = store.get_raw(&cid).await.unwrap();
 
         assert_eq!(retrieved, data, "retrieved bytes must match written bytes");
     }
@@ -536,7 +536,7 @@ mod tests {
         let store = MemIpfsStore::new();
         let data = b"From: user@example.com\r\nSubject: Test\r\n\r\nBody.\r\n";
 
-        let cid = store.put_raw_block(data).await.unwrap();
+        let cid = store.put_raw(data).await.unwrap();
 
         assert_eq!(cid.codec(), 0x55, "CID codec must be RAW (0x55)");
     }
@@ -546,7 +546,7 @@ mod tests {
         let store = FailingIpfsStore::always_fail();
         let data = b"From: user@example.com\r\nSubject: Test\r\n\r\nBody.\r\n";
 
-        let result = store.put_raw_block(data).await;
+        let result = store.put_raw(data).await;
         assert!(
             result.is_err(),
             "always_fail store must return Err on every call"
@@ -559,15 +559,15 @@ mod tests {
         let data = b"From: user@example.com\r\nSubject: Test\r\n\r\nBody.\r\n";
 
         // Call 1 (count=1, 1%2 != 0): should succeed.
-        let result1 = store.put_raw_block(data).await;
+        let result1 = store.put_raw(data).await;
         assert!(result1.is_ok(), "call 1 must succeed with fail_every_n=2");
 
         // Call 2 (count=2, 2%2 == 0): should fail.
-        let result2 = store.put_raw_block(data).await;
+        let result2 = store.put_raw(data).await;
         assert!(result2.is_err(), "call 2 must fail with fail_every_n=2");
 
         // Call 3 (count=3, 3%2 != 0): should succeed.
-        let result3 = store.put_raw_block(data).await;
+        let result3 = store.put_raw(data).await;
         assert!(result3.is_ok(), "call 3 must succeed with fail_every_n=2");
     }
 
@@ -576,8 +576,8 @@ mod tests {
         let store = MemIpfsStore::new();
         let data = b"From: user@example.com\r\nSubject: Test\r\n\r\nBody.\r\n";
 
-        let cid = store.put_raw_block(data).await.unwrap();
-        let retrieved = store.get_raw_block(&cid).await.unwrap();
+        let cid = store.put_raw(data).await.unwrap();
+        let retrieved = store.get_raw(&cid).await.unwrap();
 
         assert_eq!(
             retrieved, data,

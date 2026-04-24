@@ -71,7 +71,7 @@ impl IpfsStore for SharedIpfs {
 
 #[async_trait]
 impl IpfsBlockStore for SharedIpfs {
-    async fn put_raw_block(&self, data: &[u8]) -> Result<Cid, IpfsWriteError> {
+    async fn put_raw(&self, data: &[u8]) -> Result<Cid, IpfsWriteError> {
         let digest = Code::Sha2_256.digest(data);
         let cid = Cid::new_v1(0x55, digest);
         self.blocks
@@ -86,7 +86,7 @@ impl IpfsBlockStore for SharedIpfs {
         Ok(())
     }
 
-    async fn get_raw_block(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError> {
+    async fn get_raw(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError> {
         self.blocks
             .read()
             .await

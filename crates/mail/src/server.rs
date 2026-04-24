@@ -934,9 +934,9 @@ mod tests {
         // Seed a known block.
         let block_data = b"hello from IPFS block";
         let cid = ipfs
-            .put_raw_block(block_data)
+            .put_raw(block_data)
             .await
-            .expect("put_raw_block must succeed");
+            .expect("put_raw must succeed");
 
         let addr = spawn_server(state).await;
 

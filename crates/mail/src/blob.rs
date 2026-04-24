@@ -65,7 +65,7 @@ pub async fn blob_download(
     };
 
     // Fetch the raw block from IPFS.
-    let bytes = match jmap.ipfs.get_raw_block(&cid).await {
+    let bytes = match jmap.ipfs.get_raw(&cid).await {
         Ok(b) => b,
         Err(IpfsWriteError::NotFound(_)) => {
             return Response::builder()

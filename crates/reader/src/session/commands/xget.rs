@@ -21,7 +21,7 @@ pub async fn handle_xget(cid_str: &str, ipfs_store: &dyn IpfsBlockStore) -> Resp
         Err(_) => return Response::new(501, "Syntax error: not a valid CID"),
     };
 
-    let bytes = match ipfs_store.get_raw_block(&cid).await {
+    let bytes = match ipfs_store.get_raw(&cid).await {
         Ok(b) => b,
         Err(IpfsWriteError::NotFound(_)) => return Response::new(430, "CID not found"),
         Err(_) => return Response::new(403, "Internal error fetching block"),
@@ -96,7 +96,7 @@ mod tests {
     async fn xget_present_cid_returns_290_with_base64_body() {
         let store = MemIpfsStore::new();
         let payload = b"hello xget test";
-        let cid = store.put_raw_block(payload).await.unwrap();
+        let cid = store.put_raw(payload).await.unwrap();
 
         let resp = handle_xget(&cid.to_string(), &store).await;
         assert_eq!(

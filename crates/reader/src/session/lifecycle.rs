@@ -829,17 +829,17 @@ async fn fetch_article_wire_bytes(
     root_cid: &Cid,
 ) -> Result<Vec<u8>, String> {
     let root_bytes = ipfs_store
-        .get_raw_block(root_cid)
+        .get_raw(root_cid)
         .await
         .map_err(|e| format!("IPFS fetch root block {root_cid}: {e:?}"))?;
     let root: ArticleRootNode = serde_ipld_dagcbor::from_slice(&root_bytes)
         .map_err(|e| format!("DAG-CBOR decode ArticleRootNode from {root_cid}: {e}"))?;
     let header_bytes = ipfs_store
-        .get_raw_block(&root.header_cid)
+        .get_raw(&root.header_cid)
         .await
         .map_err(|e| format!("IPFS fetch header block {}: {e:?}", root.header_cid))?;
     let body_bytes = ipfs_store
-        .get_raw_block(&root.body_cid)
+        .get_raw(&root.body_cid)
         .await
         .map_err(|e| format!("IPFS fetch body block {}: {e:?}", root.body_cid))?;
     let mut wire = Vec::with_capacity(header_bytes.len() + 4 + body_bytes.len());

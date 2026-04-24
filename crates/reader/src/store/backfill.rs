@@ -49,7 +49,7 @@ pub async fn backfill_overview(
         }
 
         // Fetch raw article bytes from IPFS.
-        let raw_bytes = match ipfs_store.get_raw_block(cid).await {
+        let raw_bytes = match ipfs_store.get_raw(cid).await {
             Ok(b) => b,
             Err(e) => {
                 warn!(
@@ -120,7 +120,7 @@ mod tests {
         // Put an article in IPFS and assign an article number — bypass the POST
         // pipeline to simulate transit-propagated articles.
         let article = test_article("Backfill Subject", "<backfill-test@example>");
-        let cid = ipfs.put_raw_block(&article).await.unwrap();
+        let cid = ipfs.put_raw(&article).await.unwrap();
         stores
             .article_numbers
             .assign_number("comp.test", &cid)
@@ -158,7 +158,7 @@ mod tests {
         let ipfs = MemIpfsStore::new();
 
         let article = test_article("Already Present", "<already@example>");
-        let cid = ipfs.put_raw_block(&article).await.unwrap();
+        let cid = ipfs.put_raw(&article).await.unwrap();
         stores
             .article_numbers
             .assign_number("comp.test", &cid)

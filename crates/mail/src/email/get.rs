@@ -49,7 +49,7 @@ async fn fetch_email(id: &str, ipfs: &dyn IpfsBlockStore) -> Result<Option<Email
     let cid = Cid::try_from(id).map_err(|e| format!("invalid CID: {e}"))?;
 
     // Fetch raw bytes from IPFS.
-    let raw = match ipfs.get_raw_block(&cid).await {
+    let raw = match ipfs.get_raw(&cid).await {
         Ok(bytes) => bytes,
         Err(e) => {
             // NotFound is represented as Ok(None).
@@ -93,7 +93,7 @@ mod tests {
 
     #[async_trait]
     impl IpfsBlockStore for MemIpfs {
-        async fn put_raw_block(&self, data: &[u8]) -> Result<Cid, IpfsWriteError> {
+        async fn put_raw(&self, data: &[u8]) -> Result<Cid, IpfsWriteError> {
             let digest = Code::Sha2_256.digest(data);
             let cid = Cid::new_v1(0x71, digest);
             self.blocks
@@ -106,7 +106,7 @@ mod tests {
             self.blocks.write().await.insert(cid.to_bytes(), data);
             Ok(())
         }
-        async fn get_raw_block(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError> {
+        async fn get_raw(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError> {
             self.blocks
                 .read()
                 .await
@@ -140,7 +140,7 @@ mod tests {
             },
         };
         let cbor = serde_ipld_dagcbor::to_vec(&root).expect("encode");
-        ipfs.put_raw_block(&cbor).await.expect("insert")
+        ipfs.put_raw(&cbor).await.expect("insert")
     }
 
     #[tokio::test]

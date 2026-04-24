@@ -35,7 +35,7 @@ impl LmdbBlockStore {
 
 #[async_trait]
 impl IpfsBlockStore for LmdbBlockStore {
-    async fn put_raw_block(&self, data: &[u8]) -> Result<Cid, IpfsWriteError> {
+    async fn put_raw(&self, data: &[u8]) -> Result<Cid, IpfsWriteError> {
         let db = Arc::clone(&self.db);
         let data = data.to_vec();
         task::spawn_blocking(move || {
@@ -60,7 +60,7 @@ impl IpfsBlockStore for LmdbBlockStore {
         .map_err(|e| IpfsWriteError::WriteFailed(e.to_string()))?
     }
 
-    async fn get_raw_block(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError> {
+    async fn get_raw(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError> {
         let db = Arc::clone(&self.db);
         let cid_bytes = cid.to_bytes();
         task::spawn_blocking(move || {
@@ -105,8 +105,8 @@ mod tests {
     async fn round_trip_put_raw_and_get() {
         let (store, _tmp) = open_test_store();
         let data = b"reader LMDB round trip";
-        let cid = store.put_raw_block(data).await.expect("put");
-        let retrieved = store.get_raw_block(&cid).await.expect("get");
+        let cid = store.put_raw(data).await.expect("put");
+        let retrieved = store.get_raw(&cid).await.expect("get");
         assert_eq!(retrieved, data.to_vec());
     }
 
@@ -120,7 +120,7 @@ mod tests {
             .put_block(cid.clone(), data.to_vec())
             .await
             .expect("put_block");
-        let retrieved = store.get_raw_block(&cid).await.expect("get");
+        let retrieved = store.get_raw(&cid).await.expect("get");
         assert_eq!(retrieved, data.to_vec());
     }
 
@@ -129,7 +129,7 @@ mod tests {
         let (store, _tmp) = open_test_store();
         let digest = Code::Sha2_256.digest(b"not stored");
         let cid = Cid::new_v1(0x55, digest);
-        let result = store.get_raw_block(&cid).await;
+        let result = store.get_raw(&cid).await;
         assert!(
             matches!(result, Err(IpfsWriteError::NotFound(_))),
             "missing block must return NotFound: {result:?}"
@@ -140,12 +140,12 @@ mod tests {
     async fn delete_removes_block_immediately() {
         let (store, _tmp) = open_test_store();
         let data = b"to be deleted";
-        let cid = store.put_raw_block(data).await.expect("put");
+        let cid = store.put_raw(data).await.expect("put");
 
         let outcome = store.delete(&cid).await.expect("delete");
         assert_eq!(outcome, DeletionOutcome::Immediate);
 
-        let result = store.get_raw_block(&cid).await;
+        let result = store.get_raw(&cid).await;
         assert!(
             matches!(result, Err(IpfsWriteError::NotFound(_))),
             "block must be gone after delete"
@@ -156,7 +156,7 @@ mod tests {
     async fn delete_is_idempotent() {
         let (store, _tmp) = open_test_store();
         let data = b"double delete";
-        let cid = store.put_raw_block(data).await.expect("put");
+        let cid = store.put_raw(data).await.expect("put");
         store.delete(&cid).await.expect("delete 1");
         store.delete(&cid).await.expect("delete 2 should not error");
     }
@@ -176,14 +176,14 @@ mod tests {
     async fn concurrent_reads_no_contention() {
         let (store, _tmp) = open_test_store();
         let data = b"concurrent reader data";
-        let cid = store.put_raw_block(data).await.expect("put");
+        let cid = store.put_raw(data).await.expect("put");
         let store = Arc::new(store);
 
         let mut handles = Vec::new();
         for _ in 0..10 {
             let store = Arc::clone(&store);
             let cid = cid.clone();
-            handles.push(tokio::spawn(async move { store.get_raw_block(&cid).await }));
+            handles.push(tokio::spawn(async move { store.get_raw(&cid).await }));
         }
         for handle in handles {
             let result = handle.await.expect("task").expect("get");
