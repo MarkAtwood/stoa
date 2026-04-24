@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
 use tracing::{error, info, warn};
@@ -12,7 +13,7 @@ use usenet_ipfs_reader::{
     tls::TlsAcceptor,
 };
 
-fn parse_args() -> PathBuf {
+fn parse_args() -> (PathBuf, bool) {
     let args: Vec<String> = std::env::args().collect();
 
     // Subcommand dispatch: `usenet-ipfs-reader keygen --output <path> [--force]`
@@ -20,19 +21,93 @@ fn parse_args() -> PathBuf {
         cmd_keygen(&args[2..]);
     }
 
+    let mut config_path: Option<PathBuf> = None;
+    let mut check_only = false;
     let mut i = 1;
     while i < args.len() {
-        if args[i] == "--config" {
-            if let Some(path) = args.get(i + 1) {
-                return PathBuf::from(path);
+        match args[i].as_str() {
+            "--config" => {
+                if let Some(path) = args.get(i + 1) {
+                    config_path = Some(PathBuf::from(path));
+                    i += 2;
+                } else {
+                    eprintln!("error: --config requires a path argument");
+                    std::process::exit(1);
+                }
             }
-            eprintln!("error: --config requires a path argument");
+            "--check" => {
+                check_only = true;
+                i += 1;
+            }
+            _ => {
+                i += 1;
+            }
+        }
+    }
+    match config_path {
+        Some(p) => (p, check_only),
+        None => {
+            eprintln!("error: --config <path> is required");
             std::process::exit(1);
         }
-        i += 1;
     }
-    eprintln!("error: --config <path> is required");
-    std::process::exit(1);
+}
+
+async fn run_startup_checks(config: &Config) -> Vec<String> {
+    let mut errors: Vec<String> = Vec::new();
+
+    // Kubo reachability check with 5-second timeout.
+    let url = config.ipfs.api_url.clone();
+    let client = usenet_ipfs_core::ipfs::KuboHttpClient::new(&url);
+    match tokio::time::timeout(Duration::from_secs(5), client.node_id()).await {
+        Ok(Ok(_)) => {}
+        Ok(Err(e)) => {
+            errors.push(format!(
+                "Kubo unreachable at {url}: {e} — is 'ipfs daemon' running?"
+            ));
+        }
+        Err(_) => {
+            errors.push(format!(
+                "Kubo unreachable at {url}: timed out after 5s — is 'ipfs daemon' running?"
+            ));
+        }
+    }
+
+    // TLS file readability check.
+    if let Some(cert) = config.tls.cert_path.as_deref() {
+        if let Err(e) = std::fs::read(cert) {
+            errors.push(format!("TLS file unreadable: {cert}: {e}"));
+        }
+    }
+    if let Some(key) = config.tls.key_path.as_deref() {
+        if let Err(e) = std::fs::read(key) {
+            errors.push(format!("TLS file unreadable: {key}: {e}"));
+        }
+    }
+
+    // Signing key check.
+    if let Some(path) = config.operator.signing_key_path.as_deref() {
+        if let Err(e) =
+            usenet_ipfs_core::signing::load_signing_key(std::path::Path::new(path))
+        {
+            errors.push(format!("{e}"));
+        }
+    }
+
+    // Admin bind address check.
+    if config.admin.enabled {
+        match TcpListener::bind(&config.admin.addr).await {
+            Ok(_) => {}
+            Err(e) => {
+                errors.push(format!(
+                    "Admin address {} already in use or invalid: {e}",
+                    config.admin.addr
+                ));
+            }
+        }
+    }
+
+    errors
 }
 
 /// Handle `usenet-ipfs-reader keygen --output <path> [--force]`.
@@ -83,7 +158,7 @@ fn cmd_keygen(args: &[String]) -> ! {
 
 #[tokio::main]
 async fn main() {
-    let config_path = parse_args();
+    let (config_path, check_only) = parse_args();
 
     let config = match Config::from_file(&config_path) {
         Ok(c) => c,
@@ -109,13 +184,17 @@ async fn main() {
         tracing_subscriber::fmt().with_env_filter(filter).init();
     }
 
-    let listener = match TcpListener::bind(&config.listen.addr).await {
-        Ok(l) => l,
-        Err(e) => {
-            error!("failed to bind to {}: {}", config.listen.addr, e);
-            std::process::exit(1);
+    let check_errors = run_startup_checks(&config).await;
+    if !check_errors.is_empty() {
+        for msg in &check_errors {
+            eprintln!("error: {msg}");
         }
-    };
+        std::process::exit(1);
+    }
+    if check_only {
+        println!("startup checks passed");
+        std::process::exit(0);
+    }
 
     // Enforce signing_key_path for non-loopback deployments (zn0k).
     if config.operator.signing_key_path.is_none()
@@ -135,6 +214,14 @@ async fn main() {
         max_connections = config.limits.max_connections,
         "usenet-ipfs-reader starting"
     );
+
+    let listener = match TcpListener::bind(&config.listen.addr).await {
+        Ok(l) => l,
+        Err(e) => {
+            error!("failed to bind to {}: {}", config.listen.addr, e);
+            std::process::exit(1);
+        }
+    };
 
     let semaphore = Arc::new(Semaphore::new(config.limits.max_connections));
     let stores = Arc::new(match ServerStores::new_with_ipfs(&config).await {

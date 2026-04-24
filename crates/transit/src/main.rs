@@ -1,4 +1,4 @@
-use std::{collections::HashSet, path::PathBuf, sync::Arc, time::Instant};
+use std::{collections::HashSet, path::PathBuf, sync::Arc, time::{Duration, Instant}};
 
 use cid::Cid;
 use ed25519_dalek::Signer as _;
@@ -33,7 +33,7 @@ use usenet_ipfs_transit::{
 };
 use usenet_ipfs_verify::VerificationStore;
 
-fn parse_args() -> PathBuf {
+fn parse_args() -> (PathBuf, bool) {
     let args: Vec<String> = std::env::args().collect();
 
     // Subcommand dispatch: `usenet-ipfs-transit keygen --output <path> [--force]`
@@ -41,19 +41,36 @@ fn parse_args() -> PathBuf {
         cmd_keygen(&args[2..]);
     }
 
+    let mut config_path: Option<PathBuf> = None;
+    let mut check_only = false;
     let mut i = 1;
     while i < args.len() {
-        if args[i] == "--config" {
-            if let Some(path) = args.get(i + 1) {
-                return PathBuf::from(path);
+        match args[i].as_str() {
+            "--config" => {
+                if let Some(path) = args.get(i + 1) {
+                    config_path = Some(PathBuf::from(path));
+                    i += 2;
+                } else {
+                    eprintln!("error: --config requires a path argument");
+                    std::process::exit(1);
+                }
             }
-            eprintln!("error: --config requires a path argument");
+            "--check" => {
+                check_only = true;
+                i += 1;
+            }
+            _ => {
+                i += 1;
+            }
+        }
+    }
+    match config_path {
+        Some(p) => (p, check_only),
+        None => {
+            eprintln!("error: --config <path> is required");
             std::process::exit(1);
         }
-        i += 1;
     }
-    eprintln!("error: --config <path> is required");
-    std::process::exit(1);
 }
 
 /// Handle `usenet-ipfs-transit keygen --output <path> [--force]`.
@@ -102,10 +119,63 @@ fn cmd_keygen(args: &[String]) -> ! {
     std::process::exit(0);
 }
 
+async fn run_startup_checks(config: &usenet_ipfs_transit::config::Config) -> Vec<String> {
+    let mut errors: Vec<String> = Vec::new();
+
+    // Kubo reachability check with 5-second timeout.
+    let url = config.ipfs.api_url.clone();
+    let client = usenet_ipfs_core::ipfs::KuboHttpClient::new(&url);
+    match tokio::time::timeout(Duration::from_secs(5), client.node_id()).await {
+        Ok(Ok(_)) => {}
+        Ok(Err(e)) => {
+            errors.push(format!(
+                "Kubo unreachable at {url}: {e} — is 'ipfs daemon' running?"
+            ));
+        }
+        Err(_) => {
+            errors.push(format!(
+                "Kubo unreachable at {url}: timed out after 5s — is 'ipfs daemon' running?"
+            ));
+        }
+    }
+
+    // TLS file readability check.
+    if let Some(ref tls_cfg) = config.tls {
+        if let Err(e) = std::fs::read(&tls_cfg.cert_path) {
+            errors.push(format!("TLS file unreadable: {}: {e}", tls_cfg.cert_path));
+        }
+        if let Err(e) = std::fs::read(&tls_cfg.key_path) {
+            errors.push(format!("TLS file unreadable: {}: {e}", tls_cfg.key_path));
+        }
+    }
+
+    // Signing key check.
+    if let Some(ref path) = config.operator.signing_key_path {
+        if let Err(e) =
+            usenet_ipfs_core::signing::load_signing_key(std::path::Path::new(path))
+        {
+            errors.push(format!("{e}"));
+        }
+    }
+
+    // Admin bind address check.
+    match TcpListener::bind(&config.admin.addr).await {
+        Ok(_) => {}
+        Err(e) => {
+            errors.push(format!(
+                "Admin address {} already in use or invalid: {e}",
+                config.admin.addr
+            ));
+        }
+    }
+
+    errors
+}
+
 #[tokio::main]
 async fn main() {
     let start_time = Instant::now();
-    let config_path = parse_args();
+    let (config_path, check_only) = parse_args();
 
     let mut config = match Config::from_file(&config_path) {
         Ok(c) => c,
@@ -129,6 +199,18 @@ async fn main() {
             .init();
     } else {
         tracing_subscriber::fmt().with_env_filter(filter).init();
+    }
+
+    let check_errors = run_startup_checks(&config).await;
+    if !check_errors.is_empty() {
+        for msg in &check_errors {
+            eprintln!("error: {msg}");
+        }
+        std::process::exit(1);
+    }
+    if check_only {
+        println!("startup checks passed");
+        std::process::exit(0);
     }
 
     info!(
