@@ -61,6 +61,7 @@ impl LmdbBlockDb {
         let env: Env = unsafe {
             EnvOpenOptions::new()
                 .map_size(map_size_gb as usize * 1024 * 1024 * 1024)
+                .max_dbs(1)
                 .open(path)
                 .map_err(|e| format!("LMDB open failed at {}: {e}", path.display()))?
         };

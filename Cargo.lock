@@ -4964,6 +4964,296 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
+name = "stoa-auth"
+version = "0.1.0"
+dependencies = [
+ "bcrypt",
+ "ed25519-dalek",
+ "hex",
+ "serde",
+ "sha2 0.10.9",
+ "tempfile",
+ "tokio",
+ "x509-parser 0.16.0",
+]
+
+[[package]]
+name = "stoa-core"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "chrono",
+ "cid",
+ "criterion",
+ "ed25519-dalek",
+ "hex",
+ "mailparse",
+ "multihash-codetable",
+ "proptest",
+ "quoted_printable",
+ "rand_core 0.6.4",
+ "reqwest",
+ "serde",
+ "serde_ipld_dagcbor",
+ "serde_json",
+ "sqlx",
+ "tempfile",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "stoa-ctl"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "reqwest",
+ "serde_json",
+]
+
+[[package]]
+name = "stoa-imap"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "imap-codec",
+ "imap-next",
+ "imap-types",
+ "rustls",
+ "rustls-pemfile",
+ "serde",
+ "sqlx",
+ "stoa-core",
+ "stoa-tls",
+ "subtle",
+ "tempfile",
+ "tokio",
+ "tokio-rustls",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "stoa-integration-tests"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "base64",
+ "bs58 0.4.0",
+ "cid",
+ "ed25519-dalek",
+ "mail-auth",
+ "multihash-codetable",
+ "serde_json",
+ "sqlx",
+ "stoa-auth",
+ "stoa-core",
+ "stoa-reader",
+ "stoa-transit",
+ "stoa-verify",
+ "tempfile",
+ "tokio",
+ "toml",
+]
+
+[[package]]
+name = "stoa-lmdb"
+version = "0.1.0"
+dependencies = [
+ "heed",
+ "tempfile",
+]
+
+[[package]]
+name = "stoa-mail"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "bcrypt",
+ "chrono",
+ "cid",
+ "data-encoding",
+ "lazy_static",
+ "mailparse",
+ "multihash-codetable",
+ "prometheus",
+ "rand 0.8.6",
+ "reqwest",
+ "rustls",
+ "rustls-pemfile",
+ "serde",
+ "serde_ipld_dagcbor",
+ "serde_json",
+ "sha2 0.10.9",
+ "sqlx",
+ "stoa-auth",
+ "stoa-core",
+ "stoa-reader",
+ "stoa-smtp",
+ "stoa-tls",
+ "tempfile",
+ "tokio",
+ "tokio-rustls",
+ "toml",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
+name = "stoa-reader"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "base64",
+ "bcrypt",
+ "bs58 0.4.0",
+ "chrono",
+ "cid",
+ "ed25519-dalek",
+ "hex",
+ "lazy_static",
+ "mail-auth",
+ "mailparse",
+ "multihash-codetable",
+ "prometheus",
+ "rcgen",
+ "rustls",
+ "rustls-pemfile",
+ "serde",
+ "serde_ipld_dagcbor",
+ "serde_json",
+ "sha2 0.10.9",
+ "sqlx",
+ "stoa-auth",
+ "stoa-core",
+ "stoa-lmdb",
+ "stoa-smtp",
+ "stoa-tls",
+ "stoa-verify",
+ "subtle",
+ "tantivy",
+ "tempfile",
+ "tokio",
+ "tokio-rustls",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "stoa-sieve"
+version = "0.1.0"
+dependencies = [
+ "mail-parser",
+ "sieve-rs",
+ "tracing",
+]
+
+[[package]]
+name = "stoa-sieve-native"
+version = "0.1.0"
+dependencies = [
+ "fancy-regex 0.13.0",
+ "stoa-sieve",
+]
+
+[[package]]
+name = "stoa-smtp"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "base64",
+ "bcrypt",
+ "mail-auth",
+ "mail-parser",
+ "prometheus",
+ "rcgen",
+ "rustls",
+ "rustls-pemfile",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "stoa-auth",
+ "stoa-core",
+ "stoa-sieve-native",
+ "stoa-tls",
+ "subtle",
+ "tempfile",
+ "tokio",
+ "tokio-rustls",
+ "toml",
+ "tower",
+ "tracing",
+ "tracing-subscriber",
+ "webpki-roots 0.26.11",
+]
+
+[[package]]
+name = "stoa-tls"
+version = "0.1.0"
+dependencies = [
+ "rustls",
+ "rustls-pemfile",
+]
+
+[[package]]
+name = "stoa-transit"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "base64",
+ "cid",
+ "ed25519-dalek",
+ "hex",
+ "lazy_static",
+ "libp2p",
+ "mail-auth",
+ "multihash-codetable",
+ "prometheus",
+ "proptest",
+ "rand_core 0.6.4",
+ "reqwest",
+ "serde",
+ "serde_ipld_dagcbor",
+ "serde_json",
+ "sha2 0.10.9",
+ "sqlx",
+ "stoa-core",
+ "stoa-lmdb",
+ "stoa-tls",
+ "stoa-verify",
+ "subtle",
+ "tempfile",
+ "tokio",
+ "tokio-rustls",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+ "wiremock",
+]
+
+[[package]]
+name = "stoa-verify"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "cid",
+ "ed25519-dalek",
+ "hex",
+ "mail-auth",
+ "serde",
+ "sha2 0.10.9",
+ "sqlx",
+ "stoa-core",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "stringprep"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5705,296 +5995,6 @@ dependencies = [
  "idna",
  "percent-encoding",
  "serde",
-]
-
-[[package]]
-name = "usenet-ipfs-auth"
-version = "0.1.0"
-dependencies = [
- "bcrypt",
- "ed25519-dalek",
- "hex",
- "serde",
- "sha2 0.10.9",
- "tempfile",
- "tokio",
- "x509-parser 0.16.0",
-]
-
-[[package]]
-name = "usenet-ipfs-core"
-version = "0.1.0"
-dependencies = [
- "base64",
- "chrono",
- "cid",
- "criterion",
- "ed25519-dalek",
- "hex",
- "mailparse",
- "multihash-codetable",
- "proptest",
- "quoted_printable",
- "rand_core 0.6.4",
- "reqwest",
- "serde",
- "serde_ipld_dagcbor",
- "serde_json",
- "sqlx",
- "tempfile",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "usenet-ipfs-ctl"
-version = "0.1.0"
-dependencies = [
- "clap",
- "reqwest",
- "serde_json",
-]
-
-[[package]]
-name = "usenet-ipfs-imap"
-version = "0.1.0"
-dependencies = [
- "base64",
- "imap-codec",
- "imap-next",
- "imap-types",
- "rustls",
- "rustls-pemfile",
- "serde",
- "sqlx",
- "subtle",
- "tempfile",
- "tokio",
- "tokio-rustls",
- "toml",
- "tracing",
- "tracing-subscriber",
- "usenet-ipfs-core",
- "usenet-ipfs-tls",
-]
-
-[[package]]
-name = "usenet-ipfs-integration-tests"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "base64",
- "bs58 0.4.0",
- "cid",
- "ed25519-dalek",
- "mail-auth",
- "multihash-codetable",
- "serde_json",
- "sqlx",
- "tempfile",
- "tokio",
- "toml",
- "usenet-ipfs-auth",
- "usenet-ipfs-core",
- "usenet-ipfs-reader",
- "usenet-ipfs-transit",
- "usenet-ipfs-verify",
-]
-
-[[package]]
-name = "usenet-ipfs-lmdb"
-version = "0.1.0"
-dependencies = [
- "heed",
- "tempfile",
-]
-
-[[package]]
-name = "usenet-ipfs-mail"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "axum",
- "bcrypt",
- "chrono",
- "cid",
- "data-encoding",
- "lazy_static",
- "mailparse",
- "multihash-codetable",
- "prometheus",
- "rand 0.8.6",
- "reqwest",
- "rustls",
- "rustls-pemfile",
- "serde",
- "serde_ipld_dagcbor",
- "serde_json",
- "sha2 0.10.9",
- "sqlx",
- "tempfile",
- "tokio",
- "tokio-rustls",
- "toml",
- "tower-http",
- "tracing",
- "tracing-subscriber",
- "usenet-ipfs-auth",
- "usenet-ipfs-core",
- "usenet-ipfs-reader",
- "usenet-ipfs-smtp",
- "usenet-ipfs-tls",
- "uuid",
-]
-
-[[package]]
-name = "usenet-ipfs-reader"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "base64",
- "bcrypt",
- "bs58 0.4.0",
- "chrono",
- "cid",
- "ed25519-dalek",
- "hex",
- "lazy_static",
- "mail-auth",
- "mailparse",
- "multihash-codetable",
- "prometheus",
- "rcgen",
- "rustls",
- "rustls-pemfile",
- "serde",
- "serde_ipld_dagcbor",
- "serde_json",
- "sha2 0.10.9",
- "sqlx",
- "subtle",
- "tantivy",
- "tempfile",
- "tokio",
- "tokio-rustls",
- "toml",
- "tracing",
- "tracing-subscriber",
- "usenet-ipfs-auth",
- "usenet-ipfs-core",
- "usenet-ipfs-lmdb",
- "usenet-ipfs-smtp",
- "usenet-ipfs-tls",
- "usenet-ipfs-verify",
-]
-
-[[package]]
-name = "usenet-ipfs-sieve"
-version = "0.1.0"
-dependencies = [
- "mail-parser",
- "sieve-rs",
- "tracing",
-]
-
-[[package]]
-name = "usenet-ipfs-sieve-native"
-version = "0.1.0"
-dependencies = [
- "fancy-regex 0.13.0",
- "usenet-ipfs-sieve",
-]
-
-[[package]]
-name = "usenet-ipfs-smtp"
-version = "0.1.0"
-dependencies = [
- "axum",
- "base64",
- "bcrypt",
- "mail-auth",
- "mail-parser",
- "prometheus",
- "rcgen",
- "rustls",
- "rustls-pemfile",
- "serde",
- "serde_json",
- "sqlx",
- "subtle",
- "tempfile",
- "tokio",
- "tokio-rustls",
- "toml",
- "tower",
- "tracing",
- "tracing-subscriber",
- "usenet-ipfs-auth",
- "usenet-ipfs-core",
- "usenet-ipfs-sieve-native",
- "usenet-ipfs-tls",
- "webpki-roots 0.26.11",
-]
-
-[[package]]
-name = "usenet-ipfs-tls"
-version = "0.1.0"
-dependencies = [
- "rustls",
- "rustls-pemfile",
-]
-
-[[package]]
-name = "usenet-ipfs-transit"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "base64",
- "cid",
- "ed25519-dalek",
- "hex",
- "lazy_static",
- "libp2p",
- "mail-auth",
- "multihash-codetable",
- "prometheus",
- "proptest",
- "rand_core 0.6.4",
- "reqwest",
- "serde",
- "serde_ipld_dagcbor",
- "serde_json",
- "sha2 0.10.9",
- "sqlx",
- "subtle",
- "tempfile",
- "tokio",
- "tokio-rustls",
- "toml",
- "tracing",
- "tracing-subscriber",
- "usenet-ipfs-core",
- "usenet-ipfs-lmdb",
- "usenet-ipfs-tls",
- "usenet-ipfs-verify",
- "wiremock",
-]
-
-[[package]]
-name = "usenet-ipfs-verify"
-version = "0.1.0"
-dependencies = [
- "base64",
- "cid",
- "ed25519-dalek",
- "hex",
- "mail-auth",
- "serde",
- "sha2 0.10.9",
- "sqlx",
- "tokio",
- "tracing",
- "usenet-ipfs-core",
 ]
 
 [[package]]

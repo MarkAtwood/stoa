@@ -14,7 +14,7 @@ use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 
-use stoa_core::{article::GroupName, group_log::LogStorage};
+use stoa_core::{article::GroupName, group_log::LogStorage, util::epoch_to_rfc2822};
 use stoa_reader::{session::lifecycle::run_session, store::server_stores::ServerStores};
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -73,7 +73,11 @@ fn make_article(injection_source: Option<&str>, newsgroup: &str, msgid: &str) ->
     s.push_str(&format!("Newsgroups: {newsgroup}\r\n"));
     s.push_str("From: provenance-test@example.com\r\n");
     s.push_str(&format!("Subject: Provenance test {msgid}\r\n"));
-    s.push_str("Date: Thu, 23 Apr 2026 12:00:00 +0000\r\n");
+    let now_secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64;
+    s.push_str(&format!("Date: {}\r\n", epoch_to_rfc2822(now_secs)));
     s.push_str(&format!("Message-ID: {msgid}\r\n"));
     s.push_str("\r\n");
     s.push_str("Provenance test body.\r\n");

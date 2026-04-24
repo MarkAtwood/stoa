@@ -20,6 +20,7 @@ use stoa_core::{
     msgid_map::MsgIdMap,
 };
 use stoa_verify::VerificationStore;
+use super::lmdb_store::LmdbStore;
 
 // ── IPFS abstraction ──────────────────────────────────────────────────────────
 
@@ -209,7 +210,7 @@ pub fn build_store(config: &crate::config::Config) -> Result<StoreBuildResult, S
                     .as_ref()
                     .ok_or("backend.type = 'lmdb' requires a [backend.lmdb] section")?;
                 let store =
-                    lmdb_store::LmdbStore::open(std::path::Path::new(&lmdb_cfg.path), lmdb_cfg.map_size_gb)
+                    LmdbStore::open(std::path::Path::new(&lmdb_cfg.path), lmdb_cfg.map_size_gb)
                         .map_err(|e| format!("LMDB store init failed: {e}"))?;
                 Ok(StoreBuildResult {
                     store: Arc::new(store),
