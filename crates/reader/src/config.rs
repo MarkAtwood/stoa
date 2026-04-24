@@ -21,6 +21,51 @@ pub struct Config {
     pub search: SearchConfig,
     #[serde(default)]
     pub smtp_relay: SmtpRelayConfig,
+    #[serde(default)]
+    pub database: DatabaseConfig,
+}
+
+/// SQLite database path configuration for the reader daemon.
+///
+/// Three separate database files are required because `sqlx` validates that
+/// every previously-applied migration is still present in the migrator; mixing
+/// schemas in a single pool would cause `VersionMissing` errors.
+#[derive(Debug, Deserialize)]
+pub struct DatabaseConfig {
+    /// Path for the reader-schema database (article_numbers, overview).
+    /// Created if it does not exist. Default: `reader.db`.
+    #[serde(default = "DatabaseConfig::default_reader_path")]
+    pub reader_path: String,
+    /// Path for the core-schema database (msgid_map).
+    /// Created if it does not exist. Default: `reader_core.db`.
+    #[serde(default = "DatabaseConfig::default_core_path")]
+    pub core_path: String,
+    /// Path for the verify-schema database (article_verifications, seen_keys).
+    /// Created if it does not exist. Default: `reader_verify.db`.
+    #[serde(default = "DatabaseConfig::default_verify_path")]
+    pub verify_path: String,
+}
+
+impl DatabaseConfig {
+    fn default_reader_path() -> String {
+        "reader.db".to_string()
+    }
+    fn default_core_path() -> String {
+        "reader_core.db".to_string()
+    }
+    fn default_verify_path() -> String {
+        "reader_verify.db".to_string()
+    }
+}
+
+impl Default for DatabaseConfig {
+    fn default() -> Self {
+        Self {
+            reader_path: Self::default_reader_path(),
+            core_path: Self::default_core_path(),
+            verify_path: Self::default_verify_path(),
+        }
+    }
 }
 
 /// Configuration for outbound SMTP relay of posted articles.

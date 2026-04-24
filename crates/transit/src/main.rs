@@ -1006,7 +1006,9 @@ async fn accept_loop(listener: TcpListener, shared: Arc<PeeringShared>) -> std::
 async fn open_pool(path: &str, pool_size: u32) -> sqlx::SqlitePool {
     let url = format!("sqlite://{path}");
     let opts = match <sqlx::sqlite::SqliteConnectOptions as std::str::FromStr>::from_str(&url) {
-        Ok(o) => o.create_if_missing(true),
+        Ok(o) => o
+            .create_if_missing(true)
+            .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal),
         Err(e) => {
             eprintln!("error: invalid database path '{path}': {e}");
             std::process::exit(1);

@@ -11,7 +11,6 @@
 
 mod common;
 
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -73,17 +72,19 @@ impl IpfsBlockStore for MemIpfs {
 }
 
 // ── Pool helpers ──────────────────────────────────────────────────────────────
+//
+// Tests use on-disk SQLite backed by a tempdir so they exercise the same
+// code path as production deployments (disk + WAL mode).
 
-static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
-
-async fn make_core_pool() -> sqlx::SqlitePool {
-    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
-    let url = format!("file:conform_core_{n}?mode=memory&cache=shared");
-    let opts = sqlx::sqlite::SqliteConnectOptions::new()
-        .filename(&url)
-        .create_if_missing(true);
+async fn make_core_pool(dir: &tempfile::TempDir) -> sqlx::SqlitePool {
+    let path = dir.path().join("core.db");
+    let url = format!("sqlite://{}", path.display());
+    let opts = <sqlx::sqlite::SqliteConnectOptions as std::str::FromStr>::from_str(&url)
+        .unwrap()
+        .create_if_missing(true)
+        .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal);
     let pool = sqlx::sqlite::SqlitePoolOptions::new()
-        .max_connections(1)
+        .max_connections(4)
         .connect_with(opts)
         .await
         .expect("core pool");
@@ -93,14 +94,15 @@ async fn make_core_pool() -> sqlx::SqlitePool {
     pool
 }
 
-async fn make_reader_pool() -> sqlx::SqlitePool {
-    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
-    let url = format!("file:conform_reader_{n}?mode=memory&cache=shared");
-    let opts = sqlx::sqlite::SqliteConnectOptions::new()
-        .filename(&url)
-        .create_if_missing(true);
+async fn make_reader_pool(dir: &tempfile::TempDir) -> sqlx::SqlitePool {
+    let path = dir.path().join("reader.db");
+    let url = format!("sqlite://{}", path.display());
+    let opts = <sqlx::sqlite::SqliteConnectOptions as std::str::FromStr>::from_str(&url)
+        .unwrap()
+        .create_if_missing(true)
+        .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal);
     let pool = sqlx::sqlite::SqlitePoolOptions::new()
-        .max_connections(1)
+        .max_connections(4)
         .connect_with(opts)
         .await
         .expect("reader pool");
@@ -110,14 +112,15 @@ async fn make_reader_pool() -> sqlx::SqlitePool {
     pool
 }
 
-async fn make_verify_pool() -> sqlx::SqlitePool {
-    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
-    let url = format!("file:conform_verify_{n}?mode=memory&cache=shared");
-    let opts = sqlx::sqlite::SqliteConnectOptions::new()
-        .filename(&url)
-        .create_if_missing(true);
+async fn make_verify_pool(dir: &tempfile::TempDir) -> sqlx::SqlitePool {
+    let path = dir.path().join("verify.db");
+    let url = format!("sqlite://{}", path.display());
+    let opts = <sqlx::sqlite::SqliteConnectOptions as std::str::FromStr>::from_str(&url)
+        .unwrap()
+        .create_if_missing(true)
+        .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal);
     let pool = sqlx::sqlite::SqlitePoolOptions::new()
-        .max_connections(1)
+        .max_connections(4)
         .connect_with(opts)
         .await
         .expect("verify pool");
@@ -239,8 +242,9 @@ async fn nntp_conformance_via_nntplib() {
 
     // ── Set up in-process reader ───────────────────────────────────────────
 
-    let core_pool = make_core_pool().await;
-    let reader_pool = make_reader_pool().await;
+    let db_dir = tempfile::TempDir::new().expect("tempdir");
+    let core_pool = make_core_pool(&db_dir).await;
+    let reader_pool = make_reader_pool(&db_dir).await;
 
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -263,7 +267,7 @@ async fn nntp_conformance_via_nntplib() {
         search_index: None,
         smtp_relay_queue: None,
         verification_store: Arc::new(usenet_ipfs_verify::VerificationStore::new(
-            make_verify_pool().await,
+            make_verify_pool(&db_dir).await,
         )),
         dkim_authenticator: Arc::new(mail_auth::MessageAuthenticator::new_cloudflare_tls().unwrap()),
     });

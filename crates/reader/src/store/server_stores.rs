@@ -9,7 +9,9 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+use std::str::FromStr;
+
+use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
 use sqlx::SqlitePool;
 use tokio::sync::Mutex;
 
@@ -66,8 +68,10 @@ pub struct ServerStores {
 
 impl ServerStores {
     /// Construct a `ServerStores` backed by a `KuboBlockStore` (Kubo HTTP RPC)
-    /// with optional local FS cache, credential store from config, and in-memory
-    /// SQLite databases.
+    /// with optional local FS cache, credential store from config, and on-disk
+    /// SQLite databases with WAL mode.
+    ///
+    /// Database parent directories are created at startup if they do not exist.
     pub async fn new_with_ipfs(config: &crate::config::Config) -> Result<Self, String> {
         let cache_dir = config
             .ipfs
@@ -80,8 +84,26 @@ impl ServerStores {
                 .map_err(|e| format!("failed to create IPFS cache dir '{}': {e}", dir.display()))?;
         }
         let ipfs_store = KuboBlockStore::new(&config.ipfs.api_url, cache_dir);
-        let reader_pool = make_pool_with_reader_migrations().await;
-        let core_pool = make_pool_with_core_migrations().await;
+
+        // Ensure database parent directories exist before opening pools.
+        for path_str in [
+            &config.database.reader_path,
+            &config.database.core_path,
+            &config.database.verify_path,
+        ] {
+            let p = std::path::Path::new(path_str.as_str());
+            if let Some(parent) = p.parent().filter(|d| !d.as_os_str().is_empty()) {
+                std::fs::create_dir_all(parent).map_err(|e| {
+                    format!(
+                        "cannot create database directory '{}': {e}",
+                        parent.display()
+                    )
+                })?;
+            }
+        }
+
+        let reader_pool = make_disk_pool_with_reader_migrations(&config.database.reader_path).await?;
+        let core_pool = make_disk_pool_with_core_migrations(&config.database.core_path).await?;
 
         let now_ms = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -96,7 +118,7 @@ impl ServerStores {
         let smtp_relay_queue = build_smtp_relay_queue(&config.smtp_relay)
             .map_err(|e| format!("smtp relay queue init failed: {e}"))?;
 
-        let verify_pool = make_pool_with_verify_migrations().await;
+        let verify_pool = make_disk_pool_with_verify_migrations(&config.database.verify_path).await?;
         let dkim_authenticator = MessageAuthenticator::new_cloudflare_tls()
             .map_err(|e| format!("DKIM authenticator init failed: {e}"))?;
 
@@ -261,6 +283,60 @@ async fn make_pool_with_core_migrations() -> SqlitePool {
         .await
         .expect("core migrations failed on in-memory pool");
     pool
+}
+
+/// Open an on-disk SQLite pool with WAL mode and reader-crate migrations.
+async fn make_disk_pool_with_reader_migrations(path: &str) -> Result<SqlitePool, String> {
+    let url = format!("sqlite://{path}");
+    let opts = SqliteConnectOptions::from_str(&url)
+        .map_err(|e| format!("invalid reader database path '{path}': {e}"))?
+        .create_if_missing(true)
+        .journal_mode(SqliteJournalMode::Wal);
+    let pool = SqlitePoolOptions::new()
+        .max_connections(8)
+        .connect_with(opts)
+        .await
+        .map_err(|e| format!("failed to open reader database '{path}': {e}"))?;
+    crate::migrations::run_migrations(&pool)
+        .await
+        .map_err(|e| format!("reader database migration failed: {e}"))?;
+    Ok(pool)
+}
+
+/// Open an on-disk SQLite pool with WAL mode and core-crate migrations.
+async fn make_disk_pool_with_core_migrations(path: &str) -> Result<SqlitePool, String> {
+    let url = format!("sqlite://{path}");
+    let opts = SqliteConnectOptions::from_str(&url)
+        .map_err(|e| format!("invalid core database path '{path}': {e}"))?
+        .create_if_missing(true)
+        .journal_mode(SqliteJournalMode::Wal);
+    let pool = SqlitePoolOptions::new()
+        .max_connections(8)
+        .connect_with(opts)
+        .await
+        .map_err(|e| format!("failed to open core database '{path}': {e}"))?;
+    usenet_ipfs_core::migrations::run_migrations(&pool)
+        .await
+        .map_err(|e| format!("core database migration failed: {e}"))?;
+    Ok(pool)
+}
+
+/// Open an on-disk SQLite pool with WAL mode and verify-crate migrations.
+async fn make_disk_pool_with_verify_migrations(path: &str) -> Result<SqlitePool, String> {
+    let url = format!("sqlite://{path}");
+    let opts = SqliteConnectOptions::from_str(&url)
+        .map_err(|e| format!("invalid verify database path '{path}': {e}"))?
+        .create_if_missing(true)
+        .journal_mode(SqliteJournalMode::Wal);
+    let pool = SqlitePoolOptions::new()
+        .max_connections(8)
+        .connect_with(opts)
+        .await
+        .map_err(|e| format!("failed to open verify database '{path}': {e}"))?;
+    usenet_ipfs_verify::run_migrations(&pool)
+        .await
+        .map_err(|e| format!("verify database migration failed: {e}"))?;
+    Ok(pool)
 }
 
 /// Build a `TrustedIssuerStore` from the reader's `[auth]` trusted_issuers list.

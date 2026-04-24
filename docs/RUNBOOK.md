@@ -13,7 +13,7 @@ Before deploying, understand these v1 constraints:
 |-----------|--------|
 | **Requires Kubo** | Both daemons require a running Kubo (go-ipfs) node. They fail at startup if the Kubo API is unreachable. Articles are stored durably in Kubo's block store and survive daemon restarts. |
 | **Ephemeral signing key (loopback only)** | Both daemons generate an ephemeral key when `[operator] signing_key_path` is absent. This is only permitted for loopback (`127.0.0.1`/`::1`) bind addresses. Non-loopback deployments must generate and configure a persistent key (see [Operator Signing Key](#operator-signing-key) below). |
-| **In-memory reader index** | The reader daemon stores article numbers, the overview index, and the message-ID map in in-memory SQLite. Index state is lost on reader restart; Kubo still holds article bytes and they can be re-indexed. |
+| **Reader state requires backfill on schema change** | Reader SQLite databases (`reader.db`, `reader_core.db`, `reader_verify.db`) persist across restarts. If the schema is migrated, article numbers and overview entries survive; the backfill at startup fills any gaps. |
 | **No peer block fetch** | When gossip reconciliation finds missing entries, the fetch is stubbed out. Remote entries are logged as warnings but not retrieved. |
 | **TLS not yet advertised** | TLS infrastructure is wired but STARTTLS is not yet advertised in CAPABILITIES. |
 
@@ -233,8 +233,9 @@ Other admin endpoints:
 The reader daemon takes a single flag: `--config <path>`.
 
 > **Note**: the reader stores article numbers, the overview index, and the
-> message-ID map in in-memory SQLite. Index state is rebuilt from scratch on
-> each restart. Article bytes are durable in Kubo. This is a v1 limitation.
+> message-ID map in on-disk SQLite with WAL mode. State survives restarts.
+> A startup backfill re-populates the overview for any article that has a
+> number assigned but no overview record (e.g. after a crash mid-write).
 
 Create `reader.toml`:
 
@@ -249,6 +250,13 @@ command_timeout_secs = 30
 [ipfs]
 api_url    = "http://127.0.0.1:5001"
 cache_path = "/var/cache/usenet-ipfs/blocks"
+
+[database]
+# On-disk SQLite files. Parent directories are created at startup if absent.
+# Three files are required — mixing schemas in one file causes migration errors.
+reader_path = "/var/lib/usenet-ipfs/reader/reader.db"
+core_path   = "/var/lib/usenet-ipfs/reader/reader_core.db"
+verify_path = "/var/lib/usenet-ipfs/reader/reader_verify.db"
 
 [auth]
 required = false   # set true and add [[auth.users]] for production
@@ -433,7 +441,7 @@ be re-ingested.
 | `GROUP comp.lang.rust` returns `411 No such newsgroup` | No articles in that group | The reader synthesizes groups from posted articles; a group with no articles is not listed |
 | Admin endpoint returns 403 | `bearer_token` is configured | Pass `Authorization: Bearer <token>` header |
 | Transit logs `v1: peer block fetch not yet implemented` | Gossip reconciliation found missing remote entries | Expected in v1; backfill from peers is a future feature |
-| Reader loses all articles after restart | In-memory storage — expected in v1 | Re-post articles; persistent storage is a future feature |
+| Reader loses articles after restart | `[database]` paths not configured or pointing to a new directory | Set `reader_path`, `core_path`, `verify_path` in `[database]` to persistent paths |
 
 ---
 
