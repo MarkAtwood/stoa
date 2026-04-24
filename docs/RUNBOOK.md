@@ -337,6 +337,14 @@ exiting.  The sequence is:
 3. Transit drains the ingestion queue (pending `block_put` / group log appends).
 4. Process exits with code `0` on clean drain, `1` if the drain timeout fired.
 
+### What is drained
+
+| Daemon | What is drained | Notes |
+|--------|----------------|-------|
+| Reader | All active NNTP/NNTPS sessions (shared semaphore) | Plain and TLS connections share one limit |
+| Transit | Staging drain task (flushes queued staging rows) | Stopped first, before ingestion drain |
+| Transit | Ingestion queue (pending `block_put` / group log appends) | Dropped sender closes channel; task finishes queue |
+
 ### Drain timeout
 
 The default drain timeout is **30 seconds**.  Override in config:

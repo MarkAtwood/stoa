@@ -635,6 +635,11 @@ async fn main() {
     let trusted_keys_drain = shared.trusted_keys.clone();
     let trusted_keys_staging = shared.trusted_keys.clone();
 
+    // Clone the metrics Arc before moving the sender into PeeringShared, so we can
+    // read queue depth from the drain timeout log without holding a Sender (which
+    // would prevent the channel from closing — see nzr6.17).
+    let ingestion_metrics = ingestion_sender.clone_metrics();
+
     let ingestion_handle = {
         let ipfs = Arc::clone(&ipfs_store);
         let msgid_map_drain = Arc::clone(&msgid_map);
@@ -645,7 +650,7 @@ async fn main() {
         let local_peer_id = peer_id.to_string();
         let local_hostname_drain = local_hostname;
         let transit_pool_drain = Arc::clone(&transit_pool);
-        let ingestion_sender_drain = Arc::clone(&ingestion_sender);
+        let ingestion_metrics_task = Arc::clone(&ingestion_metrics);
         let ipns_tx_drain = ipns_tx;
         let verification_store_drain = Arc::clone(&verification_store);
         let dkim_authenticator_drain = Arc::clone(&dkim_authenticator);
@@ -654,7 +659,7 @@ async fn main() {
         tokio::spawn(async move {
             while let Some(article) = ingestion_receiver.recv().await {
                 usenet_ipfs_transit::metrics::INGESTION_QUEUE_DEPTH
-                    .set(ingestion_sender_drain.depth() as i64);
+                    .set(ingestion_metrics_task.current_depth() as i64);
                 let now_ms = std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap()
@@ -740,12 +745,19 @@ async fn main() {
 
     // ── Staging drain task (only when [staging] is configured) ────────────────
 
+    let mut staging_shutdown_opt: Option<tokio::sync::watch::Sender<bool>> = None;
+    let mut staging_drain_opt: Option<tokio::task::JoinHandle<()>> = None;
+
     if let Some(staging) = staging_store {
         // Log how many articles survived the previous run.
         match staging.pending_count().await {
             Ok(n) if n > 0 => info!(count = n, "re-draining staged articles from previous run"),
             _ => {}
         }
+
+        let (staging_shutdown_tx, mut staging_shutdown_rx) =
+            tokio::sync::watch::channel(false);
+        staging_shutdown_opt = Some(staging_shutdown_tx);
 
         let ipfs = Arc::clone(&ipfs_store);
         let msgid_map_drain = Arc::clone(&msgid_map);
@@ -762,11 +774,14 @@ async fn main() {
         let dkim_authenticator_drain = dkim_authenticator_staging;
         let trusted_keys_for_drain = trusted_keys_staging;
 
-        tokio::spawn(async move {
+        staging_drain_opt = Some(tokio::spawn(async move {
             loop {
                 match staging.drain_one().await {
                     Ok(None) => {
-                        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                        tokio::select! {
+                            _ = tokio::time::sleep(std::time::Duration::from_millis(100)) => {}
+                            _ = staging_shutdown_rx.changed() => { break; }
+                        }
                     }
                     Ok(Some(article)) => {
                         let now_ms = std::time::SystemTime::now()
@@ -859,11 +874,15 @@ async fn main() {
                     }
                     Err(e) => {
                         warn!("staging drain error: {e}");
-                        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                        tokio::select! {
+                            _ = tokio::time::sleep(std::time::Duration::from_millis(500)) => {}
+                            _ = staging_shutdown_rx.changed() => { break; }
+                        }
                     }
                 }
             }
-        });
+            info!("staging drain task stopped");
+        }));
     }
 
     // ── Peering TCP listener (atu) ────────────────────────────────────────────
@@ -918,6 +937,18 @@ async fn main() {
         }
     }
 
+    // Signal the staging drain task to stop (if running), then wait briefly.
+    if let Some(shutdown_tx) = staging_shutdown_opt {
+        let _ = shutdown_tx.send(true);
+        if let Some(staging_handle) = staging_drain_opt {
+            let _ = tokio::time::timeout(
+                std::time::Duration::from_secs(drain_timeout_secs),
+                staging_handle,
+            )
+            .await;
+        }
+    }
+
     // Signal the ingestion task to stop by dropping the last sender, then
     // wait for it to finish processing any queued articles.
     info!("shutting down, draining ingestion queue");
@@ -928,11 +959,19 @@ async fn main() {
     )
     .await;
     match drain_result {
-        Ok(_) => {
+        Ok(Ok(())) => {
             info!("ingestion task drained cleanly");
         }
+        Ok(Err(e)) => {
+            warn!("ingestion task panicked: {e}");
+            std::process::exit(1);
+        }
         Err(_) => {
-            warn!("ingestion drain timeout, forcing exit");
+            let remaining = ingestion_metrics.current_depth();
+            warn!(
+                remaining_queue_depth = remaining,
+                "ingestion drain timeout, forcing exit"
+            );
             std::process::exit(1);
         }
     }

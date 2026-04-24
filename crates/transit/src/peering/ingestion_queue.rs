@@ -107,6 +107,11 @@ impl IngestionSender {
     pub fn metrics(&self) -> &QueueMetrics {
         &self.metrics
     }
+
+    /// Clone the shared metrics `Arc` for external monitoring (e.g. drain timeout log).
+    pub fn clone_metrics(&self) -> Arc<QueueMetrics> {
+        Arc::clone(&self.metrics)
+    }
 }
 
 /// Receiver half of the ingestion queue.

@@ -300,10 +300,9 @@ async fn main() {
                     std::process::exit(1);
                 }
             };
-            let sem2 = Arc::new(Semaphore::new(config.limits.max_connections));
             Box::pin(accept_loop_tls(
                 tls_listener,
-                sem2,
+                Arc::clone(&semaphore),
                 config.clone(),
                 stores.clone(),
                 nntps_acceptor,
