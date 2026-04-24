@@ -49,5 +49,6 @@ name = "nntp_latency"
 harness = false
 
 [dev-dependencies]
+rcgen = "0.13"
 tempfile = "3"
 tokio = { version = "1", features = ["full", "macros", "rt-multi-thread"] }

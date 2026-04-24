@@ -43,12 +43,16 @@ use crate::{
 ///
 /// `is_tls`: true for NNTPS connections (implicit TLS, accepted by the
 /// caller before this function is invoked). false for plain connections
-/// on port 119 — no in-session TLS upgrade is available.
+/// on port 119 — STARTTLS is available if `tls_acceptor` is `Some`.
+/// `tls_acceptor`: pre-loaded TLS acceptor, shared across connections.
+/// Must be `Some` when `is_tls = true`. On plain connections, `Some`
+/// enables STARTTLS; `None` disables it.
 pub async fn run_session(
     stream: TcpStream,
     is_tls: bool,
     config: &Config,
     stores: Arc<ServerStores>,
+    tls_acceptor: Option<Arc<crate::tls::TlsAcceptor>>,
 ) {
     let peer_addr = match stream.peer_addr() {
         Ok(addr) => addr,
@@ -59,16 +63,14 @@ pub async fn run_session(
     };
 
     if is_tls {
-        let cert = config.tls.cert_path.as_deref().unwrap_or("");
-        let key = config.tls.key_path.as_deref().unwrap_or("");
-        let acceptor = match crate::tls::load_tls_acceptor(cert, key) {
-            Ok(a) => a,
-            Err(e) => {
-                warn!(peer = %peer_addr, "TLS acceptor setup failed: {e}");
+        let acceptor = match tls_acceptor {
+            Some(a) => a,
+            None => {
+                warn!(peer = %peer_addr, "TLS acceptor missing for NNTPS connection");
                 return;
             }
         };
-        match crate::tls::accept_tls(&acceptor, stream).await {
+        match crate::tls::accept_tls(&*acceptor, stream).await {
             Ok(tls_stream) => {
                 let (client_cert_fp, client_cert_der) =
                     crate::tls::extract_client_cert_data(&tls_stream);
@@ -88,7 +90,7 @@ pub async fn run_session(
             }
         }
     } else {
-        run_plain_session(stream, peer_addr, config, stores).await;
+        run_plain_session(stream, peer_addr, config, stores, tls_acceptor).await;
     }
 }
 
@@ -117,22 +119,33 @@ async fn load_known_groups(stores: &ServerStores, ctx: &mut SessionContext) {
     }
 }
 
-/// Run a plain-text NNTP session (port 119, no TLS).
+/// Run a plain-text NNTP session (port 119).
 ///
-/// AUTHINFO returns 483 if `auth.required = true` — callers must connect
-/// to the NNTPS port (563) for authenticated sessions.
+/// If TLS cert/key are configured, STARTTLS is advertised in CAPABILITIES.
+/// When the client issues STARTTLS, a 382 response is sent and the session
+/// is upgraded to TLS in-place (RFC 4642).  The post-upgrade session resets
+/// auth state but does NOT re-send a greeting.
+///
+/// If TLS is not configured, AUTHINFO returns 483 when `auth.required = true`
+/// and callers must connect to the NNTPS port (563).
 async fn run_plain_session(
     stream: TcpStream,
     peer_addr: SocketAddr,
     config: &Config,
     stores: Arc<ServerStores>,
+    tls_acceptor: Option<Arc<crate::tls::TlsAcceptor>>,
 ) {
     info!(peer = %peer_addr, "plain session started");
     let start = std::time::Instant::now();
 
+    if tls_acceptor.is_some() {
+        debug!(peer = %peer_addr, "STARTTLS available on plain connection");
+    }
+
     let auth_required = config.auth.required;
     let posting_allowed = true;
     let mut ctx = SessionContext::new(peer_addr, auth_required, posting_allowed, false);
+    ctx.starttls_available = tls_acceptor.is_some();
     load_known_groups(&stores, &mut ctx).await;
 
     let (read_half, mut write_half) = stream.into_split();
@@ -153,7 +166,7 @@ async fn run_plain_session(
         return;
     }
 
-    run_command_loop(
+    let exit = run_command_loop(
         &mut reader,
         &mut write_half,
         &mut ctx,
@@ -163,8 +176,98 @@ async fn run_plain_session(
     )
     .await;
 
+    // STARTTLS upgrade: command loop sent 382 and signalled StartTlsRequested.
+    if matches!(exit, CommandLoopExit::StartTlsRequested) {
+        let acceptor = match tls_acceptor {
+            Some(a) => a,
+            None => {
+                warn!(peer = %peer_addr, "STARTTLS: no acceptor at upgrade time");
+                let elapsed = start.elapsed();
+                info!(peer = %peer_addr, elapsed_ms = elapsed.as_millis(), "plain session ended");
+                return;
+            }
+        };
+        // Reassemble the TCP stream from the split halves.
+        let stream = match reader.into_inner().reunite(write_half) {
+            Ok(s) => s,
+            Err(e) => {
+                warn!(peer = %peer_addr, "STARTTLS: stream reunite failed: {e}");
+                let elapsed = start.elapsed();
+                info!(peer = %peer_addr, elapsed_ms = elapsed.as_millis(), "plain session ended");
+                return;
+            }
+        };
+        info!(peer = %peer_addr, "STARTTLS: performing TLS handshake");
+        match crate::tls::accept_tls(&*acceptor, stream).await {
+            Ok(tls_stream) => {
+                let (client_cert_fp, client_cert_der) =
+                    crate::tls::extract_client_cert_data(&tls_stream);
+                run_session_post_starttls(
+                    tls_stream,
+                    peer_addr,
+                    config,
+                    client_cert_fp,
+                    client_cert_der,
+                    stores,
+                )
+                .await;
+            }
+            Err(e) => {
+                warn!(peer = %peer_addr, "STARTTLS: TLS handshake failed: {e}");
+            }
+        }
+    }
+
     let elapsed = start.elapsed();
     info!(peer = %peer_addr, elapsed_ms = elapsed.as_millis(), "plain session ended");
+}
+
+/// Run the NNTP session after a successful STARTTLS upgrade.
+///
+/// Per RFC 4642 §2.2, the server MUST NOT re-send the greeting after the TLS
+/// handshake. Session state is reset to the post-greeting state (auth cleared).
+async fn run_session_post_starttls<S>(
+    stream: S,
+    peer_addr: SocketAddr,
+    config: &Config,
+    client_cert_fingerprint: Option<String>,
+    client_cert_der: Option<Vec<u8>>,
+    stores: Arc<ServerStores>,
+) where
+    S: AsyncRead + AsyncWrite + Unpin + Send,
+{
+    info!(peer = %peer_addr, "STARTTLS: session resumed over TLS");
+
+    let auth_required = config.auth.required;
+    let posting_allowed = true;
+    let mut ctx = SessionContext::new(peer_addr, auth_required, posting_allowed, true);
+    ctx.starttls_available = false; // already TLS; no further upgrade
+    ctx.client_cert_fingerprint = client_cert_fingerprint;
+    ctx.client_cert_der = client_cert_der;
+    load_known_groups(&stores, &mut ctx).await;
+
+    let (reader, mut writer) = tokio::io::split(stream);
+    let mut reader = BufReader::new(reader);
+
+    // No greeting — RFC 4642 §2.2.
+    let _exit = run_command_loop(
+        &mut reader,
+        &mut writer,
+        &mut ctx,
+        peer_addr,
+        config,
+        &stores,
+    )
+    .await;
+}
+
+/// Return value from `run_command_loop` encoding why the loop exited.
+enum CommandLoopExit {
+    /// Normal exit: QUIT, EOF, read/write error, or idle timeout.
+    Done,
+    /// The client issued STARTTLS and received a 382; the caller must
+    /// perform the TLS handshake before resuming the session.
+    StartTlsRequested,
 }
 
 /// Execute the NNTP command loop on a generic async read/write pair.
@@ -177,7 +280,8 @@ async fn run_command_loop<R, W>(
     peer_addr: SocketAddr,
     config: &Config,
     stores: &ServerStores,
-) where
+) -> CommandLoopExit
+where
     R: AsyncRead + Unpin,
     W: AsyncWrite + Unpin,
 {
@@ -190,18 +294,18 @@ async fn run_command_loop<R, W>(
             Ok(Ok(n)) => n,
             Ok(Err(e)) => {
                 warn!(peer = %peer_addr, "read error: {e}");
-                return;
+                return CommandLoopExit::Done;
             }
             Err(_) => {
                 let resp = Response::new(400, "Timeout - closing connection");
                 let _ = writer.write_all(resp.to_string().as_bytes()).await;
-                return;
+                return CommandLoopExit::Done;
             }
         };
 
         if n == 0 {
             debug!(peer = %peer_addr, "client disconnected");
-            return;
+            return CommandLoopExit::Done;
         }
 
         let line = line_buf.trim_end_matches(['\r', '\n']);
@@ -212,7 +316,7 @@ async fn run_command_loop<R, W>(
             Err(_) => {
                 let resp = Response::unknown_command();
                 if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                    return;
+                    return CommandLoopExit::Done;
                 }
                 continue;
             }
@@ -222,7 +326,7 @@ async fn run_command_loop<R, W>(
         if let Command::Article(Some(ArticleRef::MessageId(ref msgid))) = cmd {
             let resp = lookup_article_by_msgid(stores, msgid).await;
             if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                return;
+                return CommandLoopExit::Done;
             }
             continue;
         }
@@ -231,7 +335,7 @@ async fn run_command_loop<R, W>(
         if let Command::Article(Some(ArticleRef::Cid(ref cid_str))) = cmd {
             let resp = lookup_article_by_cid(stores, cid_str).await;
             if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                return;
+                return CommandLoopExit::Done;
             }
             continue;
         }
@@ -246,7 +350,7 @@ async fn run_command_loop<R, W>(
             )
             .await;
             if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                return;
+                return CommandLoopExit::Done;
             }
             continue;
         }
@@ -260,7 +364,7 @@ async fn run_command_loop<R, W>(
         {
             let resp = handle_xverify(stores, message_id, expected_cid, verify_sig).await;
             if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                return;
+                return CommandLoopExit::Done;
             }
             continue;
         }
@@ -271,7 +375,7 @@ async fn run_command_loop<R, W>(
                 crate::session::commands::xget::handle_xget(cid_str, stores.ipfs_store.as_ref())
                     .await;
             if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                return;
+                return CommandLoopExit::Done;
             }
             continue;
         }
@@ -280,7 +384,7 @@ async fn run_command_loop<R, W>(
         if let Command::Group(ref name) = cmd {
             let resp = handle_group_live(stores, ctx, name).await;
             if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                return;
+                return CommandLoopExit::Done;
             }
             continue;
         }
@@ -289,7 +393,7 @@ async fn run_command_loop<R, W>(
         if let Command::List(ListSubcommand::Active) = cmd {
             let resp = handle_list_active_live(stores, ctx).await;
             if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                return;
+                return CommandLoopExit::Done;
             }
             continue;
         }
@@ -298,7 +402,7 @@ async fn run_command_loop<R, W>(
         if let Command::Over(ref arg) = cmd {
             let resp = handle_over_live(stores, ctx, arg.as_ref()).await;
             if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                return;
+                return CommandLoopExit::Done;
             }
             continue;
         }
@@ -312,9 +416,31 @@ async fn run_command_loop<R, W>(
         {
             let resp = handle_hdr_live(stores, ctx, field, range_or_msgid.as_deref()).await;
             if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                return;
+                return CommandLoopExit::Done;
             }
             continue;
+        }
+
+        // STARTTLS: mid-session TLS upgrade (RFC 4642).
+        // Intercept before dispatch so we can signal the caller when 382 is sent.
+        if let Command::StartTls = cmd {
+            if ctx.starttls_available && !ctx.tls_active {
+                // RFC 4642: client MUST NOT pipeline commands after STARTTLS.
+                if !reader.buffer().is_empty() {
+                    warn!(peer = %peer_addr, "STARTTLS: pipelined data detected, closing");
+                    let _ = writer.write_all(b"502 Command unavailable\r\n").await;
+                    return CommandLoopExit::Done;
+                }
+                if writer
+                    .write_all(Response::starttls_ready().to_string().as_bytes())
+                    .await
+                    .is_err()
+                {
+                    return CommandLoopExit::Done;
+                }
+                return CommandLoopExit::StartTlsRequested; // caller performs TLS handshake
+            }
+            // Fall through to dispatch (returns 502 when unavailable or already TLS).
         }
 
         // AUTHINFO PASS: async bcrypt credential check via CredentialStore.
@@ -323,7 +449,7 @@ async fn run_command_loop<R, W>(
             if config.auth.required && !ctx.tls_active {
                 let resp = Response::new(483, "Encryption required for authentication");
                 if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                    return;
+                    return CommandLoopExit::Done;
                 }
                 continue;
             }
@@ -334,7 +460,7 @@ async fn run_command_loop<R, W>(
                 None => {
                     let resp = Response::authentication_out_of_sequence();
                     if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                        return;
+                        return CommandLoopExit::Done;
                     }
                     continue;
                 }
@@ -350,7 +476,7 @@ async fn run_command_loop<R, W>(
                 ctx.auth_failure_count = 0;
                 let resp = Response::authentication_accepted();
                 if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                    return;
+                    return CommandLoopExit::Done;
                 }
             } else {
                 ctx.auth_failure_count += 1;
@@ -358,11 +484,11 @@ async fn run_command_loop<R, W>(
                     warn!(peer = %peer_addr, "AUTHINFO: too many failures, closing connection");
                     let resp = Response::new(400, "Too many authentication failures");
                     let _ = writer.write_all(resp.to_string().as_bytes()).await;
-                    return;
+                    return CommandLoopExit::Done;
                 }
                 let resp = Response::authentication_failed();
                 if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-                    return;
+                    return CommandLoopExit::Done;
                 }
             }
             continue;
@@ -372,7 +498,7 @@ async fn run_command_loop<R, W>(
         if let Command::Search { ref key, ref value } = cmd {
             let resp = handle_nntp_search(stores, ctx, key, value).await;
             if writer.write_all(&resp).await.is_err() {
-                return;
+                return CommandLoopExit::Done;
             }
             continue;
         }
@@ -399,11 +525,11 @@ async fn run_command_loop<R, W>(
         let resp_code = resp.code;
 
         if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
-            return;
+            return CommandLoopExit::Done;
         }
 
         if is_quit {
-            return;
+            return CommandLoopExit::Done;
         }
 
         // POST two-phase completion: if dispatch returned 340, read the article.
@@ -419,13 +545,13 @@ async fn run_command_loop<R, W>(
                         .await
                         .is_err()
                     {
-                        return;
+                        return CommandLoopExit::Done;
                     }
                     continue;
                 }
                 Err(e) => {
                     warn!(peer = %peer_addr, "post read error: {e}");
-                    return;
+                    return CommandLoopExit::Done;
                 }
             };
 
@@ -435,7 +561,7 @@ async fn run_command_loop<R, W>(
                 .await
                 .is_err()
             {
-                return;
+                return CommandLoopExit::Done;
             }
         }
     }
@@ -486,7 +612,7 @@ async fn run_session_io<S>(
         return;
     }
 
-    run_command_loop(
+    let _exit = run_command_loop(
         &mut reader,
         &mut writer,
         &mut ctx,

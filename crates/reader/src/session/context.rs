@@ -14,9 +14,9 @@ pub struct SessionContext {
     pub authenticated_user: Option<String>,
     /// Whether the connection is TLS-protected.
     ///
-    /// True for NNTPS connections (implicit TLS, port 563). False for plain
-    /// connections (port 119). There is no STARTTLS upgrade: connections are
-    /// TLS or not from the first byte.
+    /// True for NNTPS connections (implicit TLS, port 563) and for plain
+    /// connections that have completed a STARTTLS upgrade (RFC 4642).
+    /// False for unupgraded plain connections (port 119).
     pub tls_active: bool,
     /// SHA-256 fingerprint of the client's TLS certificate, if one was
     /// presented during the handshake.
@@ -53,6 +53,12 @@ pub struct SessionContext {
     /// When it reaches `MAX_AUTH_FAILURES` the session is closed with 400
     /// before any further response is sent.
     pub auth_failure_count: u32,
+    /// Whether a STARTTLS upgrade is available on this connection.
+    ///
+    /// Set to `true` when TLS cert/key are configured and the connection is
+    /// not already TLS-protected.  Advertised in CAPABILITIES on plain
+    /// connections.  Always `false` on NNTPS connections.
+    pub starttls_available: bool,
 }
 
 /// Maximum consecutive AUTHINFO PASS failures before the connection is dropped.
@@ -86,6 +92,7 @@ impl SessionContext {
             posting_allowed,
             known_groups: vec![],
             auth_failure_count: 0,
+            starttls_available: false,
         }
     }
 }

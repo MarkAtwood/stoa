@@ -63,11 +63,16 @@ impl Response {
     ///
     /// `posting_allowed`: include `POST` capability.
     /// `auth_required`: include `AUTHINFO USER` capability.
+    /// `starttls_available`: include `STARTTLS` capability (RFC 4642).
     ///
-    /// STARTTLS is intentionally omitted: this server uses implicit TLS (NNTPS,
-    /// port 563) only. Mid-session upgrades are not supported and Command::StartTls
-    /// returns 502.
-    pub fn capabilities_with_ctx(posting_allowed: bool, auth_required: bool) -> Self {
+    /// When `starttls_available` is true the connection is plain-text and TLS
+    /// cert/key are configured, so mid-session upgrade via STARTTLS is possible.
+    /// After upgrade, `starttls_available` is false and `STARTTLS` is omitted.
+    pub fn capabilities_with_ctx(
+        posting_allowed: bool,
+        auth_required: bool,
+        starttls_available: bool,
+    ) -> Self {
         let mut caps = vec![
             "VERSION 2".to_string(),
             "READER".to_string(),
@@ -83,6 +88,9 @@ impl Response {
             // DID signature verification header extension
             "X-USENET-IPFS-DID-VERIFIED".to_string(),
         ];
+        if starttls_available {
+            caps.push("STARTTLS".to_string());
+        }
         if posting_allowed {
             caps.push("POST".to_string());
         }
@@ -90,6 +98,11 @@ impl Response {
             caps.push("AUTHINFO USER".to_string());
         }
         Self::new_multiline(101, "Capability list follows", caps)
+    }
+
+    /// RFC 4642 §2: server acknowledges STARTTLS, client should begin TLS handshake.
+    pub fn starttls_ready() -> Self {
+        Self::new(382, "Continue with TLS negotiation")
     }
     /// Build a Response by parsing a static `"NNN text\r\n"` string.
     ///
@@ -253,13 +266,19 @@ mod tests {
 
     #[test]
     fn capabilities_with_ctx_code_is_101() {
-        assert_eq!(Response::capabilities_with_ctx(true, false).code, 101);
-        assert_eq!(Response::capabilities_with_ctx(false, true).code, 101);
+        assert_eq!(
+            Response::capabilities_with_ctx(true, false, false).code,
+            101
+        );
+        assert_eq!(
+            Response::capabilities_with_ctx(false, true, false).code,
+            101
+        );
     }
 
     #[test]
     fn capabilities_with_ctx_multiline_display() {
-        let r = Response::capabilities_with_ctx(false, false);
+        let r = Response::capabilities_with_ctx(false, false, false);
         let s = r.to_string();
         assert!(s.starts_with("101 Capability list follows\r\n"));
         assert!(s.contains("VERSION 2\r\n"));
@@ -267,18 +286,32 @@ mod tests {
     }
 
     #[test]
-    fn capabilities_never_includes_starttls() {
-        // STARTTLS is not advertised — implicit TLS (NNTPS) is used instead.
-        let r = Response::capabilities_with_ctx(false, false);
+    fn capabilities_omits_starttls_when_not_available() {
+        // STARTTLS not advertised when starttls_available=false.
+        let r = Response::capabilities_with_ctx(false, false, false);
         assert!(
             !r.body.iter().any(|l| l == "STARTTLS"),
-            "STARTTLS must not appear in CAPABILITIES"
+            "STARTTLS must not appear in CAPABILITIES when not available"
         );
     }
 
     #[test]
+    fn capabilities_includes_starttls_when_available() {
+        let r = Response::capabilities_with_ctx(false, false, true);
+        assert!(
+            r.body.iter().any(|l| l == "STARTTLS"),
+            "STARTTLS must appear in CAPABILITIES when available"
+        );
+    }
+
+    #[test]
+    fn starttls_ready_is_382() {
+        assert_eq!(Response::starttls_ready().code, 382);
+    }
+
+    #[test]
     fn capabilities_includes_did_verified_extension() {
-        let r = Response::capabilities_with_ctx(false, false);
+        let r = Response::capabilities_with_ctx(false, false, false);
         assert!(
             r.body.iter().any(|l| l == "X-USENET-IPFS-DID-VERIFIED"),
             "X-USENET-IPFS-DID-VERIFIED must appear in CAPABILITIES"

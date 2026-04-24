@@ -9,6 +9,7 @@ use usenet_ipfs_reader::{
     config::Config,
     session::lifecycle::run_session,
     store::{backfill::backfill_overview, server_stores::ServerStores},
+    tls::TlsAcceptor,
 };
 
 fn parse_args() -> PathBuf {
@@ -91,6 +92,25 @@ async fn main() {
 
     let config = Arc::new(config);
 
+    // Load TLS acceptor once at startup. Cert load errors are fatal; they
+    // are not discovered per-connection.
+    let tls_acceptor: Option<Arc<TlsAcceptor>> = match (
+        config.tls.cert_path.as_deref(),
+        config.tls.key_path.as_deref(),
+    ) {
+        (Some(cert), Some(key)) => match usenet_ipfs_reader::tls::load_tls_acceptor(cert, key) {
+            Ok(a) => {
+                info!(cert = cert, "TLS acceptor loaded");
+                Some(Arc::new(a))
+            }
+            Err(e) => {
+                error!("Failed to load TLS acceptor: {e}");
+                std::process::exit(1);
+            }
+        },
+        _ => None,
+    };
+
     // Optional admin HTTP server.
     if config.admin.enabled {
         let admin_addr: std::net::SocketAddr = match config.admin.addr.parse() {
@@ -121,19 +141,27 @@ async fn main() {
                 }
             };
             info!(tls_addr = %tls_addr, "NNTPS (implicit TLS) listener started");
+            let nntps_acceptor = match tls_acceptor.clone() {
+                Some(a) => a,
+                None => {
+                    error!("NNTPS listener configured but no TLS cert/key provided");
+                    std::process::exit(1);
+                }
+            };
             let sem2 = Arc::new(Semaphore::new(config.limits.max_connections));
             Box::pin(accept_loop_tls(
                 tls_listener,
                 sem2,
                 config.clone(),
                 stores.clone(),
+                nntps_acceptor,
             ))
         } else {
             Box::pin(std::future::pending())
         };
 
     tokio::select! {
-        _ = accept_loop(listener, semaphore, config, stores) => {}
+        _ = accept_loop(listener, semaphore, config, stores, tls_acceptor) => {}
         _ = tls_listener_future => {}
         _ = tokio::signal::ctrl_c() => {
             info!("received CTRL-C, shutting down");
@@ -151,6 +179,7 @@ async fn accept_loop(
     semaphore: Arc<Semaphore>,
     config: Arc<Config>,
     stores: Arc<ServerStores>,
+    tls_acceptor: Option<Arc<TlsAcceptor>>,
 ) {
     loop {
         let permit = match semaphore.clone().acquire_owned().await {
@@ -172,9 +201,10 @@ async fn accept_loop(
 
         let config = config.clone();
         let stores = stores.clone();
+        let tls_acceptor = tls_acceptor.clone();
         tokio::spawn(async move {
             let _permit = permit;
-            run_session(stream, false, &config, stores).await;
+            run_session(stream, false, &config, stores, tls_acceptor).await;
             info!(%peer_addr, "connection closed");
         });
     }
@@ -189,6 +219,7 @@ async fn accept_loop_tls(
     semaphore: Arc<Semaphore>,
     config: Arc<Config>,
     stores: Arc<ServerStores>,
+    tls_acceptor: Arc<TlsAcceptor>,
 ) {
     loop {
         let permit = match semaphore.clone().acquire_owned().await {
@@ -210,9 +241,10 @@ async fn accept_loop_tls(
 
         let config = config.clone();
         let stores = stores.clone();
+        let tls_acceptor = tls_acceptor.clone();
         tokio::spawn(async move {
             let _permit = permit;
-            run_session(stream, true, &config, stores).await;
+            run_session(stream, true, &config, stores, Some(tls_acceptor)).await;
             info!(%peer_addr, "NNTPS connection closed");
         });
     }

@@ -32,7 +32,7 @@ use usenet_ipfs_transit::peering::{
     pipeline::MemIpfsStore,
     rate_limit::{ExhaustionAction, PeerRateLimiter},
     session::{run_peering_session, PeeringShared},
-    xcid_client::XcidClient,
+    xcid_client::{PeerInfo as XcidPeerInfo, XcidClient},
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -251,7 +251,14 @@ async fn xcid_happy_path_fetches_correct_entry() {
     let addr = spawn_server(shared).await;
 
     let trusted_keys = vec![signing_key.verifying_key()];
-    let client = XcidClient::new(vec![addr], trusted_keys);
+    let client = XcidClient::new(
+        vec![XcidPeerInfo {
+            addr,
+            tls: false,
+            cert_sha256: None,
+        }],
+        trusted_keys,
+    );
 
     let result = client.fetch_entry(&entry_id).await;
     assert!(
@@ -300,7 +307,14 @@ async fn xcid_430_returns_err_without_panicking() {
     let absent_id = usenet_ipfs_core::group_log::types::LogEntryId::from_bytes([0xde; 32]);
 
     let trusted_keys = vec![signing_key.verifying_key()];
-    let client = XcidClient::new(vec![addr], trusted_keys);
+    let client = XcidClient::new(
+        vec![XcidPeerInfo {
+            addr,
+            tls: false,
+            cert_sha256: None,
+        }],
+        trusted_keys,
+    );
 
     let result = client.fetch_entry(&absent_id).await;
     assert!(
@@ -347,7 +361,14 @@ async fn xcid_rejects_entry_signed_by_untrusted_key() {
 
     // Client trusts only client_key, which is different from server_key.
     let trusted_keys = vec![client_key.verifying_key()];
-    let client = XcidClient::new(vec![addr], trusted_keys);
+    let client = XcidClient::new(
+        vec![XcidPeerInfo {
+            addr,
+            tls: false,
+            cert_sha256: None,
+        }],
+        trusted_keys,
+    );
 
     let result = client.fetch_entry(&entry_id).await;
     assert!(
@@ -470,7 +491,14 @@ async fn xcid_rejects_cid_mismatch() {
     // The client requests wrong_id but the server returns real_entry (real_id).
     // The XcidClient must detect the ID mismatch and return Err.
     let trusted_keys = vec![signing_key.verifying_key()];
-    let client = XcidClient::new(vec![fake_addr], trusted_keys);
+    let client = XcidClient::new(
+        vec![XcidPeerInfo {
+            addr: fake_addr,
+            tls: false,
+            cert_sha256: None,
+        }],
+        trusted_keys,
+    );
 
     let result = client.fetch_entry(&wrong_id).await;
     assert!(

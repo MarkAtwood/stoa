@@ -22,7 +22,7 @@ use usenet_ipfs_transit::{
         pipeline::{run_pipeline, KuboStore, PipelineCtx},
         rate_limit::{ExhaustionAction, PeerRateLimiter},
         session::{run_peering_session, PeeringShared},
-        xcid_client::XcidClient,
+        xcid_client::{PeerInfo as XcidPeerInfo, XcidClient},
     },
     retention::{
         ipns_publisher::{IpnsEvent, IpnsPublisher},
@@ -250,14 +250,22 @@ async fn main() {
 
     // ── XCID client for gossip backfill ───────────────────────────────────────
 
-    let xcid_peer_addresses: Vec<String> = config
+    let xcid_peers: Vec<XcidPeerInfo> = config
         .peers
         .addresses
         .iter()
-        .cloned()
-        .chain(config.peers.peer.iter().map(|p| p.addr.clone()))
+        .map(|addr| XcidPeerInfo {
+            addr: addr.clone(),
+            tls: false,
+            cert_sha256: None,
+        })
+        .chain(config.peers.peer.iter().map(|p| XcidPeerInfo {
+            addr: p.addr.clone(),
+            tls: p.tls,
+            cert_sha256: p.cert_sha256.clone(),
+        }))
         .collect();
-    let xcid_client = Arc::new(XcidClient::new(xcid_peer_addresses, trusted_keys.clone()));
+    let xcid_client = Arc::new(XcidClient::new(xcid_peers, trusted_keys.clone()));
 
     // Wire inbound gossip tips → group-log reconciliation.
     let gossip_tx = gossip_handle.tx;

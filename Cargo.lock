@@ -5599,6 +5599,7 @@ dependencies = [
  "mailparse",
  "multihash-codetable",
  "prometheus",
+ "rcgen",
  "rustls",
  "rustls-pemfile",
  "serde",

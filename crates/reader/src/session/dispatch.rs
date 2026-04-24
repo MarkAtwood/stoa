@@ -51,7 +51,11 @@ pub fn dispatch(
     // Precondition: Authenticating state — only auth/setup commands allowed.
     if ctx.state == SessionState::Authenticating {
         return match cmd {
-            Command::Capabilities => Response::capabilities_with_ctx(ctx.posting_allowed, true),
+            Command::Capabilities => Response::capabilities_with_ctx(
+                ctx.posting_allowed,
+                true,
+                ctx.starttls_available && !ctx.tls_active,
+            ),
             Command::Quit => Response::closing_connection(),
             Command::AuthinfoUser(username) => {
                 // RFC 3977 §7.1.1: if TLS is required but not active, reject with 483.
@@ -107,7 +111,11 @@ pub fn dispatch(
 
     // Normal dispatch (Active or GroupSelected).
     match cmd {
-        Command::Capabilities => Response::capabilities_with_ctx(ctx.posting_allowed, false),
+        Command::Capabilities => Response::capabilities_with_ctx(
+            ctx.posting_allowed,
+            false,
+            ctx.starttls_available && !ctx.tls_active,
+        ),
         Command::ModeReader => {
             if ctx.posting_allowed {
                 Response::service_available_posting_allowed()
@@ -700,10 +708,11 @@ mod tests {
     }
 
     #[test]
-    fn capabilities_never_includes_starttls() {
-        // STARTTLS is not advertised on any connection type.
+    fn capabilities_omits_starttls_when_not_available() {
+        // STARTTLS is not advertised when starttls_available=false (no TLS configured).
         for tls_active in [false, true] {
             let mut ctx = SessionContext::new(test_addr(), false, true, tls_active);
+            // starttls_available defaults to false
             let resp = dispatch(
                 &mut ctx,
                 Command::Capabilities,
@@ -714,9 +723,48 @@ mod tests {
             );
             assert!(
                 !resp.body.iter().any(|l| l == "STARTTLS"),
-                "STARTTLS must not appear in CAPABILITIES (tls_active={tls_active})"
+                "STARTTLS must not appear when starttls_available=false (tls_active={tls_active})"
             );
         }
+    }
+
+    #[test]
+    fn capabilities_includes_starttls_on_plain_when_available() {
+        // STARTTLS appears in CAPABILITIES on a plain connection when TLS is configured.
+        let mut ctx = SessionContext::new(test_addr(), false, true, false);
+        ctx.starttls_available = true;
+        let resp = dispatch(
+            &mut ctx,
+            Command::Capabilities,
+            &empty_auth(),
+            &no_certs(),
+            &no_issuers(),
+            None,
+        );
+        assert!(
+            resp.body.iter().any(|l| l == "STARTTLS"),
+            "STARTTLS must appear in CAPABILITIES on plain connection when available"
+        );
+    }
+
+    #[test]
+    fn capabilities_omits_starttls_after_tls_upgrade() {
+        // STARTTLS must NOT appear in CAPABILITIES after TLS is active, even if
+        // starttls_available is true (RFC 4642: cannot upgrade twice).
+        let mut ctx = SessionContext::new(test_addr(), false, true, true);
+        ctx.starttls_available = true;
+        let resp = dispatch(
+            &mut ctx,
+            Command::Capabilities,
+            &empty_auth(),
+            &no_certs(),
+            &no_issuers(),
+            None,
+        );
+        assert!(
+            !resp.body.iter().any(|l| l == "STARTTLS"),
+            "STARTTLS must not appear in CAPABILITIES after TLS is active"
+        );
     }
 
     #[test]
