@@ -7,6 +7,7 @@ members = [
     "crates/reader",
     "crates/mail",
     "crates/sieve",
+    "crates/sieve-native",
     "crates/smtp",
     "crates/imap",
     "crates/verify",

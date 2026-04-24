@@ -2,7 +2,7 @@
 name = "usenet-ipfs-smtp"
 version = "0.1.0"
 edition = "2021"
-license = "AGPL-3.0-only"
+license = "MIT"
 
 [lib]
 name = "usenet_ipfs_smtp"
@@ -28,7 +28,7 @@ axum = "0.8"
 subtle = "2"
 usenet-ipfs-core = { path = "../core" }
 usenet-ipfs-tls = { path = "../tls" }
-usenet-ipfs-sieve = { path = "../sieve" }
+usenet-ipfs-sieve-native = { path = "../sieve-native" }
 usenet-ipfs-auth = { path = "../auth" }
 base64 = "0.22"
 webpki-roots = "0.26"

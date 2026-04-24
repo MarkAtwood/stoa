@@ -230,7 +230,7 @@ async fn put_script(
     if body.len() as u64 > s.config.sieve_admin.max_script_bytes {
         return (StatusCode::PAYLOAD_TOO_LARGE, "script exceeds size limit").into_response();
     }
-    if let Err(e) = usenet_ipfs_sieve::compile(&body) {
+    if let Err(e) = usenet_ipfs_sieve_native::compile(&body) {
         return (
             StatusCode::UNPROCESSABLE_ENTITY,
             format!("Sieve parse error: {e}"),
@@ -292,7 +292,7 @@ async fn activate_script(
 /// Validates the body as a Sieve script without storing it.
 /// Returns 200 on success, 422 with error text on failure.
 async fn check_script(body: Bytes) -> Response {
-    match usenet_ipfs_sieve::compile(&body) {
+    match usenet_ipfs_sieve_native::compile(&body) {
         Ok(_) => (StatusCode::OK, "OK").into_response(),
         Err(e) => (
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -694,7 +694,7 @@ mod tests {
         // Pre-populate the cache with a stale entry.
         cache.lock().await.insert(
             "alice".to_string(),
-            std::sync::Arc::new(usenet_ipfs_sieve::compile(b"discard;").unwrap()),
+            std::sync::Arc::new(usenet_ipfs_sieve_native::compile(b"discard;").unwrap()),
         );
 
         let req = Request::builder()
@@ -719,7 +719,7 @@ mod tests {
 
         cache.lock().await.insert(
             "alice".to_string(),
-            std::sync::Arc::new(usenet_ipfs_sieve::compile(b"keep;").unwrap()),
+            std::sync::Arc::new(usenet_ipfs_sieve_native::compile(b"keep;").unwrap()),
         );
 
         let req = Request::builder()
@@ -744,7 +744,7 @@ mod tests {
 
         cache.lock().await.insert(
             "alice".to_string(),
-            std::sync::Arc::new(usenet_ipfs_sieve::compile(b"discard;").unwrap()),
+            std::sync::Arc::new(usenet_ipfs_sieve_native::compile(b"discard;").unwrap()),
         );
 
         let req = Request::builder()

@@ -1,0 +1,12 @@
+[package]
+name = "usenet-ipfs-sieve-native"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+license = "MIT"
+
+[dependencies]
+fancy-regex = "0.13"
+
+[dev-dependencies]
+usenet-ipfs-sieve = { path = "../sieve" }

@@ -59,7 +59,7 @@ usenet-ipfs/
 - **`sqlx` + SQLite for local state.** All SQL in dedicated store modules; no SQL scattered through application logic.
 - **Signing:** `ed25519-dalek` (fixed choice).
 - **IPFS client:** `rust-ipfs` 0.15.0 (selected, spike complete). iroh-blobs disqualified — uses BLAKE3, not SHA-2/CIDv1. raw libp2p + custom bitswap viable but requires owning the bitswap codec. Spike results in `spikes/`, decision recorded in usenet-ipfs-l62.1.4.
-- **License: MIT, except `usenet-ipfs-smtp` is AGPL-3.0** due to its dependency on `sieve-rs` (AGPL-3.0-only) via `usenet-ipfs-sieve`. Any binary that links `usenet-ipfs-sieve` is AGPL-licensed. Operators running it as a network service must provide source. Do not add features to `usenet-ipfs-smtp` without understanding this obligation.
+- **License: MIT for all production binaries.** `usenet-ipfs-smtp` is now MIT-licensed; it uses `usenet-ipfs-sieve-native` (MIT), not `usenet-ipfs-sieve` (AGPL-3.0-only). The `usenet-ipfs-sieve` crate remains in the workspace but is not linked by any production binary.
 - **No `unsafe` outside FFI boundary crates.** If you think you need `unsafe`, stop and ask.
 - **Cargo features are additive.** Never enable an algorithm or capability unconditionally in `Cargo.toml`.
 - **Error types live in `core`.** Other crates import from there.

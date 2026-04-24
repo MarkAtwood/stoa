@@ -29,7 +29,7 @@ use crate::{routing, store};
 /// Scripts are compiled on first use and retained until the sieve admin API
 /// explicitly invalidates the entry (on script PUT, DELETE, or activate).
 /// This avoids recompiling the same script for every inbound message.
-pub type SieveCache = Arc<Mutex<HashMap<String, Arc<usenet_ipfs_sieve::CompiledScript>>>>;
+pub type SieveCache = Arc<Mutex<HashMap<String, Arc<usenet_ipfs_sieve_native::CompiledScript>>>>;
 
 /// Create a new, empty [`SieveCache`].
 pub fn new_sieve_cache() -> SieveCache {
@@ -704,7 +704,7 @@ async fn verify_sasl_plain(store: &CredentialStore, b64_response: &str) -> Optio
 }
 
 /// Load and evaluate the active Sieve script for `username`.
-/// Defaults to [`Keep`](usenet_ipfs_sieve::SieveAction::Keep) when no script
+/// Defaults to [`Keep`](usenet_ipfs_sieve_native::SieveAction::Keep) when no script
 /// is stored or the script fails to compile.
 /// Outcome of [`sieve_delivery`].
 enum SieveOutcome {
@@ -737,7 +737,7 @@ async fn sieve_delivery(
     peer_addr: &str,
 ) -> SieveOutcome {
     // Collect Sieve actions for every addressed local user.
-    let mut deliveries: Vec<(String, String, Vec<usenet_ipfs_sieve::SieveAction>)> = Vec::new();
+    let mut deliveries: Vec<(String, String, Vec<usenet_ipfs_sieve_native::SieveAction>)> = Vec::new();
     for recipient_email in to {
         if let Some(user) = config
             .users
@@ -765,11 +765,11 @@ async fn sieve_delivery(
                     Err(_elapsed) => {
                         tracing::warn!(%username, "Sieve evaluation timed out; defaulting to Keep");
                         crate::metrics::SMTP_SIEVE_EVAL_TIMEOUTS_TOTAL.inc();
-                        vec![usenet_ipfs_sieve::SieveAction::Keep]
+                        vec![usenet_ipfs_sieve_native::SieveAction::Keep]
                     }
                 }
             } else {
-                vec![usenet_ipfs_sieve::SieveAction::Keep]
+                vec![usenet_ipfs_sieve_native::SieveAction::Keep]
             };
             deliveries.push((user.username.clone(), recipient_email.clone(), actions));
         }
@@ -778,7 +778,7 @@ async fn sieve_delivery(
     // If any script wants to reject, reject the whole transaction.
     for (_, _, actions) in &deliveries {
         for action in actions {
-            if let usenet_ipfs_sieve::SieveAction::Reject(r) = action {
+            if let usenet_ipfs_sieve_native::SieveAction::Reject(r) = action {
                 return SieveOutcome::Rejected(r.clone());
             }
         }
@@ -789,7 +789,7 @@ async fn sieve_delivery(
     for (username, email, actions) in deliveries {
         for action in actions {
             match action {
-                usenet_ipfs_sieve::SieveAction::Keep => {
+                usenet_ipfs_sieve_native::SieveAction::Keep => {
                     if let Some(db_pool) = pool {
                         if let Err(e) =
                             store::deliver(db_pool, &username, "INBOX", from, &email, raw_bytes)
@@ -804,7 +804,7 @@ async fn sieve_delivery(
                         );
                     }
                 }
-                usenet_ipfs_sieve::SieveAction::FileInto(folder) => {
+                usenet_ipfs_sieve_native::SieveAction::FileInto(folder) => {
                     if let Some(newsgroup) = folder.strip_prefix("newsgroup:") {
                         let (article, injection_source) =
                             if routing::has_newsgroups_header(raw_bytes) {
@@ -833,10 +833,10 @@ async fn sieve_delivery(
                         );
                     }
                 }
-                usenet_ipfs_sieve::SieveAction::Discard => {
+                usenet_ipfs_sieve_native::SieveAction::Discard => {
                     info!(peer = %peer_addr, %username, "Sieve discard — message dropped");
                 }
-                usenet_ipfs_sieve::SieveAction::Reject(_) => {}
+                usenet_ipfs_sieve_native::SieveAction::Reject(_) => {}
             }
         }
     }
@@ -851,20 +851,20 @@ async fn sieve_for_user(
     envelope_from: &str,
     envelope_to: &str,
     cache: Option<&SieveCache>,
-) -> Vec<usenet_ipfs_sieve::SieveAction> {
+) -> Vec<usenet_ipfs_sieve_native::SieveAction> {
     // Check cache before hitting the database.
     if let Some(cache) = cache {
         let lock = cache.lock().await;
         if let Some(compiled) = lock.get(username) {
             let compiled = Arc::clone(compiled);
             drop(lock);
-            return usenet_ipfs_sieve::evaluate(&compiled, raw_message, envelope_from, envelope_to);
+            return usenet_ipfs_sieve_native::evaluate(&compiled, raw_message, envelope_from, envelope_to);
         }
     }
 
     let script_bytes = store::load_active_script(pool, username).await;
     match script_bytes {
-        Some(bytes) => match usenet_ipfs_sieve::compile(&bytes) {
+        Some(bytes) => match usenet_ipfs_sieve_native::compile(&bytes) {
             Ok(compiled) => {
                 let compiled = Arc::new(compiled);
                 if let Some(cache) = cache {
@@ -873,7 +873,7 @@ async fn sieve_for_user(
                         .await
                         .insert(username.to_owned(), Arc::clone(&compiled));
                 }
-                usenet_ipfs_sieve::evaluate(&compiled, raw_message, envelope_from, envelope_to)
+                usenet_ipfs_sieve_native::evaluate(&compiled, raw_message, envelope_from, envelope_to)
             }
             Err(e) => {
                 tracing::error!(
@@ -883,10 +883,10 @@ async fn sieve_for_user(
                     "Sieve script compile error — failing open to Keep; \
                      user's filter rules are NOT being applied"
                 );
-                vec![usenet_ipfs_sieve::SieveAction::Keep]
+                vec![usenet_ipfs_sieve_native::SieveAction::Keep]
             }
         },
-        None => vec![usenet_ipfs_sieve::SieveAction::Keep],
+        None => vec![usenet_ipfs_sieve_native::SieveAction::Keep],
     }
 }
 
@@ -1852,7 +1852,7 @@ mod tests {
         assert!(
             actions
                 .iter()
-                .any(|a| *a == usenet_ipfs_sieve::SieveAction::Discard),
+                .any(|a| *a == usenet_ipfs_sieve_native::SieveAction::Discard),
             "expected Discard from compiled script"
         );
 
@@ -1872,7 +1872,7 @@ mod tests {
         assert!(
             actions2
                 .iter()
-                .any(|a| *a == usenet_ipfs_sieve::SieveAction::Discard),
+                .any(|a| *a == usenet_ipfs_sieve_native::SieveAction::Discard),
             "expected Discard from cache even after DB removal"
         );
     }
@@ -1889,6 +1889,6 @@ mod tests {
             None,
         )
         .await;
-        assert_eq!(actions, vec![usenet_ipfs_sieve::SieveAction::Keep]);
+        assert_eq!(actions, vec![usenet_ipfs_sieve_native::SieveAction::Keep]);
     }
 }

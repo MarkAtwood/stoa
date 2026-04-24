@@ -123,3 +123,15 @@ Phase markers reset for new epic loop pass
 [00:07:12] COORDINATOR: phase0+1 done — l5fw has 4 pre-existing beads
 [00:10:18] COORDINATOR: starting wave 0 — l5fw.1
 [00:23:46] COORDINATOR: l5fw.1 closed, starting l5fw.2
+Phase markers reset for new epic
+[03:07:25] COORDINATOR: claimed epic usenet-ipfs-n3vt (Native Sieve interpreter)
+[03:07:46] COORDINATOR: phase0 done
+[03:10:48] COORDINATOR: phase1 done — 7 pre-existing beads, n3vt.1 unblocked
+[03:12:55] COORDINATOR: n3vt.1 closed — skeleton built
+[03:16:55] COORDINATOR: n3vt.2 closed — lexer+form reader, 11 tests pass
+[03:23:21] COORDINATOR: n3vt.3 closed — evaluator, 21 tests pass
+[03:26:10] COORDINATOR: n3vt.4 closed — variables extension, 28 tests pass
+[03:28:49] COORDINATOR: n3vt.5 closed — 13 cross-validation tests pass
+[03:46:36] COORDINATOR: n3vt.6 closed — smtp is now MIT, sieve-rs absent from dep tree
+[03:56:18] COORDINATOR: n3vt.7 closed — 6 E2E tests pass, sieve-rs absent
+[04:06:14] COORDINATOR: phase2 done — all workspace tests pass

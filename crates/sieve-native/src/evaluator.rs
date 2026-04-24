@@ -1,0 +1,700 @@
+// SPDX-License-Identifier: MIT
+
+//! Sieve script evaluator (RFC 5228 + RFC 5229 variables extension).
+
+use crate::form::{Form, Script, Stmt};
+use crate::message;
+use crate::SieveAction;
+use std::cmp::Reverse;
+use std::collections::HashMap;
+
+// ---------------------------------------------------------------------------
+// Evaluation context
+// ---------------------------------------------------------------------------
+
+pub struct Ctx<'a> {
+    pub headers: Vec<(String, String)>,
+    pub message_size: usize,
+    pub envelope_from: &'a str,
+    pub envelope_to: &'a str,
+    pub variables: HashMap<String, String>,
+    /// Whether `require ["variables"]` was declared (RFC 5229).
+    /// `${name}` substitution is only active when this is true.
+    pub variables_enabled: bool,
+}
+
+// ---------------------------------------------------------------------------
+// Internal result type
+// ---------------------------------------------------------------------------
+
+enum StmtResult {
+    Continue,
+    Keep,
+    Discard,
+    FileInto(String),
+    Reject(String),
+    Stop,
+}
+
+// ---------------------------------------------------------------------------
+// Public entry point
+// ---------------------------------------------------------------------------
+
+/// Evaluate a compiled Sieve [`Script`] against a raw RFC 5322 message.
+///
+/// Returns the list of actions the script requests.  If the script produces
+/// no explicit disposition, `[Keep]` is appended per RFC 5228 §2.10.2.
+pub fn eval_script(
+    script: &Script,
+    raw_message: &[u8],
+    envelope_from: &str,
+    envelope_to: &str,
+) -> Vec<SieveAction> {
+    let headers = message::extract_headers(raw_message);
+
+    // Detect whether `require ["variables"]` appears in the script (RFC 5229 §3).
+    // Variable substitution is only active when the script declares this extension.
+    let variables_enabled = script.iter().any(|stmt| {
+        if let [Form::Word(w), rest @ ..] = stmt.as_slice() {
+            if w == "require" {
+                return rest.iter().any(|f| match f {
+                    Form::Str(s) => s == "variables",
+                    Form::StringList(v) => v.iter().any(|s| s == "variables"),
+                    _ => false,
+                });
+            }
+        }
+        false
+    });
+
+    let mut ctx = Ctx {
+        headers,
+        message_size: raw_message.len(),
+        envelope_from,
+        envelope_to,
+        variables: HashMap::new(),
+        variables_enabled,
+    };
+
+    let mut actions: Vec<SieveAction> = Vec::new();
+
+    match eval_stmt_list(script, &mut ctx) {
+        None | Some(StmtResult::Continue) | Some(StmtResult::Stop) => {
+            actions.push(SieveAction::Keep);
+        }
+        Some(StmtResult::Keep) => actions.push(SieveAction::Keep),
+        Some(StmtResult::Discard) => actions.push(SieveAction::Discard),
+        Some(StmtResult::FileInto(folder)) => actions.push(SieveAction::FileInto(folder)),
+        Some(StmtResult::Reject(reason)) => actions.push(SieveAction::Reject(reason)),
+    }
+
+    actions
+}
+
+// ---------------------------------------------------------------------------
+// Statement list / statement dispatch
+// ---------------------------------------------------------------------------
+
+fn eval_stmt_list(stmts: &[Stmt], ctx: &mut Ctx<'_>) -> Option<StmtResult> {
+    for stmt in stmts {
+        match eval_stmt(stmt, ctx) {
+            StmtResult::Continue => {}
+            other => return Some(other),
+        }
+    }
+    None
+}
+
+fn eval_stmt(stmt: &Stmt, ctx: &mut Ctx<'_>) -> StmtResult {
+    match stmt.as_slice() {
+        // require — validated at compile time; ignore at eval time.
+        [Form::Word(w), ..] if w == "require" => StmtResult::Continue,
+
+        // if / elsif / else chain.
+        [Form::Word(w), rest @ ..] if w == "if" => eval_if(rest, ctx),
+
+        // fileinto "folder"
+        [Form::Word(w), Form::Str(folder)] if w == "fileinto" => {
+            StmtResult::FileInto(expand_vars(folder, ctx))
+        }
+
+        // reject "reason"
+        [Form::Word(w), Form::Str(reason)] if w == "reject" => {
+            StmtResult::Reject(expand_vars(reason, ctx))
+        }
+
+        // discard
+        [Form::Word(w)] if w == "discard" => StmtResult::Discard,
+
+        // keep
+        [Form::Word(w)] if w == "keep" => StmtResult::Keep,
+
+        // stop
+        [Form::Word(w)] if w == "stop" => StmtResult::Stop,
+
+        // set [modifiers...] "name" "value"  (RFC 5229 §4)
+        [Form::Word(w), rest @ ..] if w == "set" => {
+            // Collect leading Tag modifiers, then expect Str(name) Str(value).
+            let mut i = 0;
+            let mut modifier_names: Vec<&str> = Vec::new();
+            while i < rest.len() {
+                if let Form::Tag(t) = &rest[i] {
+                    modifier_names.push(t.as_str());
+                    i += 1;
+                } else {
+                    break;
+                }
+            }
+            if let (Some(Form::Str(name)), Some(Form::Str(value))) =
+                (rest.get(i), rest.get(i + 1))
+            {
+                let expanded = expand_vars(value, ctx);
+                let modified = apply_set_modifiers(expanded, &modifier_names);
+                ctx.variables.insert(name.to_lowercase(), modified);
+            }
+            StmtResult::Continue
+        }
+
+        // Unknown command — ignore per RFC 5228 §2.9.
+        _ => StmtResult::Continue,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// if / elsif / else
+// ---------------------------------------------------------------------------
+
+/// Evaluate an if-chain.
+///
+/// `rest` is the slice of forms *after* the leading `Word("if")`:
+/// `[test_form0, test_form1, ..., Block(then_stmts), optional elsif/else ...]`
+fn eval_if(rest: &[Form], ctx: &mut Ctx<'_>) -> StmtResult {
+    let block_pos = match rest.iter().position(|f| matches!(f, Form::Block(_))) {
+        Some(p) => p,
+        None => return StmtResult::Continue, // malformed
+    };
+
+    let test_forms = &rest[..block_pos];
+    let block = match &rest[block_pos] {
+        Form::Block(stmts) => stmts,
+        _ => return StmtResult::Continue,
+    };
+    let after_block = &rest[block_pos + 1..];
+
+    if eval_test(test_forms, ctx) {
+        return match eval_stmt_list(block, ctx) {
+            None | Some(StmtResult::Continue) => StmtResult::Continue,
+            Some(other) => other,
+        };
+    }
+
+    eval_elsif_else(after_block, ctx)
+}
+
+fn eval_elsif_else(rest: &[Form], ctx: &mut Ctx<'_>) -> StmtResult {
+    match rest {
+        [] => StmtResult::Continue,
+
+        [Form::Word(w), tail @ ..] if w == "elsif" => eval_if(tail, ctx),
+
+        [Form::Word(w), Form::Block(stmts), ..] if w == "else" => {
+            match eval_stmt_list(stmts, ctx) {
+                None | Some(StmtResult::Continue) => StmtResult::Continue,
+                Some(other) => other,
+            }
+        }
+
+        _ => StmtResult::Continue,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Test evaluation
+// ---------------------------------------------------------------------------
+
+fn eval_test(forms: &[Form], ctx: &mut Ctx<'_>) -> bool {
+    match forms {
+        [Form::Word(w), rest @ ..] => match w.as_str() {
+            "header" => eval_header_test(rest, ctx),
+            "address" => eval_address_test(rest, ctx),
+            "envelope" => eval_envelope_test(rest, ctx),
+            "exists" => eval_exists_test(rest, ctx),
+            "size" => eval_size_test(rest, ctx.message_size),
+            "allof" => eval_allof(rest, ctx),
+            "anyof" => eval_anyof(rest, ctx),
+            "not" => !eval_test(rest, ctx),
+            "true" => true,
+            "false" => false,
+            _ => false, // unknown test — fail-safe
+        },
+        _ => false,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// allof / anyof
+// ---------------------------------------------------------------------------
+
+fn eval_allof(rest: &[Form], ctx: &mut Ctx<'_>) -> bool {
+    match rest {
+        [Form::TestList(tests)] => tests.iter().all(|t| eval_test(t, ctx)),
+        _ => false,
+    }
+}
+
+fn eval_anyof(rest: &[Form], ctx: &mut Ctx<'_>) -> bool {
+    match rest {
+        [Form::TestList(tests)] => tests.iter().any(|t| eval_test(t, ctx)),
+        _ => false,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Match type / comparator / address-part extraction
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum MatchType {
+    Is,
+    Contains,
+    Matches,
+    Regex,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Comparator {
+    AsciiCasemap,
+    Octet,
+}
+
+/// Scan `forms` for a match-type tag; remove it and return (type, rest).
+///
+/// All extraction functions operate on `&[&Form]` so they can be chained
+/// without cloning: each one consumes a `Vec<&Form>` and produces another.
+fn extract_match_type<'a>(forms: &[&'a Form]) -> (MatchType, Vec<&'a Form>) {
+    let mut mt = MatchType::Is;
+    let remaining: Vec<&Form> = forms
+        .iter()
+        .copied()
+        .filter(|f| match f {
+            Form::Tag(t) => match t.as_str() {
+                "is" => {
+                    mt = MatchType::Is;
+                    false
+                }
+                "contains" => {
+                    mt = MatchType::Contains;
+                    false
+                }
+                "matches" => {
+                    mt = MatchType::Matches;
+                    false
+                }
+                "regex" => {
+                    mt = MatchType::Regex;
+                    false
+                }
+                _ => true,
+            },
+            _ => true,
+        })
+        .collect();
+    (mt, remaining)
+}
+
+/// Scan `forms` for `:comparator "name"`; remove those two forms and return
+/// (Comparator, rest).
+fn extract_comparator<'a>(forms: &[&'a Form]) -> (Comparator, Vec<&'a Form>) {
+    let mut cmp = Comparator::AsciiCasemap;
+    let mut skip_next = false;
+    let remaining: Vec<&Form> = forms
+        .iter()
+        .copied()
+        .filter(|f| {
+            if skip_next {
+                skip_next = false;
+                if let Form::Str(s) = f {
+                    if s == "i;octet" {
+                        cmp = Comparator::Octet;
+                    }
+                }
+                return false;
+            }
+            if let Form::Tag(t) = f {
+                if t == "comparator" {
+                    skip_next = true;
+                    return false;
+                }
+            }
+            true
+        })
+        .collect();
+    (cmp, remaining)
+}
+
+/// Scan `forms` for an address-part tag; remove it and return (part, rest).
+fn extract_address_part<'a>(forms: &[&'a Form]) -> (&'static str, Vec<&'a Form>) {
+    let mut part = "all";
+    let remaining: Vec<&Form> = forms
+        .iter()
+        .copied()
+        .filter(|f| match f {
+            Form::Tag(t) => match t.as_str() {
+                "localpart" => {
+                    part = "localpart";
+                    false
+                }
+                "domain" => {
+                    part = "domain";
+                    false
+                }
+                "all" => {
+                    part = "all";
+                    false
+                }
+                _ => true,
+            },
+            _ => true,
+        })
+        .collect();
+    (part, remaining)
+}
+
+// ---------------------------------------------------------------------------
+// String matching helpers
+// ---------------------------------------------------------------------------
+
+fn str_is(a: &str, b: &str, casemap: bool) -> bool {
+    if casemap {
+        a.eq_ignore_ascii_case(b)
+    } else {
+        a == b
+    }
+}
+
+fn str_contains(haystack: &str, needle: &str, casemap: bool) -> bool {
+    if casemap {
+        haystack
+            .to_ascii_lowercase()
+            .contains(&needle.to_ascii_lowercase())
+    } else {
+        haystack.contains(needle)
+    }
+}
+
+/// Sieve glob matching (RFC 5228 §2.7.1).
+/// `*` = zero or more chars, `?` = exactly one char, `\*`/`\?` = literals.
+fn str_matches_glob(value: &str, pattern: &str, casemap: bool) -> bool {
+    let regex_pat = sieve_glob_to_regex(pattern);
+    str_matches_regex_pat(value, &regex_pat, casemap)
+}
+
+/// Convert a Sieve glob pattern to an anchored regex string.
+fn sieve_glob_to_regex(pattern: &str) -> String {
+    let mut out = String::from("(?s)\\A");
+    let mut chars = pattern.chars().peekable();
+    while let Some(ch) = chars.next() {
+        match ch {
+            '\\' => {
+                if let Some(&next) = chars.peek() {
+                    chars.next();
+                    match next {
+                        '*' | '?' => out.push_str(&fancy_regex::escape(&next.to_string())),
+                        other => {
+                            out.push_str(&fancy_regex::escape(&ch.to_string()));
+                            out.push_str(&fancy_regex::escape(&other.to_string()));
+                        }
+                    }
+                } else {
+                    out.push_str(&fancy_regex::escape("\\"));
+                }
+            }
+            '*' => out.push_str(".*"),
+            '?' => out.push('.'),
+            other => out.push_str(&fancy_regex::escape(&other.to_string())),
+        }
+    }
+    out.push_str("\\z");
+    out
+}
+
+/// Match `value` against a regex extension pattern (anchored to whole value).
+fn str_matches_regex(value: &str, pattern: &str, casemap: bool) -> bool {
+    let anchored = format!("(?s)\\A(?:{pattern})\\z");
+    str_matches_regex_pat(value, &anchored, casemap)
+}
+
+fn str_matches_regex_pat(value: &str, anchored: &str, casemap: bool) -> bool {
+    let pat = if casemap {
+        format!("(?i){anchored}")
+    } else {
+        anchored.to_string()
+    };
+    match fancy_regex::Regex::new(&pat) {
+        Ok(re) => re.is_match(value).unwrap_or(false),
+        Err(_) => false,
+    }
+}
+
+fn apply_match(value: &str, key: &str, mt: MatchType, casemap: bool) -> bool {
+    match mt {
+        MatchType::Is => str_is(value, key, casemap),
+        MatchType::Contains => str_contains(value, key, casemap),
+        MatchType::Matches => str_matches_glob(value, key, casemap),
+        MatchType::Regex => str_matches_regex(value, key, casemap),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Collect string operands from a form slice
+// ---------------------------------------------------------------------------
+
+/// Return `(names, keys)` — the two string-list arguments of a test.
+fn collect_two_string_lists<'a>(forms: &[&'a Form]) -> (Vec<&'a str>, Vec<&'a str>) {
+    let mut lists: Vec<Vec<&str>> = Vec::new();
+    for f in forms {
+        match f {
+            Form::Str(s) => lists.push(vec![s.as_str()]),
+            Form::StringList(v) => lists.push(v.iter().map(String::as_str).collect()),
+            _ => {}
+        }
+    }
+    let names = lists.first().cloned().unwrap_or_default();
+    let keys = lists.get(1).cloned().unwrap_or_default();
+    (names, keys)
+}
+
+/// Return a single string list from forms.
+fn collect_one_string_list<'a>(forms: &[&'a Form]) -> Vec<&'a str> {
+    let mut result: Vec<&str> = Vec::new();
+    for f in forms {
+        match f {
+            Form::Str(s) => result.push(s.as_str()),
+            Form::StringList(v) => result.extend(v.iter().map(String::as_str)),
+            _ => {}
+        }
+    }
+    result
+}
+
+// ---------------------------------------------------------------------------
+// Individual test implementations
+// ---------------------------------------------------------------------------
+
+fn eval_header_test(forms: &[Form], ctx: &Ctx<'_>) -> bool {
+    let refs: Vec<&Form> = forms.iter().collect();
+    let (mt, after_mt) = extract_match_type(&refs);
+    let (cmp, after_cmp) = extract_comparator(&after_mt);
+    let casemap = cmp == Comparator::AsciiCasemap;
+    let (field_names, keys) = collect_two_string_lists(&after_cmp);
+
+    for (hdr_name, hdr_value) in &ctx.headers {
+        for fname in &field_names {
+            if hdr_name.eq_ignore_ascii_case(fname) {
+                for key in &keys {
+                    if apply_match(hdr_value, key, mt, casemap) {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
+fn eval_address_test(forms: &[Form], ctx: &Ctx<'_>) -> bool {
+    let refs: Vec<&Form> = forms.iter().collect();
+    let (mt, after_mt) = extract_match_type(&refs);
+    let (cmp, after_cmp) = extract_comparator(&after_mt);
+    let casemap = cmp == Comparator::AsciiCasemap;
+    let (part, after_part) = extract_address_part(&after_cmp);
+    let (field_names, keys) = collect_two_string_lists(&after_part);
+
+    for (hdr_name, hdr_value) in &ctx.headers {
+        for fname in &field_names {
+            if hdr_name.eq_ignore_ascii_case(fname) {
+                let addr = message::address_part(hdr_value, part);
+                for key in &keys {
+                    if apply_match(&addr, key, mt, casemap) {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
+fn eval_envelope_test(forms: &[Form], ctx: &Ctx<'_>) -> bool {
+    let refs: Vec<&Form> = forms.iter().collect();
+    let (mt, after_mt) = extract_match_type(&refs);
+    let (cmp, after_cmp) = extract_comparator(&after_mt);
+    let casemap = cmp == Comparator::AsciiCasemap;
+    let (part, after_part) = extract_address_part(&after_cmp);
+    let (part_names, keys) = collect_two_string_lists(&after_part);
+
+    for pname in &part_names {
+        let raw_addr = match pname.to_ascii_lowercase().as_str() {
+            "from" => ctx.envelope_from,
+            "to" => ctx.envelope_to,
+            _ => continue,
+        };
+        let addr = message::address_part(raw_addr, part);
+        for key in &keys {
+            if apply_match(&addr, key, mt, casemap) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn eval_exists_test(forms: &[Form], ctx: &Ctx<'_>) -> bool {
+    let tmp: Vec<&Form> = forms.iter().collect();
+    let names = collect_one_string_list(&tmp);
+    names.iter().all(|name| {
+        ctx.headers
+            .iter()
+            .any(|(n, _)| n.eq_ignore_ascii_case(name))
+    })
+}
+
+fn eval_size_test(forms: &[Form], message_size: usize) -> bool {
+    let mut over = false;
+    let mut under = false;
+    let mut limit: Option<u64> = None;
+
+    for f in forms {
+        match f {
+            Form::Tag(t) if t == "over" => over = true,
+            Form::Tag(t) if t == "under" => under = true,
+            Form::Num(n) => limit = Some(*n),
+            _ => {}
+        }
+    }
+
+    let limit = match limit {
+        Some(l) => l as usize,
+        None => return false,
+    };
+
+    if over {
+        message_size > limit
+    } else if under {
+        message_size < limit
+    } else {
+        false
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Variable substitution (RFC 5229)
+// ---------------------------------------------------------------------------
+
+/// Replace `${varname}` with values from `ctx.variables`.  `\$` → literal `$`.
+///
+/// Substitution is skipped entirely when `ctx.variables_enabled` is false
+/// (i.e. `require ["variables"]` was not declared — RFC 5229 §3).
+fn expand_vars(s: &str, ctx: &Ctx<'_>) -> String {
+    if !ctx.variables_enabled {
+        return s.to_string();
+    }
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '\\' {
+            if chars.peek() == Some(&'$') {
+                chars.next();
+                out.push('$');
+            } else {
+                out.push('\\');
+            }
+            continue;
+        }
+        if ch == '$' && chars.peek() == Some(&'{') {
+            chars.next(); // consume '{'
+            let mut name = String::new();
+            let mut closed = false;
+            for inner in chars.by_ref() {
+                if inner == '}' {
+                    closed = true;
+                    break;
+                }
+                name.push(inner);
+            }
+            if closed {
+                // Variable names are case-insensitive (RFC 5229 §3).
+                let val = ctx
+                    .variables
+                    .get(&name.to_lowercase())
+                    .map(String::as_str)
+                    .unwrap_or("");
+                out.push_str(val);
+            } else {
+                // Unclosed brace — emit literally.
+                out.push_str("${");
+                out.push_str(&name);
+            }
+            continue;
+        }
+        out.push(ch);
+    }
+    out
+}
+
+// ---------------------------------------------------------------------------
+// set modifier application (RFC 5229 §4)
+// ---------------------------------------------------------------------------
+
+/// Apply RFC 5229 §4 modifiers to a value in precedence order.
+///
+/// Modifiers may appear in any order in the script; they are always applied
+/// in precedence order regardless:
+///
+/// | Precedence | Modifier        |
+/// |------------|-----------------|
+/// | 40         | `:lower`/`:upper` |
+/// | 30         | `:length`       |
+/// | 20         | `:quotewildcard` |
+/// | 10         | `:firstline`    |
+fn apply_set_modifiers(value: String, modifiers: &[&str]) -> String {
+    // Sort modifiers by precedence (highest first = applied first).
+    fn precedence(m: &str) -> u8 {
+        match m {
+            "lower" | "upper" => 40,
+            "length" => 30,
+            "quotewildcard" => 20,
+            "firstline" => 10,
+            _ => 0,
+        }
+    }
+
+    let mut sorted: Vec<&str> = modifiers.to_vec();
+    sorted.sort_by_key(|m| Reverse(precedence(m)));
+
+    let mut v = value;
+    for m in sorted {
+        v = match m {
+            "lower" => v.to_ascii_lowercase(),
+            "upper" => v.to_ascii_uppercase(),
+            "length" => v.chars().count().to_string(),
+            "quotewildcard" => v.replace('*', "\\*").replace('?', "\\?"),
+            "firstline" => {
+                // Truncate at the first \n or \r\n.
+                if let Some(pos) = v.find('\n') {
+                    let end = if pos > 0 && v.as_bytes()[pos - 1] == b'\r' {
+                        pos - 1
+                    } else {
+                        pos
+                    };
+                    v[..end].to_string()
+                } else {
+                    v
+                }
+            }
+            // Unknown modifiers are ignored (fail-safe).
+            _ => v,
+        };
+    }
+    v
+}
