@@ -145,8 +145,7 @@ fn eval_stmt(stmt: &Stmt, ctx: &mut Ctx<'_>) -> StmtResult {
                     break;
                 }
             }
-            if let (Some(Form::Str(name)), Some(Form::Str(value))) =
-                (rest.get(i), rest.get(i + 1))
+            if let (Some(Form::Str(name)), Some(Form::Str(value))) = (rest.get(i), rest.get(i + 1))
             {
                 let expanded = expand_vars(value, ctx);
                 let modified = apply_set_modifiers(expanded, &modifier_names);

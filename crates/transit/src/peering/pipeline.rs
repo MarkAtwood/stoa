@@ -23,7 +23,7 @@ use usenet_ipfs_verify::VerificationStore;
 
 // ── IPFS abstraction ──────────────────────────────────────────────────────────
 
-/// Error returned by [`IpfsStore::put_raw`].
+/// Error returned by [`IpfsStore`] methods.
 #[derive(Debug)]
 pub enum IpfsError {
     WriteFailed(String),
@@ -54,6 +54,20 @@ pub trait IpfsStore: Send + Sync {
     /// not yet retrieved from the network). Returns `Err` on I/O or
     /// internal errors.
     async fn get_raw(&self, cid: &Cid) -> Result<Option<Vec<u8>>, IpfsError>;
+
+    /// Mark `cid` for deletion.
+    ///
+    /// The default implementation signals that deletion is deferred — callers
+    /// must not assume the block is gone until `get_raw` returns `None`.
+    /// Override to provide backend-specific behaviour (e.g. Kubo `pin/rm`).
+    async fn delete(
+        &self,
+        _cid: &Cid,
+    ) -> Result<usenet_ipfs_core::ipfs::DeletionOutcome, IpfsError> {
+        Ok(usenet_ipfs_core::ipfs::DeletionOutcome::Deferred {
+            readable_for_approx_secs: None,
+        })
+    }
 }
 
 // ── In-memory IPFS store for tests ───────────────────────────────────────────
@@ -138,6 +152,66 @@ impl IpfsStore for KuboStore {
             .block_get(cid)
             .await
             .map_err(|e| IpfsError::WriteFailed(e.to_string()))
+    }
+
+    /// Unpin `cid` from Kubo. The block remains readable until `ipfs repo gc` runs.
+    async fn delete(
+        &self,
+        cid: &Cid,
+    ) -> Result<usenet_ipfs_core::ipfs::DeletionOutcome, IpfsError> {
+        self.client
+            .pin_rm(cid)
+            .await
+            .map_err(|e| IpfsError::WriteFailed(e.to_string()))?;
+        Ok(usenet_ipfs_core::ipfs::DeletionOutcome::Deferred {
+            readable_for_approx_secs: None,
+        })
+    }
+}
+
+// ── Store factory ─────────────────────────────────────────────────────────────
+
+/// Result of [`build_store`]: the constructed store and an optional Kubo client
+/// for IPNS publishing (present only when the backend is Kubo).
+pub struct StoreBuildResult {
+    pub store: Arc<dyn IpfsStore>,
+    /// Kubo HTTP client for IPNS publishing. `None` for non-Kubo backends.
+    pub kubo_client: Option<usenet_ipfs_core::ipfs::KuboHttpClient>,
+}
+
+/// Construct the IPFS block store from configuration.
+///
+/// Prefers `config.backend` when present; falls back to the legacy `config.ipfs`
+/// section for backward compatibility.
+///
+/// Returns `Err` for backends that are not yet implemented.
+pub fn build_store(config: &crate::config::Config) -> Result<StoreBuildResult, String> {
+    if let Some(backend) = &config.backend {
+        use crate::config::BackendType;
+        match backend.backend_type {
+            BackendType::Kubo => {
+                let kubo_cfg = backend
+                    .kubo
+                    .as_ref()
+                    .ok_or("backend.type = 'kubo' requires a [backend.kubo] section")?;
+                let store = KuboStore::new(&kubo_cfg.api_url);
+                let client = store.kubo_client();
+                Ok(StoreBuildResult {
+                    store: Arc::new(store),
+                    kubo_client: Some(client),
+                })
+            }
+            BackendType::S3 => Err("S3 backend is not yet implemented".to_string()),
+            BackendType::Filesystem => Err("filesystem backend is not yet implemented".to_string()),
+        }
+    } else {
+        // Backward-compat: use legacy [ipfs] section.
+        let store = KuboStore::new(&config.ipfs.api_url);
+        let client = store.kubo_client();
+        Ok(StoreBuildResult {
+            store: Arc::new(store),
+            kubo_client: Some(client),
+        })
     }
 }
 
@@ -671,8 +745,7 @@ mod tests {
             dkim_auth: None,
         };
         let transit_pool = make_transit_pool().await;
-        let result = run_pipeline(&article, &ipfs, &msgid_map, &storage, &transit_pool, ctx)
-            .await;
+        let result = run_pipeline(&article, &ipfs, &msgid_map, &storage, &transit_pool, ctx).await;
         assert!(result.is_ok(), "pipeline should succeed: {result:?}");
 
         // Should have received a gossip message.

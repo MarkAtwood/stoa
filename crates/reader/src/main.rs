@@ -56,20 +56,22 @@ fn parse_args() -> (PathBuf, bool) {
 async fn run_startup_checks(config: &Config) -> Vec<String> {
     let mut errors: Vec<String> = Vec::new();
 
-    // Kubo reachability check with 5-second timeout.
-    let url = config.ipfs.api_url.clone();
-    let client = usenet_ipfs_core::ipfs::KuboHttpClient::new(&url);
-    match tokio::time::timeout(Duration::from_secs(5), client.node_id()).await {
-        Ok(Ok(_)) => {}
-        Ok(Err(e)) => {
-            errors.push(format!(
-                "Kubo unreachable at {url}: {e} — is 'ipfs daemon' running?"
-            ));
-        }
-        Err(_) => {
-            errors.push(format!(
-                "Kubo unreachable at {url}: timed out after 5s — is 'ipfs daemon' running?"
-            ));
+    // Kubo reachability check (skipped for non-Kubo backends).
+    if let Some(url) = config.kubo_api_url() {
+        let url = url.to_owned();
+        let client = usenet_ipfs_core::ipfs::KuboHttpClient::new(&url);
+        match tokio::time::timeout(Duration::from_secs(5), client.node_id()).await {
+            Ok(Ok(_)) => {}
+            Ok(Err(e)) => {
+                errors.push(format!(
+                    "Kubo unreachable at {url}: {e} — is 'ipfs daemon' running?"
+                ));
+            }
+            Err(_) => {
+                errors.push(format!(
+                    "Kubo unreachable at {url}: timed out after 5s — is 'ipfs daemon' running?"
+                ));
+            }
         }
     }
 
@@ -87,9 +89,7 @@ async fn run_startup_checks(config: &Config) -> Vec<String> {
 
     // Signing key check.
     if let Some(path) = config.operator.signing_key_path.as_deref() {
-        if let Err(e) =
-            usenet_ipfs_core::signing::load_signing_key(std::path::Path::new(path))
-        {
+        if let Err(e) = usenet_ipfs_core::signing::load_signing_key(std::path::Path::new(path)) {
             errors.push(format!("{e}"));
         }
     }

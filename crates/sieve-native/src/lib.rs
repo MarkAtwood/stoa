@@ -431,14 +431,19 @@ mod tests {
 
     #[test]
     fn eval_unknown_comparator_compile_error() {
-        let result = compile(b"if header :is :comparator \"i;invalid\" \"Subject\" \"test\" { keep; }");
+        let result =
+            compile(b"if header :is :comparator \"i;invalid\" \"Subject\" \"test\" { keep; }");
         assert!(result.is_err(), "unknown comparator must fail at compile");
-        assert!(result.unwrap_err().contains("comparator"), "error must mention comparator");
+        assert!(
+            result.unwrap_err().contains("comparator"),
+            "error must mention comparator"
+        );
     }
 
     #[test]
     fn compile_invalid_regex_pattern_fails() {
-        let result = compile(b"require [\"regex\"]; if header :regex \"Subject\" \"[invalid\" { keep; }");
+        let result =
+            compile(b"require [\"regex\"]; if header :regex \"Subject\" \"[invalid\" { keep; }");
         assert!(result.is_err(), "invalid regex must fail at compile");
     }
 
@@ -447,9 +452,8 @@ mod tests {
         // "X[Special]" is a valid header name but not a valid regex character class.
         // Only the match keys (last Str/StringList) are validated as regex; the
         // header field name must not be.
-        let result = compile(
-            b"require [\"regex\"]; if header :regex \"X[Special]\" \"test.*\" { keep; }",
-        );
+        let result =
+            compile(b"require [\"regex\"]; if header :regex \"X[Special]\" \"test.*\" { keep; }");
         assert!(
             result.is_ok(),
             "header name should not be validated as regex: {:?}",
@@ -463,7 +467,10 @@ mod tests {
         let result = compile(
             b"require [\"regex\"]; if header :regex \"Subject\" [\"ok.*\", \"[invalid\"] { keep; }",
         );
-        assert!(result.is_err(), "invalid regex in key StringList must fail at compile");
+        assert!(
+            result.is_err(),
+            "invalid regex in key StringList must fail at compile"
+        );
     }
 
     // -----------------------------------------------------------------------

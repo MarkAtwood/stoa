@@ -296,7 +296,9 @@ async fn transit_reader_shared_store() {
         verification_store: Arc::new(usenet_ipfs_verify::VerificationStore::new(
             make_verify_pool(&db_dir).await,
         )),
-        dkim_authenticator: Arc::new(mail_auth::MessageAuthenticator::new_cloudflare_tls().unwrap()),
+        dkim_authenticator: Arc::new(
+            mail_auth::MessageAuthenticator::new_cloudflare_tls().unwrap(),
+        ),
     });
 
     // ── Transit stores ────────────────────────────────────────────────────────

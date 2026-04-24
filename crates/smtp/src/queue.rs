@@ -150,8 +150,7 @@ impl NntpQueue {
         tokio::fs::write(&tmp_path, article_bytes).await?;
         tokio::fs::rename(&tmp_path, &dst_path).await?;
         let env = NntpEnvelope { injection_source };
-        let env_json = serde_json::to_vec(&env)
-            .map_err(std::io::Error::other)?;
+        let env_json = serde_json::to_vec(&env).map_err(std::io::Error::other)?;
         tokio::fs::write(&env_path, &env_json).await?;
         self.notify.notify_one();
         Ok(())

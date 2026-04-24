@@ -68,9 +68,7 @@ async fn read_dot_body(reader: &mut BufReader<tokio::io::ReadHalf<TcpStream>>) -
 fn make_article(injection_source: Option<&str>, newsgroup: &str, msgid: &str) -> String {
     let mut s = String::new();
     if let Some(src) = injection_source {
-        s.push_str(&format!(
-            "X-Usenet-IPFS-Injection-Source: {src}\r\n"
-        ));
+        s.push_str(&format!("X-Usenet-IPFS-Injection-Source: {src}\r\n"));
     }
     s.push_str(&format!("Newsgroups: {newsgroup}\r\n"));
     s.push_str("From: provenance-test@example.com\r\n");

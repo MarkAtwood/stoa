@@ -1,4 +1,9 @@
-use std::{collections::HashSet, path::PathBuf, sync::Arc, time::{Duration, Instant}};
+use std::{
+    collections::HashSet,
+    path::PathBuf,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use cid::Cid;
 use ed25519_dalek::Signer as _;
@@ -20,7 +25,7 @@ use usenet_ipfs_transit::{
         auth::parse_trusted_peer_keys,
         blacklist::BlacklistConfig,
         ingestion_queue::ingestion_queue,
-        pipeline::{run_pipeline, KuboStore, PipelineCtx},
+        pipeline::{run_pipeline, PipelineCtx},
         rate_limit::{ExhaustionAction, PeerRateLimiter},
         session::{run_peering_session, PeeringShared},
         xcid_client::{PeerInfo as XcidPeerInfo, XcidClient},
@@ -122,20 +127,22 @@ fn cmd_keygen(args: &[String]) -> ! {
 async fn run_startup_checks(config: &usenet_ipfs_transit::config::Config) -> Vec<String> {
     let mut errors: Vec<String> = Vec::new();
 
-    // Kubo reachability check with 5-second timeout.
-    let url = config.ipfs.api_url.clone();
-    let client = usenet_ipfs_core::ipfs::KuboHttpClient::new(&url);
-    match tokio::time::timeout(Duration::from_secs(5), client.node_id()).await {
-        Ok(Ok(_)) => {}
-        Ok(Err(e)) => {
-            errors.push(format!(
-                "Kubo unreachable at {url}: {e} — is 'ipfs daemon' running?"
-            ));
-        }
-        Err(_) => {
-            errors.push(format!(
-                "Kubo unreachable at {url}: timed out after 5s — is 'ipfs daemon' running?"
-            ));
+    // Kubo reachability check (skipped for non-Kubo backends).
+    if let Some(url) = config.kubo_api_url() {
+        let url = url.to_owned();
+        let client = usenet_ipfs_core::ipfs::KuboHttpClient::new(&url);
+        match tokio::time::timeout(Duration::from_secs(5), client.node_id()).await {
+            Ok(Ok(_)) => {}
+            Ok(Err(e)) => {
+                errors.push(format!(
+                    "Kubo unreachable at {url}: {e} — is 'ipfs daemon' running?"
+                ));
+            }
+            Err(_) => {
+                errors.push(format!(
+                    "Kubo unreachable at {url}: timed out after 5s — is 'ipfs daemon' running?"
+                ));
+            }
         }
     }
 
@@ -151,9 +158,7 @@ async fn run_startup_checks(config: &usenet_ipfs_transit::config::Config) -> Vec
 
     // Signing key check.
     if let Some(ref path) = config.operator.signing_key_path {
-        if let Err(e) =
-            usenet_ipfs_core::signing::load_signing_key(std::path::Path::new(path))
-        {
+        if let Err(e) = usenet_ipfs_core::signing::load_signing_key(std::path::Path::new(path)) {
             errors.push(format!("{e}"));
         }
     }
@@ -277,18 +282,26 @@ async fn main() {
         }
     }
 
-    // ── Kubo IPFS store ───────────────────────────────────────────────────────
+    // ── IPFS block store ──────────────────────────────────────────────────────
 
-    info!(api_url = %config.ipfs.api_url, "connecting to Kubo IPFS node");
-    let kubo_store = KuboStore::new(&config.ipfs.api_url);
+    let build_result = match usenet_ipfs_transit::peering::pipeline::build_store(&config) {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("error: failed to build IPFS store: {e}");
+            std::process::exit(1);
+        }
+    };
+    if let Some(url) = config.kubo_api_url() {
+        info!(api_url = %url, "connecting to Kubo IPFS node");
+    }
     // Extract the Kubo client before boxing so the IPNS publisher can use it.
     let kubo_client_for_ipns = if config.ipns.enabled {
-        Some(kubo_store.kubo_client())
+        build_result.kubo_client
     } else {
         None
     };
     let mut ipfs_store: Arc<dyn usenet_ipfs_transit::peering::pipeline::IpfsStore> =
-        Arc::new(kubo_store);
+        build_result.store;
 
     // ── Block cache (optional) ─────────────────────────────────────────────────
 
@@ -755,8 +768,7 @@ async fn main() {
             _ => {}
         }
 
-        let (staging_shutdown_tx, mut staging_shutdown_rx) =
-            tokio::sync::watch::channel(false);
+        let (staging_shutdown_tx, mut staging_shutdown_rx) = tokio::sync::watch::channel(false);
         staging_shutdown_opt = Some(staging_shutdown_tx);
 
         let ipfs = Arc::clone(&ipfs_store);

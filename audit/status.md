@@ -139,3 +139,11 @@ Phase markers reset for new epic
 [04:12:45] COORDINATOR: review round 1: P0=0 P1=2 P2=1 — fixing before round 2
 Phase markers reset for new epic
 [04:40:39] COORDINATOR: claimed epic usenet-ipfs-0qfx (Graceful shutdown)
+[05:23:04] COORDINATOR: phase2+3 done for 0qfx — committed be5e7b5 (sieve fix) and 4c579e7 (graceful shutdown)
+[05:23:18] COORDINATOR: review round 1, epic issue:
+[05:23:26] COORDINATOR: review round 1, epic usenet-ipfs-nzr6
+[05:49:05] COORDINATOR: Starting epic 6o91 (SQLite persistence). Phase 0 setup.
+[05:54:43] COORDINATOR: Phase 2 implementation starting for 6o91 (SQLite persistence)
+[06:08:18] COORDINATOR: 6o91 committed. Spawning review round.
+[06:10:00] COORDINATOR: 6o91 closed. Starting next epic.
+[06:10:19] COORDINATOR: Starting epic sfmz (Pluggable block store). Phase 0.

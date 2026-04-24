@@ -282,7 +282,10 @@ async fn mixed_batch() {
     );
 
     // Both articles must have article numbers.
-    assert_eq!(r1.assignments[0].1, 1, "SmtpListId article must be number 1");
+    assert_eq!(
+        r1.assignments[0].1, 1,
+        "SmtpListId article must be number 1"
+    );
     assert_eq!(r2.assignments[0].1, 2, "NntpPost article must be number 2");
 
     let found_listid = stores

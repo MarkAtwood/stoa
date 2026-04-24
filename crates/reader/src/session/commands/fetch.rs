@@ -113,8 +113,12 @@ fn did_verified_header_line(content: &ArticleContent) -> Option<String> {
 /// Returns `Some("X-Usenet-IPFS-Verified: pass")` if any method passed,
 /// `Some("X-Usenet-IPFS-Verified: fail")` if all methods tried and none passed.
 fn verified_header_line(content: &ArticleContent) -> Option<String> {
-    usenet_ipfs_verify::aggregate_status(&content.verifications)
-        .map(|pass| format!("X-Usenet-IPFS-Verified: {}", if pass { "pass" } else { "fail" }))
+    usenet_ipfs_verify::aggregate_status(&content.verifications).map(|pass| {
+        format!(
+            "X-Usenet-IPFS-Verified: {}",
+            if pass { "pass" } else { "fail" }
+        )
+    })
 }
 
 /// ARTICLE response: 220 + article_number + message_id, followed by headers,

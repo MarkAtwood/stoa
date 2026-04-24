@@ -6,6 +6,56 @@ use crate::retention::policy::{PinPolicy, PolicyValidationError};
 use crate::retention::remote_pin_client::PinningApiKey;
 use crate::staging::StagingConfig;
 
+// ── Backend config (pluggable block store) ────────────────────────────────────
+
+/// Selects the IPFS block storage backend.
+///
+/// Use `[backend]` with a `type` key instead of the legacy `[ipfs]` section
+/// to activate a specific backend.  `[ipfs]` is retained for backward
+/// compatibility; when both are present `[backend]` takes precedence.
+#[derive(Debug, Deserialize, Clone)]
+pub struct BackendConfig {
+    /// Backend discriminator.  Supported values: `"kubo"`, `"s3"`, `"filesystem"`.
+    #[serde(rename = "type")]
+    pub backend_type: BackendType,
+    /// Kubo-specific settings.  Required when `type = "kubo"`.
+    #[serde(default)]
+    pub kubo: Option<KuboBackendConfig>,
+    /// S3-specific settings (not yet implemented).
+    #[serde(default)]
+    pub s3: Option<S3BackendConfig>,
+    /// Filesystem-specific settings (not yet implemented).
+    #[serde(default)]
+    pub filesystem: Option<FsBackendConfig>,
+}
+
+/// Backend type discriminator.
+#[derive(Debug, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum BackendType {
+    Kubo,
+    S3,
+    Filesystem,
+}
+
+/// Configuration for the Kubo HTTP RPC backend.
+#[derive(Debug, Deserialize, Clone)]
+pub struct KuboBackendConfig {
+    /// Kubo daemon HTTP RPC API URL (e.g. `"http://127.0.0.1:5001"`).
+    pub api_url: String,
+}
+
+/// Placeholder — S3 backend not yet implemented.
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct S3BackendConfig {}
+
+/// Placeholder — filesystem backend not yet implemented.
+#[derive(Debug, Deserialize, Clone)]
+pub struct FsBackendConfig {
+    /// Root directory for block files.
+    pub path: String,
+}
+
 // Config fields are read from TOML; server logic will consume them as epics are implemented.
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
@@ -13,7 +63,13 @@ pub struct Config {
     pub listen: ListenConfig,
     pub peers: PeersConfig,
     pub groups: GroupsConfig,
+    /// Legacy Kubo connection settings.  Retained for backward compatibility.
+    /// New deployments should use `[backend]` instead.
+    #[serde(default)]
     pub ipfs: IpfsConfig,
+    /// Pluggable block store backend.  When present, takes precedence over `[ipfs]`.
+    #[serde(default)]
+    pub backend: Option<BackendConfig>,
     pub pinning: PinningConfig,
     pub gc: GcConfig,
     #[serde(default)]
@@ -275,7 +331,7 @@ pub struct GroupsConfig {
     pub names: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
 pub struct IpfsConfig {
     pub api_url: String,
 }
@@ -421,16 +477,44 @@ impl Config {
         Ok(config)
     }
 
+    /// Returns the effective Kubo API URL: `[backend.kubo.api_url]` when a Kubo
+    /// backend is configured, otherwise `[ipfs.api_url]`.  Returns `None` when
+    /// a non-Kubo backend is selected (no connectivity check is needed).
+    pub fn kubo_api_url(&self) -> Option<&str> {
+        if let Some(backend) = &self.backend {
+            match &backend.backend_type {
+                BackendType::Kubo => backend.kubo.as_ref().map(|k| k.api_url.as_str()),
+                _ => None,
+            }
+        } else if !self.ipfs.api_url.is_empty() {
+            Some(self.ipfs.api_url.as_str())
+        } else {
+            None
+        }
+    }
+
     pub fn validate(&self) -> Result<(), ConfigError> {
         if self.listen.addr.is_empty() {
             return Err(ConfigError::Validation(
                 "listen.addr must not be empty".into(),
             ));
         }
-        if self.ipfs.api_url.is_empty() {
-            return Err(ConfigError::Validation(
-                "ipfs.api_url must not be empty".into(),
-            ));
+        // Require either [backend] or a non-empty [ipfs.api_url].
+        match &self.backend {
+            Some(backend) => {
+                if backend.backend_type == BackendType::Kubo && backend.kubo.is_none() {
+                    return Err(ConfigError::Validation(
+                        "backend.type = 'kubo' requires a [backend.kubo] section".into(),
+                    ));
+                }
+            }
+            None => {
+                if self.ipfs.api_url.is_empty() {
+                    return Err(ConfigError::Validation(
+                        "either [backend] or [ipfs] with a non-empty api_url is required".into(),
+                    ));
+                }
+            }
         }
         if self.pinning.rules.is_empty() {
             return Err(ConfigError::Validation(
@@ -1016,6 +1100,101 @@ max_age_days = 30
 "#;
         let f = write_toml(toml);
         let err = Config::from_file(f.path()).expect_err("zero timeout should fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend] section with type = "kubo" parses and validation passes.
+    #[test]
+    fn backend_kubo_section_parses() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[backend]
+type = "kubo"
+
+[backend.kubo]
+api_url = "http://127.0.0.1:5001"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("backend.kubo config must parse");
+        let backend = cfg.backend.as_ref().expect("backend must be present");
+        assert_eq!(backend.backend_type, BackendType::Kubo);
+        let kubo = backend.kubo.as_ref().expect("backend.kubo must be present");
+        assert_eq!(kubo.api_url, "http://127.0.0.1:5001");
+        // kubo_api_url() returns the backend.kubo url.
+        assert_eq!(cfg.kubo_api_url(), Some("http://127.0.0.1:5001"));
+    }
+
+    /// [backend] with type = "kubo" but no [backend.kubo] subsection is rejected.
+    #[test]
+    fn backend_kubo_without_subsection_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[backend]
+type = "kubo"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path()).expect_err("missing backend.kubo must fail");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// Missing both [backend] and [ipfs] is a validation error.
+    #[test]
+    fn missing_both_backend_and_ipfs_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path()).expect_err("missing ipfs and backend must fail");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"

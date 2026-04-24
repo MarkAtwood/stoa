@@ -142,8 +142,16 @@ mod tests {
             result.public_key_path.exists(),
             "public key file should exist"
         );
-        assert_eq!(result.fingerprint.len(), 64, "fingerprint should be 64 hex chars");
-        assert_eq!(result.node_id_hex.len(), 16, "node_id should be 16 hex chars");
+        assert_eq!(
+            result.fingerprint.len(),
+            64,
+            "fingerprint should be 64 hex chars"
+        );
+        assert_eq!(
+            result.node_id_hex.len(),
+            16,
+            "node_id should be 16 hex chars"
+        );
     }
 
     #[test]
@@ -165,7 +173,10 @@ mod tests {
             pem.starts_with("-----BEGIN PUBLIC KEY-----"),
             "public key PEM header: {pem}"
         );
-        assert!(pem.contains("-----END PUBLIC KEY-----"), "public key PEM footer");
+        assert!(
+            pem.contains("-----END PUBLIC KEY-----"),
+            "public key PEM footer"
+        );
     }
 
     #[test]
@@ -175,7 +186,10 @@ mod tests {
         generate_keypair(&path, false).unwrap();
         let result = generate_keypair(&path, false);
         assert!(result.is_err(), "should fail without --force");
-        assert!(result.unwrap_err().contains("force"), "error should mention --force");
+        assert!(
+            result.unwrap_err().contains("force"),
+            "error should mention --force"
+        );
     }
 
     #[test]
@@ -184,7 +198,10 @@ mod tests {
         let path = test_key_path(&dir);
         let r1 = generate_keypair(&path, false).unwrap();
         let r2 = generate_keypair(&path, true).unwrap();
-        assert_ne!(r1.fingerprint, r2.fingerprint, "force should generate a new key");
+        assert_ne!(
+            r1.fingerprint, r2.fingerprint,
+            "force should generate a new key"
+        );
     }
 
     #[cfg(unix)]
@@ -196,7 +213,11 @@ mod tests {
         let result = generate_keypair(&path, false).unwrap();
         let meta = std::fs::metadata(&result.private_key_path).unwrap();
         let mode = meta.permissions().mode() & 0o777;
-        assert_eq!(mode, 0o600, "private key must have mode 0600, got {:o}", mode);
+        assert_eq!(
+            mode, 0o600,
+            "private key must have mode 0600, got {:o}",
+            mode
+        );
     }
 
     #[test]
@@ -212,6 +233,9 @@ mod tests {
         let sig = key.sign(b"test message");
         let vk = key.verifying_key();
         use ed25519_dalek::Verifier;
-        assert!(vk.verify(b"test message", &sig).is_ok(), "signature should verify");
+        assert!(
+            vk.verify(b"test message", &sig).is_ok(),
+            "signature should verify"
+        );
     }
 }

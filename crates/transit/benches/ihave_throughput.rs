@@ -103,16 +103,9 @@ async fn main() {
             trusted_keys: &[],
             dkim_auth: None,
         };
-        run_pipeline(
-            article,
-            &ipfs,
-            &msgid_map,
-            &log_storage,
-            &transit_pool,
-            ctx,
-        )
-        .await
-        .expect("pipeline must succeed");
+        run_pipeline(article, &ipfs, &msgid_map, &log_storage, &transit_pool, ctx)
+            .await
+            .expect("pipeline must succeed");
     }
 
     let elapsed = start.elapsed();

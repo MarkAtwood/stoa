@@ -746,8 +746,7 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
             &signed_bytes,
         )
         .await;
-        let all_verifications: Vec<_> =
-            x_sig_results.into_iter().chain(dkim_results).collect();
+        let all_verifications: Vec<_> = x_sig_results.into_iter().chain(dkim_results).collect();
         let verified_at_ms = now_ms as i64;
         if let Err(e) = stores
             .verification_store

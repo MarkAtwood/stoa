@@ -556,6 +556,59 @@ curl -s http://127.0.0.1:8080/jmap/session | python3 -m json.tool
 
 ---
 
+## Migrating to `[backend]` block store configuration
+
+The `[ipfs]` config section is still supported and is not being removed, but
+new deployments should use the `[backend]` section instead. Future backends
+(S3, filesystem) will only be configurable via `[backend]`.
+
+### Transit daemon
+
+Before (legacy — still works):
+```toml
+[ipfs]
+api_url = "http://127.0.0.1:5001"
+```
+
+After (new style):
+```toml
+[backend]
+type = "kubo"
+
+[backend.kubo]
+api_url = "http://127.0.0.1:5001"
+```
+
+When `[backend]` is present it takes precedence over `[ipfs]`. You may keep
+`[ipfs]` in the file during a rolling upgrade — it will be ignored.
+
+### Reader daemon
+
+Before (legacy — still works):
+```toml
+[ipfs]
+api_url = "http://127.0.0.1:5001"
+cache_path = "/var/cache/reader-blocks"
+```
+
+After (new style):
+```toml
+[backend]
+type = "kubo"
+
+[backend.kubo]
+api_url = "http://127.0.0.1:5001"
+cache_path = "/var/cache/reader-blocks"
+```
+
+### Unimplemented backends
+
+`type = "s3"` and `type = "filesystem"` are accepted by the parser but will
+cause a hard startup error ("not yet implemented"). They are placeholders for
+future epics.
+
+---
+
 ## See also
 
 - `docs/ops/configuration_reference.md` — full field-by-field reference

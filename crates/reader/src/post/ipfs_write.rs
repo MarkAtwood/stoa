@@ -54,6 +54,20 @@ pub trait IpfsBlockStore: Send + Sync {
 
     /// Read a raw block from IPFS by CID. Returns the block bytes.
     async fn get_raw_block(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError>;
+
+    /// Mark `cid` for deletion.
+    ///
+    /// The default implementation signals that deletion is deferred — callers
+    /// must not assume the block is gone until `get_raw_block` returns `NotFound`.
+    /// Override to provide backend-specific behaviour.
+    async fn delete(
+        &self,
+        _cid: &Cid,
+    ) -> Result<usenet_ipfs_core::ipfs::DeletionOutcome, IpfsWriteError> {
+        Ok(usenet_ipfs_core::ipfs::DeletionOutcome::Deferred {
+            readable_for_approx_secs: None,
+        })
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -191,6 +205,62 @@ impl IpfsBlockStore for KuboBlockStore {
             }
             None => Err(IpfsWriteError::NotFound(cid.to_string())),
         }
+    }
+
+    /// Unpin `cid` from Kubo. The block remains readable until `ipfs repo gc` runs.
+    async fn delete(
+        &self,
+        cid: &Cid,
+    ) -> Result<usenet_ipfs_core::ipfs::DeletionOutcome, IpfsWriteError> {
+        self.client
+            .pin_rm(cid)
+            .await
+            .map_err(|e| IpfsWriteError::WriteFailed(e.to_string()))?;
+        Ok(usenet_ipfs_core::ipfs::DeletionOutcome::Deferred {
+            readable_for_approx_secs: None,
+        })
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Store factory
+// ---------------------------------------------------------------------------
+
+/// Construct the IPFS block store from configuration.
+///
+/// Prefers `config.backend` when present; falls back to the legacy `config.ipfs`
+/// section for backward compatibility.
+///
+/// Returns `Err` for backends that are not yet implemented.
+pub fn build_block_store(
+    config: &crate::config::Config,
+) -> Result<std::sync::Arc<dyn IpfsBlockStore>, String> {
+    use std::sync::Arc;
+    if let Some(backend) = &config.backend {
+        use crate::config::BackendType;
+        match backend.backend_type {
+            BackendType::Kubo => {
+                let kubo_cfg = backend
+                    .kubo
+                    .as_ref()
+                    .ok_or("backend.type = 'kubo' requires a [backend.kubo] section")?;
+                let cache_dir = kubo_cfg.cache_path.as_ref().map(std::path::PathBuf::from);
+                Ok(Arc::new(KuboBlockStore::new(&kubo_cfg.api_url, cache_dir)))
+            }
+            BackendType::S3 => Err("S3 backend is not yet implemented".to_string()),
+            BackendType::Filesystem => Err("filesystem backend is not yet implemented".to_string()),
+        }
+    } else {
+        // Backward-compat: use legacy [ipfs] section.
+        let cache_dir = config
+            .ipfs
+            .cache_path
+            .as_ref()
+            .map(std::path::PathBuf::from);
+        Ok(Arc::new(KuboBlockStore::new(
+            &config.ipfs.api_url,
+            cache_dir,
+        )))
     }
 }
 

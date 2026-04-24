@@ -44,6 +44,26 @@ impl From<reqwest::Error> for KuboError {
     }
 }
 
+// ── DeletionOutcome ───────────────────────────────────────────────────────────
+
+/// Outcome of a [`KuboHttpClient::pin_rm`] or store `delete()` call.
+///
+/// Block stores have different reclaim semantics: some remove immediately,
+/// others mark the block for future collection (Kubo GC, S3 lifecycle rule).
+/// Callers must not assume a block is inaccessible after receiving `Deferred`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum DeletionOutcome {
+    /// Block has been removed immediately; subsequent `get()` calls return `NotFound`.
+    Immediate,
+    /// Block has been marked for deletion but remains readable until the backend's
+    /// own reclaim process runs (e.g. `ipfs repo gc`, an S3 lifecycle rule, `git gc`).
+    ///
+    /// `readable_for_approx_secs` is a best-effort estimate; `None` means unknown.
+    Deferred {
+        readable_for_approx_secs: Option<u64>,
+    },
+}
+
 // ── Response types ────────────────────────────────────────────────────────────
 
 #[derive(Deserialize)]
@@ -191,6 +211,35 @@ impl KuboHttpClient {
 
         let parsed: NamePublishResponse = resp.json().await?;
         Ok(format!("/ipns/{}", parsed.name))
+    }
+
+    /// Remove the pin for `cid` from Kubo's pinset.
+    ///
+    /// After unpinning, the block remains in Kubo's block store and is still
+    /// readable until `ipfs repo gc` runs.  This corresponds to
+    /// [`DeletionOutcome::Deferred`] in the store abstraction.
+    ///
+    /// Returns `Ok(())` if the pin was removed or was never present.
+    pub async fn pin_rm(&self, cid: &Cid) -> Result<(), KuboError> {
+        let resp = self
+            .client
+            .post(format!("{}/api/v0/pin/rm", self.api_base))
+            .query(&[("arg", cid.to_string())])
+            .send()
+            .await?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            // Kubo returns an error when the pin is not present. Treat that
+            // as success: the postcondition (block is unpinned) is already met.
+            if body.contains("not pinned") {
+                return Ok(());
+            }
+            return Err(KuboError::Api(format!("pin/rm HTTP {status}: {body}")));
+        }
+
+        Ok(())
     }
 
     /// Return the Kubo node's libp2p peer ID string.

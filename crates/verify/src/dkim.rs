@@ -41,9 +41,7 @@ pub async fn verify_dkim_headers(
     dkim_outputs
         .iter()
         .map(|output| {
-            let identity = output
-                .signature()
-                .map(|s| s.d.clone());
+            let identity = output.signature().map(|s| s.d.clone());
 
             let result = match output.result() {
                 DkimResult::Pass => VerifResult::Pass,
@@ -91,7 +89,10 @@ mod tests {
         let authenticator = MessageAuthenticator::new_cloudflare_tls().unwrap();
         let article = b"From: test@example.com\r\nSubject: Test\r\n\r\nBody.\r\n";
         let results = verify_dkim_headers(&authenticator, article).await;
-        assert!(results.is_empty(), "article without DKIM header must produce no results");
+        assert!(
+            results.is_empty(),
+            "article without DKIM header must produce no results"
+        );
     }
 
     #[tokio::test]

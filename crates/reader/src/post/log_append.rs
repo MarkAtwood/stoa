@@ -311,7 +311,10 @@ mod tests {
 
         assert_eq!(result.assignments.len(), 1, "must still get an assignment");
         assert_eq!(result.assignments[0].0, "comp.lang.rust");
-        assert_eq!(result.assignments[0].1, 1, "article number must be assigned");
+        assert_eq!(
+            result.assignments[0].1, 1,
+            "article number must be assigned"
+        );
 
         let tips = log_storage.list_tips(&group_name).await.unwrap();
         assert!(

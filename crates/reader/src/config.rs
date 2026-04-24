@@ -1,6 +1,60 @@
 use serde::Deserialize;
 use std::path::Path;
 
+// ── Backend config (pluggable block store) ────────────────────────────────────
+
+/// Selects the IPFS block storage backend.
+///
+/// Use `[backend]` with a `type` key instead of the legacy `[ipfs]` section
+/// to activate a specific backend.  `[ipfs]` is retained for backward
+/// compatibility; when both are present `[backend]` takes precedence.
+#[derive(Debug, Deserialize, Clone)]
+pub struct BackendConfig {
+    /// Backend discriminator.  Supported values: `"kubo"`, `"s3"`, `"filesystem"`.
+    #[serde(rename = "type")]
+    pub backend_type: BackendType,
+    /// Kubo-specific settings.  Required when `type = "kubo"`.
+    #[serde(default)]
+    pub kubo: Option<KuboBackendConfig>,
+    /// S3-specific settings (not yet implemented).
+    #[serde(default)]
+    pub s3: Option<S3BackendConfig>,
+    /// Filesystem-specific settings (not yet implemented).
+    #[serde(default)]
+    pub filesystem: Option<FsBackendConfig>,
+}
+
+/// Backend type discriminator.
+#[derive(Debug, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum BackendType {
+    Kubo,
+    S3,
+    Filesystem,
+}
+
+/// Configuration for the Kubo HTTP RPC backend.
+#[derive(Debug, Deserialize, Clone)]
+pub struct KuboBackendConfig {
+    /// Kubo daemon HTTP RPC API URL (e.g. `"http://127.0.0.1:5001"`).
+    pub api_url: String,
+    /// Directory for the local block cache. Created at startup if absent.
+    /// Omit to disable caching.
+    #[serde(default)]
+    pub cache_path: Option<String>,
+}
+
+/// Placeholder — S3 backend not yet implemented.
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct S3BackendConfig {}
+
+/// Placeholder — filesystem backend not yet implemented.
+#[derive(Debug, Deserialize, Clone)]
+pub struct FsBackendConfig {
+    /// Root directory for block files.
+    pub path: String,
+}
+
 // Config fields are read from TOML; server logic will consume them as epics are implemented.
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
@@ -9,8 +63,13 @@ pub struct Config {
     pub limits: LimitsConfig,
     pub auth: AuthConfig,
     pub tls: TlsConfig,
+    /// Legacy Kubo connection settings.  Retained for backward compatibility.
+    /// New deployments should use `[backend]` instead.
     #[serde(default)]
     pub ipfs: IpfsConfig,
+    /// Pluggable block store backend.  When present, takes precedence over `[ipfs]`.
+    #[serde(default)]
+    pub backend: Option<BackendConfig>,
     #[serde(default)]
     pub admin: AdminConfig,
     #[serde(default)]
@@ -362,6 +421,22 @@ impl std::fmt::Display for ConfigError {
 impl std::error::Error for ConfigError {}
 
 impl Config {
+    /// Returns the effective Kubo API URL: `[backend.kubo.api_url]` when a Kubo
+    /// backend is configured, otherwise `[ipfs.api_url]`.  Returns `None` when
+    /// a non-Kubo backend is selected (no connectivity check is needed).
+    pub fn kubo_api_url(&self) -> Option<&str> {
+        if let Some(backend) = &self.backend {
+            match &backend.backend_type {
+                BackendType::Kubo => backend.kubo.as_ref().map(|k| k.api_url.as_str()),
+                _ => None,
+            }
+        } else if !self.ipfs.api_url.is_empty() {
+            Some(self.ipfs.api_url.as_str())
+        } else {
+            None
+        }
+    }
+
     pub fn from_file(path: &Path) -> Result<Config, ConfigError> {
         let content = std::fs::read_to_string(path).map_err(|e| ConfigError::Io(e.to_string()))?;
         let config: Config =
@@ -697,11 +772,8 @@ required = false
             drop(p3);
         });
 
-        let result = tokio::time::timeout(
-            Duration::from_secs(2),
-            sem.acquire_many_owned(max),
-        )
-        .await;
+        let result =
+            tokio::time::timeout(Duration::from_secs(2), sem.acquire_many_owned(max)).await;
         assert!(result.is_ok(), "drain must complete before timeout");
     }
 
@@ -721,11 +793,11 @@ required = false
             _held.push(sem.clone().acquire_owned().await.unwrap());
         }
 
-        let result = tokio::time::timeout(
-            Duration::from_millis(20),
-            sem.acquire_many_owned(max),
-        )
-        .await;
-        assert!(result.is_err(), "drain must time out when sessions hold permits");
+        let result =
+            tokio::time::timeout(Duration::from_millis(20), sem.acquire_many_owned(max)).await;
+        assert!(
+            result.is_err(),
+            "drain must time out when sessions hold permits"
+        );
     }
 }

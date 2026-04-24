@@ -737,7 +737,8 @@ async fn sieve_delivery(
     peer_addr: &str,
 ) -> SieveOutcome {
     // Collect Sieve actions for every addressed local user.
-    let mut deliveries: Vec<(String, String, Vec<usenet_ipfs_sieve_native::SieveAction>)> = Vec::new();
+    let mut deliveries: Vec<(String, String, Vec<usenet_ipfs_sieve_native::SieveAction>)> =
+        Vec::new();
     for recipient_email in to {
         if let Some(user) = config
             .users
@@ -858,7 +859,12 @@ async fn sieve_for_user(
         if let Some(compiled) = lock.get(username) {
             let compiled = Arc::clone(compiled);
             drop(lock);
-            return usenet_ipfs_sieve_native::evaluate(&compiled, raw_message, envelope_from, envelope_to);
+            return usenet_ipfs_sieve_native::evaluate(
+                &compiled,
+                raw_message,
+                envelope_from,
+                envelope_to,
+            );
         }
     }
 
@@ -873,7 +879,12 @@ async fn sieve_for_user(
                         .await
                         .insert(username.to_owned(), Arc::clone(&compiled));
                 }
-                usenet_ipfs_sieve_native::evaluate(&compiled, raw_message, envelope_from, envelope_to)
+                usenet_ipfs_sieve_native::evaluate(
+                    &compiled,
+                    raw_message,
+                    envelope_from,
+                    envelope_to,
+                )
             }
             Err(e) => {
                 tracing::error!(

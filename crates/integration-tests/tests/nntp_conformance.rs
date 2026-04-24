@@ -269,7 +269,9 @@ async fn nntp_conformance_via_nntplib() {
         verification_store: Arc::new(usenet_ipfs_verify::VerificationStore::new(
             make_verify_pool(&db_dir).await,
         )),
-        dkim_authenticator: Arc::new(mail_auth::MessageAuthenticator::new_cloudflare_tls().unwrap()),
+        dkim_authenticator: Arc::new(
+            mail_auth::MessageAuthenticator::new_cloudflare_tls().unwrap(),
+        ),
     });
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();

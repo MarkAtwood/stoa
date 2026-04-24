@@ -71,8 +71,7 @@ fn check_key_file_permissions(path: &std::path::Path) -> Result<(), String> {
             path.display()
         ));
     }
-    Ok(()
-    )
+    Ok(())
 }
 
 /// Generate a fresh Ed25519 signing key from OS entropy.
@@ -89,7 +88,11 @@ pub fn generate_signing_key() -> SigningKey {
 /// - If `path` already exists and `force` is false, returns `Err`.
 /// - On non-Unix platforms, the mode 0600 step is skipped (best effort).
 /// - The key bytes are written atomically: we open, chmod, write, close.
-pub fn write_signing_key(key: &SigningKey, path: &std::path::Path, force: bool) -> Result<(), String> {
+pub fn write_signing_key(
+    key: &SigningKey,
+    path: &std::path::Path,
+    force: bool,
+) -> Result<(), String> {
     use std::io::Write;
 
     if !force && path.exists() {

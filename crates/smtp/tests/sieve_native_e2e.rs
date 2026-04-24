@@ -73,9 +73,7 @@ fn test_config() -> Arc<Config> {
 
 /// Open an in-memory SQLite database with the smtp schema applied.
 async fn open_test_db() -> SqlitePool {
-    store::open(":memory:")
-        .await
-        .expect("open in-memory DB")
+    store::open(":memory:").await.expect("open in-memory DB")
 }
 
 /// Count `.msg` files in a queue directory.
@@ -167,9 +165,7 @@ async fn drive(
         .await;
     });
 
-    let mut client = tokio::net::TcpStream::connect(addr)
-        .await
-        .expect("connect");
+    let mut client = tokio::net::TcpStream::connect(addr).await.expect("connect");
     client.write_all(client_script).await.expect("write");
     client.shutdown().await.expect("shutdown");
 

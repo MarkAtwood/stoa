@@ -70,7 +70,11 @@ impl VerificationStore {
                 let sig_type = parse_sig_type(&sig_type);
                 let result = parse_result(&result_str, reason.as_deref(), &sig_type);
                 // Empty string means identity was unknown at verification time.
-                let identity = if identity.is_empty() { None } else { Some(identity) };
+                let identity = if identity.is_empty() {
+                    None
+                } else {
+                    Some(identity)
+                };
                 ArticleVerification {
                     sig_type,
                     result,

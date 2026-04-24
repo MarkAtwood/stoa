@@ -157,7 +157,9 @@ fn extract_sig_header(article_bytes: &[u8]) -> Result<Extracted, ExtractError> {
 
 fn find_header_boundary(data: &[u8]) -> Option<usize> {
     // Find \r\n\r\n
-    data.windows(4).position(|w| w == b"\r\n\r\n").map(|p| p + 4)
+    data.windows(4)
+        .position(|w| w == b"\r\n\r\n")
+        .map(|p| p + 4)
         .or_else(|| data.windows(2).position(|w| w == b"\n\n").map(|p| p + 2))
 }
 
@@ -182,11 +184,12 @@ mod tests {
         let sig_value = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(sig.to_bytes());
         let sig_line = format!("{SIG_HEADER}: {sig_value}\r\n");
         let body_start = find_header_boundary(article_bytes).unwrap_or(article_bytes.len());
-        let sep_len = if body_start >= 4 && article_bytes[body_start - 4..body_start] == *b"\r\n\r\n" {
-            2
-        } else {
-            1
-        };
+        let sep_len =
+            if body_start >= 4 && article_bytes[body_start - 4..body_start] == *b"\r\n\r\n" {
+                2
+            } else {
+                1
+            };
         let insert_at = body_start - sep_len;
         let mut out = Vec::with_capacity(article_bytes.len() + sig_line.len());
         out.extend_from_slice(&article_bytes[..insert_at]);
@@ -206,7 +209,11 @@ mod tests {
         let signed = sign_article(&key, &article());
         let results = verify_x_sig(&[pubkey], &signed);
         assert_eq!(results.len(), 1);
-        assert!(results[0].result.is_pass(), "expected Pass, got {:?}", results[0].result);
+        assert!(
+            results[0].result.is_pass(),
+            "expected Pass, got {:?}",
+            results[0].result
+        );
     }
 
     #[test]
@@ -242,6 +249,9 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert!(results[0].result.is_pass());
         // identity must be key_b's fingerprint
-        assert_eq!(results[0].identity, Some(pubkey_hex_id(&key_b.verifying_key())));
+        assert_eq!(
+            results[0].identity,
+            Some(pubkey_hex_id(&key_b.verifying_key()))
+        );
     }
 }

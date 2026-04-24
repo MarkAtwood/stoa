@@ -27,7 +27,7 @@ use usenet_ipfs_auth::TrustedIssuerStore;
 use usenet_ipfs_smtp::SmtpRelayQueue;
 use usenet_ipfs_verify::VerificationStore;
 
-use crate::post::ipfs_write::{IpfsBlockStore, KuboBlockStore, MemIpfsStore};
+use crate::post::ipfs_write::{IpfsBlockStore, MemIpfsStore};
 use crate::search::TantivySearchIndex;
 use crate::store::article_numbers::ArticleNumberStore;
 use crate::store::client_cert_store::ClientCertStore;
@@ -73,17 +73,19 @@ impl ServerStores {
     ///
     /// Database parent directories are created at startup if they do not exist.
     pub async fn new_with_ipfs(config: &crate::config::Config) -> Result<Self, String> {
-        let cache_dir = config
-            .ipfs
-            .cache_path
-            .as_deref()
-            .map(std::path::PathBuf::from);
-        if let Some(ref dir) = cache_dir {
+        // Create local block cache directory if configured.
+        let cache_path = config
+            .backend
+            .as_ref()
+            .and_then(|b| b.kubo.as_ref())
+            .and_then(|k| k.cache_path.as_deref())
+            .or(config.ipfs.cache_path.as_deref());
+        if let Some(dir) = cache_path {
             tokio::fs::create_dir_all(dir)
                 .await
-                .map_err(|e| format!("failed to create IPFS cache dir '{}': {e}", dir.display()))?;
+                .map_err(|e| format!("failed to create IPFS cache dir '{dir}': {e}"))?;
         }
-        let ipfs_store = KuboBlockStore::new(&config.ipfs.api_url, cache_dir);
+        let ipfs_store = crate::post::ipfs_write::build_block_store(config)?;
 
         // Ensure database parent directories exist before opening pools.
         for path_str in [
@@ -102,7 +104,8 @@ impl ServerStores {
             }
         }
 
-        let reader_pool = make_disk_pool_with_reader_migrations(&config.database.reader_path).await?;
+        let reader_pool =
+            make_disk_pool_with_reader_migrations(&config.database.reader_path).await?;
         let core_pool = make_disk_pool_with_core_migrations(&config.database.core_path).await?;
 
         let now_ms = std::time::SystemTime::now()
@@ -118,12 +121,13 @@ impl ServerStores {
         let smtp_relay_queue = build_smtp_relay_queue(&config.smtp_relay)
             .map_err(|e| format!("smtp relay queue init failed: {e}"))?;
 
-        let verify_pool = make_disk_pool_with_verify_migrations(&config.database.verify_path).await?;
+        let verify_pool =
+            make_disk_pool_with_verify_migrations(&config.database.verify_path).await?;
         let dkim_authenticator = MessageAuthenticator::new_cloudflare_tls()
             .map_err(|e| format!("DKIM authenticator init failed: {e}"))?;
 
         Ok(Self {
-            ipfs_store: Arc::new(ipfs_store),
+            ipfs_store,
             msgid_map: Arc::new(MsgIdMap::new(core_pool)),
             log_storage: Arc::new(MemLogStorage::new()),
             article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
@@ -375,9 +379,7 @@ fn build_credential_store(auth: &crate::config::AuthConfig) -> Result<Credential
 /// because the signing key changes on every restart.
 fn load_or_generate_signing_key(path: &Option<String>) -> Result<SigningKey, String> {
     match path {
-        Some(p) => {
-            usenet_ipfs_core::signing::load_signing_key(std::path::Path::new(p))
-        }
+        Some(p) => usenet_ipfs_core::signing::load_signing_key(std::path::Path::new(p)),
         None => {
             let key = generate_signing_key();
             tracing::warn!(
@@ -409,4 +411,3 @@ fn build_smtp_relay_queue(
     let queue = SmtpRelayQueue::new(queue_dir, cfg.peers.clone(), down_backoff)?;
     Ok(Some(queue))
 }
-
