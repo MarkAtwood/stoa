@@ -425,6 +425,8 @@ fn str_matches_regex(value: &str, pattern: &str, casemap: bool) -> bool {
 }
 
 fn str_matches_regex_pat(value: &str, anchored: &str, casemap: bool) -> bool {
+    // PERF(qc9j.1): regex is recompiled on every call; compile once in
+    // CompiledScript and pass pre-built Regex values to the evaluator.
     let pat = if casemap {
         format!("(?i){anchored}")
     } else {

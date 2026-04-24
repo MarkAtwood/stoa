@@ -84,7 +84,92 @@ pub fn compile(script: &[u8]) -> Result<CompiledScript, String> {
         }
     }
 
+    validate_script(&parsed)?;
+
     Ok(CompiledScript(Arc::new(parsed)))
+}
+
+/// Walk every statement in a script (recursing into blocks and test lists)
+/// and enforce compile-time constraints:
+///
+/// - RFC 5228 §2.7.2: unknown comparator names must fail the script.
+///   Known comparators: `"i;ascii-casemap"` and `"i;octet"`.
+/// - Regex extension: invalid regex patterns must fail the script so that
+///   broken patterns are caught early rather than silently failing at eval time.
+fn validate_script(script: &form::Script) -> Result<(), String> {
+    for stmt in script {
+        validate_stmt(stmt)?;
+    }
+    Ok(())
+}
+
+fn validate_stmt(stmt: &form::Stmt) -> Result<(), String> {
+    // Scan the flat form list for Tag("comparator") followed by Str(name).
+    // Also detect Tag("regex") and validate all Str patterns in the stmt.
+    let mut has_regex_tag = false;
+    let mut i = 0;
+    while i < stmt.len() {
+        match &stmt[i] {
+            form::Form::Tag(t) if t == "comparator" => {
+                // The next form must be the comparator name string.
+                if let Some(form::Form::Str(name)) = stmt.get(i + 1) {
+                    const KNOWN_COMPARATORS: &[&str] = &["i;ascii-casemap", "i;octet"];
+                    if !KNOWN_COMPARATORS.contains(&name.as_str()) {
+                        return Err(format!("unsupported comparator: {name}"));
+                    }
+                }
+                i += 2; // consume tag + name
+                continue;
+            }
+            form::Form::Tag(t) if t == "regex" => {
+                has_regex_tag = true;
+            }
+            form::Form::Block(stmts) => {
+                // Recurse into braced blocks.
+                for inner in stmts {
+                    validate_stmt(inner)?;
+                }
+            }
+            form::Form::TestList(tests) => {
+                // Recurse into parenthesised test lists.
+                for test in tests {
+                    validate_stmt(test)?;
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+
+    // If this statement uses :regex, validate only the key-list (pattern) strings.
+    // In every Sieve test that accepts :regex, the key-list is the LAST Str or
+    // StringList before the Block.  Scanning backwards avoids mistaking field-name
+    // strings (e.g. "X[Special]") for regex patterns — field names are in the
+    // second-to-last position and are not valid regex in general.
+    if has_regex_tag {
+        let last_str_pos = stmt
+            .iter()
+            .rposition(|f| matches!(f, form::Form::Str(_) | form::Form::StringList(_)));
+        if let Some(pos) = last_str_pos {
+            match &stmt[pos] {
+                form::Form::Str(pattern) => {
+                    let anchored = format!("(?s)\\A(?:{pattern})\\z");
+                    fancy_regex::Regex::new(&anchored)
+                        .map_err(|e| format!("invalid regex pattern {pattern:?}: {e}"))?;
+                }
+                form::Form::StringList(patterns) => {
+                    for pattern in patterns {
+                        let anchored = format!("(?s)\\A(?:{pattern})\\z");
+                        fancy_regex::Regex::new(&anchored)
+                            .map_err(|e| format!("invalid regex pattern {pattern:?}: {e}"))?;
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Evaluate a compiled Sieve script against a raw RFC 5322 message.
@@ -342,6 +427,43 @@ mod tests {
     fn eval_unknown_extension_compile_error() {
         let result = compile(b"require [\"erewhon\"];");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn eval_unknown_comparator_compile_error() {
+        let result = compile(b"if header :is :comparator \"i;invalid\" \"Subject\" \"test\" { keep; }");
+        assert!(result.is_err(), "unknown comparator must fail at compile");
+        assert!(result.unwrap_err().contains("comparator"), "error must mention comparator");
+    }
+
+    #[test]
+    fn compile_invalid_regex_pattern_fails() {
+        let result = compile(b"require [\"regex\"]; if header :regex \"Subject\" \"[invalid\" { keep; }");
+        assert!(result.is_err(), "invalid regex must fail at compile");
+    }
+
+    #[test]
+    fn compile_regex_does_not_validate_header_name_as_pattern() {
+        // "X[Special]" is a valid header name but not a valid regex character class.
+        // Only the match keys (last Str/StringList) are validated as regex; the
+        // header field name must not be.
+        let result = compile(
+            b"require [\"regex\"]; if header :regex \"X[Special]\" \"test.*\" { keep; }",
+        );
+        assert!(
+            result.is_ok(),
+            "header name should not be validated as regex: {:?}",
+            result.err()
+        );
+    }
+
+    #[test]
+    fn compile_regex_validates_pattern_in_string_list() {
+        // When the key-list is a StringList, each pattern in it must be validated.
+        let result = compile(
+            b"require [\"regex\"]; if header :regex \"Subject\" [\"ok.*\", \"[invalid\"] { keep; }",
+        );
+        assert!(result.is_err(), "invalid regex in key StringList must fail at compile");
     }
 
     // -----------------------------------------------------------------------
