@@ -187,7 +187,7 @@ pub struct IpfsConfig {
 
 impl IpfsConfig {
     fn default_api_url() -> String {
-        "http://127.0.0.1:5001".to_owned()
+        String::new()
     }
 }
 
@@ -376,10 +376,17 @@ pub struct AdminConfig {
     /// process, which is acceptable in a trusted environment.
     #[serde(default)]
     pub admin_token: Option<String>,
+    /// Maximum requests per minute per IP (default 60). 0 = unlimited.
+    #[serde(default = "default_admin_rate_limit_rpm")]
+    pub rate_limit_rpm: u32,
 }
 
 fn default_admin_addr() -> String {
     "127.0.0.1:9090".to_string()
+}
+
+fn default_admin_rate_limit_rpm() -> u32 {
+    60
 }
 
 impl Default for AdminConfig {
@@ -388,6 +395,7 @@ impl Default for AdminConfig {
             enabled: false,
             addr: default_admin_addr(),
             admin_token: None,
+            rate_limit_rpm: default_admin_rate_limit_rpm(),
         }
     }
 }
@@ -505,6 +513,22 @@ impl Config {
                             "backend.type = 'lmdb' requires a [backend.lmdb] section".into(),
                         ));
                     }
+                    if let Some(lmdb) = &backend.lmdb {
+                        if lmdb.map_size_gb == 0 {
+                            return Err(ConfigError::Validation(
+                                "backend.lmdb.map_size_gb must be ≥ 1".into(),
+                            ));
+                        }
+                        // Mirror the overflow check in LmdbBlockDb::open().
+                        const GIB: u64 = 1024 * 1024 * 1024;
+                        let platform_max_gb = usize::MAX as u64 / GIB;
+                        if lmdb.map_size_gb > platform_max_gb {
+                            return Err(ConfigError::Validation(format!(
+                                "backend.lmdb.map_size_gb {} exceeds platform maximum {}",
+                                lmdb.map_size_gb, platform_max_gb
+                            )));
+                        }
+                    }
                 }
                 // S3 and Filesystem are declared in the enum for future use but are not
                 // yet implemented.  Reject them at config load time so the daemon fails
@@ -517,6 +541,10 @@ impl Config {
                     ));
                 }
             }
+        } else if self.ipfs.api_url.is_empty() {
+            return Err(ConfigError::Validation(
+                "either [backend] or [ipfs] with a non-empty api_url is required".into(),
+            ));
         }
         Ok(())
     }
@@ -579,6 +607,9 @@ required = false
 [tls]
 cert_path = "/etc/ssl/certs/server.pem"
 key_path = "/etc/ssl/private/server.key"
+
+[ipfs]
+api_url = "http://127.0.0.1:5001"
 "#;
 
     #[test]
@@ -608,6 +639,9 @@ command_timeout_secs = 60
 required = false
 
 [tls]
+
+[ipfs]
+api_url = "http://127.0.0.1:5001"
 "#;
         let f = write_toml(toml);
         let cfg = Config::from_file(f.path()).expect("should parse");
@@ -686,6 +720,9 @@ command_timeout_secs = 60
 required = false
 
 [tls]
+
+[ipfs]
+api_url = "http://127.0.0.1:5001"
 "#;
         let f = write_toml(toml);
         let cfg = Config::from_file(f.path()).expect("no TLS is valid");
@@ -721,6 +758,7 @@ required = false
             enabled: true,
             addr: "0.0.0.0:9090".to_string(),
             admin_token: None,
+            rate_limit_rpm: 60,
         };
         let result = check_admin_addr(&admin);
         assert!(result.is_err(), "non-loopback without token must be Err");
@@ -736,6 +774,7 @@ required = false
             enabled: true,
             addr: "0.0.0.0:9090".to_string(),
             admin_token: Some("secret".to_string()),
+            rate_limit_rpm: 60,
         };
         assert!(
             check_admin_addr(&admin).is_ok(),
@@ -789,6 +828,9 @@ drain_timeout_secs = 60
 required = false
 
 [tls]
+
+[ipfs]
+api_url = "http://127.0.0.1:5001"
 "#;
         let f = write_toml(toml);
         let cfg = Config::from_file(f.path()).expect("should parse");
@@ -932,6 +974,62 @@ type = "s3"
         let f = write_toml(toml);
         let err = Config::from_file(f.path())
             .expect_err("s3 backend must fail with not-yet-implemented error");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend.lmdb] with map_size_gb = 0 is rejected.
+    #[test]
+    fn backend_lmdb_map_size_zero_rejected() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "lmdb"
+
+[backend.lmdb]
+path = "/tmp/test"
+map_size_gb = 0
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path()).expect_err("map_size_gb = 0 must fail");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// Missing both [backend] and [ipfs] is a validation error.
+    #[test]
+    fn missing_both_backend_and_ipfs_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+"#;
+        let f = write_toml(toml);
+        let err =
+            Config::from_file(f.path()).expect_err("missing ipfs and backend must fail");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"

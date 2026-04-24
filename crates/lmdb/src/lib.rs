@@ -55,12 +55,22 @@ impl LmdbBlockDb {
         std::fs::create_dir_all(path)
             .map_err(|e| format!("cannot create LMDB directory {}: {e}", path.display()))?;
 
+        // Reject map sizes that would overflow usize.  The config validator
+        // catches this for production configs; this check defends callers (e.g.
+        // tests) that call open() directly with an unchecked value.
+        const GIB: usize = 1024 * 1024 * 1024;
+        let map_size = (map_size_gb as usize)
+            .checked_mul(GIB)
+            .ok_or_else(|| {
+                format!("map_size_gb {map_size_gb} overflows usize on this platform")
+            })?;
+
         // SAFETY: We open this environment exactly once per process at this
-        // path.  The `LmdbBlockDb` wrapper type is the only entry point; users
-        // who need multiple references should clone the Arc wrapping this type.
+        // path.  The `LmdbBlockDb` wrapper type is the only entry point; wrap
+        // it in an Arc at the call site to share it across tasks.
         let env: Env = unsafe {
             EnvOpenOptions::new()
-                .map_size(map_size_gb as usize * 1024 * 1024 * 1024)
+                .map_size(map_size)
                 .max_dbs(1)
                 .open(path)
                 .map_err(|e| format!("LMDB open failed at {}: {e}", path.display()))?

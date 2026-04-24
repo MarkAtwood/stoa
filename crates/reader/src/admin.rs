@@ -10,8 +10,62 @@
 //! - `GET /version`  — binary name and semver version
 //! - `POST /reload`  — signal daemon to reload config (stub, returns `{"reloaded":true}`)
 
+use std::collections::HashMap;
+use std::net::IpAddr;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
+
+struct RateLimitState {
+    tokens: f64,
+    last_refill: Instant,
+}
+
+pub(crate) struct RateLimiter {
+    rpm: u32,
+    state: Mutex<HashMap<IpAddr, RateLimitState>>,
+}
+
+impl RateLimiter {
+    pub(crate) fn new(rpm: u32) -> Self {
+        Self {
+            rpm,
+            state: Mutex::new(HashMap::new()),
+        }
+    }
+
+    pub(crate) fn check_and_consume(&self, ip: IpAddr) -> bool {
+        if self.rpm == 0 {
+            return true;
+        }
+        let mut state = self.state.lock().unwrap();
+        let tokens_per_sec = self.rpm as f64 / 60.0;
+        let max_tokens = self.rpm as f64;
+        let now = Instant::now();
+
+        let allowed;
+        {
+            let entry = state.entry(ip).or_insert(RateLimitState {
+                tokens: max_tokens,
+                last_refill: now,
+            });
+            let elapsed = now.duration_since(entry.last_refill).as_secs_f64();
+            entry.tokens = (entry.tokens + elapsed * tokens_per_sec).min(max_tokens);
+            entry.last_refill = now;
+            if entry.tokens >= 1.0 {
+                entry.tokens -= 1.0;
+                allowed = true;
+            } else {
+                allowed = false;
+            }
+        }
+
+        let evict_before = now - std::time::Duration::from_secs(3600);
+        state.retain(|_, v| v.last_refill >= evict_before);
+
+        allowed
+    }
+}
 
 /// Start the admin HTTP server on the given address.
 ///
@@ -26,6 +80,7 @@ pub fn start_admin_server(
     addr: std::net::SocketAddr,
     start_time: Instant,
     bearer_token: Option<String>,
+    rate_limit_rpm: u32,
 ) -> Result<(), String> {
     if !addr.ip().is_loopback() && bearer_token.is_none() {
         return Err(format!(
@@ -34,7 +89,8 @@ pub fn start_admin_server(
              admin server"
         ));
     }
-    let bearer_token = std::sync::Arc::new(bearer_token);
+    let bearer_token = Arc::new(bearer_token);
+    let rate_limiter = Arc::new(RateLimiter::new(rate_limit_rpm));
     tokio::spawn(async move {
         let listener = match tokio::net::TcpListener::bind(addr).await {
             Ok(l) => l,
@@ -47,11 +103,16 @@ pub fn start_admin_server(
         loop {
             match listener.accept().await {
                 Ok((stream, peer)) => {
-                    let bearer_token = std::sync::Arc::clone(&bearer_token);
+                    let bearer_token = Arc::clone(&bearer_token);
+                    let rate_limiter = Arc::clone(&rate_limiter);
                     tokio::spawn(async move {
-                        if let Err(e) =
-                            handle_admin_connection(stream, start_time, bearer_token.as_deref())
-                                .await
+                        if let Err(e) = handle_admin_connection(
+                            stream,
+                            start_time,
+                            bearer_token.as_deref(),
+                            &*rate_limiter,
+                        )
+                        .await
                         {
                             tracing::warn!("admin connection error from {peer}: {e}");
                         }
@@ -70,7 +131,9 @@ async fn handle_admin_connection(
     stream: tokio::net::TcpStream,
     start_time: Instant,
     bearer_token: Option<&str>,
+    rate_limiter: &RateLimiter,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let peer_ip = stream.peer_addr()?.ip();
     let mut reader = BufReader::new(stream);
 
     // Read request line.
@@ -96,6 +159,20 @@ async fn handle_admin_connection(
     }
 
     let mut writer = reader.into_inner();
+
+    // Apply per-IP rate limiting. /metrics is exempt (polled frequently by Prometheus).
+    if path != "/metrics" && !rate_limiter.check_and_consume(peer_ip) {
+        tracing::debug!("admin request rate-limited from {peer_ip}");
+        let rpm = rate_limiter.rpm;
+        let retry_after = if rpm > 0 { (60u32 / rpm).min(60) } else { 60 };
+        let body = r#"{"error":"rate limit exceeded"}"#;
+        let content_length = body.len();
+        let response = format!(
+            "HTTP/1.1 429 Too Many Requests\r\nContent-Type: application/json\r\nRetry-After: {retry_after}\r\nContent-Length: {content_length}\r\n\r\n{body}"
+        );
+        writer.write_all(response.as_bytes()).await?;
+        return Ok(());
+    }
 
     // Check bearer token if configured.
     if !check_bearer_token(auth_header.as_deref(), bearer_token) {
@@ -249,7 +326,7 @@ mod tests {
             .unwrap();
         rt.block_on(async {
             let addr: std::net::SocketAddr = "0.0.0.0:0".parse().unwrap();
-            let result = start_admin_server(addr, Instant::now(), None);
+            let result = start_admin_server(addr, Instant::now(), None, 60);
             assert!(
                 result.is_err(),
                 "must refuse non-loopback without bearer token"
@@ -266,7 +343,7 @@ mod tests {
         rt.block_on(async {
             let addr: std::net::SocketAddr = "127.0.0.1:0".parse().unwrap();
             // Port 0 → OS assigns a free port; this just tests the guard logic.
-            let result = start_admin_server(addr, Instant::now(), None);
+            let result = start_admin_server(addr, Instant::now(), None, 60);
             assert!(result.is_ok(), "loopback without token must be allowed");
         });
     }

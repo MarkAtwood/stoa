@@ -276,6 +276,7 @@ async fn main() {
             admin_addr,
             std::time::Instant::now(),
             config.admin.admin_token.clone(),
+            config.admin.rate_limit_rpm,
         ) {
             error!("{e}");
             std::process::exit(1);

@@ -225,8 +225,9 @@ async fn main() {
         "stoa-transit starting"
     );
 
-    if let Some(warning) = check_admin_addr(&config.admin) {
-        warn!("{}", warning);
+    if let Err(e) = check_admin_addr(&config.admin) {
+        eprintln!("error: {e}");
+        std::process::exit(1);
     }
 
     // ── SQLite databases (two separate pools: core schema + transit schema) ───
