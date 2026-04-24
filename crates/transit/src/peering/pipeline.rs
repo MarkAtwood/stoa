@@ -13,13 +13,13 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc;
-use usenet_ipfs_core::{
+use stoa_core::{
     article::GroupName,
     group_log::{storage::LogStorage, types::LogEntry},
     hlc::HlcTimestamp,
     msgid_map::MsgIdMap,
 };
-use usenet_ipfs_verify::VerificationStore;
+use stoa_verify::VerificationStore;
 
 // ── IPFS abstraction ──────────────────────────────────────────────────────────
 
@@ -63,8 +63,8 @@ pub trait IpfsStore: Send + Sync {
     async fn delete(
         &self,
         _cid: &Cid,
-    ) -> Result<usenet_ipfs_core::ipfs::DeletionOutcome, IpfsError> {
-        Ok(usenet_ipfs_core::ipfs::DeletionOutcome::Deferred {
+    ) -> Result<stoa_core::ipfs::DeletionOutcome, IpfsError> {
+        Ok(stoa_core::ipfs::DeletionOutcome::Deferred {
             readable_for_approx_secs: None,
         })
     }
@@ -117,7 +117,7 @@ impl IpfsStore for MemIpfsStore {
 /// `KuboStore` is cheaply cloneable — the underlying `KuboHttpClient` holds
 /// only a `reqwest::Client` (connection-pooled) and the API URL string.
 pub struct KuboStore {
-    client: usenet_ipfs_core::ipfs::KuboHttpClient,
+    client: stoa_core::ipfs::KuboHttpClient,
 }
 
 impl KuboStore {
@@ -125,7 +125,7 @@ impl KuboStore {
     /// (e.g. `"http://127.0.0.1:5001"`).
     pub fn new(api_url: &str) -> Self {
         Self {
-            client: usenet_ipfs_core::ipfs::KuboHttpClient::new(api_url),
+            client: stoa_core::ipfs::KuboHttpClient::new(api_url),
         }
     }
 
@@ -133,7 +133,7 @@ impl KuboStore {
     ///
     /// Used by the IPNS publisher to call `name_publish` without going through
     /// the `IpfsStore` trait.
-    pub fn kubo_client(&self) -> usenet_ipfs_core::ipfs::KuboHttpClient {
+    pub fn kubo_client(&self) -> stoa_core::ipfs::KuboHttpClient {
         self.client.clone()
     }
 }
@@ -158,12 +158,12 @@ impl IpfsStore for KuboStore {
     async fn delete(
         &self,
         cid: &Cid,
-    ) -> Result<usenet_ipfs_core::ipfs::DeletionOutcome, IpfsError> {
+    ) -> Result<stoa_core::ipfs::DeletionOutcome, IpfsError> {
         self.client
             .pin_rm(cid)
             .await
             .map_err(|e| IpfsError::WriteFailed(e.to_string()))?;
-        Ok(usenet_ipfs_core::ipfs::DeletionOutcome::Deferred {
+        Ok(stoa_core::ipfs::DeletionOutcome::Deferred {
             readable_for_approx_secs: None,
         })
     }
@@ -176,7 +176,7 @@ impl IpfsStore for KuboStore {
 pub struct StoreBuildResult {
     pub store: Arc<dyn IpfsStore>,
     /// Kubo HTTP client for IPNS publishing. `None` for non-Kubo backends.
-    pub kubo_client: Option<usenet_ipfs_core::ipfs::KuboHttpClient>,
+    pub kubo_client: Option<stoa_core::ipfs::KuboHttpClient>,
 }
 
 /// Construct the IPFS block store from configuration.
@@ -247,7 +247,7 @@ pub struct PipelineCtx<'a> {
     pub local_hostname: &'a str,
     /// Verification store. `None` disables signature recording.
     pub verify_store: Option<&'a VerificationStore>,
-    /// Trusted verifying keys for `X-Usenet-IPFS-Sig` checks.
+    /// Trusted verifying keys for `X-Stoa-Sig` checks.
     pub trusted_keys: &'a [ed25519_dalek::VerifyingKey],
     /// DKIM authenticator. `None` disables DKIM checks.
     pub dkim_auth: Option<&'a MessageAuthenticator>,
@@ -273,7 +273,7 @@ pub struct PipelineMetrics {
 
 /// Verify article signatures (best-effort; never blocks ingestion).
 ///
-/// Runs X-Usenet-IPFS-Sig verification against `trusted_keys` (pass an
+/// Runs X-Stoa-Sig verification against `trusted_keys` (pass an
 /// empty slice to record `NoKey` when the header is present, or receive no
 /// result when it is absent).  Runs DKIM verification when `dkim_auth` is
 /// `Some`.  Records all results via `store`.  Any failure is logged and
@@ -285,8 +285,8 @@ pub async fn verify_article(
     trusted_keys: &[ed25519_dalek::VerifyingKey],
     dkim_auth: Option<&MessageAuthenticator>,
 ) {
-    use usenet_ipfs_verify::dkim::verify_dkim_headers;
-    use usenet_ipfs_verify::x_sig::verify_x_sig;
+    use stoa_verify::dkim::verify_dkim_headers;
+    use stoa_verify::x_sig::verify_x_sig;
 
     let x_sig_results = verify_x_sig(trusted_keys, article_bytes);
     let dkim_results = if let Some(auth) = dkim_auth {
@@ -346,7 +346,7 @@ where
     use crate::peering::ingestion::prepend_path_header;
 
     // Snapshot original bytes for signature verification before Path: is prepended.
-    // The X-Usenet-IPFS-Sig is computed over the article as received from the peer,
+    // The X-Stoa-Sig is computed over the article as received from the peer,
     // before any local transit modifications.
     let original_bytes = article_bytes;
 
@@ -384,7 +384,7 @@ where
     // Pairs of (group_name, entry_id) for successful appends; entry_id is used
     // in tip advertisements so that peers can reconcile via LogEntryId, not
     // the raw article CID.
-    let mut appended_groups: Vec<(String, usenet_ipfs_core::group_log::LogEntryId)> = Vec::new();
+    let mut appended_groups: Vec<(String, stoa_core::group_log::LogEntryId)> = Vec::new();
     for group_name_str in &group_name_strs {
         let group = match GroupName::new(group_name_str.clone()) {
             Ok(g) => g,
@@ -401,7 +401,7 @@ where
             // Genesis entry: no parent chain; peers reconcile via CRDT.
             parent_cids: vec![],
         };
-        match usenet_ipfs_core::group_log::append::append(log_storage, &group, entry).await {
+        match stoa_core::group_log::append::append(log_storage, &group, entry).await {
             Err(e) => {
                 tracing::warn!("log append failed for group {group_name_str}: {e}");
             }
@@ -460,7 +460,7 @@ where
                 sender_peer_id: ctx.sender_peer_id.to_owned(),
             };
             let hierarchy = group_name_str.split('.').next().unwrap_or(group_name_str);
-            let topic = format!("usenet.hier.{hierarchy}");
+            let topic = format!("stoa.hier.{hierarchy}");
             let bytes = advert.to_bytes();
             if let Err(e) = tx.send((topic, bytes)).await {
                 tracing::warn!("gossip tip publish failed for {group_name_str}: {e}");
@@ -606,7 +606,7 @@ mod tests {
             .connect_with(opts)
             .await
             .unwrap();
-        usenet_ipfs_core::migrations::run_migrations(&pool)
+        stoa_core::migrations::run_migrations(&pool)
             .await
             .unwrap();
         (MsgIdMap::new(pool), tmp)
@@ -654,7 +654,7 @@ mod tests {
     async fn pipeline_success_records_cid() {
         let ipfs = MemIpfsStore::new();
         let (msgid_map, _tmp) = make_msgid_map().await;
-        let storage = usenet_ipfs_core::group_log::MemLogStorage::new();
+        let storage = stoa_core::group_log::MemLogStorage::new();
         let key = make_signing_key();
         let article = make_article("<test@example.com>", "comp.lang.rust");
         let transit_pool = make_transit_pool().await;
@@ -686,7 +686,7 @@ mod tests {
     async fn pipeline_records_article_in_articles_table() {
         let ipfs = MemIpfsStore::new();
         let (msgid_map, _tmp) = make_msgid_map().await;
-        let storage = usenet_ipfs_core::group_log::MemLogStorage::new();
+        let storage = stoa_core::group_log::MemLogStorage::new();
         let key = make_signing_key();
         let article = make_article("<articles-table@example.com>", "alt.test");
         let transit_pool = make_transit_pool().await;
@@ -742,7 +742,7 @@ mod tests {
     async fn pipeline_publishes_gossip_tip() {
         let ipfs = MemIpfsStore::new();
         let (msgid_map, _tmp) = make_msgid_map().await;
-        let storage = usenet_ipfs_core::group_log::MemLogStorage::new();
+        let storage = stoa_core::group_log::MemLogStorage::new();
         let key = make_signing_key();
         let article = make_article("<gossip@example.com>", "comp.lang.rust");
 
@@ -763,7 +763,7 @@ mod tests {
 
         // Should have received a gossip message.
         let (topic, bytes) = rx.try_recv().expect("should have gossip message");
-        assert_eq!(topic, "usenet.hier.comp");
+        assert_eq!(topic, "stoa.hier.comp");
         let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(v["group_name"], "comp.lang.rust");
     }
@@ -796,7 +796,7 @@ mod tests {
     async fn pipeline_missing_message_id_returns_err() {
         let ipfs = MemIpfsStore::new();
         let (msgid_map, _tmp) = make_msgid_map().await;
-        let storage = usenet_ipfs_core::group_log::MemLogStorage::new();
+        let storage = stoa_core::group_log::MemLogStorage::new();
         let key = make_signing_key();
         let transit_pool = make_transit_pool().await;
         // Article with no Message-ID header.
@@ -819,7 +819,7 @@ mod tests {
     async fn pipeline_metrics_latency_set() {
         let ipfs = MemIpfsStore::new();
         let (msgid_map, _tmp) = make_msgid_map().await;
-        let storage = usenet_ipfs_core::group_log::MemLogStorage::new();
+        let storage = stoa_core::group_log::MemLogStorage::new();
         let key = make_signing_key();
         let article = make_article("<metrics@example.com>", "alt.test");
         let transit_pool = make_transit_pool().await;
@@ -848,7 +848,7 @@ mod tests {
     async fn pipeline_prepends_local_hostname_to_path_header() {
         let ipfs = MemIpfsStore::new();
         let (msgid_map, _tmp) = make_msgid_map().await;
-        let storage = usenet_ipfs_core::group_log::MemLogStorage::new();
+        let storage = stoa_core::group_log::MemLogStorage::new();
         let key = make_signing_key();
         let transit_pool = make_transit_pool().await;
 
@@ -910,13 +910,13 @@ mod tests {
             .connect_with(opts)
             .await
             .expect("verify pool must open");
-        usenet_ipfs_verify::run_migrations(&pool)
+        stoa_verify::run_migrations(&pool)
             .await
             .expect("verify migrations must succeed");
         pool
     }
 
-    /// Append `X-Usenet-IPFS-Sig` to article headers, signed with `key`.
+    /// Append `X-Stoa-Sig` to article headers, signed with `key`.
     ///
     /// Replicates the signing convention from the verify crate's x_sig tests:
     /// the signature is computed over the article bytes (without the sig header),
@@ -927,7 +927,7 @@ mod tests {
 
         let sig: ed25519_dalek::Signature = key.sign(article_bytes);
         let sig_value = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(sig.to_bytes());
-        let sig_line = format!("X-Usenet-IPFS-Sig: {sig_value}\r\n");
+        let sig_line = format!("X-Stoa-Sig: {sig_value}\r\n");
 
         // Find the blank line separating headers from body (\r\n\r\n).
         let body_start = article_bytes
@@ -957,13 +957,13 @@ mod tests {
         out
     }
 
-    /// An article with a valid `X-Usenet-IPFS-Sig` header → pipeline must record
+    /// An article with a valid `X-Stoa-Sig` header → pipeline must record
     /// an `article_verifications` row with `result = 'pass'`.
     #[tokio::test]
     async fn pipeline_verify_x_sig_records_pass_row() {
         let ipfs = MemIpfsStore::new();
         let (msgid_map, _tmp) = make_msgid_map().await;
-        let storage = usenet_ipfs_core::group_log::MemLogStorage::new();
+        let storage = stoa_core::group_log::MemLogStorage::new();
         let transit_pool = make_transit_pool().await;
         let verify_pool = make_verify_pool().await;
 
@@ -974,7 +974,7 @@ mod tests {
         let unsigned = make_article("<sig-test@example.com>", "alt.test");
         let signed = sign_article_bytes(&signing_key, &unsigned);
 
-        let verify_store = usenet_ipfs_verify::VerificationStore::new(verify_pool.clone());
+        let verify_store = stoa_verify::VerificationStore::new(verify_pool.clone());
 
         let ctx = PipelineCtx {
             timestamp: make_timestamp(),
@@ -1010,7 +1010,7 @@ mod tests {
             pr.cid
         );
         let (_, sig_type, result) = pass_row.unwrap();
-        assert_eq!(sig_type, "x-usenet-ipfs-sig");
+        assert_eq!(sig_type, "x-stoa-sig");
         assert_eq!(result, "pass");
     }
 }

@@ -1,4 +1,4 @@
-//! usenet-ipfs-ctl — operator CLI for usenet-ipfs daemons.
+//! stoa-ctl — operator CLI for stoa daemons.
 //!
 //! Talks to the admin HTTP endpoint so operators do not need to curl JSON
 //! by hand. Point it at transit or reader; both speak the same base admin
@@ -9,8 +9,8 @@ use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(
-    name = "usenet-ipfs-ctl",
-    about = "Operator CLI for usenet-ipfs transit and reader daemons"
+    name = "stoa-ctl",
+    about = "Operator CLI for stoa transit and reader daemons"
 )]
 struct Args {
     /// Admin server address (host:port)
@@ -18,7 +18,7 @@ struct Args {
     addr: String,
 
     /// Bearer token for admin authentication
-    #[arg(short = 't', long = "token", env = "USENET_IPFS_CTL_TOKEN")]
+    #[arg(short = 't', long = "token", env = "STOA_CTL_TOKEN")]
     token: Option<String>,
 
     /// Output raw JSON instead of formatted text

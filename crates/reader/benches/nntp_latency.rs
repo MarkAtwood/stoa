@@ -8,7 +8,7 @@
 
 use std::time::Instant;
 
-use usenet_ipfs_reader::session::commands::{
+use stoa_reader::session::commands::{
     fetch::{article_response, ArticleContent},
     list::{list_active, GroupInfo},
 };
@@ -20,9 +20,9 @@ fn make_article(i: usize) -> ArticleContent {
     let group = format!("comp.bench.{group_idx}");
     ArticleContent {
         article_number: i as u64 + 1,
-        message_id: format!("<bench-{i}@usenet-ipfs.test>"),
+        message_id: format!("<bench-{i}@stoa.test>"),
         header_bytes: format!(
-            "From: bench@usenet-ipfs.test\r\nSubject: Bench article {i}\r\nNewsgroups: {group}"
+            "From: bench@stoa.test\r\nSubject: Bench article {i}\r\nNewsgroups: {group}"
         )
         .into_bytes(),
         body_bytes: format!("Body of article {i}. Line two.\r\n").into_bytes(),

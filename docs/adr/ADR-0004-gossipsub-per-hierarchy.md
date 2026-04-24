@@ -11,7 +11,7 @@ connections per topic. Each additional topic imposes overhead: peer scoring
 tables, heartbeat timers, message caches, and mesh maintenance traffic scale
 with the number of subscribed topics per peer.
 
-A realistic usenet-ipfs deployment may carry thousands of active groups
+A realistic stoa deployment may carry thousands of active groups
 (e.g. all of `comp.*`, `sci.*`, `alt.*`, `rec.*`). If each group is a
 separate gossipsub topic, a peer that subscribes to 5 000 groups maintains
 5 000 mesh connections. At the gossipsub default mesh degree (D=6), that is
@@ -25,8 +25,8 @@ Two granularities were considered:
   few hundred groups per peer.
 
 - **Per-hierarchy topics** — one topic per top-level Usenet hierarchy
-  (e.g. `usenet.hier.comp` covers all of `comp.*`). Peers interested in any
-  `comp.*` group subscribe to `usenet.hier.comp`. The group name is carried
+  (e.g. `stoa.hier.comp` covers all of `comp.*`). Peers interested in any
+  `comp.*` group subscribe to `stoa.hier.comp`. The group name is carried
   inside the message payload and filtered in the message handler. Mesh overhead
   scales with the number of top-level hierarchies (~15–30 in practice), not with
   the number of groups.
@@ -38,18 +38,18 @@ wasting bandwidth on unsubscribed groups.
 ## Decision
 
 Gossipsub topics are per hierarchy, using the naming scheme
-`usenet.hier.<hierarchy>`, where `<hierarchy>` is the first dot-separated
+`stoa.hier.<hierarchy>`, where `<hierarchy>` is the first dot-separated
 component of the group name. Examples:
 
-- `comp.lang.rust` → `usenet.hier.comp`
-- `sci.physics` → `usenet.hier.sci`
-- `alt.folklore.computers` → `usenet.hier.alt`
+- `comp.lang.rust` → `stoa.hier.comp`
+- `sci.physics` → `stoa.hier.sci`
+- `alt.folklore.computers` → `stoa.hier.alt`
 
 The `group_name` field inside each `TipAdvertisement` message is used to filter
 at the receiver: a node interested only in `comp.lang.rust` subscribes to
-`usenet.hier.comp` and discards advertisements for groups it does not carry.
+`stoa.hier.comp` and discards advertisements for groups it does not carry.
 
-Topic naming uses the `usenet.hier.` prefix (not `usenet/` or `nntp/`) to avoid
+Topic naming uses the `stoa.hier.` prefix (not `usenet/` or `nntp/`) to avoid
 collisions with other applications sharing the same libp2p DHT.
 
 ## Consequences

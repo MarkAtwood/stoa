@@ -1,6 +1,6 @@
 # Debugging and Operations Guide
 
-This guide covers the tools available for diagnosing a running usenet-ipfs
+This guide covers the tools available for diagnosing a running stoa
 deployment: log levels, the admin HTTP endpoint, the operator CLI subcommands,
 and direct SQLite queries.
 
@@ -8,7 +8,7 @@ and direct SQLite queries.
 
 ## 1. Verbose Logging
 
-Both `usenet-ipfs-transit` and `usenet-ipfs-reader` use the `tracing` crate
+Both `stoa-transit` and `stoa-reader` use the `tracing` crate
 with `RUST_LOG`-controlled filtering. The default level when `RUST_LOG` is
 unset is `info`.
 
@@ -19,17 +19,17 @@ bare level name to set the global default.
 
 ```
 # Only the transit daemon at debug, everything else at info
-RUST_LOG=usenet_ipfs_transit=debug usenet-ipfs-transit --config /etc/transit.toml
+RUST_LOG=stoa_transit=debug stoa-transit --config /etc/transit.toml
 
 # Only the reader at debug
-RUST_LOG=usenet_ipfs_reader=debug usenet-ipfs-reader --config /etc/reader.toml
+RUST_LOG=stoa_reader=debug stoa-reader --config /etc/reader.toml
 
 # Everything at debug (very verbose — includes libp2p internals)
-RUST_LOG=debug usenet-ipfs-transit --config /etc/transit.toml
+RUST_LOG=debug stoa-transit --config /etc/transit.toml
 
 # Per-module precision
-RUST_LOG=usenet_ipfs_transit::peering=debug,usenet_ipfs_transit::gossip=debug \
-    usenet-ipfs-transit --config /etc/transit.toml
+RUST_LOG=stoa_transit::peering=debug,stoa_transit::gossip=debug \
+    stoa-transit --config /etc/transit.toml
 ```
 
 ### Log levels
@@ -45,59 +45,59 @@ RUST_LOG=usenet_ipfs_transit::peering=debug,usenet_ipfs_transit::gossip=debug \
 
 **Daemon startup (transit)**
 ```
-INFO usenet_ipfs_transit: usenet-ipfs-transit starting
+INFO stoa_transit: stoa-transit starting
   listen_addr=0.0.0.0:119 peer_count=2 group_count=3
 ```
 
 **Daemon startup (reader)**
 ```
-INFO usenet-ipfs-reader: usenet-ipfs-reader starting
+INFO stoa-reader: stoa-reader starting
   listen_addr=0.0.0.0:119 max_connections=100
 ```
 
 **Reader session lifecycle**
 ```
-INFO usenet_ipfs_reader::session::lifecycle: session started peer=192.0.2.42:54321
-INFO usenet_ipfs_reader::session::lifecycle: session ended
+INFO stoa_reader::session::lifecycle: session started peer=192.0.2.42:54321
+INFO stoa_reader::session::lifecycle: session ended
   peer=192.0.2.42:54321 elapsed_ms=1243
 ```
 
 **Reader command trace (debug level)**
 ```
-DEBUG usenet_ipfs_reader::session::lifecycle: received
+DEBUG stoa_reader::session::lifecycle: received
   peer=192.0.2.42:54321 cmd="GROUP comp.lang.rust"
 ```
 
 **Gossipsub swarm (debug level)**
 ```
-INFO  usenet_ipfs_transit::gossip::swarm: gossipsub swarm listening
+INFO  stoa_transit::gossip::swarm: gossipsub swarm listening
   address=/ip4/0.0.0.0/tcp/4001
-DEBUG usenet_ipfs_transit::gossip::swarm: subscribed to topic
-  topic=usenet.hier.comp
-DEBUG usenet_ipfs_transit::gossip::swarm: peer subscribed
-  peer_id=12D3KooWExample topic=usenet.hier.comp
-DEBUG usenet_ipfs_transit::gossip::swarm: connection established
+DEBUG stoa_transit::gossip::swarm: subscribed to topic
+  topic=stoa.hier.comp
+DEBUG stoa_transit::gossip::swarm: peer subscribed
+  peer_id=12D3KooWExample topic=stoa.hier.comp
+DEBUG stoa_transit::gossip::swarm: connection established
   peer_id=12D3KooWExample
-DEBUG usenet_ipfs_transit::gossip::swarm: connection closed
+DEBUG stoa_transit::gossip::swarm: connection closed
   peer_id=12D3KooWExample
 ```
 
 **Article ingestion (warn on problems)**
 ```
-WARN  usenet_ipfs_transit::peering::pipeline: invalid group name in Newsgroups: "Comp.Lang.Rust"
-WARN  usenet_ipfs_transit::peering::pipeline: log append failed for group comp.lang.rust: ...
+WARN  stoa_transit::peering::pipeline: invalid group name in Newsgroups: "Comp.Lang.Rust"
+WARN  stoa_transit::peering::pipeline: log append failed for group comp.lang.rust: ...
 ```
 
 **Peer blacklisting**
 ```
-WARN  usenet_ipfs_transit::peering::blacklist: peer blacklisted after exceeding failure threshold
+WARN  stoa_transit::peering::blacklist: peer blacklisted after exceeding failure threshold
   peer_id=12D3KooWExample consecutive_failures=10 blacklisted_until_ms=1700003600000
 ```
 
 **Audit logger problems**
 ```
-WARN  usenet_ipfs_core::audit: audit log buffer full; event dropped
-WARN  usenet_ipfs_core::audit: audit logger shut down; event dropped
+WARN  stoa_core::audit: audit log buffer full; event dropped
+WARN  stoa_core::audit: audit logger shut down; event dropped
 ```
 
 ### Systemd integration
@@ -107,14 +107,14 @@ section:
 
 ```ini
 [Service]
-Environment=RUST_LOG=usenet_ipfs_transit=debug
-ExecStart=/usr/local/bin/usenet-ipfs-transit --config /etc/usenet-ipfs/transit.toml
+Environment=RUST_LOG=stoa_transit=debug
+ExecStart=/usr/local/bin/stoa-transit --config /etc/stoa/transit.toml
 ```
 
 Log output goes to the journal. View it with:
 
 ```
-journalctl -u usenet-ipfs-transit -f
+journalctl -u stoa-transit -f
 ```
 
 ---
@@ -137,7 +137,7 @@ The default is `127.0.0.1:9090`. If you bind to a non-loopback address without
 setting `allow_non_loopback = true`, the daemon will log a warning at startup:
 
 ```
-WARN usenet-ipfs-transit: WARNING: admin endpoint bound to non-loopback
+WARN stoa-transit: WARNING: admin endpoint bound to non-loopback
 address '0.0.0.0:9090' without authentication. Set admin.allow_non_loopback
 = true in config to suppress this warning, or bind to 127.0.0.1.
 ```
@@ -391,12 +391,12 @@ Audit event types: `article_signed`, `auth_attempt`, `peer_blacklisted`,
 Generate an operator Ed25519 keypair. Run this once on a fresh node.
 
 ```
-transit keygen --output-dir /etc/usenet-ipfs/keys
+transit keygen --output-dir /etc/stoa/keys
 ```
 
 Writes:
-- `/etc/usenet-ipfs/keys/operator_key.pem` (mode 0600)
-- `/etc/usenet-ipfs/keys/operator_key.pub.pem` (mode 0644)
+- `/etc/stoa/keys/operator_key.pem` (mode 0600)
+- `/etc/stoa/keys/operator_key.pub.pem` (mode 0644)
 
 Prints the public key fingerprint (SHA-256 of SubjectPublicKeyInfo DER, hex).
 Keep the private key file secret; the fingerprint appears in `audit_log` rows
@@ -415,7 +415,7 @@ set in the binary at startup.
 
 Contains peer state, pinning records, and the audit log.
 
-**File**: configured at runtime (e.g. `/var/lib/usenet-ipfs/transit.db`)
+**File**: configured at runtime (e.g. `/var/lib/stoa/transit.db`)
 
 #### `peers` — peer registry
 
@@ -438,7 +438,7 @@ SELECT * FROM peers WHERE peer_id = '12D3KooWExamplePeerId1abc123def456ghi789jkl
 ```
 
 ```
-sqlite3 /var/lib/usenet-ipfs/transit.db \
+sqlite3 /var/lib/stoa/transit.db \
   "SELECT peer_id, address, articles_accepted FROM peers ORDER BY last_seen DESC LIMIT 20;"
 ```
 
@@ -505,7 +505,7 @@ ORDER BY id DESC;
 ```
 
 ```
-sqlite3 /var/lib/usenet-ipfs/transit.db \
+sqlite3 /var/lib/stoa/transit.db \
   "SELECT datetime(timestamp_ms/1000,'unixepoch'), event_type, event_json \
    FROM audit_log ORDER BY id DESC LIMIT 20;"
 ```
@@ -515,7 +515,7 @@ sqlite3 /var/lib/usenet-ipfs/transit.db \
 Contains the Message-ID map and the Merkle-CRDT group log. Shared by both
 daemons.
 
-**File**: configured at runtime (e.g. `/var/lib/usenet-ipfs/core.db`)
+**File**: configured at runtime (e.g. `/var/lib/stoa/core.db`)
 
 #### `msgid_map` — Message-ID to CID mapping
 
@@ -532,7 +532,7 @@ SELECT COUNT(*) FROM msgid_map WHERE message_id = '<12345@example.com>';
 ```
 
 ```
-sqlite3 /var/lib/usenet-ipfs/core.db \
+sqlite3 /var/lib/stoa/core.db \
   "SELECT COUNT(*) FROM msgid_map;"
 ```
 
@@ -557,7 +557,7 @@ HAVING tip_count > 1;
 
 Contains the synthesized per-reader article numbers and the overview index.
 
-**File**: configured at runtime (e.g. `/var/lib/usenet-ipfs/reader.db`)
+**File**: configured at runtime (e.g. `/var/lib/stoa/reader.db`)
 
 #### `article_numbers` — local article number assignments
 
@@ -600,15 +600,15 @@ WHERE group_name = 'comp.lang.rust' AND article_number = 42;
 
 4. Enable debug logging for the gossip and peering subsystems:
    ```
-   RUST_LOG=usenet_ipfs_transit::gossip=debug,usenet_ipfs_transit::peering=debug \
-       usenet-ipfs-transit --config /etc/transit.toml
+   RUST_LOG=stoa_transit::gossip=debug,stoa_transit::peering=debug \
+       stoa-transit --config /etc/transit.toml
    ```
    Look for `gossipsub publish error` warnings and `log append failed` warnings.
 
 5. Check `group_tips` for the affected group. An empty tip set means no
    articles have been appended to the CRDT log for that group:
    ```
-   sqlite3 /var/lib/usenet-ipfs/core.db \
+   sqlite3 /var/lib/stoa/core.db \
      "SELECT group_name, COUNT(*) FROM group_tips GROUP BY group_name;"
    ```
 
@@ -618,7 +618,7 @@ The pipeline aborts immediately if the IPFS write fails. Look for:
 
 ```
 # At error level
-ERROR usenet_ipfs_transit::peering::pipeline: IPFS write failed: ...
+ERROR stoa_transit::peering::pipeline: IPFS write failed: ...
 ```
 
 1. Confirm the IPFS node is reachable at the configured `ipfs.api_url`:
@@ -650,7 +650,7 @@ Common causes:
 Check the audit log for `auth_attempt` events where `success` is false:
 
 ```
-sqlite3 /var/lib/usenet-ipfs/transit.db \
+sqlite3 /var/lib/stoa/transit.db \
   "SELECT datetime(timestamp_ms/1000,'unixepoch'), \
           json_extract(event_json,'$.peer_addr'), \
           json_extract(event_json,'$.user') \

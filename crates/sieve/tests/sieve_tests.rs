@@ -1,4 +1,4 @@
-use usenet_ipfs_sieve::{compile, evaluate, SieveAction};
+use stoa_sieve::{compile, evaluate, SieveAction};
 
 // Minimal RFC 5322 message with a given subject line.
 // Headers are CRLF-terminated; blank line separates headers from body.

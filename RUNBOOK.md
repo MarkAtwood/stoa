@@ -1,6 +1,6 @@
 # TLS Configuration Runbook
 
-This document covers TLS setup for `usenet-ipfs-reader` and `usenet-ipfs-transit`.
+This document covers TLS setup for `stoa-reader` and `stoa-transit`.
 
 ---
 

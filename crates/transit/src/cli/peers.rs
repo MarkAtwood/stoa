@@ -8,7 +8,7 @@
 use crate::peering::blacklist::unblacklist;
 use crate::peering::peer_registry::{peer_score, PeerRecord, PeerRegistry};
 use sqlx::SqlitePool;
-use usenet_ipfs_core::error::StorageError;
+use stoa_core::error::StorageError;
 
 /// Output format for CLI commands.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

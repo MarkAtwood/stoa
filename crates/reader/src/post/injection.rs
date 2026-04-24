@@ -1,9 +1,9 @@
-use usenet_ipfs_core::InjectionSource;
+use stoa_core::InjectionSource;
 
 /// The header name prepended by the SMTP queue drain.
-const INJECTION_SOURCE_HEADER: &[u8] = b"X-Usenet-IPFS-Injection-Source:";
+const INJECTION_SOURCE_HEADER: &[u8] = b"X-Stoa-Injection-Source:";
 
-/// Extract and remove the `X-Usenet-IPFS-Injection-Source:` header from
+/// Extract and remove the `X-Stoa-Injection-Source:` header from
 /// `article_bytes`, returning the parsed `InjectionSource`.
 ///
 /// The SMTP queue drain prepends this header before posting via NNTP so the
@@ -21,7 +21,7 @@ pub fn extract_injection_source(article_bytes: &mut Vec<u8>) -> InjectionSource 
 
     let header_end = find_header_end(article_bytes);
 
-    let header_name_lower = b"x-usenet-ipfs-injection-source:";
+    let header_name_lower = b"x-stoa-injection-source:";
     let mut found_line_start: Option<usize> = None;
     let mut found_line_end: Option<usize> = None;
     let mut value: Option<InjectionSource> = None;
@@ -144,7 +144,7 @@ mod tests {
     #[test]
     fn smtp_list_id_is_extracted_and_removed() {
         let mut article = make_article(
-            Some("X-Usenet-IPFS-Injection-Source: SmtpListId"),
+            Some("X-Stoa-Injection-Source: SmtpListId"),
             "body\r\n",
         );
         let src = extract_injection_source(&mut article);
@@ -152,7 +152,7 @@ mod tests {
         // Header line must be gone.
         let s = String::from_utf8(article.clone()).unwrap();
         assert!(
-            !s.contains("X-Usenet-IPFS-Injection-Source"),
+            !s.contains("X-Stoa-Injection-Source"),
             "header must be removed; got: {s:?}"
         );
         // Remaining headers must still be present.
@@ -162,45 +162,45 @@ mod tests {
     #[test]
     fn smtp_newsgroups_is_extracted_and_removed() {
         let mut article = make_article(
-            Some("X-Usenet-IPFS-Injection-Source: SmtpNewsgroups"),
+            Some("X-Stoa-Injection-Source: SmtpNewsgroups"),
             "body\r\n",
         );
         let src = extract_injection_source(&mut article);
         assert_eq!(src, InjectionSource::SmtpNewsgroups);
         let s = String::from_utf8(article).unwrap();
-        assert!(!s.contains("X-Usenet-IPFS-Injection-Source"));
+        assert!(!s.contains("X-Stoa-Injection-Source"));
     }
 
     #[test]
     fn smtp_sieve_is_extracted_and_removed() {
         let mut article = make_article(
-            Some("X-Usenet-IPFS-Injection-Source: SmtpSieve"),
+            Some("X-Stoa-Injection-Source: SmtpSieve"),
             "body\r\n",
         );
         let src = extract_injection_source(&mut article);
         assert_eq!(src, InjectionSource::SmtpSieve);
         let s = String::from_utf8(article).unwrap();
-        assert!(!s.contains("X-Usenet-IPFS-Injection-Source"));
+        assert!(!s.contains("X-Stoa-Injection-Source"));
     }
 
     #[test]
     fn nntp_post_is_extracted_and_removed() {
         let mut article =
-            make_article(Some("X-Usenet-IPFS-Injection-Source: NntpPost"), "body\r\n");
+            make_article(Some("X-Stoa-Injection-Source: NntpPost"), "body\r\n");
         let src = extract_injection_source(&mut article);
         assert_eq!(src, InjectionSource::NntpPost);
         let s = String::from_utf8(article).unwrap();
-        assert!(!s.contains("X-Usenet-IPFS-Injection-Source"));
+        assert!(!s.contains("X-Stoa-Injection-Source"));
     }
 
     #[test]
     fn unknown_value_defaults_to_nntp_post() {
-        let mut article = make_article(Some("X-Usenet-IPFS-Injection-Source: Bogus"), "body\r\n");
+        let mut article = make_article(Some("X-Stoa-Injection-Source: Bogus"), "body\r\n");
         let src = extract_injection_source(&mut article);
         assert_eq!(src, InjectionSource::NntpPost);
         // Header is still removed even when the value is unrecognised.
         let s = String::from_utf8(article).unwrap();
-        assert!(!s.contains("X-Usenet-IPFS-Injection-Source"));
+        assert!(!s.contains("X-Stoa-Injection-Source"));
     }
 
     #[test]
@@ -208,7 +208,7 @@ mod tests {
         // After removal the blank-line separator must still be present so
         // downstream header parsing succeeds.
         let mut article = make_article(
-            Some("X-Usenet-IPFS-Injection-Source: SmtpListId"),
+            Some("X-Stoa-Injection-Source: SmtpListId"),
             "body\r\n",
         );
         extract_injection_source(&mut article);

@@ -11,14 +11,14 @@ use axum::{
 use serde_json::{json, Value};
 use tokio::net::TcpListener;
 use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer, ExposeHeaders};
-use usenet_ipfs_auth::{AuthConfig, CredentialStore};
-use usenet_ipfs_core::msgid_map::MsgIdMap;
-use usenet_ipfs_reader::{
+use stoa_auth::{AuthConfig, CredentialStore};
+use stoa_core::msgid_map::MsgIdMap;
+use stoa_reader::{
     post::ipfs_write::IpfsBlockStore,
     search::TantivySearchIndex,
     store::{article_numbers::ArticleNumberStore, overview::OverviewStore},
 };
-use usenet_ipfs_smtp::SmtpRelayQueue;
+use stoa_smtp::SmtpRelayQueue;
 
 use crate::{
     config::CorsConfig,
@@ -130,7 +130,7 @@ async fn basic_auth_middleware(
 fn unauthorized_response() -> Response {
     axum::response::Response::builder()
         .status(StatusCode::UNAUTHORIZED)
-        .header(header::WWW_AUTHENTICATE, r#"Basic realm="usenet-ipfs""#)
+        .header(header::WWW_AUTHENTICATE, r#"Basic realm="stoa""#)
         .header(header::CONTENT_TYPE, "text/plain")
         .body(axum::body::Body::from("401 Unauthorized"))
         .unwrap()
@@ -175,8 +175,8 @@ fn build_cors_layer(cors_config: &CorsConfig) -> CorsLayer {
             header::CONTENT_TYPE,
         ]))
         .expose_headers(ExposeHeaders::list([
-            HeaderName::from_static("x-usenet-ipfs-cid"),
-            HeaderName::from_static("x-usenet-ipfs-root-cid"),
+            HeaderName::from_static("x-stoa-cid"),
+            HeaderName::from_static("x-stoa-root-cid"),
         ]))
 }
 
@@ -557,8 +557,8 @@ mod tests {
     use std::str::FromStr as _;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use tokio::net::TcpListener;
-    use usenet_ipfs_auth::{AuthConfig, CredentialStore, UserCredential};
-    use usenet_ipfs_reader::{
+    use stoa_auth::{AuthConfig, CredentialStore, UserCredential};
+    use stoa_reader::{
         post::ipfs_write::MemIpfsStore,
         store::{article_numbers::ArticleNumberStore, overview::OverviewStore},
     };
@@ -643,7 +643,7 @@ mod tests {
             .connect_with(opts)
             .await
             .expect("reader pool");
-        usenet_ipfs_reader::migrations::run_migrations(&pool)
+        stoa_reader::migrations::run_migrations(&pool)
             .await
             .expect("reader migrations");
         pool
@@ -682,14 +682,14 @@ mod tests {
             .connect_with(core_opts)
             .await
             .expect("core pool");
-        usenet_ipfs_core::migrations::run_migrations(&core_pool)
+        stoa_core::migrations::run_migrations(&core_pool)
             .await
             .expect("core migrations");
 
         let ipfs = Arc::new(MemIpfsStore::new());
         let stores = Arc::new(JmapStores {
             ipfs: ipfs.clone(),
-            msgid_map: Arc::new(usenet_ipfs_core::msgid_map::MsgIdMap::new(core_pool)),
+            msgid_map: Arc::new(stoa_core::msgid_map::MsgIdMap::new(core_pool)),
             article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
             overview_store: Arc::new(OverviewStore::new(reader_pool)),
             user_flags: Arc::new(UserFlagsStore::new(mail_pool.clone())),
@@ -792,8 +792,8 @@ mod tests {
             "WWW-Authenticate must advertise Basic"
         );
         assert!(
-            www_auth.contains("usenet-ipfs"),
-            "realm must be usenet-ipfs"
+            www_auth.contains("stoa"),
+            "realm must be stoa"
         );
     }
 
@@ -958,10 +958,10 @@ mod tests {
 
         let body = resp.text().await.expect("body must be readable");
 
-        // The body must contain the X-Usenet-IPFS-CID header with the CID.
+        // The body must contain the X-Stoa-CID header with the CID.
         assert!(
-            body.contains(&format!("X-Usenet-IPFS-CID: {cid}")),
-            "body must contain X-Usenet-IPFS-CID header"
+            body.contains(&format!("X-Stoa-CID: {cid}")),
+            "body must contain X-Stoa-CID header"
         );
 
         // The body must contain the base64-encoded block bytes.
@@ -1012,8 +1012,8 @@ mod tests {
         );
         let body = resp.text().await.expect("body must be readable");
         assert!(
-            body.contains("usenet-ipfs"),
-            "body must mention usenet-ipfs, got first 200 chars: {}",
+            body.contains("stoa"),
+            "body must mention stoa, got first 200 chars: {}",
             &body[..200.min(body.len())]
         );
     }

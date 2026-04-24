@@ -40,7 +40,7 @@ pub struct OverviewRecord {
     pub line_count: u64,
     /// DID signature verification result.
     ///
-    /// `None`  — no `X-Usenet-IPFS-DID-Sig` header was present.
+    /// `None`  — no `X-Stoa-DID-Sig` header was present.
     /// `Some(false)` — signature verification failed.
     /// `Some(true)`  — signature verified successfully.
     pub did_sig_valid: Option<bool>,

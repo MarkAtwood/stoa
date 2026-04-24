@@ -1,7 +1,7 @@
 //! CLI subcommand: audit-export — query and export the audit log.
 
 use sqlx::SqlitePool;
-use usenet_ipfs_core::StorageError;
+use stoa_core::StorageError;
 
 /// Filters for the audit export command.
 pub struct AuditExportFilter {
@@ -68,7 +68,7 @@ mod tests {
     use super::*;
     use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
     use std::str::FromStr as _;
-    use usenet_ipfs_core::audit::{append_audit_event, AuditEvent};
+    use stoa_core::audit::{append_audit_event, AuditEvent};
 
     async fn make_pool() -> (SqlitePool, tempfile::TempPath) {
         let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
@@ -81,7 +81,7 @@ mod tests {
             .connect_with(opts)
             .await
             .unwrap();
-        usenet_ipfs_core::migrations::run_migrations(&pool)
+        stoa_core::migrations::run_migrations(&pool)
             .await
             .unwrap();
         (pool, tmp)

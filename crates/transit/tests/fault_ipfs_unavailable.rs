@@ -16,12 +16,12 @@ use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::str::FromStr as _;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use usenet_ipfs_core::{
+use stoa_core::{
     group_log::{LogStorage, MemLogStorage},
     hlc::HlcTimestamp,
     msgid_map::MsgIdMap,
 };
-use usenet_ipfs_transit::peering::{
+use stoa_transit::peering::{
     ingestion::{ihave_response, IngestResult},
     pipeline::{run_pipeline, IpfsError, IpfsStore, MemIpfsStore, PipelineCtx},
 };
@@ -89,7 +89,7 @@ async fn make_msgid_map() -> (MsgIdMap, tempfile::TempPath) {
         .connect_with(opts)
         .await
         .unwrap();
-    usenet_ipfs_core::migrations::run_migrations(&pool)
+    stoa_core::migrations::run_migrations(&pool)
         .await
         .unwrap();
     (MsgIdMap::new(pool), tmp)
@@ -104,7 +104,7 @@ async fn make_transit_pool() -> sqlx::SqlitePool {
         .connect_with(opts)
         .await
         .unwrap();
-    usenet_ipfs_transit::migrations::run_migrations(&pool)
+    stoa_transit::migrations::run_migrations(&pool)
         .await
         .unwrap();
     pool
@@ -216,7 +216,7 @@ async fn ipfs_unavailable_leaves_no_state() {
     );
 
     // Group log must be empty.
-    let group = usenet_ipfs_core::article::GroupName::new("comp.test").unwrap();
+    let group = stoa_core::article::GroupName::new("comp.test").unwrap();
     let tips = log_storage.list_tips(&group).await.unwrap();
     assert!(
         tips.is_empty(),

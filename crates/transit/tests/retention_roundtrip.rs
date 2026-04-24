@@ -4,7 +4,7 @@
 //! pins 7 of them, runs GC, verifies 13 are unpinned, verifies the audit
 //! log has exactly 13 records.
 
-use usenet_ipfs_transit::retention::{
+use stoa_transit::retention::{
     audit_log::count_audit_records,
     gc_executor::{run_gc_executor, GcExecutorCandidate},
     pin_client::{MemPinClient, PinClient},

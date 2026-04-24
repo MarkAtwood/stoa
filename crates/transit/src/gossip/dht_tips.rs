@@ -19,10 +19,10 @@ use tokio::sync::{mpsc, oneshot};
 
 /// Returns the Kademlia record key for a group's tip CID.
 ///
-/// Key = SHA-256 of `b"usenet.tip." + group_name.as_bytes()`, encoded as 32 bytes.
+/// Key = SHA-256 of `b"stoa.tip." + group_name.as_bytes()`, encoded as 32 bytes.
 pub fn dht_key_for_group(group_name: &str) -> RecordKey {
     let mut hasher = Sha256::new();
-    hasher.update(b"usenet.tip.");
+    hasher.update(b"stoa.tip.");
     hasher.update(group_name.as_bytes());
     let hash = hasher.finalize();
     RecordKey::new(&hash.as_slice())

@@ -3,14 +3,14 @@ use std::collections::HashSet;
 
 /// Return the gossipsub topic for a newsgroup.
 ///
-/// The topic is `usenet.hier.<hierarchy>` where `<hierarchy>` is the first
+/// The topic is `stoa.hier.<hierarchy>` where `<hierarchy>` is the first
 /// dot-separated component of the group name. For example:
-/// - `comp.lang.rust` → `usenet.hier.comp`
-/// - `sci.math` → `usenet.hier.sci`
-/// - `local` (no dots) → `usenet.hier.local`
+/// - `comp.lang.rust` → `stoa.hier.comp`
+/// - `sci.math` → `stoa.hier.sci`
+/// - `local` (no dots) → `stoa.hier.local`
 pub fn topic_for_group(group_name: &str) -> IdentTopic {
     let hierarchy = group_name.split('.').next().unwrap_or(group_name);
-    IdentTopic::new(format!("usenet.hier.{hierarchy}"))
+    IdentTopic::new(format!("stoa.hier.{hierarchy}"))
 }
 
 /// Compute the minimal set of hierarchy topics that cover all listed groups.
@@ -23,7 +23,7 @@ pub fn subscribe_hierarchies(groups: &[&str]) -> Vec<IdentTopic> {
     for &group in groups {
         let hierarchy = group.split('.').next().unwrap_or(group).to_owned();
         if seen.insert(hierarchy.clone()) {
-            topics.push(IdentTopic::new(format!("usenet.hier.{hierarchy}")));
+            topics.push(IdentTopic::new(format!("stoa.hier.{hierarchy}")));
         }
     }
     topics
@@ -44,14 +44,14 @@ mod tests {
     #[test]
     fn comp_lang_rust_maps_to_comp_hierarchy() {
         let t = topic_for_group("comp.lang.rust");
-        assert_eq!(topic_str(&t), "usenet.hier.comp");
+        assert_eq!(topic_str(&t), "stoa.hier.comp");
     }
 
     #[test]
     fn comp_os_linux_maps_to_same_topic_as_comp_lang_rust() {
         let t1 = topic_for_group("comp.lang.rust");
         let t2 = topic_for_group("comp.os.linux");
-        assert_eq!(t1.hash(), t2.hash(), "both should be usenet.hier.comp");
+        assert_eq!(t1.hash(), t2.hash(), "both should be stoa.hier.comp");
     }
 
     #[test]
@@ -78,7 +78,7 @@ mod tests {
     #[test]
     fn single_component_group_maps_to_local_hierarchy() {
         let t = topic_for_group("local");
-        assert_eq!(topic_str(&t), "usenet.hier.local");
+        assert_eq!(topic_str(&t), "stoa.hier.local");
     }
 
     #[test]
@@ -91,6 +91,6 @@ mod tests {
     fn subscribe_hierarchies_single_group() {
         let topics = subscribe_hierarchies(&["alt.test"]);
         assert_eq!(topics.len(), 1);
-        assert_eq!(topic_str(&topics[0]), "usenet.hier.alt");
+        assert_eq!(topic_str(&topics[0]), "stoa.hier.alt");
     }
 }

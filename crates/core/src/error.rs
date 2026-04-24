@@ -1,4 +1,4 @@
-//! Error types for usenet-ipfs-core.
+//! Error types for stoa-core.
 //!
 //! All errors flow through `UsenetIpfsError`. Each subsystem has its own
 //! typed sub-enum for structured handling.
@@ -9,7 +9,7 @@ use crate::group_log::types::LogEntryId;
 
 // ── Top-level error ──────────────────────────────────────────────────────────
 
-/// Top-level error type for the usenet-ipfs system.
+/// Top-level error type for the stoa system.
 ///
 /// Every function in this crate returns `Result<_, UsenetIpfsError>` or a
 /// typed sub-error that converts to this via `From`.

@@ -1,11 +1,11 @@
 [package]
-name = "usenet-ipfs-auth"
+name = "stoa-auth"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.80"
 
 [lib]
-name = "usenet_ipfs_auth"
+name = "stoa_auth"
 path = "src/lib.rs"
 
 [dependencies]

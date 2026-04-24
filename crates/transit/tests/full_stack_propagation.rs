@@ -22,8 +22,8 @@ use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::str::FromStr as _;
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
-use usenet_ipfs_core::{group_log::LogStorage as _, hlc::HlcTimestamp, msgid_map::MsgIdMap};
-use usenet_ipfs_transit::{
+use stoa_core::{group_log::LogStorage as _, hlc::HlcTimestamp, msgid_map::MsgIdMap};
+use stoa_transit::{
     gossip::tip_advert::handle_tip_advertisement,
     peering::ingestion::prepend_path_header,
     peering::pipeline::{run_pipeline, IpfsStore, MemIpfsStore, PipelineCtx},
@@ -172,7 +172,7 @@ async fn make_msgid_map(name: &str) -> (MsgIdMap, tempfile::TempPath) {
         .connect_with(opts)
         .await
         .unwrap_or_else(|e| panic!("failed to open SQLite pool {name}: {e}"));
-    usenet_ipfs_core::migrations::run_migrations(&pool)
+    stoa_core::migrations::run_migrations(&pool)
         .await
         .unwrap_or_else(|e| panic!("migrations failed for {name}: {e}"));
     (MsgIdMap::new(pool), tmp)
@@ -221,7 +221,7 @@ fn make_article(msgid: &str, newsgroups: &str, body: &str) -> Vec<u8> {
 ///    content-addressed identity.
 #[tokio::test]
 async fn full_stack_propagation() {
-    let topic = "usenet.hier.comp";
+    let topic = "stoa.hier.comp";
     let msgid = "<full-stack-test-001@example.com>";
     let newsgroup = "comp.lang.rust";
     let article_body = "This is the full-stack propagation test body.\r\n";
@@ -256,7 +256,7 @@ async fn full_stack_propagation() {
     // Node A: set up storage.
     let ipfs_a = MemIpfsStore::new();
     let (msgid_map_a, _tmp_a) = make_msgid_map("full_stack_node_a").await;
-    let log_storage_a = usenet_ipfs_core::group_log::MemLogStorage::new();
+    let log_storage_a = stoa_core::group_log::MemLogStorage::new();
     let signing_key = make_signing_key();
     let ts = make_timestamp();
 
@@ -284,7 +284,7 @@ async fn full_stack_propagation() {
             .connect_with(opts)
             .await
             .unwrap();
-        usenet_ipfs_transit::migrations::run_migrations(&pool)
+        stoa_transit::migrations::run_migrations(&pool)
             .await
             .unwrap();
         pool
@@ -342,7 +342,7 @@ async fn full_stack_propagation() {
 
     // Fetch A's actual tip LogEntryId from its log storage.
     let group_name =
-        usenet_ipfs_core::article::GroupName::new(newsgroup).expect("valid group name");
+        stoa_core::article::GroupName::new(newsgroup).expect("valid group name");
     let tips_a = log_storage_a
         .list_tips(&group_name)
         .await

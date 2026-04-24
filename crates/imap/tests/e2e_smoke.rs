@@ -10,7 +10,7 @@ use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::{TcpListener, TcpStream},
 };
-use usenet_ipfs_imap::{
+use stoa_imap::{
     config::{
         AdminConfig, AuthConfig, DatabaseConfig, LimitsConfig, ListenConfig, LogConfig, TlsConfig,
         UserCredential,
@@ -48,8 +48,8 @@ async fn test_pool() -> Arc<sqlx::SqlitePool> {
     Arc::new(pool)
 }
 
-fn test_config() -> Arc<usenet_ipfs_imap::config::Config> {
-    Arc::new(usenet_ipfs_imap::config::Config {
+fn test_config() -> Arc<stoa_imap::config::Config> {
+    Arc::new(stoa_imap::config::Config {
         listen: ListenConfig {
             addr: "127.0.0.1:0".into(),
             tls_addr: None,

@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use tracing::{error, info};
 
-use usenet_ipfs_imap::config::Config;
+use stoa_imap::config::Config;
 
 fn parse_args() -> PathBuf {
     let args: Vec<String> = std::env::args().collect();
@@ -48,7 +48,7 @@ async fn main() {
         tracing_subscriber::fmt().with_env_filter(filter).init();
     }
 
-    info!(addr = %config.listen.addr, "usenet-ipfs-imap starting");
+    info!(addr = %config.listen.addr, "stoa-imap starting");
 
     // Session listener will be wired in r8u.4 (TLS listener) and r8u.5 (session state machine).
     error!("IMAP listener not yet implemented — stubs pending r8u.4 and r8u.5");

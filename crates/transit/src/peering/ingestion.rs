@@ -1,6 +1,6 @@
 use crate::peering::mode_stream::PeeringMode;
-use usenet_ipfs_core::msgid_map::MsgIdMap;
-use usenet_ipfs_core::validation::validate_message_id;
+use stoa_core::msgid_map::MsgIdMap;
+use stoa_core::validation::validate_message_id;
 
 /// Maximum article size for v1 text-only mode: 1 MiB.
 pub const MAX_ARTICLE_BYTES: usize = 1_048_576;
@@ -270,7 +270,7 @@ mod tests {
             .connect_with(opts)
             .await
             .unwrap();
-        usenet_ipfs_core::migrations::run_migrations(&pool)
+        stoa_core::migrations::run_migrations(&pool)
             .await
             .unwrap();
         (MsgIdMap::new(pool), tmp)

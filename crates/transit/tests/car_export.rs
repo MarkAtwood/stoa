@@ -17,7 +17,7 @@
 
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use usenet_ipfs_transit::{
+use stoa_transit::{
     export::build_export_car,
     peering::pipeline::{IpfsStore as _, MemIpfsStore},
 };
@@ -35,7 +35,7 @@ async fn make_pool() -> sqlx::SqlitePool {
         .connect_with(opts)
         .await
         .unwrap();
-    usenet_ipfs_transit::migrations::run_migrations(&pool)
+    stoa_transit::migrations::run_migrations(&pool)
         .await
         .unwrap();
     pool

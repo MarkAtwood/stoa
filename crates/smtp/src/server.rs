@@ -5,7 +5,7 @@ use sqlx::SqlitePool;
 use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
 use tracing::{debug, error, info, warn};
-use usenet_ipfs_auth::CredentialStore;
+use stoa_auth::CredentialStore;
 
 use crate::config::Config;
 use crate::queue::NntpQueue;
@@ -63,7 +63,7 @@ pub async fn run_server(
 
     loop {
         // Acquire a permit before accepting so we apply back-pressure when
-        // the connection limit is reached (same pattern as usenet-ipfs-reader).
+        // the connection limit is reached (same pattern as stoa-reader).
         let permit = match semaphore.clone().acquire_owned().await {
             Ok(p) => p,
             Err(_) => {

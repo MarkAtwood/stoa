@@ -1,6 +1,6 @@
 # Installation and First-Run Guide
 
-This guide covers building usenet-ipfs from source, generating operator keys, writing
+This guide covers building stoa from source, generating operator keys, writing
 minimal configuration files, and starting both daemons for the first time.
 
 ## Prerequisites
@@ -19,7 +19,7 @@ Minimum supported Rust version is tracked in each crate's `Cargo.toml`
 
 ### IPFS node
 
-usenet-ipfs communicates with an IPFS node over its HTTP API (default
+stoa communicates with an IPFS node over its HTTP API (default
 `http://127.0.0.1:5001`). Two options:
 
 - **Embedded rust-ipfs** (planned feature): the transit daemon can run an
@@ -58,21 +58,21 @@ policy.
 Clone the repository and build both release binaries:
 
 ```
-git clone https://github.com/your-org/usenet-ipfs.git
-cd usenet-ipfs
-cargo build --release -p usenet-ipfs-transit -p usenet-ipfs-reader
+git clone https://github.com/your-org/stoa.git
+cd stoa
+cargo build --release -p stoa-transit -p stoa-reader
 ```
 
 Binaries are placed in `target/release/`:
 
 ```
-target/release/usenet-ipfs-transit
-target/release/usenet-ipfs-reader
+target/release/stoa-transit
+target/release/stoa-reader
 ```
 
 Copy them to a system path or run from the build directory.
 
-To build the full workspace (includes `usenet-ipfs-core` library and all
+To build the full workspace (includes `stoa-core` library and all
 tests):
 
 ```
@@ -88,7 +88,7 @@ Generate the key before starting either daemon:
 
 ```
 mkdir -p keys
-usenet-ipfs-transit keygen --output keys/operator.key
+stoa-transit keygen --output keys/operator.key
 ```
 
 This writes a new Ed25519 signing key to `keys/operator.key`. Protect this
@@ -99,8 +99,8 @@ chmod 600 keys/operator.key
 ```
 
 The key is never logged or included in error messages. Store a backup in a
-secure location. Key rotation is available via `usenet-ipfs-transit key-rotate`
-(see `usenet-ipfs-transit help key-rotate`).
+secure location. Key rotation is available via `stoa-transit key-rotate`
+(see `stoa-transit help key-rotate`).
 
 ---
 
@@ -110,7 +110,7 @@ Create `transit.toml`. The minimum required sections are `[listen]`, `[peers]`,
 `[groups]`, `[ipfs]`, `[pinning]`, and `[gc]`.
 
 ```toml
-# transit.toml — usenet-ipfs-transit configuration
+# transit.toml — stoa-transit configuration
 
 # ---------------------------------------------------------------------------
 # [listen] — NNTP peering listener
@@ -125,7 +125,7 @@ addr = "0.0.0.0:119"
 # ---------------------------------------------------------------------------
 [peers]
 # List of remote transit peers to connect to and exchange articles with.
-# Each entry is "host:port" for a usenet-ipfs or INN transit peer.
+# Each entry is "host:port" for a stoa or INN transit peer.
 addresses = [
     "192.0.2.10:119",
     "192.0.2.20:119",
@@ -194,7 +194,7 @@ addr = "127.0.0.1:9090"
 # ---------------------------------------------------------------------------
 [log]
 # Log level: "error", "warn", "info", "debug", "trace".
-# Can also be a filter string: "usenet_ipfs_transit=debug,info"
+# Can also be a filter string: "stoa_transit=debug,info"
 # Overridden at runtime by the RUST_LOG environment variable.
 level = "info"
 # Output format: "json" (structured, recommended for log aggregation)
@@ -210,7 +210,7 @@ Create `reader.toml`. The minimum required sections are `[listen]`, `[limits]`,
 `[auth]`, and `[tls]`.
 
 ```toml
-# reader.toml — usenet-ipfs-reader configuration
+# reader.toml — stoa-reader configuration
 
 # ---------------------------------------------------------------------------
 # [listen] — NNTP client listener
@@ -285,13 +285,13 @@ format = "json"
 Start the transit daemon, pointing it at its config file and operator key:
 
 ```
-usenet-ipfs-transit --config transit.toml --key keys/operator.key
+stoa-transit --config transit.toml --key keys/operator.key
 ```
 
 Start the reader daemon in a separate terminal (or as a separate service):
 
 ```
-usenet-ipfs-reader --config reader.toml --key keys/operator.key
+stoa-reader --config reader.toml --key keys/operator.key
 ```
 
 Both daemons log structured JSON to stdout by default. Redirect to a file or
@@ -304,13 +304,13 @@ To run as systemd services, see the example unit files in `contrib/systemd/`
 
 ```ini
 [Unit]
-Description=usenet-ipfs transit daemon
+Description=stoa transit daemon
 After=network.target ipfs.service
 
 [Service]
-ExecStart=/usr/local/bin/usenet-ipfs-transit --config /etc/usenet-ipfs/transit.toml --key /etc/usenet-ipfs/keys/operator.key
+ExecStart=/usr/local/bin/stoa-transit --config /etc/stoa/transit.toml --key /etc/stoa/keys/operator.key
 Restart=on-failure
-User=usenet-ipfs
+User=stoa
 ProtectSystem=strict
 PrivateTmp=true
 
@@ -322,13 +322,13 @@ WantedBy=multi-user.target
 
 ```ini
 [Unit]
-Description=usenet-ipfs reader daemon
-After=network.target usenet-ipfs-transit.service
+Description=stoa reader daemon
+After=network.target stoa-transit.service
 
 [Service]
-ExecStart=/usr/local/bin/usenet-ipfs-reader --config /etc/usenet-ipfs/reader.toml --key /etc/usenet-ipfs/keys/operator.key
+ExecStart=/usr/local/bin/stoa-reader --config /etc/stoa/reader.toml --key /etc/stoa/keys/operator.key
 Restart=on-failure
-User=usenet-ipfs
+User=stoa
 ProtectSystem=strict
 PrivateTmp=true
 
@@ -343,7 +343,7 @@ WantedBy=multi-user.target
 After both daemons are running, verify the transit daemon with:
 
 ```
-usenet-ipfs-transit status
+stoa-transit status
 ```
 
 Expected output (abbreviated):
@@ -368,7 +368,7 @@ use netcat:
 
 ```
 nc localhost 119
-200 usenet-ipfs reader ready
+200 stoa reader ready
 CAPABILITIES
 101 Capability list follows
 VERSION 2

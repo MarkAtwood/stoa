@@ -22,7 +22,7 @@ Four approaches were evaluated:
 - **Centralized coordinator** — a designated leader per group sequences article
   numbers globally. Simple to implement. Single point of failure; the group
   becomes unavailable if the coordinator is unreachable. Reintroduces the
-  server-dependency model that usenet-ipfs is designed to eliminate.
+  server-dependency model that stoa is designed to eliminate.
 
 - **Operational Transform (OT)** — designed for concurrent document edits.
   Requires a central sequencer for correctness guarantees in the general case.
@@ -45,7 +45,7 @@ requirements: distributed, partition-tolerant, coordinator-free, append-only.
 ## Decision
 
 Each group has an independent Merkle-CRDT append-only log stored in three
-SQLite tables in `usenet-ipfs-core`:
+SQLite tables in `stoa-core`:
 
 - `log_entries (id BLOB PK, hlc_timestamp, article_cid, operator_signature)`
 - `log_entry_parents (entry_id, parent_id)` — DAG parent links
@@ -59,7 +59,7 @@ entries it was appended on top of, forming the DAG.
 Reconciliation (`core/group_log/reconcile.rs`) computes the symmetric difference
 between local and remote tip sets and exchanges missing entries. After backfill,
 the local tip set is updated to include all merged tips. Tip advertisements are
-broadcast via gossipsub (`usenet.hier.<hierarchy>` topics, see ADR-0004).
+broadcast via gossipsub (`stoa.hier.<hierarchy>` topics, see ADR-0004).
 
 ## Consequences
 

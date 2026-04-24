@@ -7,7 +7,7 @@
 
 ## Context
 
-usenet-ipfs stores every article as a content-addressed IPLD block in IPFS.
+stoa stores every article as a content-addressed IPLD block in IPFS.
 Standard newsreader clients (slrn, tin, pan, Thunderbird) are entirely unaware
 of this: they see a normal RFC 3977 NNTP server and never interact with CIDs.
 
@@ -23,16 +23,16 @@ specific, well-bounded category of additive CID-exposing extensions.
 
 ## Decision
 
-We add five NNTP extensions to `usenet-ipfs-reader`, categorised as passive
+We add five NNTP extensions to `stoa-reader`, categorised as passive
 (article headers) or active (X-commands):
 
 ### Passive (injected into responses, no client action required)
 
-1. **`X-Usenet-IPFS-CID`** header in `ARTICLE` and `HEAD` responses — the
+1. **`X-Stoa-CID`** header in `ARTICLE` and `HEAD` responses — the
    canonical article CID (RAW codec `0x55`, SHA-256 of the canonical bytes).
    Standard newsreaders ignore unknown headers per RFC 5322 §3.6.8.
 
-2. **`X-Usenet-IPFS-Root-CID`** header in `ARTICLE` and `HEAD` responses — the
+2. **`X-Stoa-Root-CID`** header in `ARTICLE` and `HEAD` responses — the
    IPLD DAG root CID (DAG-CBOR `0x71`), present only for multi-block articles.
    Absent for all v1 single-block text articles. Future-proofs the protocol for
    v2 binary support without requiring a protocol change.
@@ -73,7 +73,7 @@ invisible to standard newsreaders.
 
 ### The Corundum integration driver
 
-`X-Usenet-IPFS-CID` is the highest-value extension. Corundum's future
+`X-Stoa-CID` is the highest-value extension. Corundum's future
 `rfc822+mime` activity type needs the article root CID to build a content
 reference. Exposing it as an article header means the Corundum indexer can
 harvest CIDs from normal `ARTICLE` fetches without any custom API.
@@ -109,7 +109,7 @@ that hashes to that CID.
 ### Negative / risks
 
 - **Fingerprinting:** advertising `XCID`, `XVERIFY`, and `X-CID-LOCATOR` in
-  `CAPABILITIES` reveals that the server is a usenet-ipfs node. This is
+  `CAPABILITIES` reveals that the server is a stoa node. This is
   accepted: the system is not designed for anonymity.
 - **Response code collisions:** `290`, `291`, `541`, `542` are unregistered
   experimental codes. If IANA or a future RFC assigns these codes to

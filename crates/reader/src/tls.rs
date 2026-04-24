@@ -4,7 +4,7 @@
 //! The `NntpStream` enum unifies plain and TLS streams so the session handler
 //! does not need to know which variant is active.
 //!
-//! PEM loading is delegated to `usenet-ipfs-tls`; this module adds the
+//! PEM loading is delegated to `stoa-tls`; this module adds the
 //! NNTP-specific `PermissiveClientAuth` verifier for mutual TLS and the
 //! `extract_client_cert_data` helper for fingerprint-based auth.
 
@@ -15,9 +15,9 @@ use rustls::server::danger::{ClientCertVerified, ClientCertVerifier};
 use rustls::ServerConfig;
 use rustls::{DigitallySignedStruct, DistinguishedName, Error, SignatureScheme};
 use sha2::Digest as _;
-use usenet_ipfs_tls::{load_cert_chain, load_private_key};
+use stoa_tls::{load_cert_chain, load_private_key};
 
-pub use usenet_ipfs_tls::TlsError;
+pub use stoa_tls::TlsError;
 
 /// A rustls-backed TLS acceptor for incoming TCP connections.
 pub struct TlsAcceptor {
@@ -127,7 +127,7 @@ pub fn extract_client_cert_data(
 /// are not offered. Client certificates are requested but not required —
 /// fingerprint validation happens at the application layer.
 ///
-/// PEM loading is handled by `usenet-ipfs-tls`; the NNTP-specific
+/// PEM loading is handled by `stoa-tls`; the NNTP-specific
 /// `PermissiveClientAuth` verifier is assembled here.
 pub fn load_tls_acceptor(cert_path: &str, key_path: &str) -> Result<TlsAcceptor, TlsError> {
     let cert_chain = load_cert_chain(cert_path)?;

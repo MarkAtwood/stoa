@@ -19,13 +19,13 @@ use multihash_codetable::{Code, MultihashDigest};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::str::FromStr as _;
 use tokio::net::TcpListener;
-use usenet_ipfs_auth::{AuthConfig, CredentialStore};
-use usenet_ipfs_mail::{
+use stoa_auth::{AuthConfig, CredentialStore};
+use stoa_mail::{
     server::{build_router, AppState, JmapStores},
     state::{flags::UserFlagsStore, version::StateStore},
     token_store::TokenStore,
 };
-use usenet_ipfs_reader::{
+use stoa_reader::{
     post::ipfs_write::MemIpfsStore,
     store::{
         article_numbers::ArticleNumberStore, overview::OverviewRecord, overview::OverviewStore,
@@ -49,7 +49,7 @@ async fn make_reader_pool() -> sqlx::SqlitePool {
         .connect_with(opts)
         .await
         .expect("reader pool");
-    usenet_ipfs_reader::migrations::run_migrations(&pool)
+    stoa_reader::migrations::run_migrations(&pool)
         .await
         .expect("reader migrations");
     pool
@@ -66,7 +66,7 @@ async fn make_mail_pool() -> sqlx::SqlitePool {
         .connect_with(opts)
         .await
         .expect("mail pool");
-    usenet_ipfs_mail::migrations::run_migrations(&pool)
+    stoa_mail::migrations::run_migrations(&pool)
         .await
         .expect("mail migrations");
     pool
@@ -83,7 +83,7 @@ async fn make_core_pool() -> sqlx::SqlitePool {
         .connect_with(opts)
         .await
         .expect("core pool");
-    usenet_ipfs_core::migrations::run_migrations(&pool)
+    stoa_core::migrations::run_migrations(&pool)
         .await
         .expect("core migrations");
     pool
@@ -101,7 +101,7 @@ async fn state_no_jmap() -> Arc<AppState> {
         auth_config: Arc::new(AuthConfig::default()),
         token_store: Arc::new(TokenStore::new(Arc::new(mail_pool))),
         base_url: "http://localhost".to_string(),
-        cors: usenet_ipfs_mail::config::CorsConfig::default(),
+        cors: stoa_mail::config::CorsConfig::default(),
     })
 }
 
@@ -121,7 +121,7 @@ async fn state_with_jmap() -> (Arc<AppState>, Arc<ArticleNumberStore>, Arc<Overv
 
     let jmap = Arc::new(JmapStores {
         ipfs,
-        msgid_map: Arc::new(usenet_ipfs_core::msgid_map::MsgIdMap::new(core_pool)),
+        msgid_map: Arc::new(stoa_core::msgid_map::MsgIdMap::new(core_pool)),
         article_numbers: Arc::clone(&article_numbers),
         overview_store: Arc::clone(&overview_store),
         user_flags: Arc::new(UserFlagsStore::new((*mail_pool_arc).clone())),
@@ -137,7 +137,7 @@ async fn state_with_jmap() -> (Arc<AppState>, Arc<ArticleNumberStore>, Arc<Overv
         auth_config: Arc::new(AuthConfig::default()),
         token_store: Arc::new(TokenStore::new(Arc::clone(&mail_pool_arc))),
         base_url: "http://localhost".to_string(),
-        cors: usenet_ipfs_mail::config::CorsConfig::default(),
+        cors: stoa_mail::config::CorsConfig::default(),
     });
 
     (state, article_numbers, overview_store)

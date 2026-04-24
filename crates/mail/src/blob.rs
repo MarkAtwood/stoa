@@ -9,7 +9,7 @@ use axum::{
 };
 
 use crate::server::{AppState, AuthenticatedUser};
-use usenet_ipfs_reader::post::ipfs_write::IpfsWriteError;
+use stoa_reader::post::ipfs_write::IpfsWriteError;
 
 /// GET /jmap/download/{accountId}/{blobId}/{name}
 ///
@@ -92,7 +92,7 @@ pub async fn blob_download(
         "From: ipfs-gateway@localhost\r\n\
          Subject: IPFS:{cid}\r\n\
          Message-ID: <{cid}@ipfs.local>\r\n\
-         X-Usenet-IPFS-CID: {cid}\r\n\
+         X-Stoa-CID: {cid}\r\n\
          MIME-Version: 1.0\r\n\
          Content-Type: application/octet-stream\r\n\
          Content-Transfer-Encoding: base64\r\n\
@@ -117,7 +117,7 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
     use std::time::Instant;
-    use usenet_ipfs_auth::{AuthConfig, CredentialStore};
+    use stoa_auth::{AuthConfig, CredentialStore};
 
     static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
 

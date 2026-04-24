@@ -2,7 +2,7 @@
 
 **Status:** Decision reached — see Recommendation
 **Date:** 2026-04-20
-**Scope:** `usenet-ipfs-reader` session layer; `usenet-ipfs-transit` NNTP peering connections
+**Scope:** `stoa-reader` session layer; `stoa-transit` NNTP peering connections
 
 ---
 
@@ -235,7 +235,7 @@ compression in the transit crate than in the reader crate.
 Implement COMPRESS DEFLATE as the first post-launch extension, targeting the transit
 peering layer first:
 
-1. Add `async-compression` dependency to `usenet-ipfs-reader` and `usenet-ipfs-transit`.
+1. Add `async-compression` dependency to `stoa-reader` and `stoa-transit`.
 2. Implement `accept_compress` in the reader lifecycle, advertising `COMPRESS DEFLATE`
    only in the post-TLS `CAPABILITIES` list (or always, if the operator opts in for
    plain connections).

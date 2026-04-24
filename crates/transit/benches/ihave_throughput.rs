@@ -10,15 +10,15 @@
 //! log append + gossipsub channel send.
 //!
 //! Run with:
-//!   cargo bench -p usenet-ipfs-transit --bench ihave_throughput
+//!   cargo bench -p stoa-transit --bench ihave_throughput
 
 use std::time::{Duration, Instant};
 
 use ed25519_dalek::{Signer, SigningKey};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use tokio::sync::mpsc;
-use usenet_ipfs_core::{group_log::MemLogStorage, hlc::HlcTimestamp, msgid_map::MsgIdMap};
-use usenet_ipfs_transit::peering::pipeline::{run_pipeline, MemIpfsStore, PipelineCtx};
+use stoa_core::{group_log::MemLogStorage, hlc::HlcTimestamp, msgid_map::MsgIdMap};
+use stoa_transit::peering::pipeline::{run_pipeline, MemIpfsStore, PipelineCtx};
 
 const ARTICLE_COUNT: usize = 1_000;
 
@@ -46,7 +46,7 @@ async fn make_transit_pool(db_name: &str) -> sqlx::SqlitePool {
         .connect_with(opts)
         .await
         .expect("in-memory transit SQLite pool");
-    usenet_ipfs_transit::migrations::run_migrations(&pool)
+    stoa_transit::migrations::run_migrations(&pool)
         .await
         .expect("transit migrations");
     pool
@@ -62,7 +62,7 @@ async fn make_msgid_pool(db_name: &str) -> sqlx::SqlitePool {
         .connect_with(opts)
         .await
         .expect("in-memory SQLite pool");
-    usenet_ipfs_core::migrations::run_migrations(&pool)
+    stoa_core::migrations::run_migrations(&pool)
         .await
         .expect("migrations");
     pool

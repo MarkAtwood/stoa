@@ -9,12 +9,12 @@
 
 use cid::Cid;
 use multihash_codetable::{Code, MultihashDigest};
-use usenet_ipfs_core::article::GroupName;
-use usenet_ipfs_core::group_log::LogStorage;
-use usenet_ipfs_core::hlc::HlcClock;
-use usenet_ipfs_core::InjectionSource;
-use usenet_ipfs_reader::post::log_append::append_to_groups;
-use usenet_ipfs_reader::store::server_stores::ServerStores;
+use stoa_core::article::GroupName;
+use stoa_core::group_log::LogStorage;
+use stoa_core::hlc::HlcClock;
+use stoa_core::InjectionSource;
+use stoa_reader::post::log_append::append_to_groups;
+use stoa_reader::store::server_stores::ServerStores;
 
 /// Build a deterministic test CID from a short label.
 fn test_cid(label: &[u8]) -> Cid {
@@ -328,10 +328,10 @@ async fn mixed_batch() {
 #[tokio::test]
 async fn old_queue_file_defaults_to_sieve() {
     // Minimal serde wrapper that mirrors the `#[serde(default = "...")]`
-    // attribute used on the real NntpEnvelope in usenet-ipfs-smtp.
+    // attribute used on the real NntpEnvelope in stoa-smtp.
     #[derive(serde::Deserialize)]
     struct Envelope {
-        #[serde(default = "usenet_ipfs_core::default_injection_source")]
+        #[serde(default = "stoa_core::default_injection_source")]
         pub injection_source: InjectionSource,
     }
 

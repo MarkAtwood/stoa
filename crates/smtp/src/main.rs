@@ -3,7 +3,7 @@ use std::{path::PathBuf, sync::Arc, time::Duration};
 use tokio::net::TcpListener;
 use tracing::{error, info};
 
-use usenet_ipfs_smtp::{
+use stoa_smtp::{
     config::Config, nntp_client::NntpClientConfig, queue::NntpQueue, server::run_server,
     session::new_sieve_cache, sieve_admin, store, tls::build_tls_acceptor,
 };
@@ -114,7 +114,7 @@ async fn main() {
         port_587 = %config.listen.port_587,
         smtps = %config.listen.smtps_addr.as_deref().unwrap_or("disabled"),
         max_connections = config.limits.max_connections,
-        "usenet-ipfs-smtp starting"
+        "stoa-smtp starting"
     );
 
     // Create the durable NNTP queue and start the drain task.
@@ -170,7 +170,7 @@ async fn main() {
         }
     }
 
-    info!("usenet-ipfs-smtp stopped");
+    info!("stoa-smtp stopped");
 }
 
 async fn sigterm() {

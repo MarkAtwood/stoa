@@ -1,6 +1,6 @@
 # rust-ipfs Benchmark Results
 
-**Spike issue:** usenet-ipfs-l62.1.2
+**Spike issue:** stoa-l62.1.2
 
 ## Summary
 
@@ -104,7 +104,7 @@ rust-ipfs-bench v0.1.0
 
 ## Comparison Notes (for l62.1.4 decision issue)
 
-This benchmark should be compared against the iroh spike (usenet-ipfs-l62.1.1)
+This benchmark should be compared against the iroh spike (stoa-l62.1.1)
 using the same metrics.  Key differentiators to consider:
 
 - rust-ipfs exposes a libp2p-native gossipsub/kad stack, which aligns directly

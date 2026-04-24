@@ -15,7 +15,7 @@
 //! against a known DER-encoded self-signed ed25519 certificate:
 //!
 //!   openssl req -x509 -newkey ed25519 -keyout /tmp/k.pem -out /tmp/c.pem \
-//!     -days 3650 -nodes -subj "/CN=usenet-ipfs-test-cert"
+//!     -days 3650 -nodes -subj "/CN=stoa-test-cert"
 //!   openssl x509 -fingerprint -sha256 -noout -in /tmp/c.pem
 //!   → 6E:EC:02:A6:1E:34:81:26:F9:B3:AD:2C:22:37:4E:1F:63:1B:60:5B:55:29:DE:F0:33:29:DB:FD:76:3E:A0:C7
 //!   openssl x509 -outform DER -in /tmp/c.pem | openssl dgst -sha256 -hex
@@ -30,8 +30,8 @@
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-use usenet_ipfs_auth::TrustedIssuerStore;
-use usenet_ipfs_reader::{
+use stoa_auth::TrustedIssuerStore;
+use stoa_reader::{
     config::{AuthConfig, ClientCertEntry},
     session::{command::Command, context::SessionContext, dispatch::dispatch, state::SessionState},
     store::client_cert_store::ClientCertStore,
@@ -44,7 +44,7 @@ use usenet_ipfs_reader::{
 /// SHA-256 fingerprint of the hardcoded test cert DER, openssl-verified.
 ///
 /// Derivation:
-///   openssl req -x509 -newkey ed25519 ... -subj "/CN=usenet-ipfs-test-cert"
+///   openssl req -x509 -newkey ed25519 ... -subj "/CN=stoa-test-cert"
 ///   openssl x509 -fingerprint -sha256 -noout  → 6E:EC:02:A6:...
 ///   openssl x509 -outform DER | openssl dgst -sha256 -hex
 ///   → 6eec02a61e348126f9b3ad2c22374e1f631b605b5529def03329dbfd763ea0c7

@@ -6,9 +6,9 @@ use sqlx::SqlitePool;
 use std::str::FromStr;
 use tempfile::NamedTempFile;
 use tokio::runtime::Runtime;
-use usenet_ipfs_core::group_log::sqlite_storage::SqliteLogStorage;
-use usenet_ipfs_core::group_log::storage::LogStorage;
-use usenet_ipfs_core::group_log::types::{LogEntry, LogEntryId};
+use stoa_core::group_log::sqlite_storage::SqliteLogStorage;
+use stoa_core::group_log::storage::LogStorage;
+use stoa_core::group_log::types::{LogEntry, LogEntryId};
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -38,7 +38,7 @@ async fn setup_memory_storage() -> SqliteLogStorage {
     let pool = SqlitePool::connect("sqlite::memory:")
         .await
         .expect("in-memory pool");
-    usenet_ipfs_core::migrations::run_migrations(&pool)
+    stoa_core::migrations::run_migrations(&pool)
         .await
         .expect("migrations");
     SqliteLogStorage::new(pool)
@@ -53,7 +53,7 @@ async fn setup_storage() -> (SqliteLogStorage, tempfile::TempPath) {
         .expect("parse url")
         .create_if_missing(true);
     let pool = SqlitePool::connect_with(opts).await.expect("file pool");
-    usenet_ipfs_core::migrations::run_migrations(&pool)
+    stoa_core::migrations::run_migrations(&pool)
         .await
         .expect("migrations");
     (SqliteLogStorage::new(pool), tmp)

@@ -143,7 +143,7 @@ async fn run_smtp_session(
 
     // 2. EHLO
     writer
-        .write_all(b"EHLO usenet-ipfs-relay\r\n")
+        .write_all(b"EHLO stoa-relay\r\n")
         .await
         .map_err(SmtpRelayError::Io)?;
 

@@ -10,7 +10,7 @@ modified.
 
 ## Audit Scope
 
-This audit covers every location where external input enters the usenet-ipfs
+This audit covers every location where external input enters the stoa
 system:
 
 - Command-line parsing (`crates/reader/src/session/command.rs`)

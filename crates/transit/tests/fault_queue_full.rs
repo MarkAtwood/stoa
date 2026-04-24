@@ -1,4 +1,4 @@
-//! Regression tests for usenet-ipfs-bt5.1: queue-full must return 431/436,
+//! Regression tests for stoa-bt5.1: queue-full must return 431/436,
 //! not 239/235 with a silently discarded article.
 //!
 //! Independent oracle: RFC 4644 §2.5 — 239 "Article transferred OK" must only
@@ -19,8 +19,8 @@ use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::Mutex;
-use usenet_ipfs_core::{group_log::SqliteLogStorage, hlc::HlcClock, msgid_map::MsgIdMap};
-use usenet_ipfs_transit::peering::{
+use stoa_core::{group_log::SqliteLogStorage, hlc::HlcClock, msgid_map::MsgIdMap};
+use stoa_transit::peering::{
     blacklist::BlacklistConfig,
     ingestion_queue::{ingestion_queue, QueuedArticle},
     pipeline::MemIpfsStore,
@@ -41,7 +41,7 @@ async fn make_core_pool() -> (MsgIdMap, tempfile::TempPath) {
         .connect_with(opts)
         .await
         .unwrap();
-    usenet_ipfs_core::migrations::run_migrations(&pool)
+    stoa_core::migrations::run_migrations(&pool)
         .await
         .unwrap();
     (MsgIdMap::new(pool), tmp)
@@ -56,7 +56,7 @@ async fn make_transit_pool() -> sqlx::SqlitePool {
         .connect_with(opts)
         .await
         .unwrap();
-    usenet_ipfs_transit::migrations::run_migrations(&pool)
+    stoa_transit::migrations::run_migrations(&pool)
         .await
         .unwrap();
     pool
@@ -71,7 +71,7 @@ async fn make_log_storage() -> SqliteLogStorage {
         .connect_with(opts)
         .await
         .unwrap();
-    usenet_ipfs_core::migrations::run_migrations(&pool)
+    stoa_core::migrations::run_migrations(&pool)
         .await
         .unwrap();
     SqliteLogStorage::new(pool)

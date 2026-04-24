@@ -1,8 +1,8 @@
-//! CID utilities and the dual-CID model for usenet-ipfs articles.
+//! CID utilities and the dual-CID model for stoa articles.
 //!
 //! # The Dual-CID Model
 //!
-//! Every article in usenet-ipfs has **two distinct CIDs**, and they must never
+//! Every article in stoa has **two distinct CIDs**, and they must never
 //! be confused with each other.
 //!
 //! ## Canonical CID (codec 0x55, raw)
@@ -30,8 +30,8 @@
 //!
 //! **Uses:**
 //! - Addressing the article in IPFS (`ipfs block get <root-cid>`).
-//! - NNTP `X-Usenet-IPFS-CID` article header.
-//! - JMAP `x-usenet-ipfs-cid` custom Email property.
+//! - NNTP `X-Stoa-CID` article header.
+//! - JMAP `x-stoa-cid` custom Email property.
 //! - Group log entries.
 //! - JMAP email `id` and `blobId` fields.
 //!

@@ -1,4 +1,4 @@
-//! DID author signature verification for `X-Usenet-IPFS-DID-Sig` headers.
+//! DID author signature verification for `X-Stoa-DID-Sig` headers.
 
 /// Error returned when DID signature verification cannot be completed.
 #[derive(Debug)]
@@ -86,9 +86,9 @@ pub fn parse_did_key(did_url: &str) -> Result<ed25519_dalek::VerifyingKey, DidSi
 /// Verify the Ed25519 DID author signature over article bytes.
 ///
 /// `article_bytes` is the full raw article (headers + blank line + body),
-/// which may include the `X-Usenet-IPFS-DID-Sig` header line itself.
+/// which may include the `X-Stoa-DID-Sig` header line itself.
 ///
-/// `header_value` is the value of the `X-Usenet-IPFS-DID-Sig` header:
+/// `header_value` is the value of the `X-Stoa-DID-Sig` header:
 /// `"<did-url> <base64url-no-pad-signature>"`.
 ///
 /// The signature covers the article bytes **with the DID sig header line
@@ -130,7 +130,7 @@ pub fn verify_did_sig(article_bytes: &[u8], header_value: &str) -> Result<bool, 
     // 3. Resolve the DID to a verifying key.
     let verifying_key = parse_did_key(did_url)?;
 
-    // 4. Strip the X-Usenet-IPFS-DID-Sig header from article_bytes to get
+    // 4. Strip the X-Stoa-DID-Sig header from article_bytes to get
     //    the bytes the author originally signed.
     let unsigned_bytes = strip_did_sig_header(article_bytes);
 
@@ -285,7 +285,7 @@ mod tests {
         //
         // ARTICLE_BYTES = "From: ...\r\nSubject: ...\r\n\r\nBody text.\r\n"
         // Insert the DID-Sig header line immediately before the blank line.
-        let header_line = format!("X-Usenet-IPFS-DID-Sig: {TEST_DID_KEY} {TEST_SIG_B64}\r\n");
+        let header_line = format!("X-Stoa-DID-Sig: {TEST_DID_KEY} {TEST_SIG_B64}\r\n");
         // Find the position of the blank line (\r\n\r\n); insert after the
         // second \r\n (i.e. right at the start of \r\n that forms the blank line).
         let insert_pos = ARTICLE_BYTES
@@ -307,7 +307,7 @@ mod tests {
     }
 }
 
-/// Strip the `X-Usenet-IPFS-DID-Sig` header (including any RFC 5322 folded
+/// Strip the `X-Stoa-DID-Sig` header (including any RFC 5322 folded
 /// continuation lines) from raw article bytes.
 ///
 /// Handles both `\r\n` and bare `\n` line endings.  All other headers and

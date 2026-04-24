@@ -1,7 +1,7 @@
 # Configuration Reference
 
-This document describes every configuration field for both `usenet-ipfs-transit`
-and `usenet-ipfs-reader`. Configuration is TOML; each daemon reads its file at
+This document describes every configuration field for both `stoa-transit`
+and `stoa-reader`. Configuration is TOML; each daemon reads its file at
 startup via `Config::from_file`. Unknown keys are rejected with a parse error.
 
 Required sections must be present in the file. Optional sections may be omitted;
@@ -9,7 +9,7 @@ their defaults are noted per-field.
 
 ---
 
-## usenet-ipfs-transit
+## stoa-transit
 
 Config struct: `crates/transit/src/config.rs::Config`
 
@@ -40,7 +40,7 @@ Configures outbound NNTP peering targets.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `addresses` | array of strings | — (required) | List of `"host:port"` addresses of remote NNTP peering peers. May be empty if the node operates as a sink only. Each address is a usenet-ipfs or INN transit peer. |
+| `addresses` | array of strings | — (required) | List of `"host:port"` addresses of remote NNTP peering peers. May be empty if the node operates as a sink only. Each address is a stoa or INN transit peer. |
 
 Example:
 
@@ -178,7 +178,7 @@ max_age_days = 90
 
 ### `[admin]`
 
-Controls the HTTP admin endpoint used by the operator CLI (`usenet-ipfs-transit status`
+Controls the HTTP admin endpoint used by the operator CLI (`stoa-transit status`
 and related subcommands). This section is optional; all fields have defaults.
 
 | Field | Type | Default | Description |
@@ -206,7 +206,7 @@ Controls log output. This section is optional; all fields have defaults.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `level` | string | `"info"` | Log level or filter string. Simple values: `"error"`, `"warn"`, `"info"`, `"debug"`, `"trace"`. Filter syntax: `"usenet_ipfs_transit=debug,info"` (per-crate directives). Overridden at runtime by the `RUST_LOG` environment variable. |
+| `level` | string | `"info"` | Log level or filter string. Simple values: `"error"`, `"warn"`, `"info"`, `"debug"`, `"trace"`. Filter syntax: `"stoa_transit=debug,info"` (per-crate directives). Overridden at runtime by the `RUST_LOG` environment variable. |
 | `format` | string | `"json"` | Output format. `"json"` emits structured JSON (recommended for log aggregation). `"text"` emits human-readable lines (useful in development). |
 
 Example:
@@ -219,7 +219,7 @@ format = "json"
 
 ---
 
-## usenet-ipfs-reader
+## stoa-reader
 
 Config struct: `crates/reader/src/config.rs::Config`
 
@@ -227,8 +227,8 @@ Required sections: `[listen]`, `[limits]`, `[auth]`, `[tls]`
 
 Optional sections: `[admin]`, `[log]`
 
-**Note on CID extensions:** The five NNTP CID extensions (`X-Usenet-IPFS-CID`
-header, `X-Usenet-IPFS-Root-CID` header, `XCID` command, `XVERIFY` command,
+**Note on CID extensions:** The five NNTP CID extensions (`X-Stoa-CID`
+header, `X-Stoa-Root-CID` header, `XCID` command, `XVERIFY` command,
 `ARTICLE cid:` locator) are always enabled and require no configuration.
 They are advertised in `CAPABILITIES` automatically. See `docs/wire_format.md`
 §12 for the full protocol specification.
@@ -375,7 +375,7 @@ Controls log output. This section is optional; all fields have defaults.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `level` | string | `"info"` | Log level or filter string. Simple values: `"error"`, `"warn"`, `"info"`, `"debug"`, `"trace"`. Filter syntax: `"usenet_ipfs_reader=debug,info"`. Overridden at runtime by the `RUST_LOG` environment variable. |
+| `level` | string | `"info"` | Log level or filter string. Simple values: `"error"`, `"warn"`, `"info"`, `"debug"`, `"trace"`. Filter syntax: `"stoa_reader=debug,info"`. Overridden at runtime by the `RUST_LOG` environment variable. |
 | `format` | string | `"json"` | Output format. `"json"` emits structured JSON. `"text"` emits human-readable lines. |
 
 Example:

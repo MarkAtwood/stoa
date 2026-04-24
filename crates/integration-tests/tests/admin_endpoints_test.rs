@@ -2,13 +2,13 @@
 //!
 //! Starts a reader admin server in-process and verifies that /health,
 //! /version, /reload, and error cases all return the expected responses.
-//! Uses raw TCP so the test has no dependency on usenet-ipfs-ctl.
+//! Uses raw TCP so the test has no dependency on stoa-ctl.
 
 use std::time::Instant;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 
-use usenet_ipfs_reader::admin::start_admin_server;
+use stoa_reader::admin::start_admin_server;
 
 /// Send a raw GET request and return `(status_line, body)`.
 async fn http_get(addr: &str, path: &str) -> (String, String) {

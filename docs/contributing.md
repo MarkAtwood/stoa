@@ -1,4 +1,4 @@
-# Contributing to usenet-ipfs
+# Contributing to stoa
 
 ## Prerequisites
 
@@ -47,7 +47,7 @@ Unit tests do not require a running IPFS node. Integration tests do; they expect
 
 ```bash
 git clone <repo-url>
-cd usenet-ipfs
+cd stoa
 
 just build      # cargo build --workspace
 just test       # cargo test --workspace
@@ -72,18 +72,18 @@ just --list     # print all available recipes
 
 ```
 crates/
-  core/       usenet-ipfs-core  — shared types and logic (rlib)
-  transit/    usenet-ipfs-transit — NNTP peering daemon (binary)
-  reader/     usenet-ipfs-reader  — RFC 3977 reader server (binary)
+  core/       stoa-core  — shared types and logic (rlib)
+  transit/    stoa-transit — NNTP peering daemon (binary)
+  reader/     stoa-reader  — RFC 3977 reader server (binary)
 spikes/       library benchmark results (iroh, rust-ipfs, libp2p)
 docs/         design and process documents
 ```
 
-**`usenet-ipfs-core`** owns: article IPLD schema, CID derivation, canonical serialization, group log (Merkle-CRDT), Ed25519 signing, `message_id` validation, and all shared error types. The other crates import error types and domain types from here; they do not define their own.
+**`stoa-core`** owns: article IPLD schema, CID derivation, canonical serialization, group log (Merkle-CRDT), Ed25519 signing, `message_id` validation, and all shared error types. The other crates import error types and domain types from here; they do not define their own.
 
-**`usenet-ipfs-transit`** is the peering daemon. It speaks NNTP to other transit servers, runs the gossipsub peer mesh, manages the pinning policy, and drives GC.
+**`stoa-transit`** is the peering daemon. It speaks NNTP to other transit servers, runs the gossipsub peer mesh, manages the pinning policy, and drives GC.
 
-**`usenet-ipfs-reader`** is the RFC 3977 server that newsreader clients connect to (`slrn`, `tin`, Thunderbird, etc.). It synthesizes local article numbers, maintains the overview index, and handles `POST`.
+**`stoa-reader`** is the RFC 3977 server that newsreader clients connect to (`slrn`, `tin`, Thunderbird, etc.). It synthesizes local article numbers, maintains the overview index, and handles `POST`.
 
 ---
 
@@ -97,7 +97,7 @@ docs/         design and process documents
 
 **IPLD codec:** DAG-CBOR (codec `0x71`), implemented with `serde_ipld_dagcbor` 0.6. This is irreversible once articles are in IPFS and referenced in group logs.
 
-**Gossipsub topic naming:** `usenet.hier.<hierarchy>` — for example, `usenet.hier.comp`. Topics are per-hierarchy, not per-group. Filter by group name inside the topic handler.
+**Gossipsub topic naming:** `stoa.hier.<hierarchy>` — for example, `stoa.hier.comp`. Topics are per-hierarchy, not per-group. Filter by group name inside the topic handler.
 
 **Canonical serialization:** RFC 8785 canonical JSON for any object that is signed or hashed. Rules: sorted keys, NFKC normalization, UTC timestamps with `Z` suffix, no whitespace, no trailing zeros in fractional seconds.
 

@@ -1,6 +1,6 @@
 //! AUTHINFO command handler (RFC 4643).
 
-use usenet_ipfs_core::audit::{AuditEvent, AuditLoggerHandle};
+use stoa_core::audit::{AuditEvent, AuditLoggerHandle};
 
 /// Process an AUTHINFO USER/PASS attempt and return the appropriate NNTP response.
 ///

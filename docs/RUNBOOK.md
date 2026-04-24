@@ -1,6 +1,6 @@
 # Operator Deployment Runbook
 
-This runbook covers building, configuring, and running both usenet-ipfs daemons
+This runbook covers building, configuring, and running both stoa daemons
 on a single host. It reflects the current codebase state.
 
 ---
@@ -25,7 +25,7 @@ Before deploying, understand these v1 constraints:
 - Git
 - Kubo (go-ipfs): https://docs.ipfs.tech/install/command-line/
 
-Start the Kubo daemon before starting either usenet-ipfs daemon:
+Start the Kubo daemon before starting either stoa daemon:
 
 ```bash
 ipfs daemon
@@ -38,14 +38,14 @@ Kubo must be reachable at `http://127.0.0.1:5001` (the default) or at the `api_u
 ## Build
 
 ```bash
-git clone https://github.com/MarkAtwood/usenet-ipfs.git
-cd usenet-ipfs
-cargo build --release -p usenet-ipfs-transit -p usenet-ipfs-reader
+git clone https://github.com/MarkAtwood/stoa.git
+cd stoa
+cargo build --release -p stoa-transit -p stoa-reader
 ```
 
 Binaries land in `target/release/`:
-- `target/release/usenet-ipfs-transit`
-- `target/release/usenet-ipfs-reader`
+- `target/release/stoa-transit`
+- `target/release/stoa-reader`
 
 Run the test suite to verify the build:
 ```bash
@@ -61,7 +61,7 @@ All tests must pass (730+ expected) before deploying.
 Both daemons sign every article they ingest with an Ed25519 key.  The key is
 used to:
 
-- Sign articles (adds `X-Usenet-IPFS-Sig:` header) so peers can verify they
+- Sign articles (adds `X-Stoa-Sig:` header) so peers can verify they
   came from a trusted operator.
 - Derive the stable 8-byte HLC node ID embedded in all timestamps.
 
@@ -71,17 +71,17 @@ Run `keygen` once, **before** the daemon's first start:
 
 ```bash
 # For the transit daemon:
-usenet-ipfs-transit keygen --output /etc/usenet-ipfs/transit/operator.key
+stoa-transit keygen --output /etc/stoa/transit/operator.key
 
 # For the reader daemon:
-usenet-ipfs-reader keygen --output /etc/usenet-ipfs/reader/operator.key
+stoa-reader keygen --output /etc/stoa/reader/operator.key
 ```
 
 Output:
 ```
 public_key: <64-hex-char Ed25519 public key>
 node_id:    <16-hex-char HLC node ID>
-key_file:   /etc/usenet-ipfs/transit/operator.key
+key_file:   /etc/stoa/transit/operator.key
 ```
 
 The key file is written with mode 0600 (owner-read only).  If the file already
@@ -94,7 +94,7 @@ Add to your config file:
 
 ```toml
 [operator]
-signing_key_path = "/etc/usenet-ipfs/transit/operator.key"
+signing_key_path = "/etc/stoa/transit/operator.key"
 ```
 
 Both daemons **require** this setting when binding to a non-loopback address.
@@ -102,14 +102,14 @@ They exit at startup with a clear error if it is absent:
 
 ```
 error: operator.signing_key_path must be set when listening on a non-loopback
-address (0.0.0.0:119). Run `usenet-ipfs-transit keygen --output <path>` to
+address (0.0.0.0:119). Run `stoa-transit keygen --output <path>` to
 generate a key, then set [operator] signing_key_path in your config.
 ```
 
 ### Key file security
 
 - The key file must not be world-readable.  Both daemons exit with an error if
-  `o+r` is set: `chmod 0600 /etc/usenet-ipfs/transit/operator.key`.
+  `o+r` is set: `chmod 0600 /etc/stoa/transit/operator.key`.
 - The file must contain exactly 32 raw bytes (the Ed25519 seed).
 
 ### Backup and recovery
@@ -125,7 +125,7 @@ generate a key, then set [operator] signing_key_path in your config.
 Back up to a second offline location, encrypted with a passphrase:
 
 ```bash
-gpg --symmetric --cipher-algo AES256 -o operator.key.gpg /etc/usenet-ipfs/transit/operator.key
+gpg --symmetric --cipher-algo AES256 -o operator.key.gpg /etc/stoa/transit/operator.key
 ```
 
 To restore, decrypt and copy the file back, then verify the daemon starts cleanly.
@@ -160,7 +160,7 @@ names = [
 api_url    = "http://127.0.0.1:5001"
 # Optional local block cache directory. Created at startup if absent.
 # Recommended: avoids re-fetching blocks from Kubo on every read.
-cache_path = "/var/cache/usenet-ipfs/blocks"
+cache_path = "/var/cache/stoa/blocks"
 
 [pinning]
 rules = ["pin-all-ingress"]
@@ -171,11 +171,11 @@ max_age_days = 90
 
 [database]
 # SQLite database files. Directories must exist; files are created on first run.
-core_path = "/var/lib/usenet-ipfs/transit/core.db"
-path       = "/var/lib/usenet-ipfs/transit/transit.db"
+core_path = "/var/lib/stoa/transit/core.db"
+path       = "/var/lib/stoa/transit/transit.db"
 
 [operator]
-signing_key_path = "/etc/usenet-ipfs/transit/operator.key"
+signing_key_path = "/etc/stoa/transit/operator.key"
 
 [admin]
 addr = "127.0.0.1:9090"
@@ -191,15 +191,15 @@ format = "json"
 
 ```bash
 # Generate operator key (first time only):
-usenet-ipfs-transit keygen --output /etc/usenet-ipfs/transit/operator.key
+stoa-transit keygen --output /etc/stoa/transit/operator.key
 
-mkdir -p /var/lib/usenet-ipfs/transit
-usenet-ipfs-transit --config transit.toml
+mkdir -p /var/lib/stoa/transit
+stoa-transit --config transit.toml
 ```
 
 The daemon logs structured JSON to stdout. Redirect as needed:
 ```bash
-usenet-ipfs-transit --config transit.toml 2>&1 | tee -a /var/log/usenet-ipfs-transit.log
+stoa-transit --config transit.toml 2>&1 | tee -a /var/log/stoa-transit.log
 ```
 
 ### Verify
@@ -249,14 +249,14 @@ command_timeout_secs = 30
 
 [ipfs]
 api_url    = "http://127.0.0.1:5001"
-cache_path = "/var/cache/usenet-ipfs/blocks"
+cache_path = "/var/cache/stoa/blocks"
 
 [database]
 # On-disk SQLite files. Parent directories are created at startup if absent.
 # Three files are required — mixing schemas in one file causes migration errors.
-reader_path = "/var/lib/usenet-ipfs/reader/reader.db"
-core_path   = "/var/lib/usenet-ipfs/reader/reader_core.db"
-verify_path = "/var/lib/usenet-ipfs/reader/reader_verify.db"
+reader_path = "/var/lib/stoa/reader/reader.db"
+core_path   = "/var/lib/stoa/reader/reader_core.db"
+verify_path = "/var/lib/stoa/reader/reader_verify.db"
 
 [auth]
 required = false   # set true and add [[auth.users]] for production
@@ -271,7 +271,7 @@ required = false   # set true and add [[auth.users]] for production
 # key_path  = "/etc/ssl/private/nntp.key"
 
 [operator]
-signing_key_path = "/etc/usenet-ipfs/reader/operator.key"
+signing_key_path = "/etc/stoa/reader/operator.key"
 
 [admin]
 # Use a different port if reader and transit run on the same host.
@@ -286,9 +286,9 @@ format = "json"
 
 ```bash
 # Generate operator key (first time only):
-usenet-ipfs-reader keygen --output /etc/usenet-ipfs/reader/operator.key
+stoa-reader keygen --output /etc/stoa/reader/operator.key
 
-usenet-ipfs-reader --config reader.toml
+stoa-reader --config reader.toml
 ```
 
 The reader starts its own embedded rust-ipfs node. On first connection it
@@ -304,7 +304,7 @@ Connect with netcat:
 
 Expected output:
 ```
-200 usenet-ipfs reader ready
+200 stoa reader ready
 101 Capability list follows
 VERSION 2
 READER
@@ -374,15 +374,15 @@ chance to exit cleanly before systemd sends SIGKILL:
 
 ```ini
 [Unit]
-Description=usenet-ipfs transit daemon
+Description=stoa transit daemon
 After=network.target ipfs.service
 Requires=ipfs.service
 
 [Service]
-ExecStart=/usr/local/bin/usenet-ipfs-transit --config /etc/usenet-ipfs/transit.toml
+ExecStart=/usr/local/bin/stoa-transit --config /etc/stoa/transit.toml
 Restart=on-failure
 RestartSec=5s
-User=usenet-ipfs
+User=stoa
 
 # Graceful shutdown: send SIGTERM, wait up to 90 s, then SIGKILL.
 KillMode=mixed
@@ -436,7 +436,7 @@ be re-ingested.
 
 | Symptom | Likely cause | Action |
 |---------|-------------|--------|
-| `error: failed to bind 0.0.0.0:119` | Port 119 requires root or `CAP_NET_BIND_SERVICE` | Use port ≥1024 in config, or `sudo setcap cap_net_bind_service=+ep target/release/usenet-ipfs-transit` |
+| `error: failed to bind 0.0.0.0:119` | Port 119 requires root or `CAP_NET_BIND_SERVICE` | Use port ≥1024 in config, or `sudo setcap cap_net_bind_service=+ep target/release/stoa-transit` |
 | `LIST` returns empty | No articles posted yet | POST an article via the reader; groups are discovered from posted articles |
 | `GROUP comp.lang.rust` returns `411 No such newsgroup` | No articles in that group | The reader synthesizes groups from posted articles; a group with no articles is not listed |
 | Admin endpoint returns 403 | `bearer_token` is configured | Pass `Authorization: Bearer <token>` header |
@@ -445,9 +445,9 @@ be re-ingested.
 
 ---
 
-## Mail daemon (usenet-ipfs-mail)
+## Mail daemon (stoa-mail)
 
-`usenet-ipfs-mail` is a JMAP (RFC 8620/8621) server that exposes the usenet-ipfs
+`stoa-mail` is a JMAP (RFC 8620/8621) server that exposes the stoa
 article store to email clients such as Fastmail, Thunderbird, and iOS Mail.
 
 > **v1 Limitations**
@@ -457,11 +457,11 @@ article store to email clients such as Fastmail, Thunderbird, and iOS Mail.
 > | **No EventSource push** | `eventSourceUrl` is advertised but not implemented. Clients must poll. |
 > | **cannotCalculateChanges** | `Mailbox/changes` and `Email/changes` always return `cannotCalculateChanges`. Clients perform full re-sync on every session. |
 > | **In-memory user_flags** | `\Seen`/`\Flagged` state uses the mail SQLite database and persists, but is per-instance only — not shared across mail server restarts if the database is in-memory. |
-> | **Depends on reader stores** | The mail server reads articles from the same SQLite and IPFS as a co-located `usenet-ipfs-reader`. They must share the same reader database file. |
+> | **Depends on reader stores** | The mail server reads articles from the same SQLite and IPFS as a co-located `stoa-reader`. They must share the same reader database file. |
 
 ### Prerequisites
 
-`usenet-ipfs-mail` must run on the same host as `usenet-ipfs-reader` and share its
+`stoa-mail` must run on the same host as `stoa-reader` and share its
 SQLite database file. The reader daemon must be started first.
 
 ### Configuration
@@ -479,7 +479,7 @@ addr = "127.0.0.1:8080"
 
 [database]
 # Mail-specific state (per-user flags, subscriptions).
-path = "/var/lib/usenet-ipfs/mail/mail.db"
+path = "/var/lib/stoa/mail/mail.db"
 
 [auth]
 required = false   # set true and add [[auth.users]] for production
@@ -496,8 +496,8 @@ format = "json"
 ### Start
 
 ```bash
-mkdir -p /var/lib/usenet-ipfs/mail
-usenet-ipfs-mail --config mail.toml
+mkdir -p /var/lib/stoa/mail
+stoa-mail --config mail.toml
 ```
 
 ### Create users (manual)
@@ -510,7 +510,7 @@ and insert directly:
 python3 -c "import bcrypt; print(bcrypt.hashpw(b'yourpassword', bcrypt.gensalt(12)).decode())"
 
 # Insert into database:
-sqlite3 /var/lib/usenet-ipfs/mail/mail.db \
+sqlite3 /var/lib/stoa/mail/mail.db \
   "INSERT INTO users (username, password_hash) VALUES ('alice', '\$2b\$12\$...');"
 ```
 

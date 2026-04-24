@@ -1,11 +1,11 @@
 [package]
-name = "usenet-ipfs-tls"
+name = "stoa-tls"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.80"
 
 [lib]
-name = "usenet_ipfs_tls"
+name = "stoa_tls"
 path = "src/lib.rs"
 
 [dependencies]

@@ -1,9 +1,9 @@
 use serde::Deserialize;
 use std::path::Path;
 
-pub use usenet_ipfs_smtp::config::SmtpRelayPeerConfig;
+pub use stoa_smtp::config::SmtpRelayPeerConfig;
 
-pub use usenet_ipfs_auth::{AuthConfig, UserCredential};
+pub use stoa_auth::{AuthConfig, UserCredential};
 
 // Config fields are read from TOML; server logic will consume them as epics are implemented.
 #[allow(dead_code)]
@@ -42,7 +42,7 @@ pub struct TlsConfig {
 }
 
 fn default_database_path() -> String {
-    "/var/lib/usenet-ipfs/mail/mail.db".to_string()
+    "/var/lib/stoa/mail/mail.db".to_string()
 }
 
 #[derive(Debug, Deserialize)]
@@ -61,7 +61,7 @@ impl Default for DatabaseConfig {
 
 #[derive(Debug, Deserialize)]
 pub struct LogConfig {
-    /// Log level filter (e.g. "info", "debug", "usenet_ipfs_mail=debug").
+    /// Log level filter (e.g. "info", "debug", "stoa_mail=debug").
     /// Defaults to "info". Also overridden by the RUST_LOG env var.
     #[serde(default = "default_log_level")]
     pub level: String,
@@ -97,7 +97,7 @@ pub struct CorsConfig {
 }
 
 fn default_smtp_relay_queue_dir() -> String {
-    "/var/lib/usenet-ipfs/mail/smtp-relay-queue".to_string()
+    "/var/lib/stoa/mail/smtp-relay-queue".to_string()
 }
 
 fn default_smtp_relay_retry_secs() -> u64 {
@@ -195,7 +195,7 @@ mod tests {
 addr = "127.0.0.1:8080"
 
 [database]
-path = "/var/lib/usenet-ipfs/mail/mail.db"
+path = "/var/lib/stoa/mail/mail.db"
 
 [auth]
 required = false
@@ -205,7 +205,7 @@ required = false
         let f = write_toml(toml);
         let cfg = Config::from_file(f.path()).expect("should parse");
         assert_eq!(cfg.listen.addr, "127.0.0.1:8080");
-        assert_eq!(cfg.database.path, "/var/lib/usenet-ipfs/mail/mail.db");
+        assert_eq!(cfg.database.path, "/var/lib/stoa/mail/mail.db");
         assert!(!cfg.auth.required);
         assert!(cfg.tls.cert_path.is_none());
         assert!(cfg.tls.key_path.is_none());
@@ -222,7 +222,7 @@ addr = "0.0.0.0:443"
 base_url = "https://mail.example.com"
 
 [database]
-path = "/var/lib/usenet-ipfs/mail/mail.db"
+path = "/var/lib/stoa/mail/mail.db"
 
 [auth]
 required = false
@@ -241,7 +241,7 @@ required = false
 addr = "127.0.0.1:8080"
 
 [database]
-path = "/var/lib/usenet-ipfs/mail/mail.db"
+path = "/var/lib/stoa/mail/mail.db"
 
 [auth]
 required = false
@@ -258,7 +258,7 @@ cert_path = "/etc/ssl/certs/jmap.pem"
     fn missing_listen_is_parse_error() {
         let toml = r#"
 [database]
-path = "/var/lib/usenet-ipfs/mail/mail.db"
+path = "/var/lib/stoa/mail/mail.db"
 
 [auth]
 required = false
@@ -277,7 +277,7 @@ required = false
 addr = ""
 
 [database]
-path = "/var/lib/usenet-ipfs/mail/mail.db"
+path = "/var/lib/stoa/mail/mail.db"
 
 [auth]
 required = false
@@ -315,7 +315,7 @@ required = false
 addr = "127.0.0.1:8080"
 
 [database]
-path = "/var/lib/usenet-ipfs/mail/mail.db"
+path = "/var/lib/stoa/mail/mail.db"
 
 [auth]
 required = false
@@ -358,6 +358,6 @@ required = false
 "#;
         let f = write_toml(toml);
         let cfg = Config::from_file(f.path()).expect("should parse");
-        assert_eq!(cfg.database.path, "/var/lib/usenet-ipfs/mail/mail.db");
+        assert_eq!(cfg.database.path, "/var/lib/stoa/mail/mail.db");
     }
 }

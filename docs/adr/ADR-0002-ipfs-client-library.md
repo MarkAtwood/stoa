@@ -56,7 +56,7 @@ initialised via `DefaultIpfsBuilder` and held as a shared handle inside each
 binary. The same libp2p swarm instance is reused for both bitswap block exchange
 and gossipsub group-log dissemination.
 
-This decision is recorded in Beads issue usenet-ipfs-l62.1.4.
+This decision is recorded in Beads issue stoa-l62.1.4.
 
 ## Consequences
 

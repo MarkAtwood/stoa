@@ -9,7 +9,7 @@ use cid::Cid;
 use multihash_codetable::{Code, MultihashDigest};
 
 use crate::session::response::Response;
-use usenet_ipfs_core::{ipld::builder::build_article, msgid_map::MsgIdMap};
+use stoa_core::{ipld::builder::build_article, msgid_map::MsgIdMap};
 
 // ---------------------------------------------------------------------------
 // Error type
@@ -63,8 +63,8 @@ pub trait IpfsBlockStore: Send + Sync {
     async fn delete(
         &self,
         _cid: &Cid,
-    ) -> Result<usenet_ipfs_core::ipfs::DeletionOutcome, IpfsWriteError> {
-        Ok(usenet_ipfs_core::ipfs::DeletionOutcome::Deferred {
+    ) -> Result<stoa_core::ipfs::DeletionOutcome, IpfsWriteError> {
+        Ok(stoa_core::ipfs::DeletionOutcome::Deferred {
             readable_for_approx_secs: None,
         })
     }
@@ -134,7 +134,7 @@ impl IpfsBlockStore for MemIpfsStore {
 /// directory holds one file per CID (named by the CID's string representation).
 /// No LRU eviction is performed; disk management is the operator's responsibility.
 pub struct KuboBlockStore {
-    client: usenet_ipfs_core::ipfs::KuboHttpClient,
+    client: stoa_core::ipfs::KuboHttpClient,
     cache_dir: Option<std::path::PathBuf>,
 }
 
@@ -145,7 +145,7 @@ impl KuboBlockStore {
     /// The directory must already exist.
     pub fn new(api_url: &str, cache_dir: Option<std::path::PathBuf>) -> Self {
         Self {
-            client: usenet_ipfs_core::ipfs::KuboHttpClient::new(api_url),
+            client: stoa_core::ipfs::KuboHttpClient::new(api_url),
             cache_dir,
         }
     }
@@ -211,12 +211,12 @@ impl IpfsBlockStore for KuboBlockStore {
     async fn delete(
         &self,
         cid: &Cid,
-    ) -> Result<usenet_ipfs_core::ipfs::DeletionOutcome, IpfsWriteError> {
+    ) -> Result<stoa_core::ipfs::DeletionOutcome, IpfsWriteError> {
         self.client
             .pin_rm(cid)
             .await
             .map_err(|e| IpfsWriteError::WriteFailed(e.to_string()))?;
-        Ok(usenet_ipfs_core::ipfs::DeletionOutcome::Deferred {
+        Ok(stoa_core::ipfs::DeletionOutcome::Deferred {
             readable_for_approx_secs: None,
         })
     }
@@ -385,14 +385,14 @@ fn split_header_body(bytes: &[u8]) -> (Vec<u8>, Vec<u8>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use usenet_ipfs_core::msgid_map::MsgIdMap;
+    use stoa_core::msgid_map::MsgIdMap;
 
     async fn make_msgid_map() -> MsgIdMap {
         let pool = sqlx::sqlite::SqlitePoolOptions::new()
             .connect("sqlite::memory:")
             .await
             .unwrap();
-        usenet_ipfs_core::migrations::run_migrations(&pool)
+        stoa_core::migrations::run_migrations(&pool)
             .await
             .unwrap();
         MsgIdMap::new(pool)

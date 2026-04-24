@@ -8,7 +8,7 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use usenet_ipfs_reader::session::{
+use stoa_reader::session::{
     commands::{
         fetch::{
             article_response, body_response, head_response, no_group_selected, no_such_msgid,

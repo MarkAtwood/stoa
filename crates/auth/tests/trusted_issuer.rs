@@ -49,7 +49,7 @@
 //! → error 20: unable to get local issuer certificate   (EXPECTED FAILURE)
 //! ```
 
-use usenet_ipfs_auth::{TrustedIssuerEntry, TrustedIssuerStore};
+use stoa_auth::{TrustedIssuerEntry, TrustedIssuerStore};
 
 // ---------------------------------------------------------------------------
 // Test fixtures: DER-encoded certificates

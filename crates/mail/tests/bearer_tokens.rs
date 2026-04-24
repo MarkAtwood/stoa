@@ -8,7 +8,7 @@
 //!                    9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
 //!                    (verified independently via `echo -n "test" | sha256sum`)
 //!
-//! These tests derive expected behaviour from the bead usenet-ipfs-1c8.7 spec
+//! These tests derive expected behaviour from the bead stoa-1c8.7 spec
 //! and the RFCs above.  They do NOT read the implementation in auth_token.rs.
 //!
 //! Routes under test:
@@ -28,8 +28,8 @@ use std::time::Instant;
 
 use data_encoding::BASE64;
 use tokio::net::TcpListener;
-use usenet_ipfs_auth::{AuthConfig, CredentialStore, UserCredential};
-use usenet_ipfs_mail::{
+use stoa_auth::{AuthConfig, CredentialStore, UserCredential};
+use stoa_mail::{
     server::{build_router, AppState},
     token_store::TokenStore,
 };
@@ -49,7 +49,7 @@ async fn make_mail_pool(tag: &str) -> sqlx::SqlitePool {
         .connect_with(opts)
         .await
         .expect("pool");
-    usenet_ipfs_mail::migrations::run_migrations(&pool)
+    stoa_mail::migrations::run_migrations(&pool)
         .await
         .expect("migrations");
     pool
@@ -64,7 +64,7 @@ fn dev_app_state(token_store: Arc<TokenStore>) -> Arc<AppState> {
         auth_config: Arc::new(AuthConfig::default()),
         token_store,
         base_url: "http://localhost".to_string(),
-        cors: usenet_ipfs_mail::config::CorsConfig::default(),
+        cors: stoa_mail::config::CorsConfig::default(),
     })
 }
 
@@ -86,7 +86,7 @@ fn auth_app_state_alice(token_store: Arc<TokenStore>) -> Arc<AppState> {
         }),
         token_store,
         base_url: "http://localhost".to_string(),
-        cors: usenet_ipfs_mail::config::CorsConfig::default(),
+        cors: stoa_mail::config::CorsConfig::default(),
     })
 }
 
@@ -115,7 +115,7 @@ fn auth_app_state_two_users(token_store: Arc<TokenStore>) -> Arc<AppState> {
         }),
         token_store,
         base_url: "http://localhost".to_string(),
-        cors: usenet_ipfs_mail::config::CorsConfig::default(),
+        cors: stoa_mail::config::CorsConfig::default(),
     })
 }
 
@@ -169,7 +169,7 @@ fn is_uuid_v4(s: &str) -> bool {
 
 // ── Test 1: POST /jmap/auth/token — valid Basic auth → 201 with token fields ──
 
-/// Spec (usenet-ipfs-1c8.7): POST /jmap/auth/token with valid Basic auth returns
+/// Spec (stoa-1c8.7): POST /jmap/auth/token with valid Basic auth returns
 /// 201 with body containing "token", "id", and "expires_at".
 ///
 /// RFC 6750 §2.1: the token value is a base64url string.
@@ -300,7 +300,7 @@ async fn invalid_bearer_token_returns_401() {
 
 // ── Test 4: Expired token is rejected ─────────────────────────────────────────
 
-/// Spec (usenet-ipfs-1c8.7): expires_at is checked on every request.
+/// Spec (stoa-1c8.7): expires_at is checked on every request.
 /// A token whose expires_at is in the past must be rejected with 401.
 ///
 /// We seed a token directly via TokenStore::issue with expires_in_days = -1
@@ -423,7 +423,7 @@ async fn delete_token_revokes_access() {
 
 // ── Test 6: GET /jmap/auth/token lists tokens without raw token or hash ────────
 
-/// Spec (usenet-ipfs-1c8.7): GET /jmap/auth/token returns an array of token
+/// Spec (stoa-1c8.7): GET /jmap/auth/token returns an array of token
 /// records. Each record must include "id" and "label". It must NEVER include
 /// the raw token string or any form of its hash.
 ///
@@ -577,7 +577,7 @@ async fn user_b_cannot_revoke_user_a_token() {
 /// The issued token must be usable on protected endpoints (which also bypass
 /// auth in dev mode).
 ///
-/// Oracle: bead usenet-ipfs-1c8.7 spec — dev mode bootstrap case.
+/// Oracle: bead stoa-1c8.7 spec — dev mode bootstrap case.
 #[tokio::test]
 async fn dev_mode_post_token_issues_token_without_credentials() {
     let pool = make_mail_pool("t08").await;

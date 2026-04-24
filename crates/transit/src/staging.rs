@@ -1,4 +1,4 @@
-//! Write-ahead staging area for inbound articles (usenet-ipfs-9mf).
+//! Write-ahead staging area for inbound articles (stoa-9mf).
 //!
 //! When `[staging]` is configured, articles accepted from peers are written to
 //! a local directory (one file per article) and recorded in the

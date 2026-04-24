@@ -1,15 +1,15 @@
 [package]
-name = "usenet-ipfs-transit"
+name = "stoa-transit"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.80"
 
 [lib]
-name = "usenet_ipfs_transit"
+name = "stoa_transit"
 path = "src/lib.rs"
 
 [[bin]]
-name = "usenet-ipfs-transit"
+name = "stoa-transit"
 path = "src/main.rs"
 
 [dependencies]
@@ -19,7 +19,7 @@ serde_json = "1"
 toml = "0.8"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-usenet-ipfs-core = { path = "../core" }
+stoa-core = { path = "../core" }
 libp2p = { version = "0.56", features = ["tokio", "tcp", "noise", "yamux", "gossipsub", "identify", "macros", "kad"] }
 sha2 = "0.10"
 rand_core = { version = "0.6", features = ["getrandom"] }
@@ -35,11 +35,11 @@ subtle = "2"
 lazy_static = "1.5.0"
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
 tokio-rustls = "0.26"
-usenet-ipfs-tls = { path = "../tls" }
-usenet-ipfs-verify = { path = "../verify" }
+stoa-tls = { path = "../tls" }
+stoa-verify = { path = "../verify" }
 mail-auth = "0.8"
 serde_ipld_dagcbor = "=0.6.4"
-usenet-ipfs-lmdb = { path = "../lmdb" }
+stoa-lmdb = { path = "../lmdb" }
 
 [[bench]]
 name = "ihave_throughput"

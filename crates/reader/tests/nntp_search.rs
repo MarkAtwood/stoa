@@ -10,9 +10,9 @@ use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 
-use usenet_ipfs_reader::{session::lifecycle::run_session, store::server_stores::ServerStores};
+use stoa_reader::{session::lifecycle::run_session, store::server_stores::ServerStores};
 
-fn test_config(addr: &str) -> usenet_ipfs_reader::config::Config {
+fn test_config(addr: &str) -> stoa_reader::config::Config {
     let toml = format!(
         "[listen]\naddr = \"{addr}\"\n\
          [limits]\nmax_connections = 10\ncommand_timeout_secs = 30\n\

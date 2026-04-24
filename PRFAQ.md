@@ -1,8 +1,8 @@
-# PRFAQ: usenet-ipfs
+# PRFAQ: stoa
 
 ## Press Release
 
-**usenet-ipfs: Usenet over IPFS, with a standard NNTP interface**
+**stoa: Usenet over IPFS, with a standard NNTP interface**
 
 *Run a newsgroup server whose storage is content-addressed and whose group state is a peer-to-peer Merkle-CRDT log — without changing a single line of your newsreader client.*
 
@@ -10,13 +10,13 @@
 
 The Usenet news protocol has been in continuous use since 1980. Its wire format (RFC 3977 NNTP) is stable, well-understood, and supported by a long tail of mature client software. Its storage infrastructure, however, is centralized: a shrinking number of commercial news servers hold canonical copies of articles, apply their own retention policies with no public audit trail, and coordinate group state through private peering agreements.
 
-**usenet-ipfs** replaces the storage and coordination layer while keeping the client interface unchanged. Articles are stored as content-addressed IPLD blocks in IPFS. Group state — which articles belong to which group, in what order — is a per-group Merkle-CRDT append-only log reconciled over a libp2p gossipsub overlay. Any peer can verify the log's integrity by following the Merkle chain. No central authority controls retention.
+**stoa** replaces the storage and coordination layer while keeping the client interface unchanged. Articles are stored as content-addressed IPLD blocks in IPFS. Group state — which articles belong to which group, in what order — is a per-group Merkle-CRDT append-only log reconciled over a libp2p gossipsub overlay. Any peer can verify the log's integrity by following the Merkle chain. No central authority controls retention.
 
 The reader server presents a standard RFC 3977 NNTP interface. Slrn, tin, pan, gnus, and Thunderbird connect to it and see an ordinary newsgroup server. They do not need to be patched, configured specially, or made aware of IPFS.
 
 The transit daemon handles peering: receiving articles via IHAVE, storing them to IPFS, appending to the group log, and propagating tips to peers over gossipsub. Operators configure pinning policy and GC retention rules explicitly; "it's in IPFS" is not treated as a retention strategy.
 
-usenet-ipfs is written in Rust and is open-source under the MIT license.
+stoa is written in Rust and is open-source under the MIT license.
 
 ---
 
@@ -32,7 +32,7 @@ No. The reader daemon speaks RFC 3977 NNTP verbatim. Configure it the same way y
 
 **Can I read binary groups / NZB files?**
 
-Not in v1. usenet-ipfs v1 is text-only. Binary groups, yEnc-encoded posts, and NZB-equivalent manifests are deferred. A placeholder epic exists and will be addressed in a future release once the text-only core is stable.
+Not in v1. stoa v1 is text-only. Binary groups, yEnc-encoded posts, and NZB-equivalent manifests are deferred. A placeholder epic exists and will be addressed in a future release once the text-only core is stable.
 
 **How does article retention work?**
 
@@ -40,7 +40,7 @@ Explicitly. Operators configure pinning rules (by group, age, size) and a GC pol
 
 **How does peer discovery work?**
 
-Gossipsub topics are per-hierarchy: all `comp.*` traffic flows over the `usenet.hier.comp` topic. In-topic filtering by group name happens at each node. DHT is used as a fallback for tip discovery by peers that have been offline. Late-joining peers backfill by following parent links in the Merkle-CRDT log.
+Gossipsub topics are per-hierarchy: all `comp.*` traffic flows over the `stoa.hier.comp` topic. In-topic filtering by group name happens at each node. DHT is used as a fallback for tip discovery by peers that have been offline. Late-joining peers backfill by following parent links in the Merkle-CRDT log.
 
 **Can I import an existing archive?**
 
@@ -52,11 +52,11 @@ Every article is signed by the operator's ed25519 key before it is written to IP
 
 **Is there moderation?**
 
-No, not in v1. usenet-ipfs does not implement cancel messages, NoCeM, or any allowlist/denylist mechanism. The group log is append-only. Moderation tooling is deferred to a future release.
+No, not in v1. stoa does not implement cancel messages, NoCeM, or any allowlist/denylist mechanism. The group log is append-only. Moderation tooling is deferred to a future release.
 
 **What is the gossipsub topic naming scheme?**
 
-`usenet.hier.<hierarchy>` — for example, `usenet.hier.comp` for all `comp.*` groups, `usenet.hier.sci` for all `sci.*` groups. Per-group topics do not scale past a few hundred groups per peer and are not used.
+`stoa.hier.<hierarchy>` — for example, `stoa.hier.comp` for all `comp.*` groups, `stoa.hier.sci` for all `sci.*` groups. Per-group topics do not scale past a few hundred groups per peer and are not used.
 
 **What happens to article numbers when I connect a new reader to an existing group?**
 

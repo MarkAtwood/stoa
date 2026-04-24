@@ -5,7 +5,7 @@ use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
 use tracing::{error, info, warn};
 
-use usenet_ipfs_reader::{
+use stoa_reader::{
     admin::start_admin_server,
     config::Config,
     session::lifecycle::run_session,
@@ -16,7 +16,7 @@ use usenet_ipfs_reader::{
 fn parse_args() -> (PathBuf, bool) {
     let args: Vec<String> = std::env::args().collect();
 
-    // Subcommand dispatch: `usenet-ipfs-reader keygen --output <path> [--force]`
+    // Subcommand dispatch: `stoa-reader keygen --output <path> [--force]`
     if args.get(1).map(|s| s.as_str()) == Some("keygen") {
         cmd_keygen(&args[2..]);
     }
@@ -59,7 +59,7 @@ async fn run_startup_checks(config: &Config) -> Vec<String> {
     // Kubo reachability check (skipped for non-Kubo backends).
     if let Some(url) = config.kubo_api_url() {
         let url = url.to_owned();
-        let client = usenet_ipfs_core::ipfs::KuboHttpClient::new(&url);
+        let client = stoa_core::ipfs::KuboHttpClient::new(&url);
         match tokio::time::timeout(Duration::from_secs(5), client.node_id()).await {
             Ok(Ok(_)) => {}
             Ok(Err(e)) => {
@@ -89,7 +89,7 @@ async fn run_startup_checks(config: &Config) -> Vec<String> {
 
     // Signing key check.
     if let Some(path) = config.operator.signing_key_path.as_deref() {
-        if let Err(e) = usenet_ipfs_core::signing::load_signing_key(std::path::Path::new(path)) {
+        if let Err(e) = stoa_core::signing::load_signing_key(std::path::Path::new(path)) {
             errors.push(format!("{e}"));
         }
     }
@@ -110,7 +110,7 @@ async fn run_startup_checks(config: &Config) -> Vec<String> {
     errors
 }
 
-/// Handle `usenet-ipfs-reader keygen --output <path> [--force]`.
+/// Handle `stoa-reader keygen --output <path> [--force]`.
 ///
 /// Generates a random 32-byte Ed25519 seed, writes it to `<path>` (mode 0600),
 /// and prints the public key hex + HLC node ID to stdout.  Exits 0 on success,
@@ -142,13 +142,13 @@ fn cmd_keygen(args: &[String]) -> ! {
             std::process::exit(1);
         }
     };
-    let key = usenet_ipfs_core::signing::generate_signing_key();
-    if let Err(e) = usenet_ipfs_core::signing::write_signing_key(&key, output_path, force) {
+    let key = stoa_core::signing::generate_signing_key();
+    if let Err(e) = stoa_core::signing::write_signing_key(&key, output_path, force) {
         eprintln!("error: {e}");
         std::process::exit(1);
     }
     let pubkey_hex = hex::encode(key.verifying_key().as_bytes());
-    let node_id = usenet_ipfs_core::signing::hlc_node_id(&key);
+    let node_id = stoa_core::signing::hlc_node_id(&key);
     let node_id_hex = hex::encode(node_id);
     println!("public_key: {pubkey_hex}");
     println!("node_id:    {node_id_hex}");
@@ -198,11 +198,11 @@ async fn main() {
 
     // Enforce signing_key_path for non-loopback deployments (zn0k).
     if config.operator.signing_key_path.is_none()
-        && !usenet_ipfs_reader::config::is_loopback_addr(&config.listen.addr)
+        && !stoa_reader::config::is_loopback_addr(&config.listen.addr)
     {
         eprintln!(
             "error: operator.signing_key_path must be set when listening on a non-loopback \
-             address ({}). Run `usenet-ipfs-reader keygen --output <path>` to generate \
+             address ({}). Run `stoa-reader keygen --output <path>` to generate \
              a key, then set [operator] signing_key_path in your config.",
             config.listen.addr
         );
@@ -212,7 +212,7 @@ async fn main() {
     info!(
         listen_addr = %config.listen.addr,
         max_connections = config.limits.max_connections,
-        "usenet-ipfs-reader starting"
+        "stoa-reader starting"
     );
 
     let listener = match TcpListener::bind(&config.listen.addr).await {
@@ -250,7 +250,7 @@ async fn main() {
         config.tls.cert_path.as_deref(),
         config.tls.key_path.as_deref(),
     ) {
-        (Some(cert), Some(key)) => match usenet_ipfs_reader::tls::load_tls_acceptor(cert, key) {
+        (Some(cert), Some(key)) => match stoa_reader::tls::load_tls_acceptor(cert, key) {
             Ok(a) => {
                 info!(cert = cert, "TLS acceptor loaded");
                 Some(Arc::new(a))
@@ -351,7 +351,7 @@ async fn main() {
         }
     }
 
-    info!("usenet-ipfs-reader stopped");
+    info!("stoa-reader stopped");
 }
 
 async fn accept_loop(

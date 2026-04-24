@@ -17,7 +17,7 @@ use axum::{
     response::IntoResponse,
 };
 use serde::Deserialize;
-use usenet_ipfs_reader::store::overview::OverviewRecord;
+use stoa_reader::store::overview::OverviewRecord;
 
 use crate::server::AppState;
 

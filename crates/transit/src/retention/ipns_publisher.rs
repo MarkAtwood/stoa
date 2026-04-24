@@ -16,7 +16,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 
-use usenet_ipfs_core::ipfs::KuboHttpClient;
+use stoa_core::ipfs::KuboHttpClient;
 
 /// Event sent by the drain task each time an article is successfully ingested.
 pub struct IpnsEvent {

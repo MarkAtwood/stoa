@@ -1,4 +1,4 @@
-# usenet-ipfs
+# stoa
 
 Run your own Usenet server. Articles are stored in IPFS and group state is reconciled peer-to-peer over libp2p gossipsub. Standard newsreader clients — slrn, tin, pan, gnus, Thunderbird — connect over unmodified RFC 3977 NNTP. No client changes required.
 
@@ -18,9 +18,9 @@ A local filesystem block cache (`[ipfs] cache_path`) is optional but recommended
 ## Quick start
 
 ```bash
-git clone https://github.com/MarkAtwood/usenet-ipfs.git
-cd usenet-ipfs
-cargo build --release -p usenet-ipfs-transit -p usenet-ipfs-reader
+git clone https://github.com/MarkAtwood/stoa.git
+cd stoa
+cargo build --release -p stoa-transit -p stoa-reader
 ```
 
 Binaries land in `target/release/`.
@@ -38,11 +38,11 @@ names = ["comp.lang.rust", "alt.test"]
 
 [ipfs]
 api_url    = "http://127.0.0.1:5001"
-cache_path = "/var/cache/usenet-ipfs/blocks"
+cache_path = "/var/cache/stoa/blocks"
 
 [database]
-core_path = "/var/lib/usenet-ipfs/transit/core.db"
-path      = "/var/lib/usenet-ipfs/transit/transit.db"
+core_path = "/var/lib/stoa/transit/core.db"
+path      = "/var/lib/stoa/transit/transit.db"
 
 [admin]
 addr = "127.0.0.1:9090"
@@ -53,8 +53,8 @@ format = "json"
 ```
 
 ```bash
-mkdir -p /var/lib/usenet-ipfs/transit
-target/release/usenet-ipfs-transit --config transit.toml
+mkdir -p /var/lib/stoa/transit
+target/release/stoa-transit --config transit.toml
 ```
 
 Verify it's up:
@@ -74,7 +74,7 @@ addr = "0.0.0.0:119"
 
 [ipfs]
 api_url    = "http://127.0.0.1:5001"
-cache_path = "/var/cache/usenet-ipfs/blocks"
+cache_path = "/var/cache/stoa/blocks"
 
 [auth]
 required = false
@@ -88,14 +88,14 @@ format = "json"
 ```
 
 ```bash
-target/release/usenet-ipfs-reader --config reader.toml
+target/release/stoa-reader --config reader.toml
 ```
 
 Verify:
 
 ```bash
 { echo "CAPABILITIES"; sleep 1; echo "QUIT"; } | nc localhost 119
-# 200 usenet-ipfs reader ready
+# 200 stoa reader ready
 # 101 Capability list follows
 # VERSION 2
 # READER
@@ -110,7 +110,7 @@ Point any RFC 3977 newsreader at `localhost:119`. No configuration or plugins on
 
 ## Read newsgroups as email (JMAP)
 
-`usenet-ipfs-mail` is a JMAP server (RFC 8620/8621) that exposes the article store to email clients — Thunderbird, Fastmail, iOS Mail.
+`stoa-mail` is a JMAP server (RFC 8620/8621) that exposes the article store to email clients — Thunderbird, Fastmail, iOS Mail.
 
 Create `mail.toml`:
 
@@ -119,7 +119,7 @@ Create `mail.toml`:
 addr = "127.0.0.1:8080"
 
 [database]
-path = "/var/lib/usenet-ipfs/mail/mail.db"
+path = "/var/lib/stoa/mail/mail.db"
 
 [auth]
 required = false
@@ -130,8 +130,8 @@ format = "json"
 ```
 
 ```bash
-mkdir -p /var/lib/usenet-ipfs/mail
-target/release/usenet-ipfs-mail --config mail.toml
+mkdir -p /var/lib/stoa/mail
+target/release/stoa-mail --config mail.toml
 ```
 
 Configure your JMAP client with session URL `http://127.0.0.1:8080/jmap/session`.
@@ -188,12 +188,12 @@ Two binaries sharing a core library:
 
 | Binary | Role |
 |--------|------|
-| `usenet-ipfs-transit` | Peering daemon. Accepts articles via IHAVE/TAKETHIS, stores to IPFS, appends to group log, propagates over gossipsub. Admin HTTP endpoint. |
-| `usenet-ipfs-reader` | RFC 3977 NNTP server. Serves articles to newsreader clients. Synthesizes local sequential article numbers, maintains overview index, handles POST. |
+| `stoa-transit` | Peering daemon. Accepts articles via IHAVE/TAKETHIS, stores to IPFS, appends to group log, propagates over gossipsub. Admin HTTP endpoint. |
+| `stoa-reader` | RFC 3977 NNTP server. Serves articles to newsreader clients. Synthesizes local sequential article numbers, maintains overview index, handles POST. |
 
-`usenet-ipfs-core` (rlib) holds shared types: article format, CID scheme, Message-ID↔CID mapping, Merkle-CRDT group log, canonical serialization, and signing.
+`stoa-core` (rlib) holds shared types: article format, CID scheme, Message-ID↔CID mapping, Merkle-CRDT group log, canonical serialization, and signing.
 
-Articles are stored as DAG-CBOR IPLD blocks (SHA-256, CIDv1 codec 0x71). Group state is a per-group Merkle-CRDT append-only log with HLC timestamps and operator ed25519 signatures, tips advertised over gossipsub topics per hierarchy (`usenet.hier.comp`, `usenet.hier.sci`, …). Article numbers are local and synthetic — never network-stable.
+Articles are stored as DAG-CBOR IPLD blocks (SHA-256, CIDv1 codec 0x71). Group state is a per-group Merkle-CRDT append-only log with HLC timestamps and operator ed25519 signatures, tips advertised over gossipsub topics per hierarchy (`stoa.hier.comp`, `stoa.hier.sci`, …). Article numbers are local and synthetic — never network-stable.
 
 ### Design invariants
 
@@ -207,7 +207,7 @@ Articles are stored as DAG-CBOR IPLD blocks (SHA-256, CIDv1 codec 0x71). Group s
 ### Workspace layout
 
 ```
-usenet-ipfs/
+stoa/
 ├── Cargo.toml
 ├── crates/
 │   ├── core/               shared types, CID scheme, Merkle-CRDT, signing
@@ -240,4 +240,4 @@ Issue tracker: [Beads](https://github.com/beads-dev/beads). Run `bd ready` for a
 
 ## License
 
-MIT, except: `usenet-ipfs-sieve` and the `usenet-ipfs-smtp` binary that links it depend on [`sieve-rs`](https://crates.io/crates/sieve-rs) (AGPL-3.0-only). Operators running `usenet-ipfs-smtp` as a network service must make complete corresponding source available to users of that service.
+MIT, except: `stoa-sieve` and the `stoa-smtp` binary that links it depend on [`sieve-rs`](https://crates.io/crates/sieve-rs) (AGPL-3.0-only). Operators running `stoa-smtp` as a network service must make complete corresponding source available to users of that service.

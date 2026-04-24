@@ -1,4 +1,4 @@
-//! E2E: POST article with X-Usenet-IPFS-DID-Sig, verify X-Usenet-IPFS-DID-Verified in ARTICLE response.
+//! E2E: POST article with X-Stoa-DID-Sig, verify X-Stoa-DID-Verified in ARTICLE response.
 
 mod common;
 
@@ -10,11 +10,11 @@ use ed25519_dalek::Signer;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 
-use usenet_ipfs_reader::{session::lifecycle::run_session, store::server_stores::ServerStores};
+use stoa_reader::{session::lifecycle::run_session, store::server_stores::ServerStores};
 
 // ── Config helper (same pattern as nntp_conformance.rs) ───────────────────────
 
-fn reader_config(addr: &str) -> usenet_ipfs_reader::config::Config {
+fn reader_config(addr: &str) -> stoa_reader::config::Config {
     let toml = format!(
         "[listen]\naddr = \"{addr}\"\n\
          [limits]\nmax_connections = 10\ncommand_timeout_secs = 30\n\
@@ -68,7 +68,7 @@ async fn read_multiline(r: &mut BufReader<tokio::io::ReadHalf<TcpStream>>) -> Ve
 /// lifetime of the test (dropped when the test exits).
 async fn start_server() -> (
     std::net::SocketAddr,
-    Arc<usenet_ipfs_reader::config::Config>,
+    Arc<stoa_reader::config::Config>,
 ) {
     let stores = Arc::new(ServerStores::new_mem().await);
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -177,7 +177,7 @@ async fn did_sig_valid_article_gets_verified_true() {
         let sig_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(sig.to_bytes());
 
         // Build full article: insert DID-Sig header before the blank line
-        let header_line = format!("X-Usenet-IPFS-DID-Sig: {did_key} {sig_b64}\r\n");
+        let header_line = format!("X-Stoa-DID-Sig: {did_key} {sig_b64}\r\n");
         let blank_pos = article_base.find("\r\n\r\n").unwrap();
         let mut full_article = article_base[..blank_pos + 2].to_string();
         full_article.push_str(&header_line);
@@ -195,12 +195,12 @@ async fn did_sig_valid_article_gets_verified_true() {
         );
         let lines = read_multiline(&mut r).await;
 
-        // Assert X-Usenet-IPFS-DID-Verified: true is present in the returned headers
+        // Assert X-Stoa-DID-Verified: true is present in the returned headers
         assert!(
             lines
                 .iter()
-                .any(|h| h.eq_ignore_ascii_case("X-Usenet-IPFS-DID-Verified: true")),
-            "expected X-Usenet-IPFS-DID-Verified: true in ARTICLE response headers; got:\n{}",
+                .any(|h| h.eq_ignore_ascii_case("X-Stoa-DID-Verified: true")),
+            "expected X-Stoa-DID-Verified: true in ARTICLE response headers; got:\n{}",
             lines.join("\n")
         );
 
@@ -241,7 +241,7 @@ async fn did_sig_wrong_sig_gets_verified_false() {
         sig_bytes[63] ^= 0xff;
         let sig_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(sig_bytes);
 
-        let header_line = format!("X-Usenet-IPFS-DID-Sig: {did_key} {sig_b64}\r\n");
+        let header_line = format!("X-Stoa-DID-Sig: {did_key} {sig_b64}\r\n");
         let blank_pos = article_base.find("\r\n\r\n").unwrap();
         let mut full_article = article_base[..blank_pos + 2].to_string();
         full_article.push_str(&header_line);
@@ -260,8 +260,8 @@ async fn did_sig_wrong_sig_gets_verified_false() {
         assert!(
             lines
                 .iter()
-                .any(|h| h.eq_ignore_ascii_case("X-Usenet-IPFS-DID-Verified: false")),
-            "expected X-Usenet-IPFS-DID-Verified: false in ARTICLE response headers; got:\n{}",
+                .any(|h| h.eq_ignore_ascii_case("X-Stoa-DID-Verified: false")),
+            "expected X-Stoa-DID-Verified: false in ARTICLE response headers; got:\n{}",
             lines.join("\n")
         );
 

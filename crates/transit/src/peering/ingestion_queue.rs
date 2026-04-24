@@ -249,7 +249,7 @@ mod tests {
         assert_eq!(sender.depth(), 1);
     }
 
-    /// Regression test for usenet-ipfs-76h: concurrent TAKETHIS flood must never
+    /// Regression test for stoa-76h: concurrent TAKETHIS flood must never
     /// exceed queue capacity or deadlock.
     ///
     /// Before the TOCTOU fix (is_full() + tx.send().await), two racing tasks could

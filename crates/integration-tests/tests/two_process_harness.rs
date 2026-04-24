@@ -17,8 +17,8 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::Mutex;
 
-use usenet_ipfs_core::{hlc::HlcClock, msgid_map::MsgIdMap};
-use usenet_ipfs_reader::{
+use stoa_core::{hlc::HlcClock, msgid_map::MsgIdMap};
+use stoa_reader::{
     post::ipfs_write::{IpfsBlockStore, IpfsWriteError},
     session::lifecycle::run_session,
     store::{
@@ -26,7 +26,7 @@ use usenet_ipfs_reader::{
         server_stores::ServerStores,
     },
 };
-use usenet_ipfs_transit::peering::{
+use stoa_transit::peering::{
     blacklist::BlacklistConfig,
     ingestion_queue::ingestion_queue,
     pipeline::{run_pipeline, IpfsError, IpfsStore, PipelineCtx},
@@ -113,7 +113,7 @@ async fn make_core_pool(dir: &tempfile::TempDir) -> sqlx::SqlitePool {
         .connect_with(opts)
         .await
         .expect("core pool");
-    usenet_ipfs_core::migrations::run_migrations(&pool)
+    stoa_core::migrations::run_migrations(&pool)
         .await
         .expect("core migrations");
     pool
@@ -131,7 +131,7 @@ async fn make_reader_pool(dir: &tempfile::TempDir) -> sqlx::SqlitePool {
         .connect_with(opts)
         .await
         .expect("reader pool");
-    usenet_ipfs_reader::migrations::run_migrations(&pool)
+    stoa_reader::migrations::run_migrations(&pool)
         .await
         .expect("reader migrations");
     pool
@@ -149,7 +149,7 @@ async fn make_verify_pool(dir: &tempfile::TempDir) -> sqlx::SqlitePool {
         .connect_with(opts)
         .await
         .expect("verify pool");
-    usenet_ipfs_verify::run_migrations(&pool)
+    stoa_verify::run_migrations(&pool)
         .await
         .expect("verify migrations");
     pool
@@ -172,7 +172,7 @@ async fn make_transit_core_pool(dir: &tempfile::TempDir) -> sqlx::SqlitePool {
         .connect_with(opts)
         .await
         .expect("transit core pool");
-    usenet_ipfs_core::migrations::run_migrations(&pool)
+    stoa_core::migrations::run_migrations(&pool)
         .await
         .expect("transit core migrations");
     pool
@@ -190,7 +190,7 @@ async fn make_transit_db_pool(dir: &tempfile::TempDir) -> sqlx::SqlitePool {
         .connect_with(opts)
         .await
         .expect("transit db pool");
-    usenet_ipfs_transit::migrations::run_migrations(&pool)
+    stoa_transit::migrations::run_migrations(&pool)
         .await
         .expect("transit db migrations");
     pool
@@ -198,7 +198,7 @@ async fn make_transit_db_pool(dir: &tempfile::TempDir) -> sqlx::SqlitePool {
 
 // ── Test config ───────────────────────────────────────────────────────────────
 
-fn reader_test_config(addr: &str) -> usenet_ipfs_reader::config::Config {
+fn reader_test_config(addr: &str) -> stoa_reader::config::Config {
     let toml = format!(
         "[listen]\naddr = \"{addr}\"\n\
          [limits]\nmax_connections = 10\ncommand_timeout_secs = 30\n\
@@ -279,21 +279,21 @@ async fn transit_reader_shared_store() {
     let stores = Arc::new(ServerStores {
         ipfs_store: Arc::clone(&shared_ipfs) as Arc<dyn IpfsBlockStore>,
         msgid_map: Arc::clone(&msgid_map),
-        log_storage: Arc::new(usenet_ipfs_core::group_log::MemLogStorage::new()),
+        log_storage: Arc::new(stoa_core::group_log::MemLogStorage::new()),
         article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
         overview_store: Arc::new(OverviewStore::new(reader_pool)),
         credential_store: Arc::new(CredentialStore::empty()),
         client_cert_store: Arc::new(
-            usenet_ipfs_reader::store::client_cert_store::ClientCertStore::empty(),
+            stoa_reader::store::client_cert_store::ClientCertStore::empty(),
         ),
-        trusted_issuer_store: Arc::new(usenet_ipfs_auth::TrustedIssuerStore::empty()),
+        trusted_issuer_store: Arc::new(stoa_auth::TrustedIssuerStore::empty()),
         clock: Arc::new(Mutex::new(HlcClock::new([0x01u8; 8], now_ms))),
-        signing_key: Arc::new(usenet_ipfs_core::signing::SigningKey::from_bytes(
+        signing_key: Arc::new(stoa_core::signing::SigningKey::from_bytes(
             &[0x42u8; 32],
         )),
         search_index: None,
         smtp_relay_queue: None,
-        verification_store: Arc::new(usenet_ipfs_verify::VerificationStore::new(
+        verification_store: Arc::new(stoa_verify::VerificationStore::new(
             make_verify_pool(&db_dir).await,
         )),
         dkim_authenticator: Arc::new(
@@ -304,7 +304,7 @@ async fn transit_reader_shared_store() {
     // ── Transit stores ────────────────────────────────────────────────────────
 
     let transit_core_pool = make_transit_core_pool(&db_dir).await;
-    let transit_log_storage = Arc::new(usenet_ipfs_core::group_log::SqliteLogStorage::new(
+    let transit_log_storage = Arc::new(stoa_core::group_log::SqliteLogStorage::new(
         transit_core_pool,
     ));
     let transit_signing_key = Arc::new(ed25519_dalek::SigningKey::from_bytes(&[0x43u8; 32]));

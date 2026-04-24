@@ -4,7 +4,7 @@
 
 ### Store-and-Forward Transport
 
-The transit daemon (`usenet-ipfs-transit`) exchanges articles with other NNTP peers using the streaming protocol defined in RFC 4644: `MODE STREAM`, `CHECK`, and `TAKETHIS`. Each incoming article passes through the ingestion pipeline:
+The transit daemon (`stoa-transit`) exchanges articles with other NNTP peers using the streaming protocol defined in RFC 4644: `MODE STREAM`, `CHECK`, and `TAKETHIS`. Each incoming article passes through the ingestion pipeline:
 
 1. Write article bytes to IPFS — obtain a DAG-CBOR CIDv1.
 2. Record the `message_id → CID` mapping in SQLite (`msgid_map`).
@@ -19,12 +19,12 @@ Group state is reconciled over a libp2p gossipsub mesh. Topics are **per-hierarc
 
 | Group | Topic |
 |---|---|
-| `comp.lang.rust` | `usenet.hier.comp` |
-| `comp.lang.c` | `usenet.hier.comp` |
-| `sci.math` | `usenet.hier.sci` |
-| `alt.test` | `usenet.hier.alt` |
+| `comp.lang.rust` | `stoa.hier.comp` |
+| `comp.lang.c` | `stoa.hier.comp` |
+| `sci.math` | `stoa.hier.sci` |
+| `alt.test` | `stoa.hier.alt` |
 
-The topic name is derived from the first dot-separated component of the group name: `<group> → usenet.hier.<hierarchy>`.
+The topic name is derived from the first dot-separated component of the group name: `<group> → stoa.hier.<hierarchy>`.
 
 All groups in the same hierarchy share one gossipsub topic. Receivers filter messages by `group_name` inside the payload. This caps the number of active topics at the number of top-level hierarchies (typically a few dozen) rather than the number of individual groups.
 
@@ -206,7 +206,7 @@ Binding to `127.0.0.1` ensures the service is not reachable on the public networ
 Add a `HiddenServiceDir` and one `HiddenServicePort` directive per listener port you want to expose:
 
 ```
-HiddenServiceDir /var/lib/tor/usenet-ipfs/
+HiddenServiceDir /var/lib/tor/stoa/
 HiddenServicePort 119  127.0.0.1:119
 HiddenServicePort 25   127.0.0.1:25
 HiddenServicePort 465  127.0.0.1:465
@@ -216,7 +216,7 @@ HiddenServicePort 143  127.0.0.1:143
 Reload or restart Tor after editing `torrc`. Tor will create the hidden service directory and write the `.onion` address to `hostname`:
 
 ```
-cat /var/lib/tor/usenet-ipfs/hostname
+cat /var/lib/tor/stoa/hostname
 # → youraddress.onion
 ```
 

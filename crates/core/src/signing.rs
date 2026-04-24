@@ -1,4 +1,4 @@
-//! Ed25519 operator signing for usenet-ipfs-core.
+//! Ed25519 operator signing for stoa-core.
 //!
 //! Provides sign/verify over canonical bytes (RFC 8785 JSON or DAG-CBOR).
 //! The signing key is never logged or exposed in error output.

@@ -1,6 +1,6 @@
 # NNTP Test Harness
 
-Headless integration test harness for `usenet-ipfs-reader`. Starts the reader
+Headless integration test harness for `stoa-reader`. Starts the reader
 binary against a minimal config, drives a canned NNTP command sequence over raw
 TCP, asserts RFC 3977 response codes, and tears down the process on exit.
 
@@ -8,7 +8,7 @@ TCP, asserts RFC 3977 response codes, and tears down the process on exit.
 
 - `python3` (3.6+, stdlib only — no third-party packages required)
 - `nc` (netcat, used by `start_reader.sh` to poll for port readiness)
-- `usenet-ipfs-reader` binary: `cargo build -p usenet-ipfs-reader`
+- `stoa-reader` binary: `cargo build -p stoa-reader`
 
 slrn / tin / pan are not required for this harness. RFC 3977 conformance tests
 driven by real newsreader clients are a separate concern.
@@ -50,6 +50,6 @@ multi-line responses automatically for the standard RFC 3977 multi-line codes
 | File | Purpose |
 |---|---|
 | `run_harness.sh` | Master script: starts reader, runs driver, cleans up |
-| `start_reader.sh` | Starts `usenet-ipfs-reader` with a temp config; prints port |
+| `start_reader.sh` | Starts `stoa-reader` with a temp config; prints port |
 | `stop_reader.sh` | Kills the reader process and removes the temp config dir |
 | `nntp_driver.py` | Raw-socket NNTP driver; run independently with `python3 nntp_driver.py <port>` |

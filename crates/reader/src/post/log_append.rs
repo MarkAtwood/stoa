@@ -1,11 +1,11 @@
 use cid::Cid;
 use multihash_codetable::Multihash;
-use usenet_ipfs_core::article::GroupName;
-use usenet_ipfs_core::group_log::append::append as crdt_append;
-use usenet_ipfs_core::group_log::types::{LogEntry, LogEntryId};
-use usenet_ipfs_core::group_log::LogStorage;
-use usenet_ipfs_core::signing::SigningKey;
-use usenet_ipfs_core::InjectionSource;
+use stoa_core::article::GroupName;
+use stoa_core::group_log::append::append as crdt_append;
+use stoa_core::group_log::types::{LogEntry, LogEntryId};
+use stoa_core::group_log::LogStorage;
+use stoa_core::signing::SigningKey;
+use stoa_core::InjectionSource;
 
 use crate::session::response::Response;
 use crate::store::article_numbers::ArticleNumberStore;
@@ -90,7 +90,7 @@ pub async fn append_to_groups<S: LogStorage>(
                 for pb in &parent_bytes {
                     canonical.extend_from_slice(pb);
                 }
-                let sig = usenet_ipfs_core::signing::sign(signing_key, &canonical);
+                let sig = stoa_core::signing::sign(signing_key, &canonical);
                 sig.to_bytes().to_vec()
             };
 
@@ -125,10 +125,10 @@ mod tests {
     use multihash_codetable::{Code, MultihashDigest};
     use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
     use std::str::FromStr as _;
-    use usenet_ipfs_core::group_log::MemLogStorage;
-    use usenet_ipfs_core::hlc::HlcClock;
-    use usenet_ipfs_core::signing::SigningKey;
-    use usenet_ipfs_core::InjectionSource;
+    use stoa_core::group_log::MemLogStorage;
+    use stoa_core::hlc::HlcClock;
+    use stoa_core::signing::SigningKey;
+    use stoa_core::InjectionSource;
 
     fn test_signing_key() -> SigningKey {
         SigningKey::from_bytes(&[0x42u8; 32])

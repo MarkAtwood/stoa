@@ -1,7 +1,7 @@
 //! Peer registry: persistent store for known peers and their health metrics.
 
 use sqlx::SqlitePool;
-use usenet_ipfs_core::error::StorageError;
+use stoa_core::error::StorageError;
 
 /// A record in the peer registry.
 #[derive(Debug, Clone)]

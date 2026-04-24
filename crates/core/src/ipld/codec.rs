@@ -1,7 +1,7 @@
 //! IPFS/IPLD codec and multihash constants.
 //!
 //! Single source of truth for the multicodec byte values used throughout
-//! usenet-ipfs.  Centralising them here prevents silent drift if the codec
+//! stoa.  Centralising them here prevents silent drift if the codec
 //! strategy ever changes and makes the multicodec registry relationship
 //! explicit to readers.
 

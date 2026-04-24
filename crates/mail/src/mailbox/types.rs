@@ -4,7 +4,7 @@ use sha2::{Digest, Sha256};
 
 /// JMAP Mailbox object (RFC 8621 §2).
 ///
-/// In usenet-ipfs, each newsgroup maps to a Mailbox. The id is stable and
+/// In stoa, each newsgroup maps to a Mailbox. The id is stable and
 /// derived from the group name — it is never stored in the database.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Mailbox {
@@ -12,7 +12,7 @@ pub struct Mailbox {
     pub id: String,
     /// Human-readable name (the newsgroup name).
     pub name: String,
-    /// Always null in usenet-ipfs (flat hierarchy).
+    /// Always null in stoa (flat hierarchy).
     #[serde(rename = "parentId")]
     pub parent_id: Option<String>,
     /// JMAP role (e.g. "inbox" if configured, else null).

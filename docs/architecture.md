@@ -1,19 +1,19 @@
-# usenet-ipfs Architecture
+# stoa Architecture
 
 ## System Overview
 
-usenet-ipfs is a Rust implementation of two cooperating daemons that replace traditional Usenet spool storage with IPFS content-addressed blocks and replace per-server group state with a Merkle-CRDT append-only log reconciled over libp2p gossipsub.
+stoa is a Rust implementation of two cooperating daemons that replace traditional Usenet spool storage with IPFS content-addressed blocks and replace per-server group state with a Merkle-CRDT append-only log reconciled over libp2p gossipsub.
 
 The workspace contains three crates:
 
-- **`usenet-ipfs-core`** (`crates/core/`) — a library crate shared by both binaries. It owns all canonical types: article IPLD schema, CID derivation, group log types, signing, validation, canonical serialization, the `MsgIdMap` store, the `AuditEvent` store, and all SQLite migrations.
+- **`stoa-core`** (`crates/core/`) — a library crate shared by both binaries. It owns all canonical types: article IPLD schema, CID derivation, group log types, signing, validation, canonical serialization, the `MsgIdMap` store, the `AuditEvent` store, and all SQLite migrations.
 
-- **`usenet-ipfs-reader`** (`crates/reader/`) — a binary that speaks RFC 3977 NNTP to unmodified newsreader clients (slrn, tin, pan, Thunderbird). It handles the POST path (sign, write, log-append, gossip) and the read path (GROUP, ARTICLE, HEAD, BODY, OVER/XOVER). It maintains its own SQLite database for article numbers, the overview index, and (via core) the group log and msgid map.
+- **`stoa-reader`** (`crates/reader/`) — a binary that speaks RFC 3977 NNTP to unmodified newsreader clients (slrn, tin, pan, Thunderbird). It handles the POST path (sign, write, log-append, gossip) and the read path (GROUP, ARTICLE, HEAD, BODY, OVER/XOVER). It maintains its own SQLite database for article numbers, the overview index, and (via core) the group log and msgid map.
 
-- **`usenet-ipfs-transit`** (`crates/transit/`) — a binary that peers with other usenet-ipfs nodes and with traditional NNTP transit peers. It runs the store-and-forward pipeline (IHAVE/TAKETHIS/MODE STREAM, RFC 4644), drives GC against a declared pinning policy, manages the peer registry, and relays gossipsub tip advertisements between nodes.
+- **`stoa-transit`** (`crates/transit/`) — a binary that peers with other stoa nodes and with traditional NNTP transit peers. It runs the store-and-forward pipeline (IHAVE/TAKETHIS/MODE STREAM, RFC 4644), drives GC against a declared pinning policy, manages the peer registry, and relays gossipsub tip advertisements between nodes.
 
 ```
-usenet-ipfs/
+stoa/
 ├── Cargo.toml              workspace manifest
 ├── crates/
 │   ├── core/               rlib: article types, IPLD, group log, signing, stores
@@ -41,14 +41,14 @@ usenet-ipfs/
 
 ```
   Newsreader clients             NNTP transit peers
-  (slrn, tin, pan,               (other usenet-ipfs
+  (slrn, tin, pan,               (other stoa
    Thunderbird, ...)              nodes, INN, etc.)
         |                               |
         | NNTP (RFC 3977)               | NNTP (MODE STREAM /
         | port 119 / NNTPS             |  IHAVE / TAKETHIS)
         v                               v
  ┌─────────────────────┐       ┌───────────────────────┐
- │  usenet-ipfs-reader │       │  usenet-ipfs-transit  │
+ │  stoa-reader │       │  stoa-transit  │
  │                     │       │                       │
  │  session/           │       │  peering/             │
  │    lifecycle.rs     │       │    pipeline.rs        │
@@ -62,12 +62,12 @@ usenet-ipfs/
  │    overview.rs      │       │  import/              │
  └──────┬──────────────┘       └────────┬──────────────┘
         │                               │
-        │  uses usenet-ipfs-core        │  uses usenet-ipfs-core
+        │  uses stoa-core        │  uses stoa-core
         │                               │
         └──────────┬────────────────────┘
                    │
         ┌──────────▼──────────────┐
-        │   usenet-ipfs-core      │
+        │   stoa-core      │
         │                         │
         │  article.rs             │
         │  ipld/ (root_node,      │
@@ -102,9 +102,9 @@ usenet-ipfs/
  └──────────────┘                 └──────────────────┘
                                           |
                                  libp2p gossipsub
-                                 topic: usenet.hier.<hierarchy>
+                                 topic: stoa.hier.<hierarchy>
                                           |
-                                  Other usenet-ipfs nodes
+                                  Other stoa nodes
 ```
 
 ---
@@ -164,7 +164,7 @@ Article numbers are purely local to this reader instance. They are never network
 
 ### Step 6: Reader publishes gossipsub tip advertisement to transit peers
 
-`post/pipeline.rs::publish_tips_after_post` sends one `TipAdvertisement` per group to the gossipsub channel. The topic is `usenet.hier.<hierarchy>`, where `<hierarchy>` is the first dot-separated component of the group name (`comp.lang.rust` → `usenet.hier.comp`). The advertisement payload is JSON:
+`post/pipeline.rs::publish_tips_after_post` sends one `TipAdvertisement` per group to the gossipsub channel. The topic is `stoa.hier.<hierarchy>`, where `<hierarchy>` is the first dot-separated component of the group name (`comp.lang.rust` → `stoa.hier.comp`). The advertisement payload is JSON:
 
 ```json
 {
@@ -193,7 +193,7 @@ For commands that accept a `<message-id>` argument, `MsgIdMap::lookup_by_msgid` 
 
 ### Reader fetches the block from IPFS
 
-The CID is passed to `rust-ipfs` to retrieve the DAG-CBOR `ArticleRootNode` block. Sub-block CIDs (`header_cid`, `body_cid`) are followed to reconstruct the article wire form. `ARTICLE` returns both headers and body; `HEAD` returns only the header block; `BODY` returns only the body block. When returning `ARTICLE` or `HEAD` responses, the session layer also injects an `X-Usenet-IPFS-CID` header giving the canonical article CID (RAW codec, §12 of the wire format spec). For multi-block DAG articles (v2+), an `X-Usenet-IPFS-Root-CID` header is also injected.
+The CID is passed to `rust-ipfs` to retrieve the DAG-CBOR `ArticleRootNode` block. Sub-block CIDs (`header_cid`, `body_cid`) are followed to reconstruct the article wire form. `ARTICLE` returns both headers and body; `HEAD` returns only the header block; `BODY` returns only the body block. When returning `ARTICLE` or `HEAD` responses, the session layer also injects an `X-Stoa-CID` header giving the canonical article CID (RAW codec, §12 of the wire format spec). For multi-block DAG articles (v2+), an `X-Stoa-Root-CID` header is also injected.
 
 ### Reader synthesizes the article number
 
@@ -205,7 +205,7 @@ The CID is passed to `rust-ipfs` to retrieve the DAG-CBOR `ArticleRootNode` bloc
 
 ## Article Number Synthesis
 
-Article numbers in usenet-ipfs are local and synthetic (design invariant #5). They are generated at ingress for a specific `(group_name, reader_server_instance)` pair and stored in:
+Article numbers in stoa are local and synthetic (design invariant #5). They are generated at ingress for a specific `(group_name, reader_server_instance)` pair and stored in:
 
 ```sql
 article_numbers (
@@ -238,8 +238,8 @@ any client action:
 
 | Header | Value | When present |
 |--------|-------|--------------|
-| `X-Usenet-IPFS-CID` | Canonical article CID (RAW codec `0x55`) | Whenever CID is in `msgid_map` |
-| `X-Usenet-IPFS-Root-CID` | IPLD DAG root CID (DAG-CBOR `0x71`) | Multi-block articles only (v2+); absent for all v1 text articles |
+| `X-Stoa-CID` | Canonical article CID (RAW codec `0x55`) | Whenever CID is in `msgid_map` |
+| `X-Stoa-Root-CID` | IPLD DAG root CID (DAG-CBOR `0x71`) | Multi-block articles only (v2+); absent for all v1 text articles |
 
 Headers are injected at the session serialisation layer (`session/lifecycle.rs`),
 not stored in the IPFS header block.
@@ -265,7 +265,7 @@ number forms. Looks up directly in the IPFS block store, bypassing `msgid_map`.
 ### Invariant
 
 A standard newsreader that never sends an `X` command and never reads
-`X-Usenet-IPFS-*` headers must have an identical session experience to a server
+`X-Stoa-*` headers must have an identical session experience to a server
 without these extensions. This is enforced by the CLAUDE.md design invariant.
 
 ---
@@ -284,9 +284,9 @@ A `LogEntryId` is the 32-byte SHA-256 of the entry's canonical serialization. An
 
 ### Gossipsub Topics
 
-Topics are per-hierarchy, not per-group. `comp.lang.rust` and `comp.lang.c` both flow on `usenet.hier.comp`. Receivers filter by `group_name` inside the message. This design caps the number of active gossipsub topics at the number of top-level Usenet hierarchies rather than at the number of active groups.
+Topics are per-hierarchy, not per-group. `comp.lang.rust` and `comp.lang.c` both flow on `stoa.hier.comp`. Receivers filter by `group_name` inside the message. This design caps the number of active gossipsub topics at the number of top-level Usenet hierarchies rather than at the number of active groups.
 
-Topic naming: `usenet.hier.<hierarchy>` where `<hierarchy>` is the first dot-separated component of the group name.
+Topic naming: `stoa.hier.<hierarchy>` where `<hierarchy>` is the first dot-separated component of the group name.
 
 ### Tip Advertisement
 
@@ -307,7 +307,7 @@ After reconciliation, the node fetches wanted entries from the remote peer (back
 
 ## Storage Architecture
 
-Each binary has its own SQLite database. Both import `usenet-ipfs-core` migrations for shared tables.
+Each binary has its own SQLite database. Both import `stoa-core` migrations for shared tables.
 
 ### Core tables (both binaries via `core/migrations/`)
 

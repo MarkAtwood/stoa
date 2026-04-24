@@ -2,7 +2,7 @@
 
 **Status:** Decision reached — see Recommendation
 **Date:** 2026-04-19
-**Scope:** `usenet-ipfs-transit` admin HTTP endpoint (`[admin]` in config.toml)
+**Scope:** `stoa-transit` admin HTTP endpoint (`[admin]` in config.toml)
 
 ---
 
@@ -130,7 +130,7 @@ future security hardening epic.
 ### How it works
 
 The admin endpoint listens on a Unix domain socket path (e.g.,
-`/run/usenet-ipfs/admin.sock`) rather than a TCP address. The OS enforces access
+`/run/stoa/admin.sock`) rather than a TCP address. The OS enforces access
 control via socket file permissions: `chmod 0600` owned by the operator user means
 only processes running as that user (or root) can connect. No cryptographic
 authentication is involved.
@@ -141,20 +141,20 @@ authentication is involved.
 - No secrets to manage, rotate, or leak.
 - No TLS overhead; connections are local IPC.
 - Natural fit for single-host deployments where the admin user is well-defined.
-- `curl --unix-socket /run/usenet-ipfs/admin.sock http://localhost/metrics` works
+- `curl --unix-socket /run/stoa/admin.sock http://localhost/metrics` works
   without any authentication headers.
 
 ### Cons
 
 - Remote Prometheus scraping is not directly supported. Options are:
-  - SSH tunnel: `ssh -L 9090:/run/usenet-ipfs/admin.sock operator@host` and scrape
+  - SSH tunnel: `ssh -L 9090:/run/stoa/admin.sock operator@host` and scrape
     `localhost:9090` — works but requires SSH key management.
   - `node_exporter` textfile collector or a local reverse proxy: adds deployment
     complexity.
 - Not portable to Windows (not a v1 concern, but worth noting).
 - `addr` field in `AdminConfig` is a string formatted as `host:port`; accepting a
   socket path requires either a separate config field or a convention like
-  `unix:/run/usenet-ipfs/admin.sock` that the bind logic must detect.
+  `unix:/run/stoa/admin.sock` that the bind logic must detect.
 - axum/hyper UnixListener support requires the `tokio` feature `net` and a small
   amount of glue; it is not difficult but adds a branch to the server startup path.
 

@@ -1,4 +1,4 @@
-//! Local LRU block cache for IPFS content (usenet-ipfs-31v).
+//! Local LRU block cache for IPFS content (stoa-31v).
 //!
 //! [`BlockCache`] wraps any [`IpfsStore`] implementation and adds a
 //! content-addressed on-disk cache in front of it.  Because CIDs are
@@ -14,7 +14,7 @@
 //!
 //! # Serving staged articles from cache
 //!
-//! Articles that have been staged to disk (usenet-ipfs-9mf) but not yet
+//! Articles that have been staged to disk (stoa-9mf) but not yet
 //! written to IPFS are served via the staging path, not through this cache.
 //! Once the pipeline completes, the block is both in IPFS and (after the next
 //! read) in this cache.

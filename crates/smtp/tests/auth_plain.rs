@@ -1,4 +1,4 @@
-//! Integration tests for SMTP AUTH PLAIN — bead usenet-ipfs-1c8.6.
+//! Integration tests for SMTP AUTH PLAIN — bead stoa-1c8.6.
 //!
 //! External oracles:
 //!   - RFC 4954 §4: AUTH command syntax and reply codes.
@@ -21,9 +21,9 @@
 //!
 //!   1. `run_session` must accept `is_tls: bool` as its second argument
 //!      (between `stream` and `peer_addr`).
-//!   2. `Config` must have an `auth: usenet_ipfs_auth::AuthConfig` field.
-//!   3. `usenet_ipfs_smtp::config` must re-export `AuthConfig` from
-//!      `usenet_ipfs_auth` (or the test imports it directly from that crate).
+//!   2. `Config` must have an `auth: stoa_auth::AuthConfig` field.
+//!   3. `stoa_smtp::config` must re-export `AuthConfig` from
+//!      `stoa_auth` (or the test imports it directly from that crate).
 //!
 //! These tests MUST NOT be modified to make them pass.  Fix the implementation.
 
@@ -31,8 +31,8 @@ use std::sync::Arc;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-use usenet_ipfs_auth::{AuthConfig, UserCredential};
-use usenet_ipfs_smtp::{
+use stoa_auth::{AuthConfig, UserCredential};
+use stoa_smtp::{
     config::{
         Config, DatabaseConfig, LimitsConfig, ListenConfig, LogConfig, ReaderConfig,
         SieveAdminConfig, TlsConfig,
@@ -104,7 +104,7 @@ fn test_config(tim_credential: Option<UserCredential>) -> Arc<Config> {
             format: "text".to_string(),
         },
         reader: ReaderConfig::default(),
-        delivery: usenet_ipfs_smtp::config::DeliveryConfig::default(),
+        delivery: stoa_smtp::config::DeliveryConfig::default(),
         users: vec![],
         database: DatabaseConfig::default(),
         sieve_admin: SieveAdminConfig::default(),
@@ -132,7 +132,7 @@ async fn drive(client_script: &[u8], is_tls: bool, config: Arc<Config>) -> Strin
     let server_task = tokio::spawn(async move {
         let (stream, peer) = listener.accept().await.expect("accept");
         let cred_store = Arc::new({
-            let mut s = usenet_ipfs_auth::CredentialStore::from_credentials(&config2.auth.users);
+            let mut s = stoa_auth::CredentialStore::from_credentials(&config2.auth.users);
             if let Some(ref p) = config2.auth.credential_file {
                 let _ = s.merge_from_file(p);
             }

@@ -1,4 +1,4 @@
-/// CID computation for usenet-ipfs articles.
+/// CID computation for stoa articles.
 ///
 /// `cid_for_article` computes a CIDv1 RAW (codec 0x55) SHA2-256 digest of an
 /// article's canonical byte representation.  The canonical bytes are defined by

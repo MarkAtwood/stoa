@@ -13,7 +13,7 @@ use std::sync::Arc;
 use cid::Cid;
 use multihash_codetable::{Code, Multihash, MultihashDigest};
 
-use usenet_ipfs_core::{
+use stoa_core::{
     article::GroupName,
     group_log::{
         append::append, backfill, reconcile, LogEntry, LogEntryId, LogStorage, MemLogStorage,

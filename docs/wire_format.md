@@ -1,6 +1,6 @@
-# usenet-ipfs Wire Format Specification
+# stoa Wire Format Specification
 
-This document specifies every on-wire and on-disk encoding used by usenet-ipfs.
+This document specifies every on-wire and on-disk encoding used by stoa.
 A conforming implementation in any language must produce and accept bytes that
 match these specifications exactly.  Where field names are given, they are the
 exact names used in the Rust structs in `crates/core/src/` and
@@ -461,16 +461,16 @@ Topics are per-hierarchy, not per-group.  This is a hard design invariant.
 ### Rule
 
 ```
-topic = "usenet.hier." + hierarchy
+topic = "stoa.hier." + hierarchy
 hierarchy = first dot-separated component of the group name
 ```
 
 Examples:
-- `comp.lang.rust` → `usenet.hier.comp`
-- `comp.os.linux` → `usenet.hier.comp` (same topic as above)
-- `sci.math` → `usenet.hier.sci`
-- `alt.test` → `usenet.hier.alt`
-- `local` (no dots) → `usenet.hier.local`
+- `comp.lang.rust` → `stoa.hier.comp`
+- `comp.os.linux` → `stoa.hier.comp` (same topic as above)
+- `sci.math` → `stoa.hier.sci`
+- `alt.test` → `stoa.hier.alt`
+- `local` (no dots) → `stoa.hier.local`
 
 Peers subscribe to one topic per hierarchy.  In-topic filtering by `group_name`
 is the responsibility of the receiving peer.
@@ -478,7 +478,7 @@ is the responsibility of the receiving peer.
 ### Topic Hash
 
 libp2p gossipsub uses identity hashing for `IdentTopic` (the raw topic string
-is the hash).  All `usenet.hier.*` topics use `IdentTopic`.
+is the hash).  All `stoa.hier.*` topics use `IdentTopic`.
 
 ---
 
@@ -634,7 +634,7 @@ Stored in lexicographic order: `["comp.lang.rust", "sci.math"]`.
 
 A node that has just ingested an article for `comp.lang.rust` with root CID
 `bafyreihv47lkxiaysp7lcdvimct2bdreounj2jtzgj5pn7yabkfxzanlci` broadcasts
-the following tip advertisement on topic `usenet.hier.comp`:
+the following tip advertisement on topic `stoa.hier.comp`:
 
 ```json
 {
@@ -649,7 +649,7 @@ the following tip advertisement on topic `usenet.hier.comp`:
 }
 ```
 
-A peer subscribed to `usenet.hier.comp` receives this message, checks its
+A peer subscribed to `stoa.hier.comp` receives this message, checks its
 local log storage for `comp.lang.rust`, and if the `tip_cids` entry is unknown,
 initiates CRDT reconciliation to fetch the missing log entry and its article
 block.
@@ -673,9 +673,9 @@ block.
 
 ## 12. NNTP CID Extension Protocol
 
-These extensions are implemented in `usenet-ipfs-reader`. They are purely
+These extensions are implemented in `stoa-reader`. They are purely
 additive: a standard newsreader that never sends an `X` command and never
-reads `X-Usenet-IPFS-*` headers sees zero behaviour change. All five are
+reads `X-Stoa-*` headers sees zero behaviour change. All five are
 advertised in the `CAPABILITIES` response.
 
 All CID values in extension responses and headers use multibase base32upper
@@ -683,7 +683,7 @@ All CID values in extension responses and headers use multibase base32upper
 
 ---
 
-### 12.1 `X-Usenet-IPFS-CID` Header
+### 12.1 `X-Stoa-CID` Header
 
 Injected into `ARTICLE` and `HEAD` responses. Value is the canonical article
 CID stored in the `msgid_map` table (RAW codec `0x55`, SHA-256 of the
@@ -692,7 +692,7 @@ canonical bytes defined in §3).
 **Wire format:**
 
 ```
-X-Usenet-IPFS-CID: <cidv1-base32upper-string>
+X-Stoa-CID: <cidv1-base32upper-string>
 ```
 
 Rules:
@@ -702,11 +702,11 @@ Rules:
 - The header is injected at the reader session layer during response
   serialisation; it is **not** stored in the raw header block in IPFS.
 - The value is the canonical article CID (RAW codec `0x55`), not the IPFS DAG
-  root CID (DAG-CBOR `0x71`). Use `X-Usenet-IPFS-Root-CID` (§12.2) for the DAG root.
+  root CID (DAG-CBOR `0x71`). Use `X-Stoa-Root-CID` (§12.2) for the DAG root.
 
 ---
 
-### 12.2 `X-Usenet-IPFS-Root-CID` Header
+### 12.2 `X-Stoa-Root-CID` Header
 
 Injected into `ARTICLE` and `HEAD` responses for articles stored as multi-block
 IPLD DAGs. Absent for all v1 single-block text articles.
@@ -714,7 +714,7 @@ IPLD DAGs. Absent for all v1 single-block text articles.
 **Wire format:**
 
 ```
-X-Usenet-IPFS-Root-CID: <cidv1-base32upper-string>
+X-Stoa-Root-CID: <cidv1-base32upper-string>
 ```
 
 Rules:
@@ -860,7 +860,7 @@ malformed CID string.
 
 The reader advertises all five extensions in `CAPABILITIES`. A client SHOULD
 check `CAPABILITIES` before sending any `X` command or before relying on
-`X-Usenet-IPFS-*` headers.
+`X-Stoa-*` headers.
 
 ```
 101 Capability list:

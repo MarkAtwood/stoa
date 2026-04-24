@@ -1,5 +1,5 @@
-use usenet_ipfs_auth::TrustedIssuerStore;
-use usenet_ipfs_core::audit::AuditLoggerHandle;
+use stoa_auth::TrustedIssuerStore;
+use stoa_core::audit::AuditLoggerHandle;
 
 use crate::{
     config::AuthConfig,
@@ -128,7 +128,7 @@ pub fn dispatch(
             if !ctx.known_groups.iter().any(|g| g.name == name) {
                 return Response::no_such_newsgroup();
             }
-            match usenet_ipfs_core::article::GroupName::new(name) {
+            match stoa_core::article::GroupName::new(name) {
                 Err(_) => Response::no_such_newsgroup(),
                 Ok(group) => {
                     let group_str = group.as_str().to_owned();

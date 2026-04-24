@@ -1,4 +1,4 @@
-# usenet-ipfs — Project Instructions for AI Agents
+# stoa — Project Instructions for AI Agents
 
 Greenfield Rust implementation of an NNTP transit server and NNTP reader server where article storage is IPFS and group state is a Merkle-CRDT append-only log reconciled over libp2p gossipsub. Standalone system; no Corundum integration in v1.
 
@@ -6,9 +6,9 @@ Greenfield Rust implementation of an NNTP transit server and NNTP reader server 
 
 Two binaries sharing a core crate:
 
-- **`usenet-ipfs-transit`** — peering daemon; store-and-forward, pinning policy, GC, metrics
-- **`usenet-ipfs-reader`** — RFC 3977 NNTP server; speaks to standard newsreaders (slrn, tin, pan, gnus, Thunderbird) without modification
-- **`usenet-ipfs-core`** — shared types: article format, CID scheme, group log, CRDT, protocol
+- **`stoa-transit`** — peering daemon; store-and-forward, pinning policy, GC, metrics
+- **`stoa-reader`** — RFC 3977 NNTP server; speaks to standard newsreaders (slrn, tin, pan, gnus, Thunderbird) without modification
+- **`stoa-core`** — shared types: article format, CID scheme, group log, CRDT, protocol
 
 Articles are stored as IPLD blocks addressed by CID. A `message_id → CID` mapping table bridges legacy Usenet Message-IDs. Group state is a Merkle-CRDT append-only log per group; entries are `(timestamp, article_cid, signature, optional_did)`. Local sequential article numbers per `(group, reader_server)` are synthesized on ingress and stored in SQLite as `(group, local_num) → CID`.
 
@@ -16,7 +16,7 @@ Articles are stored as IPLD blocks addressed by CID. A `message_id → CID` mapp
 
 These are non-negotiable. Do not relitigate them. Raising an exception requires explicit user approval.
 
-1. **Reader server speaks RFC 3977 plus standard IANA-registered extensions.** All RFC 3977 commands must work with unmodified newsreader clients (`LIST`, `GROUP`, `ARTICLE`, `HEAD`, `BODY`, `OVER`/`XOVER`, `POST`, `IHAVE`, `NEWGROUPS`, `NEWNEWS`, `CAPABILITIES`, `AUTHINFO`, `STARTTLS`). Standard additive extensions are permitted — `HDR` (RFC 3977 §8.5), `LIST OVERVIEW.FMT` (RFC 6048), `MODE STREAM`/`CHECK`/`TAKETHIS` (RFC 4644) — because clients probe via `CAPABILITIES` and degrade gracefully. **Permitted leaky extensions:** additive `X-Usenet-IPFS-*` article headers and RFC 3977 §7.2 `X`-prefixed commands that expose only content addressing (CIDs and integrity verification) are allowed, provided they are advertised in `CAPABILITIES` and standard clients degrade gracefully without seeing them. **Prohibited leaky extensions:** anything that exposes peer topology, DHT state, CRDT log internals, pin status, GC policy, or any IPFS infrastructure state. The rule is: a standard newsreader that never sends an `X` command and never reads `X-Usenet-IPFS-*` headers must behave identically to today.
+1. **Reader server speaks RFC 3977 plus standard IANA-registered extensions.** All RFC 3977 commands must work with unmodified newsreader clients (`LIST`, `GROUP`, `ARTICLE`, `HEAD`, `BODY`, `OVER`/`XOVER`, `POST`, `IHAVE`, `NEWGROUPS`, `NEWNEWS`, `CAPABILITIES`, `AUTHINFO`, `STARTTLS`). Standard additive extensions are permitted — `HDR` (RFC 3977 §8.5), `LIST OVERVIEW.FMT` (RFC 6048), `MODE STREAM`/`CHECK`/`TAKETHIS` (RFC 4644) — because clients probe via `CAPABILITIES` and degrade gracefully. **Permitted leaky extensions:** additive `X-Stoa-*` article headers and RFC 3977 §7.2 `X`-prefixed commands that expose only content addressing (CIDs and integrity verification) are allowed, provided they are advertised in `CAPABILITIES` and standard clients degrade gracefully without seeing them. **Prohibited leaky extensions:** anything that exposes peer topology, DHT state, CRDT log internals, pin status, GC policy, or any IPFS infrastructure state. The rule is: a standard newsreader that never sends an `X` command and never reads `X-Stoa-*` headers must behave identically to today.
 2. **v1 is text-only.** Binary groups and yEnc are out of scope. One deferred epic covers the future CID manifest approach. Do not implement or design yEnc/NZB in any active issue.
 3. **No moderation in v1.** No cancel messages, no NoCeM, no curation feeds. Filter nothing, moderate nothing.
 4. **Gossipsub topics are per-hierarchy, not per-group.** `comp.*` is one topic; `comp.lang.rust` is filtered inside it. Per-group topics do not scale past low hundreds of groups per peer.
@@ -38,14 +38,14 @@ cargo clippy --workspace --all-features -- -D warnings
 ## Planned Workspace Layout
 
 ```
-usenet-ipfs/
+stoa/
 ├── Cargo.toml              workspace manifest
 ├── crates/
-│   ├── core/               usenet-ipfs-core (rlib): article types, CID scheme,
+│   ├── core/               stoa-core (rlib): article types, CID scheme,
 │   │                       group log (Merkle-CRDT), signing, canonical serialization
-│   ├── transit/            usenet-ipfs-transit (bin): peering, store-and-forward,
+│   ├── transit/            stoa-transit (bin): peering, store-and-forward,
 │   │                       pinning policy, GC, metrics, operator CLI
-│   └── reader/             usenet-ipfs-reader (bin): RFC 3977 NNTP server,
+│   └── reader/             stoa-reader (bin): RFC 3977 NNTP server,
 │                           article number synthesis, overview index, POST path
 ├── .beads/                 issue tracker data
 ├── spikes/                 IPFS client library benchmark results (iroh, rust-ipfs, libp2p)
@@ -58,15 +58,15 @@ usenet-ipfs/
 - **`tokio` async runtime throughout.** No sync I/O on the main task pool.
 - **`sqlx` + SQLite for local state.** All SQL in dedicated store modules; no SQL scattered through application logic.
 - **Signing:** `ed25519-dalek` (fixed choice).
-- **IPFS client:** `rust-ipfs` 0.15.0 (selected, spike complete). iroh-blobs disqualified — uses BLAKE3, not SHA-2/CIDv1. raw libp2p + custom bitswap viable but requires owning the bitswap codec. Spike results in `spikes/`, decision recorded in usenet-ipfs-l62.1.4.
-- **License: MIT for all production binaries.** `usenet-ipfs-smtp` is now MIT-licensed; it uses `usenet-ipfs-sieve-native` (MIT), not `usenet-ipfs-sieve` (AGPL-3.0-only). The `usenet-ipfs-sieve` crate remains in the workspace but is not linked by any production binary.
+- **IPFS client:** `rust-ipfs` 0.15.0 (selected, spike complete). iroh-blobs disqualified — uses BLAKE3, not SHA-2/CIDv1. raw libp2p + custom bitswap viable but requires owning the bitswap codec. Spike results in `spikes/`, decision recorded in stoa-l62.1.4.
+- **License: MIT for all production binaries.** `stoa-smtp` is now MIT-licensed; it uses `stoa-sieve-native` (MIT), not `stoa-sieve` (AGPL-3.0-only). The `stoa-sieve` crate remains in the workspace but is not linked by any production binary.
 - **No `unsafe` outside FFI boundary crates.** If you think you need `unsafe`, stop and ask.
 - **Cargo features are additive.** Never enable an algorithm or capability unconditionally in `Cargo.toml`.
 - **Error types live in `core`.** Other crates import from there.
-- **Gossipsub topic naming:** `usenet.hier.<hierarchy>` (e.g. `usenet.hier.comp`). In-topic filtering by group name.
+- **Gossipsub topic naming:** `stoa.hier.<hierarchy>` (e.g. `stoa.hier.comp`). In-topic filtering by group name.
 - **Canonical serialization:** RFC 8785 canonical JSON + Corundum Chapter 31 conventions (sorted keys, NFKC normalization, UTC timestamps with `Z` suffix, no whitespace, trailing zeros stripped from fractional seconds). All signed or hashed objects must serialize deterministically. Test vectors must come from an independent reference implementation (Python `canonicaljson`, js `dag-json`, or equivalent).
 - **IPLD codec:** **DAG-CBOR (codec 0x71) selected and final** (spike l62.2.9.10 resolved). DAG-CBOR is more compact, standard for IPFS storage, and Corundum can reference DAG-CBOR CIDs from its DAG-JSON activities — codec of referenced content need not match the referencing document. Implementation: `serde_ipld_dagcbor` 0.6. This choice is irreversible once articles are written to IPFS and referenced in group logs.
-- **Future Corundum integration (not v1):** Corundum will define an `rfc822+mime` activity type whose content reference is a usenet-ipfs article root CID. The article IPLD schema must be traversable by standard IPLD tooling and rich enough (message_id, newsgroups, content_type_summary in metadata) for Corundum to render a preview. Design choices made now must not foreclose this extension.
+- **Future Corundum integration (not v1):** Corundum will define an `rfc822+mime` activity type whose content reference is a stoa article root CID. The article IPLD schema must be traversable by standard IPLD tooling and rich enough (message_id, newsgroups, content_type_summary in metadata) for Corundum to render a preview. Design choices made now must not foreclose this extension.
 
 ## Test Integrity
 

@@ -9,7 +9,7 @@
 //!                        reason TEXT NOT NULL)
 
 use sqlx::SqlitePool;
-use usenet_ipfs_core::error::StorageError;
+use stoa_core::error::StorageError;
 
 /// A single GC audit record.
 #[derive(Debug, Clone)]

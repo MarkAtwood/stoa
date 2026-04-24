@@ -1,22 +1,22 @@
-# usenet-ipfs Threat Model
+# stoa Threat Model
 
 **Date:** 2026-04-19
-**Scope:** usenet-ipfs-transit and usenet-ipfs-reader daemons, v1
+**Scope:** stoa-transit and stoa-reader daemons, v1
 **Status:** Living document — update when attack surface changes
 
 ---
 
 ## 1. System Overview
 
-Two binaries share a core library crate (`usenet-ipfs-core`):
+Two binaries share a core library crate (`stoa-core`):
 
-- **usenet-ipfs-transit** — NNTP peering daemon. Accepts IHAVE/CHECK/TAKETHIS from
+- **stoa-transit** — NNTP peering daemon. Accepts IHAVE/CHECK/TAKETHIS from
   peer servers, writes articles to IPFS, maintains a Merkle-CRDT group log over
   libp2p gossipsub. Listens on port 119 (configurable; default `0.0.0.0:119`).
   Operator signing key lives on disk; the transit daemon signs every article
   before writing it to the group log.
 
-- **usenet-ipfs-reader** — RFC 3977 NNTP server. Accepts connections from standard
+- **stoa-reader** — RFC 3977 NNTP server. Accepts connections from standard
   newsreader clients (slrn, tin, pan, Thunderbird). Reads articles from IPFS via
   CID lookup. Synthesizes local sequential article numbers per `(group, reader_server)`
   instance and stores them in SQLite. Listens on port 119 or 563 (TLS).

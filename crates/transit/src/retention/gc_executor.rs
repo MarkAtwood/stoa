@@ -2,7 +2,7 @@
 
 use cid::Cid;
 use sqlx::SqlitePool;
-use usenet_ipfs_core::error::StorageError;
+use stoa_core::error::StorageError;
 
 use crate::retention::audit_log::{append_audit_record, ensure_audit_table, GcAuditRecord};
 use crate::retention::pin_client::PinClient;

@@ -9,7 +9,7 @@ Every article written to IPFS must be signed by an operator key before the IPFS
 write commits and before the group log entry is appended. The signature field
 travels inside both the `ArticleRootNode` metadata and the `LogEntry`, so the
 choice of signing library affects the canonical serialization format and the
-dependency surface of `usenet-ipfs-core`.
+dependency surface of `stoa-core`.
 
 Three options were evaluated:
 
@@ -35,7 +35,7 @@ exposure, not targeted hardware extraction.
 
 ## Decision
 
-Use `ed25519-dalek` as the sole signing implementation in `usenet-ipfs-core`.
+Use `ed25519-dalek` as the sole signing implementation in `stoa-core`.
 The `SigningKey` and `Signature` types from `ed25519-dalek` are the canonical
 types throughout the codebase. The signing key is loaded from disk at startup,
 held in memory, and never written to any log statement or error message.

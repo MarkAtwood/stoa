@@ -227,7 +227,7 @@ mod tests {
 addr = "127.0.0.1:143"
 
 [database]
-path = "/var/lib/usenet-ipfs/imap.db"
+path = "/var/lib/stoa/imap.db"
 
 [limits]
 max_connections = 50
@@ -245,7 +245,7 @@ users = [{ username = "alice", password = "hunter2" }]
         let f = write_toml(VALID_TOML);
         let cfg = Config::from_file(f.path()).expect("should parse");
         assert_eq!(cfg.listen.addr, "127.0.0.1:143");
-        assert_eq!(cfg.database.path, "/var/lib/usenet-ipfs/imap.db");
+        assert_eq!(cfg.database.path, "/var/lib/stoa/imap.db");
         assert_eq!(cfg.limits.max_connections, 50);
         assert_eq!(cfg.limits.idle_timeout_secs, 900);
         assert_eq!(cfg.auth.users.len(), 1);

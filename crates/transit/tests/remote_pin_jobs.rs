@@ -13,7 +13,7 @@ use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::Row;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use usenet_ipfs_transit::admin::build_pinning_remote_json;
+use stoa_transit::admin::build_pinning_remote_json;
 
 static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
 
@@ -28,7 +28,7 @@ async fn make_pool() -> Arc<sqlx::SqlitePool> {
         .connect_with(opts)
         .await
         .unwrap();
-    usenet_ipfs_transit::migrations::run_migrations(&pool)
+    stoa_transit::migrations::run_migrations(&pool)
         .await
         .unwrap();
     Arc::new(pool)

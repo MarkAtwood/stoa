@@ -15,9 +15,9 @@ use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader
 use tokio::sync::{mpsc, Mutex};
 use tokio_rustls;
 
-use usenet_ipfs_core::group_log::{LogEntryId, LogStorage as _, SqliteLogStorage};
-use usenet_ipfs_core::{msgid_map::MsgIdMap, validation::validate_message_id};
-use usenet_ipfs_verify::VerificationStore;
+use stoa_core::group_log::{LogEntryId, LogStorage as _, SqliteLogStorage};
+use stoa_core::{msgid_map::MsgIdMap, validation::validate_message_id};
+use stoa_verify::VerificationStore;
 
 use crate::peering::{
     auth::run_auth_handshake,
@@ -47,7 +47,7 @@ pub struct PeeringShared {
     /// Operator signing key (articles are signed before log-append).
     pub signing_key: Arc<ed25519_dalek::SigningKey>,
     /// HLC clock shared across sessions (mutex for exclusive send() access).
-    pub hlc: Arc<Mutex<usenet_ipfs_core::hlc::HlcClock>>,
+    pub hlc: Arc<Mutex<stoa_core::hlc::HlcClock>>,
     /// Ingestion queue sender; sessions enqueue articles here.
     pub ingestion_sender: Arc<IngestionSender>,
     /// Libp2p peer identity string (used in tip advertisements).
@@ -156,7 +156,7 @@ pub async fn run_peering_session<S>(
     let mut mode = PeeringMode::Ihave;
 
     if writer
-        .write_all(b"200 usenet-ipfs-transit NNTP service ready\r\n")
+        .write_all(b"200 stoa-transit NNTP service ready\r\n")
         .await
         .is_err()
     {

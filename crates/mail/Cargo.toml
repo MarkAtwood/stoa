@@ -1,15 +1,15 @@
 [package]
-name = "usenet-ipfs-mail"
+name = "stoa-mail"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.80"
 
 [lib]
-name = "usenet_ipfs_mail"
+name = "stoa_mail"
 path = "src/lib.rs"
 
 [[bin]]
-name = "usenet-ipfs-mail"
+name = "stoa-mail"
 path = "src/main.rs"
 
 [dependencies]
@@ -31,11 +31,11 @@ sha2 = "0.10"
 uuid = { version = "1", features = ["v4"] }
 rand = "0.8"
 mailparse = "0.15"
-usenet-ipfs-core = { path = "../core" }
-usenet-ipfs-tls = { path = "../tls" }
-usenet-ipfs-reader = { path = "../reader" }
-usenet-ipfs-auth = { path = "../auth" }
-usenet-ipfs-smtp = { path = "../smtp" }
+stoa-core = { path = "../core" }
+stoa-tls = { path = "../tls" }
+stoa-reader = { path = "../reader" }
+stoa-auth = { path = "../auth" }
+stoa-smtp = { path = "../smtp" }
 serde_ipld_dagcbor = "0.6"
 async-trait = "0.1"
 chrono = "0.4"
@@ -48,4 +48,4 @@ bcrypt = "0.15"
 reqwest = { version = "0.12", features = ["json"] }
 tempfile = "3"
 tokio = { version = "1", features = ["full", "macros", "rt-multi-thread"] }
-usenet-ipfs-smtp = { path = "../smtp" }
+stoa-smtp = { path = "../smtp" }

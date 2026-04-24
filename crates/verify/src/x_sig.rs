@@ -1,8 +1,8 @@
-//! Verify `X-Usenet-IPFS-Sig` Ed25519 article signatures.
+//! Verify `X-Stoa-Sig` Ed25519 article signatures.
 //!
 //! The header format is:
 //! ```text
-//! X-Usenet-IPFS-Sig: <base64url-no-pad>
+//! X-Stoa-Sig: <base64url-no-pad>
 //! ```
 //! The signature is computed over the article bytes with the sig header
 //! removed, using the operator's Ed25519 key.  Verification succeeds if any
@@ -14,9 +14,9 @@ use sha2::{Digest, Sha256};
 
 use crate::types::{ArticleVerification, SigType, VerifResult};
 
-const SIG_HEADER: &str = "X-Usenet-IPFS-Sig";
+const SIG_HEADER: &str = "X-Stoa-Sig";
 
-/// Try to verify `X-Usenet-IPFS-Sig` in `article_bytes` against each key in
+/// Try to verify `X-Stoa-Sig` in `article_bytes` against each key in
 /// `trusted_keys` in order.
 ///
 /// Returns one `ArticleVerification`:
@@ -33,7 +33,7 @@ pub fn verify_x_sig(
     let extracted = match extract_sig_header(article_bytes) {
         Ok(v) => v,
         Err(ExtractError::NotFound) => {
-            // No X-Usenet-IPFS-Sig header → no verification to record.
+            // No X-Stoa-Sig header → no verification to record.
             return vec![];
         }
         Err(ExtractError::NonUtf8) => {
@@ -49,7 +49,7 @@ pub fn verify_x_sig(
             return vec![ArticleVerification {
                 sig_type: SigType::XUsenetIpfsSig,
                 result: VerifResult::ParseError {
-                    reason: format!("X-Usenet-IPFS-Sig value is not valid base64url: {e}"),
+                    reason: format!("X-Stoa-Sig value is not valid base64url: {e}"),
                 },
                 identity: None,
             }];

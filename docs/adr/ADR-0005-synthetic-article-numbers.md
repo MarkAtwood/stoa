@@ -11,7 +11,7 @@ accept article numbers as arguments. Newsreader clients (slrn, tin, pan,
 Thunderbird) rely on these numbers to track read state and to request ranges of
 new articles since their last connection.
 
-usenet-ipfs identifies articles globally by CID (content-addressed, network-stable)
+stoa identifies articles globally by CID (content-addressed, network-stable)
 and by Message-ID (legacy Usenet identity). Neither is a short sequential integer.
 The question is how to bridge this to the NNTP article number protocol.
 

@@ -1,4 +1,4 @@
-//! Shared authentication types and credential store for usenet-ipfs services.
+//! Shared authentication types and credential store for stoa services.
 //!
 //! This crate is used by the reader (NNTP AUTHINFO), mail (JMAP), and SMTP
 //! services. It is a pure library crate with no binary.

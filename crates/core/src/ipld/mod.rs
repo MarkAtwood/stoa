@@ -1,4 +1,4 @@
-//! IPLD schema types for usenet-ipfs article storage.
+//! IPLD schema types for stoa article storage.
 //!
 //! The article root node (DAG-CBOR, codec 0x71) links to separate raw blocks
 //! for the verbatim wire bytes and to IPLD sub-nodes for MIME and metadata.

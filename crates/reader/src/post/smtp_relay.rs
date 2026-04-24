@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use usenet_ipfs_smtp::SmtpRelayQueue;
+use stoa_smtp::SmtpRelayQueue;
 
 /// Collect email-address recipients from the `To:` and `Cc:` header fields of
 /// `article_bytes`.
@@ -82,7 +82,7 @@ pub async fn maybe_enqueue_smtp_relay(
 
     if let Err(e) = queue.enqueue(article_bytes, &mail_from, &rcpts).await {
         tracing::warn!("smtp relay enqueue failed: {e}");
-        usenet_ipfs_smtp::metrics::inc_relay_enqueue_failure();
+        stoa_smtp::metrics::inc_relay_enqueue_failure();
     }
 }
 
@@ -238,7 +238,7 @@ mod tests {
         assert_eq!(entries, 0, "no peers → no .env files expected");
 
         // Now test with a peer configured so files ARE written.
-        let peer = usenet_ipfs_smtp::config::SmtpRelayPeerConfig {
+        let peer = stoa_smtp::config::SmtpRelayPeerConfig {
             host: "127.0.0.1".to_string(),
             port: 2525,
             tls: false,
@@ -266,7 +266,7 @@ mod tests {
     #[tokio::test]
     async fn newsgroup_only_recipients_skip_enqueue() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let peer = usenet_ipfs_smtp::config::SmtpRelayPeerConfig {
+        let peer = stoa_smtp::config::SmtpRelayPeerConfig {
             host: "127.0.0.1".to_string(),
             port: 2525,
             tls: false,

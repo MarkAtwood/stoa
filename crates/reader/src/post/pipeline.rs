@@ -6,9 +6,9 @@
 use cid::Cid;
 use serde::Serialize;
 use tokio::sync::mpsc;
-use usenet_ipfs_core::article::GroupName;
-use usenet_ipfs_core::hlc::HlcTimestamp;
-use usenet_ipfs_core::msgid_map::MsgIdMap;
+use stoa_core::article::GroupName;
+use stoa_core::hlc::HlcTimestamp;
+use stoa_core::msgid_map::MsgIdMap;
 
 use crate::session::response::Response;
 
@@ -30,8 +30,8 @@ struct TipAdvert<'a> {
 /// If the channel is `None` or send fails, logs a warning and continues —
 /// gossipsub propagation is best-effort and must not cause POST failure.
 ///
-/// Topic naming: `usenet.hier.<hierarchy>` where hierarchy is the first
-/// component of the group name (e.g. `comp.lang.rust` → `usenet.hier.comp`).
+/// Topic naming: `stoa.hier.<hierarchy>` where hierarchy is the first
+/// component of the group name (e.g. `comp.lang.rust` → `stoa.hier.comp`).
 pub async fn publish_tips_after_post(
     gossip_tx: &Option<mpsc::Sender<(String, Vec<u8>)>>,
     newsgroups: &[GroupName],
@@ -50,7 +50,7 @@ pub async fn publish_tips_after_post(
     for group in newsgroups {
         let group_str = group.as_str();
         let hierarchy = group_str.split('.').next().unwrap_or(group_str);
-        let topic = format!("usenet.hier.{hierarchy}");
+        let topic = format!("stoa.hier.{hierarchy}");
 
         let advert = TipAdvert {
             group_name: group_str,
@@ -118,7 +118,7 @@ mod tests {
             .connect("sqlite::memory:")
             .await
             .unwrap();
-        usenet_ipfs_core::migrations::run_migrations(&pool)
+        stoa_core::migrations::run_migrations(&pool)
             .await
             .unwrap();
         MsgIdMap::new(pool)
@@ -164,8 +164,8 @@ mod tests {
 
     // ── publish_tips_after_post ───────────────────────────────────────────────
 
-    use usenet_ipfs_core::article::GroupName;
-    use usenet_ipfs_core::hlc::HlcTimestamp;
+    use stoa_core::article::GroupName;
+    use stoa_core::hlc::HlcTimestamp;
 
     fn test_cid_dag(data: &[u8]) -> Cid {
         Cid::new_v1(0x71, Code::Sha2_256.digest(data))
@@ -204,8 +204,8 @@ mod tests {
         let msg2 = rx.try_recv().expect("should have message for sci.math");
         assert!(rx.try_recv().is_err(), "should have exactly 2 messages");
 
-        assert_eq!(msg1.0, "usenet.hier.comp");
-        assert_eq!(msg2.0, "usenet.hier.sci");
+        assert_eq!(msg1.0, "stoa.hier.comp");
+        assert_eq!(msg2.0, "stoa.hier.sci");
 
         let v1: serde_json::Value = serde_json::from_slice(&msg1.1).expect("must be valid JSON");
         assert_eq!(v1["group_name"], "comp.lang.rust");
@@ -220,6 +220,6 @@ mod tests {
         let ts = make_timestamp();
         publish_tips_after_post(&Some(tx), &groups, &cid, &ts, "12D3abc").await;
         let (topic, _) = rx.try_recv().expect("should have a message");
-        assert_eq!(topic, "usenet.hier.alt");
+        assert_eq!(topic, "stoa.hier.alt");
     }
 }

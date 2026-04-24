@@ -1,4 +1,4 @@
-//! SQLite migration runner for usenet-ipfs-transit.
+//! SQLite migration runner for stoa-transit.
 
 use sqlx::SqlitePool;
 

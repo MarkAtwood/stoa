@@ -118,7 +118,7 @@ pub async fn run_session_tls(
 /// Drives the `imap-next` state machine until the session ends (LOGOUT or
 /// connection error).
 async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
-    let greeting = match Greeting::ok(None, "IMAP4rev1 usenet-ipfs-imap server ready") {
+    let greeting = match Greeting::ok(None, "IMAP4rev1 stoa-imap server ready") {
         Ok(g) => g,
         Err(e) => {
             warn!(peer = %ctx.peer, "failed to construct IMAP greeting: {e}");

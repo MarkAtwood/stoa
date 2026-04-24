@@ -2,7 +2,7 @@
 
 ## Retention Concepts
 
-usenet-ipfs does not retain articles automatically. Writing an article to IPFS does not preserve it — IPFS garbage-collects unpinned blocks. Every article that should survive must be either operator-pinned or matched by a `pin` rule in the pinning policy.
+stoa does not retain articles automatically. Writing an article to IPFS does not preserve it — IPFS garbage-collects unpinned blocks. Every article that should survive must be either operator-pinned or matched by a `pin` rule in the pinning policy.
 
 **Design invariant:** Retention is explicit opt-in. "It's in IPFS" is not a retention strategy.
 

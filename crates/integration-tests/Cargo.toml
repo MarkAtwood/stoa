@@ -1,5 +1,5 @@
 [package]
-name = "usenet-ipfs-integration-tests"
+name = "stoa-integration-tests"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.80"
@@ -7,10 +7,10 @@ rust-version = "1.80"
 # This crate has no library. All content is in [[test]] targets.
 
 [dev-dependencies]
-usenet-ipfs-auth = { path = "../auth" }
-usenet-ipfs-transit = { path = "../transit" }
-usenet-ipfs-reader = { path = "../reader" }
-usenet-ipfs-core = { path = "../core" }
+stoa-auth = { path = "../auth" }
+stoa-transit = { path = "../transit" }
+stoa-reader = { path = "../reader" }
+stoa-core = { path = "../core" }
 tokio = { version = "1", features = ["full", "macros", "rt-multi-thread"] }
 tempfile = "3"
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio-rustls"] }
@@ -22,5 +22,5 @@ bs58 = "0.4"
 base64 = "0.22"
 toml = "0.8"
 serde_json = "1"
-usenet-ipfs-verify = { path = "../verify" }
+stoa-verify = { path = "../verify" }
 mail-auth = "0.8"

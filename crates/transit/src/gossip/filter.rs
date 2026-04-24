@@ -1,6 +1,6 @@
 //! In-topic group-name filter for gossipsub messages.
 //!
-//! Gossipsub delivers messages at hierarchy granularity (`usenet.hier.comp`).
+//! Gossipsub delivers messages at hierarchy granularity (`stoa.hier.comp`).
 //! The `GroupFilter` reads `group_name` from the message JSON payload and
 //! dispatches to the handler for that specific group, or drops the message
 //! if the local node does not serve the group.

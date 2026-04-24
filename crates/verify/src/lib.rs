@@ -1,11 +1,11 @@
-//! Article signature verification for usenet-ipfs.
+//! Article signature verification for stoa.
 //!
 //! Verifies two signature types:
-//! - `X-Usenet-IPFS-Sig`: operator Ed25519 signature over article content.
+//! - `X-Stoa-Sig`: operator Ed25519 signature over article content.
 //! - `DKIM-Signature`: standard DKIM signature, verified via DNS TXT lookup.
 //!
 //! Results are persisted to SQLite via `VerificationStore` and surfaced
-//! through NNTP (`X-Usenet-IPFS-Verified` header) and JMAP.
+//! through NNTP (`X-Stoa-Verified` header) and JMAP.
 
 pub mod dkim;
 pub mod store;

@@ -2,7 +2,7 @@ use crate::session::response::Response;
 use mailparse::parse_headers;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
-use usenet_ipfs_core::article::GroupName;
+use stoa_core::article::GroupName;
 
 /// Maximum header line length per RFC 5322 §2.1.1.
 const MAX_HEADER_LINE_BYTES: usize = 998;

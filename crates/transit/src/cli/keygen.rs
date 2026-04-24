@@ -70,7 +70,7 @@ pub fn generate_keypair(
     let fingerprint = hex::encode(digest);
 
     // HLC node ID: first 8 bytes of SHA-256(public_key)
-    let node_id = usenet_ipfs_core::signing::hlc_node_id(&signing_key);
+    let node_id = stoa_core::signing::hlc_node_id(&signing_key);
     let node_id_hex = hex::encode(node_id);
 
     let public_pem = to_pem("PUBLIC KEY", &public_der);
@@ -226,7 +226,7 @@ mod tests {
         let path = test_key_path(&dir);
         let result = generate_keypair(&path, false).unwrap();
 
-        let key = usenet_ipfs_core::signing::load_signing_key(&result.private_key_path)
+        let key = stoa_core::signing::load_signing_key(&result.private_key_path)
             .expect("should load signing key");
 
         use ed25519_dalek::Signer;

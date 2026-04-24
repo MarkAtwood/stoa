@@ -1,10 +1,10 @@
 //! TLS configuration loader for the SMTP listener.
 //!
-//! Delegates PEM loading to `usenet-ipfs-tls` and adds SMTP-specific helpers
+//! Delegates PEM loading to `stoa-tls` and adds SMTP-specific helpers
 //! (`build_tls_acceptor`, `accept_tls`, `tls_configured`).
 
-use usenet_ipfs_tls::load_tls_server_config;
-pub use usenet_ipfs_tls::TlsError;
+use stoa_tls::load_tls_server_config;
+pub use stoa_tls::TlsError;
 
 /// A `tokio_rustls` TLS acceptor for the SMTPS listener.
 pub type TlsAcceptor = tokio_rustls::TlsAcceptor;

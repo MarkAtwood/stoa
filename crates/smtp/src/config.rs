@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::Path;
 
-pub use usenet_ipfs_auth::AuthConfig;
+pub use stoa_auth::AuthConfig;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {

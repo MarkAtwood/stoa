@@ -5,7 +5,7 @@
 //! IHAVE/TAKETHIS is only forwarded to peers that serve the group.
 
 use sqlx::SqlitePool;
-use usenet_ipfs_core::error::StorageError;
+use stoa_core::error::StorageError;
 
 /// Record the full group list served by a peer (replaces previous entry).
 ///

@@ -2,7 +2,7 @@
 
 **Status: NO-GO — permanently deferred**
 **Date:** 2026-04-20
-**Scope:** `usenet-ipfs-reader` POST path spam mitigation
+**Scope:** `stoa-reader` POST path spam mitigation
 
 ---
 

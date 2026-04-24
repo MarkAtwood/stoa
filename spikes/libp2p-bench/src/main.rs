@@ -170,7 +170,7 @@ type Behaviour = request_response::Behaviour<BitswapCodec>;
 type BenchSwarm = Swarm<Behaviour>;
 
 fn make_swarm() -> BenchSwarm {
-    let protocol = StreamProtocol::new("/usenet-ipfs/bitswap/1.0.0");
+    let protocol = StreamProtocol::new("/stoa/bitswap/1.0.0");
     let behaviour = request_response::Behaviour::new(
         vec![(protocol, request_response::ProtocolSupport::Full)],
         request_response::Config::default(),
@@ -314,7 +314,7 @@ async fn run_requester(
 async fn main() {
     let iterations = 1000usize;
     let block_data =
-        b"Hello, usenet-ipfs! This is a test block for the libp2p bitswap benchmark.".to_vec();
+        b"Hello, stoa! This is a test block for the libp2p bitswap benchmark.".to_vec();
     let block_cid = make_cid(&block_data);
 
     println!("libp2p bitswap-style block exchange benchmark");

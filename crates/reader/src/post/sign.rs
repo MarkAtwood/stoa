@@ -2,24 +2,24 @@
 //!
 //! Articles are signed over their raw bytes (headers + blank line + body)
 //! before the signature header is inserted. The signature is appended as
-//! `X-Usenet-IPFS-Sig: <base64url-no-pad>` immediately before the blank line
+//! `X-Stoa-Sig: <base64url-no-pad>` immediately before the blank line
 //! separating headers from body.
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
-use usenet_ipfs_core::signing::{self, Signature, SigningKey, VerifyingKey};
+use stoa_core::signing::{self, Signature, SigningKey, VerifyingKey};
 
-pub use usenet_ipfs_core::signing::load_signing_key;
+pub use stoa_core::signing::load_signing_key;
 
 use crate::post::find_header_boundary;
 
 /// The header name for the operator signature.
-pub const OPERATOR_SIG_HEADER: &str = "X-Usenet-IPFS-Sig";
+pub const OPERATOR_SIG_HEADER: &str = "X-Stoa-Sig";
 
 /// Sign article bytes and return `(signed_article, sig_bytes)`.
 ///
-/// `signed_article` is the article with `X-Usenet-IPFS-Sig` inserted immediately
+/// `signed_article` is the article with `X-Stoa-Sig` inserted immediately
 /// before the header/body separator. `sig_bytes` is the raw 64-byte Ed25519
-/// signature over `article_bytes`, used for the `X-Usenet-IPFS-Sig` header value.
+/// signature over `article_bytes`, used for the `X-Stoa-Sig` header value.
 ///
 /// The signature is computed over the full `article_bytes` as supplied (before
 /// the signature header exists). `article_bytes` must contain a header/body
@@ -58,7 +58,7 @@ pub fn sign_article(key: &SigningKey, article_bytes: &[u8]) -> (Vec<u8>, Vec<u8>
     (out, sig_bytes)
 }
 
-/// Verify that the `X-Usenet-IPFS-Sig` header in `article_bytes` is valid.
+/// Verify that the `X-Stoa-Sig` header in `article_bytes` is valid.
 ///
 /// Returns `Ok(())` if the signature is present and valid.
 /// Returns `Err` with a description if the header is missing, malformed, or
@@ -78,7 +78,7 @@ pub fn verify_article_sig(pubkey: &VerifyingKey, article_bytes: &[u8]) -> Result
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-/// Find the `X-Usenet-IPFS-Sig` header in `article_bytes`, decode its value,
+/// Find the `X-Stoa-Sig` header in `article_bytes`, decode its value,
 /// and return `(signature_bytes, article_bytes_without_sig_header)`.
 fn extract_sig_header(article_bytes: &[u8]) -> Result<(Vec<u8>, Vec<u8>), String> {
     // Work line by line in the header section only.
@@ -131,7 +131,7 @@ fn extract_sig_header(article_bytes: &[u8]) -> Result<(Vec<u8>, Vec<u8>), String
 #[cfg(test)]
 mod tests {
     use super::*;
-    use usenet_ipfs_core::signing::SigningKey;
+    use stoa_core::signing::SigningKey;
 
     fn test_key() -> SigningKey {
         SigningKey::from_bytes(&[0x42u8; 32])

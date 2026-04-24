@@ -1,14 +1,14 @@
-# X-Usenet-IPFS-DID-Sig Header Passthrough
+# X-Stoa-DID-Sig Header Passthrough
 
 ## What it is
 
-The `X-Usenet-IPFS-DID-Sig` header carries a Decentralized Identifier (DID)
+The `X-Stoa-DID-Sig` header carries a Decentralized Identifier (DID)
 signature over the article content. Posters may include this header to
 cryptographically attest to authorship using a DID key.
 
 ## v1 behavior: passthrough only
 
-usenet-ipfs v1 does **not** resolve DIDs or verify DID signatures.
+stoa v1 does **not** resolve DIDs or verify DID signatures.
 The header is stored and returned to readers unchanged.
 
 Rationale: DID resolution requires network access to DID document endpoints,
@@ -17,7 +17,7 @@ a future version.
 
 ## What readers see
 
-Clients receive the `X-Usenet-IPFS-DID-Sig` header in ARTICLE and HEAD
+Clients receive the `X-Stoa-DID-Sig` header in ARTICLE and HEAD
 responses exactly as posted. Clients that understand DID signatures can
 perform their own verification.
 

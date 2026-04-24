@@ -6,7 +6,7 @@
 
 use cid::Cid;
 use sqlx::SqlitePool;
-use usenet_ipfs_core::error::StorageError;
+use stoa_core::error::StorageError;
 
 /// Result of a reindex run.
 #[derive(Debug, Default)]

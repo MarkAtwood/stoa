@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 //! Cross-validation: run identical scripts through sieve-native and the
-//! sieve-rs-backed usenet-ipfs-sieve oracle; assert outputs match.
+//! sieve-rs-backed stoa-sieve oracle; assert outputs match.
 
-use usenet_ipfs_sieve as oracle;
-use usenet_ipfs_sieve_native as native;
+use stoa_sieve as oracle;
+use stoa_sieve_native as native;
 
 fn to_native(action: &oracle::SieveAction) -> native::SieveAction {
     match action {

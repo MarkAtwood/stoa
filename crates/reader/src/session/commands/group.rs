@@ -34,7 +34,7 @@ pub fn group_select(ctx: &mut SessionContext, group_data: Option<&GroupData>) ->
     match group_data {
         None => Response::no_such_newsgroup(),
         Some(gd) => {
-            ctx.current_group = usenet_ipfs_core::article::GroupName::new(gd.name.clone()).ok();
+            ctx.current_group = stoa_core::article::GroupName::new(gd.name.clone()).ok();
             ctx.current_article_number = Some(gd.article_numbers.first().copied().unwrap_or(0));
             ctx.state = SessionState::GroupSelected;
             Response::group_selected(&gd.name, gd.count, gd.low, gd.high)

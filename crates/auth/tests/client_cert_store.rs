@@ -7,7 +7,7 @@
 //! invocations, cross-verified against each other:
 //!
 //!   openssl req -x509 -newkey ed25519 -keyout /tmp/k.pem -out /tmp/c.pem \
-//!     -days 3650 -nodes -subj "/CN=usenet-ipfs-test-cert"
+//!     -days 3650 -nodes -subj "/CN=stoa-test-cert"
 //!   openssl x509 -fingerprint -sha256 -noout -in /tmp/c.pem
 //!   → 6E:EC:02:A6:1E:34:81:26:F9:B3:AD:2C:22:37:4E:1F:63:1B:60:5B:55:29:DE:F0:33:29:DB:FD:76:3E:A0:C7
 //!   openssl x509 -outform DER -in /tmp/c.pem | openssl dgst -sha256 -hex
@@ -23,16 +23,16 @@
 //! No implementation code is used as its own oracle.
 
 use sha2::{Digest, Sha256};
-use usenet_ipfs_auth::{ClientCertEntry, ClientCertStore};
+use stoa_auth::{ClientCertEntry, ClientCertStore};
 
 // ---------------------------------------------------------------------------
 // Oracle DER test fixture
 //
-// Self-signed ed25519 cert, CN=usenet-ipfs-test-cert, generated once and
+// Self-signed ed25519 cert, CN=stoa-test-cert, generated once and
 // hardcoded here. Source commands:
 //
 //   openssl req -x509 -newkey ed25519 -keyout /tmp/k.pem -out /tmp/c.pem \
-//     -days 3650 -nodes -subj "/CN=usenet-ipfs-test-cert"
+//     -days 3650 -nodes -subj "/CN=stoa-test-cert"
 //   openssl x509 -outform DER -in /tmp/c.pem | xxd -p | tr -d '\n'
 //
 // SHA-256 verified by two independent openssl commands:
@@ -149,7 +149,7 @@ fn sha256_of_test_cert_der_matches_openssl_oracle() {
 
 #[test]
 fn compute_fingerprint_of_test_cert_der_matches_oracle() {
-    let fp = usenet_ipfs_auth::compute_fingerprint(TEST_CERT_DER);
+    let fp = stoa_auth::compute_fingerprint(TEST_CERT_DER);
     assert_eq!(
         fp, TEST_CERT_FINGERPRINT_PREFIXED,
         "compute_fingerprint must return 'sha256:<hex>' matching openssl oracle"

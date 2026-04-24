@@ -114,7 +114,7 @@ impl VerificationStore {
 
 fn parse_sig_type(s: &str) -> SigType {
     match s {
-        "x-usenet-ipfs-sig" => SigType::XUsenetIpfsSig,
+        "x-stoa-sig" => SigType::XUsenetIpfsSig,
         _ => SigType::Dkim,
     }
 }

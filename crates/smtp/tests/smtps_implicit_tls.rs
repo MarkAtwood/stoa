@@ -26,7 +26,7 @@
 //!
 //! Self-signed cert: generated fresh per test using `rcgen 0.13`.
 //! PEM files are written to a `tempfile::tempdir` and passed to
-//! `usenet_ipfs_smtp::tls::build_tls_acceptor`, which is the same code path
+//! `stoa_smtp::tls::build_tls_acceptor`, which is the same code path
 //! used by the production server startup.
 
 use std::{io, sync::Arc};
@@ -55,7 +55,7 @@ fn install_crypto_provider() {
     });
 }
 
-use usenet_ipfs_smtp::{
+use stoa_smtp::{
     config::{
         AuthConfig, Config, DatabaseConfig, DeliveryConfig, LimitsConfig, ListenConfig, LogConfig,
         ReaderConfig, SieveAdminConfig, TlsConfig,
@@ -239,7 +239,7 @@ fn config_smtps_addr_field_exists_and_defaults_to_none() {
 fn config_smtps_addr_parses_from_toml() {
     use std::io::Write;
     use tempfile::NamedTempFile;
-    use usenet_ipfs_smtp::config::Config;
+    use stoa_smtp::config::Config;
 
     // Without smtps_addr — must parse with None.
     let toml_without = r#"

@@ -6,7 +6,7 @@
 //! once the timestamp passes.
 
 use sqlx::SqlitePool;
-use usenet_ipfs_core::error::StorageError;
+use stoa_core::error::StorageError;
 
 /// Configuration for the blacklist policy.
 #[derive(Debug, Clone)]

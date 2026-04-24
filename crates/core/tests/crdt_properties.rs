@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use cid::Cid;
 use multihash_codetable::{Code, MultihashDigest};
 use proptest::prelude::*;
-use usenet_ipfs_core::{
+use stoa_core::{
     group_log::{
         mem_storage::MemLogStorage,
         reconcile::reconcile,

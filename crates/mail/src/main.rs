@@ -3,8 +3,8 @@ use std::{path::PathBuf, sync::Arc, time::Instant};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::str::FromStr as _;
 use tracing::info;
-use usenet_ipfs_auth::CredentialStore;
-use usenet_ipfs_mail::{config::Config, server::AppState, token_store::TokenStore};
+use stoa_auth::CredentialStore;
+use stoa_mail::{config::Config, server::AppState, token_store::TokenStore};
 
 fn parse_args() -> PathBuf {
     let args: Vec<String> = std::env::args().collect();
@@ -60,7 +60,7 @@ async fn main() {
         }
     };
 
-    info!(listen_addr = %addr, "usenet-ipfs-mail starting");
+    info!(listen_addr = %addr, "stoa-mail starting");
 
     let mut credential_store = CredentialStore::from_credentials(&config.auth.users);
     if let Some(ref path) = config.auth.credential_file {
@@ -96,7 +96,7 @@ async fn main() {
         }
     };
 
-    if let Err(e) = usenet_ipfs_mail::migrations::run_migrations(&pool).await {
+    if let Err(e) = stoa_mail::migrations::run_migrations(&pool).await {
         eprintln!("error: database migration failed: {}", e);
         std::process::exit(1);
     }
@@ -124,12 +124,12 @@ async fn main() {
         }
     };
 
-    if let Err(e) = usenet_ipfs_mail::server::run_server(addr, state, shutdown).await {
+    if let Err(e) = stoa_mail::server::run_server(addr, state, shutdown).await {
         eprintln!("error: server failed: {e}");
         std::process::exit(1);
     }
 
-    info!("usenet-ipfs-mail stopped");
+    info!("stoa-mail stopped");
 }
 
 async fn sigterm() {

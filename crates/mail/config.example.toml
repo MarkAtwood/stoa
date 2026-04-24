@@ -1,5 +1,5 @@
-# usenet-ipfs-mail example configuration
-# Copy to mail.toml and edit before running usenet-ipfs-mail.
+# stoa-mail example configuration
+# Copy to mail.toml and edit before running stoa-mail.
 
 [listen]
 addr = "0.0.0.0:8080"
@@ -17,7 +17,7 @@ enabled = true
 allowed_origins = ["*"]
 
 [database]
-path = "/var/lib/usenet-ipfs/mail/mail.db"
+path = "/var/lib/stoa/mail/mail.db"
 
 [auth]
 required = true

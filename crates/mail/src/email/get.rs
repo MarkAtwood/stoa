@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use cid::Cid;
 use serde_json::{json, Value};
-use usenet_ipfs_core::ipld::root_node::ArticleRootNode;
-use usenet_ipfs_reader::post::ipfs_write::IpfsBlockStore;
+use stoa_core::ipld::root_node::ArticleRootNode;
+use stoa_reader::post::ipfs_write::IpfsBlockStore;
 
 use super::types::Email;
 
@@ -76,8 +76,8 @@ mod tests {
     use async_trait::async_trait;
     use cid::Cid;
     use multihash_codetable::{Code, MultihashDigest};
-    use usenet_ipfs_core::ipld::root_node::{ArticleMetadata, ArticleRootNode};
-    use usenet_ipfs_reader::post::ipfs_write::IpfsWriteError;
+    use stoa_core::ipld::root_node::{ArticleMetadata, ArticleRootNode};
+    use stoa_reader::post::ipfs_write::IpfsWriteError;
 
     struct MemIpfs {
         blocks: tokio::sync::RwLock<std::collections::HashMap<Vec<u8>, Vec<u8>>>,

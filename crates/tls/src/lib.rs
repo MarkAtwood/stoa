@@ -1,4 +1,4 @@
-//! Shared TLS configuration loader for usenet-ipfs servers.
+//! Shared TLS configuration loader for stoa servers.
 //!
 //! Provides a single implementation of PEM certificate and private-key
 //! loading, shared by the SMTP, JMAP, and NNTP reader crates. Centralising

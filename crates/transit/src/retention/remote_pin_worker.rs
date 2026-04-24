@@ -102,7 +102,7 @@ impl RemotePinWorker {
         for row in rows {
             let id: i64 = row.get("id");
             let cid: String = row.get("cid");
-            let name_label = format!("usenet-ipfs:{cid}");
+            let name_label = format!("stoa:{cid}");
 
             match slot.client.submit(&cid, &name_label).await {
                 Ok(resp) => {

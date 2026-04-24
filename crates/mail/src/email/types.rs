@@ -3,26 +3,26 @@ use std::collections::HashMap;
 use cid::Cid;
 use data_encoding::BASE64URL_NOPAD;
 use serde::{Deserialize, Serialize};
-use usenet_ipfs_core::ipld::{
+use stoa_core::ipld::{
     header_map::{HeaderMapNode, HeaderValue},
     root_node::ArticleRootNode,
 };
 
 use crate::mailbox::types::mailbox_id_for_group;
 
-/// One verification result entry for the `x-usenet-ipfs-verifications` JMAP property.
+/// One verification result entry for the `x-stoa-verifications` JMAP property.
 ///
-/// Mirrors `usenet_ipfs_verify::ArticleVerification` but uses plain `String` fields
+/// Mirrors `stoa_verify::ArticleVerification` but uses plain `String` fields
 /// so the mail crate does not depend on the verify crate.  The JMAP handler converts
 /// from `ArticleVerification` to `VerificationSummary` before populating the Email.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct VerificationSummary {
-    /// Signature scheme: `"x-usenet-ipfs-sig"` or `"dkim"`.
+    /// Signature scheme: `"x-stoa-sig"` or `"dkim"`.
     #[serde(rename = "sigType")]
     pub sig_type: String,
     /// Outcome: `"pass"`, `"fail"`, `"no-key"`, `"dns-error"`, or `"parse-error"`.
     pub result: String,
-    /// Signing identity: pubkey hex (x-usenet-ipfs-sig) or domain (DKIM).
+    /// Signing identity: pubkey hex (x-stoa-sig) or domain (DKIM).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub identity: Option<String>,
 }
@@ -71,18 +71,18 @@ pub struct Email {
     /// Custom property: IPFS root CID string (DAG-CBOR, codec 0x71).
     ///
     /// Identical to `id` and `blob_id`.  Advertised via the
-    /// `urn:usenet-ipfs:jmap:cid` session capability.  Clients that do not
+    /// `urn:stoa:jmap:cid` session capability.  Clients that do not
     /// recognise this property may ignore it per RFC 8620 §3.3.
-    #[serde(rename = "x-usenet-ipfs-cid")]
+    #[serde(rename = "x-stoa-cid")]
     pub ipfs_cid: String,
     /// Custom property: base64url-no-pad encoded operator Ed25519 signature.
     ///
-    /// Present only when the article carries an `X-Usenet-IPFS-Sig` operator
+    /// Present only when the article carries an `X-Stoa-Sig` operator
     /// signature (i.e. `metadata.operator_signature` is non-empty).  Absent
     /// on unsigned articles.  Clients can verify by downloading the blob,
     /// stripping this header value, and running ed25519 verify over the
     /// resulting bytes against the operator's public key.
-    #[serde(rename = "x-usenet-ipfs-sig", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "x-stoa-sig", skip_serializing_if = "Option::is_none")]
     pub ipfs_sig: Option<String>,
     /// Custom property: verification results for all signatures checked on this article.
     ///
@@ -91,7 +91,7 @@ pub struct Email {
     /// `from_root_node` always sets this to `None`.  Callers that have access to a
     /// verify store should set it after construction.
     #[serde(
-        rename = "x-usenet-ipfs-verifications",
+        rename = "x-stoa-verifications",
         skip_serializing_if = "Option::is_none"
     )]
     pub ipfs_verifications: Option<Vec<VerificationSummary>>,
@@ -284,7 +284,7 @@ mod tests {
     use super::*;
     use cid::Cid;
     use multihash_codetable::{Code, MultihashDigest};
-    use usenet_ipfs_core::ipld::root_node::{ArticleMetadata, ArticleRootNode};
+    use stoa_core::ipld::root_node::{ArticleMetadata, ArticleRootNode};
 
     fn dummy_cid(seed: &[u8]) -> Cid {
         Cid::new_v1(0x71, Code::Sha2_256.digest(seed))
@@ -329,7 +329,7 @@ mod tests {
         assert_eq!(
             email.ipfs_cid,
             cid.to_string(),
-            "x-usenet-ipfs-cid must equal the email id (root CID)"
+            "x-stoa-cid must equal the email id (root CID)"
         );
     }
 
@@ -340,8 +340,8 @@ mod tests {
         let email = Email::from_root_node(&cid, &root, None, HashMap::new(), None);
         let json = serde_json::to_string(&email).unwrap();
         assert!(
-            json.contains("\"x-usenet-ipfs-cid\""),
-            "serialized email must contain x-usenet-ipfs-cid key"
+            json.contains("\"x-stoa-cid\""),
+            "serialized email must contain x-stoa-cid key"
         );
         assert!(
             json.contains(&cid.to_string()),
@@ -379,7 +379,7 @@ mod tests {
 
     #[test]
     fn subject_from_header_map() {
-        use usenet_ipfs_core::ipld::header_map::HeaderMapNode;
+        use stoa_core::ipld::header_map::HeaderMapNode;
         let cid = dummy_cid(b"article4");
         let root = dummy_root(vec!["comp.test".to_string()], 0, 100);
         let mut hm = HeaderMapNode::new();
@@ -457,8 +457,8 @@ mod tests {
         );
         let json = serde_json::to_string(&email).unwrap();
         assert!(
-            !json.contains("x-usenet-ipfs-sig"),
-            "unsigned article must omit x-usenet-ipfs-sig from JSON"
+            !json.contains("x-stoa-sig"),
+            "unsigned article must omit x-stoa-sig from JSON"
         );
     }
 
@@ -495,8 +495,8 @@ mod tests {
         let email = Email::from_root_node(&cid, &root, None, HashMap::new(), None);
         let json = serde_json::to_string(&email).unwrap();
         assert!(
-            json.contains("\"x-usenet-ipfs-sig\""),
-            "signed article must include x-usenet-ipfs-sig key in JSON"
+            json.contains("\"x-stoa-sig\""),
+            "signed article must include x-stoa-sig key in JSON"
         );
         // Decode the serialized value and verify it matches the original bytes.
         let sig_val = email.ipfs_sig.as_deref().unwrap();
@@ -520,8 +520,8 @@ mod tests {
         );
         let json = serde_json::to_string(&email).unwrap();
         assert!(
-            !json.contains("x-usenet-ipfs-verifications"),
-            "x-usenet-ipfs-verifications must be absent from JSON when None"
+            !json.contains("x-stoa-verifications"),
+            "x-stoa-verifications must be absent from JSON when None"
         );
     }
 
@@ -533,7 +533,7 @@ mod tests {
         let mut email = Email::from_root_node(&cid, &root, None, HashMap::new(), None);
         email.ipfs_verifications = Some(vec![
             VerificationSummary {
-                sig_type: "x-usenet-ipfs-sig".to_string(),
+                sig_type: "x-stoa-sig".to_string(),
                 result: "pass".to_string(),
                 identity: Some("abc123".to_string()),
             },
@@ -545,14 +545,14 @@ mod tests {
         ]);
         let json = serde_json::to_string(&email).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-        let verifs = parsed["x-usenet-ipfs-verifications"]
+        let verifs = parsed["x-stoa-verifications"]
             .as_array()
-            .expect("x-usenet-ipfs-verifications must be a JSON array");
+            .expect("x-stoa-verifications must be a JSON array");
         assert_eq!(verifs.len(), 2, "must have exactly 2 verification entries");
         assert_eq!(
             verifs[0]["sigType"].as_str().unwrap(),
-            "x-usenet-ipfs-sig",
-            "first entry sigType must be x-usenet-ipfs-sig"
+            "x-stoa-sig",
+            "first entry sigType must be x-stoa-sig"
         );
         assert_eq!(
             verifs[0]["result"].as_str().unwrap(),

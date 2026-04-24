@@ -12,13 +12,13 @@ use async_trait::async_trait;
 use cid::Cid;
 use multihash_codetable::{Code, MultihashDigest};
 use tokio::net::TcpListener;
-use usenet_ipfs_core::ipld::root_node::{ArticleMetadata, ArticleRootNode};
-use usenet_ipfs_mail::{
+use stoa_core::ipld::root_node::{ArticleMetadata, ArticleRootNode};
+use stoa_mail::{
     server::{build_router, AppState, JmapStores},
     state::{flags::UserFlagsStore, version::StateStore},
     token_store::TokenStore,
 };
-use usenet_ipfs_reader::{
+use stoa_reader::{
     post::ipfs_write::{IpfsBlockStore, IpfsWriteError},
     store::{
         article_numbers::ArticleNumberStore,
@@ -82,7 +82,7 @@ async fn make_reader_pool() -> sqlx::SqlitePool {
         .connect_with(opts)
         .await
         .expect("reader pool");
-    usenet_ipfs_reader::migrations::run_migrations(&pool)
+    stoa_reader::migrations::run_migrations(&pool)
         .await
         .expect("reader migrations");
     pool
@@ -99,7 +99,7 @@ async fn make_mail_pool() -> sqlx::SqlitePool {
         .connect_with(opts)
         .await
         .expect("mail pool");
-    usenet_ipfs_mail::migrations::run_migrations(&pool)
+    stoa_mail::migrations::run_migrations(&pool)
         .await
         .expect("mail migrations");
     pool
@@ -116,7 +116,7 @@ async fn make_core_pool() -> sqlx::SqlitePool {
         .connect_with(opts)
         .await
         .expect("core pool");
-    usenet_ipfs_core::migrations::run_migrations(&pool)
+    stoa_core::migrations::run_migrations(&pool)
         .await
         .expect("core migrations");
     pool
@@ -200,7 +200,7 @@ async fn jmap_session_e2e() {
     // Start mail server with stores.
     let jmap_stores = Arc::new(JmapStores {
         ipfs: Arc::clone(&ipfs) as Arc<dyn IpfsBlockStore>,
-        msgid_map: Arc::new(usenet_ipfs_core::msgid_map::MsgIdMap::new(core_pool)),
+        msgid_map: Arc::new(stoa_core::msgid_map::MsgIdMap::new(core_pool)),
         article_numbers: Arc::clone(&article_numbers),
         overview_store: Arc::clone(&overview_store),
         user_flags: Arc::clone(&user_flags),
@@ -211,11 +211,11 @@ async fn jmap_session_e2e() {
     let state = Arc::new(AppState {
         start_time: std::time::Instant::now(),
         jmap: Some(jmap_stores),
-        credential_store: Arc::new(usenet_ipfs_auth::CredentialStore::empty()),
-        auth_config: Arc::new(usenet_ipfs_auth::AuthConfig::default()),
+        credential_store: Arc::new(stoa_auth::CredentialStore::empty()),
+        auth_config: Arc::new(stoa_auth::AuthConfig::default()),
         token_store,
         base_url: "http://localhost".to_string(),
-        cors: usenet_ipfs_mail::config::CorsConfig::default(),
+        cors: stoa_mail::config::CorsConfig::default(),
     });
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();

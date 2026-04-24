@@ -1,5 +1,5 @@
 /// The name of the DID signature passthrough header.
-pub const DID_SIG_HEADER: &str = "X-Usenet-IPFS-DID-Sig";
+pub const DID_SIG_HEADER: &str = "X-Stoa-DID-Sig";
 
 /// Return the header section of a raw article (bytes before the blank line).
 ///
@@ -29,7 +29,7 @@ pub(crate) fn header_section(article_bytes: &[u8]) -> &[u8] {
     }
 }
 
-/// Extract the value of the `X-Usenet-IPFS-DID-Sig` header from raw article
+/// Extract the value of the `X-Stoa-DID-Sig` header from raw article
 /// bytes, if present.  Returns `None` if the header is absent.
 ///
 /// Only the **header section** (before the blank line) is searched; body
@@ -70,7 +70,7 @@ pub fn extract_did_sig(article_bytes: &[u8]) -> Option<String> {
     None
 }
 
-/// Return `true` if `article_bytes` contain an `X-Usenet-IPFS-DID-Sig` header.
+/// Return `true` if `article_bytes` contain an `X-Stoa-DID-Sig` header.
 ///
 /// Only the header section is searched; body injection is not possible.
 pub fn has_did_sig(article_bytes: &[u8]) -> bool {
@@ -84,7 +84,7 @@ mod tests {
     #[test]
     fn header_present_returns_value() {
         let headers =
-            b"From: user@example.com\r\nX-Usenet-IPFS-DID-Sig: did:key:z6Mk...\r\nSubject: hi\r\n";
+            b"From: user@example.com\r\nX-Stoa-DID-Sig: did:key:z6Mk...\r\nSubject: hi\r\n";
         let result = extract_did_sig(headers);
         assert_eq!(result, Some("did:key:z6Mk...".to_owned()));
     }
@@ -97,7 +97,7 @@ mod tests {
 
     #[test]
     fn has_did_sig_true() {
-        let headers = b"X-Usenet-IPFS-DID-Sig: did:key:z6Mk...\r\nFrom: a@b\r\n";
+        let headers = b"X-Stoa-DID-Sig: did:key:z6Mk...\r\nFrom: a@b\r\n";
         assert!(has_did_sig(headers));
     }
 
@@ -109,7 +109,7 @@ mod tests {
 
     #[test]
     fn case_insensitive_header_name() {
-        let headers = b"x-usenet-ipfs-did-sig: did:key:z6Mk...\r\nFrom: a@b\r\n";
+        let headers = b"x-stoa-did-sig: did:key:z6Mk...\r\nFrom: a@b\r\n";
         let result = extract_did_sig(headers);
         assert_eq!(result, Some("did:key:z6Mk...".to_owned()));
     }
@@ -119,7 +119,7 @@ mod tests {
         // RFC 5322 §2.2.3: a long header may be folded across multiple lines
         // by inserting a CRLF followed by at least one SP or HTAB.
         let headers =
-            b"From: a@b\r\nX-Usenet-IPFS-DID-Sig: did:key:z6Mk\r\n abc123\r\nSubject: hi\r\n";
+            b"From: a@b\r\nX-Stoa-DID-Sig: did:key:z6Mk\r\n abc123\r\nSubject: hi\r\n";
         let result = extract_did_sig(headers);
         assert_eq!(result, Some("did:key:z6Mk abc123".to_owned()));
     }
@@ -128,14 +128,14 @@ mod tests {
     fn body_injection_is_ignored() {
         // An attacker plants the header in the body; it must not be extracted.
         let article =
-            b"From: a@b\r\nSubject: test\r\n\r\nX-Usenet-IPFS-DID-Sig: did:key:z6Mk...\r\n";
+            b"From: a@b\r\nSubject: test\r\n\r\nX-Stoa-DID-Sig: did:key:z6Mk...\r\n";
         assert_eq!(extract_did_sig(article), None);
     }
 
     #[test]
     fn header_present_in_full_article_is_extracted() {
         // extract_did_sig accepts full article bytes and finds the header.
-        let article = b"From: a@b\r\nX-Usenet-IPFS-DID-Sig: did:key:z6Mk...\r\n\r\nBody.\r\n";
+        let article = b"From: a@b\r\nX-Stoa-DID-Sig: did:key:z6Mk...\r\n\r\nBody.\r\n";
         let result = extract_did_sig(article);
         assert_eq!(result, Some("did:key:z6Mk...".to_owned()));
     }

@@ -5,7 +5,7 @@
 //! maintenance shell or init script.
 
 use sqlx::SqlitePool;
-use usenet_ipfs_core::error::StorageError;
+use stoa_core::error::StorageError;
 
 use crate::cli::peers::OutputFormat;
 use crate::retention::policy::{ArticleMeta, PinPolicy};

@@ -14,19 +14,19 @@ articles written by this node. Rotating the key:
 ### Step 1: Generate a new keypair
 
 ```
-transit keygen --output-dir /etc/usenet-ipfs/keys/new/
+transit keygen --output-dir /etc/stoa/keys/new/
 ```
 
 ### Step 2: Publish rotation announcement
 
 ```
 transit key-rotate \
-  --old-key /etc/usenet-ipfs/keys/operator_key.pem \
-  --new-key /etc/usenet-ipfs/keys/new/operator_key.pub.pem \
-  --group usenet.ipfs.keyrotation
+  --old-key /etc/stoa/keys/operator_key.pem \
+  --new-key /etc/stoa/keys/new/operator_key.pub.pem \
+  --group stoa.keyrotation
 ```
 
-This publishes a signed article to the `usenet.ipfs.keyrotation` group
+This publishes a signed article to the `stoa.keyrotation` group
 announcing the new key.
 
 ### Step 3: Update config
@@ -43,10 +43,10 @@ rotation announcement will accept articles signed with the new key.
 The announcement is a standard RFC 5322 article with these headers:
 
 ```
-From: key-rotation@usenet.ipfs
-Newsgroups: usenet.ipfs.keyrotation
+From: key-rotation@stoa
+Newsgroups: stoa.keyrotation
 Subject: Key rotation announcement
-Message-ID: <rotate-{TIMESTAMP}@{NODE-ID}.usenet.ipfs>
+Message-ID: <rotate-{TIMESTAMP}@{NODE-ID}.stoa>
 X-Key-Rotation: new-key
 X-Old-Key-Fingerprint: {SHA-256 of old public key SPKI DER, hex}
 X-New-Key-Fingerprint: {SHA-256 of new public key SPKI DER, hex}

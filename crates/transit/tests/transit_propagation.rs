@@ -17,8 +17,8 @@ use libp2p::{
 use multihash_codetable::{Code, MultihashDigest};
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
-use usenet_ipfs_core::hlc::HlcTimestamp;
-use usenet_ipfs_transit::gossip::tip_advert::{handle_tip_advertisement, TipAdvertisement};
+use stoa_core::hlc::HlcTimestamp;
+use stoa_transit::gossip::tip_advert::{handle_tip_advertisement, TipAdvertisement};
 
 // ---------------------------------------------------------------------------
 // Test swarm harness (verbatim copy from gossip_propagation.rs)
@@ -179,7 +179,7 @@ fn make_timestamp() -> HlcTimestamp {
 /// parsed by node B.
 #[tokio::test]
 async fn test_a_to_b_propagation() {
-    let topic = "usenet.hier.comp";
+    let topic = "stoa.hier.comp";
 
     let node_a = start_test_swarm().await;
     let mut node_b = start_test_swarm().await;
@@ -235,7 +235,7 @@ async fn test_a_to_b_propagation() {
 /// parsed by node A.
 #[tokio::test]
 async fn test_b_to_a_propagation() {
-    let topic = "usenet.hier.comp";
+    let topic = "stoa.hier.comp";
 
     let mut node_a = start_test_swarm().await;
     let node_b = start_test_swarm().await;

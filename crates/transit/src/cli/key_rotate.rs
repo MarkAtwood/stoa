@@ -12,7 +12,7 @@ pub struct RotateConfig {
     pub group: String,
 }
 
-pub use usenet_ipfs_core::signing::load_signing_key;
+pub use stoa_core::signing::load_signing_key;
 
 /// Load a public key from a PKCS#8 SubjectPublicKeyInfo PEM file.
 ///
@@ -66,10 +66,10 @@ pub fn build_rotation_article(
     timestamp_ms: u64,
     node_id: &str,
 ) -> Vec<u8> {
-    let message_id = format!("<rotate-{timestamp_ms}@{node_id}.usenet.ipfs>");
+    let message_id = format!("<rotate-{timestamp_ms}@{node_id}.stoa>");
 
     let mut out = String::new();
-    out.push_str("From: key-rotation@usenet.ipfs\r\n");
+    out.push_str("From: key-rotation@stoa\r\n");
     out.push_str(&format!("Newsgroups: {group}\r\n"));
     out.push_str("Subject: Key rotation announcement\r\n");
     out.push_str(&format!("Message-ID: {message_id}\r\n"));
@@ -172,7 +172,7 @@ mod tests {
             "abcdef1234567890",
             "fedcba0987654321",
             "-----BEGIN PUBLIC KEY-----\nfakekey\n-----END PUBLIC KEY-----\n",
-            "usenet.ipfs.keyrotation",
+            "stoa.keyrotation",
             1_700_000_000_000,
             "testnode",
         );
@@ -190,7 +190,7 @@ mod tests {
             "missing new fingerprint"
         );
         assert!(
-            text.contains("Newsgroups: usenet.ipfs.keyrotation"),
+            text.contains("Newsgroups: stoa.keyrotation"),
             "missing Newsgroups"
         );
         assert!(text.contains("Message-ID:"), "missing Message-ID");
@@ -249,7 +249,7 @@ mod tests {
         let config = RotateConfig {
             old_key_path: old_result.private_key_path,
             new_key_path: new_result.public_key_path.clone(),
-            group: "usenet.ipfs.keyrotation".to_string(),
+            group: "stoa.keyrotation".to_string(),
         };
 
         let (article_bytes, old_fp, new_fp) =
@@ -269,14 +269,14 @@ mod tests {
             "aabbcc",
             "ddeeff",
             "-----BEGIN PUBLIC KEY-----\ndata\n-----END PUBLIC KEY-----\n",
-            "usenet.ipfs.keyrotation",
+            "stoa.keyrotation",
             42,
             "node1",
         );
         let text = String::from_utf8_lossy(&article);
         // Every header line must end with \r\n.
         assert!(
-            text.contains("From: key-rotation@usenet.ipfs\r\n"),
+            text.contains("From: key-rotation@stoa\r\n"),
             "From header must use CRLF"
         );
         assert!(

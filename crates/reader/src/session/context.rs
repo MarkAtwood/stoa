@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use usenet_ipfs_core::article::GroupName;
+use stoa_core::article::GroupName;
 
 use crate::session::{commands::list::GroupInfo, state::SessionState};
 

@@ -18,8 +18,8 @@ use libp2p::{
 use multihash_codetable::{Code, MultihashDigest};
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
-use usenet_ipfs_core::hlc::HlcTimestamp;
-use usenet_ipfs_transit::gossip::tip_advert::{handle_tip_advertisement, TipAdvertisement};
+use stoa_core::hlc::HlcTimestamp;
+use stoa_transit::gossip::tip_advert::{handle_tip_advertisement, TipAdvertisement};
 
 // ---------------------------------------------------------------------------
 // Test swarm harness
@@ -187,7 +187,7 @@ async fn peer_ids_are_distinct() {
 /// A raw byte message published by node A on a topic must arrive at node B.
 #[tokio::test]
 async fn two_swarms_can_exchange_messages() {
-    let topic = "usenet.hier.comp";
+    let topic = "stoa.hier.comp";
 
     let node_a = start_test_swarm().await;
     let mut node_b = start_test_swarm().await;
@@ -242,7 +242,7 @@ async fn two_swarms_can_exchange_messages() {
 /// and correctly parsed by node B.
 #[tokio::test]
 async fn tip_advertisement_roundtrip() {
-    let topic = "usenet.hier.alt";
+    let topic = "stoa.hier.alt";
 
     let node_a = start_test_swarm().await;
     let mut node_b = start_test_swarm().await;

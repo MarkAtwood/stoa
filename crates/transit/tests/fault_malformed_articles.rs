@@ -10,8 +10,8 @@
 use proptest::prelude::*;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::str::FromStr as _;
-use usenet_ipfs_core::msgid_map::MsgIdMap;
-use usenet_ipfs_transit::peering::ingestion::{check_ingest, ihave_response, IngestResult};
+use stoa_core::msgid_map::MsgIdMap;
+use stoa_transit::peering::ingestion::{check_ingest, ihave_response, IngestResult};
 
 // ── Test helper ───────────────────────────────────────────────────────────────
 
@@ -29,7 +29,7 @@ async fn make_msgid_map() -> (MsgIdMap, tempfile::TempPath) {
         .connect_with(opts)
         .await
         .unwrap();
-    usenet_ipfs_core::migrations::run_migrations(&pool)
+    stoa_core::migrations::run_migrations(&pool)
         .await
         .unwrap();
     (MsgIdMap::new(pool), tmp)

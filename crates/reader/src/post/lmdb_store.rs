@@ -1,6 +1,6 @@
 //! LMDB block store backend for the reader daemon.
 //!
-//! Delegates all LMDB I/O to [`usenet_ipfs_lmdb::LmdbBlockDb`] (the FFI
+//! Delegates all LMDB I/O to [`stoa_lmdb::LmdbBlockDb`] (the FFI
 //! boundary crate that contains the single `unsafe` call to open the
 //! environment).  All blocking LMDB operations are dispatched via
 //! [`tokio::task::spawn_blocking`] so they do not stall the async runtime.
@@ -11,8 +11,8 @@ use multihash_codetable::{Code, MultihashDigest};
 use std::{path::Path, sync::Arc};
 use tokio::task;
 
-use usenet_ipfs_core::ipfs::DeletionOutcome;
-use usenet_ipfs_lmdb::LmdbBlockDb;
+use stoa_core::ipfs::DeletionOutcome;
+use stoa_lmdb::LmdbBlockDb;
 
 use crate::post::ipfs_write::{IpfsBlockStore, IpfsWriteError};
 

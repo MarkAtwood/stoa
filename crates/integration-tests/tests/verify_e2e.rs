@@ -1,8 +1,8 @@
-//! E2E: POST article, verify X-Usenet-IPFS-Sig via operator key, check NNTP and JMAP surfaces.
+//! E2E: POST article, verify X-Stoa-Sig via operator key, check NNTP and JMAP surfaces.
 //!
-//! NNTP surface: after POST, ARTICLE response must include `X-Usenet-IPFS-Verified: pass`.
+//! NNTP surface: after POST, ARTICLE response must include `X-Stoa-Verified: pass`.
 //! JMAP surface: after POST, the verification store holds a Pass result for the article CID,
-//!   which the JMAP handler would project into `Email.x-usenet-ipfs-verifications`.
+//!   which the JMAP handler would project into `Email.x-stoa-verifications`.
 
 mod common;
 
@@ -12,12 +12,12 @@ use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 
-use usenet_ipfs_reader::{session::lifecycle::run_session, store::server_stores::ServerStores};
-use usenet_ipfs_verify::VerifResult;
+use stoa_reader::{session::lifecycle::run_session, store::server_stores::ServerStores};
+use stoa_verify::VerifResult;
 
 // ── Config helper ─────────────────────────────────────────────────────────────
 
-fn reader_config(addr: &str) -> usenet_ipfs_reader::config::Config {
+fn reader_config(addr: &str) -> stoa_reader::config::Config {
     let toml = format!(
         "[listen]\naddr = \"{addr}\"\n\
          [limits]\nmax_connections = 10\ncommand_timeout_secs = 30\n\
@@ -67,7 +67,7 @@ async fn read_multiline(r: &mut BufReader<tokio::io::ReadHalf<TcpStream>>) -> Ve
 /// The stores Arc lets tests inspect the verification store after article ingestion.
 async fn start_server() -> (
     std::net::SocketAddr,
-    Arc<usenet_ipfs_reader::config::Config>,
+    Arc<stoa_reader::config::Config>,
     Arc<ServerStores>,
 ) {
     let stores = Arc::new(ServerStores::new_mem().await);
@@ -132,7 +132,7 @@ async fn post_article(
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-/// NNTP surface: posted article gets operator-signed and X-Usenet-IPFS-Verified: pass
+/// NNTP surface: posted article gets operator-signed and X-Stoa-Verified: pass
 /// injected in the ARTICLE response.
 #[tokio::test]
 async fn posted_article_nntp_verified_pass() {
@@ -170,8 +170,8 @@ async fn posted_article_nntp_verified_pass() {
         assert!(
             lines
                 .iter()
-                .any(|h| h.eq_ignore_ascii_case("X-Usenet-IPFS-Verified: pass")),
-            "expected X-Usenet-IPFS-Verified: pass in ARTICLE headers; got:\n{}",
+                .any(|h| h.eq_ignore_ascii_case("X-Stoa-Verified: pass")),
+            "expected X-Stoa-Verified: pass in ARTICLE headers; got:\n{}",
             lines.join("\n")
         );
 
@@ -184,7 +184,7 @@ async fn posted_article_nntp_verified_pass() {
 /// JMAP surface: verification store holds a Pass result for the article after POST.
 ///
 /// The JMAP handler queries the verify store and projects results into
-/// `Email.x-usenet-ipfs-verifications`.  This test validates the store data
+/// `Email.x-stoa-verifications`.  This test validates the store data
 /// that the JMAP surface consumes.
 #[tokio::test]
 async fn posted_article_jmap_verify_store_has_pass() {

@@ -1,5 +1,5 @@
 //! E2E integration tests for SMTP Sieve routing with the native Sieve engine.
-//! Bead: usenet-ipfs-n3vt.7
+//! Bead: stoa-n3vt.7
 //!
 //! External oracles:
 //!   - RFC 5228 §2.10.2: implicit keep when no action is taken.
@@ -21,8 +21,8 @@ use std::sync::Arc;
 use sqlx::SqlitePool;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-use usenet_ipfs_auth::{AuthConfig, CredentialStore};
-use usenet_ipfs_smtp::{
+use stoa_auth::{AuthConfig, CredentialStore};
+use stoa_smtp::{
     config::{
         Config, DatabaseConfig, LimitsConfig, ListenConfig, LogConfig, ReaderConfig,
         SieveAdminConfig, TlsConfig, UserConfig,
@@ -59,7 +59,7 @@ fn test_config() -> Arc<Config> {
             format: "text".to_string(),
         },
         reader: ReaderConfig::default(),
-        delivery: usenet_ipfs_smtp::config::DeliveryConfig::default(),
+        delivery: stoa_smtp::config::DeliveryConfig::default(),
         users: vec![UserConfig {
             username: "alice".to_string(),
             email: "alice@example.com".to_string(),

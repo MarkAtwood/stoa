@@ -1,6 +1,6 @@
 # Observability
 
-This document describes the observability surface of the usenet-ipfs system:
+This document describes the observability surface of the stoa system:
 Prometheus metrics exported by both daemons, the admin HTTP API served by the
 transit daemon, structured log fields emitted via `tracing`, and practical
 PromQL queries for dashboards and alerts.

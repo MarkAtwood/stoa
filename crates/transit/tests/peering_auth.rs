@@ -1,6 +1,6 @@
 //! Security-invariant tests for the ed25519 challenge-response peer authentication protocol.
 //!
-//! Protocol definition (from usenet-ipfs-1c8.3):
+//! Protocol definition (from stoa-1c8.3):
 //!   1. Each side generates 32 random bytes as a nonce and sends it to the other.
 //!   2. Each side signs `(remote_nonce || local_pubkey_bytes)` with its ed25519 operator key.
 //!   3. Each side verifies the received signature against its `trusted_peers` list.
@@ -13,7 +13,7 @@
 //!   Source: <https://www.rfc-editor.org/rfc/rfc8032#section-5.1>
 //! - **ed25519-dalek 2.x**: the crate's own documented behaviour that `verify()` returns
 //!   `Err` on any signature/key/message mismatch.
-//! - **usenet_ipfs_core::signing::verify**: the project's thin wrapper, which maps any
+//! - **stoa_core::signing::verify**: the project's thin wrapper, which maps any
 //!   dalek error to `SigningError::VerificationFailed` — tested in core's own unit tests.
 //!
 //! These tests do NOT import or call any code from `crates/transit/src/peering/auth.rs`.
@@ -22,7 +22,7 @@
 
 use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
 use rand_core::OsRng;
-use usenet_ipfs_core::signing::verify;
+use stoa_core::signing::verify;
 
 // ── RFC 8032 §5.1 Test Vector 1 ──────────────────────────────────────────────
 //

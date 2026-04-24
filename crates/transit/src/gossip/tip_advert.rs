@@ -7,7 +7,7 @@
 use cid::Cid;
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
-use usenet_ipfs_core::hlc::HlcTimestamp;
+use stoa_core::hlc::HlcTimestamp;
 
 /// A tip advertisement broadcast over gossipsub.
 ///
@@ -110,7 +110,7 @@ mod tests {
     use cid::Cid;
     use libp2p::PeerId;
     use multihash_codetable::{Code, MultihashDigest};
-    use usenet_ipfs_core::hlc::HlcTimestamp;
+    use stoa_core::hlc::HlcTimestamp;
 
     fn make_cid(data: &[u8]) -> Cid {
         let digest = Code::Sha2_256.digest(data);

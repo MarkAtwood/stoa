@@ -1,6 +1,6 @@
 //! XCID client: fetches `LogEntry` structs from remote transit peers.
 //!
-//! The XCID protocol is a usenet-ipfs extension over the existing NNTP peering
+//! The XCID protocol is a stoa extension over the existing NNTP peering
 //! TCP channel.  A requester sends `XCID <cid>\r\n` and receives either:
 //! - `224 Block follows (<cid>)\r\n<base64_lines>\r\n.\r\n` — entry found, or
 //! - `430 No such block\r\n` — entry not present on that peer.
@@ -36,7 +36,7 @@ use tokio_rustls::rustls::{
 };
 use tokio_rustls::TlsConnector;
 
-use usenet_ipfs_core::group_log::{
+use stoa_core::group_log::{
     types::{LogEntry, LogEntryId},
     verify::{verify_signature, VerifiedEntry},
 };

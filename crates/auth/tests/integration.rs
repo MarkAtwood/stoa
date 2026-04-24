@@ -1,4 +1,4 @@
-//! Integration tests for usenet-ipfs-auth crate.
+//! Integration tests for stoa-auth crate.
 //!
 //! These tests validate the extracted CredentialStore against the bcrypt
 //! specification (Provos & Mazieres, 1999) as the external oracle.  No
@@ -11,7 +11,7 @@
 //!   CredentialStore::check() must agree with bcrypt::verify.
 
 use std::time::Instant;
-use usenet_ipfs_auth::{AuthConfig, CredentialStore, UserCredential};
+use stoa_auth::{AuthConfig, CredentialStore, UserCredential};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -332,12 +332,12 @@ async fn wrong_password_check_takes_bcrypt_time_not_microseconds() {
 }
 
 // ---------------------------------------------------------------------------
-// UserCredential struct is importable from usenet_ipfs_auth (not reader/mail)
+// UserCredential struct is importable from stoa_auth (not reader/mail)
 // ---------------------------------------------------------------------------
 
 #[test]
 fn user_credential_struct_is_from_auth_crate() {
-    // This test simply proves the type is importable from usenet_ipfs_auth.
+    // This test simply proves the type is importable from stoa_auth.
     // If UserCredential is only in reader or mail (not re-exported from auth),
     // this file will not compile.
     let _cred: UserCredential = UserCredential {
@@ -347,7 +347,7 @@ fn user_credential_struct_is_from_auth_crate() {
 }
 
 // ---------------------------------------------------------------------------
-// AuthConfig is importable from usenet_ipfs_auth
+// AuthConfig is importable from stoa_auth
 // ---------------------------------------------------------------------------
 
 #[test]

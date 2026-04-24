@@ -1,6 +1,6 @@
 use cid::Cid;
 use tracing::debug;
-use usenet_ipfs_verify::ArticleVerification;
+use stoa_verify::ArticleVerification;
 
 use crate::session::response::Response;
 
@@ -13,11 +13,11 @@ pub struct ArticleContent {
     /// Raw body bytes
     pub body_bytes: Vec<u8>,
     /// The article CID from the msgid→CID map, if available.
-    /// Used to inject X-Usenet-IPFS-CID into ARTICLE and HEAD responses.
+    /// Used to inject X-Stoa-CID into ARTICLE and HEAD responses.
     pub cid: Option<Cid>,
     /// DID signature verification result from the overview index.
     ///
-    /// `None`  — no `X-Usenet-IPFS-DID-Sig` header was present (header omitted).
+    /// `None`  — no `X-Stoa-DID-Sig` header was present (header omitted).
     /// `Some(false)` — signature verification failed.
     /// `Some(true)`  — signature verified successfully.
     pub did_sig_valid: Option<bool>,
@@ -25,7 +25,7 @@ pub struct ArticleContent {
     ///
     /// Empty when no verifications have been recorded for this article (e.g.
     /// legacy articles written before verification was enabled).  The
-    /// `X-Usenet-IPFS-Verified` header is omitted in that case.
+    /// `X-Stoa-Verified` header is omitted in that case.
     pub verifications: Vec<ArticleVerification>,
 }
 
@@ -86,36 +86,36 @@ fn dot_stuffed_lines(data: &[u8]) -> Vec<String> {
     bytes_to_lines(&dot_stuff(data))
 }
 
-/// Build the X-Usenet-IPFS-CID header line string for injection into responses.
+/// Build the X-Stoa-CID header line string for injection into responses.
 ///
 /// Returns `None` when no CID is available (legacy articles or failed lookups).
 fn cid_header_line(content: &ArticleContent) -> Option<String> {
     content
         .cid
         .as_ref()
-        .map(|c| format!("X-Usenet-IPFS-CID: {c}"))
+        .map(|c| format!("X-Stoa-CID: {c}"))
 }
 
-/// Build the X-Usenet-IPFS-DID-Verified header line string for injection into responses.
+/// Build the X-Stoa-DID-Verified header line string for injection into responses.
 ///
 /// Returns `None` when no DID signature was present on the article (i.e.
-/// `did_sig_valid` is `None`).  Returns `Some("X-Usenet-IPFS-DID-Verified: true")`
-/// or `Some("X-Usenet-IPFS-DID-Verified: false")` when a verification result is known.
+/// `did_sig_valid` is `None`).  Returns `Some("X-Stoa-DID-Verified: true")`
+/// or `Some("X-Stoa-DID-Verified: false")` when a verification result is known.
 fn did_verified_header_line(content: &ArticleContent) -> Option<String> {
     content
         .did_sig_valid
-        .map(|v| format!("X-Usenet-IPFS-DID-Verified: {v}"))
+        .map(|v| format!("X-Stoa-DID-Verified: {v}"))
 }
 
-/// Build the `X-Usenet-IPFS-Verified` header line for injection into responses.
+/// Build the `X-Stoa-Verified` header line for injection into responses.
 ///
 /// Returns `None` when no verification results have been recorded (empty slice).
-/// Returns `Some("X-Usenet-IPFS-Verified: pass")` if any method passed,
-/// `Some("X-Usenet-IPFS-Verified: fail")` if all methods tried and none passed.
+/// Returns `Some("X-Stoa-Verified: pass")` if any method passed,
+/// `Some("X-Stoa-Verified: fail")` if all methods tried and none passed.
 fn verified_header_line(content: &ArticleContent) -> Option<String> {
-    usenet_ipfs_verify::aggregate_status(&content.verifications).map(|pass| {
+    stoa_verify::aggregate_status(&content.verifications).map(|pass| {
         format!(
-            "X-Usenet-IPFS-Verified: {}",
+            "X-Stoa-Verified: {}",
             if pass { "pass" } else { "fail" }
         )
     })
@@ -132,7 +132,7 @@ pub fn article_response(content: &ArticleContent) -> Response {
         debug!(
             message_id = %content.message_id,
             did_sig_valid = ?content.did_sig_valid,
-            "injecting X-Usenet-IPFS-DID-Verified header"
+            "injecting X-Stoa-DID-Verified header"
         );
         body.push(did_line);
     }
@@ -163,7 +163,7 @@ pub fn head_response(content: &ArticleContent) -> Response {
         debug!(
             message_id = %content.message_id,
             did_sig_valid = ?content.did_sig_valid,
-            "injecting X-Usenet-IPFS-DID-Verified header"
+            "injecting X-Stoa-DID-Verified header"
         );
         body.push(did_line);
     }
@@ -320,8 +320,8 @@ mod tests {
         assert!(
             resp.body
                 .iter()
-                .any(|l| l == "X-Usenet-IPFS-DID-Verified: true"),
-            "expected X-Usenet-IPFS-DID-Verified: true in article response"
+                .any(|l| l == "X-Stoa-DID-Verified: true"),
+            "expected X-Stoa-DID-Verified: true in article response"
         );
     }
 
@@ -340,8 +340,8 @@ mod tests {
         assert!(
             resp.body
                 .iter()
-                .any(|l| l == "X-Usenet-IPFS-DID-Verified: false"),
-            "expected X-Usenet-IPFS-DID-Verified: false in article response"
+                .any(|l| l == "X-Stoa-DID-Verified: false"),
+            "expected X-Stoa-DID-Verified: false in article response"
         );
     }
 
@@ -353,8 +353,8 @@ mod tests {
             !resp
                 .body
                 .iter()
-                .any(|l| l.starts_with("X-Usenet-IPFS-DID-Verified:")),
-            "X-Usenet-IPFS-DID-Verified must be absent when did_sig_valid is None"
+                .any(|l| l.starts_with("X-Stoa-DID-Verified:")),
+            "X-Stoa-DID-Verified must be absent when did_sig_valid is None"
         );
     }
 
@@ -373,8 +373,8 @@ mod tests {
         assert!(
             resp.body
                 .iter()
-                .any(|l| l == "X-Usenet-IPFS-DID-Verified: true"),
-            "expected X-Usenet-IPFS-DID-Verified: true in head response"
+                .any(|l| l == "X-Stoa-DID-Verified: true"),
+            "expected X-Stoa-DID-Verified: true in head response"
         );
     }
 
@@ -386,8 +386,8 @@ mod tests {
             !resp
                 .body
                 .iter()
-                .any(|l| l.starts_with("X-Usenet-IPFS-DID-Verified:")),
-            "X-Usenet-IPFS-DID-Verified must be absent when did_sig_valid is None"
+                .any(|l| l.starts_with("X-Stoa-DID-Verified:")),
+            "X-Stoa-DID-Verified must be absent when did_sig_valid is None"
         );
     }
 }

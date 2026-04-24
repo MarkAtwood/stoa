@@ -1,7 +1,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use usenet_ipfs_core::{
+use stoa_core::{
     article::{Article, ArticleBody, ArticleHeader, GroupName},
     validation::{validate_article_ingress, ValidationConfig},
 };

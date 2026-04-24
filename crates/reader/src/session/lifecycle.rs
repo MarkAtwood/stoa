@@ -7,7 +7,7 @@ use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader
 use tokio::net::TcpStream;
 use tracing::{debug, info, warn};
 
-use usenet_ipfs_core::ArticleRootNode;
+use stoa_core::ArticleRootNode;
 
 use crate::{
     config::Config,
@@ -630,7 +630,7 @@ async fn run_session_io<S>(
 /// Validate and store a POSTed article through the full pipeline.
 ///
 /// Steps:
-/// 1. Extract and remove the `X-Usenet-IPFS-Injection-Source:` header (if
+/// 1. Extract and remove the `X-Stoa-Injection-Source:` header (if
 ///    present) to determine the injection source.
 /// 2. Validate headers via `complete_post` (sync).
 /// 3. Check for duplicate message-id.
@@ -698,7 +698,7 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
     };
 
     // Step 4: Sign the article.
-    // Produces signed_bytes with the X-Usenet-IPFS-Sig header inserted.
+    // Produces signed_bytes with the X-Stoa-Sig header inserted.
     // The group log entry signature is computed separately over log entry
     // canonical bytes inside append_to_groups, where parent CIDs are known.
     let (signed_bytes, _) = sign_article(&stores.signing_key, article_bytes);
@@ -738,10 +738,10 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
 
     // Step 6b: Verify article signatures (best-effort; never blocks acceptance).
     {
-        use usenet_ipfs_verify::x_sig::verify_x_sig;
+        use stoa_verify::x_sig::verify_x_sig;
         let pubkey = stores.signing_key.verifying_key();
         let x_sig_results = verify_x_sig(&[pubkey], &signed_bytes);
-        let dkim_results = usenet_ipfs_verify::dkim::verify_dkim_headers(
+        let dkim_results = stoa_verify::dkim::verify_dkim_headers(
             &stores.dkim_authenticator,
             &signed_bytes,
         )
@@ -929,7 +929,7 @@ fn split_article(bytes: &[u8]) -> (Vec<u8>, Vec<u8>) {
 /// Returns `Err(441 response)` if either field is missing or invalid.
 fn extract_post_metadata(
     article_bytes: &[u8],
-) -> Result<(String, Vec<usenet_ipfs_core::article::GroupName>), Response> {
+) -> Result<(String, Vec<stoa_core::article::GroupName>), Response> {
     // Pass the bytes up to and including the blank line (or the full slice if
     // none is found); mailparse::parse_headers stops at the blank line anyway.
     let parse_end = find_header_boundary(article_bytes).unwrap_or(article_bytes.len());
@@ -953,12 +953,12 @@ fn extract_post_metadata(
     let newsgroups_val =
         newsgroups_val.ok_or_else(|| Response::new(441, "Missing Newsgroups header"))?;
 
-    let newsgroups: Vec<usenet_ipfs_core::article::GroupName> = newsgroups_val
+    let newsgroups: Vec<stoa_core::article::GroupName> = newsgroups_val
         .split(',')
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
         .map(|s| {
-            usenet_ipfs_core::article::GroupName::new(s)
+            stoa_core::article::GroupName::new(s)
                 .map_err(|_| Response::new(441, format!("Invalid group name: {s}")))
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -1083,7 +1083,7 @@ async fn handle_group_live(
     ctx: &mut SessionContext,
     name: &str,
 ) -> Response {
-    let group_name = match usenet_ipfs_core::article::GroupName::new(name) {
+    let group_name = match stoa_core::article::GroupName::new(name) {
         Ok(g) => g,
         Err(_) => return Response::no_such_newsgroup(),
     };
@@ -1413,7 +1413,7 @@ mod tests {
     use super::*;
     use crate::store::server_stores::ServerStores;
     use std::time::{SystemTime, UNIX_EPOCH};
-    use usenet_ipfs_core::group_log::LogStorage;
+    use stoa_core::group_log::LogStorage;
 
     /// Return the current time formatted as RFC 2822 (e.g. `Mon, 20 Apr 2026 12:00:00 +0000`).
     fn now_rfc2822() -> String {
@@ -1474,7 +1474,7 @@ mod tests {
     ///     signature over canonical bytes (hlc_timestamp || article_cid ||
     ///     sorted parent_cids) internally, where parent CIDs are known.
     /// (2) The article signature from sign_article (over raw article bytes) is
-    ///     correctly used only for the X-Usenet-IPFS-Sig header, not the log.
+    ///     correctly used only for the X-Stoa-Sig header, not the log.
     ///
     /// This test will fail if operator_signature in the log entry is ever left
     /// empty or set to a signature over the wrong bytes.
@@ -1490,7 +1490,7 @@ mod tests {
             resp.text
         );
 
-        let group = usenet_ipfs_core::article::GroupName::new("comp.test").unwrap();
+        let group = stoa_core::article::GroupName::new("comp.test").unwrap();
         let tips = stores.log_storage.list_tips(&group).await.unwrap();
         assert_eq!(tips.len(), 1, "must have exactly one tip after one POST");
 
@@ -1509,7 +1509,7 @@ mod tests {
         );
 
         let pubkey = stores.signing_key.verifying_key();
-        let result = usenet_ipfs_core::group_log::verify::verify_entry(
+        let result = stoa_core::group_log::verify::verify_entry(
             &entry,
             &tips[0],
             stores.log_storage.as_ref(),
@@ -1589,7 +1589,7 @@ mod tests {
             true,
             false,
         );
-        ctx.current_group = Some(usenet_ipfs_core::article::GroupName::new("misc.test").unwrap());
+        ctx.current_group = Some(stoa_core::article::GroupName::new("misc.test").unwrap());
         ctx.state = crate::session::state::SessionState::GroupSelected;
 
         let resp = handle_nntp_search(&stores, &ctx, &SearchKey::Subject, "hello").await;
@@ -1614,7 +1614,7 @@ mod tests {
             true,
             false,
         );
-        ctx.current_group = Some(usenet_ipfs_core::article::GroupName::new("misc.test").unwrap());
+        ctx.current_group = Some(stoa_core::article::GroupName::new("misc.test").unwrap());
         ctx.state = crate::session::state::SessionState::GroupSelected;
 
         let resp = handle_nntp_search(
@@ -1641,7 +1641,7 @@ mod tests {
             true,
             false,
         );
-        ctx.current_group = Some(usenet_ipfs_core::article::GroupName::new("misc.test").unwrap());
+        ctx.current_group = Some(stoa_core::article::GroupName::new("misc.test").unwrap());
         ctx.state = crate::session::state::SessionState::GroupSelected;
 
         let resp = handle_nntp_search(

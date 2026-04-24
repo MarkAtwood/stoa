@@ -11,7 +11,7 @@ pub const HTML: &str = r#"<!DOCTYPE html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>usenet-ipfs JMAP mail server</title>
+  <title>stoa JMAP mail server</title>
   <style>
     body { font-family: sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
     code { background: #f4f4f4; padding: 0.1em 0.3em; border-radius: 3px; }
@@ -19,7 +19,7 @@ pub const HTML: &str = r#"<!DOCTYPE html>
   </style>
 </head>
 <body>
-  <h1>usenet-ipfs JMAP mail server</h1>
+  <h1>stoa JMAP mail server</h1>
   <p>This server speaks the <a href="https://jmap.io/">JMAP protocol</a> (RFC&nbsp;8620 / RFC&nbsp;8621).
   Connect any RFC&nbsp;8620-compatible mail client to get started.</p>
 

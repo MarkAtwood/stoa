@@ -1,6 +1,6 @@
 //! CLI handler for the `transit import` subcommand.
 
-use usenet_ipfs_core::error::StorageError;
+use stoa_core::error::StorageError;
 
 use crate::import::ihave_push::{run_ihave_import, IhaveImportConfig};
 

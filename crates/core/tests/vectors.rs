@@ -5,7 +5,7 @@
 //! (Python `hashlib`, Python `cryptography`) and are hardcoded as literals.
 //! No vector is derived from the code under test.
 
-use usenet_ipfs_core::{
+use stoa_core::{
     article::{Article, ArticleBody, ArticleHeader, GroupName},
     canonical::canonical_bytes,
     cid_util::cid_for_article,

@@ -1,9 +1,9 @@
-//! Sieve script evaluation for usenet-ipfs.
+//! Sieve script evaluation for stoa.
 //!
 //! # License note
 //!
 //! This crate depends on `sieve-rs`, which is licensed under **AGPL-3.0-only**.
-//! Any binary that links this crate — including `usenet-ipfs-smtp` — is
+//! Any binary that links this crate — including `stoa-smtp` — is
 //! therefore also governed by the AGPL-3.0.  Operators who run such a binary
 //! as a network service are required by the AGPL to make the complete
 //! corresponding source code available to the users of that service.

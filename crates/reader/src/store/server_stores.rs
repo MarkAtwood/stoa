@@ -17,15 +17,15 @@ use tokio::sync::Mutex;
 
 static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
 
-use usenet_ipfs_core::group_log::MemLogStorage;
-use usenet_ipfs_core::hlc::HlcClock;
-use usenet_ipfs_core::msgid_map::MsgIdMap;
-use usenet_ipfs_core::signing::{generate_signing_key, hlc_node_id, SigningKey};
+use stoa_core::group_log::MemLogStorage;
+use stoa_core::hlc::HlcClock;
+use stoa_core::msgid_map::MsgIdMap;
+use stoa_core::signing::{generate_signing_key, hlc_node_id, SigningKey};
 
 use mail_auth::MessageAuthenticator;
-use usenet_ipfs_auth::TrustedIssuerStore;
-use usenet_ipfs_smtp::SmtpRelayQueue;
-use usenet_ipfs_verify::VerificationStore;
+use stoa_auth::TrustedIssuerStore;
+use stoa_smtp::SmtpRelayQueue;
+use stoa_verify::VerificationStore;
 
 use crate::post::ipfs_write::{IpfsBlockStore, MemIpfsStore};
 use crate::search::TantivySearchIndex;
@@ -265,7 +265,7 @@ async fn make_pool_with_verify_migrations() -> SqlitePool {
         .connect_with(opts)
         .await
         .expect("failed to create verify in-memory SQLite pool");
-    usenet_ipfs_verify::run_migrations(&pool)
+    stoa_verify::run_migrations(&pool)
         .await
         .expect("verify migrations failed on in-memory pool");
     pool
@@ -283,7 +283,7 @@ async fn make_pool_with_core_migrations() -> SqlitePool {
         .connect_with(opts)
         .await
         .expect("failed to create core in-memory SQLite pool");
-    usenet_ipfs_core::migrations::run_migrations(&pool)
+    stoa_core::migrations::run_migrations(&pool)
         .await
         .expect("core migrations failed on in-memory pool");
     pool
@@ -319,7 +319,7 @@ async fn make_disk_pool_with_core_migrations(path: &str) -> Result<SqlitePool, S
         .connect_with(opts)
         .await
         .map_err(|e| format!("failed to open core database '{path}': {e}"))?;
-    usenet_ipfs_core::migrations::run_migrations(&pool)
+    stoa_core::migrations::run_migrations(&pool)
         .await
         .map_err(|e| format!("core database migration failed: {e}"))?;
     Ok(pool)
@@ -337,7 +337,7 @@ async fn make_disk_pool_with_verify_migrations(path: &str) -> Result<SqlitePool,
         .connect_with(opts)
         .await
         .map_err(|e| format!("failed to open verify database '{path}': {e}"))?;
-    usenet_ipfs_verify::run_migrations(&pool)
+    stoa_verify::run_migrations(&pool)
         .await
         .map_err(|e| format!("verify database migration failed: {e}"))?;
     Ok(pool)
@@ -350,9 +350,9 @@ async fn make_disk_pool_with_verify_migrations(path: &str) -> Result<SqlitePool,
 fn build_trusted_issuer_store(
     entries: &[crate::config::TrustedIssuerEntry],
 ) -> Result<TrustedIssuerStore, String> {
-    let auth_entries: Vec<usenet_ipfs_auth::TrustedIssuerEntry> = entries
+    let auth_entries: Vec<stoa_auth::TrustedIssuerEntry> = entries
         .iter()
-        .map(|e| usenet_ipfs_auth::TrustedIssuerEntry {
+        .map(|e| stoa_auth::TrustedIssuerEntry {
             cert_path: e.cert_path.clone(),
         })
         .collect();
@@ -379,7 +379,7 @@ fn build_credential_store(auth: &crate::config::AuthConfig) -> Result<Credential
 /// because the signing key changes on every restart.
 fn load_or_generate_signing_key(path: &Option<String>) -> Result<SigningKey, String> {
     match path {
-        Some(p) => usenet_ipfs_core::signing::load_signing_key(std::path::Path::new(p)),
+        Some(p) => stoa_core::signing::load_signing_key(std::path::Path::new(p)),
         None => {
             let key = generate_signing_key();
             tracing::warn!(

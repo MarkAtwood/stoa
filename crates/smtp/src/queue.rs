@@ -5,7 +5,7 @@ use std::time::{Duration, SystemTime};
 
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
-use usenet_ipfs_core::InjectionSource;
+use stoa_core::InjectionSource;
 
 use crate::nntp_client::{self, NntpClientConfig};
 
@@ -31,7 +31,7 @@ fn unique_stem() -> String {
 /// written before this feature), the source defaults to `SmtpSieve`.
 #[derive(Debug, Serialize, Deserialize)]
 struct NntpEnvelope {
-    #[serde(default = "usenet_ipfs_core::default_injection_source")]
+    #[serde(default = "stoa_core::default_injection_source")]
     pub injection_source: InjectionSource,
 }
 
@@ -95,14 +95,14 @@ fn strip_field_name<'a>(line: &'a [u8], field_name: &[u8]) -> Option<&'a [u8]> {
     }
 }
 
-/// Prepend an `X-Usenet-IPFS-Injection-Source:` header to `article_bytes`.
+/// Prepend an `X-Stoa-Injection-Source:` header to `article_bytes`.
 ///
 /// The header is prepended at the very start of the article (before all other
 /// headers).  NNTP articles begin directly with headers, so this is safe.
 /// The reader strips this header unconditionally and uses it for routing
 /// decisions.
 fn inject_source_header(article_bytes: &[u8], source: InjectionSource) -> Vec<u8> {
-    let header = format!("X-Usenet-IPFS-Injection-Source: {source:?}\r\n");
+    let header = format!("X-Stoa-Injection-Source: {source:?}\r\n");
     let mut result = Vec::with_capacity(header.len() + article_bytes.len());
     result.extend_from_slice(header.as_bytes());
     result.extend_from_slice(article_bytes);
@@ -188,8 +188,8 @@ impl NntpQueue {
                 let injection_source = match tokio::fs::read(&env_path).await {
                     Ok(env_bytes) => serde_json::from_slice::<NntpEnvelope>(&env_bytes)
                         .map(|e| e.injection_source)
-                        .unwrap_or_else(|_| usenet_ipfs_core::default_injection_source()),
-                    Err(_) => usenet_ipfs_core::default_injection_source(),
+                        .unwrap_or_else(|_| stoa_core::default_injection_source()),
+                    Err(_) => stoa_core::default_injection_source(),
                 };
                 match tokio::fs::read(&path).await {
                     Ok(bytes) => {
@@ -227,7 +227,7 @@ impl NntpQueue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use usenet_ipfs_core::InjectionSource;
+    use stoa_core::InjectionSource;
 
     #[tokio::test]
     async fn enqueue_creates_msg_file() {

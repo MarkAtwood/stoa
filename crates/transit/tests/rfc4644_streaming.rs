@@ -11,8 +11,8 @@ use ed25519_dalek::{Signer, SigningKey};
 use multihash_codetable::{Code, MultihashDigest};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::str::FromStr as _;
-use usenet_ipfs_core::{group_log::MemLogStorage, hlc::HlcTimestamp, msgid_map::MsgIdMap};
-use usenet_ipfs_transit::peering::{
+use stoa_core::{group_log::MemLogStorage, hlc::HlcTimestamp, msgid_map::MsgIdMap};
+use stoa_transit::peering::{
     ingestion::{
         check_ingest, check_mode_guard, check_response, ihave_response, takethis_mode_guard,
         IngestResult,
@@ -32,7 +32,7 @@ async fn make_transit_pool() -> sqlx::SqlitePool {
         .connect_with(opts)
         .await
         .unwrap();
-    usenet_ipfs_transit::migrations::run_migrations(&pool)
+    stoa_transit::migrations::run_migrations(&pool)
         .await
         .unwrap();
     pool
@@ -53,7 +53,7 @@ async fn make_msgid_map() -> (MsgIdMap, tempfile::TempPath) {
         .connect_with(opts)
         .await
         .unwrap();
-    usenet_ipfs_core::migrations::run_migrations(&pool)
+    stoa_core::migrations::run_migrations(&pool)
         .await
         .unwrap();
     (MsgIdMap::new(pool), tmp)

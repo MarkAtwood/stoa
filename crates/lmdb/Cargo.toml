@@ -1,5 +1,5 @@
 [package]
-name = "usenet-ipfs-lmdb"
+name = "stoa-lmdb"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.80"
@@ -8,7 +8,7 @@ rust-version = "1.80"
 # unsafe code is contained here so higher-level crates can stay #![forbid(unsafe_code)].
 
 [lib]
-name = "usenet_ipfs_lmdb"
+name = "stoa_lmdb"
 path = "src/lib.rs"
 
 [dependencies]

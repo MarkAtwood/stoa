@@ -1,11 +1,11 @@
 [package]
-name = "usenet-ipfs-ctl"
+name = "stoa-ctl"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.80"
 
 [[bin]]
-name = "usenet-ipfs-ctl"
+name = "stoa-ctl"
 path = "src/main.rs"
 
 [dependencies]

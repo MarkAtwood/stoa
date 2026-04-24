@@ -22,11 +22,11 @@ use std::str::FromStr as _;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 
-use usenet_ipfs_core::{
+use stoa_core::{
     canonical::log_entry_canonical_bytes, group_log::SqliteLogStorage, hlc::HlcClock,
     msgid_map::MsgIdMap,
 };
-use usenet_ipfs_transit::peering::{
+use stoa_transit::peering::{
     blacklist::BlacklistConfig,
     ingestion_queue::ingestion_queue,
     pipeline::MemIpfsStore,
@@ -47,7 +47,7 @@ async fn make_transit_pool() -> sqlx::SqlitePool {
         .connect_with(opts)
         .await
         .expect("in-memory transit pool must open");
-    usenet_ipfs_transit::migrations::run_migrations(&pool)
+    stoa_transit::migrations::run_migrations(&pool)
         .await
         .expect("transit migrations must succeed");
     pool
@@ -67,7 +67,7 @@ async fn make_core_pool() -> (MsgIdMap, tempfile::TempPath) {
         .connect_with(opts)
         .await
         .expect("core pool must open");
-    usenet_ipfs_core::migrations::run_migrations(&pool)
+    stoa_core::migrations::run_migrations(&pool)
         .await
         .expect("core migrations must succeed");
     (MsgIdMap::new(pool), tmp)
@@ -85,7 +85,7 @@ async fn make_log_storage() -> Arc<SqliteLogStorage> {
         .connect_with(opts)
         .await
         .expect("log storage pool must open");
-    usenet_ipfs_core::migrations::run_migrations(&pool)
+    stoa_core::migrations::run_migrations(&pool)
         .await
         .expect("log storage migrations must succeed");
     Arc::new(SqliteLogStorage::new(pool))
@@ -121,13 +121,13 @@ async fn make_peering_shared(
         .connect_with(core_opts)
         .await
         .expect("msgid core pool must open");
-    usenet_ipfs_core::migrations::run_migrations(&core_pool)
+    stoa_core::migrations::run_migrations(&core_pool)
         .await
         .expect("msgid core migrations must succeed");
     let msgid_map = Arc::new(MsgIdMap::new(core_pool));
 
     let ipfs =
-        Arc::new(MemIpfsStore::new()) as Arc<dyn usenet_ipfs_transit::peering::pipeline::IpfsStore>;
+        Arc::new(MemIpfsStore::new()) as Arc<dyn stoa_transit::peering::pipeline::IpfsStore>;
     let hlc = {
         use std::time::{SystemTime, UNIX_EPOCH};
         let now_ms = SystemTime::now()
@@ -207,9 +207,9 @@ async fn spawn_server(shared: Arc<PeeringShared>) -> String {
 async fn store_log_entry(
     storage: &SqliteLogStorage,
     signing_key: &SigningKey,
-) -> usenet_ipfs_core::group_log::LogEntryId {
-    use usenet_ipfs_core::group_log::append::append;
-    use usenet_ipfs_core::group_log::types::LogEntry;
+) -> stoa_core::group_log::LogEntryId {
+    use stoa_core::group_log::append::append;
+    use stoa_core::group_log::types::LogEntry;
 
     let article_cid = {
         let digest = Code::Sha2_256.digest(b"test-article-bytes");
@@ -227,7 +227,7 @@ async fn store_log_entry(
     };
 
     let group =
-        usenet_ipfs_core::article::GroupName::new("comp.test".to_owned()).expect("valid group");
+        stoa_core::article::GroupName::new("comp.test".to_owned()).expect("valid group");
 
     append(storage, &group, entry)
         .await
@@ -276,7 +276,7 @@ async fn xcid_happy_path_fetches_correct_entry() {
     let returned_entry = verified.into_inner();
 
     // The LogEntryId computed from the returned entry must match the one stored.
-    let computed_id = usenet_ipfs_core::group_log::types::LogEntryId::from_entry(&returned_entry);
+    let computed_id = stoa_core::group_log::types::LogEntryId::from_entry(&returned_entry);
     assert_eq!(
         computed_id, entry_id,
         "returned entry's computed LogEntryId must match the requested ID"
@@ -306,7 +306,7 @@ async fn xcid_430_returns_err_without_panicking() {
     let addr = spawn_server(shared).await;
 
     // Request a LogEntryId that was never stored.
-    let absent_id = usenet_ipfs_core::group_log::types::LogEntryId::from_bytes([0xde; 32]);
+    let absent_id = stoa_core::group_log::types::LogEntryId::from_bytes([0xde; 32]);
 
     let trusted_keys = vec![signing_key.verifying_key()];
     let client = XcidClient::new(
@@ -405,7 +405,7 @@ async fn xcid_rejects_cid_mismatch() {
     use base64::Engine as _;
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
     use tokio::net::TcpListener;
-    use usenet_ipfs_core::group_log::types::{LogEntry, LogEntryId};
+    use stoa_core::group_log::types::{LogEntry, LogEntryId};
 
     // Build a real LogEntry and encode it as DAG-CBOR.
     let signing_key = SigningKey::from_bytes(&[0x66u8; 32]);

@@ -1,6 +1,6 @@
 //! End-to-end injection-provenance tests for the reader POST pipeline.
 //!
-//! Verifies that `X-Usenet-IPFS-Injection-Source` routing is enforced
+//! Verifies that `X-Stoa-Injection-Source` routing is enforced
 //! end-to-end through a real NNTP session:
 //!
 //! - `SmtpListId`: article is readable (GROUP/OVER work), but the group log
@@ -14,12 +14,12 @@ use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 
-use usenet_ipfs_core::{article::GroupName, group_log::LogStorage};
-use usenet_ipfs_reader::{session::lifecycle::run_session, store::server_stores::ServerStores};
+use stoa_core::{article::GroupName, group_log::LogStorage};
+use stoa_reader::{session::lifecycle::run_session, store::server_stores::ServerStores};
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-fn test_config(addr: &str) -> usenet_ipfs_reader::config::Config {
+fn test_config(addr: &str) -> stoa_reader::config::Config {
     let toml = format!(
         "[listen]\naddr = \"{addr}\"\n\
          [limits]\nmax_connections = 10\ncommand_timeout_secs = 30\n\
@@ -68,7 +68,7 @@ async fn read_dot_body(reader: &mut BufReader<tokio::io::ReadHalf<TcpStream>>) -
 fn make_article(injection_source: Option<&str>, newsgroup: &str, msgid: &str) -> String {
     let mut s = String::new();
     if let Some(src) = injection_source {
-        s.push_str(&format!("X-Usenet-IPFS-Injection-Source: {src}\r\n"));
+        s.push_str(&format!("X-Stoa-Injection-Source: {src}\r\n"));
     }
     s.push_str(&format!("Newsgroups: {newsgroup}\r\n"));
     s.push_str("From: provenance-test@example.com\r\n");

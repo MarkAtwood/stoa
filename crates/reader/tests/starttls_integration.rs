@@ -28,7 +28,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::time::{timeout, Duration};
 use tokio_rustls::TlsConnector;
 
-use usenet_ipfs_reader::{
+use stoa_reader::{
     session::lifecycle::run_session, store::server_stores::ServerStores, tls::load_tls_acceptor,
 };
 
@@ -83,7 +83,7 @@ fn test_config_with_tls(
     addr: &str,
     cert_path: &str,
     key_path: &str,
-) -> usenet_ipfs_reader::config::Config {
+) -> stoa_reader::config::Config {
     let toml = format!(
         "[listen]\naddr = \"{addr}\"\n\
          [limits]\nmax_connections = 10\ncommand_timeout_secs = 30\n\
@@ -94,7 +94,7 @@ fn test_config_with_tls(
 }
 
 /// Construct a minimal `Config` with no TLS configured.
-fn test_config_no_tls(addr: &str) -> usenet_ipfs_reader::config::Config {
+fn test_config_no_tls(addr: &str) -> stoa_reader::config::Config {
     let toml = format!(
         "[listen]\naddr = \"{addr}\"\n\
          [limits]\nmax_connections = 10\ncommand_timeout_secs = 30\n\
@@ -109,7 +109,7 @@ fn test_config_no_tls(addr: &str) -> usenet_ipfs_reader::config::Config {
 /// Returns the bound address.  The server task accepts one connection and runs
 /// it to completion (QUIT or EOF).
 async fn spawn_server(
-    config: Arc<usenet_ipfs_reader::config::Config>,
+    config: Arc<stoa_reader::config::Config>,
     stores: Arc<ServerStores>,
 ) -> std::net::SocketAddr {
     let listener = TcpListener::bind("127.0.0.1:0")
@@ -121,7 +121,7 @@ async fn spawn_server(
 
     // Load the TLS acceptor from config paths (if configured) and wrap in Arc
     // so it can be shared across connections.
-    let tls_acceptor: Option<Arc<usenet_ipfs_reader::tls::TlsAcceptor>> = match (
+    let tls_acceptor: Option<Arc<stoa_reader::tls::TlsAcceptor>> = match (
         config.tls.cert_path.as_deref(),
         config.tls.key_path.as_deref(),
     ) {

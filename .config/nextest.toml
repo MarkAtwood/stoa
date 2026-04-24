@@ -1,4 +1,4 @@
-# cargo-nextest configuration for usenet-ipfs workspace.
+# cargo-nextest configuration for stoa workspace.
 # https://nexte.st/docs/configuration
 
 [profile.default]

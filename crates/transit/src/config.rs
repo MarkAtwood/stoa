@@ -265,7 +265,7 @@ impl Default for AdminConfig {
 
 #[derive(Debug, Deserialize)]
 pub struct LogConfig {
-    /// Log level filter (e.g. "info", "debug", "usenet_ipfs_transit=debug").
+    /// Log level filter (e.g. "info", "debug", "stoa_transit=debug").
     /// Defaults to "info". Also overridden by the RUST_LOG env var.
     #[serde(default = "default_log_level")]
     pub level: String,

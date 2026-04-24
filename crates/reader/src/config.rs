@@ -160,7 +160,7 @@ pub struct SmtpRelayConfig {
     pub queue_dir: Option<String>,
     /// Outbound SMTP relay peers.  An empty list disables relay delivery.
     #[serde(default)]
-    pub peers: Vec<usenet_ipfs_smtp::config::SmtpRelayPeerConfig>,
+    pub peers: Vec<stoa_smtp::config::SmtpRelayPeerConfig>,
     /// Seconds a peer stays in the "down" state after a delivery failure
     /// before being retried.  Defaults to 300.
     #[serde(default = "SmtpRelayConfig::default_peer_down_secs")]
@@ -394,7 +394,7 @@ impl Default for AdminConfig {
 
 #[derive(Debug, Deserialize)]
 pub struct LogConfig {
-    /// Log level filter (e.g. "info", "debug", "usenet_ipfs_reader=debug").
+    /// Log level filter (e.g. "info", "debug", "stoa_reader=debug").
     /// Defaults to "info". Also overridden by the RUST_LOG env var.
     #[serde(default = "default_log_level")]
     pub level: String,

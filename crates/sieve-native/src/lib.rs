@@ -2,7 +2,7 @@
 
 //! Native (dependency-free) Sieve script compiler and evaluator.
 //!
-//! This crate provides the same public API as `usenet-ipfs-sieve` but with
+//! This crate provides the same public API as `stoa-sieve` but with
 //! no external runtime dependencies beyond `fancy-regex`.  The compiler and
 //! evaluator are implemented from scratch against RFC 5228 (base Sieve) and
 //! RFC 5229 (variables extension).

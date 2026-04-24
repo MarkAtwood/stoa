@@ -2,8 +2,8 @@
 
 **Status:** Decision reached — see Recommendation
 **Date:** 2026-04-20
-**Scope:** `usenet-ipfs-reader` POST path; `usenet-ipfs-transit` IHAVE/TAKETHIS path
-**Beads issue:** usenet-ipfs-l62.12.6
+**Scope:** `stoa-reader` POST path; `stoa-transit` IHAVE/TAKETHIS path
+**Beads issue:** stoa-l62.12.6
 
 ---
 
@@ -195,12 +195,12 @@ in the transit process; `crates/reader/src/session/commands/post.rs` calls it in
 reader process.
 
 If transit-side ingestion rate limiting is needed, it belongs to the per-peer rate limiting
-work already tracked as epic `usenet-ipfs-l62.5.5` (Transit: back-pressure and per-peer
+work already tracked as epic `stoa-l62.5.5` (Transit: back-pressure and per-peer
 rate limiting), with its own separate token bucket and config knob.
 
 ---
 
-## Comparison with Hashcash (usenet-ipfs-l62.12.5)
+## Comparison with Hashcash (stoa-l62.12.5)
 
 Hashcash imposes a CPU cost on the *poster* proportional to the desired bit-difficulty.
 Rate-limited signing imposes a wall-clock rate limit on the *server's signing key*

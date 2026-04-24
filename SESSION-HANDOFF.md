@@ -4,14 +4,14 @@
 
 ### Epics completed
 
-**usenet-ipfs-9mf (StagingStore)** — committed `dc97378`
+**stoa-9mf (StagingStore)** — committed `dc97378`
 - On-disk write-ahead buffer for inbound NNTP articles
 - `StagingStore { try_stage(), drain_one(), complete(), pending_count() }`
 - SQLite table `transit_staging`; capacity limits (max_bytes 5GiB, max_entries 500K)
 - Drain task in transit main: polls `drain_one()` → `run_pipeline()` → `complete()`
 - `PeeringShared.staging: Option<Arc<StagingStore>>`; all test initializers updated
 
-**usenet-ipfs-31v (BlockCache)** — committed `5658f11`
+**stoa-31v (BlockCache)** — committed `5658f11`
 - LRU decorator over `IpfsStore` trait
 - `BlockCache { cache_get(), cache_put(), evict_for() }` with SQLite + file backing
 - `unix_nanos()` for sub-second LRU ordering (avoids ties in rapid test runs)
@@ -21,9 +21,9 @@
 **IMAP SASL-IR** — committed `6fe8b09`
 - Added `Capability::SaslIr` to TLS capability list in `crates/imap/src/session/commands.rs`
 
-**usenet-ipfs-3am (JMAP x-usenet-ipfs-sig)** — NOT YET COMMITTED
+**stoa-3am (JMAP x-stoa-sig)** — NOT YET COMMITTED
 - Added `ipfs_sig: Option<String>` to `Email` struct in `crates/mail/src/email/types.rs`
-- Serialized as `"x-usenet-ipfs-sig"`, omitted when None (`skip_serializing_if`)
+- Serialized as `"x-stoa-sig"`, omitted when None (`skip_serializing_if`)
 - Populated from `root.metadata.operator_signature` via `BASE64URL_NOPAD.encode()` if non-empty
 - 3 tests: `ipfs_sig_absent_when_unsigned`, `ipfs_sig_present_when_signed` (oracle: "AQIDBA"), `ipfs_sig_serializes_in_json_and_roundtrips`
 - All workspace tests pass (493 tests, 0 failures)
@@ -31,8 +31,8 @@
 ### Issues closed (not blocked, superseded, or resolved)
 
 - **an4** (IMAP X-USENET-IPFS-GET) — superseded. `GET /jmap/download/{accountId}/{CID}/{name}` in `blob.rs` already implements this fully. IMAP X-command blocked by imap-next library.
-- **02d** (IMAP X-USENET-IPFS-VERIFY) — superseded. Blob download returns full article bytes including `X-Usenet-IPFS-Sig` header; `x-usenet-ipfs-sig` field (3am) exposes sig in Email/get.
-- **kuz** (IMAP OBJECTID) — superseded. JMAP `Email.id` IS the CID string natively; `x-usenet-ipfs-cid` also exposed.
+- **02d** (IMAP X-USENET-IPFS-VERIFY) — superseded. Blob download returns full article bytes including `X-Stoa-Sig` header; `x-stoa-sig` field (3am) exposes sig in Email/get.
+- **kuz** (IMAP OBJECTID) — superseded. JMAP `Email.id` IS the CID string natively; `x-stoa-cid` also exposed.
 
 ### Upstream action
 
@@ -44,13 +44,13 @@
 ## Uncommitted work — COMMIT BEFORE NEXT SESSION
 
 ```
-crates/mail/src/email/types.rs   — x-usenet-ipfs-sig field (issue 3am)
+crates/mail/src/email/types.rs   — x-stoa-sig field (issue 3am)
 audit/status.md                  — session log
 ```
 
 Suggested commit message:
 ```
-feat(jmap): expose x-usenet-ipfs-sig as Email/get property
+feat(jmap): expose x-stoa-sig as Email/get property
 ```
 
 ---
@@ -102,7 +102,7 @@ blob.rs                 — GET /jmap/download/{accountId}/{blobId}/{name} — C
 email/get.rs            — Email/get handler
 email/query.rs          — Email/query handler (filters: inMailbox, after, before, from, subject, text)
 email/set.rs            — Email/set handler (destroy→notPermitted; keywords→UserFlagsStore; NOT WIRED)
-email/types.rs          — Email struct with x-usenet-ipfs-cid, x-usenet-ipfs-sig custom properties
+email/types.rs          — Email struct with x-stoa-cid, x-stoa-sig custom properties
 mailbox/get.rs          — Mailbox/get handler
 mailbox/query.rs        — Mailbox/query handler (isSubscribed filter, name sort) — NOT WIRED
 mailbox/types.rs        — Mailbox struct; mailbox_id_for_group() = SHA256→base32 of group name
@@ -125,7 +125,7 @@ main.rs                 — Startup: wraps IpfsStore with BlockCache if config.c
 
 ```
 post/sign.rs            — sign_article(), verify_article_sig(); OPERATOR_SIG_HEADER
-post/did_verify.rs      — verify_did_sig() for X-Usenet-IPFS-DID-Sig headers
+post/did_verify.rs      — verify_did_sig() for X-Stoa-DID-Sig headers
 post/ipfs_write.rs      — write_article_to_ipfs() — used by both NNTP POST and JMAP upload
 session/lifecycle.rs    — handle_xverify() at line 855; NNTP command handlers
 ```
@@ -134,20 +134,20 @@ session/lifecycle.rs    — handle_xverify() at line 855; NNTP command handlers
 
 ## Architecture notes (non-obvious things to remember)
 
-- **CID = JMAP Email ID = blobId**: Not a mapping — they are literally the same string. `Email.id`, `Email.blobId`, `Email.x-usenet-ipfs-cid` all equal the article root CID.
+- **CID = JMAP Email ID = blobId**: Not a mapping — they are literally the same string. `Email.id`, `Email.blobId`, `Email.x-stoa-cid` all equal the article root CID.
 - **Thread ID derivation**: Walk `References`/`In-Reply-To` chain through the overview index, take the CID of the root article. If no chain, threadId = emailId. Not stored — recomputed on demand.
 - **StateStore is already wired in SQLite** but responses still return hardcoded "0". Email/changes implementation needs: (a) bump state on article ingest, (b) wire live state into Email/query/get responses, (c) implement changes query against overview index.
 - **Mailbox IDs are derived, not stored**: `mailbox_id_for_group("comp.lang.rust")` = SHA256→base26+digits→26 chars. Stable across restarts. Defined in `mailbox/types.rs`.
 - **Upload endpoint advertised but not implemented**: Session advertises `/jmap/upload/{accountId}/` but it returns 404. Issue `o6tg` covers this.
 - **EventSource advertised but not implemented**: Session advertises eventsource URL. No push support yet. Not in the issue list (deliberately omitted as low priority for newsreader).
 - **imap-next X-command limitation**: imap-next 0.3.4 / imap-types 2.0.0-alpha.6 have no `CommandBody::Other` for custom X-commands. This is by design in the library. an4/02d were superseded by JMAP rather than waiting.
-- **AGPL note**: `usenet-ipfs-smtp` is AGPL-3.0 due to `sieve-rs` dependency. Do not add features without understanding the AGPL obligation. Other crates are MIT.
+- **AGPL note**: `stoa-smtp` is AGPL-3.0 due to `sieve-rs` dependency. Do not add features without understanding the AGPL obligation. Other crates are MIT.
 
 ---
 
 ## Session close checklist status
 
 - [ ] `git add crates/mail/src/email/types.rs audit/status.md`
-- [ ] `git commit -m "feat(jmap): expose x-usenet-ipfs-sig as Email/get property"`
+- [ ] `git commit -m "feat(jmap): expose x-stoa-sig as Email/get property"`
 - [ ] `git push`
 - [ ] `bd dolt push` (may fail if no remote configured — non-fatal)

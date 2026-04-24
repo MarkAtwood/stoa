@@ -1,12 +1,12 @@
 # Release Process
 
-This document covers the versioning policy, changelog format, and release workflow for usenet-ipfs.
+This document covers the versioning policy, changelog format, and release workflow for stoa.
 
 ## 1. Versioning Policy
 
 This project follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
 
-All crates (`usenet-ipfs-core`, `usenet-ipfs-transit`, `usenet-ipfs-reader`) are workspace-versioned: they share a single version number declared in the workspace `Cargo.toml` and inherited by each crate. A release bumps all crates together.
+All crates (`stoa-core`, `stoa-transit`, `stoa-reader`) are workspace-versioned: they share a single version number declared in the workspace `Cargo.toml` and inherited by each crate. A release bumps all crates together.
 
 ### Version bump triggers
 
@@ -53,7 +53,7 @@ Omit empty sections. The `[Unreleased]` block at the top accumulates entries dur
 ### Entry format
 
 ```
-- Brief description of the user-visible change ([#NNN](https://github.com/MarkAtwood/usenet-ipfs/issues/NNN)) [@author]
+- Brief description of the user-visible change ([#NNN](https://github.com/MarkAtwood/stoa/issues/NNN)) [@author]
 ```
 
 Rules:
@@ -79,8 +79,8 @@ These steps must be performed in order. Do not skip steps.
     - Rename [Unreleased] to [X.Y.Z] - YYYY-MM-DD (today's date)
     - Add a new empty [Unreleased] section at the top
     - Update the comparison link at the bottom:
-        [Unreleased]: https://github.com/MarkAtwood/usenet-ipfs/compare/vX.Y.Z...HEAD
-        [X.Y.Z]: https://github.com/MarkAtwood/usenet-ipfs/compare/vX.Y.(Z-1)...vX.Y.Z
+        [Unreleased]: https://github.com/MarkAtwood/stoa/compare/vX.Y.Z...HEAD
+        [X.Y.Z]: https://github.com/MarkAtwood/stoa/compare/vX.Y.(Z-1)...vX.Y.Z
 
 4.  Extract the release notes for this version to a temp file:
         # copy the [X.Y.Z] section body to CHANGELOG_LATEST.md (not committed)
@@ -106,10 +106,10 @@ These steps must be performed in order. Do not skip steps.
           --notes-file CHANGELOG_LATEST.md
 
 10. Publish to crates.io (deferred until production-ready):
-        cargo publish -p usenet-ipfs-core
+        cargo publish -p stoa-core
         # Wait for core to appear in the registry index before publishing dependents
-        cargo publish -p usenet-ipfs-transit
-        cargo publish -p usenet-ipfs-reader
+        cargo publish -p stoa-transit
+        cargo publish -p stoa-reader
 ```
 
 Step 10 is blocked until the project exits pre-alpha. Do not publish to crates.io before that milestone is reached and explicitly approved.

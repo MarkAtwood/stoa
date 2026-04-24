@@ -2,10 +2,10 @@ use cid::Cid;
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use multihash_codetable::Multihash;
 use tokio::runtime::Runtime;
-use usenet_ipfs_core::article::GroupName;
-use usenet_ipfs_core::group_log::mem_storage::MemLogStorage;
-use usenet_ipfs_core::group_log::storage::LogStorage;
-use usenet_ipfs_core::group_log::types::{LogEntry, LogEntryId};
+use stoa_core::article::GroupName;
+use stoa_core::group_log::mem_storage::MemLogStorage;
+use stoa_core::group_log::storage::LogStorage;
+use stoa_core::group_log::types::{LogEntry, LogEntryId};
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -113,7 +113,7 @@ async fn populate(storage: &MemLogStorage, group: &GroupName, unique_tag: u8) ->
 /// Setup (outside `b.iter`): populate both storages and collect B's tips.
 /// Measurement: one `reconcile` call per iteration.
 fn bench_reconcile_10k_diverge_at_9k(c: &mut Criterion) {
-    use usenet_ipfs_core::group_log::reconcile::reconcile;
+    use stoa_core::group_log::reconcile::reconcile;
 
     let rt = Runtime::new().expect("tokio runtime");
 

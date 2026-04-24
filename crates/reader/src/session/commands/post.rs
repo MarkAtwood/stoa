@@ -1,6 +1,6 @@
 use tokio::io::{AsyncBufRead, AsyncBufReadExt};
 
-use usenet_ipfs_core::audit::{AuditEvent, AuditLoggerHandle};
+use stoa_core::audit::{AuditEvent, AuditLoggerHandle};
 
 use crate::post::{find_header_boundary, validate_headers::validate_post_headers};
 use crate::session::response::Response;

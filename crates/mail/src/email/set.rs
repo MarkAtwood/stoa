@@ -5,9 +5,9 @@ use serde_json::{json, Value};
 
 use crate::jmap::types::MethodError;
 use crate::state::flags::UserFlagsStore;
-use usenet_ipfs_core::msgid_map::MsgIdMap;
-use usenet_ipfs_reader::post::ipfs_write::{write_article_to_ipfs, IpfsBlockStore};
-use usenet_ipfs_smtp::SmtpRelayQueue;
+use stoa_core::msgid_map::MsgIdMap;
+use stoa_reader::post::ipfs_write::{write_article_to_ipfs, IpfsBlockStore};
+use stoa_smtp::SmtpRelayQueue;
 
 /// Handle Email/set — route to destroy/update/create sub-handlers.
 pub fn handle_email_set(args: Value) -> Result<Value, MethodError> {
@@ -192,7 +192,7 @@ async fn create_one_email(
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis();
-    let message_id = format!("<jmap-{timestamp}@usenet-ipfs.local>");
+    let message_id = format!("<jmap-{timestamp}@stoa.local>");
 
     let article = format!(
         "Newsgroups: {}\r\nFrom: {}\r\nSubject: {}\r\nDate: {}\r\nMessage-ID: {}\r\n\r\n{}",
@@ -216,7 +216,7 @@ async fn create_one_email(
             let rcpts: Vec<&str> = rcpt_list.iter().map(String::as_str).collect();
             if let Err(e) = queue.enqueue(article.as_bytes(), from_email, &rcpts).await {
                 tracing::warn!("smtp relay enqueue failed: {e}");
-                usenet_ipfs_smtp::metrics::inc_relay_enqueue_failure();
+                stoa_smtp::metrics::inc_relay_enqueue_failure();
             }
         }
     }
@@ -344,16 +344,16 @@ mod tests {
 
     #[tokio::test]
     async fn email_create_produces_cid() {
-        use usenet_ipfs_reader::post::ipfs_write::MemIpfsStore;
+        use stoa_reader::post::ipfs_write::MemIpfsStore;
 
         let pool = sqlx::sqlite::SqlitePoolOptions::new()
             .connect("sqlite::memory:")
             .await
             .unwrap();
-        usenet_ipfs_core::migrations::run_migrations(&pool)
+        stoa_core::migrations::run_migrations(&pool)
             .await
             .unwrap();
-        let msgid_map = usenet_ipfs_core::msgid_map::MsgIdMap::new(pool);
+        let msgid_map = stoa_core::msgid_map::MsgIdMap::new(pool);
         let ipfs = MemIpfsStore::new();
 
         let mut create_map = serde_json::Map::new();
@@ -375,22 +375,22 @@ mod tests {
     }
 
     /// Helper: build a MsgIdMap on an in-memory SQLite pool with core migrations.
-    async fn make_msgid_map() -> usenet_ipfs_core::msgid_map::MsgIdMap {
+    async fn make_msgid_map() -> stoa_core::msgid_map::MsgIdMap {
         use sqlx::sqlite::SqlitePoolOptions;
         let pool = SqlitePoolOptions::new()
             .connect("sqlite::memory:")
             .await
             .unwrap();
-        usenet_ipfs_core::migrations::run_migrations(&pool)
+        stoa_core::migrations::run_migrations(&pool)
             .await
             .unwrap();
-        usenet_ipfs_core::msgid_map::MsgIdMap::new(pool)
+        stoa_core::msgid_map::MsgIdMap::new(pool)
     }
 
     /// smtp_queue=None: no .env files written even when To: is present.
     #[tokio::test]
     async fn email_create_no_smtp_queue_no_enqueue() {
-        use usenet_ipfs_reader::post::ipfs_write::MemIpfsStore;
+        use stoa_reader::post::ipfs_write::MemIpfsStore;
 
         let dir = tempfile::tempdir().expect("tempdir");
         let msgid_map = make_msgid_map().await;
@@ -427,8 +427,8 @@ mod tests {
     #[tokio::test]
     async fn email_create_with_smtp_queue_and_to_enqueues() {
         use std::time::Duration;
-        use usenet_ipfs_reader::post::ipfs_write::MemIpfsStore;
-        use usenet_ipfs_smtp::config::SmtpRelayPeerConfig;
+        use stoa_reader::post::ipfs_write::MemIpfsStore;
+        use stoa_smtp::config::SmtpRelayPeerConfig;
 
         let dir = tempfile::tempdir().expect("tempdir");
         let peer = SmtpRelayPeerConfig {
@@ -439,7 +439,7 @@ mod tests {
             password: None,
         };
         let queue =
-            usenet_ipfs_smtp::SmtpRelayQueue::new(dir.path(), vec![peer], Duration::from_secs(300))
+            stoa_smtp::SmtpRelayQueue::new(dir.path(), vec![peer], Duration::from_secs(300))
                 .expect("queue");
 
         let msgid_map = make_msgid_map().await;
@@ -475,8 +475,8 @@ mod tests {
     #[tokio::test]
     async fn email_create_with_smtp_queue_no_recipients_no_enqueue() {
         use std::time::Duration;
-        use usenet_ipfs_reader::post::ipfs_write::MemIpfsStore;
-        use usenet_ipfs_smtp::config::SmtpRelayPeerConfig;
+        use stoa_reader::post::ipfs_write::MemIpfsStore;
+        use stoa_smtp::config::SmtpRelayPeerConfig;
 
         let dir = tempfile::tempdir().expect("tempdir");
         let peer = SmtpRelayPeerConfig {
@@ -487,7 +487,7 @@ mod tests {
             password: None,
         };
         let queue =
-            usenet_ipfs_smtp::SmtpRelayQueue::new(dir.path(), vec![peer], Duration::from_secs(300))
+            stoa_smtp::SmtpRelayQueue::new(dir.path(), vec![peer], Duration::from_secs(300))
                 .expect("queue");
 
         let msgid_map = make_msgid_map().await;
@@ -522,8 +522,8 @@ mod tests {
     #[tokio::test]
     async fn email_create_smtp_enqueue_failure_is_nonfatal() {
         use std::time::Duration;
-        use usenet_ipfs_reader::post::ipfs_write::MemIpfsStore;
-        use usenet_ipfs_smtp::config::SmtpRelayPeerConfig;
+        use stoa_reader::post::ipfs_write::MemIpfsStore;
+        use stoa_smtp::config::SmtpRelayPeerConfig;
 
         let dir = tempfile::tempdir().expect("tempdir");
         let peer = SmtpRelayPeerConfig {
@@ -534,7 +534,7 @@ mod tests {
             password: None,
         };
         let queue =
-            usenet_ipfs_smtp::SmtpRelayQueue::new(dir.path(), vec![peer], Duration::from_secs(300))
+            stoa_smtp::SmtpRelayQueue::new(dir.path(), vec![peer], Duration::from_secs(300))
                 .expect("queue");
 
         // Remove the queue directory so enqueue will fail with an I/O error.

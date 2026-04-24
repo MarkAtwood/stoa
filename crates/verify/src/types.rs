@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 /// Which signature scheme produced this result.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SigType {
-    /// `X-Usenet-IPFS-Sig` Ed25519 article signature.
+    /// `X-Stoa-Sig` Ed25519 article signature.
     XUsenetIpfsSig,
     /// `DKIM-Signature` header, verified via DNS TXT lookup.
     Dkim,
@@ -15,7 +15,7 @@ impl SigType {
     /// Short string used as the `sig_type` column value in SQLite.
     pub fn as_str(&self) -> &'static str {
         match self {
-            SigType::XUsenetIpfsSig => "x-usenet-ipfs-sig",
+            SigType::XUsenetIpfsSig => "x-stoa-sig",
             SigType::Dkim => "dkim",
         }
     }
@@ -69,6 +69,6 @@ impl VerifResult {
 pub struct ArticleVerification {
     pub sig_type: SigType,
     pub result: VerifResult,
-    /// Signing identity: pubkey hex (x-usenet-ipfs-sig) or domain (DKIM).
+    /// Signing identity: pubkey hex (x-stoa-sig) or domain (DKIM).
     pub identity: Option<String>,
 }

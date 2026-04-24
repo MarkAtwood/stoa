@@ -1,12 +1,12 @@
 //! TLS configuration for the JMAP HTTP server.
 //!
-//! Delegates PEM loading to `usenet-ipfs-tls`. In v1, TLS wrapping of the
+//! Delegates PEM loading to `stoa-tls`. In v1, TLS wrapping of the
 //! axum listener is not yet active; this module exists so `load_tls_config`
 //! can be called at startup to validate the paths before the server accepts
 //! connections.
 
-use usenet_ipfs_tls::load_tls_server_config;
-pub use usenet_ipfs_tls::TlsError;
+use stoa_tls::load_tls_server_config;
+pub use stoa_tls::TlsError;
 
 use rustls::ServerConfig;
 use std::sync::Arc;

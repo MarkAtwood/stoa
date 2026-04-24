@@ -8,13 +8,13 @@ use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 
-use usenet_ipfs_reader::{
+use stoa_reader::{
     config::UserCredential,
     session::lifecycle::run_session,
     store::{credentials::CredentialStore, server_stores::ServerStores},
 };
 
-fn test_config(addr: &str) -> usenet_ipfs_reader::config::Config {
+fn test_config(addr: &str) -> stoa_reader::config::Config {
     let toml = format!(
         "[listen]\naddr = \"{addr}\"\n\
          [limits]\nmax_connections = 10\ncommand_timeout_secs = 30\n\
@@ -210,7 +210,7 @@ async fn e2e_post_group_over_article() {
 /// exercising the real credential path.
 #[tokio::test]
 async fn authinfo_rate_limiter_closes_after_max_failures() {
-    use usenet_ipfs_reader::session::context::MAX_AUTH_FAILURES;
+    use stoa_reader::session::context::MAX_AUTH_FAILURES;
 
     // Precompute a hash at cost 4 for speed (DEFAULT_COST≈100ms × 5 is too slow).
     let hash = bcrypt::hash("right-password", 4).expect("bcrypt::hash must not fail");
@@ -234,7 +234,7 @@ async fn authinfo_rate_limiter_closes_after_max_failures() {
          [[auth.users]]\nusername = \"alice\"\npassword = \"placeholder\"\n\
          [tls]\n"
     );
-    let config: usenet_ipfs_reader::config::Config =
+    let config: stoa_reader::config::Config =
         toml::from_str(&toml).expect("config must parse");
     let config = std::sync::Arc::new(config);
 

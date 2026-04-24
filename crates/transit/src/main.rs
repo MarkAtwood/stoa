@@ -11,13 +11,13 @@ use mail_auth::MessageAuthenticator;
 use rand_core::OsRng;
 use tokio::{net::TcpListener, sync::Mutex};
 use tracing::{info, warn};
-use usenet_ipfs_core::{
+use stoa_core::{
     group_log::{backfill, reconcile, LogEntryId, SqliteLogStorage},
     hlc::HlcClock,
     msgid_map::MsgIdMap,
     GroupName,
 };
-use usenet_ipfs_transit::{
+use stoa_transit::{
     admin::start_admin_server,
     config::{check_admin_addr, Config},
     gossip::{swarm::start_swarm, tip_advert::handle_tip_advertisement},
@@ -36,12 +36,12 @@ use usenet_ipfs_transit::{
     },
     staging::StagingStore,
 };
-use usenet_ipfs_verify::VerificationStore;
+use stoa_verify::VerificationStore;
 
 fn parse_args() -> (PathBuf, bool) {
     let args: Vec<String> = std::env::args().collect();
 
-    // Subcommand dispatch: `usenet-ipfs-transit keygen --output <path> [--force]`
+    // Subcommand dispatch: `stoa-transit keygen --output <path> [--force]`
     if args.get(1).map(|s| s.as_str()) == Some("keygen") {
         cmd_keygen(&args[2..]);
     }
@@ -78,7 +78,7 @@ fn parse_args() -> (PathBuf, bool) {
     }
 }
 
-/// Handle `usenet-ipfs-transit keygen --output <path> [--force]`.
+/// Handle `stoa-transit keygen --output <path> [--force]`.
 ///
 /// Generates a random 32-byte Ed25519 seed, writes it to `<path>` (mode 0600),
 /// and prints the public key hex + HLC node ID to stdout.  Exits 0 on success,
@@ -110,13 +110,13 @@ fn cmd_keygen(args: &[String]) -> ! {
             std::process::exit(1);
         }
     };
-    let key = usenet_ipfs_core::signing::generate_signing_key();
-    if let Err(e) = usenet_ipfs_core::signing::write_signing_key(&key, output_path, force) {
+    let key = stoa_core::signing::generate_signing_key();
+    if let Err(e) = stoa_core::signing::write_signing_key(&key, output_path, force) {
         eprintln!("error: {e}");
         std::process::exit(1);
     }
     let pubkey_hex = hex::encode(key.verifying_key().as_bytes());
-    let node_id = usenet_ipfs_core::signing::hlc_node_id(&key);
+    let node_id = stoa_core::signing::hlc_node_id(&key);
     let node_id_hex = hex::encode(node_id);
     println!("public_key: {pubkey_hex}");
     println!("node_id:    {node_id_hex}");
@@ -124,13 +124,13 @@ fn cmd_keygen(args: &[String]) -> ! {
     std::process::exit(0);
 }
 
-async fn run_startup_checks(config: &usenet_ipfs_transit::config::Config) -> Vec<String> {
+async fn run_startup_checks(config: &stoa_transit::config::Config) -> Vec<String> {
     let mut errors: Vec<String> = Vec::new();
 
     // Kubo reachability check (skipped for non-Kubo backends).
     if let Some(url) = config.kubo_api_url() {
         let url = url.to_owned();
-        let client = usenet_ipfs_core::ipfs::KuboHttpClient::new(&url);
+        let client = stoa_core::ipfs::KuboHttpClient::new(&url);
         match tokio::time::timeout(Duration::from_secs(5), client.node_id()).await {
             Ok(Ok(_)) => {}
             Ok(Err(e)) => {
@@ -158,7 +158,7 @@ async fn run_startup_checks(config: &usenet_ipfs_transit::config::Config) -> Vec
 
     // Signing key check.
     if let Some(ref path) = config.operator.signing_key_path {
-        if let Err(e) = usenet_ipfs_core::signing::load_signing_key(std::path::Path::new(path)) {
+        if let Err(e) = stoa_core::signing::load_signing_key(std::path::Path::new(path)) {
             errors.push(e.to_string());
         }
     }
@@ -222,7 +222,7 @@ async fn main() {
         listen_addr = %config.listen.addr,
         peer_count = config.peers.addresses.len() + config.peers.peer.len(),
         group_count = config.groups.names.len(),
-        "usenet-ipfs-transit starting"
+        "stoa-transit starting"
     );
 
     if let Some(warning) = check_admin_addr(&config.admin) {
@@ -232,7 +232,7 @@ async fn main() {
     // ── SQLite databases (two separate pools: core schema + transit schema) ───
 
     let core_pool = open_pool(&config.database.core_path, config.database.pool_size).await;
-    if let Err(e) = usenet_ipfs_core::migrations::run_migrations(&core_pool).await {
+    if let Err(e) = stoa_core::migrations::run_migrations(&core_pool).await {
         eprintln!("error: core database migration failed: {e}");
         std::process::exit(1);
     }
@@ -240,7 +240,7 @@ async fn main() {
     let log_storage = Arc::new(SqliteLogStorage::new(core_pool));
 
     let transit_pool = Arc::new(open_pool(&config.database.path, config.database.pool_size).await);
-    if let Err(e) = usenet_ipfs_transit::migrations::run_migrations(&transit_pool).await {
+    if let Err(e) = stoa_transit::migrations::run_migrations(&transit_pool).await {
         eprintln!("error: transit database migration failed: {e}");
         std::process::exit(1);
     }
@@ -248,7 +248,7 @@ async fn main() {
     // ── Verify pool (separate schema; no version conflicts with transit) ───────
 
     let verify_pool = open_pool(&config.database.verify_path, config.database.pool_size).await;
-    if let Err(e) = usenet_ipfs_verify::run_migrations(&verify_pool).await {
+    if let Err(e) = stoa_verify::run_migrations(&verify_pool).await {
         eprintln!("error: verify database migration failed: {e}");
         std::process::exit(1);
     }
@@ -284,7 +284,7 @@ async fn main() {
 
     // ── IPFS block store ──────────────────────────────────────────────────────
 
-    let build_result = match usenet_ipfs_transit::peering::pipeline::build_store(&config) {
+    let build_result = match stoa_transit::peering::pipeline::build_store(&config) {
         Ok(r) => r,
         Err(e) => {
             eprintln!("error: failed to build IPFS store: {e}");
@@ -300,7 +300,7 @@ async fn main() {
     } else {
         None
     };
-    let mut ipfs_store: Arc<dyn usenet_ipfs_transit::peering::pipeline::IpfsStore> =
+    let mut ipfs_store: Arc<dyn stoa_transit::peering::pipeline::IpfsStore> =
         build_result.store;
 
     // ── Block cache (optional) ─────────────────────────────────────────────────
@@ -309,7 +309,7 @@ async fn main() {
         match tokio::fs::create_dir_all(&cache_cfg.path).await {
             Ok(()) => {
                 info!(path = %cache_cfg.path, "block cache directory ready");
-                ipfs_store = Arc::new(usenet_ipfs_transit::block_cache::BlockCache::new(
+                ipfs_store = Arc::new(stoa_transit::block_cache::BlockCache::new(
                     cache_cfg,
                     Arc::clone(&transit_pool),
                     ipfs_store,
@@ -362,11 +362,11 @@ async fn main() {
 
     // Enforce signing_key_path for non-loopback deployments (zn0k).
     if config.operator.signing_key_path.is_none()
-        && !usenet_ipfs_transit::config::is_loopback_addr(&config.listen.addr)
+        && !stoa_transit::config::is_loopback_addr(&config.listen.addr)
     {
         eprintln!(
             "error: operator.signing_key_path must be set when listening on a non-loopback \
-             address ({}). Run `usenet-ipfs-transit keygen --output <path>` to generate \
+             address ({}). Run `stoa-transit keygen --output <path>` to generate \
              a key, then set [operator] signing_key_path in your config.",
             config.listen.addr
         );
@@ -375,7 +375,7 @@ async fn main() {
 
     let signing_key = Arc::new(match &config.operator.signing_key_path {
         Some(path) => {
-            match usenet_ipfs_core::signing::load_signing_key(std::path::Path::new(path)) {
+            match stoa_core::signing::load_signing_key(std::path::Path::new(path)) {
                 Ok(k) => {
                     info!(path, "loaded operator signing key");
                     k
@@ -411,7 +411,7 @@ async fn main() {
     for group in &config.groups.names {
         let hier = group.split('.').next().unwrap_or(group.as_str());
         if seen_hier.insert(hier.to_owned()) {
-            let topic = format!("usenet.hier.{hier}");
+            let topic = format!("stoa.hier.{hier}");
             if let Err(e) = subscribe_handle.subscribe(&topic).await {
                 warn!(topic, "gossipsub subscribe failed: {e}");
             } else {
@@ -563,7 +563,7 @@ async fn main() {
 
     let tls_acceptor: Option<Arc<tokio_rustls::TlsAcceptor>> = if let Some(ref tls_cfg) = config.tls
     {
-        match usenet_ipfs_tls::load_tls_server_config(&tls_cfg.cert_path, &tls_cfg.key_path) {
+        match stoa_tls::load_tls_server_config(&tls_cfg.cert_path, &tls_cfg.key_path) {
             Ok(server_config) => {
                 info!("peering TLS enabled");
                 Some(Arc::new(tokio_rustls::TlsAcceptor::from(server_config)))
@@ -671,7 +671,7 @@ async fn main() {
 
         tokio::spawn(async move {
             while let Some(article) = ingestion_receiver.recv().await {
-                usenet_ipfs_transit::metrics::INGESTION_QUEUE_DEPTH
+                stoa_transit::metrics::INGESTION_QUEUE_DEPTH
                     .set(ingestion_metrics_task.current_depth() as i64);
                 let now_ms = std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
@@ -988,7 +988,7 @@ async fn main() {
         }
     }
 
-    info!("usenet-ipfs-transit stopped");
+    info!("stoa-transit stopped");
 }
 
 async fn accept_loop(listener: TcpListener, shared: Arc<PeeringShared>) -> std::io::Result<()> {

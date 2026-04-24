@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use usenet_ipfs_core::article::{Article, ArticleBody, ArticleHeader, GroupName};
-use usenet_ipfs_core::canonical::canonical_bytes;
+use stoa_core::article::{Article, ArticleBody, ArticleHeader, GroupName};
+use stoa_core::canonical::canonical_bytes;
 
 fn make_article(n: usize) -> Article {
     Article {

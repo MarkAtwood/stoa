@@ -38,7 +38,7 @@ pub async fn handle_xget(cid_str: &str, ipfs_store: &dyn IpfsBlockStore) -> Resp
     body_lines.push("From: ipfs-gateway@localhost".to_string());
     body_lines.push(format!("Subject: IPFS:{cid_str}"));
     body_lines.push(format!("Message-ID: <{cid_str}@ipfs.local>"));
-    body_lines.push(format!("X-Usenet-IPFS-CID: {cid_str}"));
+    body_lines.push(format!("X-Stoa-CID: {cid_str}"));
     body_lines.push("MIME-Version: 1.0".to_string());
     body_lines.push("Content-Type: application/octet-stream".to_string());
     body_lines.push("Content-Transfer-Encoding: base64".to_string());
@@ -117,8 +117,8 @@ mod tests {
             "missing CTE header"
         );
         assert!(
-            body_str.contains(&format!("X-Usenet-IPFS-CID: {}", cid)),
-            "missing X-Usenet-IPFS-CID header"
+            body_str.contains(&format!("X-Stoa-CID: {}", cid)),
+            "missing X-Stoa-CID header"
         );
 
         // Decode the base64 body and verify it round-trips to the original payload.

@@ -14,8 +14,8 @@ use std::time::Instant;
 use data_encoding::BASE64;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use tokio::net::TcpListener;
-use usenet_ipfs_auth::{AuthConfig, CredentialStore, UserCredential};
-use usenet_ipfs_mail::{
+use stoa_auth::{AuthConfig, CredentialStore, UserCredential};
+use stoa_mail::{
     server::{build_router, AppState},
     token_store::TokenStore,
 };
@@ -33,7 +33,7 @@ async fn make_token_store() -> Arc<TokenStore> {
         .connect_with(opts)
         .await
         .expect("pool");
-    usenet_ipfs_mail::migrations::run_migrations(&pool)
+    stoa_mail::migrations::run_migrations(&pool)
         .await
         .expect("migrations");
     Arc::new(TokenStore::new(Arc::new(pool)))
@@ -60,7 +60,7 @@ async fn auth_state_alice() -> Arc<AppState> {
         }),
         token_store: make_token_store().await,
         base_url: "http://localhost".to_string(),
-        cors: usenet_ipfs_mail::config::CorsConfig::default(),
+        cors: stoa_mail::config::CorsConfig::default(),
     })
 }
 
@@ -74,7 +74,7 @@ async fn dev_state() -> Arc<AppState> {
         auth_config: Arc::new(AuthConfig::default()),
         token_store: make_token_store().await,
         base_url: "http://localhost".to_string(),
-        cors: usenet_ipfs_mail::config::CorsConfig::default(),
+        cors: stoa_mail::config::CorsConfig::default(),
     })
 }
 
