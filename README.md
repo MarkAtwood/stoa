@@ -1,19 +1,12 @@
 # stoa
 
-Run your own Usenet server. Articles are stored in IPFS and group state is reconciled peer-to-peer over libp2p gossipsub. Standard newsreader clients — slrn, tin, pan, gnus, Thunderbird — connect over unmodified RFC 3977 NNTP. No client changes required.
+Run your own Usenet server. Articles are stored in a content-addressed block store and group state is reconciled peer-to-peer. Standard newsreader clients — slrn, tin, pan, gnus, Thunderbird — connect over unmodified RFC 3977 NNTP. No client changes required.
 
 ## Prerequisites
 
 - **Rust** stable toolchain — [rustup.rs](https://rustup.rs)
-- **Kubo** (go-ipfs) — [install guide](https://docs.ipfs.tech/install/command-line/)
 
-Both daemons speak to Kubo's HTTP RPC API (`http://127.0.0.1:5001` by default). Article bytes live in Kubo's block store on disk and survive daemon restarts. Start Kubo before starting either daemon:
-
-```bash
-ipfs daemon
-```
-
-A local filesystem block cache (`[ipfs] cache_path`) is optional but recommended to avoid re-fetching blocks from Kubo on every read.
+That's it for the default LMDB backend. Kubo (go-ipfs) is an optional alternative — see [Backend options](#backend-options) below.
 
 ## Quick start
 
@@ -36,9 +29,11 @@ addr = "0.0.0.0:119"
 [groups]
 names = ["comp.lang.rust", "alt.test"]
 
-[ipfs]
-api_url    = "http://127.0.0.1:5001"
-cache_path = "/var/cache/stoa/blocks"
+[backend]
+type = "lmdb"
+
+[backend.lmdb]
+path = "/var/lib/stoa/transit/blocks"
 
 [database]
 core_path = "/var/lib/stoa/transit/core.db"
@@ -72,9 +67,11 @@ Create `reader.toml`:
 [listen]
 addr = "0.0.0.0:119"
 
-[ipfs]
-api_url    = "http://127.0.0.1:5001"
-cache_path = "/var/cache/stoa/blocks"
+[backend]
+type = "lmdb"
+
+[backend.lmdb]
+path = "/var/lib/stoa/reader/blocks"
 
 [auth]
 required = false
@@ -153,13 +150,45 @@ Both nodes must list the same groups in `[groups] names`. Articles injected at e
 
 ---
 
+## Backend options
+
+Block store backends:
+
+| Backend | Config `type` | Status | Notes |
+|---------|--------------|--------|-------|
+| **LMDB** | `"lmdb"` | Implemented | Default. Memory-mapped, zero external dependencies. Fast concurrent reads. |
+| **Kubo** | `"kubo"` | Implemented | Delegates to a running [Kubo](https://docs.ipfs.tech/install/command-line/) (go-ipfs) daemon. |
+| **S3** | `"s3"` | Planned | Object storage; AWS S3 or compatible (MinIO, Backblaze B2, Cloudflare R2, etc.). |
+| **Azure Blob** | `"azure"` | Planned | Azure Blob Storage native API. |
+| **GCS** | `"gcs"` | Planned | Google Cloud Storage native API. |
+| **Ceph RADOS** | `"rados"` | Planned | Ceph native RADOS object store. |
+| **RocksDB** | `"rocksdb"` | Planned | Embedded LSM-tree KV store; higher write throughput than LMDB. |
+| **Filesystem** | `"filesystem"` | Planned | Plain directory of files; useful for debugging and cold import. |
+
+### Kubo backend config
+
+```toml
+[backend]
+type = "kubo"
+
+[backend.kubo]
+api_url    = "http://127.0.0.1:5001"
+cache_path = "/var/cache/stoa/blocks"   # optional local read cache
+```
+
+Start Kubo before either daemon when using this backend:
+
+```bash
+ipfs daemon
+```
+
+---
+
 ## v1 limitations
 
 | Limitation | Detail |
 |-----------|--------|
-| Requires Kubo | A running Kubo daemon is required. Both daemons fail to start if Kubo is unreachable. |
 | Ephemeral signing key | Transit generates a new Ed25519 key at each startup. A warning is emitted. |
-| In-memory reader index | Article numbers and the overview index (SQLite) are in-memory and lost on reader restart. |
 | No peer block fetch | Gossip reconciliation finds gaps but cannot yet fetch them from remote peers. |
 | TLS not advertised | TLS infrastructure is wired; STARTTLS not yet in CAPABILITIES. |
 | Text groups only | Binary groups and yEnc are out of scope for v1. |
@@ -170,7 +199,7 @@ Both nodes must list the same groups in `[groups] names`. Articles injected at e
 
 730+ tests pass across the workspace (~30K LOC). RFC 3977 conformance verified by a Python nntplib client and a two-process transit+reader integration test.
 
-Implemented: full NNTP command set, article ingestion pipeline, Merkle-CRDT group log, ed25519 signing, rust-ipfs 0.15.0 embedded node, gossipsub swarm, overview index, SQLite article number store, admin HTTP endpoint, AUTHINFO.
+Implemented: full NNTP command set, article ingestion pipeline, Merkle-CRDT group log, ed25519 signing, LMDB/SQLite/Kubo block store backends, gossipsub swarm, overview index, SQLite article number store, admin HTTP endpoint, AUTHINFO.
 
 Open work tracked via `bd ready`.
 
@@ -188,12 +217,12 @@ Two binaries sharing a core library:
 
 | Binary | Role |
 |--------|------|
-| `stoa-transit` | Peering daemon. Accepts articles via IHAVE/TAKETHIS, stores to IPFS, appends to group log, propagates over gossipsub. Admin HTTP endpoint. |
+| `stoa-transit` | Peering daemon. Accepts articles via IHAVE/TAKETHIS, writes to the block store, appends to the group log, propagates over gossipsub. Admin HTTP endpoint. |
 | `stoa-reader` | RFC 3977 NNTP server. Serves articles to newsreader clients. Synthesizes local sequential article numbers, maintains overview index, handles POST. |
 
 `stoa-core` (rlib) holds shared types: article format, CID scheme, Message-ID↔CID mapping, Merkle-CRDT group log, canonical serialization, and signing.
 
-Articles are stored as DAG-CBOR IPLD blocks (SHA-256, CIDv1 codec 0x71). Group state is a per-group Merkle-CRDT append-only log with HLC timestamps and operator ed25519 signatures, tips advertised over gossipsub topics per hierarchy (`stoa.hier.comp`, `stoa.hier.sci`, …). Article numbers are local and synthetic — never network-stable.
+Articles are stored as DAG-CBOR IPLD blocks (SHA-256, CIDv1). Group state is a per-group Merkle-CRDT append-only log with HLC timestamps and operator ed25519 signatures, tips advertised over gossipsub topics per hierarchy (`stoa.hier.comp`, `stoa.hier.sci`, …). Article numbers are local and synthetic — never network-stable.
 
 ### Design invariants
 
@@ -213,10 +242,11 @@ stoa/
 │   ├── core/               shared types, CID scheme, Merkle-CRDT, signing
 │   ├── transit/            peering daemon
 │   ├── reader/             RFC 3977 NNTP server
+│   ├── lmdb/               LMDB block store (FFI boundary crate)
 │   └── integration-tests/
 ├── docs/
 │   └── RUNBOOK.md          operator deployment guide
-└── spikes/                 IPFS client library evaluation results
+└── spikes/                 block store backend evaluation results
 ```
 
 ### Building and testing
@@ -228,7 +258,7 @@ cargo fmt --all
 cargo clippy --workspace --all-features -- -D warnings
 ```
 
-Requirements: Rust stable (edition 2021), tokio, sqlx + SQLite, ed25519-dalek, rust-ipfs 0.15.0.
+Requirements: Rust stable (edition 2021), tokio, sqlx + SQLite, ed25519-dalek.
 
 ---
 
@@ -240,4 +270,4 @@ Issue tracker: [Beads](https://github.com/beads-dev/beads). Run `bd ready` for a
 
 ## License
 
-MIT, except: `stoa-sieve` and the `stoa-smtp` binary that links it depend on [`sieve-rs`](https://crates.io/crates/sieve-rs) (AGPL-3.0-only). Operators running `stoa-smtp` as a network service must make complete corresponding source available to users of that service.
+MIT.
