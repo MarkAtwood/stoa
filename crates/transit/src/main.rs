@@ -35,6 +35,12 @@ use usenet_ipfs_verify::VerificationStore;
 
 fn parse_args() -> PathBuf {
     let args: Vec<String> = std::env::args().collect();
+
+    // Subcommand dispatch: `usenet-ipfs-transit keygen --output <path> [--force]`
+    if args.get(1).map(|s| s.as_str()) == Some("keygen") {
+        cmd_keygen(&args[2..]);
+    }
+
     let mut i = 1;
     while i < args.len() {
         if args[i] == "--config" {
@@ -48,6 +54,52 @@ fn parse_args() -> PathBuf {
     }
     eprintln!("error: --config <path> is required");
     std::process::exit(1);
+}
+
+/// Handle `usenet-ipfs-transit keygen --output <path> [--force]`.
+///
+/// Generates a random 32-byte Ed25519 seed, writes it to `<path>` (mode 0600),
+/// and prints the public key hex + HLC node ID to stdout.  Exits 0 on success,
+/// 1 on any error.  Never returns — always calls `std::process::exit`.
+fn cmd_keygen(args: &[String]) -> ! {
+    let mut output: Option<&str> = None;
+    let mut force = false;
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--output" => {
+                output = args.get(i + 1).map(|s| s.as_str());
+                i += 2;
+            }
+            "--force" => {
+                force = true;
+                i += 1;
+            }
+            other => {
+                eprintln!("error: unknown keygen argument: {other}");
+                std::process::exit(1);
+            }
+        }
+    }
+    let output_path = match output {
+        Some(p) => std::path::Path::new(p),
+        None => {
+            eprintln!("error: keygen requires --output <path>");
+            std::process::exit(1);
+        }
+    };
+    let key = usenet_ipfs_core::signing::generate_signing_key();
+    if let Err(e) = usenet_ipfs_core::signing::write_signing_key(&key, output_path, force) {
+        eprintln!("error: {e}");
+        std::process::exit(1);
+    }
+    let pubkey_hex = hex::encode(key.verifying_key().as_bytes());
+    let node_id = usenet_ipfs_core::signing::hlc_node_id(&key);
+    let node_id_hex = hex::encode(node_id);
+    println!("public_key: {pubkey_hex}");
+    println!("node_id:    {node_id_hex}");
+    println!("key_file:   {}", output_path.display());
+    std::process::exit(0);
 }
 
 #[tokio::main]
@@ -212,6 +264,19 @@ async fn main() {
     };
 
     // ── Operator signing key ──────────────────────────────────────────────────
+
+    // Enforce signing_key_path for non-loopback deployments (zn0k).
+    if config.operator.signing_key_path.is_none()
+        && !usenet_ipfs_transit::config::is_loopback_addr(&config.listen.addr)
+    {
+        eprintln!(
+            "error: operator.signing_key_path must be set when listening on a non-loopback \
+             address ({}). Run `usenet-ipfs-transit keygen --output <path>` to generate \
+             a key, then set [operator] signing_key_path in your config.",
+            config.listen.addr
+        );
+        std::process::exit(1);
+    }
 
     let signing_key = Arc::new(match &config.operator.signing_key_path {
         Some(path) => {

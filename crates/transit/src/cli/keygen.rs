@@ -1,4 +1,8 @@
-//! Operator key generation: generate an ed25519 keypair and write to PEM files.
+//! Operator key generation: generate an Ed25519 signing key and write to disk.
+//!
+//! The private key is stored as a raw 32-byte binary file (mode 0600).
+//! The public key is stored as a SPKI PEM file (mode 0644) for use in key
+//! rotation announcements.
 
 use std::fs;
 use std::io::Write;
@@ -10,27 +14,35 @@ use sha2::Digest;
 pub struct KeygenOutput {
     /// The hex fingerprint of the public key (SHA-256 of DER-encoded SubjectPublicKeyInfo).
     pub fingerprint: String,
-    /// Private key PEM path written.
+    /// Hex-encoded HLC node ID derived from this key.
+    pub node_id_hex: String,
+    /// Private key path written (raw 32-byte binary, mode 0600).
     pub private_key_path: std::path::PathBuf,
-    /// Public key PEM path written.
+    /// Public key PEM path written (SPKI PEM, mode 0644).
     pub public_key_path: std::path::PathBuf,
 }
 
-/// Generate an ed25519 keypair and write to `output_dir`.
+/// Generate an ed25519 keypair and write to disk.
 ///
-/// - Private key: `{output_dir}/operator_key.pem` (mode 0600 on Unix)
-/// - Public key: `{output_dir}/operator_key.pub.pem` (mode 0644 on Unix)
-/// - Returns the public key fingerprint (SHA-256 of SubjectPublicKeyInfo DER, hex)
+/// - Private key: `output_path` (raw 32-byte binary seed, mode 0600 on Unix)
+/// - Public key: `output_path` + `.pub.pem` (SPKI PEM, mode 0644 on Unix)
+/// - Returns fingerprint (SHA-256 of SubjectPublicKeyInfo DER, hex-encoded)
 /// - Fails if files already exist and `force` is false
-pub fn generate_keypair(output_dir: &std::path::Path, force: bool) -> Result<KeygenOutput, String> {
-    let private_key_path = output_dir.join("operator_key.pem");
-    let public_key_path = output_dir.join("operator_key.pub.pem");
+pub fn generate_keypair(
+    output_path: &std::path::Path,
+    force: bool,
+) -> Result<KeygenOutput, String> {
+    let public_key_path = {
+        let mut p = output_path.as_os_str().to_owned();
+        p.push(".pub.pem");
+        std::path::PathBuf::from(p)
+    };
 
     if !force {
-        if private_key_path.exists() {
+        if output_path.exists() {
             return Err(format!(
                 "private key already exists: {}. Use --force to overwrite.",
-                private_key_path.display()
+                output_path.display()
             ));
         }
         if public_key_path.exists() {
@@ -44,20 +56,8 @@ pub fn generate_keypair(output_dir: &std::path::Path, force: bool) -> Result<Key
     let signing_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
     let verifying_key = signing_key.verifying_key();
 
-    // PKCS#8 v1 DER for ed25519 private key:
-    // Fixed 16-byte header + 32-byte seed
-    // SEQUENCE { INTEGER 0, SEQUENCE { OID 1.3.101.112 }, OCTET STRING { OCTET STRING { seed } } }
-    const PKCS8_HEADER: [u8; 16] = [
-        0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04,
-        0x20,
-    ];
-    let mut private_der = Vec::with_capacity(48);
-    private_der.extend_from_slice(&PKCS8_HEADER);
-    private_der.extend_from_slice(&signing_key.to_bytes());
-
     // SubjectPublicKeyInfo DER for ed25519 public key:
     // Fixed 12-byte header + 32-byte public key
-    // SEQUENCE { SEQUENCE { OID 1.3.101.112 }, BIT STRING { public key } }
     const SPKI_HEADER: [u8; 12] = [
         0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00,
     ];
@@ -69,23 +69,26 @@ pub fn generate_keypair(output_dir: &std::path::Path, force: bool) -> Result<Key
     let digest = sha2::Sha256::digest(&public_der);
     let fingerprint = hex::encode(digest);
 
-    let private_pem = to_pem("PRIVATE KEY", &private_der);
+    // HLC node ID: first 8 bytes of SHA-256(public_key)
+    let node_id = usenet_ipfs_core::signing::hlc_node_id(&signing_key);
+    let node_id_hex = hex::encode(node_id);
+
     let public_pem = to_pem("PUBLIC KEY", &public_der);
 
-    // Write private key: set mode 0600 before writing content
+    // Write private key as raw 32-byte binary: set mode 0600 before writing
     {
-        let mut f = fs::File::create(&private_key_path).map_err(|e| e.to_string())?;
+        let mut f = fs::File::create(output_path).map_err(|e| e.to_string())?;
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
             f.set_permissions(fs::Permissions::from_mode(0o600))
                 .map_err(|e| e.to_string())?;
         }
-        f.write_all(private_pem.as_bytes())
+        f.write_all(&signing_key.to_bytes())
             .map_err(|e| e.to_string())?;
     }
 
-    // Write public key: mode 0644
+    // Write public key PEM: mode 0644
     {
         let mut f = fs::File::create(&public_key_path).map_err(|e| e.to_string())?;
         #[cfg(unix)]
@@ -100,7 +103,8 @@ pub fn generate_keypair(output_dir: &std::path::Path, force: bool) -> Result<Key
 
     Ok(KeygenOutput {
         fingerprint,
-        private_key_path,
+        node_id_hex,
+        private_key_path: output_path.to_path_buf(),
         public_key_path,
     })
 }
@@ -120,10 +124,15 @@ fn to_pem(label: &str, der_bytes: &[u8]) -> String {
 mod tests {
     use super::*;
 
+    fn test_key_path(dir: &tempfile::TempDir) -> std::path::PathBuf {
+        dir.path().join("operator.key")
+    }
+
     #[test]
     fn generates_key_files() {
         let dir = tempfile::TempDir::new().unwrap();
-        let result = generate_keypair(dir.path(), false).unwrap();
+        let path = test_key_path(&dir);
+        let result = generate_keypair(&path, false).unwrap();
 
         assert!(
             result.private_key_path.exists(),
@@ -133,71 +142,49 @@ mod tests {
             result.public_key_path.exists(),
             "public key file should exist"
         );
-        assert!(
-            !result.fingerprint.is_empty(),
-            "fingerprint should not be empty"
-        );
-        // Fingerprint is 64 hex chars (SHA-256)
-        assert_eq!(
-            result.fingerprint.len(),
-            64,
-            "fingerprint should be 64 hex chars"
-        );
+        assert_eq!(result.fingerprint.len(), 64, "fingerprint should be 64 hex chars");
+        assert_eq!(result.node_id_hex.len(), 16, "node_id should be 16 hex chars");
     }
 
     #[test]
-    fn private_key_is_valid_pem() {
+    fn private_key_is_32_bytes() {
         let dir = tempfile::TempDir::new().unwrap();
-        let result = generate_keypair(dir.path(), false).unwrap();
-        let pem = std::fs::read_to_string(&result.private_key_path).unwrap();
-        assert!(
-            pem.starts_with("-----BEGIN PRIVATE KEY-----"),
-            "private key PEM header: {pem}"
-        );
-        assert!(
-            pem.contains("-----END PRIVATE KEY-----"),
-            "private key PEM footer: {pem}"
-        );
+        let path = test_key_path(&dir);
+        let result = generate_keypair(&path, false).unwrap();
+        let bytes = std::fs::read(&result.private_key_path).unwrap();
+        assert_eq!(bytes.len(), 32, "private key must be exactly 32 bytes");
     }
 
     #[test]
     fn public_key_is_valid_pem() {
         let dir = tempfile::TempDir::new().unwrap();
-        let result = generate_keypair(dir.path(), false).unwrap();
+        let path = test_key_path(&dir);
+        let result = generate_keypair(&path, false).unwrap();
         let pem = std::fs::read_to_string(&result.public_key_path).unwrap();
         assert!(
             pem.starts_with("-----BEGIN PUBLIC KEY-----"),
             "public key PEM header: {pem}"
         );
-        assert!(
-            pem.contains("-----END PUBLIC KEY-----"),
-            "public key PEM footer: {pem}"
-        );
+        assert!(pem.contains("-----END PUBLIC KEY-----"), "public key PEM footer");
     }
 
     #[test]
     fn overwrite_fails_without_force() {
         let dir = tempfile::TempDir::new().unwrap();
-        generate_keypair(dir.path(), false).unwrap();
-        // Second call without force should fail
-        let result = generate_keypair(dir.path(), false);
+        let path = test_key_path(&dir);
+        generate_keypair(&path, false).unwrap();
+        let result = generate_keypair(&path, false);
         assert!(result.is_err(), "should fail without --force");
-        assert!(
-            result.unwrap_err().contains("force"),
-            "error should mention --force"
-        );
+        assert!(result.unwrap_err().contains("force"), "error should mention --force");
     }
 
     #[test]
     fn overwrite_succeeds_with_force() {
         let dir = tempfile::TempDir::new().unwrap();
-        let r1 = generate_keypair(dir.path(), false).unwrap();
-        let r2 = generate_keypair(dir.path(), true).unwrap();
-        // Both succeed; fingerprints differ (new key generated)
-        assert_ne!(
-            r1.fingerprint, r2.fingerprint,
-            "force should generate a new key"
-        );
+        let path = test_key_path(&dir);
+        let r1 = generate_keypair(&path, false).unwrap();
+        let r2 = generate_keypair(&path, true).unwrap();
+        assert_ne!(r1.fingerprint, r2.fingerprint, "force should generate a new key");
     }
 
     #[cfg(unix)]
@@ -205,13 +192,26 @@ mod tests {
     fn private_key_mode_is_0600() {
         use std::os::unix::fs::PermissionsExt;
         let dir = tempfile::TempDir::new().unwrap();
-        let result = generate_keypair(dir.path(), false).unwrap();
+        let path = test_key_path(&dir);
+        let result = generate_keypair(&path, false).unwrap();
         let meta = std::fs::metadata(&result.private_key_path).unwrap();
         let mode = meta.permissions().mode() & 0o777;
-        assert_eq!(
-            mode, 0o600,
-            "private key must have mode 0600, got {:o}",
-            mode
-        );
+        assert_eq!(mode, 0o600, "private key must have mode 0600, got {:o}", mode);
+    }
+
+    #[test]
+    fn load_signing_key_roundtrip() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = test_key_path(&dir);
+        let result = generate_keypair(&path, false).unwrap();
+
+        let key = usenet_ipfs_core::signing::load_signing_key(&result.private_key_path)
+            .expect("should load signing key");
+
+        use ed25519_dalek::Signer;
+        let sig = key.sign(b"test message");
+        let vk = key.verifying_key();
+        use ed25519_dalek::Verifier;
+        assert!(vk.verify(b"test message", &sig).is_ok(), "signature should verify");
     }
 }

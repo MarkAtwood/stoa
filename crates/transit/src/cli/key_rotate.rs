@@ -196,10 +196,15 @@ mod tests {
         assert!(text.contains("Message-ID:"), "missing Message-ID");
     }
 
+    fn test_key_path(dir: &tempfile::TempDir) -> std::path::PathBuf {
+        dir.path().join("operator.key")
+    }
+
     #[test]
     fn load_signing_key_roundtrip() {
         let dir = tempfile::TempDir::new().unwrap();
-        let result = crate::cli::keygen::generate_keypair(dir.path(), false).unwrap();
+        let path = test_key_path(&dir);
+        let result = crate::cli::keygen::generate_keypair(&path, false).unwrap();
 
         let key = load_signing_key(&result.private_key_path).expect("should load signing key");
 
@@ -216,7 +221,8 @@ mod tests {
     #[test]
     fn load_verifying_key_roundtrip() {
         let dir = tempfile::TempDir::new().unwrap();
-        let result = crate::cli::keygen::generate_keypair(dir.path(), false).unwrap();
+        let path = test_key_path(&dir);
+        let result = crate::cli::keygen::generate_keypair(&path, false).unwrap();
 
         let (vk, fp) =
             load_verifying_key(&result.public_key_path).expect("should load verifying key");
@@ -233,8 +239,12 @@ mod tests {
         let old_dir = tempfile::TempDir::new().unwrap();
         let new_dir = tempfile::TempDir::new().unwrap();
 
-        let old_result = crate::cli::keygen::generate_keypair(old_dir.path(), false).unwrap();
-        let new_result = crate::cli::keygen::generate_keypair(new_dir.path(), false).unwrap();
+        let old_result =
+            crate::cli::keygen::generate_keypair(&old_dir.path().join("operator.key"), false)
+                .unwrap();
+        let new_result =
+            crate::cli::keygen::generate_keypair(&new_dir.path().join("operator.key"), false)
+                .unwrap();
 
         let config = RotateConfig {
             old_key_path: old_result.private_key_path,

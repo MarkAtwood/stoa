@@ -12,7 +12,7 @@ Before deploying, understand these v1 constraints:
 | Limitation | Detail |
 |-----------|--------|
 | **Requires Kubo** | Both daemons require a running Kubo (go-ipfs) node. They fail at startup if the Kubo API is unreachable. Articles are stored durably in Kubo's block store and survive daemon restarts. |
-| **Ephemeral signing key (transit)** | Transit generates a new Ed25519 key at each startup. Cross-peer signature verification is not reliable across restarts. A warning is emitted at startup. |
+| **Ephemeral signing key (loopback only)** | Both daemons generate an ephemeral key when `[operator] signing_key_path` is absent. This is only permitted for loopback (`127.0.0.1`/`::1`) bind addresses. Non-loopback deployments must generate and configure a persistent key (see [Operator Signing Key](#operator-signing-key) below). |
 | **In-memory reader index** | The reader daemon stores article numbers, the overview index, and the message-ID map in in-memory SQLite. Index state is lost on reader restart; Kubo still holds article bytes and they can be re-indexed. |
 | **No peer block fetch** | When gossip reconciliation finds missing entries, the fetch is stubbed out. Remote entries are logged as warnings but not retrieved. |
 | **TLS not yet advertised** | TLS infrastructure is wired but STARTTLS is not yet advertised in CAPABILITIES. |
@@ -53,6 +53,82 @@ cargo test --workspace
 ```
 
 All tests must pass (730+ expected) before deploying.
+
+---
+
+## Operator Signing Key
+
+Both daemons sign every article they ingest with an Ed25519 key.  The key is
+used to:
+
+- Sign articles (adds `X-Usenet-IPFS-Sig:` header) so peers can verify they
+  came from a trusted operator.
+- Derive the stable 8-byte HLC node ID embedded in all timestamps.
+
+### Generate a key
+
+Run `keygen` once, **before** the daemon's first start:
+
+```bash
+# For the transit daemon:
+usenet-ipfs-transit keygen --output /etc/usenet-ipfs/transit/operator.key
+
+# For the reader daemon:
+usenet-ipfs-reader keygen --output /etc/usenet-ipfs/reader/operator.key
+```
+
+Output:
+```
+public_key: <64-hex-char Ed25519 public key>
+node_id:    <16-hex-char HLC node ID>
+key_file:   /etc/usenet-ipfs/transit/operator.key
+```
+
+The key file is written with mode 0600 (owner-read only).  If the file already
+exists, `keygen` exits with an error — use `--force` to regenerate (which
+orphans all previous signatures).
+
+### Configure the key path
+
+Add to your config file:
+
+```toml
+[operator]
+signing_key_path = "/etc/usenet-ipfs/transit/operator.key"
+```
+
+Both daemons **require** this setting when binding to a non-loopback address.
+They exit at startup with a clear error if it is absent:
+
+```
+error: operator.signing_key_path must be set when listening on a non-loopback
+address (0.0.0.0:119). Run `usenet-ipfs-transit keygen --output <path>` to
+generate a key, then set [operator] signing_key_path in your config.
+```
+
+### Key file security
+
+- The key file must not be world-readable.  Both daemons exit with an error if
+  `o+r` is set: `chmod 0600 /etc/usenet-ipfs/transit/operator.key`.
+- The file must contain exactly 32 raw bytes (the Ed25519 seed).
+
+### Backup and recovery
+
+**Back up the key file.**  Losing it has these consequences:
+
+| Consequence | Detail |
+|------------|--------|
+| Orphaned signatures | Articles signed with the old key cannot be verified by peers. |
+| HLC node ID change | Timestamps from before and after the key change are not comparable. |
+| IPNS discontinuity | The IPNS address (if used) changes with the key. |
+
+Back up to a second offline location, encrypted with a passphrase:
+
+```bash
+gpg --symmetric --cipher-algo AES256 -o operator.key.gpg /etc/usenet-ipfs/transit/operator.key
+```
+
+To restore, decrypt and copy the file back, then verify the daemon starts cleanly.
 
 ---
 
@@ -98,6 +174,9 @@ max_age_days = 90
 core_path = "/var/lib/usenet-ipfs/transit/core.db"
 path       = "/var/lib/usenet-ipfs/transit/transit.db"
 
+[operator]
+signing_key_path = "/etc/usenet-ipfs/transit/operator.key"
+
 [admin]
 addr = "127.0.0.1:9090"
 # bearer_token = "set-this-for-non-loopback-use"
@@ -111,6 +190,9 @@ format = "json"
 ### Start
 
 ```bash
+# Generate operator key (first time only):
+usenet-ipfs-transit keygen --output /etc/usenet-ipfs/transit/operator.key
+
 mkdir -p /var/lib/usenet-ipfs/transit
 usenet-ipfs-transit --config transit.toml
 ```
@@ -119,12 +201,6 @@ The daemon logs structured JSON to stdout. Redirect as needed:
 ```bash
 usenet-ipfs-transit --config transit.toml 2>&1 | tee -a /var/log/usenet-ipfs-transit.log
 ```
-
-On startup you will see:
-```
-WARN using ephemeral operator signing key — add key persistence before production
-```
-This is expected in v1.
 
 ### Verify
 
@@ -186,6 +262,9 @@ required = false   # set true and add [[auth.users]] for production
 # cert_path = "/etc/ssl/certs/nntp.pem"
 # key_path  = "/etc/ssl/private/nntp.key"
 
+[operator]
+signing_key_path = "/etc/usenet-ipfs/reader/operator.key"
+
 [admin]
 # Use a different port if reader and transit run on the same host.
 addr = "127.0.0.1:9091"
@@ -198,6 +277,9 @@ format = "json"
 ### Start
 
 ```bash
+# Generate operator key (first time only):
+usenet-ipfs-reader keygen --output /etc/usenet-ipfs/reader/operator.key
+
 usenet-ipfs-reader --config reader.toml
 ```
 

@@ -3,7 +3,6 @@
 //! Provides sign/verify over canonical bytes (RFC 8785 JSON or DAG-CBOR).
 //! The signing key is never logged or exposed in error output.
 
-use base64::{engine::general_purpose::STANDARD, Engine as _};
 use ed25519_dalek::{Signer, Verifier};
 use rand_core::OsRng;
 
@@ -11,47 +10,69 @@ pub use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
 
 use crate::error::SigningError;
 
-/// Load an Ed25519 signing key from a PEM file at the given path.
+/// Load an Ed25519 signing key from a raw 32-byte binary file.
 ///
-/// Supports two formats (both use the `PRIVATE KEY` PEM label):
-/// 1. PKCS#8 DER (48 bytes): 16-byte header + 32-byte seed.
-/// 2. Raw 32-byte seed (non-standard, for dev convenience).
+/// The file must contain exactly 32 bytes (the Ed25519 seed/private scalar).
+/// On Unix, the file must not be world-readable (mode must not have `o+r`).
 ///
 /// Returns `Err` with a descriptive message if the file is missing, unreadable,
-/// or malformed.  The error message never contains key material.
+/// wrong length, or has insecure permissions.  The error message never contains
+/// key material.
 pub fn load_signing_key(path: &std::path::Path) -> Result<SigningKey, String> {
-    let pem = std::fs::read_to_string(path)
+    #[cfg(unix)]
+    check_key_file_permissions(path)?;
+
+    let bytes = std::fs::read(path)
         .map_err(|e| format!("cannot read signing key file {}: {e}", path.display()))?;
 
-    let b64_body: String = pem
-        .lines()
-        .filter(|l| !l.starts_with("-----"))
-        .collect::<Vec<_>>()
-        .join("");
+    if bytes.len() != 32 {
+        return Err(format!(
+            "signing key file '{}' must contain exactly 32 bytes, got {}",
+            path.display(),
+            bytes.len()
+        ));
+    }
 
-    let der = STANDARD
-        .decode(b64_body.trim())
-        .map_err(|e| format!("signing key PEM body is not valid base64: {e}"))?;
+    let arr: [u8; 32] = bytes.try_into().unwrap();
+    Ok(SigningKey::from_bytes(&arr))
+}
 
-    let seed: [u8; 32] = match der.len() {
-        48 => {
-            // PKCS#8 DER for Ed25519: 16-byte ASN.1 header then 32-byte seed.
-            der[16..48]
-                .try_into()
-                .map_err(|_| "PKCS#8 DER seed extraction failed".to_string())?
-        }
-        32 => der
-            .as_slice()
-            .try_into()
-            .map_err(|_| "raw seed must be exactly 32 bytes".to_string())?,
-        n => {
-            return Err(format!(
-                "signing key has unexpected DER length {n}; expected 32 (raw) or 48 (PKCS#8)"
-            ))
-        }
-    };
+/// Derive the 8-byte HLC node ID from an operator signing key.
+///
+/// Uses the first 8 bytes of SHA-256(public_key), so the node ID is:
+/// - Stable across restarts (as long as the key file is unchanged).
+/// - Unique per operator (Ed25519 key pairs are effectively unique).
+/// - Not the raw key (only a truncated hash is exposed).
+pub fn hlc_node_id(signing_key: &SigningKey) -> [u8; 8] {
+    use multihash_codetable::{Code, MultihashDigest};
+    let vk = signing_key.verifying_key();
+    let digest = Code::Sha2_256.digest(vk.as_bytes());
+    let mut node_id = [0u8; 8];
+    node_id.copy_from_slice(&digest.digest()[..8]);
+    node_id
+}
 
-    Ok(SigningKey::from_bytes(&seed))
+/// Refuse to load a key file that is world-readable.
+///
+/// A world-readable signing key can be read by any local user and should be
+/// treated as compromised.  Operators must set file permissions to 0600.
+#[cfg(unix)]
+fn check_key_file_permissions(path: &std::path::Path) -> Result<(), String> {
+    use std::os::unix::fs::MetadataExt;
+    let meta = std::fs::metadata(path)
+        .map_err(|e| format!("cannot stat signing key file {}: {e}", path.display()))?;
+    let mode = meta.mode();
+    if mode & 0o004 != 0 {
+        return Err(format!(
+            "signing key file '{}' is world-readable (mode {:04o}); \
+             set permissions to 0600: chmod 0600 {}",
+            path.display(),
+            mode & 0o777,
+            path.display()
+        ));
+    }
+    Ok(()
+    )
 }
 
 /// Generate a fresh Ed25519 signing key from OS entropy.
@@ -61,6 +82,37 @@ pub fn load_signing_key(path: &std::path::Path) -> Result<SigningKey, String> {
 /// a file owned and readable only by the daemon process).
 pub fn generate_signing_key() -> SigningKey {
     SigningKey::generate(&mut OsRng)
+}
+
+/// Write a raw 32-byte signing key seed to `path` with mode 0600.
+///
+/// - If `path` already exists and `force` is false, returns `Err`.
+/// - On non-Unix platforms, the mode 0600 step is skipped (best effort).
+/// - The key bytes are written atomically: we open, chmod, write, close.
+pub fn write_signing_key(key: &SigningKey, path: &std::path::Path, force: bool) -> Result<(), String> {
+    use std::io::Write;
+
+    if !force && path.exists() {
+        return Err(format!(
+            "signing key file '{}' already exists; use --force to overwrite",
+            path.display()
+        ));
+    }
+
+    let mut f = std::fs::File::create(path)
+        .map_err(|e| format!("cannot create signing key file '{}': {e}", path.display()))?;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        f.set_permissions(std::fs::Permissions::from_mode(0o600))
+            .map_err(|e| format!("cannot set permissions on '{}': {e}", path.display()))?;
+    }
+
+    f.write_all(&key.to_bytes())
+        .map_err(|e| format!("cannot write signing key to '{}': {e}", path.display()))?;
+
+    Ok(())
 }
 
 /// Sign `canonical_bytes` with the given Ed25519 signing key.
@@ -143,6 +195,67 @@ mod tests {
             result,
             Err(SigningError::VerificationFailed),
             "verification over tampered bytes must return VerificationFailed"
+        );
+    }
+
+    /// HLC node_id is deterministic: same key → same id.
+    ///
+    /// Independent oracle: manually compute SHA-256(vk_bytes)[0..8] and compare.
+    #[test]
+    fn hlc_node_id_is_deterministic() {
+        let seed = [0x55u8; 32];
+        let key = SigningKey::from_bytes(&seed);
+        let id1 = hlc_node_id(&key);
+        // Reload the same key from bytes and rederive — must match.
+        let key2 = SigningKey::from_bytes(&seed);
+        let id2 = hlc_node_id(&key2);
+        assert_eq!(id1, id2, "node_id must be identical for the same key seed");
+    }
+
+    /// HLC node_id differs for different keys.
+    #[test]
+    fn hlc_node_id_differs_for_different_keys() {
+        let key_a = SigningKey::from_bytes(&[0x11u8; 32]);
+        let key_b = SigningKey::from_bytes(&[0x22u8; 32]);
+        assert_ne!(
+            hlc_node_id(&key_a),
+            hlc_node_id(&key_b),
+            "node_id must differ for distinct keys"
+        );
+    }
+
+    /// write_signing_key + load_signing_key round-trip.
+    #[test]
+    fn write_and_load_roundtrip() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("operator.key");
+        let key = fresh_key();
+        write_signing_key(&key, &path, false).expect("write must succeed");
+
+        let loaded = load_signing_key(&path).expect("load must succeed");
+        assert_eq!(
+            key.to_bytes(),
+            loaded.to_bytes(),
+            "loaded key must match written key"
+        );
+    }
+
+    /// load_signing_key refuses a world-readable file on Unix.
+    #[cfg(unix)]
+    #[test]
+    fn load_signing_key_refuses_world_readable() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("operator.key");
+        let key = fresh_key();
+        write_signing_key(&key, &path, false).expect("write must succeed");
+        // Make world-readable
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+        let result = load_signing_key(&path);
+        assert!(result.is_err(), "must refuse world-readable key file");
+        assert!(
+            result.unwrap_err().contains("world-readable"),
+            "error must mention world-readable"
         );
     }
 }

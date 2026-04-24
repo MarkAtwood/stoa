@@ -9,7 +9,6 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
-use multihash_codetable::{Code, MultihashDigest};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::SqlitePool;
 use tokio::sync::Mutex;
@@ -19,7 +18,7 @@ static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
 use usenet_ipfs_core::group_log::MemLogStorage;
 use usenet_ipfs_core::hlc::HlcClock;
 use usenet_ipfs_core::msgid_map::MsgIdMap;
-use usenet_ipfs_core::signing::{generate_signing_key, SigningKey};
+use usenet_ipfs_core::signing::{generate_signing_key, hlc_node_id, SigningKey};
 
 use mail_auth::MessageAuthenticator;
 use usenet_ipfs_auth::TrustedIssuerStore;
@@ -301,16 +300,7 @@ fn build_credential_store(auth: &crate::config::AuthConfig) -> Result<Credential
 fn load_or_generate_signing_key(path: &Option<String>) -> Result<SigningKey, String> {
     match path {
         Some(p) => {
-            let bytes = std::fs::read(p)
-                .map_err(|e| format!("failed to read signing key from '{p}': {e}"))?;
-            if bytes.len() != 32 {
-                return Err(format!(
-                    "signing key file '{p}' must contain exactly 32 bytes, got {}",
-                    bytes.len()
-                ));
-            }
-            let arr: [u8; 32] = bytes.try_into().unwrap();
-            Ok(SigningKey::from_bytes(&arr))
+            usenet_ipfs_core::signing::load_signing_key(std::path::Path::new(p))
         }
         None => {
             let key = generate_signing_key();
@@ -344,17 +334,3 @@ fn build_smtp_relay_queue(
     Ok(Some(queue))
 }
 
-/// Derive the 8-byte HLC node ID from the operator signing key.
-///
-/// Uses the first 8 bytes of SHA-256(public_key) so the node ID is:
-/// - Stable across restarts (as long as the key is the same).
-/// - Unique per operator (Ed25519 key pairs are effectively unique).
-/// - Not the key itself (exposing only a hash is fine; the public key is
-///   already public, but this makes the derivation explicit).
-fn hlc_node_id(signing_key: &SigningKey) -> [u8; 8] {
-    let vk = signing_key.verifying_key();
-    let digest = Code::Sha2_256.digest(vk.as_bytes());
-    let mut node_id = [0u8; 8];
-    node_id.copy_from_slice(&digest.digest()[..8]);
-    node_id
-}
