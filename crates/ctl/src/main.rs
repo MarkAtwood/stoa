@@ -208,17 +208,27 @@ fn cmd_metrics(client: &AdminClient) -> Result<(), String> {
 }
 
 /// Percent-encode a string for use in a URL query parameter.
-/// Only characters safe for query values are left unencoded.
+///
+/// Encodes each byte that is not in the unreserved set (RFC 3986 §2.3) plus
+/// `+` (which is safe in newsgroup names and must not be encoded — the
+/// server-side query parser does not decode `%2B`).
+///
+/// Operating on bytes rather than Unicode scalar values ensures that
+/// multi-byte UTF-8 sequences are encoded correctly (e.g. U+00E9 é →
+/// `%C3%A9` rather than the incorrect single-byte `%E9`).
 fn percent_encode(s: &str) -> String {
-    s.chars()
-        .flat_map(|c| {
-            if c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '~' | '+') {
-                vec![c]
-            } else {
-                format!("%{:02X}", c as u32).chars().collect()
+    let mut out = String::with_capacity(s.len());
+    for &byte in s.as_bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' | b'+' => {
+                out.push(byte as char);
             }
-        })
-        .collect()
+            b => {
+                out.push_str(&format!("%{b:02X}"));
+            }
+        }
+    }
+    out
 }
 
 fn main() {
@@ -260,5 +270,12 @@ mod tests {
         // '+' is valid in newsgroup names (e.g. alt.binaries+test) and must
         // not be encoded; transit's extract_query_param does not decode %2B.
         assert_eq!(percent_encode("alt.binaries+test"), "alt.binaries+test");
+    }
+
+    #[test]
+    fn percent_encode_non_ascii_uses_utf8_bytes() {
+        // U+00E9 (é) encodes as UTF-8 bytes 0xC3 0xA9, so the correct
+        // percent-encoding is %C3%A9, not the incorrect single-byte %E9.
+        assert_eq!(percent_encode("caf\u{00E9}"), "caf%C3%A9");
     }
 }
