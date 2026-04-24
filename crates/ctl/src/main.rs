@@ -212,7 +212,7 @@ fn cmd_metrics(client: &AdminClient) -> Result<(), String> {
 fn percent_encode(s: &str) -> String {
     s.chars()
         .flat_map(|c| {
-            if c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '~') {
+            if c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '~' | '+') {
                 vec![c]
             } else {
                 format!("%{:02X}", c as u32).chars().collect()
@@ -253,5 +253,12 @@ mod tests {
     #[test]
     fn percent_encode_spaces_and_slashes() {
         assert_eq!(percent_encode("a b/c"), "a%20b%2Fc");
+    }
+
+    #[test]
+    fn percent_encode_plus_is_preserved() {
+        // '+' is valid in newsgroup names (e.g. alt.binaries+test) and must
+        // not be encoded; transit's extract_query_param does not decode %2B.
+        assert_eq!(percent_encode("alt.binaries+test"), "alt.binaries+test");
     }
 }

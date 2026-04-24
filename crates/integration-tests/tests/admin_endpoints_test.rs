@@ -100,16 +100,20 @@ async fn admin_version_returns_binary_and_version_fields() {
 // ── POST /reload ──────────────────────────────────────────────────────────────
 
 #[tokio::test]
-async fn admin_reload_post_returns_reloaded_true() {
+async fn admin_reload_post_returns_501_not_implemented() {
     let port = free_loopback_port();
     let addr: std::net::SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
     start_admin_server(addr, Instant::now(), None).expect("start admin server");
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
     let (status, body) = http_post(&format!("127.0.0.1:{port}"), "/reload").await;
-    assert!(status.contains("200"), "expected 200, got: {status}");
+    assert!(status.contains("501"), "expected 501, got: {status}");
     let v: serde_json::Value = serde_json::from_str(&body).expect("valid JSON");
-    assert_eq!(v["reloaded"], true, "expected reloaded=true: {body}");
+    assert_eq!(v["reloaded"], false, "reloaded must be false: {body}");
+    assert!(
+        v["error"].is_string(),
+        "error field must be present: {body}"
+    );
 }
 
 #[tokio::test]

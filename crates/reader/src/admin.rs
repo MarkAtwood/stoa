@@ -143,7 +143,15 @@ async fn handle_admin_connection(
             write_json(&mut writer, 200, "OK", &build_version_json()).await?;
         }
         "/reload" => {
-            write_json(&mut writer, 200, "OK", r#"{"reloaded":true}"#).await?;
+            // Config reload is not yet implemented.  Return 501 so operators
+            // know to restart the daemon rather than assuming config was applied.
+            write_json(
+                &mut writer,
+                501,
+                "Not Implemented",
+                r#"{"reloaded":false,"error":"config reload is not yet implemented \u2014 restart the daemon to apply changes"}"#,
+            )
+            .await?;
         }
         _ => {
             write_json(&mut writer, 404, "Not Found", r#"{"error":"not found"}"#).await?;

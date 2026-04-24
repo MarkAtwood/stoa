@@ -520,13 +520,32 @@ impl Config {
         }
         // Require either [backend] or a non-empty [ipfs.api_url].
         match &self.backend {
-            Some(backend) => {
-                if backend.backend_type == BackendType::Kubo && backend.kubo.is_none() {
+            Some(backend) => match &backend.backend_type {
+                BackendType::Kubo => {
+                    if backend.kubo.is_none() {
+                        return Err(ConfigError::Validation(
+                            "backend.type = 'kubo' requires a [backend.kubo] section".into(),
+                        ));
+                    }
+                }
+                BackendType::Lmdb => {
+                    if backend.lmdb.is_none() {
+                        return Err(ConfigError::Validation(
+                            "backend.type = 'lmdb' requires a [backend.lmdb] section".into(),
+                        ));
+                    }
+                }
+                // S3 and Filesystem are declared in the enum for future use but are not
+                // yet implemented.  Reject them at config load time so the daemon fails
+                // fast with a clear message instead of panicking in the factory function.
+                BackendType::S3 | BackendType::Filesystem => {
                     return Err(ConfigError::Validation(
-                        "backend.type = 'kubo' requires a [backend.kubo] section".into(),
+                        "backend.type 's3' and 'filesystem' are not yet implemented; \
+                         use 'kubo' or 'lmdb'"
+                            .into(),
                     ));
                 }
-            }
+            },
             None => {
                 if self.ipfs.api_url.is_empty() {
                     return Err(ConfigError::Validation(
@@ -1186,6 +1205,106 @@ max_age_days = 30
 "#;
         let f = write_toml(toml);
         let err = Config::from_file(f.path()).expect_err("missing backend.kubo must fail");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend] section with type = "lmdb" and a [backend.lmdb] subsection parses.
+    #[test]
+    fn backend_lmdb_section_parses() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[backend]
+type = "lmdb"
+
+[backend.lmdb]
+path = "/tmp/test-lmdb"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("backend.lmdb config must parse");
+        let backend = cfg.backend.as_ref().expect("backend must be present");
+        assert_eq!(backend.backend_type, BackendType::Lmdb);
+        let lmdb = backend.lmdb.as_ref().expect("backend.lmdb must be present");
+        assert_eq!(lmdb.path, "/tmp/test-lmdb");
+        assert_eq!(lmdb.map_size_gb, 1024, "default map_size_gb must be 1024");
+        // No Kubo connectivity check needed for LMDB.
+        assert_eq!(cfg.kubo_api_url(), None);
+    }
+
+    /// [backend] with type = "lmdb" but no [backend.lmdb] subsection is rejected.
+    #[test]
+    fn backend_lmdb_without_subsection_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[backend]
+type = "lmdb"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path()).expect_err("missing backend.lmdb must fail");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend] with type = "s3" is rejected as not yet implemented.
+    #[test]
+    fn backend_s3_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[backend]
+type = "s3"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("s3 backend must fail with not-yet-implemented error");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"

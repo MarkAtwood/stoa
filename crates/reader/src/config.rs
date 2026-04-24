@@ -490,6 +490,34 @@ impl Config {
                 "tls.tls_addr requires tls.cert_path and tls.key_path to be set".into(),
             ));
         }
+        if let Some(backend) = &self.backend {
+            match &backend.backend_type {
+                BackendType::Kubo => {
+                    if backend.kubo.is_none() {
+                        return Err(ConfigError::Validation(
+                            "backend.type = 'kubo' requires a [backend.kubo] section".into(),
+                        ));
+                    }
+                }
+                BackendType::Lmdb => {
+                    if backend.lmdb.is_none() {
+                        return Err(ConfigError::Validation(
+                            "backend.type = 'lmdb' requires a [backend.lmdb] section".into(),
+                        ));
+                    }
+                }
+                // S3 and Filesystem are declared in the enum for future use but are not
+                // yet implemented.  Reject them at config load time so the daemon fails
+                // fast with a clear message instead of panicking in the factory function.
+                BackendType::S3 | BackendType::Filesystem => {
+                    return Err(ConfigError::Validation(
+                        "backend.type 's3' and 'filesystem' are not yet implemented; \
+                         use 'kubo' or 'lmdb'"
+                            .into(),
+                    ));
+                }
+            }
+        }
         Ok(())
     }
 }
@@ -794,6 +822,120 @@ required = false
         let result =
             tokio::time::timeout(Duration::from_secs(2), sem.acquire_many_owned(max)).await;
         assert!(result.is_ok(), "drain must complete before timeout");
+    }
+
+    /// [backend] with type = "lmdb" and a [backend.lmdb] subsection parses.
+    #[test]
+    fn backend_lmdb_section_parses() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "lmdb"
+
+[backend.lmdb]
+path = "/tmp/test-lmdb"
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("backend.lmdb config must parse");
+        let backend = cfg.backend.as_ref().expect("backend must be present");
+        assert_eq!(backend.backend_type, BackendType::Lmdb);
+        let lmdb = backend.lmdb.as_ref().expect("backend.lmdb must be present");
+        assert_eq!(lmdb.path, "/tmp/test-lmdb");
+        assert_eq!(lmdb.map_size_gb, 1024, "default map_size_gb must be 1024");
+        assert_eq!(cfg.kubo_api_url(), None);
+    }
+
+    /// [backend] with type = "lmdb" but no [backend.lmdb] subsection is rejected.
+    #[test]
+    fn backend_lmdb_without_subsection_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "lmdb"
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path()).expect_err("missing backend.lmdb must fail");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend] with type = "kubo" but no [backend.kubo] subsection is rejected.
+    #[test]
+    fn backend_kubo_without_subsection_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "kubo"
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path()).expect_err("missing backend.kubo must fail");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend] with type = "s3" is rejected as not yet implemented.
+    #[test]
+    fn backend_s3_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "s3"
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("s3 backend must fail with not-yet-implemented error");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
     }
 
     /// The drain times out if sessions never release their permits.
