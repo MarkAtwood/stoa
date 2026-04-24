@@ -161,6 +161,8 @@ async fn takethis_queue_full_returns_431_not_239() {
         trusted_keys: Vec::new(),
         tls_acceptor: None,
         staging: None,
+        verification_store: None,
+        dkim_authenticator: None,
     });
 
     let (listener, addr) = bind_listener().await;
@@ -281,6 +283,8 @@ async fn ihave_queue_full_returns_436_not_235() {
         trusted_keys: Vec::new(),
         tls_acceptor: None,
         staging: None,
+        verification_store: None,
+        dkim_authenticator: None,
     });
 
     let (listener, addr) = bind_listener().await;
@@ -392,6 +396,8 @@ async fn takethis_queue_not_full_returns_239() {
         trusted_keys: Vec::new(),
         tls_acceptor: None,
         staging: None,
+        verification_store: None,
+        dkim_authenticator: None,
     });
 
     let (listener, addr) = bind_listener().await;

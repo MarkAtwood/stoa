@@ -266,6 +266,9 @@ async fn full_stack_propagation() {
         gossip_tx: Some(&node_a.gossip_tx),
         sender_peer_id: &node_a.peer_id.to_string(),
         local_hostname: "node-a.test.local",
+        verify_store: None,
+        trusted_keys: &[],
+        dkim_auth: None,
     };
 
     // Run the transit pipeline on A: writes to IPFS, records msgid→CID,

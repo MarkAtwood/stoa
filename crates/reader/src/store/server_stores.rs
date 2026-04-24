@@ -21,8 +21,10 @@ use usenet_ipfs_core::hlc::HlcClock;
 use usenet_ipfs_core::msgid_map::MsgIdMap;
 use usenet_ipfs_core::signing::{generate_signing_key, SigningKey};
 
+use mail_auth::MessageAuthenticator;
 use usenet_ipfs_auth::TrustedIssuerStore;
 use usenet_ipfs_smtp::SmtpRelayQueue;
+use usenet_ipfs_verify::VerificationStore;
 
 use crate::post::ipfs_write::{IpfsBlockStore, KuboBlockStore, MemIpfsStore};
 use crate::search::TantivySearchIndex;
@@ -57,6 +59,10 @@ pub struct ServerStores {
     pub search_index: Option<Arc<TantivySearchIndex>>,
     /// Outbound SMTP relay queue. None when smtp_relay is not configured.
     pub smtp_relay_queue: Option<Arc<SmtpRelayQueue>>,
+    /// Article signature verification store (article_verifications + seen_keys).
+    pub verification_store: Arc<VerificationStore>,
+    /// DKIM verifier backed by system DNS resolver.
+    pub dkim_authenticator: Arc<MessageAuthenticator>,
 }
 
 impl ServerStores {
@@ -91,6 +97,10 @@ impl ServerStores {
         let smtp_relay_queue = build_smtp_relay_queue(&config.smtp_relay)
             .map_err(|e| format!("smtp relay queue init failed: {e}"))?;
 
+        let verify_pool = make_pool_with_verify_migrations().await;
+        let dkim_authenticator = MessageAuthenticator::new_cloudflare_tls()
+            .map_err(|e| format!("DKIM authenticator init failed: {e}"))?;
+
         Ok(Self {
             ipfs_store: Arc::new(ipfs_store),
             msgid_map: Arc::new(MsgIdMap::new(core_pool)),
@@ -106,6 +116,8 @@ impl ServerStores {
                 .map_err(|e| format!("search index init failed: {e}"))?
                 .map(Arc::new),
             smtp_relay_queue,
+            verification_store: Arc::new(VerificationStore::new(verify_pool)),
+            dkim_authenticator: Arc::new(dkim_authenticator),
         })
     }
 
@@ -128,6 +140,7 @@ impl ServerStores {
         let signing_key = generate_signing_key();
         let node_id = hlc_node_id(&signing_key);
 
+        let verify_pool = make_pool_with_verify_migrations().await;
         Self {
             ipfs_store: Arc::new(MemIpfsStore::new()),
             msgid_map: Arc::new(MsgIdMap::new(core_pool)),
@@ -147,6 +160,11 @@ impl ServerStores {
                 ))
             },
             smtp_relay_queue: None,
+            verification_store: Arc::new(VerificationStore::new(verify_pool)),
+            dkim_authenticator: Arc::new(
+                MessageAuthenticator::new_cloudflare_tls()
+                    .expect("DKIM authenticator init must not fail"),
+            ),
         }
     }
 
@@ -165,6 +183,7 @@ impl ServerStores {
         let signing_key = generate_signing_key();
         let node_id = hlc_node_id(&signing_key);
 
+        let verify_pool = make_pool_with_verify_migrations().await;
         Self {
             ipfs_store: Arc::new(MemIpfsStore::new()),
             msgid_map: Arc::new(MsgIdMap::new(core_pool)),
@@ -178,6 +197,11 @@ impl ServerStores {
             signing_key: Arc::new(signing_key),
             search_index: None,
             smtp_relay_queue: None,
+            verification_store: Arc::new(VerificationStore::new(verify_pool)),
+            dkim_authenticator: Arc::new(
+                MessageAuthenticator::new_cloudflare_tls()
+                    .expect("DKIM authenticator init must not fail"),
+            ),
         }
     }
 }
@@ -201,6 +225,24 @@ async fn make_pool_with_reader_migrations() -> SqlitePool {
     crate::migrations::run_migrations(&pool)
         .await
         .expect("reader migrations failed on in-memory pool");
+    pool
+}
+
+/// Create a named shared in-memory SQLite pool with verify-crate migrations.
+async fn make_pool_with_verify_migrations() -> SqlitePool {
+    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
+    let url = format!("file:verify_stores_{n}?mode=memory&cache=shared");
+    let opts = SqliteConnectOptions::new()
+        .filename(&url)
+        .create_if_missing(true);
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(opts)
+        .await
+        .expect("failed to create verify in-memory SQLite pool");
+    usenet_ipfs_verify::run_migrations(&pool)
+        .await
+        .expect("verify migrations failed on in-memory pool");
     pool
 }
 

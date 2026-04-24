@@ -143,6 +143,9 @@ fn make_ctx(key: &SigningKey) -> PipelineCtx<'static> {
         gossip_tx: None,
         sender_peer_id: "test-peer-sqlite",
         local_hostname: "test.local",
+        verify_store: None,
+        trusted_keys: &[],
+        dkim_auth: None,
     }
 }
 

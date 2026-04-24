@@ -6,6 +6,7 @@
 
 use async_trait::async_trait;
 use cid::Cid;
+use mail_auth::MessageAuthenticator;
 use multihash_codetable::{Code, MultihashDigest};
 use sqlx::SqlitePool;
 use std::collections::HashMap;
@@ -18,6 +19,7 @@ use usenet_ipfs_core::{
     hlc::HlcTimestamp,
     msgid_map::MsgIdMap,
 };
+use usenet_ipfs_verify::VerificationStore;
 
 // ── IPFS abstraction ──────────────────────────────────────────────────────────
 
@@ -156,6 +158,12 @@ pub struct PipelineCtx<'a> {
     pub sender_peer_id: &'a str,
     /// Local FQDN prepended to the `Path:` header (Son-of-RFC-1036 §3.3).
     pub local_hostname: &'a str,
+    /// Verification store. `None` disables signature recording.
+    pub verify_store: Option<&'a VerificationStore>,
+    /// Trusted verifying keys for `X-Usenet-IPFS-Sig` checks.
+    pub trusted_keys: &'a [ed25519_dalek::VerifyingKey],
+    /// DKIM authenticator. `None` disables DKIM checks.
+    pub dkim_auth: Option<&'a MessageAuthenticator>,
 }
 
 /// Result of running the store-and-forward pipeline.
@@ -172,6 +180,54 @@ pub struct PipelineResult {
 pub struct PipelineMetrics {
     pub articles_ingested_total: u64,
     pub ipfs_write_latency_ms: u64,
+}
+
+// ── Verification helper ───────────────────────────────────────────────────────
+
+/// Verify article signatures (best-effort; never blocks ingestion).
+///
+/// Runs X-Usenet-IPFS-Sig verification against `trusted_keys` (pass an
+/// empty slice to record `NoKey` when the header is present, or receive no
+/// result when it is absent).  Runs DKIM verification when `dkim_auth` is
+/// `Some`.  Records all results via `store`.  Any failure is logged and
+/// silently dropped — verification is non-fatal.
+pub async fn verify_article(
+    article_bytes: &[u8],
+    cid: &Cid,
+    store: &VerificationStore,
+    trusted_keys: &[ed25519_dalek::VerifyingKey],
+    dkim_auth: Option<&MessageAuthenticator>,
+) {
+    use usenet_ipfs_verify::dkim::verify_dkim_headers;
+    use usenet_ipfs_verify::x_sig::verify_x_sig;
+
+    let x_sig_results = verify_x_sig(trusted_keys, article_bytes);
+    let dkim_results = if let Some(auth) = dkim_auth {
+        verify_dkim_headers(auth, article_bytes).await
+    } else {
+        vec![]
+    };
+    let all_verifications: Vec<_> = x_sig_results.into_iter().chain(dkim_results).collect();
+    let verified_at_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64;
+    if let Err(e) = store
+        .record_verifications(cid, &all_verifications, verified_at_ms)
+        .await
+    {
+        tracing::warn!(cid = %cid, error = %e, "verification record failed");
+    }
+    let pass_count = all_verifications
+        .iter()
+        .filter(|v| v.result.is_pass())
+        .count();
+    tracing::info!(
+        cid = %cid,
+        checks = all_verifications.len(),
+        passed = pass_count,
+        "article verification complete"
+    );
 }
 
 // ── Pipeline ──────────────────────────────────────────────────────────────────
@@ -202,6 +258,11 @@ where
     use crate::gossip::tip_advert::TipAdvertisement;
     use crate::peering::ingestion::prepend_path_header;
 
+    // Snapshot original bytes for signature verification before Path: is prepended.
+    // The X-Usenet-IPFS-Sig is computed over the article as received from the peer,
+    // before any local transit modifications.
+    let original_bytes = article_bytes;
+
     // 0. Prepend local hostname to Path: header (Son-of-RFC-1036 §3.3).
     let article_bytes_owned = prepend_path_header(article_bytes.to_vec(), ctx.local_hostname);
     let article_bytes = article_bytes_owned.as_slice();
@@ -215,6 +276,12 @@ where
     let elapsed = t0.elapsed();
     crate::metrics::IPFS_WRITE_LATENCY_SECONDS.observe(elapsed.as_secs_f64());
     let ipfs_write_latency_ms = elapsed.as_millis() as u64;
+
+    // 1b. Verify article signatures against the original received bytes.
+    // Signature was computed by the peer before transit Path: modification.
+    if let Some(store) = ctx.verify_store {
+        verify_article(original_bytes, &cid, store, ctx.trusted_keys, ctx.dkim_auth).await;
+    }
 
     // 2+3. Parse Message-ID and Newsgroups in a single header scan.
     let (message_id, group_name_strs) = parse_message_id_and_newsgroups(article_bytes)
@@ -477,6 +544,9 @@ mod tests {
             gossip_tx: None,
             sender_peer_id: "peer1",
             local_hostname: "local.test.example.com",
+            verify_store: None,
+            trusted_keys: &[],
+            dkim_auth: None,
         }
     }
 
@@ -596,9 +666,13 @@ mod tests {
             gossip_tx: Some(&tx),
             sender_peer_id: "peer1",
             local_hostname: "local.test.example.com",
+            verify_store: None,
+            trusted_keys: &[],
+            dkim_auth: None,
         };
         let transit_pool = make_transit_pool().await;
-        let result = run_pipeline(&article, &ipfs, &msgid_map, &storage, &transit_pool, ctx).await;
+        let result = run_pipeline(&article, &ipfs, &msgid_map, &storage, &transit_pool, ctx)
+            .await;
         assert!(result.is_ok(), "pipeline should succeed: {result:?}");
 
         // Should have received a gossip message.
@@ -734,5 +808,123 @@ mod tests {
             !stored_text.contains("Path: peer.example.com\r\n"),
             "old standalone Path: must not remain in stored article: {stored_text:?}"
         );
+    }
+
+    /// Create an in-memory SQLite pool with verify-crate migrations applied.
+    async fn make_verify_pool() -> SqlitePool {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        static SEQ: AtomicUsize = AtomicUsize::new(0);
+        let n = SEQ.fetch_add(1, Ordering::Relaxed);
+        let url = format!("file:pipeline_verify_{n}?mode=memory&cache=shared");
+        let opts = SqliteConnectOptions::new()
+            .filename(&url)
+            .create_if_missing(true);
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(opts)
+            .await
+            .expect("verify pool must open");
+        usenet_ipfs_verify::run_migrations(&pool)
+            .await
+            .expect("verify migrations must succeed");
+        pool
+    }
+
+    /// Append `X-Usenet-IPFS-Sig` to article headers, signed with `key`.
+    ///
+    /// Replicates the signing convention from the verify crate's x_sig tests:
+    /// the signature is computed over the article bytes (without the sig header),
+    /// then the header is inserted just before the blank separator line.
+    fn sign_article_bytes(key: &SigningKey, article_bytes: &[u8]) -> Vec<u8> {
+        use base64::Engine as _;
+        use ed25519_dalek::Signer as _;
+
+        let sig: ed25519_dalek::Signature = key.sign(article_bytes);
+        let sig_value = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(sig.to_bytes());
+        let sig_line = format!("X-Usenet-IPFS-Sig: {sig_value}\r\n");
+
+        // Find the blank line separating headers from body (\r\n\r\n).
+        let body_start = article_bytes
+            .windows(4)
+            .position(|w| w == b"\r\n\r\n")
+            .map(|p| p + 4)
+            .or_else(|| {
+                article_bytes
+                    .windows(2)
+                    .position(|w| w == b"\n\n")
+                    .map(|p| p + 2)
+            })
+            .unwrap_or(article_bytes.len());
+
+        let sep_len =
+            if body_start >= 4 && article_bytes[body_start - 4..body_start] == *b"\r\n\r\n" {
+                2
+            } else {
+                1
+            };
+        let insert_at = body_start - sep_len;
+
+        let mut out = Vec::with_capacity(article_bytes.len() + sig_line.len());
+        out.extend_from_slice(&article_bytes[..insert_at]);
+        out.extend_from_slice(sig_line.as_bytes());
+        out.extend_from_slice(&article_bytes[insert_at..]);
+        out
+    }
+
+    /// An article with a valid `X-Usenet-IPFS-Sig` header → pipeline must record
+    /// an `article_verifications` row with `result = 'pass'`.
+    #[tokio::test]
+    async fn pipeline_verify_x_sig_records_pass_row() {
+        let ipfs = MemIpfsStore::new();
+        let (msgid_map, _tmp) = make_msgid_map().await;
+        let storage = usenet_ipfs_core::group_log::MemLogStorage::new();
+        let transit_pool = make_transit_pool().await;
+        let verify_pool = make_verify_pool().await;
+
+        let signing_key = make_signing_key();
+        let verifying_key = signing_key.verifying_key();
+
+        // Build an unsigned article, then sign it with the known key.
+        let unsigned = make_article("<sig-test@example.com>", "alt.test");
+        let signed = sign_article_bytes(&signing_key, &unsigned);
+
+        let verify_store = usenet_ipfs_verify::VerificationStore::new(verify_pool.clone());
+
+        let ctx = PipelineCtx {
+            timestamp: make_timestamp(),
+            operator_signature: ed25519_dalek::Signer::sign(&signing_key, b""),
+            gossip_tx: None,
+            sender_peer_id: "peer1",
+            local_hostname: "local.test.example.com",
+            verify_store: Some(&verify_store),
+            trusted_keys: &[verifying_key],
+            dkim_auth: None,
+        };
+        let (pr, _metrics) = run_pipeline(&signed, &ipfs, &msgid_map, &storage, &transit_pool, ctx)
+            .await
+            .expect("pipeline must succeed with signed article");
+
+        // Verify that the article_verifications table contains a pass row.
+        let rows: Vec<(Vec<u8>, String, String)> = sqlx::query_as(
+            "SELECT cid, sig_type, result FROM article_verifications WHERE result = 'pass'",
+        )
+        .fetch_all(&verify_pool)
+        .await
+        .expect("article_verifications query must succeed");
+
+        assert!(
+            !rows.is_empty(),
+            "article_verifications must contain at least one pass row after pipeline run"
+        );
+        let cid_bytes = pr.cid.to_bytes();
+        let pass_row = rows.iter().find(|(cid, _, _)| *cid == cid_bytes);
+        assert!(
+            pass_row.is_some(),
+            "pass row must be for the ingested article CID {}; rows: {rows:?}",
+            pr.cid
+        );
+        let (_, sig_type, result) = pass_row.unwrap();
+        assert_eq!(sig_type, "x-usenet-ipfs-sig");
+        assert_eq!(result, "pass");
     }
 }

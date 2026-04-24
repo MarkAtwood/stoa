@@ -1,5 +1,6 @@
 use cid::Cid;
 use tracing::debug;
+use usenet_ipfs_verify::ArticleVerification;
 
 use crate::session::response::Response;
 
@@ -20,6 +21,12 @@ pub struct ArticleContent {
     /// `Some(false)` — signature verification failed.
     /// `Some(true)`  — signature verified successfully.
     pub did_sig_valid: Option<bool>,
+    /// Cryptographic signature verification results from the verify store.
+    ///
+    /// Empty when no verifications have been recorded for this article (e.g.
+    /// legacy articles written before verification was enabled).  The
+    /// `X-Usenet-IPFS-Verified` header is omitted in that case.
+    pub verifications: Vec<ArticleVerification>,
 }
 
 /// Apply dot-stuffing to article output: prepend '.' to any line starting with '.'.
@@ -100,6 +107,16 @@ fn did_verified_header_line(content: &ArticleContent) -> Option<String> {
         .map(|v| format!("X-Usenet-IPFS-DID-Verified: {v}"))
 }
 
+/// Build the `X-Usenet-IPFS-Verified` header line for injection into responses.
+///
+/// Returns `None` when no verification results have been recorded (empty slice).
+/// Returns `Some("X-Usenet-IPFS-Verified: pass")` if any method passed,
+/// `Some("X-Usenet-IPFS-Verified: fail")` if all methods tried and none passed.
+fn verified_header_line(content: &ArticleContent) -> Option<String> {
+    usenet_ipfs_verify::aggregate_status(&content.verifications)
+        .map(|pass| format!("X-Usenet-IPFS-Verified: {}", if pass { "pass" } else { "fail" }))
+}
+
 /// ARTICLE response: 220 + article_number + message_id, followed by headers,
 /// a blank line, and the dot-stuffed body. Terminated by ".".
 pub fn article_response(content: &ArticleContent) -> Response {
@@ -114,6 +131,9 @@ pub fn article_response(content: &ArticleContent) -> Response {
             "injecting X-Usenet-IPFS-DID-Verified header"
         );
         body.push(did_line);
+    }
+    if let Some(verified_line) = verified_header_line(content) {
+        body.push(verified_line);
     }
     body.push(String::new()); // blank line separating headers from body
     body.extend(dot_stuffed_lines(&content.body_bytes));
@@ -142,6 +162,9 @@ pub fn head_response(content: &ArticleContent) -> Response {
             "injecting X-Usenet-IPFS-DID-Verified header"
         );
         body.push(did_line);
+    }
+    if let Some(verified_line) = verified_header_line(content) {
+        body.push(verified_line);
     }
     Response {
         code: 221,
@@ -200,6 +223,7 @@ mod tests {
             body_bytes: b"Hello\r\n.dotted line\r\n".to_vec(),
             cid: None,
             did_sig_valid: None,
+            verifications: vec![],
         }
     }
 
@@ -250,6 +274,7 @@ mod tests {
             body_bytes: b".starts with dot\r\n".to_vec(),
             cid: None,
             did_sig_valid: None,
+            verifications: vec![],
         };
         let resp = article_response(&content);
         // The dot-stuffed line should appear as "..starts with dot" in the body lines.
@@ -285,6 +310,7 @@ mod tests {
             body_bytes: b"body\r\n".to_vec(),
             cid: None,
             did_sig_valid: Some(true),
+            verifications: vec![],
         };
         let resp = article_response(&content);
         assert!(
@@ -304,6 +330,7 @@ mod tests {
             body_bytes: b"body\r\n".to_vec(),
             cid: None,
             did_sig_valid: Some(false),
+            verifications: vec![],
         };
         let resp = article_response(&content);
         assert!(
@@ -336,6 +363,7 @@ mod tests {
             body_bytes: b"body\r\n".to_vec(),
             cid: None,
             did_sig_valid: Some(true),
+            verifications: vec![],
         };
         let resp = head_response(&content);
         assert!(

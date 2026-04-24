@@ -1,0 +1,247 @@
+//! Verify `X-Usenet-IPFS-Sig` Ed25519 article signatures.
+//!
+//! The header format is:
+//! ```text
+//! X-Usenet-IPFS-Sig: <base64url-no-pad>
+//! ```
+//! The signature is computed over the article bytes with the sig header
+//! removed, using the operator's Ed25519 key.  Verification succeeds if any
+//! of the supplied trusted keys matches.
+
+use base64::Engine as _;
+use ed25519_dalek::{Signature, VerifyingKey};
+use sha2::{Digest, Sha256};
+
+use crate::types::{ArticleVerification, SigType, VerifResult};
+
+const SIG_HEADER: &str = "X-Usenet-IPFS-Sig";
+
+/// Try to verify `X-Usenet-IPFS-Sig` in `article_bytes` against each key in
+/// `trusted_keys` in order.
+///
+/// Returns one `ArticleVerification`:
+/// - `Pass` if any key verifies successfully; `identity` is the hex pubkey.
+/// - `NoKey` if the header is absent and `trusted_keys` is non-empty.
+/// - `ParseError` if the header value is malformed.
+/// - `Fail` if all keys were tried and none verified.
+///
+/// Returns an empty vec when `trusted_keys` is empty AND the header is absent.
+pub fn verify_x_sig(
+    trusted_keys: &[VerifyingKey],
+    article_bytes: &[u8],
+) -> Vec<ArticleVerification> {
+    let extracted = match extract_sig_header(article_bytes) {
+        Ok(v) => v,
+        Err(ExtractError::NotFound) => {
+            // No X-Usenet-IPFS-Sig header → no verification to record.
+            return vec![];
+        }
+        Err(ExtractError::NonUtf8) => {
+            return vec![ArticleVerification {
+                sig_type: SigType::XUsenetIpfsSig,
+                result: VerifResult::ParseError {
+                    reason: "article headers contain non-UTF-8 bytes".to_owned(),
+                },
+                identity: None,
+            }];
+        }
+        Err(ExtractError::BadBase64(e)) => {
+            return vec![ArticleVerification {
+                sig_type: SigType::XUsenetIpfsSig,
+                result: VerifResult::ParseError {
+                    reason: format!("X-Usenet-IPFS-Sig value is not valid base64url: {e}"),
+                },
+                identity: None,
+            }];
+        }
+    };
+
+    if trusted_keys.is_empty() {
+        return vec![ArticleVerification {
+            sig_type: SigType::XUsenetIpfsSig,
+            result: VerifResult::NoKey,
+            identity: None,
+        }];
+    }
+
+    let sig = match Signature::from_slice(&extracted.sig_bytes) {
+        Ok(s) => s,
+        Err(e) => {
+            return vec![ArticleVerification {
+                sig_type: SigType::XUsenetIpfsSig,
+                result: VerifResult::ParseError {
+                    reason: format!("invalid signature bytes: {e}"),
+                },
+                identity: None,
+            }];
+        }
+    };
+
+    for key in trusted_keys {
+        if key
+            .verify_strict(&extracted.article_without_sig, &sig)
+            .is_ok()
+        {
+            let key_id = pubkey_hex_id(key);
+            return vec![ArticleVerification {
+                sig_type: SigType::XUsenetIpfsSig,
+                result: VerifResult::Pass,
+                identity: Some(key_id),
+            }];
+        }
+    }
+
+    vec![ArticleVerification {
+        sig_type: SigType::XUsenetIpfsSig,
+        result: VerifResult::Fail {
+            reason: format!(
+                "signature did not verify against any of {} trusted key(s)",
+                trusted_keys.len()
+            ),
+        },
+        identity: None,
+    }]
+}
+
+struct Extracted {
+    sig_bytes: Vec<u8>,
+    article_without_sig: Vec<u8>,
+}
+
+enum ExtractError {
+    NotFound,
+    NonUtf8,
+    BadBase64(base64::DecodeError),
+}
+
+fn extract_sig_header(article_bytes: &[u8]) -> Result<Extracted, ExtractError> {
+    let body_start = find_header_boundary(article_bytes);
+
+    let header_section = &article_bytes[..body_start.unwrap_or(article_bytes.len())];
+    let header_str = std::str::from_utf8(header_section).map_err(|_| ExtractError::NonUtf8)?;
+
+    let prefix = format!("{SIG_HEADER}:");
+
+    let mut sig_value: Option<&str> = None;
+    let mut sig_line_start: Option<usize> = None;
+    let mut sig_line_end: Option<usize> = None;
+
+    let mut cursor = 0usize;
+    for raw_line in header_str.split_inclusive('\n') {
+        let line = raw_line.trim_end_matches(['\r', '\n']);
+        if line.starts_with(&prefix) {
+            sig_value = Some(line[prefix.len()..].trim());
+            sig_line_start = Some(cursor);
+            sig_line_end = Some(cursor + raw_line.len());
+            break;
+        }
+        cursor += raw_line.len();
+    }
+
+    let value = sig_value.ok_or(ExtractError::NotFound)?;
+    let sig_bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(value)
+        .map_err(ExtractError::BadBase64)?;
+
+    let start = sig_line_start.unwrap();
+    let end = sig_line_end.unwrap();
+    let mut without = Vec::with_capacity(article_bytes.len() - (end - start));
+    without.extend_from_slice(&article_bytes[..start]);
+    without.extend_from_slice(&article_bytes[end..]);
+
+    Ok(Extracted {
+        sig_bytes,
+        article_without_sig: without,
+    })
+}
+
+fn find_header_boundary(data: &[u8]) -> Option<usize> {
+    // Find \r\n\r\n
+    data.windows(4).position(|w| w == b"\r\n\r\n").map(|p| p + 4)
+        .or_else(|| data.windows(2).position(|w| w == b"\n\n").map(|p| p + 2))
+}
+
+/// Hex-encoded SHA-256 of the raw 32-byte verifying key bytes.
+pub fn pubkey_hex_id(key: &VerifyingKey) -> String {
+    let hash = Sha256::digest(key.as_bytes());
+    hex::encode(hash)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use base64::Engine as _;
+    use ed25519_dalek::{Signer, SigningKey};
+
+    fn test_key() -> SigningKey {
+        SigningKey::from_bytes(&[0x42u8; 32])
+    }
+
+    fn sign_article(key: &SigningKey, article_bytes: &[u8]) -> Vec<u8> {
+        let sig: ed25519_dalek::Signature = key.sign(article_bytes);
+        let sig_value = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(sig.to_bytes());
+        let sig_line = format!("{SIG_HEADER}: {sig_value}\r\n");
+        let body_start = find_header_boundary(article_bytes).unwrap_or(article_bytes.len());
+        let sep_len = if body_start >= 4 && article_bytes[body_start - 4..body_start] == *b"\r\n\r\n" {
+            2
+        } else {
+            1
+        };
+        let insert_at = body_start - sep_len;
+        let mut out = Vec::with_capacity(article_bytes.len() + sig_line.len());
+        out.extend_from_slice(&article_bytes[..insert_at]);
+        out.extend_from_slice(sig_line.as_bytes());
+        out.extend_from_slice(&article_bytes[insert_at..]);
+        out
+    }
+
+    fn article() -> Vec<u8> {
+        b"From: test@example.com\r\nSubject: Test\r\n\r\nBody.\r\n".to_vec()
+    }
+
+    #[test]
+    fn pass_with_correct_key() {
+        let key = test_key();
+        let pubkey = key.verifying_key();
+        let signed = sign_article(&key, &article());
+        let results = verify_x_sig(&[pubkey], &signed);
+        assert_eq!(results.len(), 1);
+        assert!(results[0].result.is_pass(), "expected Pass, got {:?}", results[0].result);
+    }
+
+    #[test]
+    fn fail_with_wrong_key() {
+        let key_a = test_key();
+        let key_b = SigningKey::from_bytes(&[0x13u8; 32]);
+        let signed = sign_article(&key_a, &article());
+        let results = verify_x_sig(&[key_b.verifying_key()], &signed);
+        assert_eq!(results.len(), 1);
+        assert!(matches!(results[0].result, VerifResult::Fail { .. }));
+    }
+
+    #[test]
+    fn no_header_returns_empty() {
+        let results = verify_x_sig(&[test_key().verifying_key()], &article());
+        assert!(results.is_empty(), "no sig header must return empty vec");
+    }
+
+    #[test]
+    fn empty_trusted_keys_with_header_returns_no_key() {
+        let signed = sign_article(&test_key(), &article());
+        let results = verify_x_sig(&[], &signed);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].result, VerifResult::NoKey);
+    }
+
+    #[test]
+    fn second_key_passes_when_first_fails() {
+        let key_a = SigningKey::from_bytes(&[0x01u8; 32]);
+        let key_b = SigningKey::from_bytes(&[0x02u8; 32]);
+        let signed = sign_article(&key_b, &article());
+        let results = verify_x_sig(&[key_a.verifying_key(), key_b.verifying_key()], &signed);
+        assert_eq!(results.len(), 1);
+        assert!(results[0].result.is_pass());
+        // identity must be key_b's fingerprint
+        assert_eq!(results[0].identity, Some(pubkey_hex_id(&key_b.verifying_key())));
+    }
+}

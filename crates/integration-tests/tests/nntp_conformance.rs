@@ -110,6 +110,23 @@ async fn make_reader_pool() -> sqlx::SqlitePool {
     pool
 }
 
+async fn make_verify_pool() -> sqlx::SqlitePool {
+    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
+    let url = format!("file:conform_verify_{n}?mode=memory&cache=shared");
+    let opts = sqlx::sqlite::SqliteConnectOptions::new()
+        .filename(&url)
+        .create_if_missing(true);
+    let pool = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(opts)
+        .await
+        .expect("verify pool");
+    usenet_ipfs_verify::run_migrations(&pool)
+        .await
+        .expect("verify migrations");
+    pool
+}
+
 // ── Config helper ─────────────────────────────────────────────────────────────
 
 fn reader_config(addr: &str) -> usenet_ipfs_reader::config::Config {
@@ -245,6 +262,10 @@ async fn nntp_conformance_via_nntplib() {
         )),
         search_index: None,
         smtp_relay_queue: None,
+        verification_store: Arc::new(usenet_ipfs_verify::VerificationStore::new(
+            make_verify_pool().await,
+        )),
+        dkim_authenticator: Arc::new(mail_auth::MessageAuthenticator::new_cloudflare_tls().unwrap()),
     });
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();

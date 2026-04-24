@@ -2,6 +2,7 @@ use std::{collections::HashSet, path::PathBuf, sync::Arc, time::Instant};
 
 use cid::Cid;
 use ed25519_dalek::Signer as _;
+use mail_auth::MessageAuthenticator;
 use rand_core::OsRng;
 use tokio::{net::TcpListener, sync::Mutex};
 use tracing::{info, warn};
@@ -30,6 +31,7 @@ use usenet_ipfs_transit::{
     },
     staging::StagingStore,
 };
+use usenet_ipfs_verify::VerificationStore;
 
 fn parse_args() -> PathBuf {
     let args: Vec<String> = std::env::args().collect();
@@ -103,6 +105,23 @@ async fn main() {
         eprintln!("error: transit database migration failed: {e}");
         std::process::exit(1);
     }
+
+    // ── Verify pool (separate schema; no version conflicts with transit) ───────
+
+    let verify_pool = open_pool(&config.database.verify_path, config.database.pool_size).await;
+    if let Err(e) = usenet_ipfs_verify::run_migrations(&verify_pool).await {
+        eprintln!("error: verify database migration failed: {e}");
+        std::process::exit(1);
+    }
+    let verification_store = Arc::new(VerificationStore::new(verify_pool));
+
+    let dkim_authenticator = match MessageAuthenticator::new_cloudflare_tls() {
+        Ok(a) => Arc::new(a),
+        Err(e) => {
+            eprintln!("error: DKIM authenticator init failed: {e}");
+            std::process::exit(1);
+        }
+    };
 
     // ── Remote pinning worker ─────────────────────────────────────────────────
     if !config.pinning.external_services.is_empty() {
@@ -441,6 +460,8 @@ async fn main() {
         trusted_keys,
         tls_acceptor,
         staging: staging_store.clone(),
+        verification_store: Some(Arc::clone(&verification_store)),
+        dkim_authenticator: Some(Arc::clone(&dkim_authenticator)),
     });
 
     // ── Pipeline drain task ───────────────────────────────────────────────────
@@ -461,6 +482,11 @@ async fn main() {
     let local_hostname_staging = local_hostname.clone();
     let peer_id_staging = peer_id.to_string();
     let pin_service_filters_staging = pin_service_filters.clone();
+    let verification_store_staging = Arc::clone(&verification_store);
+    let dkim_authenticator_staging = Arc::clone(&dkim_authenticator);
+    // trusted_keys is moved into PeeringShared; clone for drain tasks before that.
+    let trusted_keys_drain = shared.trusted_keys.clone();
+    let trusted_keys_staging = shared.trusted_keys.clone();
 
     {
         let ipfs = Arc::clone(&ipfs_store);
@@ -474,6 +500,9 @@ async fn main() {
         let transit_pool_drain = Arc::clone(&transit_pool);
         let ingestion_sender_drain = Arc::clone(&ingestion_sender);
         let ipns_tx_drain = ipns_tx;
+        let verification_store_drain = Arc::clone(&verification_store);
+        let dkim_authenticator_drain = Arc::clone(&dkim_authenticator);
+        let trusted_keys_for_drain = trusted_keys_drain;
 
         tokio::spawn(async move {
             while let Some(article) = ingestion_receiver.recv().await {
@@ -491,6 +520,9 @@ async fn main() {
                     gossip_tx: Some(&gossip_tx_drain),
                     sender_peer_id: &local_peer_id,
                     local_hostname: &local_hostname_drain,
+                    verify_store: Some(&verification_store_drain),
+                    trusted_keys: &trusted_keys_for_drain,
+                    dkim_auth: Some(&dkim_authenticator_drain),
                 };
                 match run_pipeline(
                     &article.bytes,
@@ -579,6 +611,9 @@ async fn main() {
         let transit_pool_drain = Arc::clone(&transit_pool);
         let ipns_tx_drain = ipns_tx_staging;
         let pin_service_filters = pin_service_filters_staging;
+        let verification_store_drain = verification_store_staging;
+        let dkim_authenticator_drain = dkim_authenticator_staging;
+        let trusted_keys_for_drain = trusted_keys_staging;
 
         tokio::spawn(async move {
             loop {
@@ -599,6 +634,9 @@ async fn main() {
                             gossip_tx: Some(&gossip_tx_drain),
                             sender_peer_id: &local_peer_id,
                             local_hostname: &local_hostname_drain,
+                            verify_store: Some(&verification_store_drain),
+                            trusted_keys: &trusted_keys_for_drain,
+                            dkim_auth: Some(&dkim_authenticator_drain),
                         };
                         match run_pipeline(
                             &article.bytes,

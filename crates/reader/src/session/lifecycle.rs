@@ -736,6 +736,28 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
         Err(resp) => return resp,
     };
 
+    // Step 6b: Verify article signatures (best-effort; never blocks acceptance).
+    {
+        use usenet_ipfs_verify::x_sig::verify_x_sig;
+        let pubkey = stores.signing_key.verifying_key();
+        let x_sig_results = verify_x_sig(&[pubkey], &signed_bytes);
+        let dkim_results = usenet_ipfs_verify::dkim::verify_dkim_headers(
+            &stores.dkim_authenticator,
+            &signed_bytes,
+        )
+        .await;
+        let all_verifications: Vec<_> =
+            x_sig_results.into_iter().chain(dkim_results).collect();
+        let verified_at_ms = now_ms as i64;
+        if let Err(e) = stores
+            .verification_store
+            .record_verifications(&cid, &all_verifications, verified_at_ms)
+            .await
+        {
+            warn!(message_id = %message_id, error = %e, "verification record failed");
+        }
+    }
+
     // Step 7: Append to group logs (peerable sources only) and assign article
     // numbers (always, so local readers see every article).
     let append_result = match append_to_groups(
@@ -860,6 +882,13 @@ async fn lookup_article_by_msgid(stores: &ServerStores, msgid: &str) -> Response
         .flatten()
         .and_then(|r| r.did_sig_valid);
 
+    // Look up cryptographic verification results from the verify store.
+    let verifications = stores
+        .verification_store
+        .get_verifications(&cid)
+        .await
+        .unwrap_or_default();
+
     let content = ArticleContent {
         article_number: 0,
         message_id: msgid.to_string(),
@@ -867,6 +896,7 @@ async fn lookup_article_by_msgid(stores: &ServerStores, msgid: &str) -> Response
         body_bytes,
         cid: Some(cid),
         did_sig_valid,
+        verifications,
     };
 
     article_response(&content)
@@ -1289,6 +1319,13 @@ async fn lookup_article_by_cid(stores: &ServerStores, cid_str: &str) -> Response
         .flatten()
         .and_then(|r| r.did_sig_valid);
 
+    // Look up cryptographic verification results from the verify store.
+    let verifications = stores
+        .verification_store
+        .get_verifications(&cid)
+        .await
+        .unwrap_or_default();
+
     let content = ArticleContent {
         article_number: 0,
         message_id,
@@ -1296,6 +1333,7 @@ async fn lookup_article_by_cid(stores: &ServerStores, cid_str: &str) -> Response
         body_bytes,
         cid: Some(cid),
         did_sig_valid,
+        verifications,
     };
     article_response(&content)
 }

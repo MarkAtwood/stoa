@@ -98,9 +98,9 @@ impl Default for IpnsConfig {
 
 /// SQLite database configuration.
 ///
-/// Two separate SQLite files are required because `sqlx` validates that every
-/// previously-applied migration is still present in the migrator; mixing core
-/// and transit migrations in a single pool would cause `VersionMissing` errors.
+/// Three separate SQLite files are required because `sqlx` validates that every
+/// previously-applied migration is still present in the migrator; mixing schemas
+/// in a single pool would cause `VersionMissing` errors.
 #[derive(Debug, Deserialize)]
 pub struct DatabaseConfig {
     /// Path for the core-schema database (msgid_map, group_log).
@@ -111,6 +111,10 @@ pub struct DatabaseConfig {
     /// Created if it does not exist. Default: `transit.db`.
     #[serde(default = "default_db_path")]
     pub path: String,
+    /// Path for the verify-schema database (article_verifications, seen_keys).
+    /// Created if it does not exist. Default: `transit_verify.db`.
+    #[serde(default = "default_verify_db_path")]
+    pub verify_path: String,
     /// SQLite connection pool size for the transit database. Default: 8.
     #[serde(default = "default_db_pool_size")]
     pub pool_size: u32,
@@ -124,6 +128,10 @@ fn default_db_path() -> String {
     "transit.db".to_string()
 }
 
+fn default_verify_db_path() -> String {
+    "transit_verify.db".to_string()
+}
+
 fn default_db_pool_size() -> u32 {
     8
 }
@@ -133,6 +141,7 @@ impl Default for DatabaseConfig {
         Self {
             core_path: default_core_db_path(),
             path: default_db_path(),
+            verify_path: default_verify_db_path(),
             pool_size: default_db_pool_size(),
         }
     }

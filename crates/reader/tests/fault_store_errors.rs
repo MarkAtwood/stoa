@@ -181,6 +181,7 @@ fn article_response_on_success_returns_220() {
         body_bytes: b"Hello world.\r\n".to_vec(),
         cid: None,
         did_sig_valid: None,
+        verifications: vec![],
     };
     let resp = article_response(&content);
     assert_eq!(
@@ -221,6 +222,7 @@ fn head_response_on_success_returns_221() {
         body_bytes: b"".to_vec(),
         cid: None,
         did_sig_valid: None,
+        verifications: vec![],
     };
     let resp = head_response(&content);
     assert_eq!(
@@ -254,6 +256,7 @@ fn body_response_on_success_returns_222() {
         body_bytes: b"Body text.\r\n".to_vec(),
         cid: None,
         did_sig_valid: None,
+        verifications: vec![],
     };
     let resp = body_response(&content);
     assert_eq!(

@@ -5534,6 +5534,7 @@ dependencies = [
  "bs58 0.4.0",
  "cid",
  "ed25519-dalek",
+ "mail-auth",
  "multihash-codetable",
  "sqlx",
  "tempfile",
@@ -5543,6 +5544,7 @@ dependencies = [
  "usenet-ipfs-core",
  "usenet-ipfs-reader",
  "usenet-ipfs-transit",
+ "usenet-ipfs-verify",
 ]
 
 [[package]]
@@ -5596,6 +5598,7 @@ dependencies = [
  "ed25519-dalek",
  "hex",
  "lazy_static",
+ "mail-auth",
  "mailparse",
  "multihash-codetable",
  "prometheus",
@@ -5619,6 +5622,7 @@ dependencies = [
  "usenet-ipfs-core",
  "usenet-ipfs-smtp",
  "usenet-ipfs-tls",
+ "usenet-ipfs-verify",
 ]
 
 [[package]]
@@ -5680,6 +5684,7 @@ dependencies = [
  "hex",
  "lazy_static",
  "libp2p",
+ "mail-auth",
  "multihash-codetable",
  "prometheus",
  "proptest",
@@ -5699,7 +5704,25 @@ dependencies = [
  "tracing-subscriber",
  "usenet-ipfs-core",
  "usenet-ipfs-tls",
+ "usenet-ipfs-verify",
  "wiremock",
+]
+
+[[package]]
+name = "usenet-ipfs-verify"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "cid",
+ "ed25519-dalek",
+ "hex",
+ "mail-auth",
+ "serde",
+ "sha2 0.10.9",
+ "sqlx",
+ "tokio",
+ "tracing",
+ "usenet-ipfs-core",
 ]
 
 [[package]]

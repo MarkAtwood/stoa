@@ -10,6 +10,23 @@ use usenet_ipfs_core::ipld::{
 
 use crate::mailbox::types::mailbox_id_for_group;
 
+/// One verification result entry for the `x-usenet-ipfs-verifications` JMAP property.
+///
+/// Mirrors `usenet_ipfs_verify::ArticleVerification` but uses plain `String` fields
+/// so the mail crate does not depend on the verify crate.  The JMAP handler converts
+/// from `ArticleVerification` to `VerificationSummary` before populating the Email.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct VerificationSummary {
+    /// Signature scheme: `"x-usenet-ipfs-sig"` or `"dkim"`.
+    #[serde(rename = "sigType")]
+    pub sig_type: String,
+    /// Outcome: `"pass"`, `"fail"`, `"no-key"`, `"dns-error"`, or `"parse-error"`.
+    pub result: String,
+    /// Signing identity: pubkey hex (x-usenet-ipfs-sig) or domain (DKIM).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub identity: Option<String>,
+}
+
 /// A single email address (RFC 8621 §4.1.2.3).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct EmailAddress {
@@ -67,6 +84,17 @@ pub struct Email {
     /// resulting bytes against the operator's public key.
     #[serde(rename = "x-usenet-ipfs-sig", skip_serializing_if = "Option::is_none")]
     pub ipfs_sig: Option<String>,
+    /// Custom property: verification results for all signatures checked on this article.
+    ///
+    /// Absent when no verification has been performed (i.e. the verify store returned
+    /// no entries for this CID).  Populated by the JMAP handler from the verify store;
+    /// `from_root_node` always sets this to `None`.  Callers that have access to a
+    /// verify store should set it after construction.
+    #[serde(
+        rename = "x-usenet-ipfs-verifications",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub ipfs_verifications: Option<Vec<VerificationSummary>>,
 }
 
 impl Email {
@@ -129,6 +157,7 @@ impl Email {
             preview,
             ipfs_cid: cid_str,
             ipfs_sig,
+            ipfs_verifications: None,
         }
     }
 }
@@ -475,6 +504,103 @@ mod tests {
         assert_eq!(
             decoded, sig_bytes,
             "base64url-no-pad decode must recover original bytes"
+        );
+    }
+
+    #[test]
+    fn verifications_absent_when_none() {
+        // When ipfs_verifications is None (default from from_root_node), the property
+        // must not appear in serialized JSON.
+        let cid = dummy_cid(b"no_verif");
+        let root = dummy_root(vec!["comp.test".to_string()], 1_000_000_000_000, 64);
+        let email = Email::from_root_node(&cid, &root, None, HashMap::new(), None);
+        assert!(
+            email.ipfs_verifications.is_none(),
+            "from_root_node must leave ipfs_verifications as None"
+        );
+        let json = serde_json::to_string(&email).unwrap();
+        assert!(
+            !json.contains("x-usenet-ipfs-verifications"),
+            "x-usenet-ipfs-verifications must be absent from JSON when None"
+        );
+    }
+
+    #[test]
+    fn verifications_serializes_correctly() {
+        // Oracle: hand-crafted expected JSON structure verified against the field spec.
+        let cid = dummy_cid(b"with_verif");
+        let root = dummy_root(vec!["comp.test".to_string()], 1_000_000_000_000, 64);
+        let mut email = Email::from_root_node(&cid, &root, None, HashMap::new(), None);
+        email.ipfs_verifications = Some(vec![
+            VerificationSummary {
+                sig_type: "x-usenet-ipfs-sig".to_string(),
+                result: "pass".to_string(),
+                identity: Some("abc123".to_string()),
+            },
+            VerificationSummary {
+                sig_type: "dkim".to_string(),
+                result: "fail".to_string(),
+                identity: Some("example.com".to_string()),
+            },
+        ]);
+        let json = serde_json::to_string(&email).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let verifs = parsed["x-usenet-ipfs-verifications"]
+            .as_array()
+            .expect("x-usenet-ipfs-verifications must be a JSON array");
+        assert_eq!(verifs.len(), 2, "must have exactly 2 verification entries");
+        assert_eq!(
+            verifs[0]["sigType"].as_str().unwrap(),
+            "x-usenet-ipfs-sig",
+            "first entry sigType must be x-usenet-ipfs-sig"
+        );
+        assert_eq!(
+            verifs[0]["result"].as_str().unwrap(),
+            "pass",
+            "first entry result must be pass"
+        );
+        assert_eq!(
+            verifs[0]["identity"].as_str().unwrap(),
+            "abc123",
+            "first entry identity must be abc123"
+        );
+        assert_eq!(
+            verifs[1]["sigType"].as_str().unwrap(),
+            "dkim",
+            "second entry sigType must be dkim"
+        );
+        assert_eq!(
+            verifs[1]["result"].as_str().unwrap(),
+            "fail",
+            "second entry result must be fail"
+        );
+        assert_eq!(
+            verifs[1]["identity"].as_str().unwrap(),
+            "example.com",
+            "second entry identity must be example.com"
+        );
+    }
+
+    #[test]
+    fn verification_summary_identity_omitted_when_none() {
+        // When identity is None, it must not appear in the serialized JSON entry.
+        let summary = VerificationSummary {
+            sig_type: "dkim".to_string(),
+            result: "no-key".to_string(),
+            identity: None,
+        };
+        let json = serde_json::to_string(&summary).unwrap();
+        assert!(
+            !json.contains("identity"),
+            "identity must be absent from JSON when None"
+        );
+        assert!(
+            json.contains("\"sigType\""),
+            "sigType must be present in JSON"
+        );
+        assert!(
+            json.contains("\"no-key\""),
+            "result value must be present in JSON"
         );
     }
 }

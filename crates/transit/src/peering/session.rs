@@ -8,6 +8,7 @@
 
 use base64::Engine as _;
 use cid::Cid;
+use mail_auth::MessageAuthenticator;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
@@ -16,6 +17,7 @@ use tokio_rustls;
 
 use usenet_ipfs_core::group_log::{LogEntryId, LogStorage as _, SqliteLogStorage};
 use usenet_ipfs_core::{msgid_map::MsgIdMap, validation::validate_message_id};
+use usenet_ipfs_verify::VerificationStore;
 
 use crate::peering::{
     auth::run_auth_handshake,
@@ -79,6 +81,10 @@ pub struct PeeringShared {
     /// bytes.  `None` → plain TCP is used (suitable for LAN / loopback or
     /// when a TLS terminator sits in front of the daemon).
     pub tls_acceptor: Option<Arc<tokio_rustls::TlsAcceptor>>,
+    /// Article verification store. `None` disables signature recording.
+    pub verification_store: Option<Arc<VerificationStore>>,
+    /// DKIM authenticator. `None` disables DKIM checks.
+    pub dkim_authenticator: Option<Arc<MessageAuthenticator>>,
 }
 
 /// Handle one inbound NNTP peering connection.

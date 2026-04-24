@@ -9,5 +9,6 @@ members = [
     "crates/sieve",
     "crates/smtp",
     "crates/imap",
+    "crates/verify",
     "crates/integration-tests",
 ]

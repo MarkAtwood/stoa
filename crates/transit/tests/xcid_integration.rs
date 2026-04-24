@@ -162,6 +162,8 @@ async fn make_peering_shared(
         staging: None,
         trusted_keys: vec![], // no auth required for these tests
         tls_acceptor: None,
+        verification_store: None,
+        dkim_authenticator: None,
     })
 }
 

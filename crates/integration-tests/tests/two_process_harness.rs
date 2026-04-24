@@ -135,6 +135,23 @@ async fn make_reader_pool() -> sqlx::SqlitePool {
     pool
 }
 
+async fn make_verify_pool() -> sqlx::SqlitePool {
+    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
+    let url = format!("file:harness_verify_{n}?mode=memory&cache=shared");
+    let opts = sqlx::sqlite::SqliteConnectOptions::new()
+        .filename(&url)
+        .create_if_missing(true);
+    let pool = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(opts)
+        .await
+        .expect("verify pool");
+    usenet_ipfs_verify::run_migrations(&pool)
+        .await
+        .expect("verify migrations");
+    pool
+}
+
 /// Core-schema pool for transit's MsgIdMap and SqliteLogStorage.
 ///
 /// Transit uses a separate core pool because sqlx validates that every
@@ -270,6 +287,10 @@ async fn transit_reader_shared_store() {
         )),
         search_index: None,
         smtp_relay_queue: None,
+        verification_store: Arc::new(usenet_ipfs_verify::VerificationStore::new(
+            make_verify_pool().await,
+        )),
+        dkim_authenticator: Arc::new(mail_auth::MessageAuthenticator::new_cloudflare_tls().unwrap()),
     });
 
     // ── Transit stores ────────────────────────────────────────────────────────
@@ -306,6 +327,8 @@ async fn transit_reader_shared_store() {
         trusted_keys: Vec::new(),
         tls_acceptor: None,
         staging: None,
+        verification_store: None,
+        dkim_authenticator: None,
     });
 
     // ── Pipeline drain task ───────────────────────────────────────────────────
@@ -333,6 +356,9 @@ async fn transit_reader_shared_store() {
                     gossip_tx: None,
                     sender_peer_id: "integ-test-peer",
                     local_hostname: "integ-test.local",
+                    verify_store: None,
+                    trusted_keys: &[],
+                    dkim_auth: None,
                 };
                 let _ = run_pipeline(
                     &article.bytes,
