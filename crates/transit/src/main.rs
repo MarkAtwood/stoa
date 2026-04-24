@@ -635,7 +635,7 @@ async fn main() {
     let trusted_keys_drain = shared.trusted_keys.clone();
     let trusted_keys_staging = shared.trusted_keys.clone();
 
-    {
+    let ingestion_handle = {
         let ipfs = Arc::clone(&ipfs_store);
         let msgid_map_drain = Arc::clone(&msgid_map);
         let log_storage_drain = Arc::clone(&log_storage);
@@ -735,8 +735,8 @@ async fn main() {
                 }
             }
             info!("ingestion drain task stopped");
-        });
-    }
+        })
+    };
 
     // ── Staging drain task (only when [staging] is configured) ────────────────
 
@@ -902,6 +902,8 @@ async fn main() {
 
     // ── Shutdown ──────────────────────────────────────────────────────────────
 
+    let drain_timeout_secs = config.peering.drain_timeout_secs.unwrap_or(30);
+
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {
             info!("received CTRL-C, shutting down");
@@ -913,6 +915,25 @@ async fn main() {
             if let Err(e) = result {
                 warn!("accept loop error: {e}");
             }
+        }
+    }
+
+    // Signal the ingestion task to stop by dropping the last sender, then
+    // wait for it to finish processing any queued articles.
+    info!("shutting down, draining ingestion queue");
+    drop(ingestion_sender);
+    let drain_result = tokio::time::timeout(
+        std::time::Duration::from_secs(drain_timeout_secs),
+        ingestion_handle,
+    )
+    .await;
+    match drain_result {
+        Ok(_) => {
+            info!("ingestion task drained cleanly");
+        }
+        Err(_) => {
+            warn!("ingestion drain timeout, forcing exit");
+            std::process::exit(1);
         }
     }
 

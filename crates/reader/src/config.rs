@@ -141,6 +141,10 @@ pub struct LimitsConfig {
     #[serde(default = "default_max_connections")]
     pub max_connections: usize,
     pub command_timeout_secs: u64,
+    /// Seconds to wait for in-flight connections to finish after a shutdown
+    /// signal before forcing exit.  Default: 30.  Set to 0 to exit immediately.
+    #[serde(default)]
+    pub drain_timeout_secs: Option<u64>,
 }
 
 fn default_max_connections() -> usize {
@@ -594,5 +598,89 @@ required = false
         );
         assert_eq!(cfg.body_index_max_bytes, 102_400);
         assert_eq!(cfg.max_query_len, 4096);
+    }
+
+    #[test]
+    fn drain_timeout_secs_defaults_to_none() {
+        let f = write_toml(VALID_TOML);
+        let cfg = Config::from_file(f.path()).expect("should parse");
+        assert_eq!(cfg.limits.drain_timeout_secs, None);
+    }
+
+    #[test]
+    fn drain_timeout_secs_parses_from_toml() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 50
+command_timeout_secs = 30
+drain_timeout_secs = 60
+
+[auth]
+required = false
+
+[tls]
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("should parse");
+        assert_eq!(cfg.limits.drain_timeout_secs, Some(60));
+    }
+
+    /// The semaphore drain pattern used in main() after shutdown signal.
+    /// Verifies that acquire_many_owned(max) completes once all permits are released.
+    #[tokio::test]
+    async fn semaphore_drain_completes_when_sessions_finish() {
+        use std::sync::Arc;
+        use std::time::Duration;
+        use tokio::sync::Semaphore;
+
+        let max: u32 = 100;
+        let sem = Arc::new(Semaphore::new(max as usize));
+
+        // Simulate 3 active sessions holding permits.
+        let p1 = sem.clone().acquire_owned().await.unwrap();
+        let p2 = sem.clone().acquire_owned().await.unwrap();
+        let p3 = sem.clone().acquire_owned().await.unwrap();
+
+        // Sessions finish after 50 ms.
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            drop(p1);
+            drop(p2);
+            drop(p3);
+        });
+
+        let result = tokio::time::timeout(
+            Duration::from_secs(2),
+            sem.acquire_many_owned(max),
+        )
+        .await;
+        assert!(result.is_ok(), "drain must complete before timeout");
+    }
+
+    /// The drain times out if sessions never release their permits.
+    #[tokio::test]
+    async fn semaphore_drain_times_out_when_sessions_hold() {
+        use std::sync::Arc;
+        use std::time::Duration;
+        use tokio::sync::Semaphore;
+
+        let max: u32 = 5;
+        let sem = Arc::new(Semaphore::new(max as usize));
+
+        // Hold all permits, never release.
+        let mut _held = Vec::new();
+        for _ in 0..max {
+            _held.push(sem.clone().acquire_owned().await.unwrap());
+        }
+
+        let result = tokio::time::timeout(
+            Duration::from_millis(20),
+            sem.acquire_many_owned(max),
+        )
+        .await;
+        assert!(result.is_err(), "drain must time out when sessions hold permits");
     }
 }

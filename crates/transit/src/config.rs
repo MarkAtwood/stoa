@@ -363,6 +363,10 @@ pub struct PeeringConfig {
     /// firewalled to trusted peers in that case.
     #[serde(default)]
     pub trusted_peers: Vec<String>,
+    /// Seconds to wait for the ingestion queue to drain after a shutdown
+    /// signal before forcing exit.  Default: 30.
+    #[serde(default)]
+    pub drain_timeout_secs: Option<u64>,
 }
 
 fn default_ingestion_queue_capacity() -> usize {
@@ -384,6 +388,7 @@ impl Default for PeeringConfig {
             rate_limit_rps: default_rate_limit_rps(),
             rate_limit_burst: default_rate_limit_burst(),
             trusted_peers: Vec::new(),
+            drain_timeout_secs: None,
         }
     }
 }

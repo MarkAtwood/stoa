@@ -327,6 +327,95 @@ INFO gossip: reconcile result  group=comp.lang.rust  want=0  have=1
 
 ---
 
+## Graceful shutdown
+
+Both daemons handle SIGTERM and CTRL-C by draining in-flight connections before
+exiting.  The sequence is:
+
+1. Signal received — accept loops stop; new TCP connections get ECONNREFUSED.
+2. In-flight NNTP sessions continue until they complete their current command.
+3. Transit drains the ingestion queue (pending `block_put` / group log appends).
+4. Process exits with code `0` on clean drain, `1` if the drain timeout fired.
+
+### Drain timeout
+
+The default drain timeout is **30 seconds**.  Override in config:
+
+```toml
+# reader: crates/reader/src/config.rs → LimitsConfig
+[limits]
+drain_timeout_secs = 60   # wait up to 60 s before forcing exit
+
+# transit: crates/transit/src/config.rs → PeeringConfig
+[peering]
+drain_timeout_secs = 60
+```
+
+### systemd unit file
+
+Set `TimeoutStopSec` larger than `drain_timeout_secs` to give the process a
+chance to exit cleanly before systemd sends SIGKILL:
+
+```ini
+[Unit]
+Description=usenet-ipfs transit daemon
+After=network.target ipfs.service
+Requires=ipfs.service
+
+[Service]
+ExecStart=/usr/local/bin/usenet-ipfs-transit --config /etc/usenet-ipfs/transit.toml
+Restart=on-failure
+RestartSec=5s
+User=usenet-ipfs
+
+# Graceful shutdown: send SIGTERM, wait up to 90 s, then SIGKILL.
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=90
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Use `TimeoutStopSec=90` (larger than the 30–60 s `drain_timeout_secs`) so the
+process has a full drain window before systemd escalates to SIGKILL.
+
+### AWS ECS
+
+Set `stopTimeout` to the maximum allowed value (120 s on ECS/EC2 and Fargate):
+
+```json
+{
+  "containerDefinitions": [{
+    "name": "transit",
+    "stopTimeout": 120
+  }]
+}
+```
+
+ECS sends SIGTERM to PID 1, then SIGKILL after `stopTimeout` seconds.
+Enable `"initProcessEnabled": true` in the task definition so the init process
+relays SIGTERM to the daemon and reaps zombie processes cleanly.
+
+### Drain log messages
+
+Watch for these INFO/WARN log lines during a shutdown:
+
+| Log message | Meaning |
+|-------------|---------|
+| `draining active connections active_connections=N` | Drain started with N sessions in flight |
+| `all connections drained cleanly` | Reader: all sessions finished before timeout |
+| `shutting down, draining ingestion queue` | Transit: dropping ingestion channel |
+| `ingestion task drained cleanly` | Transit: all queued articles flushed to IPFS |
+| `drain timeout exceeded, forcing exit remaining_connections=N` | Timeout fired; N sessions were killed |
+| `ingestion drain timeout, forcing exit` | Transit ingestion drain timed out |
+
+Exit code `1` after any of the timeout messages indicates articles may have been
+lost.  Check the group log to determine whether the in-flight articles need to
+be re-ingested.
+
+---
+
 ## Troubleshooting
 
 | Symptom | Likely cause | Action |

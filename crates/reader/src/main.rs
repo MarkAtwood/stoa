@@ -312,6 +312,11 @@ async fn main() {
             Box::pin(std::future::pending())
         };
 
+    // Retain handles for the drain phase after shutdown signal.
+    let semaphore_drain = Arc::clone(&semaphore);
+    let max_connections = config.limits.max_connections;
+    let drain_timeout_secs = config.limits.drain_timeout_secs.unwrap_or(30);
+
     tokio::select! {
         _ = accept_loop(listener, semaphore, config, stores, tls_acceptor) => {}
         _ = tls_listener_future => {}
@@ -320,6 +325,30 @@ async fn main() {
         }
         _ = sigterm() => {
             info!("received SIGTERM, shutting down");
+        }
+    }
+
+    // Drain: wait for all in-flight sessions to release their semaphore permits.
+    let active = max_connections - semaphore_drain.available_permits();
+    if active > 0 {
+        info!(active_connections = active, "draining active connections");
+        let drain_result = tokio::time::timeout(
+            std::time::Duration::from_secs(drain_timeout_secs),
+            semaphore_drain.acquire_many(max_connections as u32),
+        )
+        .await;
+        match drain_result {
+            Ok(_) => {
+                info!("all connections drained cleanly");
+            }
+            Err(_) => {
+                let remaining = max_connections - semaphore_drain.available_permits();
+                warn!(
+                    remaining_connections = remaining,
+                    "drain timeout exceeded, forcing exit"
+                );
+                std::process::exit(1);
+            }
         }
     }
 

@@ -135,3 +135,7 @@ Phase markers reset for new epic
 [03:46:36] COORDINATOR: n3vt.6 closed — smtp is now MIT, sieve-rs absent from dep tree
 [03:56:18] COORDINATOR: n3vt.7 closed — 6 E2E tests pass, sieve-rs absent
 [04:06:14] COORDINATOR: phase2 done — all workspace tests pass
+[04:06:42] COORDINATOR: review round 1 starting for n3vt
+[04:12:45] COORDINATOR: review round 1: P0=0 P1=2 P2=1 — fixing before round 2
+Phase markers reset for new epic
+[04:40:39] COORDINATOR: claimed epic usenet-ipfs-0qfx (Graceful shutdown)
