@@ -38,7 +38,7 @@ async fn start_session(
 
     tokio::spawn(async move {
         let (stream, _) = listener.accept().await.expect("accept");
-        run_session(stream, false, &config, stores).await;
+        run_session(stream, false, &config, stores, None).await;
     });
 
     let client = TcpStream::connect(addr).await.expect("connect");

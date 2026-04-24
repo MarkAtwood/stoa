@@ -111,3 +111,15 @@ Phase markers reset for new epic loop pass
 [22:26:33] REVIEW round 2: P0=1 P1=1 P2=1 — fixed P0 (closure param), P1 (error msg)
 [22:26:33] REVIEW round 3: P0=0 P1=0 P2=0 — stopping condition met
 [22:32:00] COORDINATOR: j6df complete — 6 beads, 2 review rounds, P0 bug found+fixed (closure param), 4 integration tests
+[22:32:13] COORDINATOR: starting new epic loop pass
+[22:32:35] COORDINATOR: claimed epic usenet-ipfs-usdm (STARTTLS)
+[23:34:26] COORDINATOR: phase2 complete — 341 reader tests, 281 transit tests, 4 xcid integration tests all pass
+[23:42:32] COORDINATOR: review round 1 for usenet-ipfs-usdm
+[00:00:06] REVIEW round 1: P0=0 P1=5 P2=6 — fixes applied
+[00:02:30] REVIEW round 1 fixes applied: P0=0 P1=0 P2=0 — stopping condition met
+[00:05:43] COORDINATOR: phase3 done — review converged after 1 round, P0=0 P1=0 P2=0
+[00:05:54] COORDINATOR: usenet-ipfs-usdm complete
+[00:06:44] COORDINATOR: claimed epic usenet-ipfs-l5fw (Injection provenance)
+[00:07:12] COORDINATOR: phase0+1 done — l5fw has 4 pre-existing beads
+[00:10:18] COORDINATOR: starting wave 0 — l5fw.1
+[00:23:46] COORDINATOR: l5fw.1 closed, starting l5fw.2

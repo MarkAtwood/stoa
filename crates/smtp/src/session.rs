@@ -13,6 +13,8 @@ use usenet_ipfs_auth::CredentialStore;
 
 use usenet_ipfs_core::util::epoch_to_rfc2822;
 
+use usenet_ipfs_core::InjectionSource;
+
 use crate::auth::verify_inbound;
 use crate::config::Config;
 use crate::metrics::{
@@ -804,12 +806,16 @@ async fn sieve_delivery(
                 }
                 usenet_ipfs_sieve::SieveAction::FileInto(folder) => {
                     if let Some(newsgroup) = folder.strip_prefix("newsgroup:") {
-                        let article = if routing::has_newsgroups_header(raw_bytes) {
-                            raw_bytes.to_vec()
-                        } else {
-                            routing::add_newsgroups_header(raw_bytes, newsgroup)
-                        };
-                        if let Err(e) = nntp_queue.enqueue(&article).await {
+                        let (article, injection_source) =
+                            if routing::has_newsgroups_header(raw_bytes) {
+                                (raw_bytes.to_vec(), InjectionSource::SmtpNewsgroups)
+                            } else {
+                                (
+                                    routing::add_newsgroups_header(raw_bytes, newsgroup),
+                                    InjectionSource::SmtpSieve,
+                                )
+                            };
+                        if let Err(e) = nntp_queue.enqueue(&article, injection_source).await {
                             warn!(peer = %peer_addr, %newsgroup, "NNTP queue write failed: {e}");
                             nntp_queue_error = true;
                         }

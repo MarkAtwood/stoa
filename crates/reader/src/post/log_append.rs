@@ -5,6 +5,7 @@ use usenet_ipfs_core::group_log::append::append as crdt_append;
 use usenet_ipfs_core::group_log::types::{LogEntry, LogEntryId};
 use usenet_ipfs_core::group_log::LogStorage;
 use usenet_ipfs_core::signing::SigningKey;
+use usenet_ipfs_core::InjectionSource;
 
 use crate::session::response::Response;
 use crate::store::article_numbers::ArticleNumberStore;
@@ -55,6 +56,7 @@ pub async fn append_to_groups<S: LogStorage>(
     article_cid: &Cid,
     signing_key: &SigningKey,
     newsgroups: &[GroupName],
+    injection_source: InjectionSource,
 ) -> Result<AppendResult, Response> {
     debug_assert_eq!(
         hlc_timestamps.len(),
@@ -65,40 +67,47 @@ pub async fn append_to_groups<S: LogStorage>(
     let mut assignments = Vec::with_capacity(newsgroups.len());
 
     for (group, &hlc_ts) in newsgroups.iter().zip(hlc_timestamps.iter()) {
-        let current_tips = log_storage
-            .list_tips(group)
-            .await
-            .map_err(|e| Response::new(441, format!("storage error listing tips: {e}")))?;
+        // Only write the group log entry (which replicates to peers) when the
+        // injection source is peerable.  SmtpListId articles are local-only.
+        if injection_source.is_peerable() {
+            let current_tips = log_storage
+                .list_tips(group)
+                .await
+                .map_err(|e| Response::new(441, format!("storage error listing tips: {e}")))?;
 
-        let parent_cids: Vec<Cid> = current_tips.iter().map(entry_id_to_cid).collect();
+            let parent_cids: Vec<Cid> = current_tips.iter().map(entry_id_to_cid).collect();
 
-        // Sign the log entry canonical bytes so the entry is independently
-        // verifiable without fetching the article from IPFS.
-        // canonical = hlc_timestamp (8 BE bytes) || article_cid || sorted parent_cids
-        let operator_signature = {
-            let mut canonical = Vec::new();
-            canonical.extend_from_slice(&hlc_ts.to_be_bytes());
-            canonical.extend_from_slice(&article_cid.to_bytes());
-            let mut parent_bytes: Vec<Vec<u8>> = parent_cids.iter().map(|c| c.to_bytes()).collect();
-            parent_bytes.sort();
-            for pb in &parent_bytes {
-                canonical.extend_from_slice(pb);
-            }
-            let sig = usenet_ipfs_core::signing::sign(signing_key, &canonical);
-            sig.to_bytes().to_vec()
-        };
+            // Sign the log entry canonical bytes so the entry is independently
+            // verifiable without fetching the article from IPFS.
+            // canonical = hlc_timestamp (8 BE bytes) || article_cid || sorted parent_cids
+            let operator_signature = {
+                let mut canonical = Vec::new();
+                canonical.extend_from_slice(&hlc_ts.to_be_bytes());
+                canonical.extend_from_slice(&article_cid.to_bytes());
+                let mut parent_bytes: Vec<Vec<u8>> =
+                    parent_cids.iter().map(|c| c.to_bytes()).collect();
+                parent_bytes.sort();
+                for pb in &parent_bytes {
+                    canonical.extend_from_slice(pb);
+                }
+                let sig = usenet_ipfs_core::signing::sign(signing_key, &canonical);
+                sig.to_bytes().to_vec()
+            };
 
-        let entry = LogEntry {
-            hlc_timestamp: hlc_ts,
-            article_cid: *article_cid,
-            operator_signature,
-            parent_cids,
-        };
+            let entry = LogEntry {
+                hlc_timestamp: hlc_ts,
+                article_cid: *article_cid,
+                operator_signature,
+                parent_cids,
+            };
 
-        crdt_append(log_storage, group, entry)
-            .await
-            .map_err(|e| Response::new(441, format!("log append failed for {group}: {e}")))?;
+            crdt_append(log_storage, group, entry)
+                .await
+                .map_err(|e| Response::new(441, format!("log append failed for {group}: {e}")))?;
+        }
 
+        // Article numbers and overview are always assigned regardless of source
+        // so that local readers can access all articles.
         let article_number = article_numbers
             .assign_number(group.as_str(), article_cid)
             .await
@@ -119,6 +128,7 @@ mod tests {
     use usenet_ipfs_core::group_log::MemLogStorage;
     use usenet_ipfs_core::hlc::HlcClock;
     use usenet_ipfs_core::signing::SigningKey;
+    use usenet_ipfs_core::InjectionSource;
 
     fn test_signing_key() -> SigningKey {
         SigningKey::from_bytes(&[0x42u8; 32])
@@ -164,6 +174,7 @@ mod tests {
             &cid,
             &test_signing_key(),
             &groups,
+            InjectionSource::NntpPost,
         )
         .await
         .unwrap();
@@ -192,6 +203,7 @@ mod tests {
             &cid,
             &test_signing_key(),
             &groups,
+            InjectionSource::NntpPost,
         )
         .await
         .unwrap();
@@ -223,6 +235,7 @@ mod tests {
             &cid1,
             &key,
             &group,
+            InjectionSource::NntpPost,
         )
         .await
         .unwrap();
@@ -235,6 +248,7 @@ mod tests {
             &cid2,
             &key,
             &group,
+            InjectionSource::NntpPost,
         )
         .await
         .unwrap();
@@ -259,6 +273,7 @@ mod tests {
             &cid,
             &test_signing_key(),
             &groups,
+            InjectionSource::NntpPost,
         )
         .await
         .unwrap();
@@ -267,6 +282,41 @@ mod tests {
         assert!(
             !tips.is_empty(),
             "log_storage must have at least one tip after append"
+        );
+    }
+
+    /// SmtpListId articles must get an article number (so local readers can
+    /// see them) but must NOT produce a group log entry (local-only, not
+    /// replicated to peers).
+    #[tokio::test]
+    async fn smtp_list_id_skips_log_but_assigns_number() {
+        let log_storage = MemLogStorage::new();
+        let (article_numbers, _tmp) = make_article_numbers().await;
+        let cid = test_cid(b"article-list-id");
+        let group_name = GroupName::new("comp.lang.rust").unwrap();
+        let groups = vec![group_name.clone()];
+        let timestamps = test_timestamps(groups.len());
+
+        let result = append_to_groups(
+            &log_storage,
+            &article_numbers,
+            &timestamps,
+            &cid,
+            &test_signing_key(),
+            &groups,
+            InjectionSource::SmtpListId,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result.assignments.len(), 1, "must still get an assignment");
+        assert_eq!(result.assignments[0].0, "comp.lang.rust");
+        assert_eq!(result.assignments[0].1, 1, "article number must be assigned");
+
+        let tips = log_storage.list_tips(&group_name).await.unwrap();
+        assert!(
+            tips.is_empty(),
+            "SmtpListId must not produce a group log entry; got {tips:?}"
         );
     }
 }

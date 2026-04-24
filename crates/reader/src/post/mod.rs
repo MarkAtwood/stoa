@@ -1,5 +1,6 @@
 pub mod did_passthrough;
 pub mod did_verify;
+pub mod injection;
 pub mod ipfs_write;
 pub mod log_append;
 pub mod pipeline;

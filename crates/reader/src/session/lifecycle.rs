@@ -13,6 +13,7 @@ use crate::{
     config::Config,
     post::{
         find_header_boundary,
+        injection::extract_injection_source,
         ipfs_write::{write_ipld_article_to_ipfs, IpfsBlockStore},
         log_append::append_to_groups,
         pipeline::check_duplicate_msgid,
@@ -629,18 +630,27 @@ async fn run_session_io<S>(
 /// Validate and store a POSTed article through the full pipeline.
 ///
 /// Steps:
-/// 1. Validate headers via `complete_post` (sync).
-/// 2. Check for duplicate message-id.
-/// 3. Sign the article with the operator key.
-/// 4. Generate HLC timestamps (one per destination group).
-/// 5. Write signed bytes to IPFS as an IPLD block set (DAG-CBOR root, 0x71)
+/// 1. Extract and remove the `X-Usenet-IPFS-Injection-Source:` header (if
+///    present) to determine the injection source.
+/// 2. Validate headers via `complete_post` (sync).
+/// 3. Check for duplicate message-id.
+/// 4. Sign the article with the operator key.
+/// 5. Generate HLC timestamps (one per destination group).
+/// 6. Write signed bytes to IPFS as an IPLD block set (DAG-CBOR root, 0x71)
 ///    and record the msgid → root CID mapping.
-/// 6. Append to group logs and assign local article numbers.
-/// 7. Index overview fields.
+/// 7. Append to group logs (peerable sources only) and assign local article
+///    numbers (always).
+/// 8. Index overview fields.
 ///
 /// Returns 240 on success or a 441 error response on failure.
 async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Response {
-    // Step 1: Validate headers.
+    // Step 1: Extract injection source and strip the internal header so it
+    // is not stored in IPFS or seen by downstream validation.
+    let mut article_bytes = article_bytes.to_vec();
+    let injection_source = extract_injection_source(&mut article_bytes);
+    let article_bytes = article_bytes.as_slice();
+
+    // Step 2: Validate headers.
     if let Err(resp) = complete_post(article_bytes, DEFAULT_MAX_ARTICLE_BYTES, None) {
         return resp;
     }
@@ -651,7 +661,7 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
         Err(resp) => return resp,
     };
 
-    // Step 2: Duplicate check.
+    // Step 3: Duplicate check.
     if let Err(resp) = check_duplicate_msgid(&stores.msgid_map, &message_id).await {
         return resp;
     }
@@ -687,13 +697,13 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
         }
     };
 
-    // Step 3: Sign the article.
+    // Step 4: Sign the article.
     // Produces signed_bytes with the X-Usenet-IPFS-Sig header inserted.
     // The group log entry signature is computed separately over log entry
     // canonical bytes inside append_to_groups, where parent CIDs are known.
     let (signed_bytes, _) = sign_article(&stores.signing_key, article_bytes);
 
-    // Step 4: Generate HLC timestamps under the clock mutex, then release
+    // Step 5: Generate HLC timestamps under the clock mutex, then release
     // before any async I/O so concurrent POSTs are not serialised by it.
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -710,7 +720,7 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
     let primary_hlc = hlc_timestamps.first().copied().unwrap_or(now_ms);
     let newsgroups_str: Vec<String> = newsgroups.iter().map(|g| g.as_str().to_owned()).collect();
 
-    // Step 5: Write to IPFS as a proper IPLD block set (root CID codec 0x71)
+    // Step 6: Write to IPFS as a proper IPLD block set (root CID codec 0x71)
     // and record msgid → root CID.
     let cid = match write_ipld_article_to_ipfs(
         stores.ipfs_store.as_ref(),
@@ -726,7 +736,8 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
         Err(resp) => return resp,
     };
 
-    // Step 6: Append to group logs and assign article numbers.
+    // Step 7: Append to group logs (peerable sources only) and assign article
+    // numbers (always, so local readers see every article).
     let append_result = match append_to_groups(
         stores.log_storage.as_ref(),
         &stores.article_numbers,
@@ -734,6 +745,7 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
         &cid,
         &stores.signing_key,
         &newsgroups,
+        injection_source,
     )
     .await
     {
@@ -741,7 +753,7 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
         Err(resp) => return resp,
     };
 
-    // Step 7: Index overview fields for each assigned (group, article_number).
+    // Step 8: Index overview fields for each assigned (group, article_number).
     let (header_bytes, body_bytes) = split_article(&signed_bytes);
     let mut overview = extract_overview(&header_bytes, &body_bytes);
     overview.did_sig_valid = did_sig_valid;
@@ -752,7 +764,7 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
         }
     }
 
-    // Step 8: Best-effort full-text search indexing.
+    // Step 9: Best-effort full-text search indexing.
     // Failures are logged but never cause the POST to fail.
     if let Some(ref idx) = stores.search_index {
         for (group, article_number) in &append_result.assignments {
@@ -778,7 +790,7 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
         }
     }
 
-    // Step 9: Best-effort SMTP relay for email recipients.
+    // Step 10: Best-effort SMTP relay for email recipients.
     // Enqueue only when the article has email addresses in To: or Cc:.
     // Failure is non-fatal — POST already succeeded.
     maybe_enqueue_smtp_relay(stores.smtp_relay_queue.as_ref(), &signed_bytes).await;

@@ -117,7 +117,7 @@ async fn e2e_post_group_over_article() {
     let stores2 = stores.clone();
     tokio::spawn(async move {
         let (stream, _) = listener.accept().await.unwrap();
-        run_session(stream, false, &config2, stores2).await;
+        run_session(stream, false, &config2, stores2, None).await;
     });
 
     let stream = TcpStream::connect(addr).await.unwrap();
@@ -245,7 +245,7 @@ async fn authinfo_rate_limiter_closes_after_max_failures() {
     let stores2 = stores.clone();
     tokio::spawn(async move {
         let (stream, _) = listener.accept().await.unwrap();
-        run_session(stream, false, &config2, stores2).await;
+        run_session(stream, false, &config2, stores2, None).await;
     });
 
     let stream = TcpStream::connect(addr).await.unwrap();

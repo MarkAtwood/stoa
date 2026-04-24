@@ -260,7 +260,7 @@ async fn nntp_conformance_via_nntplib() {
                 let (stream, _) = listener.accept().await.unwrap();
                 let s = Arc::clone(&stores);
                 let c = Arc::clone(&config);
-                tokio::spawn(async move { run_session(stream, false, &c, s).await });
+                tokio::spawn(async move { run_session(stream, false, &c, s, None).await });
             }
         });
     }
