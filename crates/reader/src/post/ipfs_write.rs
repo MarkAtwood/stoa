@@ -247,6 +247,18 @@ pub fn build_block_store(
                 let cache_dir = kubo_cfg.cache_path.as_ref().map(std::path::PathBuf::from);
                 Ok(Arc::new(KuboBlockStore::new(&kubo_cfg.api_url, cache_dir)))
             }
+            BackendType::Lmdb => {
+                let lmdb_cfg = backend
+                    .lmdb
+                    .as_ref()
+                    .ok_or("backend.type = 'lmdb' requires a [backend.lmdb] section")?;
+                let store = super::lmdb_store::LmdbBlockStore::open(
+                    std::path::Path::new(&lmdb_cfg.path),
+                    lmdb_cfg.map_size_gb,
+                )
+                .map_err(|e| format!("LMDB store init failed: {e}"))?;
+                Ok(Arc::new(store))
+            }
             BackendType::S3 => Err("S3 backend is not yet implemented".to_string()),
             BackendType::Filesystem => Err("filesystem backend is not yet implemented".to_string()),
         }

@@ -11,5 +11,7 @@ members = [
     "crates/smtp",
     "crates/imap",
     "crates/verify",
+    "crates/lmdb",
+    "crates/ctl",
     "crates/integration-tests",
 ]

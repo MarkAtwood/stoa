@@ -203,6 +203,19 @@ pub fn build_store(config: &crate::config::Config) -> Result<StoreBuildResult, S
             }
             BackendType::S3 => Err("S3 backend is not yet implemented".to_string()),
             BackendType::Filesystem => Err("filesystem backend is not yet implemented".to_string()),
+            BackendType::Lmdb => {
+                let lmdb_cfg = backend
+                    .lmdb
+                    .as_ref()
+                    .ok_or("backend.type = 'lmdb' requires a [backend.lmdb] section")?;
+                let store =
+                    lmdb_store::LmdbStore::open(std::path::Path::new(&lmdb_cfg.path), lmdb_cfg.map_size_gb)
+                        .map_err(|e| format!("LMDB store init failed: {e}"))?;
+                Ok(StoreBuildResult {
+                    store: Arc::new(store),
+                    kubo_client: None,
+                })
+            }
         }
     } else {
         // Backward-compat: use legacy [ipfs] section.

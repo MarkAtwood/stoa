@@ -159,7 +159,7 @@ async fn run_startup_checks(config: &usenet_ipfs_transit::config::Config) -> Vec
     // Signing key check.
     if let Some(ref path) = config.operator.signing_key_path {
         if let Err(e) = usenet_ipfs_core::signing::load_signing_key(std::path::Path::new(path)) {
-            errors.push(format!("{e}"));
+            errors.push(e.to_string());
         }
     }
 

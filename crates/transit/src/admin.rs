@@ -12,6 +12,9 @@
 //! - `GET /metrics`          — Prometheus text format (delegates to [`crate::metrics`])
 //! - `GET /pinning/remote`   — per-service job counts from the remote pin jobs table
 //! - `GET /ipns`             — IPNS address and latest article CID per group
+//! - `GET /version`          — binary name and semver version
+//! - `GET /groups`           — distinct group names known to this node
+//! - `POST /reload`          — signal daemon to reload config (stub, returns `{"reloaded":true}`)
 
 use sqlx::SqlitePool;
 use std::collections::HashMap;
@@ -227,7 +230,11 @@ async fn handle_admin_connection(
         tracing::debug!("admin request accepted: no bearer token configured");
     }
 
-    if method != "GET" {
+    let method_ok = match path {
+        "/reload" => method == "POST",
+        _ => method == "GET",
+    };
+    if !method_ok {
         write_json(
             &mut writer,
             405,
@@ -361,6 +368,25 @@ async fn handle_admin_connection(
                 .await?;
             }
         },
+        "/version" => {
+            write_json(&mut writer, 200, "OK", &build_version_json()).await?;
+        }
+        "/groups" => match build_groups_json(pool).await {
+            Ok(body) => write_json(&mut writer, 200, "OK", &body).await?,
+            Err(e) => {
+                tracing::warn!("admin /groups error: {e}");
+                write_json(
+                    &mut writer,
+                    500,
+                    "Internal Server Error",
+                    r#"{"error":"internal server error"}"#,
+                )
+                .await?;
+            }
+        },
+        "/reload" => {
+            write_json(&mut writer, 200, "OK", r#"{"reloaded":true}"#).await?;
+        }
         _ => {
             write_json(&mut writer, 404, "Not Found", r#"{"error":"not found"}"#).await?;
         }
@@ -608,6 +634,25 @@ pub(crate) async fn build_ipns_json(
     Ok(obj.to_string())
 }
 
+pub(crate) fn build_version_json() -> String {
+    serde_json::json!({
+        "version": env!("CARGO_PKG_VERSION"),
+        "binary": env!("CARGO_PKG_NAME"),
+    })
+    .to_string()
+}
+
+pub(crate) async fn build_groups_json(pool: &SqlitePool) -> Result<String, sqlx::Error> {
+    let rows: Vec<(String,)> =
+        sqlx::query_as("SELECT DISTINCT group_name FROM articles ORDER BY group_name")
+            .fetch_all(pool)
+            .await
+            .unwrap_or_default();
+
+    let groups: Vec<&str> = rows.iter().map(|(g,)| g.as_str()).collect();
+    Ok(serde_json::to_string(&groups).unwrap_or_else(|_| "[]".to_string()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -828,6 +873,29 @@ mod tests {
             "must return newest CID, not older: {json}"
         );
         assert_eq!(groups.len(), 1, "one group in output: {json}");
+    }
+
+    /// `build_version_json` returns an object with `version` and `binary` string fields.
+    #[test]
+    fn version_json_has_required_fields() {
+        let json = build_version_json();
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert!(v["version"].is_string(), "version must be a string: {json}");
+        assert!(v["binary"].is_string(), "binary must be a string: {json}");
+    }
+
+    /// `build_groups_json` returns an empty array when the articles table is empty.
+    #[tokio::test]
+    async fn groups_returns_empty_array_on_empty_db() {
+        let pool = make_pool().await;
+        let json = build_groups_json(&pool).await.unwrap();
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert!(v.is_array(), "expected JSON array: {json}");
+        assert_eq!(
+            v.as_array().unwrap().len(),
+            0,
+            "expected empty array: {json}"
+        );
     }
 
     /// Groups appear in alphabetical order in the JSON output.

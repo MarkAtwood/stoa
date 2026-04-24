@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod backpressure;
+pub mod lmdb_store;
 pub mod blacklist;
 pub mod feed_negotiation;
 pub mod ingestion;

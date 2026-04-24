@@ -1,0 +1,18 @@
+[package]
+name = "usenet-ipfs-lmdb"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+
+# FFI boundary crate: wraps the LMDB C library via heed.
+# unsafe code is contained here so higher-level crates can stay #![forbid(unsafe_code)].
+
+[lib]
+name = "usenet_ipfs_lmdb"
+path = "src/lib.rs"
+
+[dependencies]
+heed = "0.22"
+
+[dev-dependencies]
+tempfile = "3"

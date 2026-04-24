@@ -27,6 +27,9 @@ pub struct BackendConfig {
     /// Filesystem-specific settings (not yet implemented).
     #[serde(default)]
     pub filesystem: Option<FsBackendConfig>,
+    /// LMDB-specific settings.  Required when `type = "lmdb"`.
+    #[serde(default)]
+    pub lmdb: Option<LmdbBackendConfig>,
 }
 
 /// Backend type discriminator.
@@ -36,6 +39,7 @@ pub enum BackendType {
     Kubo,
     S3,
     Filesystem,
+    Lmdb,
 }
 
 /// Configuration for the Kubo HTTP RPC backend.
@@ -54,6 +58,21 @@ pub struct S3BackendConfig {}
 pub struct FsBackendConfig {
     /// Root directory for block files.
     pub path: String,
+}
+
+/// Configuration for the LMDB block store backend.
+#[derive(Debug, Deserialize, Clone)]
+pub struct LmdbBackendConfig {
+    /// Directory for the LMDB environment.  Created at startup if absent.
+    pub path: String,
+    /// Virtual address space reservation in GiB.  Default: 1024 (1 TiB).
+    /// Does not pre-allocate disk space on 64-bit systems.
+    #[serde(default = "default_lmdb_map_size_gb")]
+    pub map_size_gb: u64,
+}
+
+fn default_lmdb_map_size_gb() -> u64 {
+    1024
 }
 
 // Config fields are read from TOML; server logic will consume them as epics are implemented.

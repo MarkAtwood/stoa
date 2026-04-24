@@ -7,6 +7,8 @@
 //! Endpoints:
 //! - `GET /health`   — liveness check (`{"status":"ok"}`)
 //! - `GET /metrics`  — Prometheus text format
+//! - `GET /version`  — binary name and semver version
+//! - `POST /reload`  — signal daemon to reload config (stub, returns `{"reloaded":true}`)
 
 use std::time::Instant;
 use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
@@ -108,7 +110,11 @@ async fn handle_admin_connection(
         return Ok(());
     }
 
-    if method != "GET" {
+    let method_ok = match path {
+        "/reload" => method == "POST",
+        _ => method == "GET",
+    };
+    if !method_ok {
         write_json(
             &mut writer,
             405,
@@ -132,6 +138,12 @@ async fn handle_admin_connection(
                 "HTTP/1.1 200 OK\r\nContent-Type: text/plain; version=0.0.4\r\nContent-Length: {content_length}\r\n\r\n{body}"
             );
             writer.write_all(response.as_bytes()).await?;
+        }
+        "/version" => {
+            write_json(&mut writer, 200, "OK", &build_version_json()).await?;
+        }
+        "/reload" => {
+            write_json(&mut writer, 200, "OK", r#"{"reloaded":true}"#).await?;
         }
         _ => {
             write_json(&mut writer, 404, "Not Found", r#"{"error":"not found"}"#).await?;
@@ -163,6 +175,14 @@ pub(crate) fn check_bearer_token(auth_header: Option<&str>, bearer_token: Option
             }
         }
     }
+}
+
+pub(crate) fn build_version_json() -> String {
+    serde_json::json!({
+        "version": env!("CARGO_PKG_VERSION"),
+        "binary": env!("CARGO_PKG_NAME"),
+    })
+    .to_string()
 }
 
 async fn write_json<W: AsyncWrite + Unpin>(
@@ -204,6 +224,14 @@ mod tests {
     fn no_token_configured_always_passes() {
         assert!(check_bearer_token(None, None));
         assert!(check_bearer_token(Some("anything"), None));
+    }
+
+    #[test]
+    fn version_json_has_required_fields() {
+        let json = build_version_json();
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert!(v["version"].is_string(), "version must be a string: {json}");
+        assert!(v["binary"].is_string(), "binary must be a string: {json}");
     }
 
     #[test]
