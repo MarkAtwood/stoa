@@ -78,15 +78,24 @@ pub async fn verify_dkim_headers(
 
 #[cfg(test)]
 mod tests {
+    use hickory_resolver::config::{ResolverConfig, ResolverOpts};
+
     use super::*;
 
-    /// Under test cfg, mail-auth DNS resolver returns NXDomain for all lookups,
-    /// so a real DKIM-Signature will result in a TempError or NoKey.
-    /// This test just confirms the function returns results without panicking
-    /// on a well-formed article.
+    /// Create a `MessageAuthenticator` with no nameservers configured.
+    ///
+    /// An empty `ResolverConfig` has no nameservers, so all DNS lookups fail
+    /// immediately without making any network connections.  This keeps tests
+    /// fully offline — no Cloudflare DoT or any other external resolver is
+    /// contacted.
+    fn offline_authenticator() -> MessageAuthenticator {
+        MessageAuthenticator::new(ResolverConfig::default(), ResolverOpts::default())
+            .expect("empty resolver config must succeed")
+    }
+
     #[tokio::test]
     async fn no_dkim_header_returns_empty() {
-        let authenticator = MessageAuthenticator::new_cloudflare_tls().unwrap();
+        let authenticator = offline_authenticator();
         let article = b"From: test@example.com\r\nSubject: Test\r\n\r\nBody.\r\n";
         let results = verify_dkim_headers(&authenticator, article).await;
         assert!(
@@ -97,7 +106,7 @@ mod tests {
 
     #[tokio::test]
     async fn malformed_article_returns_parse_error() {
-        let authenticator = MessageAuthenticator::new_cloudflare_tls().unwrap();
+        let authenticator = offline_authenticator();
         // Completely malformed bytes that mail-auth cannot parse as an email.
         let bad = b"\x00\x01\x02";
         let results = verify_dkim_headers(&authenticator, bad).await;

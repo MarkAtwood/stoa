@@ -165,6 +165,63 @@ pub async fn test_duplicate_insert_rejected(storage: &impl LogStorage) {
     );
 }
 
+/// `advance_tips` removes the specified parents and adds the new tip.
+pub async fn test_advance_tips_basic(storage: &impl LogStorage) {
+    let group = make_group("comp.advance");
+    let old1 = make_id(0x50);
+    let old2 = make_id(0x51);
+    let new_tip = make_id(0x52);
+
+    // Set two initial tips.
+    storage
+        .set_tips(&group, &[old1.clone(), old2.clone()])
+        .await
+        .expect("set_tips initial");
+
+    // Advance: remove old1, keep old2, add new_tip.
+    storage
+        .advance_tips(&group, std::slice::from_ref(&old1), &new_tip)
+        .await
+        .expect("advance_tips should succeed");
+
+    let tips = storage.list_tips(&group).await.expect("list_tips");
+    let tip_bytes: Vec<[u8; 32]> = tips.iter().map(|id| *id.as_bytes()).collect();
+    assert!(!tip_bytes.contains(old1.as_bytes()), "old1 must be removed");
+    assert!(tip_bytes.contains(old2.as_bytes()), "old2 must survive");
+    assert!(tip_bytes.contains(new_tip.as_bytes()), "new_tip must be added");
+    assert_eq!(tips.len(), 2, "must have exactly 2 tips: old2 and new_tip");
+}
+
+/// Concurrent appends sharing the same parent both survive as tips.
+pub async fn test_advance_tips_concurrent(storage: &impl LogStorage) {
+    let group = make_group("comp.concurrent");
+    let parent = make_id(0x60);
+    let tip_a = make_id(0x61);
+    let tip_b = make_id(0x62);
+
+    storage
+        .set_tips(&group, std::slice::from_ref(&parent))
+        .await
+        .expect("set_tips parent");
+
+    // Simulate two concurrent appends that both remove `parent`.
+    storage
+        .advance_tips(&group, std::slice::from_ref(&parent), &tip_a)
+        .await
+        .expect("advance_tips A");
+    storage
+        .advance_tips(&group, std::slice::from_ref(&parent), &tip_b)
+        .await
+        .expect("advance_tips B");
+
+    let tips = storage.list_tips(&group).await.expect("list_tips");
+    let tip_bytes: Vec<[u8; 32]> = tips.iter().map(|id| *id.as_bytes()).collect();
+    assert!(!tip_bytes.contains(parent.as_bytes()), "parent must be gone");
+    assert!(tip_bytes.contains(tip_a.as_bytes()), "tip_a must survive");
+    assert!(tip_bytes.contains(tip_b.as_bytes()), "tip_b must survive");
+    assert_eq!(tips.len(), 2, "both concurrent tips must be present");
+}
+
 pub async fn test_tips_are_group_scoped(storage: &impl LogStorage) {
     let group_a = make_group("alt.test");
     let group_b = make_group("misc.test");

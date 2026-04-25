@@ -5,34 +5,32 @@
 //! found, to prevent a timing oracle on username existence.
 
 use std::collections::HashMap;
-use std::sync::OnceLock;
 
 use crate::config::UserCredential;
 
-/// Pre-computed dummy bcrypt hash for timing-attack prevention.
+/// Extract the cost factor from a bcrypt hash string.
 ///
-/// Lazily initialised on first `check()` call. A real bcrypt hash at the same
-/// cost as production hashes ensures `bcrypt::verify` performs a full
-/// computation even when the username is unknown.
-static DUMMY_HASH: OnceLock<String> = OnceLock::new();
-
-fn dummy_hash() -> &'static str {
-    DUMMY_HASH.get_or_init(|| {
-        bcrypt::hash("__dummy__never_matches__", bcrypt::DEFAULT_COST)
-            .expect("bcrypt::hash must not fail with a valid cost")
-    })
+/// bcrypt hash format: `$2b$NN$...` where NN is the cost factor (two decimal digits).
+fn parse_bcrypt_cost(hash: &str) -> Option<u32> {
+    let mut parts = hash.splitn(4, '$');
+    parts.next(); // empty before first $
+    parts.next(); // version ("2b", "2y", etc.)
+    parts.next()?.parse::<u32>().ok()
 }
 
-/// Synchronous bcrypt verification for use in non-async contexts.
+/// Compute a dummy bcrypt hash at the same cost as the configured hashes.
 ///
-/// `hash`: the bcrypt hash for the found username, or `None` when the username
-/// is not found. In both cases, a bcrypt verification is performed against
-/// `dummy_hash()` or the real hash, preventing timing oracles on username
-/// existence. Returns `true` only when `hash` is `Some` and the password
-/// matches.
-pub fn verify_bcrypt_sync(hash: Option<&str>, password: &str) -> bool {
-    let hash = hash.unwrap_or_else(|| dummy_hash());
-    bcrypt::verify(password, hash).unwrap_or(false) && hash != dummy_hash()
+/// Inspects the entries map and extracts the cost from the first valid bcrypt
+/// hash found. Falls back to `DEFAULT_COST` if the map is empty or no cost
+/// can be parsed. This ensures the dummy hash takes the same time to verify
+/// as a real credential hash, preventing timing oracles on username existence.
+fn make_dummy_hash(entries: &HashMap<String, String>) -> String {
+    let cost = entries
+        .values()
+        .find_map(|h| parse_bcrypt_cost(h))
+        .unwrap_or(bcrypt::DEFAULT_COST);
+    bcrypt::hash("__dummy__never_matches__", cost)
+        .expect("bcrypt::hash must not fail with a valid cost")
 }
 
 /// Bcrypt-hashed credential store.
@@ -41,6 +39,11 @@ pub fn verify_bcrypt_sync(hash: Option<&str>, password: &str) -> bool {
 pub struct CredentialStore {
     /// Lowercase username → bcrypt hash.
     entries: HashMap<String, String>,
+    /// Pre-computed dummy hash at the same cost as production hashes.
+    ///
+    /// Used for timing-attack prevention: `check()` always calls
+    /// `bcrypt::verify`, even when the username is not found.
+    dummy_hash: String,
 }
 
 impl CredentialStore {
@@ -50,18 +53,19 @@ impl CredentialStore {
     /// bcrypt hash (not a plaintext password). Usernames are normalised to
     /// ASCII-lowercase.
     pub fn from_credentials(users: &[UserCredential]) -> Self {
-        let entries = users
+        let entries: HashMap<String, String> = users
             .iter()
             .map(|u| (u.username.to_ascii_lowercase(), u.password.clone()))
             .collect();
-        Self { entries }
+        let dummy_hash = make_dummy_hash(&entries);
+        Self { entries, dummy_hash }
     }
 
     /// Return an empty `CredentialStore` (no users configured; all checks fail).
     pub fn empty() -> Self {
-        Self {
-            entries: HashMap::new(),
-        }
+        let entries = HashMap::new();
+        let dummy_hash = make_dummy_hash(&entries);
+        Self { entries, dummy_hash }
     }
 
     /// Build a `CredentialStore` from a credential file at `path`.
@@ -89,14 +93,17 @@ impl CredentialStore {
             }
             entries.insert(user, hash);
         }
-        Ok(Self { entries })
+        let dummy_hash = make_dummy_hash(&entries);
+        Ok(Self { entries, dummy_hash })
     }
 
     /// Merge credentials from a file into an existing store, overwriting
-    /// any duplicate usernames with the file's version.
+    /// any duplicate usernames with the file's version. The dummy hash is
+    /// recomputed to match the cost of the updated entry set.
     pub fn merge_from_file(&mut self, path: &str) -> Result<(), String> {
         let other = Self::from_file(path)?;
         self.entries.extend(other.entries);
+        self.dummy_hash = make_dummy_hash(&self.entries);
         Ok(())
     }
 
@@ -111,13 +118,13 @@ impl CredentialStore {
         // Always run bcrypt::verify even for unknown usernames.  Without this,
         // a user-not-found path completes in microseconds while a known-username
         // path takes ~100ms (bcrypt work factor), leaking the username set via
-        // timing measurement.  dummy_hash() returns a precomputed hash at the
-        // same cost factor so verify() always performs a full computation.
+        // timing measurement.  dummy_hash is precomputed at the same cost factor
+        // as production hashes so verify() always performs a full computation.
         let hash = self
             .entries
             .get(&username.to_ascii_lowercase())
             .cloned()
-            .unwrap_or_else(|| dummy_hash().to_string());
+            .unwrap_or_else(|| self.dummy_hash.clone());
         let password = password.to_string();
         tokio::task::spawn_blocking(move || bcrypt::verify(&password, &hash).unwrap_or(false))
             .await
@@ -132,9 +139,10 @@ mod tests {
     fn store_with_alice() -> CredentialStore {
         // Cost 4 for fast tests (minimum valid bcrypt cost).
         let hash = bcrypt::hash("correct-horse", 4).expect("bcrypt::hash must not fail");
-        CredentialStore {
-            entries: HashMap::from([("alice".to_string(), hash)]),
-        }
+        CredentialStore::from_credentials(&[UserCredential {
+            username: "alice".into(),
+            password: hash,
+        }])
     }
 
     #[tokio::test]
@@ -223,10 +231,10 @@ mod tests {
     async fn merge_from_file_overrides_inline() {
         let inline_hash = bcrypt::hash("inline-pass", 4).unwrap();
         let file_hash = bcrypt::hash("file-pass", 4).unwrap();
-        // Alice in inline store with inline-pass.
-        let mut store = CredentialStore {
-            entries: HashMap::from([("alice".to_string(), inline_hash)]),
-        };
+        let mut store = CredentialStore::from_credentials(&[UserCredential {
+            username: "alice".into(),
+            password: inline_hash,
+        }]);
         // File has alice with file-pass (overrides) + bob.
         let contents = format!("alice:{file_hash}\nbob:{}\n", bcrypt::hash("b", 4).unwrap());
         let tmp = tempfile::NamedTempFile::new().unwrap();

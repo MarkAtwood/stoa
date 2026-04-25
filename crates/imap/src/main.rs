@@ -1,7 +1,13 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
+
+use tokio::sync::Semaphore;
+use tokio_rustls::TlsAcceptor;
 use tracing::{error, info};
 
-use stoa_imap::config::Config;
+use stoa_imap::{
+    config::Config,
+    listener::{run_plain_listener, run_tls_listener},
+};
 
 fn parse_args() -> PathBuf {
     let args: Vec<String> = std::env::args().collect();
@@ -50,7 +56,82 @@ async fn main() {
 
     info!(addr = %config.listen.addr, "stoa-imap starting");
 
-    // Session listener will be wired in r8u.4 (TLS listener) and r8u.5 (session state machine).
-    error!("IMAP listener not yet implemented — stubs pending r8u.4 and r8u.5");
-    std::process::exit(1);
+    // Open SQLite pool and run migrations.
+    let db_url = format!("sqlite:{}", config.database.path);
+    let pool = match sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(10)
+        .connect(&db_url)
+        .await
+    {
+        Ok(p) => Arc::new(p),
+        Err(e) => {
+            error!("failed to open IMAP database at {}: {e}", config.database.path);
+            std::process::exit(1);
+        }
+    };
+
+    if let Err(e) = sqlx::migrate!("./migrations").run(&*pool).await {
+        error!("IMAP database migration failed: {e}");
+        std::process::exit(1);
+    }
+
+    // Build TLS acceptor if cert and key are configured.
+    let tls_acceptor: Option<Arc<TlsAcceptor>> = match (
+        config.tls.cert_path.as_deref(),
+        config.tls.key_path.as_deref(),
+    ) {
+        (Some(cert), Some(key)) => match stoa_tls::load_tls_server_config(cert, key) {
+            Ok(server_config) => {
+                info!(cert, "IMAP TLS acceptor loaded");
+                Some(Arc::new(TlsAcceptor::from(server_config)))
+            }
+            Err(e) => {
+                error!("failed to load TLS configuration: {e}");
+                std::process::exit(1);
+            }
+        },
+        _ => None,
+    };
+
+    // Semaphore enforces config.limits.max_connections across both listeners.
+    let semaphore = Arc::new(Semaphore::new(config.limits.max_connections));
+    let config = Arc::new(config);
+
+    // Optional IMAPS (implicit TLS) listener.
+    let tls_future: std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> =
+        if config.listen.tls_addr.is_some() {
+            match tls_acceptor.clone() {
+                Some(acceptor) => Box::pin(run_tls_listener(
+                    config.clone(),
+                    acceptor,
+                    pool.clone(),
+                    semaphore.clone(),
+                )),
+                None => {
+                    error!("listen.tls_addr is set but tls.cert_path/key_path are not configured");
+                    std::process::exit(1);
+                }
+            }
+        } else {
+            Box::pin(std::future::pending())
+        };
+
+    tokio::select! {
+        _ = run_plain_listener(config.clone(), pool, semaphore) => {}
+        _ = tls_future => {}
+        _ = tokio::signal::ctrl_c() => {
+            info!("received CTRL-C, shutting down");
+        }
+        _ = sigterm() => {
+            info!("received SIGTERM, shutting down");
+        }
+    }
+
+    info!("stoa-imap stopped");
+}
+
+async fn sigterm() {
+    use tokio::signal::unix::{signal, SignalKind};
+    let mut stream = signal(SignalKind::terminate()).expect("failed to install SIGTERM handler");
+    stream.recv().await;
 }

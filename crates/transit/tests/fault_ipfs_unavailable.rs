@@ -11,7 +11,7 @@
 
 use async_trait::async_trait;
 use cid::Cid;
-use ed25519_dalek::{Signer, SigningKey};
+use ed25519_dalek::SigningKey;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::str::FromStr as _;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -125,7 +125,7 @@ fn make_timestamp() -> HlcTimestamp {
 fn make_ctx(key: &SigningKey) -> PipelineCtx<'static> {
     PipelineCtx {
         timestamp: make_timestamp(),
-        operator_signature: key.sign(b""),
+        operator_signing_key: Arc::new(key.clone()),
         gossip_tx: None,
         sender_peer_id: "test-peer",
         local_hostname: "test.local",

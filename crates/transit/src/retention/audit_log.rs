@@ -21,24 +21,6 @@ pub struct GcAuditRecord {
     pub reason: String,
 }
 
-/// Ensure the gc_audit_log table exists.
-pub async fn ensure_audit_table(pool: &SqlitePool) -> Result<(), StorageError> {
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS gc_audit_log (\
-            id INTEGER PRIMARY KEY AUTOINCREMENT,\
-            cid TEXT NOT NULL,\
-            group_name TEXT NOT NULL,\
-            ingested_at_ms INTEGER NOT NULL,\
-            gc_at_ms INTEGER NOT NULL,\
-            reason TEXT NOT NULL\
-        )",
-    )
-    .execute(pool)
-    .await
-    .map_err(|e| StorageError::Database(e.to_string()))?;
-    Ok(())
-}
-
 /// Append a GC audit record. Never updates existing records.
 pub async fn append_audit_record(
     pool: &SqlitePool,

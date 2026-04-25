@@ -68,6 +68,24 @@ impl LogStorage for MemLogStorage {
         Ok(())
     }
 
+    async fn advance_tips(
+        &self,
+        group: &GroupName,
+        parents_to_remove: &[LogEntryId],
+        new_tip: &LogEntryId,
+    ) -> Result<(), StorageError> {
+        let parent_set: std::collections::HashSet<[u8; 32]> =
+            parents_to_remove.iter().map(|id| *id.as_bytes()).collect();
+        let mut map = self.tips.write().await;
+        let current = map.entry(group.as_str().to_owned()).or_default();
+        current.retain(|id| !parent_set.contains(id));
+        let new_raw = *new_tip.as_bytes();
+        if !current.contains(&new_raw) {
+            current.push(new_raw);
+        }
+        Ok(())
+    }
+
     async fn tip_count(&self, group: &GroupName) -> Result<u64, StorageError> {
         let map = self.tips.read().await;
         let count = map.get(group.as_str()).map(|v| v.len() as u64).unwrap_or(0);
@@ -108,5 +126,17 @@ mod tests {
     async fn mem_duplicate_insert_rejected() {
         let s = MemLogStorage::new();
         storage_tests::test_duplicate_insert_rejected(&s).await;
+    }
+
+    #[tokio::test]
+    async fn mem_advance_tips_basic() {
+        let s = MemLogStorage::new();
+        storage_tests::test_advance_tips_basic(&s).await;
+    }
+
+    #[tokio::test]
+    async fn mem_advance_tips_concurrent() {
+        let s = MemLogStorage::new();
+        storage_tests::test_advance_tips_concurrent(&s).await;
     }
 }

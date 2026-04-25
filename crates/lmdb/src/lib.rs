@@ -18,10 +18,49 @@
 //! `LmdbBlockDb` per path.
 
 use heed::types::Bytes;
-use heed::{Database, Env, EnvOpenOptions};
+use heed::{Database, Env, EnvOpenOptions, MdbError};
 use std::path::Path;
 
 type BlocksDb = Database<Bytes, Bytes>;
+
+/// Typed errors from LMDB operations.
+///
+/// Callers can match on `MapFull` or `ReadersFull` to handle those conditions
+/// differently (e.g. resize the map or back off and retry) rather than
+/// treating all failures as generic strings.
+#[derive(Debug)]
+pub enum LmdbError {
+    /// The LMDB map is full (`MDB_MAP_FULL`).  The environment must be
+    /// reopened with a larger `map_size`, or writes must be rejected.
+    MapFull,
+    /// The LMDB reader lock table is full (`MDB_READERS_FULL`).  Back off
+    /// and retry, or increase `max_readers` in the environment options.
+    ReadersFull,
+    /// Any other LMDB or I/O error.
+    Other(String),
+}
+
+impl std::fmt::Display for LmdbError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::MapFull => write!(f, "LMDB map full (MDB_MAP_FULL)"),
+            Self::ReadersFull => write!(f, "LMDB reader table full (MDB_READERS_FULL)"),
+            Self::Other(msg) => write!(f, "{msg}"),
+        }
+    }
+}
+
+impl std::error::Error for LmdbError {}
+
+impl From<heed::Error> for LmdbError {
+    fn from(e: heed::Error) -> Self {
+        match e {
+            heed::Error::Mdb(MdbError::MapFull) => Self::MapFull,
+            heed::Error::Mdb(MdbError::ReadersFull) => Self::ReadersFull,
+            other => Self::Other(other.to_string()),
+        }
+    }
+}
 
 /// A content-addressed block database backed by LMDB.
 ///
@@ -31,11 +70,6 @@ pub struct LmdbBlockDb {
     env: Env,
     db: BlocksDb,
 }
-
-// SAFETY: heed::Env is Send + Sync (it wraps an Arc<EnvInner>).
-// heed::Database<Bytes, Bytes> is Copy + Send + Sync (it is a u32 DBI handle).
-unsafe impl Send for LmdbBlockDb {}
-unsafe impl Sync for LmdbBlockDb {}
 
 impl LmdbBlockDb {
     /// Open or create the LMDB environment at `path`.
@@ -51,18 +85,33 @@ impl LmdbBlockDb {
     /// # Panics
     ///
     /// Does not panic.  All error conditions are returned as `Err`.
-    pub fn open(path: &Path, map_size_gb: u64) -> Result<Self, String> {
-        std::fs::create_dir_all(path)
-            .map_err(|e| format!("cannot create LMDB directory {}: {e}", path.display()))?;
+    pub fn open(path: &Path, map_size_gb: u64) -> Result<Self, LmdbError> {
+        std::fs::create_dir_all(path).map_err(|e| {
+            LmdbError::Other(format!(
+                "cannot create LMDB directory {}: {e}",
+                path.display()
+            ))
+        })?;
 
         // Reject map sizes that would overflow usize.  The config validator
         // catches this for production configs; this check defends callers (e.g.
         // tests) that call open() directly with an unchecked value.
+        //
+        // The cast `map_size_gb as usize` must be checked first: on 32-bit
+        // platforms usize is 32 bits and a large u64 would silently truncate
+        // before checked_mul runs, defeating the overflow check entirely.
         const GIB: usize = 1024 * 1024 * 1024;
-        let map_size = (map_size_gb as usize)
+        let map_size_gb_usize: usize = map_size_gb.try_into().map_err(|_| {
+            LmdbError::Other(format!(
+                "map_size_gb {map_size_gb} overflows usize on this platform"
+            ))
+        })?;
+        let map_size = map_size_gb_usize
             .checked_mul(GIB)
             .ok_or_else(|| {
-                format!("map_size_gb {map_size_gb} overflows usize on this platform")
+                LmdbError::Other(format!(
+                    "map_size_gb {map_size_gb} overflows usize on this platform"
+                ))
             })?;
 
         // SAFETY: We open this environment exactly once per process at this
@@ -73,14 +122,16 @@ impl LmdbBlockDb {
                 .map_size(map_size)
                 .max_dbs(1)
                 .open(path)
-                .map_err(|e| format!("LMDB open failed at {}: {e}", path.display()))?
+                .map_err(|e| {
+                    LmdbError::Other(format!("LMDB open failed at {}: {e}", path.display()))
+                })?
         };
 
-        let mut wtxn = env.write_txn().map_err(|e| e.to_string())?;
+        let mut wtxn = env.write_txn().map_err(LmdbError::from)?;
         let db: BlocksDb = env
             .create_database(&mut wtxn, Some("blocks"))
-            .map_err(|e| e.to_string())?;
-        wtxn.commit().map_err(|e| e.to_string())?;
+            .map_err(LmdbError::from)?;
+        wtxn.commit().map_err(LmdbError::from)?;
 
         Ok(Self { env, db })
     }
@@ -88,23 +139,23 @@ impl LmdbBlockDb {
     /// Store `value` under `key`.  Idempotent: re-writing the same key with
     /// the same value is a no-op from the caller's perspective (LMDB
     /// overwrites silently).
-    pub fn put(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
-        let mut wtxn = self.env.write_txn().map_err(|e| e.to_string())?;
+    pub fn put(&self, key: &[u8], value: &[u8]) -> Result<(), LmdbError> {
+        let mut wtxn = self.env.write_txn().map_err(LmdbError::from)?;
         self.db
             .put(&mut wtxn, key, value)
-            .map_err(|e| e.to_string())?;
-        wtxn.commit().map_err(|e| e.to_string())
+            .map_err(LmdbError::from)?;
+        wtxn.commit().map_err(LmdbError::from)
     }
 
     /// Retrieve the value stored under `key`.
     ///
     /// Returns `Ok(None)` if the key does not exist.
-    pub fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, String> {
-        let rtxn = self.env.read_txn().map_err(|e| e.to_string())?;
+    pub fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, LmdbError> {
+        let rtxn = self.env.read_txn().map_err(LmdbError::from)?;
         let result = self
             .db
             .get(&rtxn, key)
-            .map_err(|e| e.to_string())?;
+            .map_err(LmdbError::from)?;
         Ok(result.map(|v| v.to_vec()))
     }
 
@@ -112,13 +163,13 @@ impl LmdbBlockDb {
     ///
     /// Idempotent: deleting a key that does not exist returns `Ok(false)`
     /// without error.  Returns `Ok(true)` if the key was found and removed.
-    pub fn delete(&self, key: &[u8]) -> Result<bool, String> {
-        let mut wtxn = self.env.write_txn().map_err(|e| e.to_string())?;
+    pub fn delete(&self, key: &[u8]) -> Result<bool, LmdbError> {
+        let mut wtxn = self.env.write_txn().map_err(LmdbError::from)?;
         let found = self
             .db
             .delete(&mut wtxn, key)
-            .map_err(|e| e.to_string())?;
-        wtxn.commit().map_err(|e| e.to_string())?;
+            .map_err(LmdbError::from)?;
+        wtxn.commit().map_err(LmdbError::from)?;
         Ok(found)
     }
 }

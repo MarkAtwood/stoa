@@ -15,7 +15,7 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
-use ed25519_dalek::{Signer, SigningKey};
+use ed25519_dalek::SigningKey;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::str::FromStr as _;
 use stoa_core::{
@@ -89,6 +89,15 @@ impl LogStorage for FailingLogStorage {
         self.inner.set_tips(group, tips).await
     }
 
+    async fn advance_tips(
+        &self,
+        group: &GroupName,
+        parents_to_remove: &[LogEntryId],
+        new_tip: &LogEntryId,
+    ) -> Result<(), StorageError> {
+        self.inner.advance_tips(group, parents_to_remove, new_tip).await
+    }
+
     async fn tip_count(&self, group: &GroupName) -> Result<u64, StorageError> {
         self.inner.tip_count(group).await
     }
@@ -139,7 +148,7 @@ fn make_ctx(key: &SigningKey) -> PipelineCtx<'static> {
             logical: 0,
             node_id: [9, 8, 7, 6, 5, 4, 3, 2],
         },
-        operator_signature: key.sign(b""),
+        operator_signing_key: Arc::new(key.clone()),
         gossip_tx: None,
         sender_peer_id: "test-peer-sqlite",
         local_hostname: "test.local",

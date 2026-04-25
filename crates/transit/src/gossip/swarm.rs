@@ -12,8 +12,13 @@ use tokio::sync::mpsc;
 pub struct GossipHandle {
     /// Send a (topic, data) pair to be published.
     pub tx: mpsc::Sender<(String, Vec<u8>)>,
-    /// Receive (topic, data) pairs from peers.
-    pub rx: mpsc::Receiver<(String, Vec<u8>)>,
+    /// Receive (topic, source_peer_id, data) triples from peers.
+    ///
+    /// `source_peer_id` is the cryptographically verified sender from the
+    /// gossipsub `MessageAuthenticity::Signed` layer — not a self-reported
+    /// field from the payload.  It is `None` only when gossipsub could not
+    /// determine the source (should not happen with `Signed` auth).
+    pub rx: mpsc::Receiver<(String, Option<PeerId>, Vec<u8>)>,
 }
 
 /// Subscribe the swarm to a gossipsub topic.
@@ -77,8 +82,8 @@ pub async fn start_swarm(
 
     // Channel: caller -> swarm (publish)
     let (pub_tx, mut pub_rx) = mpsc::channel::<(String, Vec<u8>)>(64);
-    // Channel: swarm -> caller (receive)
-    let (recv_tx, recv_rx) = mpsc::channel::<(String, Vec<u8>)>(64);
+    // Channel: swarm -> caller (receive); carries verified source PeerId.
+    let (recv_tx, recv_rx) = mpsc::channel::<(String, Option<PeerId>, Vec<u8>)>(64);
     // Channel: caller -> swarm (subscribe)
     let (sub_tx, mut sub_rx) = mpsc::channel::<String>(16);
 
@@ -122,8 +127,12 @@ pub async fn start_swarm(
                             ..
                         })) => {
                             let topic = message.topic.as_str().to_owned();
+                            // message.source is set by MessageAuthenticity::Signed —
+                            // the gossipsub layer has verified the signature, so this
+                            // peer_id is cryptographically authenticated.
+                            let source = message.source;
                             let data = message.data;
-                            if recv_tx.send((topic, data)).await.is_err() {
+                            if recv_tx.send((topic, source, data)).await.is_err() {
                                 tracing::debug!("gossip receiver dropped; stopping swarm");
                                 break;
                             }

@@ -22,43 +22,53 @@ impl MsgIdMap {
     /// - If the `message_id` does not exist: insert and return `Ok(())`.
     /// - If it exists with the same CID: return `Ok(())` (idempotent).
     /// - If it exists with a different CID: return `Err(StorageError::Database(...))`.
+    ///
+    /// Uses `INSERT OR IGNORE` so concurrent callers with the same
+    /// `(message_id, cid)` pair (e.g. two IHAVE sessions for the same article)
+    /// are both handled without a UNIQUE constraint error.
     pub async fn insert(&self, message_id: &str, cid: &Cid) -> Result<(), StorageError> {
         let cid_bytes = cid.to_bytes();
 
-        let existing: Option<Vec<u8>> =
-            sqlx::query_scalar("SELECT cid FROM msgid_map WHERE message_id = ?")
+        // Atomic insert: if message_id already exists the row is left unchanged
+        // and rows_affected() returns 0.  This avoids the SELECT→INSERT TOCTOU
+        // where two concurrent callers both see no row, then one fails with a
+        // UNIQUE constraint violation.
+        let result =
+            sqlx::query("INSERT OR IGNORE INTO msgid_map (message_id, cid) VALUES (?, ?)")
                 .bind(message_id)
-                .fetch_optional(&self.pool)
+                .bind(&cid_bytes)
+                .execute(&self.pool)
                 .await
                 .map_err(|e| StorageError::Database(e.to_string()))?;
 
-        match existing {
-            None => {
-                sqlx::query("INSERT INTO msgid_map (message_id, cid) VALUES (?, ?)")
-                    .bind(message_id)
-                    .bind(&cid_bytes)
-                    .execute(&self.pool)
-                    .await
-                    .map_err(|e| StorageError::Database(e.to_string()))?;
-                Ok(())
-            }
-            Some(stored_bytes) => {
-                if stored_bytes == cid_bytes {
-                    Ok(())
-                } else {
-                    // Two distinct articles share a Message-ID.  This is either a
-                    // bug in the sender, a deliberate replay/injection attempt, or
-                    // a hash collision (negligible probability).  Log it so operators
-                    // can detect and investigate duplicate-ID injection.
-                    tracing::warn!(
-                        message_id,
-                        "Message-ID collision: already mapped to a different CID"
-                    );
-                    Err(StorageError::Database(format!(
-                        "message-id {message_id:?} already mapped to a different CID"
-                    )))
-                }
-            }
+        if result.rows_affected() == 1 {
+            // We inserted the row — no collision possible.
+            return Ok(());
+        }
+
+        // Row already existed (INSERT was a no-op).  Fetch the stored CID to
+        // decide between idempotent same-CID and a genuine collision.
+        let stored_bytes: Vec<u8> =
+            sqlx::query_scalar("SELECT cid FROM msgid_map WHERE message_id = ?")
+                .bind(message_id)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(|e| StorageError::Database(e.to_string()))?;
+
+        if stored_bytes == cid_bytes {
+            Ok(())
+        } else {
+            // Two distinct articles share a Message-ID.  This is either a
+            // bug in the sender, a deliberate replay/injection attempt, or
+            // a hash collision (negligible probability).  Log it so operators
+            // can detect and investigate duplicate-ID injection.
+            tracing::warn!(
+                message_id,
+                "Message-ID collision: already mapped to a different CID"
+            );
+            Err(StorageError::Database(format!(
+                "message-id {message_id:?} already mapped to a different CID"
+            )))
         }
     }
 
@@ -93,6 +103,22 @@ impl MsgIdMap {
                 .map_err(|e| StorageError::Database(e.to_string()))?;
 
         Ok(row)
+    }
+
+    /// Remove all `msgid_map` entries whose CID matches `cid`.
+    ///
+    /// Idempotent: deleting a CID that has no mapping returns `Ok(())`.
+    /// Used by the GC pipeline after a successful IPFS unpin to prevent
+    /// the message-id from blocking re-ingestion of the same article from
+    /// another peer.
+    pub async fn delete_by_cid(&self, cid: &Cid) -> Result<(), StorageError> {
+        let cid_bytes = cid.to_bytes();
+        sqlx::query("DELETE FROM msgid_map WHERE cid = ?")
+            .bind(&cid_bytes)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+        Ok(())
     }
 }
 
@@ -184,6 +210,31 @@ mod tests {
 
         let found = store.lookup_by_msgid(msgid).await.unwrap();
         assert_eq!(found, Some(cid));
+    }
+
+    #[tokio::test]
+    async fn delete_by_cid_removes_mapping() {
+        let (pool, _tmp) = make_pool().await;
+        let store = MsgIdMap::new(pool);
+        let cid = test_cid(b"delete-test");
+        let msgid = "<delete@example.com>";
+
+        store.insert(msgid, &cid).await.unwrap();
+        assert!(store.lookup_by_msgid(msgid).await.unwrap().is_some());
+
+        store.delete_by_cid(&cid).await.unwrap();
+
+        assert!(store.lookup_by_msgid(msgid).await.unwrap().is_none());
+        assert!(store.lookup_by_cid(&cid).await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn delete_by_cid_is_idempotent() {
+        let (pool, _tmp) = make_pool().await;
+        let store = MsgIdMap::new(pool);
+        let cid = test_cid(b"idempotent-delete");
+        // Delete a CID that was never inserted — must not error.
+        store.delete_by_cid(&cid).await.unwrap();
     }
 
     #[tokio::test]

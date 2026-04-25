@@ -15,9 +15,16 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc;
 use stoa_core::{
     article::GroupName,
-    group_log::{storage::LogStorage, types::LogEntry},
+    canonical::log_entry_canonical_bytes,
+    group_log::{
+        append::append as crdt_append,
+        storage::LogStorage,
+        types::LogEntry,
+        verify::verify_signature,
+    },
     hlc::HlcTimestamp,
     msgid_map::MsgIdMap,
+    signing::{sign, SigningKey},
 };
 use stoa_verify::VerificationStore;
 use super::lmdb_store::LmdbStore;
@@ -238,8 +245,9 @@ pub fn build_store(config: &crate::config::Config) -> Result<StoreBuildResult, S
 pub struct PipelineCtx<'a> {
     /// HLC timestamp to stamp the log entry with.
     pub timestamp: HlcTimestamp,
-    /// Operator Ed25519 signature over this article.
-    pub operator_signature: ed25519_dalek::Signature,
+    /// Operator Ed25519 signing key. Log entry signatures are computed inside
+    /// the pipeline after the article CID is known.
+    pub operator_signing_key: Arc<SigningKey>,
     /// Optional gossipsub send channel; `None` disables tip publication.
     pub gossip_tx: Option<&'a mpsc::Sender<(String, Vec<u8>)>>,
     /// Sending peer's identity string, embedded in tip advertisements.
@@ -380,7 +388,9 @@ where
         .map_err(|e| format!("msgid insert failed: {e}"))?;
 
     // 3. Append a log entry to each valid group.
-    let sig_bytes = ctx.operator_signature.to_bytes().to_vec();
+    // Each entry is a genesis entry (no parents) signed over canonical bytes:
+    // hlc_timestamp (8 BE bytes) || article_cid bytes.
+    let pubkey = ctx.operator_signing_key.verifying_key();
 
     // Pairs of (group_name, entry_id) for successful appends; entry_id is used
     // in tip advertisements so that peers can reconcile via LogEntryId, not
@@ -394,15 +404,24 @@ where
                 continue;
             }
         };
+        // Genesis entry: no parent chain; peers reconcile via CRDT.
+        let parent_cids: Vec<Cid> = vec![];
+        let canonical = log_entry_canonical_bytes(ctx.timestamp.wall_ms, &cid, &parent_cids);
+        let sig = sign(&ctx.operator_signing_key, &canonical);
         let entry = LogEntry {
-            // LogEntry.hlc_timestamp is u64 wall-clock milliseconds.
             hlc_timestamp: ctx.timestamp.wall_ms,
             article_cid: cid,
-            operator_signature: sig_bytes.clone(),
-            // Genesis entry: no parent chain; peers reconcile via CRDT.
-            parent_cids: vec![],
+            operator_signature: sig.to_bytes().to_vec(),
+            parent_cids,
         };
-        match stoa_core::group_log::append::append(log_storage, &group, entry).await {
+        let verified = match verify_signature(entry, &pubkey) {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::warn!("log entry self-check failed for {group_name_str}: {e}");
+                continue;
+            }
+        };
+        match crdt_append(log_storage, &group, verified).await {
             Err(e) => {
                 tracing::warn!("log append failed for group {group_name_str}: {e}");
             }
@@ -625,10 +644,10 @@ mod tests {
         }
     }
 
-    fn make_ctx(key: &SigningKey, ts: HlcTimestamp) -> PipelineCtx<'static> {
+    fn make_ctx(key: Arc<SigningKey>, ts: HlcTimestamp) -> PipelineCtx<'static> {
         PipelineCtx {
             timestamp: ts,
-            operator_signature: ed25519_dalek::Signer::sign(key, b""),
+            operator_signing_key: key,
             gossip_tx: None,
             sender_peer_id: "peer1",
             local_hostname: "local.test.example.com",
@@ -666,7 +685,7 @@ mod tests {
             &msgid_map,
             &storage,
             &transit_pool,
-            make_ctx(&key, make_timestamp()),
+            make_ctx(Arc::new(key), make_timestamp()),
         )
         .await;
 
@@ -703,7 +722,7 @@ mod tests {
             &msgid_map,
             &storage,
             &transit_pool,
-            make_ctx(&key, make_timestamp()),
+            make_ctx(Arc::new(key), make_timestamp()),
         )
         .await
         .unwrap();
@@ -750,7 +769,7 @@ mod tests {
         let (tx, mut rx) = tokio::sync::mpsc::channel(10);
         let ctx = PipelineCtx {
             timestamp: make_timestamp(),
-            operator_signature: ed25519_dalek::Signer::sign(&key, b""),
+            operator_signing_key: Arc::new(key),
             gossip_tx: Some(&tx),
             sender_peer_id: "peer1",
             local_hostname: "local.test.example.com",
@@ -809,7 +828,7 @@ mod tests {
             &msgid_map,
             &storage,
             &transit_pool,
-            make_ctx(&key, make_timestamp()),
+            make_ctx(Arc::new(key), make_timestamp()),
         )
         .await;
         assert!(result.is_err(), "missing Message-ID must return Err");
@@ -831,7 +850,7 @@ mod tests {
             &msgid_map,
             &storage,
             &transit_pool,
-            make_ctx(&key, make_timestamp()),
+            make_ctx(Arc::new(key), make_timestamp()),
         )
         .await
         .unwrap();
@@ -872,7 +891,7 @@ mod tests {
             &msgid_map,
             &storage,
             &transit_pool,
-            make_ctx(&key, make_timestamp()),
+            make_ctx(Arc::new(key), make_timestamp()),
         )
         .await
         .unwrap();
@@ -979,7 +998,7 @@ mod tests {
 
         let ctx = PipelineCtx {
             timestamp: make_timestamp(),
-            operator_signature: ed25519_dalek::Signer::sign(&signing_key, b""),
+            operator_signing_key: Arc::new(signing_key),
             gossip_tx: None,
             sender_peer_id: "peer1",
             local_hostname: "local.test.example.com",

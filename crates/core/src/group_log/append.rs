@@ -3,6 +3,7 @@ use crate::canonical::entry_id_bytes;
 use crate::error::StorageError;
 use crate::group_log::storage::LogStorage;
 use crate::group_log::types::{LogEntry, LogEntryId};
+use crate::group_log::verify::VerifiedEntry;
 use multihash_codetable::{Code, MultihashDigest};
 
 /// Error returned by [`append`].
@@ -65,8 +66,12 @@ fn compute_entry_id(entry: &LogEntry) -> LogEntryId {
     )
 }
 
-/// Append `entry` to the group log, computing its ID from the canonical
-/// serialization.
+/// Append a verified log entry to the group log.
+///
+/// The caller must verify the entry's signature via
+/// [`crate::group_log::verify::verify_signature`] before calling this
+/// function.  The [`VerifiedEntry`] wrapper enforces this at the type level —
+/// only signed entries can be stored.
 ///
 /// The entry's `parent_cids` must be set to the CURRENT tip set before
 /// calling.  After a successful append:
@@ -82,8 +87,9 @@ fn compute_entry_id(entry: &LogEntry) -> LogEntryId {
 pub async fn append<S: LogStorage>(
     storage: &S,
     group: &GroupName,
-    entry: LogEntry,
+    verified: VerifiedEntry,
 ) -> Result<LogEntryId, AppendError> {
+    let entry = verified.into_inner();
     let entry_id = compute_entry_id(&entry);
 
     // Idempotent: if already stored, return the existing ID unchanged.
@@ -94,6 +100,9 @@ pub async fn append<S: LogStorage>(
     // Verify that every declared parent exists in storage.  A parent CID
     // carries the SHA-256 of that parent entry as its multihash digest; we
     // extract those 32 bytes to form the LogEntryId we look up.
+    // Save the parent LogEntryIds here — they are needed for advance_tips
+    // after the entry is moved into insert_entry.
+    let mut parent_ids = Vec::with_capacity(entry.parent_cids.len());
     for parent_cid in &entry.parent_cids {
         let digest_bytes = parent_cid.hash().digest();
         let raw: [u8; 32] = digest_bytes.try_into().map_err(|_| {
@@ -107,11 +116,24 @@ pub async fn append<S: LogStorage>(
         if !storage.has_entry(&parent_id).await? {
             return Err(AppendError::MissingParent(parent_cid.to_string()));
         }
+        parent_ids.push(parent_id);
     }
 
-    storage.insert_entry(entry_id.clone(), entry).await?;
+    // insert_entry with UNIQUE constraint enforcement: if a concurrent caller
+    // won the race between our has_entry check and this insert, DuplicateEntry
+    // is returned — treat it as the idempotent success case (same as the
+    // has_entry fast-path above) without calling advance_tips again.
+    match storage.insert_entry(entry_id.clone(), entry).await {
+        Ok(()) => {}
+        Err(StorageError::DuplicateEntry(_)) => return Ok(entry_id),
+        Err(e) => return Err(AppendError::Storage(e)),
+    }
+    // advance_tips atomically removes the entry's parents from the tip set and
+    // adds the new entry.  This preserves CRDT semantics: two concurrent
+    // appends that share the same parent both survive as tips rather than one
+    // overwriting the other.
     storage
-        .set_tips(group, std::slice::from_ref(&entry_id))
+        .advance_tips(group, &parent_ids, &entry_id)
         .await?;
 
     Ok(entry_id)
@@ -122,6 +144,7 @@ mod tests {
     use super::*;
     use crate::article::GroupName;
     use crate::group_log::mem_storage::MemLogStorage;
+    use crate::group_log::verify::VerifiedEntry;
     use cid::Cid;
     use multihash_codetable::{Code, MultihashDigest};
 
@@ -160,7 +183,7 @@ mod tests {
             operator_signature: vec![0xaa],
             parent_cids: vec![],
         };
-        let id1 = append(&storage, &group, e1).await.expect("append e1");
+        let id1 = append(&storage, &group, VerifiedEntry::new_for_test(e1)).await.expect("append e1");
 
         let tips = storage.list_tips(&group).await.unwrap();
         assert_eq!(tips, vec![id1.clone()], "tip after e1");
@@ -172,7 +195,7 @@ mod tests {
             operator_signature: vec![0xbb],
             parent_cids: vec![entry_id_to_cid(&id1)],
         };
-        let id2 = append(&storage, &group, e2).await.expect("append e2");
+        let id2 = append(&storage, &group, VerifiedEntry::new_for_test(e2)).await.expect("append e2");
 
         let tips = storage.list_tips(&group).await.unwrap();
         assert_eq!(tips, vec![id2.clone()], "tip after e2");
@@ -185,7 +208,7 @@ mod tests {
             operator_signature: vec![0xcc],
             parent_cids: vec![entry_id_to_cid(&id2)],
         };
-        let id3 = append(&storage, &group, e3).await.expect("append e3");
+        let id3 = append(&storage, &group, VerifiedEntry::new_for_test(e3)).await.expect("append e3");
 
         let tips = storage.list_tips(&group).await.unwrap();
         assert_eq!(tips, vec![id3.clone()], "tip after e3");
@@ -213,10 +236,10 @@ mod tests {
             parent_cids: vec![],
         };
 
-        let id_first = append(&storage, &group, entry.clone())
+        let id_first = append(&storage, &group, VerifiedEntry::new_for_test(entry.clone()))
             .await
             .expect("first append");
-        let id_second = append(&storage, &group, entry.clone())
+        let id_second = append(&storage, &group, VerifiedEntry::new_for_test(entry.clone()))
             .await
             .expect("second append (idempotent)");
 
@@ -253,11 +276,64 @@ mod tests {
             parent_cids: vec![phantom_cid.clone()],
         };
 
-        let result = append(&storage, &group, entry).await;
+        let result = append(&storage, &group, VerifiedEntry::new_for_test(entry)).await;
         assert!(
             matches!(result, Err(AppendError::MissingParent(_))),
             "expected MissingParent, got {result:?}"
         );
+    }
+
+    // ── concurrent_appends_both_survive ──────────────────────────────────────
+
+    /// Two appends that share the same genesis parent (concurrent POST scenario)
+    /// must both survive as tips after advance_tips.
+    ///
+    /// Oracle: the tip set must contain both new entry IDs. Neither may be lost.
+    #[tokio::test]
+    async fn concurrent_appends_both_survive() {
+        let storage = MemLogStorage::new();
+        let group = test_group();
+
+        // Genesis entry.
+        let genesis = LogEntry {
+            hlc_timestamp: 1_000,
+            article_cid: test_cid(b"genesis"),
+            operator_signature: vec![0x00],
+            parent_cids: vec![],
+        };
+        let genesis_id = append(&storage, &group, VerifiedEntry::new_for_test(genesis)).await.expect("genesis");
+
+        // Two concurrent appends, both with genesis as parent.
+        let genesis_cid = entry_id_to_cid(&genesis_id);
+        let ea = LogEntry {
+            hlc_timestamp: 2_000,
+            article_cid: test_cid(b"article-a"),
+            operator_signature: vec![0xaa],
+            parent_cids: vec![genesis_cid.clone()],
+        };
+        let eb = LogEntry {
+            hlc_timestamp: 2_001,
+            article_cid: test_cid(b"article-b"),
+            operator_signature: vec![0xbb],
+            parent_cids: vec![genesis_cid.clone()],
+        };
+
+        let id_a = append(&storage, &group, VerifiedEntry::new_for_test(ea)).await.expect("append A");
+        let id_b = append(&storage, &group, VerifiedEntry::new_for_test(eb)).await.expect("append B");
+
+        let tips = storage.list_tips(&group).await.unwrap();
+        let tip_bytes: Vec<[u8; 32]> = tips.iter().map(|id| *id.as_bytes()).collect();
+
+        assert!(
+            tip_bytes.contains(id_a.as_bytes()),
+            "entry A must be in tip set; tips = {tips:?}"
+        );
+        assert!(
+            tip_bytes.contains(id_b.as_bytes()),
+            "entry B must be in tip set; tips = {tips:?}"
+        );
+        assert!(!tip_bytes.contains(genesis_id.as_bytes()), "genesis must not be a tip");
+        assert_eq!(tips.len(), 2, "must have exactly 2 tips");
     }
 
     // ── concurrent_replicas_diverge ───────────────────────────────────────────
@@ -284,10 +360,10 @@ mod tests {
             parent_cids: vec![],
         };
 
-        let id_a = append(&storage_a, &group, entry_a)
+        let id_a = append(&storage_a, &group, VerifiedEntry::new_for_test(entry_a))
             .await
             .expect("append on replica A");
-        let id_b = append(&storage_b, &group, entry_b)
+        let id_b = append(&storage_b, &group, VerifiedEntry::new_for_test(entry_b))
             .await
             .expect("append on replica B");
 

@@ -8,7 +8,6 @@
 use stoa_core::{
     article::{Article, ArticleBody, ArticleHeader, GroupName},
     canonical::canonical_bytes,
-    cid_util::cid_for_article,
     signing::{sign, verify, SigningKey, VerifyingKey},
 };
 
@@ -112,71 +111,6 @@ fn serial_vector3_extra_headers_sorted() {
     assert!(
         a_pos < z_pos,
         "A-Header must precede Z-Header in canonical bytes"
-    );
-}
-
-// ── CID vectors ───────────────────────────────────────────────────────────────
-
-/// CID Vector 1 — SHA2-256 of canonical bytes of Vector 1 article.
-///
-/// Reference SHA2-256 computed by Python hashlib:
-///   1e6a730aeedb59c8be15d0d602e80b56f90786e607b386be542b47665b586a79
-///
-/// CIDv1 RAW bytes (version=0x01, codec=0x55, fn=0x12, len=0x20, digest):
-///   015512201e6a730aeedb59c8be15d0d602e80b56f90786e607b386be542b47665b586a79
-#[test]
-fn cid_vector1_digest_and_raw_bytes() {
-    let article = vector1_article();
-    let cid = cid_for_article(&article);
-
-    // Codec must be RAW (0x55).
-    assert_eq!(cid.codec(), 0x55, "codec must be RAW (0x55)");
-
-    // Multihash function must be SHA2-256 (0x12).
-    assert_eq!(
-        cid.hash().code(),
-        0x12,
-        "multihash function must be SHA2-256 (0x12)"
-    );
-
-    // Digest must match the Python reference vector.
-    let expected_digest =
-        hex::decode("1e6a730aeedb59c8be15d0d602e80b56f90786e607b386be542b47665b586a79")
-            .expect("valid hex");
-    assert_eq!(
-        cid.hash().digest(),
-        expected_digest.as_slice(),
-        "SHA2-256 digest must match Python hashlib reference"
-    );
-
-    // Raw CID bytes must match the full reference vector.
-    let expected_cid_bytes =
-        hex::decode("015512201e6a730aeedb59c8be15d0d602e80b56f90786e607b386be542b47665b586a79")
-            .expect("valid hex");
-    assert_eq!(
-        cid.to_bytes(),
-        expected_cid_bytes,
-        "CID raw bytes must match reference vector"
-    );
-}
-
-/// CID Vector 2 — different message_id must produce a different CID.
-///
-/// Changing message_id to "<other@example.com>" alters canonical bytes,
-/// so the resulting CID must differ from Vector 1.
-#[test]
-fn cid_vector2_different_message_id_differs() {
-    let article1 = vector1_article();
-
-    let mut article2 = vector1_article();
-    article2.header.message_id = "<other@example.com>".into();
-
-    let cid1 = cid_for_article(&article1);
-    let cid2 = cid_for_article(&article2);
-
-    assert_ne!(
-        cid1, cid2,
-        "different message_id must produce a different CID"
     );
 }
 

@@ -90,12 +90,10 @@ fn find_header_end(article_bytes: &[u8]) -> usize {
 /// Returns the index of the `\r` (for CRLF) or `\n` (for LF), or `limit`
 /// if no newline is found before `limit`.
 fn find_line_end(buf: &[u8], start: usize, limit: usize) -> usize {
-    for i in start..limit {
-        if buf[i] == b'\r' || buf[i] == b'\n' {
-            return i;
-        }
-    }
-    limit
+    buf[start..limit]
+        .iter()
+        .position(|&b| b == b'\r' || b == b'\n')
+        .map_or(limit, |pos| start + pos)
 }
 
 /// Advance past the line terminator (`\r\n` or `\n`) at `pos`.

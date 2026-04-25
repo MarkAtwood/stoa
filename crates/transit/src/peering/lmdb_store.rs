@@ -28,7 +28,7 @@ impl LmdbStore {
     /// (default: 1024 for production; use 1 in tests).
     pub fn open(path: &Path, map_size_gb: u64) -> Result<Self, String> {
         Ok(Self {
-            db: Arc::new(LmdbBlockDb::open(path, map_size_gb)?),
+            db: Arc::new(LmdbBlockDb::open(path, map_size_gb).map_err(|e| e.to_string())?),
         })
     }
 }
@@ -42,7 +42,7 @@ impl IpfsStore for LmdbStore {
             let digest = Code::Sha2_256.digest(&data);
             let cid = Cid::new_v1(0x55, digest);
             db.put(&cid.to_bytes(), &data)
-                .map_err(|e| IpfsError::WriteFailed(e))?;
+                .map_err(|e| IpfsError::WriteFailed(e.to_string()))?;
             Ok(cid)
         })
         .await
@@ -53,7 +53,7 @@ impl IpfsStore for LmdbStore {
         let db = Arc::clone(&self.db);
         let cid_bytes = cid.to_bytes();
         task::spawn_blocking(move || {
-            db.get(&cid_bytes).map_err(|e| IpfsError::WriteFailed(e))
+            db.get(&cid_bytes).map_err(|e| IpfsError::WriteFailed(e.to_string()))
         })
         .await
         .map_err(|e| IpfsError::WriteFailed(e.to_string()))?
@@ -68,7 +68,7 @@ impl IpfsStore for LmdbStore {
         let cid_bytes = cid.to_bytes();
         task::spawn_blocking(move || {
             db.delete(&cid_bytes)
-                .map_err(|e| IpfsError::WriteFailed(e))?;
+                .map_err(|e| IpfsError::WriteFailed(e.to_string()))?;
             Ok(DeletionOutcome::Immediate)
         })
         .await

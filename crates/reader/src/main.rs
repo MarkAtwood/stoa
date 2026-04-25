@@ -90,7 +90,7 @@ async fn run_startup_checks(config: &Config) -> Vec<String> {
     // Signing key check.
     if let Some(path) = config.operator.signing_key_path.as_deref() {
         if let Err(e) = stoa_core::signing::load_signing_key(std::path::Path::new(path)) {
-            errors.push(format!("{e}"));
+            errors.push(e.to_string());
         }
     }
 

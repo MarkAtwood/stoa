@@ -43,6 +43,12 @@ const OID_ED25519: &[u64] = &[1, 3, 101, 112];
 struct TrustedIssuer {
     /// Raw SubjectPublicKeyInfo DER bytes extracted from the CA certificate.
     spki_der: Vec<u8>,
+    /// Raw DER bytes of the CA's Subject distinguished name.
+    ///
+    /// Leaf cert issuer must match this before attempting crypto; avoids
+    /// trying every configured CA against every leaf (flat-namespace attack
+    /// and unnecessary work).
+    subject_der: Vec<u8>,
 }
 
 /// Store of parsed CA public keys for issuer-based client cert auth.
@@ -109,6 +115,11 @@ impl TrustedIssuerStore {
             Err(_) => return Ok(None),
         };
 
+        // Reject expired or not-yet-valid certificates before doing any crypto.
+        if !leaf.validity().is_valid() {
+            return Ok(None);
+        }
+
         // Extract CN from leaf Subject.  Missing CN → fall through.
         let cn = match extract_cn(leaf.subject()) {
             Some(s) => s,
@@ -142,8 +153,18 @@ impl TrustedIssuerStore {
             return Ok(None);
         };
 
+        // Extract the raw DER bytes of the leaf's Issuer DN.
+        let leaf_issuer_raw: &[u8] = leaf.issuer().as_raw();
+
         // Try each configured issuer using ed25519-dalek directly.
+        // Skip issuers whose Subject DN does not match the leaf's Issuer DN —
+        // this is the standard X.509 issuer-matching rule and prevents a
+        // cert issued by CA-A from being accepted as if issued by CA-B
+        // (flat-namespace confusion).
         for issuer in &self.issuers {
+            if issuer.subject_der != leaf_issuer_raw {
+                continue;
+            }
             if ed25519_verify_with_spki(tbs_bytes, sig_bytes, &issuer.spki_der) {
                 return Ok(Some(cn));
             }
@@ -165,8 +186,12 @@ fn issuer_from_pem(pem_bytes: &[u8], path: &str) -> Result<TrustedIssuer, String
         .map_err(|e| format!("trusted_issuer: cannot parse X.509 from '{path}': {e}"))?;
 
     let spki_der = ca_cert.tbs_certificate.subject_pki.raw.to_vec();
+    let subject_der = ca_cert.tbs_certificate.subject.as_raw().to_vec();
 
-    Ok(TrustedIssuer { spki_der })
+    Ok(TrustedIssuer {
+        spki_der,
+        subject_der,
+    })
 }
 
 /// Extract the first Common Name (CN) from an X.509 Subject distinguished name.

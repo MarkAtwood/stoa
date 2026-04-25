@@ -12,9 +12,10 @@
 //! Run with:
 //!   cargo bench -p stoa-transit --bench ihave_throughput
 
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use ed25519_dalek::{Signer, SigningKey};
+use ed25519_dalek::SigningKey;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use tokio::sync::mpsc;
 use stoa_core::{group_log::MemLogStorage, hlc::HlcTimestamp, msgid_map::MsgIdMap};
@@ -95,7 +96,7 @@ async fn main() {
     for article in &articles {
         let ctx = PipelineCtx {
             timestamp,
-            operator_signature: signing_key.sign(b""),
+            operator_signing_key: Arc::new(signing_key.clone()),
             gossip_tx: None,
             sender_peer_id: "bench-peer",
             local_hostname: "bench.local",
@@ -145,7 +146,7 @@ async fn main() {
     for article in &lat_articles {
         let ctx = PipelineCtx {
             timestamp,
-            operator_signature: signing_key.sign(b""),
+            operator_signing_key: Arc::new(signing_key.clone()),
             gossip_tx: Some(&gossip_tx),
             sender_peer_id: "bench-peer",
             local_hostname: "bench.local",

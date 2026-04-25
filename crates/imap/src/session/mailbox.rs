@@ -159,12 +159,19 @@ pub async fn handle_status(
     item_names: &[StatusDataItemName],
 ) -> Option<Data<'static>> {
     let name = mailbox_name(&mailbox);
-    let row: Option<(i64, i64)> =
-        sqlx::query_as("SELECT uidvalidity, next_uid FROM imap_uid_validity WHERE mailbox = ?")
-            .bind(&name)
-            .fetch_optional(pool)
-            .await
-            .unwrap_or(None);
+    let row: Option<(i64, i64)> = match sqlx::query_as(
+        "SELECT uidvalidity, next_uid FROM imap_uid_validity WHERE mailbox = ?",
+    )
+    .bind(&name)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(row) => row,
+        Err(e) => {
+            tracing::warn!(mailbox = %name, "handle_status: database error: {e}");
+            return None;
+        }
+    };
 
     let (uidvalidity, next_uid) = match row {
         Some((v, n)) => (v as u32, n as u32),
@@ -278,26 +285,62 @@ pub fn mailbox_name(mailbox: &Mailbox<'_>) -> String {
 
 // ── Wildcard matching ─────────────────────────────────────────────────────────
 
+/// Maximum combined (pattern + name) length accepted by the glob matcher.
+///
+/// Patterns longer than this are rejected (return false) to bound worst-case
+/// O(m×n) work.  1 KiB is generous for any real IMAP LIST wildcard.
+const MAX_GLOB_BYTES: usize = 1024;
+
 /// Match an IMAP LIST wildcard pattern against a mailbox name.
 ///
 /// `*` matches any sequence of characters including hierarchy separators (`.`).
 /// `%` matches any sequence of characters NOT including `.`.
+///
+/// Returns `false` if `pattern.len() + name.len() > MAX_GLOB_BYTES` to
+/// prevent time-DoS from pathologically long client-supplied patterns.
 pub fn glob_match(pattern: &str, name: &str) -> bool {
+    if pattern.len().saturating_add(name.len()) > MAX_GLOB_BYTES {
+        return false;
+    }
     glob_bytes(pattern.as_bytes(), name.as_bytes())
 }
 
+/// Iterative O(m*n) DP glob matching — prevents exponential blowup from
+/// adversarial patterns like `%%%%%...` on long strings.
+///
+/// `dp[i][j]` = true if `pat[..i]` matches `s[..j]`.
 fn glob_bytes(pat: &[u8], s: &[u8]) -> bool {
-    match (pat.first(), s.first()) {
-        (None, None) => true,
-        (None, Some(_)) => false,
-        (Some(b'*'), _) => glob_bytes(&pat[1..], s) || (!s.is_empty() && glob_bytes(pat, &s[1..])),
-        (Some(b'%'), _) => {
-            glob_bytes(&pat[1..], s)
-                || (s.first() != Some(&b'.') && !s.is_empty() && glob_bytes(pat, &s[1..]))
+    let m = pat.len();
+    let n = s.len();
+    // Use two rows to keep space O(n).
+    let mut prev = vec![false; n + 1];
+    let mut curr = vec![false; n + 1];
+    prev[0] = true;
+
+    for i in 1..=m {
+        // A wildcard can match empty — carry forward.
+        curr[0] = if pat[i - 1] == b'*' || pat[i - 1] == b'%' {
+            prev[0]
+        } else {
+            false
+        };
+
+        for j in 1..=n {
+            curr[j] = match pat[i - 1] {
+                b'*' => prev[j] || curr[j - 1],
+                b'%' => {
+                    // % matches zero characters: prev[j]
+                    // % matches one non-'.' character: curr[j-1] (if s[j-1] != '.')
+                    prev[j] || (s[j - 1] != b'.' && curr[j - 1])
+                }
+                p => prev[j - 1] && p == s[j - 1],
+            };
         }
-        (Some(p), Some(c)) => p == c && glob_bytes(&pat[1..], &s[1..]),
-        (Some(_), None) => false,
+
+        std::mem::swap(&mut prev, &mut curr);
     }
+
+    prev[n]
 }
 
 #[cfg(test)]
@@ -339,6 +382,35 @@ mod tests {
     fn glob_star_prefix() {
         assert!(glob_match("comp.*", "comp.lang.rust"));
         assert!(!glob_match("alt.*", "comp.lang.rust"));
+    }
+
+    #[test]
+    fn glob_adversarial_pattern_completes_quickly() {
+        // A recursive implementation would take O(2^n) for this input.
+        // The iterative DP must complete in O(m*n) time.
+        let pat = "%".repeat(50);
+        let name = "a".repeat(50);
+        let start = std::time::Instant::now();
+        let _ = glob_match(&pat, &name);
+        assert!(
+            start.elapsed().as_millis() < 100,
+            "glob_match must complete in under 100ms for adversarial input"
+        );
+    }
+
+    #[test]
+    fn glob_oversized_pattern_returns_false() {
+        // A pattern + name exceeding MAX_GLOB_BYTES must be rejected to bound
+        // worst-case O(m×n) work and prevent time-DoS.
+        let pat = "*".repeat(MAX_GLOB_BYTES + 1);
+        assert!(!glob_match(&pat, "INBOX"), "oversized pattern must return false");
+    }
+
+    #[test]
+    fn glob_percent_with_dot_in_name_blocked() {
+        // % must not match across hierarchy separators.
+        assert!(!glob_match("comp.%", "comp.lang.rust"));
+        assert!(glob_match("comp.%", "comp.lang"));
     }
 
     #[test]

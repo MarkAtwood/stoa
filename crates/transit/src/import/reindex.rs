@@ -7,6 +7,7 @@
 use cid::Cid;
 use sqlx::SqlitePool;
 use stoa_core::error::StorageError;
+use stoa_core::validation::validate_message_id;
 
 /// Result of a reindex run.
 #[derive(Debug, Default)]
@@ -83,6 +84,15 @@ where
                 continue;
             }
         };
+
+        // Reject malformed Message-IDs to avoid inserting invalid keys into
+        // the msgid_map.  Articles stored via the normal ingestion path are
+        // already validated, but corrupted blocks or manual imports may not be.
+        if validate_message_id(&msg_id).is_err() {
+            tracing::warn!(msg_id, cid = %cid, "reindex: skipping article with invalid Message-ID");
+            summary.skipped_not_article += 1;
+            continue;
+        }
 
         if config.dry_run {
             tracing::debug!(msg_id, cid = %cid, "dry-run: would index");

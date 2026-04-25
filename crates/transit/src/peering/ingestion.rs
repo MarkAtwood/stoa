@@ -178,13 +178,18 @@ pub fn prepend_path_header(article_bytes: Vec<u8>, hostname: &str) -> Vec<u8> {
     let mut path_found = false;
     let mut in_body = false;
 
-    for line in article_bytes.split(|&b| b == b'\n') {
+    // Pre-collect lines split on LF.  Remove the trailing empty slice that
+    // `split` produces when input ends with '\n'; we must NOT skip empty slices
+    // inside the body because they represent genuine blank lines.
+    let raw_lines: Vec<&[u8]> = article_bytes.split(|&b| b == b'\n').collect();
+    let lines = if raw_lines.last().is_some_and(|l| l.is_empty()) {
+        &raw_lines[..raw_lines.len() - 1]
+    } else {
+        &raw_lines[..]
+    };
+
+    for line in lines {
         if in_body {
-            // The `split` iterator yields an empty trailing slice for input that ends
-            // with `\n`. Skip it to avoid appending a spurious extra newline.
-            if line.is_empty() {
-                continue;
-            }
             out.extend_from_slice(line);
             out.push(b'\n');
             continue;
@@ -458,6 +463,36 @@ mod tests {
         assert!(
             text.contains("Path: local.hostname!hop2.example.com!hop1.example.com\r\n"),
             "multi-hop chain must be built correctly: {text:?}"
+        );
+    }
+
+    #[test]
+    fn path_header_blank_body_lines_preserved_lf_only() {
+        // LF-only article (non-CRLF): blank lines within the body must not be dropped.
+        let article = b"From: sender@example.com\nMessage-ID: <x@y>\n\nPara one.\n\nPara two.\n";
+        let result = prepend_path_header(article.to_vec(), "local.hostname");
+        let text = String::from_utf8(result).unwrap();
+        assert!(
+            text.contains("Para one.\nPara two.") || text.contains("Para one.\n\nPara two."),
+            "blank line between paragraphs must be preserved: {text:?}"
+        );
+        // Specifically: the blank line separating the two paragraphs must be present.
+        assert!(
+            text.contains("Para one.\n\n"),
+            "blank line after Para one must be preserved: {text:?}"
+        );
+    }
+
+    #[test]
+    fn path_header_blank_body_lines_preserved_crlf() {
+        // CRLF article: blank lines within the body must not be dropped.
+        let article =
+            b"From: sender@example.com\r\nMessage-ID: <x@y>\r\n\r\nPara one.\r\n\r\nPara two.\r\n";
+        let result = prepend_path_header(article.to_vec(), "local.hostname");
+        let text = String::from_utf8(result).unwrap();
+        assert!(
+            text.contains("Para one.\r\n\r\nPara two."),
+            "blank line between paragraphs must be preserved in CRLF article: {text:?}"
         );
     }
 }

@@ -10,62 +10,10 @@
 //! - `GET /version`  — binary name and semver version
 //! - `POST /reload`  — signal daemon to reload config (stub, returns `{"reloaded":true}`)
 
-use std::collections::HashMap;
-use std::net::IpAddr;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Instant;
+use stoa_core::rate_limiter::RateLimiter;
 use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
-
-struct RateLimitState {
-    tokens: f64,
-    last_refill: Instant,
-}
-
-pub(crate) struct RateLimiter {
-    rpm: u32,
-    state: Mutex<HashMap<IpAddr, RateLimitState>>,
-}
-
-impl RateLimiter {
-    pub(crate) fn new(rpm: u32) -> Self {
-        Self {
-            rpm,
-            state: Mutex::new(HashMap::new()),
-        }
-    }
-
-    pub(crate) fn check_and_consume(&self, ip: IpAddr) -> bool {
-        if self.rpm == 0 {
-            return true;
-        }
-        let mut state = self.state.lock().unwrap();
-        let tokens_per_sec = self.rpm as f64 / 60.0;
-        let max_tokens = self.rpm as f64;
-        let now = Instant::now();
-
-        let allowed;
-        {
-            let entry = state.entry(ip).or_insert(RateLimitState {
-                tokens: max_tokens,
-                last_refill: now,
-            });
-            let elapsed = now.duration_since(entry.last_refill).as_secs_f64();
-            entry.tokens = (entry.tokens + elapsed * tokens_per_sec).min(max_tokens);
-            entry.last_refill = now;
-            if entry.tokens >= 1.0 {
-                entry.tokens -= 1.0;
-                allowed = true;
-            } else {
-                allowed = false;
-            }
-        }
-
-        let evict_before = now - std::time::Duration::from_secs(3600);
-        state.retain(|_, v| v.last_refill >= evict_before);
-
-        allowed
-    }
-}
 
 /// Start the admin HTTP server on the given address.
 ///
@@ -110,7 +58,7 @@ pub fn start_admin_server(
                             stream,
                             start_time,
                             bearer_token.as_deref(),
-                            &*rate_limiter,
+                            &rate_limiter,
                         )
                         .await
                         {
@@ -163,8 +111,9 @@ async fn handle_admin_connection(
     // Apply per-IP rate limiting. /metrics is exempt (polled frequently by Prometheus).
     if path != "/metrics" && !rate_limiter.check_and_consume(peer_ip) {
         tracing::debug!("admin request rate-limited from {peer_ip}");
-        let rpm = rate_limiter.rpm;
-        let retry_after = if rpm > 0 { (60u32 / rpm).min(60) } else { 60 };
+        let rpm = rate_limiter.rpm();
+        // clamp to [1, 60]: prevents Retry-After: 0 for high rpm (e.g. rpm=120 → 60/120=0 → 1s).
+        let retry_after = if rpm > 0 { (60u32 / rpm).clamp(1, 60) } else { 60 };
         let body = r#"{"error":"rate limit exceeded"}"#;
         let content_length = body.len();
         let response = format!(
@@ -346,5 +295,24 @@ mod tests {
             let result = start_admin_server(addr, Instant::now(), None, 60);
             assert!(result.is_ok(), "loopback without token must be allowed");
         });
+    }
+
+    #[test]
+    fn retry_after_is_at_least_one_second() {
+        // Verify the retry_after formula for key rpm values.
+        // Expected: ceil(60/rpm), clamped to [1, 60].
+        let cases: &[(u32, u32)] = &[
+            (1, 60),   // 60/1 = 60s
+            (60, 1),   // 60/60 = 1s
+            (120, 1),  // 60/120 = 0.5s → bumped to 1s (this was the bug)
+            (600, 1),  // 60/600 = 0.1s → bumped to 1s
+        ];
+        for &(rpm, expected) in cases {
+            let got = (60u32 / rpm).clamp(1, 60);
+            assert_eq!(
+                got, expected,
+                "retry_after for rpm={rpm} must be {expected}s, got {got}s"
+            );
+        }
     }
 }

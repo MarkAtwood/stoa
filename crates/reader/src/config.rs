@@ -187,6 +187,13 @@ pub struct IpfsConfig {
 
 impl IpfsConfig {
     fn default_api_url() -> String {
+        // Intentionally empty. Previously defaulted to "http://127.0.0.1:5001", which
+        // silently assumed a local Kubo daemon. Config validation now rejects an empty
+        // api_url when no [backend] section is present, forcing operators to be explicit.
+        // Upgrade note: if your config omits [ipfs], add:
+        //   [ipfs]
+        //   api_url = "http://127.0.0.1:5001"
+        // or switch to a [backend] section.
         String::new()
     }
 }
@@ -264,6 +271,13 @@ pub struct LimitsConfig {
     #[serde(default = "default_max_connections")]
     pub max_connections: usize,
     pub command_timeout_secs: u64,
+    /// Seconds to wait for a POST body to be fully uploaded.  Default: 300.
+    ///
+    /// A slow-uploading client that sends one byte at a time would otherwise
+    /// hold a session open indefinitely.  The connection is closed with a 400
+    /// response if the upload does not complete within this window.
+    #[serde(default = "default_post_body_timeout_secs")]
+    pub post_body_timeout_secs: u64,
     /// Seconds to wait for in-flight connections to finish after a shutdown
     /// signal before forcing exit.  Default: 30.  Set to 0 to exit immediately.
     #[serde(default)]
@@ -272,6 +286,10 @@ pub struct LimitsConfig {
 
 fn default_max_connections() -> usize {
     100
+}
+
+fn default_post_body_timeout_secs() -> u64 {
+    300
 }
 
 #[derive(Debug, Deserialize)]

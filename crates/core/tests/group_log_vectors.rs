@@ -70,7 +70,7 @@ async fn append_chain(
             parent_cids,
         };
 
-        let id = append(storage, group, entry)
+        let id = append(storage, group, VerifiedEntry::new_for_test(entry))
             .await
             .unwrap_or_else(|e| panic!("append {seed_prefix}-{i} failed: {e}"));
         ids.push(id);
@@ -193,7 +193,7 @@ async fn crdt_merge_and_backfill_convergence() {
     for want_id in &result_a.want {
         let replica_b_ref = Arc::clone(&replica_b);
         let want_id_clone = want_id.clone();
-        backfill(&*replica_a, want_id_clone, |id| {
+        backfill(&*replica_a, &group, want_id_clone, |id| {
             let rb = Arc::clone(&replica_b_ref);
             async move {
                 rb.get_entry(&id)
@@ -237,7 +237,7 @@ async fn crdt_merge_and_backfill_convergence() {
     for want_id in &result_b.want {
         let replica_a_ref = Arc::clone(&replica_a);
         let want_id_clone = want_id.clone();
-        backfill(&*replica_b, want_id_clone, |id| {
+        backfill(&*replica_b, &group, want_id_clone, |id| {
             let ra = Arc::clone(&replica_a_ref);
             async move {
                 ra.get_entry(&id)
@@ -413,7 +413,7 @@ async fn backfill_stops_at_already_present_entries() {
     // Backfill the extra tip (entry 10) into local.
     // Expected: fetches entries 5, 6, 7, 8, 9, and 10 = 6 entries total.
     let remote_ref = Arc::clone(&remote);
-    let fetched = backfill(&*local, extra[0].clone(), |id| {
+    let fetched = backfill(&*local, &group, extra[0].clone(), |id| {
         let r = Arc::clone(&remote_ref);
         async move {
             r.get_entry(&id)

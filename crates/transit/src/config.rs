@@ -349,6 +349,9 @@ pub struct GroupsConfig {
 
 #[derive(Debug, Deserialize, Default)]
 pub struct IpfsConfig {
+    // Default is empty. Previously "http://127.0.0.1:5001" was implied; config
+    // validation now rejects an empty api_url when no [backend] is present.
+    // Upgrade: add `[ipfs]\napi_url = "http://127.0.0.1:5001"` or use [backend].
     pub api_url: String,
 }
 

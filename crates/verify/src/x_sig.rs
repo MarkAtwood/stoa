@@ -122,23 +122,43 @@ fn extract_sig_header(article_bytes: &[u8]) -> Result<Extracted, ExtractError> {
 
     let prefix = format!("{SIG_HEADER}:");
 
-    let mut sig_value: Option<&str> = None;
+    let mut sig_value_buf = String::new();
     let mut sig_line_start: Option<usize> = None;
     let mut sig_line_end: Option<usize> = None;
 
+    // RFC 5322 §2.2.3: folded headers have continuation lines that begin with
+    // at least one WSP character (space or tab).  Collect those too so the full
+    // value is decoded and the entire folded block is excised from the signed
+    // bytes.
     let mut cursor = 0usize;
+    let mut in_sig = false;
     for raw_line in header_str.split_inclusive('\n') {
         let line = raw_line.trim_end_matches(['\r', '\n']);
+        if in_sig {
+            if line.starts_with(' ') || line.starts_with('\t') {
+                // Continuation of the folded sig header.
+                sig_value_buf.push_str(line.trim());
+                sig_line_end = Some(cursor + raw_line.len());
+                cursor += raw_line.len();
+                continue;
+            } else {
+                // Not a continuation — folded header is complete.
+                break;
+            }
+        }
         if line.starts_with(&prefix) {
-            sig_value = Some(line[prefix.len()..].trim());
+            sig_value_buf.push_str(line[prefix.len()..].trim());
             sig_line_start = Some(cursor);
             sig_line_end = Some(cursor + raw_line.len());
-            break;
+            in_sig = true;
         }
         cursor += raw_line.len();
     }
 
-    let value = sig_value.ok_or(ExtractError::NotFound)?;
+    if sig_line_start.is_none() {
+        return Err(ExtractError::NotFound);
+    }
+    let value = sig_value_buf.as_str();
     let sig_bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
         .decode(value)
         .map_err(ExtractError::BadBase64)?;
@@ -172,7 +192,6 @@ pub fn pubkey_hex_id(key: &VerifyingKey) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use base64::Engine as _;
     use ed25519_dalek::{Signer, SigningKey};
 
     fn test_key() -> SigningKey {
@@ -238,6 +257,43 @@ mod tests {
         let results = verify_x_sig(&[], &signed);
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].result, VerifResult::NoKey);
+    }
+
+    #[test]
+    fn folded_sig_header_is_unfolded_and_verified() {
+        // Build a well-formed article, sign it, then manually fold the
+        // X-Stoa-Sig header across two lines.  Verification must still pass
+        // and the excised byte range must cover both lines.
+        let key = test_key();
+        let pubkey = key.verifying_key();
+        let signed = sign_article(&key, &article());
+        // Locate the sig header in the signed bytes and fold it.
+        let sig_str = std::str::from_utf8(&signed).unwrap().to_owned();
+        let sig_line_start = sig_str.find("X-Stoa-Sig:").unwrap();
+        let sig_line_end = sig_str[sig_line_start..].find('\n').unwrap() + sig_line_start + 1;
+        let sig_line = &sig_str[sig_line_start..sig_line_end]; // "X-Stoa-Sig: <value>\r\n"
+        // Split the value at midpoint and create a folded version.
+        let colon_pos = sig_line.find(':').unwrap();
+        let value = sig_line[colon_pos + 1..].trim_end_matches(['\r', '\n']).trim();
+        let mid = value.len() / 2;
+        let folded = format!(
+            "X-Stoa-Sig: {}\r\n\t{}\r\n",
+            &value[..mid],
+            &value[mid..]
+        );
+        let folded_article = format!(
+            "{}{}{}",
+            &sig_str[..sig_line_start],
+            folded,
+            &sig_str[sig_line_end..]
+        );
+        let results = verify_x_sig(&[pubkey], folded_article.as_bytes());
+        assert_eq!(results.len(), 1, "must produce exactly one result");
+        assert!(
+            results[0].result.is_pass(),
+            "folded sig must verify as Pass, got {:?}",
+            results[0].result
+        );
     }
 
     #[test]

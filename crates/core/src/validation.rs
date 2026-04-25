@@ -203,6 +203,15 @@ pub fn validate_article_ingress(
             }
             .into());
         }
+        // NUL bytes in extra-header values would corrupt the canonical
+        // serialisation, which uses "\x00\n" as the header/body separator.
+        if value.contains('\x00') {
+            return Err(ValidationError::InvalidHeaderValue {
+                field: name.clone(),
+                reason: "NUL byte forbidden in header values (RFC 5322 §2.2)".into(),
+            }
+            .into());
+        }
     }
 
     // 7. Body size limit.

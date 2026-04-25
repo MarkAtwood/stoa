@@ -62,9 +62,12 @@ fn check_key_file_permissions(path: &std::path::Path) -> Result<(), String> {
     let meta = std::fs::metadata(path)
         .map_err(|e| format!("cannot stat signing key file {}: {e}", path.display()))?;
     let mode = meta.mode();
-    if mode & 0o004 != 0 {
+    // Reject both world-readable (o+r = 0o004) and group-readable (g+r = 0o040).
+    // A group-readable key can be read by any process sharing the same Unix group,
+    // which is not acceptable for a signing key.
+    if mode & 0o044 != 0 {
         return Err(format!(
-            "signing key file '{}' is world-readable (mode {:04o}); \
+            "signing key file '{}' is readable by group or world (mode {:04o}); \
              set permissions to 0600: chmod 0600 {}",
             path.display(),
             mode & 0o777,
@@ -87,7 +90,8 @@ pub fn generate_signing_key() -> SigningKey {
 ///
 /// - If `path` already exists and `force` is false, returns `Err`.
 /// - On non-Unix platforms, the mode 0600 step is skipped (best effort).
-/// - The key bytes are written atomically: we open, chmod, write, close.
+/// - The write is atomic: bytes are written to a sibling temp file then
+///   renamed into place, so a crash mid-write never leaves a partial key.
 pub fn write_signing_key(
     key: &SigningKey,
     path: &std::path::Path,
@@ -102,20 +106,48 @@ pub fn write_signing_key(
         ));
     }
 
-    let mut f = std::fs::File::create(path)
-        .map_err(|e| format!("cannot create signing key file '{}': {e}", path.display()))?;
+    // Determine parent directory for the temp file.
+    let parent = path.parent().unwrap_or_else(|| std::path::Path::new("."));
 
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        f.set_permissions(std::fs::Permissions::from_mode(0o600))
-            .map_err(|e| format!("cannot set permissions on '{}': {e}", path.display()))?;
+    // Write to a temp file in the same directory so the rename is on the
+    // same filesystem (required for atomicity on most platforms).
+    let tmp_path = parent.join(format!(
+        ".signing_key_tmp_{}.tmp",
+        std::process::id()
+    ));
+
+    let result = (|| {
+        let mut f = std::fs::File::create(&tmp_path)
+            .map_err(|e| format!("cannot create temp key file '{}': {e}", tmp_path.display()))?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            f.set_permissions(std::fs::Permissions::from_mode(0o600))
+                .map_err(|e| format!("cannot set permissions on '{}': {e}", tmp_path.display()))?;
+        }
+
+        f.write_all(&key.to_bytes())
+            .map_err(|e| format!("cannot write signing key to '{}': {e}", tmp_path.display()))?;
+
+        // Flush and close before rename.
+        drop(f);
+
+        std::fs::rename(&tmp_path, path).map_err(|e| {
+            format!(
+                "cannot rename '{}' to '{}': {e}",
+                tmp_path.display(),
+                path.display()
+            )
+        })
+    })();
+
+    if result.is_err() {
+        // Best-effort cleanup; ignore secondary errors.
+        let _ = std::fs::remove_file(&tmp_path);
     }
 
-    f.write_all(&key.to_bytes())
-        .map_err(|e| format!("cannot write signing key to '{}': {e}", path.display()))?;
-
-    Ok(())
+    result
 }
 
 /// Sign `canonical_bytes` with the given Ed25519 signing key.
@@ -252,13 +284,33 @@ mod tests {
         let path = dir.path().join("operator.key");
         let key = fresh_key();
         write_signing_key(&key, &path, false).expect("write must succeed");
-        // Make world-readable
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
         let result = load_signing_key(&path);
         assert!(result.is_err(), "must refuse world-readable key file");
+        let msg = result.unwrap_err();
         assert!(
-            result.unwrap_err().contains("world-readable"),
-            "error must mention world-readable"
+            msg.contains("readable by group or world"),
+            "error must mention group-or-world: {msg}"
+        );
+    }
+
+    /// load_signing_key refuses a group-readable file on Unix.
+    #[cfg(unix)]
+    #[test]
+    fn load_signing_key_refuses_group_readable() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("operator.key");
+        let key = fresh_key();
+        write_signing_key(&key, &path, false).expect("write must succeed");
+        // 0o640: owner read+write, group read, world none.
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o640)).unwrap();
+        let result = load_signing_key(&path);
+        assert!(result.is_err(), "must refuse group-readable key file");
+        let msg = result.unwrap_err();
+        assert!(
+            msg.contains("readable by group or world"),
+            "error must mention group-or-world: {msg}"
         );
     }
 }

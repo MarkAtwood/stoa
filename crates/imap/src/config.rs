@@ -71,6 +71,8 @@ impl Default for LimitsConfig {
 #[derive(Debug, Deserialize)]
 pub struct UserCredential {
     pub username: String,
+    /// bcrypt hash of the user's password. Plaintext passwords are NOT accepted.
+    /// Generate with: `python3 -c "import bcrypt; print(bcrypt.hashpw(b'pass', bcrypt.gensalt()).decode())"`
     pub password: String,
 }
 
@@ -81,7 +83,7 @@ pub struct AuthConfig {
     /// LOGIN is disabled before STARTTLS/TLS (LOGINDISABLED capability).
     #[serde(default = "default_mechanisms")]
     pub mechanisms: Vec<String>,
-    /// Inline user accounts. Passwords are compared with constant-time equality.
+    /// Inline user accounts. The `password` field must be a bcrypt hash.
     #[serde(default)]
     pub users: Vec<UserCredential>,
 }

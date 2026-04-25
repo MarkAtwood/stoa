@@ -1,13 +1,13 @@
 //! End-to-end injection-provenance tests for the reader POST pipeline.
 //!
-//! Verifies that `X-Stoa-Injection-Source` routing is enforced
-//! end-to-end through a real NNTP session:
+//! The reader strips all `X-Stoa-Injection-Source` headers from NNTP POST
+//! articles and always classifies them as `NntpPost` (peerable) to prevent
+//! clients from forging the injection source.  Authenticated drain sessions
+//! (usenet-ipfs-8ipr) will restore SmtpListId local-only routing once implemented.
 //!
-//! - `SmtpListId`: article is readable (GROUP/OVER work), but the group log
-//!   receives **no** entry — the article is local-only and will not be
-//!   replicated to peers via IHAVE.
-//! - `SmtpSieve`: article is readable **and** the group log receives an entry.
-//! - `SmtpNewsgroups`: same as SmtpSieve — peerable, so a log entry is written.
+//! - `SmtpListId` header is stripped; article is peerable (group log entry written).
+//! - `SmtpSieve` header is stripped; article is peerable (group log entry written).
+//! - `SmtpNewsgroups` header is stripped; article is peerable (group log entry written).
 
 use std::sync::Arc;
 
@@ -165,12 +165,13 @@ async fn post_article_and_quit(
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-/// SmtpListId articles must be readable locally (GROUP/OVER work) but must
-/// produce **no** group log entry — they are not replicated to peers.
+/// A client-supplied `X-Stoa-Injection-Source: SmtpListId` header is stripped
+/// and ignored.  The article is classified as `NntpPost` (peerable) and a
+/// group log entry IS written — clients cannot suppress replication via forgery.
 #[tokio::test]
-async fn listid_stays_local() {
+async fn listid_header_stripped_and_article_is_peerable() {
     let newsgroup = "comp.test.listid";
-    let msgid = "<listid-stays-local@provenance-test.example>";
+    let msgid = "<listid-stripped@provenance-test.example>";
 
     let stores = post_article_and_quit(Some("SmtpListId"), newsgroup, msgid).await;
 
@@ -182,8 +183,8 @@ async fn listid_stays_local() {
         .expect("list_tips must not fail");
 
     assert!(
-        tips.is_empty(),
-        "SmtpListId article must not write a group log entry (local-only); tips: {tips:?}"
+        !tips.is_empty(),
+        "forged SmtpListId header must not suppress group log entry; tips were empty"
     );
 }
 

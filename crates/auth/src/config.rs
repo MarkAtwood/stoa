@@ -77,6 +77,64 @@ impl AuthConfig {
     /// Returns `true` when no credentials are configured and auth is not
     /// required — the development / open-access mode.
     pub fn is_dev_mode(&self) -> bool {
-        !self.required && self.users.is_empty() && self.credential_file.is_none()
+        !self.required
+            && self.users.is_empty()
+            && self.credential_file.is_none()
+            && self.client_certs.is_empty()
+            && self.trusted_issuers.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dev_mode_when_nothing_configured() {
+        let cfg = AuthConfig::default();
+        assert!(cfg.is_dev_mode());
+    }
+
+    #[test]
+    fn not_dev_mode_when_required() {
+        let mut cfg = AuthConfig::default();
+        cfg.required = true;
+        assert!(!cfg.is_dev_mode());
+    }
+
+    #[test]
+    fn not_dev_mode_when_users_configured() {
+        let mut cfg = AuthConfig::default();
+        cfg.users.push(UserCredential {
+            username: "alice".into(),
+            password: "$2b$10$placeholder".into(),
+        });
+        assert!(!cfg.is_dev_mode());
+    }
+
+    #[test]
+    fn not_dev_mode_when_credential_file_set() {
+        let mut cfg = AuthConfig::default();
+        cfg.credential_file = Some("/etc/stoa/creds".into());
+        assert!(!cfg.is_dev_mode());
+    }
+
+    #[test]
+    fn not_dev_mode_when_client_certs_configured() {
+        let mut cfg = AuthConfig::default();
+        cfg.client_certs.push(ClientCertEntry {
+            sha256_fingerprint: "sha256:aabbcc".into(),
+            username: "alice".into(),
+        });
+        assert!(!cfg.is_dev_mode());
+    }
+
+    #[test]
+    fn not_dev_mode_when_trusted_issuers_configured() {
+        let mut cfg = AuthConfig::default();
+        cfg.trusted_issuers.push(TrustedIssuerEntry {
+            cert_path: "/etc/stoa/ca.pem".into(),
+        });
+        assert!(!cfg.is_dev_mode());
     }
 }

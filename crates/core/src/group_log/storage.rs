@@ -40,6 +40,22 @@ pub trait LogStorage: Send + Sync {
         tips: &[LogEntryId],
     ) -> impl Future<Output = Result<(), StorageError>> + Send;
 
+    /// Atomically advance the tip set: remove `parents_to_remove` and add
+    /// `new_tip`.
+    ///
+    /// This is the CRDT-correct way to update tips after an append.  Two
+    /// concurrent appends that each remove the same parent will both survive
+    /// as concurrent tips rather than one overwriting the other.
+    ///
+    /// If `new_tip` is already in the tip set the insert is idempotent.
+    /// If a parent is not in the tip set its removal is a no-op.
+    fn advance_tips(
+        &self,
+        group: &GroupName,
+        parents_to_remove: &[LogEntryId],
+        new_tip: &LogEntryId,
+    ) -> impl Future<Output = Result<(), StorageError>> + Send;
+
     /// Returns the number of DAG tip entries for the group, not total log
     /// entries. For a group with 1 000 entries branched into 2 concurrent tips
     /// this returns 2, not 1 000.

@@ -134,7 +134,7 @@ impl BlockCache {
         let bytes = fs::read(&file_path).await.ok()?;
 
         // Update last_access for LRU ordering.
-        let now = unix_nanos();
+        let now = unix_millis();
         let _ = sqlx::query("UPDATE transit_block_cache SET last_access = ? WHERE cid = ?")
             .bind(now)
             .bind(&cid_str)
@@ -178,7 +178,7 @@ impl BlockCache {
 
         fs::write(&file_path, bytes).await?;
 
-        let now = unix_nanos();
+        let now = unix_millis();
         sqlx::query(
             "INSERT OR IGNORE INTO transit_block_cache \
              (cid, file_path, byte_size, last_access) VALUES (?, ?, ?, ?)",
@@ -256,16 +256,21 @@ impl IpfsStore for BlockCache {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/// Monotonically increasing access timestamp with nanosecond precision.
+/// Monotonically increasing access timestamp with millisecond precision.
 ///
-/// Using nanoseconds (rather than seconds) means that multiple cache inserts
+/// Using milliseconds (rather than seconds) means that multiple cache inserts
 /// within the same second still produce distinct `last_access` values, which
 /// keeps LRU ordering correct even in rapid test runs.
-fn unix_nanos() -> i64 {
+///
+/// Milliseconds are used instead of nanoseconds to avoid the `as i64` truncation
+/// that would wrap to negative around year 2262.  Millisecond values fit safely
+/// in `i64` until approximately year 292 million.
+fn unix_millis() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
-        .as_nanos() as i64
+        .as_millis()
+        .min(i64::MAX as u128) as i64
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

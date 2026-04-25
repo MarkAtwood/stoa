@@ -174,6 +174,17 @@ async fn run_smtp_session(
 
     // 3. AUTH PLAIN (if credentials configured).
     if let (Some(username), Some(password)) = (&peer.username, &peer.password) {
+        // Refuse to send AUTH PLAIN over a plaintext connection.  SASL PLAIN
+        // credentials are base64-encoded, not encrypted; sending them without
+        // TLS exposes them on the wire.
+        if !peer.tls {
+            return Err(SmtpRelayError::Permanent(
+                "AUTH credentials are configured but relay.tls is false; \
+                 refusing to send credentials over a plaintext connection"
+                    .to_string(),
+            ));
+        }
+
         // Check that peer advertised AUTH.
         let advertises_auth = extensions
             .iter()
@@ -223,7 +234,9 @@ async fn run_smtp_session(
     }
 
     // 4. MAIL FROM
-    let mail_from_cmd = format!("MAIL FROM:<{}>\r\n", envelope.mail_from);
+    // Strip any CR/LF from the address to prevent command injection.
+    let safe_from = envelope.mail_from.replace(['\r', '\n'], "");
+    let mail_from_cmd = format!("MAIL FROM:<{safe_from}>\r\n");
     writer
         .write_all(mail_from_cmd.as_bytes())
         .await
@@ -236,7 +249,9 @@ async fn run_smtp_session(
 
     // 5. RCPT TO (one per recipient)
     for addr in &envelope.rcpt_to {
-        let rcpt_cmd = format!("RCPT TO:<{addr}>\r\n");
+        // Strip any CR/LF from the address to prevent command injection.
+        let safe_addr = addr.replace(['\r', '\n'], "");
+        let rcpt_cmd = format!("RCPT TO:<{safe_addr}>\r\n");
         writer
             .write_all(rcpt_cmd.as_bytes())
             .await
@@ -594,14 +609,18 @@ mod tests {
         server.await.unwrap();
     }
 
-    // ---- full delivery: mock SMTP server with AUTH PLAIN ----
+    // ---- credentials over plaintext are rejected before AUTH is sent ----
+    //
+    // When tls=false and credentials are configured, deliver_via_relay must
+    // return Permanent("refusing...") without sending AUTH PLAIN on the wire.
+    // The mock only needs to handle EHLO; the client disconnects after that.
 
     #[tokio::test]
-    async fn deliver_to_mock_smtp_server_with_auth() {
+    async fn deliver_credentials_rejected_over_plaintext() {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
 
-        let server = tokio::spawn(async move {
+        tokio::spawn(async move {
             let (mut conn, _) = listener.accept().await.unwrap();
             let mut buf = [0u8; 4096];
 
@@ -610,66 +629,11 @@ mod tests {
                 .unwrap();
 
             // EHLO — advertise AUTH PLAIN
-            let n = conn.read(&mut buf).await.unwrap();
-            let cmd = String::from_utf8_lossy(&buf[..n]);
-            assert!(cmd.starts_with("EHLO"), "expected EHLO, got: {cmd}");
-            conn.write_all(b"250-mock.smtp.test\r\n250-AUTH PLAIN\r\n250 OK\r\n")
-                .await
-                .unwrap();
-
-            // AUTH PLAIN
-            let n = conn.read(&mut buf).await.unwrap();
-            let cmd = String::from_utf8_lossy(&buf[..n]);
-            assert!(
-                cmd.starts_with("AUTH PLAIN"),
-                "expected AUTH PLAIN, got: {cmd}"
-            );
-            // Verify credentials are NOT in plaintext in the wire bytes.
-            // The mock checks the encoded form, not the raw credentials.
-            // Expected SASL PLAIN for user="relay", pass="secret":
-            // \0relay\0secret → base64 → "AHJlbGF5AHNlY3JldA=="
-            assert!(
-                cmd.contains("AHJlbGF5AHNlY3JldA=="),
-                "expected SASL PLAIN token, got: {cmd}"
-            );
-            conn.write_all(b"235 Authentication successful\r\n")
-                .await
-                .unwrap();
-
-            // MAIL FROM
-            let n = conn.read(&mut buf).await.unwrap();
-            let cmd = String::from_utf8_lossy(&buf[..n]);
-            assert!(
-                cmd.starts_with("MAIL FROM"),
-                "expected MAIL FROM, got: {cmd}"
-            );
-            conn.write_all(b"250 OK\r\n").await.unwrap();
-
-            // RCPT TO
-            let n = conn.read(&mut buf).await.unwrap();
-            let cmd = String::from_utf8_lossy(&buf[..n]);
-            assert!(cmd.starts_with("RCPT TO"), "expected RCPT TO, got: {cmd}");
-            conn.write_all(b"250 OK\r\n").await.unwrap();
-
-            // DATA
-            let n = conn.read(&mut buf).await.unwrap();
-            let cmd = String::from_utf8_lossy(&buf[..n]);
-            assert!(cmd.starts_with("DATA"), "expected DATA, got: {cmd}");
-            conn.write_all(b"354 Start mail input\r\n").await.unwrap();
-
-            // Read body
-            let mut body: Vec<u8> = Vec::new();
-            loop {
-                let n = conn.read(&mut buf).await.unwrap();
-                assert!(n > 0, "connection closed before DATA terminator");
-                body.extend_from_slice(&buf[..n]);
-                if body.ends_with(b"\r\n.\r\n") {
-                    break;
-                }
-            }
-            conn.write_all(b"250 OK\r\n").await.unwrap();
-
-            let _ = conn.read(&mut buf).await;
+            let _ = conn.read(&mut buf).await; // EHLO (best-effort; client disconnects after this)
+            let _ = conn
+                .write_all(b"250-mock.smtp.test\r\n250-AUTH PLAIN\r\n250 OK\r\n")
+                .await;
+            // Client disconnects here; any further reads return EOF.
         });
 
         let peer = crate::config::SmtpRelayPeerConfig {
@@ -686,15 +650,21 @@ mod tests {
         let article = b"From: from@example.com\r\nSubject: test\r\n\r\nBody\r\n";
 
         let result = deliver_via_relay(&peer, &envelope, article).await;
-        assert!(result.is_ok(), "auth delivery failed: {:?}", result.err());
-
-        server.await.unwrap();
+        assert!(
+            matches!(&result, Err(SmtpRelayError::Permanent(m)) if m.contains("refusing")),
+            "expected Permanent(refusing...), got: {:?}",
+            result
+        );
     }
 
-    // ---- auth_failed: 535 maps to AuthFailed ----
+    // ---- credentials with tls=false: Permanent before AUTH is sent ----
+    //
+    // Even when the server advertises AUTH PLAIN, credentials must never be
+    // sent over a plaintext connection.  The error must be Permanent (not
+    // Transient) so the caller does not retry endlessly.
 
     #[tokio::test]
-    async fn deliver_535_returns_auth_failed() {
+    async fn deliver_credentials_plaintext_returns_permanent_not_auth_failed() {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
 
@@ -706,13 +676,11 @@ mod tests {
                 .await
                 .unwrap();
             let _ = conn.read(&mut buf).await; // EHLO
-            conn.write_all(b"250-mock.smtp.test\r\n250 AUTH PLAIN\r\n")
-                .await
-                .unwrap();
-            let _ = conn.read(&mut buf).await; // AUTH PLAIN
-            conn.write_all(b"535 Authentication credentials invalid\r\n")
-                .await
-                .unwrap();
+            let _ = conn
+                .write_all(b"250-mock.smtp.test\r\n250 AUTH PLAIN\r\n")
+                .await;
+            // Client disconnects here; further writes will silently fail.
+            let _ = conn.read(&mut buf).await;
         });
 
         let peer = crate::config::SmtpRelayPeerConfig {
@@ -729,8 +697,8 @@ mod tests {
 
         let result = deliver_via_relay(&peer, &envelope, b"body\r\n").await;
         assert!(
-            matches!(result, Err(SmtpRelayError::AuthFailed)),
-            "expected AuthFailed, got: {:?}",
+            matches!(&result, Err(SmtpRelayError::Permanent(m)) if m.contains("refusing")),
+            "expected Permanent(refusing...), got: {:?}",
             result
         );
     }

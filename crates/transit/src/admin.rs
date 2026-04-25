@@ -14,74 +14,15 @@
 //! - `GET /ipns`             — IPNS address and latest article CID per group
 //! - `GET /version`          — binary name and semver version
 //! - `GET /groups`           — distinct group names known to this node
-//! - `POST /reload`          — signal daemon to reload config (stub, returns `{"reloaded":true}`)
+//! - `POST /reload`          — stub; returns HTTP 501 with `{"reloaded":false}` until config reload is implemented
 
 use sqlx::SqlitePool;
-use std::collections::HashMap;
-use std::net::IpAddr;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Instant;
+use stoa_core::rate_limiter::RateLimiter;
 use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 
 use crate::peering::pipeline::IpfsStore;
-
-struct RateLimitState {
-    /// Tokens available (fractional).
-    tokens: f64,
-    /// Last refill time.
-    last_refill: Instant,
-}
-
-pub(crate) struct RateLimiter {
-    /// Max requests per minute.
-    rpm: u32,
-    /// Per-IP state.
-    state: Mutex<HashMap<IpAddr, RateLimitState>>,
-}
-
-impl RateLimiter {
-    pub(crate) fn new(rpm: u32) -> Self {
-        Self {
-            rpm,
-            state: Mutex::new(HashMap::new()),
-        }
-    }
-
-    /// Returns true if the request is allowed, false if rate-limited.
-    /// Always returns true if rpm == 0.
-    pub(crate) fn check_and_consume(&self, ip: IpAddr) -> bool {
-        if self.rpm == 0 {
-            return true;
-        }
-        let mut state = self.state.lock().unwrap();
-        let tokens_per_sec = self.rpm as f64 / 60.0;
-        let max_tokens = self.rpm as f64;
-        let now = Instant::now();
-
-        let allowed;
-        {
-            let entry = state.entry(ip).or_insert(RateLimitState {
-                tokens: max_tokens,
-                last_refill: now,
-            });
-            let elapsed = now.duration_since(entry.last_refill).as_secs_f64();
-            entry.tokens = (entry.tokens + elapsed * tokens_per_sec).min(max_tokens);
-            entry.last_refill = now;
-            if entry.tokens >= 1.0 {
-                entry.tokens -= 1.0;
-                allowed = true;
-            } else {
-                allowed = false;
-            }
-        }
-
-        // Evict entries idle for more than one hour to bound HashMap size.
-        let evict_before = now - std::time::Duration::from_secs(3600);
-        state.retain(|_, v| v.last_refill >= evict_before);
-
-        allowed
-    }
-}
 
 /// Start the admin HTTP server on the given address.
 ///
@@ -200,8 +141,9 @@ async fn handle_admin_connection(
     // Apply per-IP rate limiting. /metrics is exempt (polled frequently by Prometheus).
     if path != "/metrics" && !rate_limiter.check_and_consume(peer_ip) {
         tracing::debug!("admin request rate-limited from {peer_ip}");
-        let rpm = rate_limiter.rpm;
-        let retry_after = if rpm > 0 { (60u32 / rpm).min(60) } else { 60 };
+        let rpm = rate_limiter.rpm();
+        // clamp to [1, 60]: prevents Retry-After: 0 for high rpm (e.g. rpm=120 → 60/120=0 → 1s).
+        let retry_after = if rpm > 0 { (60u32 / rpm).clamp(1, 60) } else { 60 };
         let body = r#"{"error":"rate limit exceeded"}"#;
         let content_length = body.len();
         let response = format!(
@@ -764,42 +706,6 @@ mod tests {
     fn no_token_configured_always_passes() {
         assert!(check_bearer_token(None, None));
         assert!(check_bearer_token(Some("anything"), None));
-    }
-
-    #[test]
-    fn rate_limiter_allows_under_limit() {
-        let limiter = RateLimiter::new(60);
-        let ip: IpAddr = "127.0.0.1".parse().unwrap();
-        // First request should be allowed (starts with full bucket)
-        assert!(limiter.check_and_consume(ip));
-    }
-
-    #[test]
-    fn rate_limiter_blocks_when_exhausted() {
-        let limiter = RateLimiter::new(2); // 2 rpm = 2 tokens max
-        let ip: IpAddr = "127.0.0.1".parse().unwrap();
-        assert!(limiter.check_and_consume(ip)); // token 1
-        assert!(limiter.check_and_consume(ip)); // token 2
-        assert!(!limiter.check_and_consume(ip)); // exhausted → 429
-    }
-
-    #[test]
-    fn rate_limiter_zero_means_unlimited() {
-        let limiter = RateLimiter::new(0);
-        let ip: IpAddr = "10.0.0.1".parse().unwrap();
-        for _ in 0..1000 {
-            assert!(limiter.check_and_consume(ip));
-        }
-    }
-
-    #[test]
-    fn rate_limiter_different_ips_independent() {
-        let limiter = RateLimiter::new(1); // 1 rpm = 1 token
-        let ip1: IpAddr = "1.1.1.1".parse().unwrap();
-        let ip2: IpAddr = "2.2.2.2".parse().unwrap();
-        assert!(limiter.check_and_consume(ip1));
-        assert!(!limiter.check_and_consume(ip1)); // ip1 exhausted
-        assert!(limiter.check_and_consume(ip2)); // ip2 still has token
     }
 
     // ── /pinning/remote endpoint tests ────────────────────────────────────────

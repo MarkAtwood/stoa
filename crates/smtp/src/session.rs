@@ -204,6 +204,20 @@ pub async fn run_session<S>(
 
         match verb.as_str() {
             "EHLO" => {
+                // Reject EHLO arguments containing CR, LF, or NUL: these
+                // would allow header injection into the Received: trace we
+                // prepend at DATA time.  Per RFC 5321 §4.1.1.1 the domain
+                // argument must be a valid hostname or address literal.
+                if args.bytes().any(|b| b == b'\r' || b == b'\n' || b == b'\0') {
+                    if write_half
+                        .write_all(b"501 5.5.2 Syntax error in parameters\r\n")
+                        .await
+                        .is_err()
+                    {
+                        break;
+                    }
+                    continue;
+                }
                 // STARTTLS is not advertised here because the upgrade path is
                 // not yet implemented (stoa-ryw.3).  Advertising an
                 // extension we cannot complete causes MTAs that enforce
@@ -230,6 +244,16 @@ pub async fn run_session<S>(
             }
 
             "HELO" => {
+                if args.bytes().any(|b| b == b'\r' || b == b'\n' || b == b'\0') {
+                    if write_half
+                        .write_all(b"501 5.5.2 Syntax error in parameters\r\n")
+                        .await
+                        .is_err()
+                    {
+                        break;
+                    }
+                    continue;
+                }
                 let resp = format!("250 {}\r\n", config.hostname);
                 if write_half.write_all(resp.as_bytes()).await.is_err() {
                     break;
@@ -341,6 +365,19 @@ pub async fn run_session<S>(
                         continue;
                     }
                 };
+                // RFC 4954 §6: when AUTH is configured, require it before
+                // accepting MAIL FROM.  Without this check any unauthenticated
+                // client can relay mail through the submission port.
+                if !credential_store.is_empty() && authenticated_user.is_none() {
+                    if write_half
+                        .write_all(b"530 5.7.0 Authentication required\r\n")
+                        .await
+                        .is_err()
+                    {
+                        break;
+                    }
+                    continue;
+                }
                 let from = parse_angle_addr(args);
                 if write_half.write_all(b"250 OK\r\n").await.is_err() {
                     break;
@@ -351,29 +388,26 @@ pub async fn run_session<S>(
             "RCPT" => {
                 let to_addr = parse_angle_addr(args);
 
-                // Reject unknown recipients when a users list is configured.
-                if !config.users.is_empty() {
-                    let known = config
-                        .users
-                        .iter()
-                        .any(|u| u.email.eq_ignore_ascii_case(&to_addr));
-                    if !known {
-                        if write_half
-                            .write_all(b"550 5.1.1 User not found\r\n")
-                            .await
-                            .is_err()
-                        {
-                            break;
-                        }
-                        continue;
-                    }
-                }
-
                 match state {
                     SessionState::Mail {
                         ref ehlo_domain,
                         ref from,
                     } => {
+                        // Always reject unknown recipients; empty users list rejects all.
+                        let known = config
+                            .users
+                            .iter()
+                            .any(|u| u.email.eq_ignore_ascii_case(&to_addr));
+                        if !known {
+                            if write_half
+                                .write_all(b"550 5.1.1 User not found\r\n")
+                                .await
+                                .is_err()
+                            {
+                                break;
+                            }
+                            continue;
+                        }
                         let ehlo_domain = ehlo_domain.clone();
                         let from_clone = from.clone();
                         if write_half.write_all(b"250 OK\r\n").await.is_err() {
@@ -386,6 +420,21 @@ pub async fn run_session<S>(
                         };
                     }
                     SessionState::Rcpt { ref mut to, .. } => {
+                        // Always reject unknown recipients; empty users list rejects all.
+                        let known = config
+                            .users
+                            .iter()
+                            .any(|u| u.email.eq_ignore_ascii_case(&to_addr));
+                        if !known {
+                            if write_half
+                                .write_all(b"550 5.1.1 User not found\r\n")
+                                .await
+                                .is_err()
+                            {
+                                break;
+                            }
+                            continue;
+                        }
                         if to.len() >= config.limits.max_recipients {
                             if write_half
                                 .write_all(b"452 Too many recipients\r\n")
@@ -1149,8 +1198,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_basic_smtp_session() {
-        // Basic end-to-end: full SMTP exchange completes with correct response codes.
-        // No users configured → Sieve produces no actions → 250 OK, nothing stored.
+        // Basic end-to-end: full SMTP exchange with a known recipient completes successfully.
+        let rcpt_user = UserConfig {
+            username: "rcpt".to_string(),
+            email: "rcpt@example.com".to_string(),
+        };
         let client = b"EHLO client.example.com\r\n\
             MAIL FROM:<sender@example.com>\r\n\
             RCPT TO:<rcpt@example.com>\r\n\
@@ -1161,7 +1213,8 @@ mod tests {
             .\r\n\
             QUIT\r\n";
 
-        let (response, _queue_dir) = drive_session(client).await;
+        let (response, _queue_dir) =
+            drive_session_ext(client, test_config_with_users(vec![rcpt_user]), None).await;
 
         assert!(
             response.starts_with("220 "),
@@ -1227,6 +1280,21 @@ mod tests {
         assert!(
             response.contains("503 Bad sequence"),
             "expected 503, got: {response}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_rcpt_empty_users_rejects_all() {
+        // An empty user list means no local recipients exist — not an open relay.
+        // All RCPT TO addresses must be rejected with 550 when users is empty.
+        let client = b"EHLO client.example.com\r\n\
+            MAIL FROM:<sender@example.com>\r\n\
+            RCPT TO:<anyone@example.com>\r\n\
+            QUIT\r\n";
+        let (response, _) = drive_session(client).await;
+        assert!(
+            response.contains("550 5.1.1 User not found"),
+            "empty users must reject all RCPT TO with 550, got: {response}"
         );
     }
 
@@ -1729,6 +1797,34 @@ mod tests {
         );
     }
 
+    // ── EHLO/HELO injection guard ─────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn test_ehlo_with_bare_cr_returns_501() {
+        // Injection vector: a bare CR (no LF) causes read_command_line to
+        // include the injected text in the EHLO argument.  The injected
+        // content would otherwise be interpolated verbatim into Received:.
+        // b"EHLO evil\rX-Injected: header\r\n" is read as one command line.
+        let client = b"EHLO evil\rX-Injected: header\r\nQUIT\r\n";
+        let (response, _) = drive_session(client).await;
+        assert!(
+            response.contains("501"),
+            "EHLO with bare CR in domain must return 501, got: {response}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_ehlo_with_nul_returns_501() {
+        let mut script = b"EHLO evil".to_vec();
+        script.push(0); // NUL
+        script.extend_from_slice(b"\r\nQUIT\r\n");
+        let (response, _) = drive_session(&script).await;
+        assert!(
+            response.contains("501"),
+            "EHLO with NUL must return 501, got: {response}"
+        );
+    }
+
     // ── ryw.1 + ryw.4: timeout test ──────────────────────────────────────────
 
     #[tokio::test]
@@ -1901,5 +1997,57 @@ mod tests {
         )
         .await;
         assert_eq!(actions, vec![stoa_sieve_native::SieveAction::Keep]);
+    }
+
+    /// When a credential store is non-empty, MAIL FROM without prior AUTH
+    /// must be rejected with 530.
+    #[tokio::test]
+    async fn test_mail_from_requires_auth_when_credentials_configured() {
+        use stoa_auth::{CredentialStore, UserCredential};
+        use tokio::io::AsyncWriteExt;
+
+        // bcrypt cost 4 is the minimum; fast enough for tests.
+        let hash = bcrypt::hash("hunter2", 4).expect("bcrypt::hash");
+        let creds = vec![UserCredential {
+            username: "alice".to_string(),
+            password: hash,
+        }];
+        let credential_store = Arc::new(CredentialStore::from_credentials(&creds));
+
+        let config = test_config();
+        let queue_dir = tempfile::tempdir().expect("tempdir");
+        let nntp_queue = NntpQueue::new(queue_dir.path()).expect("NntpQueue::new");
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind");
+        let addr = listener.local_addr().expect("local_addr");
+
+        let config2 = config.clone();
+        let queue2 = Arc::clone(&nntp_queue);
+        let store2 = Arc::clone(&credential_store);
+        tokio::spawn(async move {
+            let (stream, peer) = listener.accept().await.expect("accept");
+            run_session(stream, true, peer.to_string(), config2, store2, queue2, None, None, None)
+                .await;
+        });
+
+        let mut client = tokio::net::TcpStream::connect(addr).await.expect("connect");
+        let script = b"EHLO client.example.com\r\nMAIL FROM:<sender@example.com>\r\nQUIT\r\n";
+        client.write_all(script).await.expect("write");
+        client.shutdown().await.expect("shutdown");
+
+        let mut response = String::new();
+        client.read_to_string(&mut response).await.expect("read");
+
+        assert!(
+            response.contains("530 5.7.0 Authentication required"),
+            "unauthenticated MAIL FROM must be rejected with 530 when auth is configured, got: {response}"
+        );
+        // Verify no 354 DATA prompt was sent (i.e., we never accepted MAIL FROM).
+        assert!(
+            !response.contains("354"),
+            "MAIL FROM must not succeed without auth: {response}"
+        );
     }
 }

@@ -10,6 +10,7 @@
 
 use std::sync::Arc;
 
+use rustls::crypto::{verify_tls12_signature, verify_tls13_signature};
 use rustls::pki_types::{CertificateDer, UnixTime};
 use rustls::server::danger::{ClientCertVerified, ClientCertVerifier};
 use rustls::ServerConfig;
@@ -30,13 +31,14 @@ impl std::fmt::Debug for TlsAcceptor {
     }
 }
 
-/// A permissive `ClientCertVerifier` that requests but never rejects a client
-/// certificate.
+/// A `ClientCertVerifier` that requests a client certificate, skips CA chain
+/// validation (no trusted roots required), but fully verifies the TLS
+/// handshake signature to prove key possession.
 ///
-/// All certificate validation (including fingerprint-to-username binding)
-/// happens at the application layer in the session context after the handshake.
-/// This verifier's sole job is to tell rustls "offer client auth, accept
-/// anything, never fail the handshake because of the cert".
+/// Chain validation (fingerprint-to-username binding) happens at the
+/// application layer after the handshake.  The TLS handshake signature MUST
+/// be verified here — without it, any client that possesses a copy of
+/// someone's certificate (but not their private key) could forge an identity.
 #[derive(Debug)]
 struct PermissiveClientAuth;
 
@@ -59,40 +61,38 @@ impl ClientCertVerifier for PermissiveClientAuth {
         _intermediates: &[CertificateDer<'_>],
         _now: UnixTime,
     ) -> Result<ClientCertVerified, Error> {
+        // CA chain validation is skipped — trust is established by fingerprint
+        // at the application layer.  Key-possession proof is handled by the
+        // verify_tls12_signature / verify_tls13_signature methods below.
         Ok(ClientCertVerified::assertion())
     }
 
     fn verify_tls12_signature(
         &self,
-        _message: &[u8],
-        _cert: &CertificateDer<'_>,
-        _dss: &DigitallySignedStruct,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &DigitallySignedStruct,
     ) -> Result<rustls::client::danger::HandshakeSignatureValid, Error> {
-        Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
+        let provider = rustls::crypto::CryptoProvider::get_default()
+            .ok_or(Error::General("no default crypto provider".into()))?;
+        verify_tls12_signature(message, cert, dss, &provider.signature_verification_algorithms)
     }
 
     fn verify_tls13_signature(
         &self,
-        _message: &[u8],
-        _cert: &CertificateDer<'_>,
-        _dss: &DigitallySignedStruct,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &DigitallySignedStruct,
     ) -> Result<rustls::client::danger::HandshakeSignatureValid, Error> {
-        Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
+        let provider = rustls::crypto::CryptoProvider::get_default()
+            .ok_or(Error::General("no default crypto provider".into()))?;
+        verify_tls13_signature(message, cert, dss, &provider.signature_verification_algorithms)
     }
 
     fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
-        vec![
-            SignatureScheme::ECDSA_NISTP256_SHA256,
-            SignatureScheme::ECDSA_NISTP384_SHA384,
-            SignatureScheme::ECDSA_NISTP521_SHA512,
-            SignatureScheme::RSA_PSS_SHA256,
-            SignatureScheme::RSA_PSS_SHA384,
-            SignatureScheme::RSA_PSS_SHA512,
-            SignatureScheme::ED25519,
-            SignatureScheme::RSA_PKCS1_SHA256,
-            SignatureScheme::RSA_PKCS1_SHA384,
-            SignatureScheme::RSA_PKCS1_SHA512,
-        ]
+        rustls::crypto::CryptoProvider::get_default()
+            .map(|p| p.signature_verification_algorithms.supported_schemes())
+            .unwrap_or_default()
     }
 }
 

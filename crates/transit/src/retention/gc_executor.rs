@@ -3,8 +3,9 @@
 use cid::Cid;
 use sqlx::SqlitePool;
 use stoa_core::error::StorageError;
+use stoa_core::msgid_map::MsgIdMap;
 
-use crate::retention::audit_log::{append_audit_record, ensure_audit_table, GcAuditRecord};
+use crate::retention::audit_log::{append_audit_record, GcAuditRecord};
 use crate::retention::pin_client::PinClient;
 
 /// A GC candidate with full metadata needed for the audit record.
@@ -23,30 +24,55 @@ pub struct GcExecutorResult {
     pub failed: usize,
 }
 
-/// Run GC: unpin each candidate and write an audit record.
+/// Run GC: unpin each candidate, delete its DB records, and write an audit
+/// record.
 ///
-/// Audit records are written AFTER successful unpin. Failed unpins are counted
-/// but do not abort the run.
+/// After a successful unpin the CID is removed from:
+/// - `articles` (transit pool): prevents the same CID from being selected as
+///   a GC candidate on every subsequent run.
+/// - `msgid_map` (core pool): allows the same Message-ID to be re-ingested
+///   from another peer after the content has been pruned.
+///
+/// Deletion failures are logged as warnings but do not abort the GC run.
+/// Failed unpins are counted but also do not abort the run.
 pub async fn run_gc_executor<P: PinClient>(
     candidates: &[GcExecutorCandidate],
     pin_client: &P,
-    pool: &SqlitePool,
+    transit_pool: &SqlitePool,
+    core_pool: &SqlitePool,
     now_ms: u64,
 ) -> Result<GcExecutorResult, StorageError> {
-    ensure_audit_table(pool).await?;
+    let msgid_map = MsgIdMap::new(core_pool.clone());
     let mut result = GcExecutorResult::default();
     for candidate in candidates {
         match pin_client.unpin(&candidate.cid).await {
             Ok(()) => {
+                // Remove from the articles table so the CID is no longer
+                // offered as a GC candidate on the next run.
+                let cid_str = candidate.cid.to_string();
+                if let Err(e) =
+                    sqlx::query("DELETE FROM articles WHERE cid = ?")
+                        .bind(&cid_str)
+                        .execute(transit_pool)
+                        .await
+                {
+                    tracing::warn!(cid = %candidate.cid, "GC: failed to delete articles row: {e}");
+                }
+
+                // Remove from msgid_map so the message-id can be re-ingested.
+                if let Err(e) = msgid_map.delete_by_cid(&candidate.cid).await {
+                    tracing::warn!(cid = %candidate.cid, "GC: failed to delete msgid_map row: {e}");
+                }
+
                 let record = GcAuditRecord {
-                    cid: candidate.cid.to_string(),
+                    cid: cid_str,
                     group_name: candidate.group_name.clone(),
                     ingested_at_ms: candidate.ingested_at_ms,
                     gc_at_ms: now_ms,
                     reason: candidate.gc_reason.clone(),
                 };
-                if let Err(e) = append_audit_record(pool, &record).await {
-                    tracing::warn!(cid = %candidate.cid, "failed to write GC audit record: {e}");
+                if let Err(e) = append_audit_record(transit_pool, &record).await {
+                    tracing::warn!(cid = %candidate.cid, "GC: failed to write audit record: {e}");
                 }
                 result.unpinned += 1;
             }
@@ -75,22 +101,40 @@ mod tests {
         Cid::new_v1(0x71, Code::Sha2_256.digest(data))
     }
 
-    async fn make_pool() -> sqlx::SqlitePool {
+    async fn make_transit_pool() -> sqlx::SqlitePool {
         let n = DB_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let url = format!("file:gc_exec_{n}?mode=memory&cache=shared");
+        let url = format!("file:gc_exec_transit_{n}?mode=memory&cache=shared");
         let opts = SqliteConnectOptions::new()
             .filename(&url)
             .create_if_missing(true);
-        SqlitePoolOptions::new()
+        let pool = SqlitePoolOptions::new()
             .max_connections(1)
             .connect_with(opts)
             .await
-            .unwrap()
+            .unwrap();
+        crate::migrations::run_migrations(&pool).await.unwrap();
+        pool
+    }
+
+    async fn make_core_pool() -> sqlx::SqlitePool {
+        let n = DB_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let url = format!("file:gc_exec_core_{n}?mode=memory&cache=shared");
+        let opts = SqliteConnectOptions::new()
+            .filename(&url)
+            .create_if_missing(true);
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(opts)
+            .await
+            .unwrap();
+        stoa_core::migrations::run_migrations(&pool).await.unwrap();
+        pool
     }
 
     #[tokio::test]
     async fn gc_executor_unpins_and_writes_audit_records() {
-        let pool = make_pool().await;
+        let transit_pool = make_transit_pool().await;
+        let core_pool = make_core_pool().await;
         let pin_client = MemPinClient::new();
         let now_ms = 1_700_000_000_000u64;
 
@@ -106,24 +150,44 @@ mod tests {
             })
             .collect();
 
-        // Pin all candidates first
+        // Insert into articles table and pin all candidates.
         for c in &candidates {
+            let cid_str = c.cid.to_string();
+            sqlx::query(
+                "INSERT INTO articles (cid, group_name, ingested_at_ms, byte_count) \
+                 VALUES (?, ?, ?, ?)",
+            )
+            .bind(&cid_str)
+            .bind(&c.group_name)
+            .bind(c.ingested_at_ms as i64)
+            .bind(1024i64)
+            .execute(&transit_pool)
+            .await
+            .unwrap();
             pin_client.pin(&c.cid).await.unwrap();
         }
 
-        let result = run_gc_executor(&candidates, &pin_client, &pool, now_ms)
+        let result = run_gc_executor(&candidates, &pin_client, &transit_pool, &core_pool, now_ms)
             .await
             .unwrap();
         assert_eq!(result.unpinned, 10);
         assert_eq!(result.failed, 0);
 
-        let audit_count = count_audit_records(&pool).await.unwrap();
+        let audit_count = count_audit_records(&transit_pool).await.unwrap();
         assert_eq!(audit_count, 10, "should have 10 audit records");
+
+        // All articles rows must be gone after GC.
+        let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM articles")
+            .fetch_one(&transit_pool)
+            .await
+            .unwrap();
+        assert_eq!(count, 0, "articles table must be empty after GC");
     }
 
     #[tokio::test]
     async fn gc_executor_failed_unpin_not_audited() {
-        let pool = make_pool().await;
+        let transit_pool = make_transit_pool().await;
+        let core_pool = make_core_pool().await;
         let pin_client = MemPinClient::new();
         // Force error on all operations
         *pin_client.force_error.write().unwrap() = Some("injected".to_string());
@@ -136,21 +200,24 @@ mod tests {
             gc_reason: "no_matching_rule".to_string(),
         }];
 
-        let result = run_gc_executor(&candidates, &pin_client, &pool, 0)
+        let result = run_gc_executor(&candidates, &pin_client, &transit_pool, &core_pool, 0)
             .await
             .unwrap();
         assert_eq!(result.failed, 1);
         assert_eq!(result.unpinned, 0);
 
-        let audit_count = count_audit_records(&pool).await.unwrap();
+        let audit_count = count_audit_records(&transit_pool).await.unwrap();
         assert_eq!(audit_count, 0, "failed unpins should not be audited");
     }
 
     #[tokio::test]
     async fn gc_executor_empty_candidates_returns_zero() {
-        let pool = make_pool().await;
+        let transit_pool = make_transit_pool().await;
+        let core_pool = make_core_pool().await;
         let pin_client = MemPinClient::new();
-        let result = run_gc_executor(&[], &pin_client, &pool, 0).await.unwrap();
+        let result = run_gc_executor(&[], &pin_client, &transit_pool, &core_pool, 0)
+            .await
+            .unwrap();
         assert_eq!(result.unpinned, 0);
         assert_eq!(result.failed, 0);
     }

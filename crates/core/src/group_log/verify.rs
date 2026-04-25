@@ -32,7 +32,10 @@ impl VerifiedEntry {
     /// Use only in tests that exercise backfill mechanics and are not testing
     /// signature correctness.  Production paths must go through
     /// [`verify_signature`].
-    #[doc(hidden)]
+    ///
+    /// Only available when the `test-helpers` feature is enabled or in `#[cfg(test)]`
+    /// contexts.  Never use this in production code.
+    #[cfg(any(test, feature = "test-helpers"))]
     pub fn new_for_test(entry: LogEntry) -> Self {
         Self(entry)
     }
@@ -64,6 +67,10 @@ pub enum VerifyError {
     InvalidSignature(SigningError),
     MissingParent(String),
     HlcNotMonotonic { entry: u64, parent: u64 },
+    /// The provided `entry_id` does not match the SHA2-256 of the entry's
+    /// canonical bytes.  Indicates the entry was tampered with or the wrong
+    /// ID was supplied.
+    EntryIdMismatch,
 }
 
 impl std::fmt::Display for VerifyError {
@@ -76,6 +83,9 @@ impl std::fmt::Display for VerifyError {
                 f,
                 "HLC not monotonic: entry timestamp {entry} <= parent timestamp {parent}"
             ),
+            Self::EntryIdMismatch => {
+                write!(f, "entry ID does not match entry content hash")
+            }
         }
     }
 }
@@ -85,7 +95,9 @@ impl std::error::Error for VerifyError {
         match self {
             Self::Storage(e) => Some(e),
             Self::InvalidSignature(e) => Some(e),
-            Self::MissingParent(_) | Self::HlcNotMonotonic { .. } => None,
+            Self::MissingParent(_)
+            | Self::HlcNotMonotonic { .. }
+            | Self::EntryIdMismatch => None,
         }
     }
 }
@@ -142,11 +154,12 @@ fn check_signature(entry: &LogEntry, pubkey: &VerifyingKey) -> Result<(), Verify
 /// 2. All parent CIDs listed in `entry.parent_cids` exist in `storage`.
 /// 3. `entry.hlc_timestamp` is strictly greater than every parent's
 ///    `hlc_timestamp`.
+/// 4. The provided `entry_id` matches `LogEntryId::from_entry(entry)`.
 ///
 /// Genesis entries (no parents) pass checks 2 and 3 vacuously.
 pub async fn verify_entry<S: LogStorage>(
     entry: &LogEntry,
-    _entry_id: &LogEntryId,
+    entry_id: &LogEntryId,
     storage: &S,
     pubkey: &VerifyingKey,
 ) -> Result<(), VerifyError> {
@@ -180,6 +193,11 @@ pub async fn verify_entry<S: LogStorage>(
                 parent: parent_entry.hlc_timestamp,
             });
         }
+    }
+
+    // ── 4. Entry ID integrity ─────────────────────────────────────────────────
+    if LogEntryId::from_entry(entry) != *entry_id {
+        return Err(VerifyError::EntryIdMismatch);
     }
 
     Ok(())
@@ -385,6 +403,33 @@ mod tests {
         assert!(
             matches!(result, Err(VerifyError::HlcNotMonotonic { .. })),
             "non-monotonic HLC must yield HlcNotMonotonic, got {result:?}"
+        );
+    }
+
+    // ── verify_entry_wrong_entry_id ───────────────────────────────────────────
+
+    /// A valid entry whose provided entry_id does not match the computed hash
+    /// must be rejected with EntryIdMismatch.
+    #[tokio::test]
+    async fn verify_entry_wrong_entry_id() {
+        let storage = MemLogStorage::new();
+        let key = test_signing_key();
+        let pubkey = key.verifying_key();
+
+        let mut entry = LogEntry {
+            hlc_timestamp: 9_000,
+            article_cid: test_cid(b"article-id-mismatch"),
+            operator_signature: vec![],
+            parent_cids: vec![],
+        };
+        sign_entry(&mut entry, &key);
+
+        // All-zeros is not the correct entry ID.
+        let wrong_entry_id = LogEntryId::from_bytes([0u8; 32]);
+        let result = verify_entry(&entry, &wrong_entry_id, &storage, &pubkey).await;
+        assert!(
+            matches!(result, Err(VerifyError::EntryIdMismatch)),
+            "wrong entry_id must yield EntryIdMismatch, got {result:?}"
         );
     }
 }

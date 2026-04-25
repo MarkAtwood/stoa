@@ -25,11 +25,24 @@ tokio = { version = "1", features = ["sync", "time", "rt", "macros"] }
 reqwest = { version = "0.12", features = ["multipart", "rustls-tls", "json"], default-features = false }
 tracing = "0.1"
 
+[features]
+# Exposes test-only helpers (e.g. VerifiedEntry::new_for_test).  Enable in
+# dev-dependencies or [[test]] sections; never in production dependencies.
+test-helpers = []
+
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 proptest = "1"
 tempfile = "3"
 tokio = { version = "1", features = ["full", "macros", "rt-multi-thread"] }
+
+[[test]]
+name = "group_log_vectors"
+required-features = ["test-helpers"]
+
+[[test]]
+name = "reconcile_convergence"
+required-features = ["test-helpers"]
 
 [[bench]]
 name = "canonical"

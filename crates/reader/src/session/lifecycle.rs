@@ -26,7 +26,7 @@ use crate::{
             parse_command, ArticleRange, ArticleRef, Command, ListSubcommand, OverArg, SearchKey,
         },
         commands::{
-            fetch::{article_response, xcid_response, ArticleContent},
+            fetch::{article_response, body_response, head_response, xcid_response, ArticleContent},
             hdr::{extract_field, hdr_response, HdrRecord},
             list::GroupInfo,
             over::over_response,
@@ -71,7 +71,7 @@ pub async fn run_session(
                 return;
             }
         };
-        match crate::tls::accept_tls(&*acceptor, stream).await {
+        match crate::tls::accept_tls(&acceptor, stream).await {
             Ok(tls_stream) => {
                 let (client_cert_fp, client_cert_der) =
                     crate::tls::extract_client_cert_data(&tls_stream);
@@ -199,7 +199,7 @@ async fn run_plain_session(
             }
         };
         info!(peer = %peer_addr, "STARTTLS: performing TLS handshake");
-        match crate::tls::accept_tls(&*acceptor, stream).await {
+        match crate::tls::accept_tls(&acceptor, stream).await {
             Ok(tls_stream) => {
                 let (client_cert_fp, client_cert_der) =
                     crate::tls::extract_client_cert_data(&tls_stream);
@@ -335,6 +335,128 @@ where
         // ARTICLE cid:<cid>: fetch directly by CID (ADR-0007).
         if let Command::Article(Some(ArticleRef::Cid(ref cid_str))) = cmd {
             let resp = lookup_article_by_cid(stores, cid_str).await;
+            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                return CommandLoopExit::Done;
+            }
+            continue;
+        }
+
+        // ARTICLE <n> / ARTICLE (current) — look up by local article number.
+        if matches!(
+            cmd,
+            Command::Article(Some(ArticleRef::Number(_))) | Command::Article(None)
+        ) {
+            let number = match &cmd {
+                Command::Article(Some(ArticleRef::Number(n))) => *n,
+                Command::Article(None) => match ctx.current_article_number {
+                    Some(n) => n,
+                    None => {
+                        let resp = Response::new(420, "Current article number is invalid");
+                        if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                            return CommandLoopExit::Done;
+                        }
+                        continue;
+                    }
+                },
+                _ => unreachable!(),
+            };
+            let resp = match lookup_article_content_by_number(stores, ctx, number).await {
+                Ok(content) => article_response(&content),
+                Err(r) => r,
+            };
+            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                return CommandLoopExit::Done;
+            }
+            continue;
+        }
+
+        // HEAD <msgid> / HEAD <n> / HEAD (current)
+        if matches!(
+            cmd,
+            Command::Head(Some(ArticleRef::MessageId(_)))
+                | Command::Head(Some(ArticleRef::Number(_)))
+                | Command::Head(None)
+        ) {
+            let resp = match &cmd {
+                Command::Head(Some(ArticleRef::MessageId(ref msgid))) => {
+                    lookup_head_by_msgid(stores, msgid).await
+                }
+                Command::Head(Some(ArticleRef::Number(n))) => {
+                    match lookup_article_content_by_number(stores, ctx, *n).await {
+                        Ok(content) => head_response(&content),
+                        Err(r) => r,
+                    }
+                }
+                Command::Head(None) => match ctx.current_article_number {
+                    Some(n) => match lookup_article_content_by_number(stores, ctx, n).await {
+                        Ok(content) => head_response(&content),
+                        Err(r) => r,
+                    },
+                    None => Response::new(420, "Current article number is invalid"),
+                },
+                _ => unreachable!(),
+            };
+            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                return CommandLoopExit::Done;
+            }
+            continue;
+        }
+
+        // BODY <msgid> / BODY <n> / BODY (current)
+        if matches!(
+            cmd,
+            Command::Body(Some(ArticleRef::MessageId(_)))
+                | Command::Body(Some(ArticleRef::Number(_)))
+                | Command::Body(None)
+        ) {
+            let resp = match &cmd {
+                Command::Body(Some(ArticleRef::MessageId(ref msgid))) => {
+                    lookup_body_by_msgid(stores, msgid).await
+                }
+                Command::Body(Some(ArticleRef::Number(n))) => {
+                    match lookup_article_content_by_number(stores, ctx, *n).await {
+                        Ok(content) => body_response(&content),
+                        Err(r) => r,
+                    }
+                }
+                Command::Body(None) => match ctx.current_article_number {
+                    Some(n) => match lookup_article_content_by_number(stores, ctx, n).await {
+                        Ok(content) => body_response(&content),
+                        Err(r) => r,
+                    },
+                    None => Response::new(420, "Current article number is invalid"),
+                },
+                _ => unreachable!(),
+            };
+            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                return CommandLoopExit::Done;
+            }
+            continue;
+        }
+
+        // STAT <n> / STAT (current) — check existence by local article number.
+        if matches!(
+            cmd,
+            Command::Stat(Some(ArticleRef::Number(_))) | Command::Stat(None)
+        ) {
+            let number = match &cmd {
+                Command::Stat(Some(ArticleRef::Number(n))) => *n,
+                Command::Stat(None) => match ctx.current_article_number {
+                    Some(n) => n,
+                    None => {
+                        let resp = Response::new(420, "Current article number is invalid");
+                        if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                            return CommandLoopExit::Done;
+                        }
+                        continue;
+                    }
+                },
+                _ => unreachable!(),
+            };
+            let resp = match lookup_article_content_by_number(stores, ctx, number).await {
+                Ok(content) => Response::article_exists(content.article_number, &content.message_id),
+                Err(r) => r,
+            };
             if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
                 return CommandLoopExit::Done;
             }
@@ -518,7 +640,6 @@ where
             &config.auth,
             &stores.client_cert_store,
             &stores.trusted_issuer_store,
-            None,
         );
         crate::metrics::NNTP_COMMAND_DURATION_SECONDS
             .with_label_values(&[cmd_label.as_str()])
@@ -535,9 +656,19 @@ where
 
         // POST two-phase completion: if dispatch returned 340, read the article.
         if is_post && resp_code == 340 {
-            let article_bytes = match read_dot_terminated(reader, DEFAULT_MAX_ARTICLE_BYTES).await {
-                Ok(bytes) => bytes,
-                Err(e) if e.kind() == std::io::ErrorKind::InvalidData => {
+            let body_timeout =
+                std::time::Duration::from_secs(config.limits.post_body_timeout_secs);
+            let read_result =
+                tokio::time::timeout(body_timeout, read_dot_terminated(reader, DEFAULT_MAX_ARTICLE_BYTES))
+                    .await;
+            let article_bytes = match read_result {
+                Err(_elapsed) => {
+                    warn!(peer = %peer_addr, "post body upload timed out");
+                    let _ = writer.write_all(b"400 Timeout - closing connection\r\n").await;
+                    return CommandLoopExit::Done;
+                }
+                Ok(Ok(bytes)) => bytes,
+                Ok(Err(e)) if e.kind() == std::io::ErrorKind::InvalidData => {
                     // Article exceeded the size limit.  The stream was drained to
                     // the dot-terminator, so the connection is still valid.
                     warn!(peer = %peer_addr, "post rejected: article too large");
@@ -550,7 +681,7 @@ where
                     }
                     continue;
                 }
-                Err(e) => {
+                Ok(Err(e)) => {
                     warn!(peer = %peer_addr, "post read error: {e}");
                     return CommandLoopExit::Done;
                 }
@@ -644,10 +775,16 @@ async fn run_session_io<S>(
 ///
 /// Returns 240 on success or a 441 error response on failure.
 async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Response {
-    // Step 1: Extract injection source and strip the internal header so it
-    // is not stored in IPFS or seen by downstream validation.
+    // Step 1: Strip the X-Stoa-Injection-Source header so it is not stored
+    // in IPFS.  All articles entering via NNTP POST are classified as NntpPost
+    // regardless of any client-supplied header value — trusting the header
+    // would allow any NNTP client to forge the injection source.
+    //
+    // SmtpListId local-only behaviour requires authenticated drain sessions
+    // (see usenet-ipfs-8ipr); until then, SMTP drain articles are peerable.
     let mut article_bytes = article_bytes.to_vec();
-    let injection_source = extract_injection_source(&mut article_bytes);
+    extract_injection_source(&mut article_bytes);
+    let injection_source = stoa_core::InjectionSource::NntpPost;
     let article_bytes = article_bytes.as_slice();
 
     // Step 2: Validate headers.
@@ -899,6 +1036,138 @@ async fn lookup_article_by_msgid(stores: &ServerStores, msgid: &str) -> Response
     };
 
     article_response(&content)
+}
+
+/// Resolve a local article number to its `ArticleContent`.
+///
+/// Looks up the CID via `article_numbers`, fetches wire bytes from IPFS,
+/// builds an `ArticleContent` record, and updates `ctx.current_article_number`.
+///
+/// Returns `Err(Response)` with 412, 423, or 500 on any failure.
+async fn lookup_article_content_by_number(
+    stores: &ServerStores,
+    ctx: &mut SessionContext,
+    number: u64,
+) -> Result<ArticleContent, Response> {
+    let group = match ctx.current_group.as_ref() {
+        Some(g) => g.as_str().to_string(),
+        None => return Err(Response::no_newsgroup_selected()),
+    };
+    let cid = match stores.article_numbers.lookup_cid(&group, number).await {
+        Ok(Some(c)) => c,
+        Ok(None) => return Err(Response::new(423, "No article with that number")),
+        Err(e) => {
+            warn!("article_numbers lookup error {group}/{number}: {e}");
+            return Err(Response::program_fault());
+        }
+    };
+    let wire_bytes = match fetch_article_wire_bytes(stores.ipfs_store.as_ref(), &cid).await {
+        Ok(b) => b,
+        Err(e) => {
+            warn!("fetch_article_wire_bytes error for cid {cid}: {e}");
+            return Err(Response::program_fault());
+        }
+    };
+    let (header_bytes, body_bytes) = split_article(&wire_bytes);
+    let headers_str = String::from_utf8_lossy(&header_bytes);
+    let message_id = extract_header_value(&headers_str, "Message-ID").unwrap_or_default();
+    let did_sig_valid = stores
+        .overview_store
+        .query_by_msgid(&message_id)
+        .await
+        .ok()
+        .flatten()
+        .and_then(|r| r.did_sig_valid);
+    let verifications = stores
+        .verification_store
+        .get_verifications(&cid)
+        .await
+        .unwrap_or_default();
+    ctx.current_article_number = Some(number);
+    Ok(ArticleContent {
+        article_number: number,
+        message_id,
+        header_bytes,
+        body_bytes,
+        cid: Some(cid),
+        did_sig_valid,
+        verifications,
+    })
+}
+
+/// HEAD <msgid>: look up an article by Message-ID and return headers only.
+async fn lookup_head_by_msgid(stores: &ServerStores, msgid: &str) -> Response {
+    let cid = match stores.msgid_map.lookup_by_msgid(msgid).await {
+        Ok(Some(c)) => c,
+        Ok(None) => return Response::no_article_with_message_id(),
+        Err(e) => {
+            warn!("msgid_map lookup error for {msgid}: {e}");
+            return Response::program_fault();
+        }
+    };
+    let wire_bytes = match fetch_article_wire_bytes(stores.ipfs_store.as_ref(), &cid).await {
+        Ok(b) => b,
+        Err(e) => {
+            warn!("fetch_article_wire_bytes error for cid {cid}: {e}");
+            return Response::program_fault();
+        }
+    };
+    let (header_bytes, body_bytes) = split_article(&wire_bytes);
+    let did_sig_valid = stores
+        .overview_store
+        .query_by_msgid(msgid)
+        .await
+        .ok()
+        .flatten()
+        .and_then(|r| r.did_sig_valid);
+    let verifications = stores
+        .verification_store
+        .get_verifications(&cid)
+        .await
+        .unwrap_or_default();
+    head_response(&ArticleContent {
+        article_number: 0,
+        message_id: msgid.to_string(),
+        header_bytes,
+        body_bytes,
+        cid: Some(cid),
+        did_sig_valid,
+        verifications,
+    })
+}
+
+/// BODY <msgid>: look up an article by Message-ID and return body only.
+async fn lookup_body_by_msgid(stores: &ServerStores, msgid: &str) -> Response {
+    let cid = match stores.msgid_map.lookup_by_msgid(msgid).await {
+        Ok(Some(c)) => c,
+        Ok(None) => return Response::no_article_with_message_id(),
+        Err(e) => {
+            warn!("msgid_map lookup error for {msgid}: {e}");
+            return Response::program_fault();
+        }
+    };
+    let wire_bytes = match fetch_article_wire_bytes(stores.ipfs_store.as_ref(), &cid).await {
+        Ok(b) => b,
+        Err(e) => {
+            warn!("fetch_article_wire_bytes error for cid {cid}: {e}");
+            return Response::program_fault();
+        }
+    };
+    let (header_bytes, body_bytes) = split_article(&wire_bytes);
+    let verifications = stores
+        .verification_store
+        .get_verifications(&cid)
+        .await
+        .unwrap_or_default();
+    body_response(&ArticleContent {
+        article_number: 0,
+        message_id: msgid.to_string(),
+        header_bytes,
+        body_bytes,
+        cid: Some(cid),
+        did_sig_valid: None,
+        verifications,
+    })
 }
 
 /// Split raw article bytes at the blank-line separator.
@@ -1548,6 +1817,85 @@ mod tests {
         assert_eq!(records[0].article_number, 1);
         assert_eq!(records[0].subject, "Integration Test");
         assert_eq!(records[0].message_id, "<integ@test.example>");
+    }
+
+    // ── ARTICLE/HEAD/BODY by number (usenet-ipfs-1jr7) ───────────────────
+
+    /// After posting an article, ARTICLE N must return 220 with the article.
+    #[tokio::test]
+    async fn article_by_number_returns_220() {
+        let stores = ServerStores::new_mem().await;
+        let article =
+            minimal_article("comp.test", "By Number Test", "<bynumber@test.example>");
+        let post_resp = run_post_pipeline(&article, &stores).await;
+        assert_eq!(post_resp.code, 240, "POST must succeed");
+
+        let mut ctx = crate::session::context::SessionContext::new(
+            "127.0.0.1:1234".parse().unwrap(),
+            false,
+            true,
+            false,
+        );
+        ctx.current_group =
+            Some(stoa_core::article::GroupName::new("comp.test").unwrap());
+        ctx.state = crate::session::state::SessionState::GroupSelected;
+
+        let content = lookup_article_content_by_number(&stores, &mut ctx, 1)
+            .await
+            .expect("article 1 must be found");
+        assert_eq!(content.article_number, 1);
+        assert_eq!(content.message_id, "<bynumber@test.example>");
+        assert_eq!(ctx.current_article_number, Some(1));
+    }
+
+    /// After posting, HEAD <msgid> must return 221.
+    #[tokio::test]
+    async fn head_by_msgid_returns_221() {
+        let stores = ServerStores::new_mem().await;
+        let article =
+            minimal_article("comp.test", "Head By Msgid", "<headmsgid@test.example>");
+        let post_resp = run_post_pipeline(&article, &stores).await;
+        assert_eq!(post_resp.code, 240, "POST must succeed");
+
+        let resp = lookup_head_by_msgid(&stores, "<headmsgid@test.example>").await;
+        assert_eq!(resp.code, 221, "HEAD <msgid> must return 221; got: {}", resp.text);
+        assert!(resp.body.iter().any(|l| l.contains("Head By Msgid")), "headers must contain Subject");
+        assert!(!resp.body.iter().any(|l| l == "Article body."), "body must not appear in HEAD");
+    }
+
+    /// After posting, BODY <msgid> must return 222 and contain the body.
+    #[tokio::test]
+    async fn body_by_msgid_returns_222() {
+        let stores = ServerStores::new_mem().await;
+        let article =
+            minimal_article("comp.test", "Body By Msgid", "<bodymsgid@test.example>");
+        let post_resp = run_post_pipeline(&article, &stores).await;
+        assert_eq!(post_resp.code, 240, "POST must succeed");
+
+        let resp = lookup_body_by_msgid(&stores, "<bodymsgid@test.example>").await;
+        assert_eq!(resp.code, 222, "BODY <msgid> must return 222; got: {}", resp.text);
+        assert!(resp.body.iter().any(|l| l.contains("Article body.")), "body content must appear");
+        assert!(!resp.body.iter().any(|l| l.contains("Subject:")), "headers must not appear in BODY");
+    }
+
+    /// ARTICLE N with unknown number must return 423.
+    #[tokio::test]
+    async fn article_by_number_unknown_returns_423() {
+        let stores = ServerStores::new_mem().await;
+        let mut ctx = crate::session::context::SessionContext::new(
+            "127.0.0.1:1234".parse().unwrap(),
+            false,
+            true,
+            false,
+        );
+        ctx.current_group =
+            Some(stoa_core::article::GroupName::new("comp.test").unwrap());
+        ctx.state = crate::session::state::SessionState::GroupSelected;
+
+        match lookup_article_content_by_number(&stores, &mut ctx, 999).await {
+            Err(r) => assert_eq!(r.code, 423, "must return 423 for unknown article number"),
+            Ok(_) => panic!("expected Err but got Ok for unknown article number"),
+        }
     }
 
     // ── SEARCH lifecycle tests ────────────────────────────────────────────

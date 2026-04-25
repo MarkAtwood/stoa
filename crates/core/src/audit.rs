@@ -131,9 +131,12 @@ pub async fn recent_audit_events(
 
 /// Handle to the background audit logger task.
 ///
-/// Dropping the handle signals the logger to flush remaining events and shut down.
+/// Dropping the handle signals the logger to flush remaining events and shut
+/// down, but does NOT wait for it to complete.  Call `shutdown().await` when
+/// you need to guarantee all events have been persisted before proceeding.
 pub struct AuditLoggerHandle {
     tx: tokio::sync::mpsc::Sender<AuditEvent>,
+    join: tokio::task::JoinHandle<()>,
 }
 
 impl AuditLoggerHandle {
@@ -159,6 +162,14 @@ impl AuditLoggerHandle {
             }
         }
     }
+
+    /// Close the sender and wait for the logger task to flush all remaining
+    /// events and exit.  After this returns, all events that were enqueued
+    /// before this call are guaranteed to have been written to SQLite.
+    pub async fn shutdown(self) {
+        drop(self.tx);
+        let _ = self.join.await;
+    }
 }
 
 /// Start the background audit logger task.
@@ -167,15 +178,16 @@ impl AuditLoggerHandle {
 /// or `flush_interval` elapses, then writes them all in a single SQLite transaction.
 ///
 /// Returns a handle. Dropping the handle causes the background task to flush
-/// remaining events and exit.
+/// remaining events and exit; call `handle.shutdown().await` to wait for
+/// completion.
 pub fn start_audit_logger(
     pool: sqlx::SqlitePool,
     batch_size: usize,
     flush_interval: std::time::Duration,
 ) -> AuditLoggerHandle {
     let (tx, rx) = tokio::sync::mpsc::channel::<AuditEvent>(1000);
-    tokio::spawn(audit_logger_task(pool, rx, batch_size, flush_interval));
-    AuditLoggerHandle { tx }
+    let join = tokio::spawn(audit_logger_task(pool, rx, batch_size, flush_interval));
+    AuditLoggerHandle { tx, join }
 }
 
 async fn audit_logger_task(
@@ -236,7 +248,7 @@ async fn flush_buffer(pool: &sqlx::SqlitePool, buffer: &mut Vec<AuditEvent>) {
         }
     };
 
-    let mut insert_failed = false;
+    let mut failed_count: u64 = 0;
     for event in buffer.iter() {
         let event_type = event.event_type();
         let event_json = event.to_json();
@@ -250,7 +262,7 @@ async fn flush_buffer(pool: &sqlx::SqlitePool, buffer: &mut Vec<AuditEvent>) {
         .await
         {
             tracing::error!("audit logger: insert failed: {e}");
-            insert_failed = true;
+            failed_count += 1;
         }
     }
 
@@ -266,9 +278,12 @@ async fn flush_buffer(pool: &sqlx::SqlitePool, buffer: &mut Vec<AuditEvent>) {
         return;
     }
 
-    if insert_failed {
+    if failed_count > 0 {
+        let total = AUDIT_EVENTS_DROPPED.fetch_add(failed_count, Ordering::Relaxed) + failed_count;
         tracing::error!(
-            "audit logger: one or more inserts failed during flush; some events may be missing from the log"
+            audit_events_dropped_total = total,
+            dropped_this_flush = failed_count,
+            "audit logger: {failed_count} insert(s) failed during flush; events dropped"
         );
     }
 
@@ -401,9 +416,7 @@ mod tests {
             });
         }
 
-        drop(handle);
-
-        tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
+        handle.shutdown().await;
 
         let events = recent_audit_events(&pool, 1100).await.unwrap();
         assert_eq!(
@@ -434,8 +447,8 @@ mod tests {
             "non-blocking sends took too long: {elapsed:?}"
         );
 
-        drop(handle);
-        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        // Shutdown waits for the logger to flush all remaining events.
+        handle.shutdown().await;
         let events = recent_audit_events(&pool, 300).await.unwrap();
         assert_eq!(events.len(), 200);
     }

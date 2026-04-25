@@ -7,7 +7,8 @@
 //! and RFC 4644 §2.2 (MODE STREAM 203).
 
 use cid::Cid;
-use ed25519_dalek::{Signer, SigningKey};
+use ed25519_dalek::SigningKey;
+use std::sync::Arc;
 use multihash_codetable::{Code, MultihashDigest};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::str::FromStr as _;
@@ -75,7 +76,7 @@ fn make_article(msgid: &str, group: &str) -> Vec<u8> {
 fn make_pipeline_ctx(key: &SigningKey, ts: HlcTimestamp) -> PipelineCtx<'static> {
     PipelineCtx {
         timestamp: ts,
-        operator_signature: key.sign(b""),
+        operator_signing_key: Arc::new(key.clone()),
         gossip_tx: None,
         sender_peer_id: "test-peer",
         local_hostname: "test.local",

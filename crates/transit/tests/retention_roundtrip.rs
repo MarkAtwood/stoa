@@ -19,16 +19,32 @@ fn make_cid(data: &[u8]) -> Cid {
     Cid::new_v1(0x71, Code::Sha2_256.digest(data))
 }
 
-async fn make_pool(name: &str) -> sqlx::SqlitePool {
-    let url = format!("file:{name}?mode=memory&cache=shared");
+async fn make_transit_pool(name: &str) -> sqlx::SqlitePool {
+    let url = format!("file:{name}_transit?mode=memory&cache=shared");
     let opts = SqliteConnectOptions::new()
         .filename(&url)
         .create_if_missing(true);
-    SqlitePoolOptions::new()
+    let pool = SqlitePoolOptions::new()
         .max_connections(1)
         .connect_with(opts)
         .await
-        .unwrap()
+        .unwrap();
+    stoa_transit::migrations::run_migrations(&pool).await.unwrap();
+    pool
+}
+
+async fn make_core_pool(name: &str) -> sqlx::SqlitePool {
+    let url = format!("file:{name}_core?mode=memory&cache=shared");
+    let opts = SqliteConnectOptions::new()
+        .filename(&url)
+        .create_if_missing(true);
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(opts)
+        .await
+        .unwrap();
+    stoa_core::migrations::run_migrations(&pool).await.unwrap();
+    pool
 }
 
 /// Policy that pins articles in sci.* and alt.* groups.
@@ -61,7 +77,8 @@ fn pin_all_policy() -> PinPolicy {
 
 #[tokio::test]
 async fn gc_roundtrip_13_unpinned_7_pinned() {
-    let pool = make_pool("gc_roundtrip_test").await;
+    let transit_pool = make_transit_pool("gc_roundtrip_test").await;
+    let core_pool = make_core_pool("gc_roundtrip_test").await;
     let pin_client = MemPinClient::new();
     let now_ms = 1_700_000_000_000u64;
     let policy = selective_policy();
@@ -109,13 +126,13 @@ async fn gc_roundtrip_13_unpinned_7_pinned() {
     // All 13 comp.lang.rust articles should be GC candidates
     assert_eq!(candidates.len(), 13, "expected 13 GC candidates");
 
-    let result = run_gc_executor(&candidates, &pin_client, &pool, now_ms)
+    let result = run_gc_executor(&candidates, &pin_client, &transit_pool, &core_pool, now_ms)
         .await
         .unwrap();
     assert_eq!(result.unpinned, 13, "should unpin 13");
     assert_eq!(result.failed, 0, "no failures expected");
 
-    let audit_count = count_audit_records(&pool).await.unwrap();
+    let audit_count = count_audit_records(&transit_pool).await.unwrap();
     assert_eq!(audit_count, 13, "audit log should have 13 records");
 
     // Verify the 7 pinned articles are still pinned
@@ -128,7 +145,8 @@ async fn gc_roundtrip_13_unpinned_7_pinned() {
 
 #[tokio::test]
 async fn gc_roundtrip_pin_all_produces_no_candidates() {
-    let pool = make_pool("gc_roundtrip_pin_all").await;
+    let transit_pool = make_transit_pool("gc_roundtrip_pin_all").await;
+    let core_pool = make_core_pool("gc_roundtrip_pin_all").await;
     let pin_client = MemPinClient::new();
     let now_ms = 1_700_000_000_000u64;
     let policy = pin_all_policy();
@@ -163,11 +181,11 @@ async fn gc_roundtrip_pin_all_produces_no_candidates() {
 
     assert_eq!(candidates.len(), 0, "pin-all should produce 0 candidates");
 
-    let result = run_gc_executor(&candidates, &pin_client, &pool, now_ms)
+    let result = run_gc_executor(&candidates, &pin_client, &transit_pool, &core_pool, now_ms)
         .await
         .unwrap();
     assert_eq!(result.unpinned, 0);
 
-    let audit_count = count_audit_records(&pool).await.unwrap();
+    let audit_count = count_audit_records(&transit_pool).await.unwrap();
     assert_eq!(audit_count, 0, "no audit records when nothing unpinned");
 }

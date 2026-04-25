@@ -18,8 +18,11 @@ pub enum InjectionSource {
 
 impl InjectionSource {
     /// Returns true if the article should be written to the group log and replicated to peers.
+    ///
+    /// Uses positive matching: only explicitly listed variants return `true`.
+    /// Any future variant is non-peerable by default until explicitly added here.
     pub fn is_peerable(self) -> bool {
-        !matches!(self, Self::SmtpListId)
+        matches!(self, Self::NntpPost | Self::SmtpNewsgroups | Self::SmtpSieve)
     }
 }
 

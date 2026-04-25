@@ -99,6 +99,10 @@ pub enum ValidationError {
         count: usize,
         limit: usize,
     },
+    InvalidHeaderValue {
+        field: String,
+        reason: String,
+    },
 }
 
 impl fmt::Display for ValidationError {
@@ -118,6 +122,9 @@ impl fmt::Display for ValidationError {
             Self::EmptyNewsgroups => write!(f, "Newsgroups header is empty"),
             Self::TooManyNewsgroups { count, limit } => {
                 write!(f, "too many Newsgroups entries: {count} (limit {limit})")
+            }
+            Self::InvalidHeaderValue { field, reason } => {
+                write!(f, "invalid header value in {field:?}: {reason}")
             }
         }
     }

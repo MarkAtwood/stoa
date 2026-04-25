@@ -461,11 +461,13 @@ async fn route_method(
                 None
             };
 
+            let position: u64 = args.get("position").and_then(|v| v.as_u64()).unwrap_or(0);
+            let limit: Option<u64> = args.get("limit").and_then(|v| v.as_u64());
             crate::email::query::handle_email_query(
                 &entries,
                 filter,
-                0,
-                None,
+                position,
+                limit,
                 &email_state,
                 text_results,
             )
@@ -481,14 +483,27 @@ async fn route_method(
                         .collect()
                 })
                 .unwrap_or_default();
-            crate::email::get::handle_email_get(&ids, jmap.ipfs.as_ref(), None).await
+            let email_state = jmap
+                .state_store
+                .get_state("Email")
+                .await
+                .unwrap_or_else(|_| "0".to_string());
+            crate::email::get::handle_email_get(&ids, jmap.ipfs.as_ref(), None, &email_state).await
         }
 
         "Email/set" => {
+            let old_state = jmap
+                .state_store
+                .get_state("Email")
+                .await
+                .unwrap_or_else(|_| "0".to_string());
+
             let mut result = match crate::email::set::handle_email_set(args.clone()) {
                 Ok(v) => v,
                 Err(e) => return serde_json::to_value(&e).unwrap_or(json!({})),
             };
+
+            let mut any_changed = false;
 
             // Handle keyword updates.
             if let Some(update_map) = args.get("update").and_then(|v| v.as_object()) {
@@ -497,6 +512,7 @@ async fn route_method(
                     crate::email::set::handle_keyword_update(update_map, user_id, &jmap.user_flags)
                         .await;
                 if !updated.is_empty() {
+                    any_changed = true;
                     result["updated"] = Value::Object(updated);
                 }
                 if !not_updated.is_empty() {
@@ -520,12 +536,25 @@ async fn route_method(
                 )
                 .await;
                 if !created.is_empty() {
+                    any_changed = true;
                     result["created"] = Value::Object(created);
                 }
                 if !not_created.is_empty() {
                     result["notCreated"] = Value::Object(not_created);
                 }
             }
+
+            // Set real oldState/newState; bump state if any write succeeded.
+            let new_state = if any_changed {
+                jmap.state_store
+                    .bump_state("Email")
+                    .await
+                    .unwrap_or_else(|_| old_state.clone())
+            } else {
+                old_state.clone()
+            };
+            result["oldState"] = Value::String(old_state);
+            result["newState"] = Value::String(new_state);
 
             result
         }

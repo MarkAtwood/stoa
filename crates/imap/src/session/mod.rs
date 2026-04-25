@@ -16,7 +16,7 @@ pub mod commands;
 pub mod fetch;
 pub mod mailbox;
 
-use std::{net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use imap_next::{
     imap_types::{
@@ -58,6 +58,9 @@ pub enum ImapState {
     Logout,
 }
 
+/// Maximum consecutive authentication failures before the session is closed.
+const MAX_AUTH_FAILURES: u32 = 3;
+
 /// Session context shared across command handlers.
 pub struct SessionContext {
     pub pool: Arc<SqlitePool>,
@@ -70,6 +73,10 @@ pub struct SessionContext {
     pub auth_progress: AuthProgress,
     /// Tag saved when IDLE is accepted; consumed on DONE to send the tagged OK.
     pub idle_tag: Option<Tag<'static>>,
+    /// Count of consecutive authentication failures this session.  When this
+    /// reaches [`MAX_AUTH_FAILURES`] the server sends BYE and closes the
+    /// connection, preventing brute-force credential enumeration.
+    pub auth_failures: u32,
 }
 
 /// Entry point for a plain-text IMAP connection.
@@ -88,6 +95,7 @@ pub async fn run_session_plain(
         state: ImapState::NotAuthenticated,
         auth_progress: AuthProgress::None,
         idle_tag: None,
+        auth_failures: 0,
     };
     run_session_inner(imap_stream, ctx).await;
 }
@@ -109,6 +117,7 @@ pub async fn run_session_tls(
         state: ImapState::NotAuthenticated,
         auth_progress: AuthProgress::None,
         idle_tag: None,
+        auth_failures: 0,
     };
     run_session_inner(imap_stream, ctx).await;
 }
@@ -132,13 +141,36 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
     info!(peer = %ctx.peer, tls = ctx.tls, "IMAP session started");
 
     loop {
-        let event = match stream.next(&mut server).await {
-            Ok(ev) => ev,
-            Err(e) => {
+        let idle_timeout = Duration::from_secs(ctx.config.limits.idle_timeout_secs);
+        let event = match tokio::time::timeout(idle_timeout, stream.next(&mut server)).await {
+            Ok(Ok(ev)) => ev,
+            Ok(Err(e)) => {
                 debug!(peer = %ctx.peer, "IMAP session ended: {e}");
                 break;
             }
+            Err(_elapsed) => {
+                // RFC 3501 §5.4: server may close idle connections with BYE.
+                warn!(
+                    peer = %ctx.peer,
+                    idle_secs = ctx.config.limits.idle_timeout_secs,
+                    "IMAP idle timeout; sending BYE"
+                );
+                let bye = server.enqueue_status(
+                    Status::bye(None, "Idle timeout — connection closed")
+                        .expect("static bye is valid"),
+                );
+                // Best-effort flush with a short deadline so a dead client
+                // cannot stall shutdown.
+                let _ = tokio::time::timeout(
+                    Duration::from_secs(5),
+                    drain_until(&mut stream, &mut server, bye),
+                )
+                .await;
+                break;
+            }
         };
+
+        let mut should_disconnect = false;
 
         match event {
             Event::GreetingSent { .. } => {
@@ -497,6 +529,10 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
                     let no = Status::no(Some(tag), None, "LOGINDISABLED: authenticate over TLS")
                         .expect("static no");
                     server.authenticate_finish(no).ok();
+                    ctx.auth_failures += 1;
+                    if ctx.auth_failures >= MAX_AUTH_FAILURES {
+                        should_disconnect = true;
+                    }
                 } else if let Some(username) = auth::handle_authenticate_start(
                     &mut server,
                     &ctx.config,
@@ -504,8 +540,19 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
                     tag,
                     mechanism,
                     initial_response,
-                ) {
+                )
+                .await
+                {
                     ctx.state = ImapState::Authenticated { username };
+                } else if matches!(ctx.auth_progress, AuthProgress::None) {
+                    // handle_authenticate_start returned None without setting a
+                    // continuation state: auth failed outright (unsupported
+                    // mechanism or credential rejection), not a multi-step
+                    // exchange in progress.
+                    ctx.auth_failures += 1;
+                    if ctx.auth_failures >= MAX_AUTH_FAILURES {
+                        should_disconnect = true;
+                    }
                 }
             }
 
@@ -515,8 +562,16 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
                     &ctx.config,
                     &mut ctx.auth_progress,
                     authenticate_data,
-                ) {
+                )
+                .await
+                {
                     ctx.state = ImapState::Authenticated { username };
+                } else {
+                    // Failure: cancelled by client or bad credentials.
+                    ctx.auth_failures += 1;
+                    if ctx.auth_failures >= MAX_AUTH_FAILURES {
+                        should_disconnect = true;
+                    }
                 }
             }
 
@@ -551,6 +606,24 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
                     warn!(peer = %ctx.peer, "unexpected IdleDoneReceived");
                 }
             }
+        }
+
+        if should_disconnect {
+            warn!(
+                peer = %ctx.peer,
+                failures = ctx.auth_failures,
+                "IMAP auth failure limit reached; sending BYE"
+            );
+            let bye = server.enqueue_status(
+                Status::bye(None, "Too many authentication failures")
+                    .expect("static bye is valid"),
+            );
+            let _ = tokio::time::timeout(
+                Duration::from_secs(5),
+                drain_until(&mut stream, &mut server, bye),
+            )
+            .await;
+            break;
         }
     }
 

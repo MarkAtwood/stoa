@@ -134,77 +134,137 @@ impl StagingStore {
     /// Returns `Ok(true)` if the article was staged, `Ok(false)` if either
     /// capacity limit is already reached (caller should return 436/439 to the
     /// peer).  Returns `Err` only on I/O or DB failures.
+    ///
+    /// The capacity check and the INSERT are performed inside a single
+    /// `BEGIN IMMEDIATE` transaction so that concurrent callers cannot both
+    /// pass the checks and collectively exceed the configured limits.
     pub async fn try_stage(&self, message_id: &str, bytes: &[u8]) -> Result<bool, StagingError> {
-        // Check entry limit.
-        let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM transit_staging")
-            .fetch_one(&*self.pool)
-            .await?;
-        if count as u64 >= self.config.max_entries {
-            return Ok(false);
-        }
-
-        // Check byte limit.
-        let (total_bytes,): (i64,) =
-            sqlx::query_as("SELECT COALESCE(SUM(byte_size), 0) FROM transit_staging")
-                .fetch_one(&*self.pool)
-                .await?;
-        if total_bytes as u64 + bytes.len() as u64 > self.config.max_bytes {
-            return Ok(false);
-        }
-
         let id = new_staging_id();
         let file_path = PathBuf::from(&self.config.path)
             .join(&id)
             .to_string_lossy()
             .into_owned();
 
-        // Write to disk first; if this fails the DB stays clean.
+        // Write to disk before taking the DB lock.  If the DB checks reject
+        // the article we delete the file; if the DB write fails we also
+        // delete it.  File presence without a DB row is harmless — it will
+        // be cleaned up by the next GC pass.
         fs::write(&file_path, bytes).await?;
 
+        // BEGIN IMMEDIATE: takes a write lock before the capacity checks so
+        // no concurrent caller can insert between our checks and our INSERT.
+        // We use a raw connection and manual BEGIN IMMEDIATE / COMMIT because
+        // sqlx's pool.begin() issues `BEGIN` (deferred), which only upgrades
+        // to a write lock on the first write — too late for our read-check.
+        let mut conn = match self.pool.acquire().await {
+            Ok(c) => c,
+            Err(e) => {
+                let _ = fs::remove_file(&file_path).await;
+                return Err(StagingError::Db(e));
+            }
+        };
+
+        if let Err(e) = sqlx::query("BEGIN IMMEDIATE").execute(&mut *conn).await {
+            let _ = fs::remove_file(&file_path).await;
+            return Err(StagingError::Db(e));
+        }
+
+        let result: Result<bool, StagingError> = async {
+            let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM transit_staging")
+                .fetch_one(&mut *conn)
+                .await?;
+            if count as u64 >= self.config.max_entries {
+                return Ok(false);
+            }
+
+            let (total_bytes,): (i64,) =
+                sqlx::query_as("SELECT COALESCE(SUM(byte_size), 0) FROM transit_staging")
+                    .fetch_one(&mut *conn)
+                    .await?;
+            if total_bytes as u64 + bytes.len() as u64 > self.config.max_bytes {
+                return Ok(false);
+            }
+
+            let now_secs = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs() as i64;
+
+            sqlx::query(
+                "INSERT INTO transit_staging \
+                 (id, message_id, file_path, received_at, byte_size) \
+                 VALUES (?, ?, ?, ?, ?)",
+            )
+            .bind(&id)
+            .bind(message_id)
+            .bind(&file_path)
+            .bind(now_secs)
+            .bind(bytes.len() as i64)
+            .execute(&mut *conn)
+            .await?;
+
+            Ok(true)
+        }
+        .await;
+
+        match &result {
+            Ok(true) => {
+                if let Err(e) = sqlx::query("COMMIT").execute(&mut *conn).await {
+                    let _ = fs::remove_file(&file_path).await;
+                    let _ = sqlx::query("ROLLBACK").execute(&mut *conn).await;
+                    return Err(StagingError::Db(e));
+                }
+            }
+            Ok(false) => {
+                let _ = fs::remove_file(&file_path).await;
+                let _ = sqlx::query("ROLLBACK").execute(&mut *conn).await;
+            }
+            Err(_) => {
+                let _ = fs::remove_file(&file_path).await;
+                let _ = sqlx::query("ROLLBACK").execute(&mut *conn).await;
+            }
+        }
+
+        result
+    }
+
+    /// Fetch the oldest unclaimed staged article and atomically mark it as
+    /// claimed so that concurrent drain workers never process the same article.
+    ///
+    /// Returns `Ok(None)` when the staging table has no unclaimed rows.
+    pub async fn drain_one(&self) -> Result<Option<StagedArticle>, StagingError> {
+        // Atomically claim the oldest unclaimed row.  BEGIN IMMEDIATE prevents
+        // any other writer from inserting or updating between the SELECT and
+        // the UPDATE, making the claim exclusive even with multiple workers.
         let now_secs = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs() as i64;
 
-        let db_result = sqlx::query(
-            "INSERT INTO transit_staging \
-             (id, message_id, file_path, received_at, byte_size) \
-             VALUES (?, ?, ?, ?, ?)",
-        )
-        .bind(&id)
-        .bind(message_id)
-        .bind(&file_path)
-        .bind(now_secs)
-        .bind(bytes.len() as i64)
-        .execute(&*self.pool)
-        .await;
+        let mut tx = self.pool.begin().await?;
 
-        if let Err(e) = db_result {
-            // Best-effort cleanup of the orphaned file.
-            let _ = fs::remove_file(&file_path).await;
-            return Err(StagingError::Db(e));
-        }
-
-        Ok(true)
-    }
-
-    /// Fetch the oldest staged article from the staging directory and return it
-    /// with its bytes already read into memory.
-    ///
-    /// Returns `Ok(None)` when the staging table is empty.
-    pub async fn drain_one(&self) -> Result<Option<StagedArticle>, StagingError> {
         let row: Option<(String, String, String)> = sqlx::query_as(
             "SELECT id, message_id, file_path \
              FROM transit_staging \
+             WHERE claimed_at IS NULL \
              ORDER BY received_at ASC \
              LIMIT 1",
         )
-        .fetch_optional(&*self.pool)
+        .fetch_optional(&mut *tx)
         .await?;
 
         let Some((id, message_id, file_path)) = row else {
+            tx.rollback().await?;
             return Ok(None);
         };
+
+        sqlx::query("UPDATE transit_staging SET claimed_at = ? WHERE id = ?")
+            .bind(now_secs)
+            .bind(&id)
+            .execute(&mut *tx)
+            .await?;
+
+        tx.commit().await?;
 
         let bytes = fs::read(&file_path).await?;
         Ok(Some(StagedArticle {
@@ -213,6 +273,15 @@ impl StagingStore {
             bytes,
             file_path,
         }))
+    }
+
+    /// Clear stale claims left by a previous run that crashed after claiming
+    /// but before completing an article.  Call once at drain-task startup.
+    pub async fn reset_claims(&self) -> Result<(), StagingError> {
+        sqlx::query("UPDATE transit_staging SET claimed_at = NULL")
+            .execute(&*self.pool)
+            .await?;
+        Ok(())
     }
 
     /// Remove the staging file and its DB row after the pipeline has
@@ -264,7 +333,8 @@ mod tests {
                 message_id  TEXT    NOT NULL UNIQUE,
                 file_path   TEXT    NOT NULL,
                 received_at INTEGER NOT NULL,
-                byte_size   INTEGER NOT NULL
+                byte_size   INTEGER NOT NULL,
+                claimed_at  INTEGER
             )",
         )
         .execute(&pool)
@@ -395,6 +465,43 @@ mod tests {
         let big = b"123456";
         let ok = store.try_stage("<big@a>", big).await.unwrap();
         assert!(!ok, "should reject: 6 bytes > max_bytes=5");
+    }
+
+    /// Two sequential drain_one() calls on a store with one article: the second
+    /// call must return None because the first has claimed the only row.
+    #[tokio::test]
+    async fn drain_one_claims_exclusively() {
+        let dir = tempfile::tempdir().unwrap();
+        let pool = make_pool().await;
+        let store = StagingStore::new(staging_config(dir.path().to_str().unwrap()), pool.clone());
+
+        let body = b"From: x@y\r\n\r\nclaim test\r\n";
+        store.try_stage("<claim@test>", body).await.unwrap();
+
+        let first = store.drain_one().await.unwrap();
+        assert!(first.is_some(), "first drain_one must return the article");
+
+        let second = store.drain_one().await.unwrap();
+        assert!(
+            second.is_none(),
+            "second drain_one must return None: article already claimed"
+        );
+    }
+
+    /// reset_claims clears claimed_at so the article can be re-drained.
+    #[tokio::test]
+    async fn reset_claims_allows_redrain() {
+        let dir = tempfile::tempdir().unwrap();
+        let pool = make_pool().await;
+        let store = StagingStore::new(staging_config(dir.path().to_str().unwrap()), pool.clone());
+
+        store.try_stage("<reset@test>", b"bytes").await.unwrap();
+        let _ = store.drain_one().await.unwrap(); // claim it
+
+        store.reset_claims().await.unwrap();
+
+        let re = store.drain_one().await.unwrap();
+        assert!(re.is_some(), "after reset_claims the article must be re-drainable");
     }
 
     #[tokio::test]

@@ -188,18 +188,17 @@ async fn create_one_email(
         .and_then(|v| v.as_str())
         .unwrap_or("");
 
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis();
-    let message_id = format!("<jmap-{timestamp}@stoa.local>");
+    let now = chrono::Utc::now();
+    let timestamp_ms = now.timestamp_millis();
+    let message_id = format!("<jmap-{timestamp_ms}@stoa.local>");
+    let date_str = now.to_rfc2822();
 
     let article = format!(
         "Newsgroups: {}\r\nFrom: {}\r\nSubject: {}\r\nDate: {}\r\nMessage-ID: {}\r\n\r\n{}",
         newsgroups.join(","),
         from_email,
         subject,
-        "Mon, 01 Jan 2024 00:00:00 +0000",
+        date_str,
         message_id,
         text_body,
     );

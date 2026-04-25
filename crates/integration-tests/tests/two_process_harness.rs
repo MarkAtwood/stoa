@@ -350,17 +350,15 @@ async fn transit_reader_shared_store() {
         let transit_db_pool = Arc::clone(&transit_db_pool);
 
         tokio::spawn(async move {
-            use ed25519_dalek::Signer as _;
             while let Some(article) = ingestion_receiver.recv().await {
                 let now = std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap()
                     .as_millis() as u64;
                 let ts = hlc_drain.lock().await.send(now);
-                let sig = key_drain.sign(article.bytes.as_slice());
                 let ctx = PipelineCtx {
                     timestamp: ts,
-                    operator_signature: sig,
+                    operator_signing_key: Arc::clone(&key_drain),
                     gossip_tx: None,
                     sender_peer_id: "integ-test-peer",
                     local_hostname: "integ-test.local",

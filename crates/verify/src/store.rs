@@ -28,7 +28,17 @@ impl VerificationStore {
         for v in verifications {
             let sig_type = v.sig_type.as_str();
             let result_str = v.result.as_str();
-            let reason = v.result.reason();
+            // For DnsError, encode both domain and err separated by NUL so
+            // the domain survives the round-trip.  Domain names never contain
+            // NUL, so this is unambiguous.  Other variants use reason() as-is.
+            let dns_reason_buf: String;
+            let reason: Option<&str> = match &v.result {
+                crate::types::VerifResult::DnsError { domain, err } => {
+                    dns_reason_buf = format!("{domain}\x00{err}");
+                    Some(&dns_reason_buf)
+                }
+                r => r.reason(),
+            };
             let identity = v.identity.as_deref();
             sqlx::query(
                 "INSERT OR REPLACE INTO article_verifications \
@@ -66,8 +76,8 @@ impl VerificationStore {
 
         Ok(rows
             .into_iter()
-            .map(|(sig_type, result_str, identity, reason)| {
-                let sig_type = parse_sig_type(&sig_type);
+            .filter_map(|(sig_type_str, result_str, identity, reason)| {
+                let sig_type = parse_sig_type(&sig_type_str)?;
                 let result = parse_result(&result_str, reason.as_deref(), &sig_type);
                 // Empty string means identity was unknown at verification time.
                 let identity = if identity.is_empty() {
@@ -75,11 +85,11 @@ impl VerificationStore {
                 } else {
                     Some(identity)
                 };
-                ArticleVerification {
+                Some(ArticleVerification {
                     sig_type,
                     result,
                     identity,
-                }
+                })
             })
             .collect())
     }
@@ -112,10 +122,14 @@ impl VerificationStore {
     }
 }
 
-fn parse_sig_type(s: &str) -> SigType {
+fn parse_sig_type(s: &str) -> Option<SigType> {
     match s {
-        "x-stoa-sig" => SigType::XUsenetIpfsSig,
-        _ => SigType::Dkim,
+        "dkim" => Some(SigType::Dkim),
+        "x-stoa-sig" => Some(SigType::XUsenetIpfsSig),
+        other => {
+            tracing::warn!(sig_type = other, "unrecognised sig_type in article_verifications; skipping row");
+            None
+        }
     }
 }
 
@@ -125,10 +139,16 @@ fn parse_result(result: &str, reason: Option<&str>, _sig_type: &SigType) -> Veri
         "fail" => VerifResult::Fail {
             reason: reason.unwrap_or("unknown").to_owned(),
         },
-        "dns-error" => VerifResult::DnsError {
-            domain: String::new(),
-            err: reason.unwrap_or("unknown").to_owned(),
-        },
+        "dns-error" => {
+            // reason was stored as "domain\x00err" (NUL-separated).
+            // Older rows may lack NUL; treat the whole string as err in that case.
+            let raw = reason.unwrap_or("");
+            let (domain, err) = match raw.split_once('\x00') {
+                Some((d, e)) => (d.to_owned(), e.to_owned()),
+                None => (String::new(), raw.to_owned()),
+            };
+            VerifResult::DnsError { domain, err }
+        }
         "no-key" => VerifResult::NoKey,
         _ => VerifResult::ParseError {
             reason: reason.unwrap_or("unknown").to_owned(),

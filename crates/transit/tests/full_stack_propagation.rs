@@ -10,7 +10,8 @@
 //! from one another.
 
 use cid::Cid;
-use ed25519_dalek::{Signer, SigningKey};
+use ed25519_dalek::SigningKey;
+use std::sync::Arc;
 use libp2p::{
     futures::StreamExt,
     gossipsub::{self, IdentTopic, MessageAuthenticity},
@@ -262,7 +263,7 @@ async fn full_stack_propagation() {
 
     let ctx_a = PipelineCtx {
         timestamp: ts,
-        operator_signature: signing_key.sign(b""),
+        operator_signing_key: Arc::new(signing_key.clone()),
         gossip_tx: Some(&node_a.gossip_tx),
         sender_peer_id: &node_a.peer_id.to_string(),
         local_hostname: "node-a.test.local",

@@ -186,6 +186,39 @@ impl LogStorage for SqliteLogStorage {
         Ok(())
     }
 
+    async fn advance_tips(
+        &self,
+        group: &GroupName,
+        parents_to_remove: &[LogEntryId],
+        new_tip: &LogEntryId,
+    ) -> Result<(), StorageError> {
+        let mut tx = self.pool.begin().await.map_err(db_err)?;
+        let group_name = group.as_str();
+
+        for parent in parents_to_remove {
+            let parent_bytes = parent.as_bytes().as_slice().to_vec();
+            sqlx::query("DELETE FROM group_tips WHERE group_name = ? AND tip_id = ?")
+                .bind(group_name)
+                .bind(&parent_bytes)
+                .execute(&mut *tx)
+                .await
+                .map_err(db_err)?;
+        }
+
+        let new_tip_bytes = new_tip.as_bytes().as_slice().to_vec();
+        sqlx::query(
+            "INSERT OR IGNORE INTO group_tips (group_name, tip_id) VALUES (?, ?)",
+        )
+        .bind(group_name)
+        .bind(&new_tip_bytes)
+        .execute(&mut *tx)
+        .await
+        .map_err(db_err)?;
+
+        tx.commit().await.map_err(db_err)?;
+        Ok(())
+    }
+
     async fn tip_count(&self, group: &GroupName) -> Result<u64, StorageError> {
         let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM group_tips WHERE group_name = ?")
             .bind(group.as_str())
@@ -261,5 +294,19 @@ mod tests {
         let pool = make_pool().await;
         let s = SqliteLogStorage::new(pool);
         storage_tests::test_tips_are_group_scoped(&s).await;
+    }
+
+    #[tokio::test]
+    async fn sqlite_advance_tips_basic() {
+        let pool = make_pool().await;
+        let s = SqliteLogStorage::new(pool);
+        storage_tests::test_advance_tips_basic(&s).await;
+    }
+
+    #[tokio::test]
+    async fn sqlite_advance_tips_concurrent() {
+        let pool = make_pool().await;
+        let s = SqliteLogStorage::new(pool);
+        storage_tests::test_advance_tips_concurrent(&s).await;
     }
 }

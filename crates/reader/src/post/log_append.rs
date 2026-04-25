@@ -3,6 +3,7 @@ use multihash_codetable::Multihash;
 use stoa_core::article::GroupName;
 use stoa_core::group_log::append::append as crdt_append;
 use stoa_core::group_log::types::{LogEntry, LogEntryId};
+use stoa_core::group_log::verify::verify_signature;
 use stoa_core::group_log::LogStorage;
 use stoa_core::signing::SigningKey;
 use stoa_core::InjectionSource;
@@ -101,7 +102,10 @@ pub async fn append_to_groups<S: LogStorage>(
                 parent_cids,
             };
 
-            crdt_append(log_storage, group, entry)
+            let verified = verify_signature(entry, &signing_key.verifying_key())
+                .map_err(|e| Response::new(441, format!("log entry self-check failed: {e}")))?;
+
+            crdt_append(log_storage, group, verified)
                 .await
                 .map_err(|e| Response::new(441, format!("log append failed for {group}: {e}")))?;
         }

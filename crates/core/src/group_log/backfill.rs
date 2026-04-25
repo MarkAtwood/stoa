@@ -1,8 +1,9 @@
 use std::collections::{HashSet, VecDeque};
 
+use crate::article::GroupName;
 use crate::error::StorageError;
 use crate::group_log::storage::LogStorage;
-use crate::group_log::types::LogEntryId;
+use crate::group_log::types::{LogEntry, LogEntryId};
 use crate::group_log::verify::VerifiedEntry;
 
 /// Error returned by [`backfill`].
@@ -53,6 +54,10 @@ impl From<StorageError> for BackfillError {
 /// If `want_id` is already present in local storage the function returns
 /// `Ok(0)` immediately without issuing any fetch calls.
 ///
+/// After inserting the new entries the tip set for `group` is advanced:
+/// `want_id` is added as a new tip and its direct parents are removed from
+/// the tip set (CRDT-correct semantics, same as [`crate::group_log::append`]).
+///
 /// # Signature verification is enforced by type
 ///
 /// The callback must return a [`VerifiedEntry`], which can only be constructed
@@ -69,11 +74,13 @@ impl From<StorageError> for BackfillError {
 ///    b. If already in storage or visited: skip.
 ///    c. Mark as visited.
 ///    d. Call `fetch(entry_id)` — propagates `BackfillError::FetchFailed` on error.
-///    e. Insert the entry into storage.
+///    e. Insert the entry into storage (treat `DuplicateEntry` as idempotent).
 ///    f. Enqueue parents not yet in local storage (via CID multihash digest).
-/// 4. Return `Ok(entries_fetched_count)`.
+/// 4. Advance the tip set: add `want_id`, remove its parents.
+/// 5. Return `Ok(entries_fetched_count)`.
 pub async fn backfill<S, F, Fut>(
     storage: &S,
+    group: &GroupName,
     want_id: LogEntryId,
     fetch: F,
 ) -> Result<usize, BackfillError>
@@ -89,8 +96,11 @@ where
     let mut visited: HashSet<[u8; 32]> = HashSet::new();
     let mut queue: VecDeque<LogEntryId> = VecDeque::new();
     let mut fetched_count: usize = 0;
+    // Captured from the first BFS iteration (which always processes want_id).
+    // Used to advance the tip set after the BFS completes.
+    let mut want_parent_ids: Option<Vec<LogEntryId>> = None;
 
-    queue.push_back(want_id);
+    queue.push_back(want_id.clone());
 
     while let Some(entry_id) = queue.pop_front() {
         let key = *entry_id.as_bytes();
@@ -110,9 +120,17 @@ where
             .map_err(BackfillError::FetchFailed)?;
         let entry = verified.into_inner();
 
-        storage
-            .insert_entry(entry_id.clone(), entry.clone())
-            .await?;
+        // Capture want_id's parent IDs on the first (guaranteed) fetch of want_id.
+        if want_parent_ids.is_none() {
+            want_parent_ids = Some(parent_ids_from_entry(&entry));
+        }
+
+        match storage.insert_entry(entry_id.clone(), entry.clone()).await {
+            Ok(()) => {}
+            // Concurrent insert beat us: treat as idempotent success.
+            Err(StorageError::DuplicateEntry(_)) => {}
+            Err(e) => return Err(BackfillError::Storage(e)),
+        }
         fetched_count += 1;
 
         for parent_cid in &entry.parent_cids {
@@ -131,7 +149,30 @@ where
         }
     }
 
+    // Advance the tip set so reconcile can see the new entries.  This mirrors
+    // what `append` does: add want_id as a tip and retire its direct parents.
+    if let Some(parent_ids) = want_parent_ids {
+        storage
+            .advance_tips(group, &parent_ids, &want_id)
+            .await?;
+    }
+
     Ok(fetched_count)
+}
+
+/// Extract LogEntryIds from the parent_cids of a LogEntry.
+/// Parent CIDs with non-32-byte digests are silently skipped (they will be
+/// caught later by the per-parent MalformedParentCid check in the BFS loop).
+fn parent_ids_from_entry(entry: &LogEntry) -> Vec<LogEntryId> {
+    entry
+        .parent_cids
+        .iter()
+        .filter_map(|cid| {
+            <[u8; 32]>::try_from(cid.hash().digest())
+                .ok()
+                .map(LogEntryId::from_bytes)
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -140,9 +181,14 @@ mod tests {
     use cid::Cid;
     use multihash_codetable::{Code, Multihash, MultihashDigest};
 
+    use crate::article::GroupName;
     use crate::group_log::mem_storage::MemLogStorage;
     use crate::group_log::storage::LogStorage;
     use crate::group_log::types::{LogEntry, LogEntryId};
+
+    fn test_group() -> GroupName {
+        GroupName::new("comp.test".to_owned()).unwrap()
+    }
 
     /// Derive a `LogEntryId` by SHA-256 hashing an arbitrary seed.
     fn make_entry_id(seed: &[u8]) -> LogEntryId {
@@ -213,7 +259,7 @@ mod tests {
 
         let tip_id = ids[0].clone();
 
-        let count = backfill(&local, tip_id.clone(), |id| {
+        let count = backfill(&local, &test_group(), tip_id.clone(), |id| {
             let r = &remote;
             async move {
                 r.get_entry(&id)
@@ -242,7 +288,7 @@ mod tests {
 
         let tip_id = ids[99].clone();
 
-        let count = backfill(&local, tip_id.clone(), |id| {
+        let count = backfill(&local, &test_group(), tip_id.clone(), |id| {
             let r = &remote;
             async move {
                 r.get_entry(&id)
@@ -273,7 +319,7 @@ mod tests {
 
         let tip_id = ids[4].clone();
 
-        let count_first = backfill(&local, tip_id.clone(), |id| {
+        let count_first = backfill(&local, &test_group(), tip_id.clone(), |id| {
             let r = &remote;
             async move {
                 r.get_entry(&id)
@@ -288,7 +334,7 @@ mod tests {
 
         assert_eq!(count_first, 5, "first backfill must fetch 5 entries");
 
-        let count_second = backfill(&local, tip_id.clone(), |id| {
+        let count_second = backfill(&local, &test_group(), tip_id.clone(), |id| {
             let r = &remote;
             async move {
                 r.get_entry(&id)
@@ -346,7 +392,7 @@ mod tests {
         let fetch_count = Arc::new(AtomicUsize::new(0));
         let fetch_count_clone = fetch_count.clone();
 
-        let count = backfill(&local, id_d.clone(), |id| {
+        let count = backfill(&local, &test_group(), id_d.clone(), |id| {
             let remote_ref = &remote;
             let counter = fetch_count_clone.clone();
             async move {
@@ -383,7 +429,7 @@ mod tests {
         let local = MemLogStorage::new();
         let missing_id = make_entry_id(b"does-not-exist");
 
-        let result = backfill(&local, missing_id, |id| async move {
+        let result = backfill(&local, &test_group(), missing_id, |id| async move {
             Err::<VerifiedEntry, _>(format!("remote has no entry {id}"))
         })
         .await;
@@ -420,7 +466,7 @@ mod tests {
             .unwrap();
 
         let local = MemLogStorage::new();
-        let result = backfill(&local, tip_id.clone(), |id| {
+        let result = backfill(&local, &test_group(), tip_id.clone(), |id| {
             let r = &remote;
             async move {
                 r.get_entry(&id)
@@ -448,7 +494,7 @@ mod tests {
 
         local.insert_entry(id.clone(), entry).await.unwrap();
 
-        let count = backfill(&local, id.clone(), |_id| async move {
+        let count = backfill(&local, &test_group(), id.clone(), |_id| async move {
             Err::<VerifiedEntry, _>("fetch must not be called".to_string())
         })
         .await

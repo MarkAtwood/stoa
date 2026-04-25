@@ -5016,6 +5016,7 @@ name = "stoa-imap"
 version = "0.1.0"
 dependencies = [
  "base64",
+ "bcrypt",
  "imap-codec",
  "imap-next",
  "imap-types",
@@ -5244,6 +5245,7 @@ dependencies = [
  "cid",
  "ed25519-dalek",
  "hex",
+ "hickory-resolver 0.26.0-alpha.1",
  "mail-auth",
  "serde",
  "sha2 0.10.9",

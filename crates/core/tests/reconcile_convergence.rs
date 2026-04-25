@@ -51,7 +51,7 @@ async fn append_chain(
             operator_signature: vec![],
             parent_cids,
         };
-        let id = append(storage, group, entry)
+        let id = append(storage, group, VerifiedEntry::new_for_test(entry))
             .await
             .unwrap_or_else(|e| panic!("append {seed_prefix}-{i}: {e}"));
         ids.push(id);
@@ -98,7 +98,7 @@ async fn converge(
         let want_ids = result.want.clone();
         for want_id in &want_ids {
             let a = Arc::clone(&node_a);
-            backfill(&*node_b, want_id.clone(), move |id| {
+            backfill(&*node_b, &group, want_id.clone(), move |id| {
                 let a = Arc::clone(&a);
                 async move {
                     a.get_entry(&id)

@@ -196,11 +196,13 @@ pub async fn run_peering_session<S>(
                     Some(guard_resp.to_owned())
                 } else {
                     let result = check_msgid_only(msgid, &shared.msgid_map).await;
-                    Some(format!(
-                        "{} {}\r\n",
-                        check_response(&result).trim_end(),
-                        msgid
-                    ))
+                    // RFC 4644 §2.3: response format is "NNN <message-id> [comment]".
+                    // Extract just the code from check_response() and put msgid next.
+                    let code = check_response(&result)
+                        .split_ascii_whitespace()
+                        .next()
+                        .unwrap_or("438");
+                    Some(format!("{code} {msgid}\r\n"))
                 }
             }
             "TAKETHIS" => {
@@ -212,7 +214,8 @@ pub async fn run_peering_session<S>(
                         DotStuffedResult::Eof => break,
                         DotStuffedResult::TooLarge => {
                             // Stream was drained to the terminator; connection is still valid.
-                            Some(format!("439 Article too large {msgid}\r\n"))
+                            // RFC 4644 §2.4: "NNN <message-id> [comment]".
+                            Some(format!("439 {msgid} Article too large\r\n"))
                         }
                         DotStuffedResult::Data(article_bytes) => {
                             let result =
@@ -248,7 +251,10 @@ pub async fn run_peering_session<S>(
                                 }
                                 takethis_response(&result)
                             };
-                            Some(format!("{} {}\r\n", resp.trim_end(), msgid))
+                            // RFC 4644 §2.4: response format is "NNN <message-id> [comment]".
+                            // Extract just the code from the resp string and put msgid next.
+                            let code = resp.split_ascii_whitespace().next().unwrap_or("431");
+                            Some(format!("{code} {msgid}\r\n"))
                         }
                     }
                 }

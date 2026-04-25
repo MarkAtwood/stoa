@@ -6,7 +6,6 @@ use std::{
 };
 
 use cid::Cid;
-use ed25519_dalek::Signer as _;
 use mail_auth::MessageAuthenticator;
 use rand_core::OsRng;
 use tokio::{net::TcpListener, sync::Mutex};
@@ -21,6 +20,7 @@ use stoa_transit::{
     admin::start_admin_server,
     config::{check_admin_addr, Config},
     gossip::{swarm::start_swarm, tip_advert::handle_tip_advertisement},
+    hlc_persist::{load_hlc_checkpoint, save_hlc_checkpoint},
     peering::{
         auth::parse_trusted_peer_keys,
         blacklist::BlacklistConfig,
@@ -454,10 +454,25 @@ async fn main() {
         let log_storage_gossip = Arc::clone(&log_storage);
         let xcid_client_gossip = Arc::clone(&xcid_client);
         tokio::spawn(async move {
-            while let Some((_topic, data)) = gossip_rx.recv().await {
+            while let Some((_topic, verified_source, data)) = gossip_rx.recv().await {
                 let Some(advert) = handle_tip_advertisement(&data) else {
                     continue;
                 };
+
+                // Cross-check the self-reported sender_peer_id against the
+                // gossipsub-verified source peer_id.  A mismatch is logged as
+                // a warning but does not prevent reconciliation — the content
+                // is safe regardless, since we only use tip CIDs for CRDT
+                // reconciliation, not for trust decisions.
+                if let Some(ref src) = verified_source {
+                    if src.to_string() != advert.sender_peer_id {
+                        warn!(
+                            gossip_source = %src,
+                            payload_peer_id = %advert.sender_peer_id,
+                            "gossip: sender_peer_id mismatch — payload field differs from signed source"
+                        );
+                    }
+                }
 
                 let group = match GroupName::new(&advert.group_name) {
                     Ok(g) => g,
@@ -512,7 +527,7 @@ async fn main() {
                         let c = Arc::clone(&xcid);
                         async move { c.fetch_entry(&id).await }
                     };
-                    match backfill(&*log_storage_gossip, entry_id.clone(), fetch).await {
+                    match backfill(&*log_storage_gossip, &group, entry_id.clone(), fetch).await {
                         Ok(n) if n > 0 => {
                             info!(group = %group, fetched = n, "gossip: backfilled entries via xcid");
                         }
@@ -545,7 +560,51 @@ async fn main() {
         id.copy_from_slice(&hash[..8]);
         id
     };
-    let hlc = Arc::new(Mutex::new(HlcClock::new(node_id, now_ms)));
+    // Load persisted HLC checkpoint so the first send() after restart is
+    // strictly greater than any previously emitted timestamp (usenet-ipfs-gq0z).
+    let hlc = {
+        let clock = match load_hlc_checkpoint(&transit_pool).await {
+            Ok(Some(checkpoint)) => {
+                info!(
+                    wall_ms = checkpoint.wall_ms,
+                    logical = checkpoint.logical,
+                    "loaded HLC checkpoint"
+                );
+                HlcClock::new_seeded(node_id, now_ms, checkpoint)
+            }
+            Ok(None) => {
+                info!("no HLC checkpoint found; starting from wall clock");
+                HlcClock::new(node_id, now_ms)
+            }
+            Err(e) => {
+                warn!("failed to load HLC checkpoint: {e}; starting from wall clock");
+                HlcClock::new(node_id, now_ms)
+            }
+        };
+        Arc::new(Mutex::new(clock))
+    };
+
+    // Background task: persist the HLC state every 30 seconds so that after a
+    // restart the clock continues above the last emitted timestamp.
+    {
+        let hlc_bg = Arc::clone(&hlc);
+        let pool_bg = transit_pool.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(30));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            loop {
+                interval.tick().await;
+                let ts = hlc_bg.lock().await.last_timestamp();
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis() as u64;
+                if let Err(e) = save_hlc_checkpoint(&pool_bg, ts, now).await {
+                    warn!("HLC checkpoint save failed: {e}");
+                }
+            }
+        });
+    }
 
     let (ingestion_sender, mut ingestion_receiver) =
         ingestion_queue(config.peering.ingestion_queue_capacity);
@@ -679,10 +738,9 @@ async fn main() {
                     .unwrap()
                     .as_millis() as u64;
                 let timestamp = hlc_drain.lock().await.send(now_ms);
-                let sig = signing_key_drain.sign(article.bytes.as_slice());
                 let ctx = PipelineCtx {
                     timestamp,
-                    operator_signature: sig,
+                    operator_signing_key: Arc::clone(&signing_key_drain),
                     gossip_tx: Some(&gossip_tx_drain),
                     sender_peer_id: &local_peer_id,
                     local_hostname: &local_hostname_drain,
@@ -768,6 +826,11 @@ async fn main() {
             Ok(n) if n > 0 => info!(count = n, "re-draining staged articles from previous run"),
             _ => {}
         }
+        // Clear stale claims left by a previous run that crashed after claiming
+        // but before completing an article, so they can be re-drained.
+        if let Err(e) = staging.reset_claims().await {
+            warn!("staging: reset_claims failed: {e}");
+        }
 
         let (staging_shutdown_tx, mut staging_shutdown_rx) = tokio::sync::watch::channel(false);
         staging_shutdown_opt = Some(staging_shutdown_tx);
@@ -802,10 +865,9 @@ async fn main() {
                             .unwrap()
                             .as_millis() as u64;
                         let timestamp = hlc_drain.lock().await.send(now_ms);
-                        let sig = signing_key_drain.sign(article.bytes.as_slice());
                         let ctx = PipelineCtx {
                             timestamp,
-                            operator_signature: sig,
+                            operator_signing_key: Arc::clone(&signing_key_drain),
                             gossip_tx: Some(&gossip_tx_drain),
                             sender_peer_id: &local_peer_id,
                             local_hostname: &local_hostname_drain,

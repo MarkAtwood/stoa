@@ -67,6 +67,45 @@ impl HlcClock {
         }
     }
 
+    /// Create a clock seeded from a persisted checkpoint.
+    ///
+    /// Ensures the first `send()` after restart produces a timestamp strictly
+    /// greater than the last persisted timestamp, regardless of NTP adjustments
+    /// or quick restarts within the same millisecond.
+    ///
+    /// - When `checkpoint.wall_ms >= now_ms` (e.g. NTP stepped clock back or
+    ///   restart within same ms): seed `last = checkpoint` so the next `send()`
+    ///   returns `(checkpoint.wall_ms, checkpoint.logical + 1, node_id)`.
+    /// - Otherwise: seed `last = (now_ms, 0, node_id)` — wall clock has
+    ///   advanced past the checkpoint so any new timestamp will be greater.
+    pub fn new_seeded(node_id: [u8; 8], now_ms: u64, checkpoint: HlcTimestamp) -> Self {
+        let last = if checkpoint.wall_ms >= now_ms {
+            HlcTimestamp {
+                wall_ms: checkpoint.wall_ms,
+                logical: checkpoint.logical,
+                node_id,
+            }
+        } else {
+            HlcTimestamp {
+                wall_ms: now_ms,
+                logical: 0,
+                node_id,
+            }
+        };
+        Self {
+            last,
+            node_id,
+            max_clock_skew_ms: DEFAULT_MAX_CLOCK_SKEW_MS,
+        }
+    }
+
+    /// Return a copy of the most recent timestamp emitted by this clock.
+    ///
+    /// Used to persist the HLC state across restarts.
+    pub fn last_timestamp(&self) -> HlcTimestamp {
+        self.last
+    }
+
     /// Generate a send timestamp: advance to max(last, now), bump logical on ties.
     ///
     /// If the logical counter would overflow u32::MAX (possible only when generating
@@ -412,5 +451,59 @@ mod tests {
             node_id: [0x02; 8],
         };
         assert!(b > a, "node_id is the final tiebreaker");
+    }
+
+    // ── new_seeded tests ──────────────────────────────────────────────────────
+
+    #[test]
+    fn new_seeded_wall_ahead_of_checkpoint_ignores_checkpoint_logical() {
+        // Normal restart: wall clock has advanced past the checkpoint.
+        // The first send() must be (now_ms, 1, node_id) — not constrained by
+        // the checkpoint's logical counter.
+        let checkpoint = HlcTimestamp {
+            wall_ms: 900,
+            logical: 999,
+            node_id: NODE_B,
+        };
+        let mut clock = HlcClock::new_seeded(NODE_A, 1000, checkpoint);
+        let t = clock.send(1000);
+        assert_eq!(t.wall_ms, 1000);
+        assert_eq!(t.logical, 1, "logical must start at 1 after send on fresh wall");
+    }
+
+    #[test]
+    fn new_seeded_clock_stepped_back_preserves_monotonicity() {
+        // NTP stepped the clock back: now_ms < checkpoint.wall_ms.
+        // The first send() must be strictly greater than the checkpoint.
+        let checkpoint = HlcTimestamp {
+            wall_ms: 2000,
+            logical: 5,
+            node_id: NODE_B,
+        };
+        let mut clock = HlcClock::new_seeded(NODE_A, 1000, checkpoint);
+        let t = clock.send(1000);
+        assert!(
+            t > checkpoint,
+            "first send after restart must exceed checkpoint: {t:?} vs {checkpoint:?}"
+        );
+        assert_eq!(t.wall_ms, 2000);
+        assert_eq!(t.logical, 6, "logical must be checkpoint.logical + 1");
+    }
+
+    #[test]
+    fn new_seeded_same_ms_as_checkpoint_preserves_monotonicity() {
+        // Restart within the same millisecond as the checkpoint.
+        let checkpoint = HlcTimestamp {
+            wall_ms: 1000,
+            logical: 3,
+            node_id: NODE_B,
+        };
+        let mut clock = HlcClock::new_seeded(NODE_A, 1000, checkpoint);
+        let t = clock.send(1000);
+        assert!(
+            t > checkpoint,
+            "first send within same ms must exceed checkpoint: {t:?} vs {checkpoint:?}"
+        );
+        assert_eq!(t.logical, 4, "logical must be checkpoint.logical + 1");
     }
 }

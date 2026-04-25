@@ -210,6 +210,7 @@ async fn store_log_entry(
 ) -> stoa_core::group_log::LogEntryId {
     use stoa_core::group_log::append::append;
     use stoa_core::group_log::types::LogEntry;
+    use stoa_core::group_log::verify::verify_signature;
 
     let article_cid = {
         let digest = Code::Sha2_256.digest(b"test-article-bytes");
@@ -229,7 +230,10 @@ async fn store_log_entry(
     let group =
         stoa_core::article::GroupName::new("comp.test".to_owned()).expect("valid group");
 
-    append(storage, &group, entry)
+    let verified = verify_signature(entry, &signing_key.verifying_key())
+        .expect("test entry must have valid signature");
+
+    append(storage, &group, verified)
         .await
         .expect("log entry must append without error")
 }

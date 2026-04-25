@@ -118,7 +118,6 @@ fn cert_auth_matching_username_returns_281() {
         &auth,
         &cert_store,
         &no_issuers(),
-        None,
     );
     assert_eq!(
         resp.code, 281,
@@ -139,7 +138,6 @@ fn cert_auth_bypass_sets_active_state() {
         &auth,
         &cert_store,
         &no_issuers(),
-        None,
     );
     assert_eq!(
         ctx.state,
@@ -161,7 +159,6 @@ fn cert_auth_bypass_sets_authenticated_user() {
         &auth,
         &cert_store,
         &no_issuers(),
-        None,
     );
     assert_eq!(
         ctx.authenticated_user.as_deref(),
@@ -185,7 +182,6 @@ fn cert_auth_case_insensitive_fingerprint_in_context() {
         &auth,
         &cert_store,
         &no_issuers(),
-        None,
     );
     assert_eq!(
         resp.code, 281,
@@ -213,7 +209,6 @@ fn cert_auth_username_mismatch_does_not_bypass() {
         &auth,
         &cert_store,
         &no_issuers(),
-        None,
     );
     assert_ne!(
         resp.code, 281,
@@ -239,7 +234,6 @@ fn cert_auth_username_mismatch_does_not_set_active_state() {
         &auth,
         &cert_store,
         &no_issuers(),
-        None,
     );
     assert_ne!(
         ctx.state,
@@ -261,7 +255,6 @@ fn cert_auth_username_mismatch_does_not_set_authenticated_user() {
         &auth,
         &cert_store,
         &no_issuers(),
-        None,
     );
     assert!(
         ctx.authenticated_user.is_none(),
@@ -287,7 +280,6 @@ fn no_cert_authinfo_user_returns_381() {
         &auth,
         &cert_store,
         &no_issuers(),
-        None,
     );
     assert_eq!(
         resp.code, 381,
@@ -308,7 +300,6 @@ fn no_cert_authinfo_user_stays_authenticating() {
         &auth,
         &cert_store,
         &no_issuers(),
-        None,
     );
     assert_eq!(
         ctx.state,
@@ -335,7 +326,6 @@ fn cert_fingerprint_not_in_store_returns_381() {
         &auth,
         &cert_store,
         &no_issuers(),
-        None,
     );
     assert_ne!(
         resp.code, 281,
@@ -356,7 +346,6 @@ fn empty_cert_store_disables_cert_bypass() {
         &auth,
         &cert_store,
         &no_issuers(),
-        None,
     );
     assert_ne!(
         resp.code, 281,
@@ -394,7 +383,6 @@ fn cert_bypass_does_not_apply_on_plain_connection_with_required_auth() {
         &auth,
         &cert_store,
         &no_issuers(),
-        None,
     );
     assert_eq!(
         resp.code, 483,

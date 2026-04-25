@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use cid::Cid;
 use serde_json::{json, Value};
 use stoa_core::ipld::root_node::ArticleRootNode;
-use stoa_reader::post::ipfs_write::IpfsBlockStore;
+use stoa_reader::post::ipfs_write::{IpfsBlockStore, IpfsWriteError};
 
 use super::types::Email;
 
@@ -15,11 +15,14 @@ use super::types::Email;
 ///   3. Decode DAG-CBOR to ArticleRootNode.
 ///   4. Map to Email.
 ///
+/// `state` is the current JMAP Email state token from StateStore.
+///
 /// Returns JMAP EmailGet response JSON.
 pub async fn handle_email_get(
     ids: &[String],
     ipfs: &dyn IpfsBlockStore,
     properties: Option<&[String]>,
+    state: &str,
 ) -> Value {
     let _ = properties; // v1: return all properties; filtering is deferred
     let mut list = Vec::new();
@@ -38,7 +41,7 @@ pub async fn handle_email_get(
 
     json!({
         "accountId": null,
-        "state": "0",
+        "state": state,
         "list": list,
         "notFound": not_found,
     })
@@ -51,14 +54,8 @@ async fn fetch_email(id: &str, ipfs: &dyn IpfsBlockStore) -> Result<Option<Email
     // Fetch raw bytes from IPFS.
     let raw = match ipfs.get_raw(&cid).await {
         Ok(bytes) => bytes,
-        Err(e) => {
-            // NotFound is represented as Ok(None).
-            let msg = format!("{e:?}");
-            if msg.contains("NotFound") || msg.contains("not found") {
-                return Ok(None);
-            }
-            return Err(msg);
-        }
+        Err(IpfsWriteError::NotFound(_)) => return Ok(None),
+        Err(e) => return Err(e.to_string()),
     };
 
     // Decode DAG-CBOR to ArticleRootNode.
@@ -148,7 +145,7 @@ mod tests {
         let ipfs = MemIpfs::new();
         let cid = insert_root_node(&ipfs, vec!["comp.test".to_string()], 512).await;
 
-        let resp = handle_email_get(&[cid.to_string()], &ipfs, None).await;
+        let resp = handle_email_get(&[cid.to_string()], &ipfs, None, "0").await;
         let list = resp["list"].as_array().unwrap();
         assert_eq!(list.len(), 1, "should find 1 email");
         assert_eq!(list[0]["id"].as_str().unwrap(), cid.to_string());
@@ -161,7 +158,7 @@ mod tests {
     async fn get_missing_cid_returns_not_found() {
         let ipfs = MemIpfs::new();
         let fake_cid = "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi";
-        let resp = handle_email_get(&[fake_cid.to_string()], &ipfs, None).await;
+        let resp = handle_email_get(&[fake_cid.to_string()], &ipfs, None, "0").await;
         let list = resp["list"].as_array().unwrap();
         assert!(list.is_empty());
         let not_found = resp["notFound"].as_array().unwrap();
@@ -171,7 +168,7 @@ mod tests {
     #[tokio::test]
     async fn get_invalid_cid_returns_not_found() {
         let ipfs = MemIpfs::new();
-        let resp = handle_email_get(&["not-a-cid".to_string()], &ipfs, None).await;
+        let resp = handle_email_get(&["not-a-cid".to_string()], &ipfs, None, "0").await;
         let not_found = resp["notFound"].as_array().unwrap();
         assert_eq!(not_found.len(), 1);
     }
@@ -181,7 +178,7 @@ mod tests {
         let ipfs = MemIpfs::new();
         let cid1 = insert_root_node(&ipfs, vec!["comp.test".to_string()], 100).await;
         let cid2 = insert_root_node(&ipfs, vec!["alt.test".to_string()], 200).await;
-        let resp = handle_email_get(&[cid1.to_string(), cid2.to_string()], &ipfs, None).await;
+        let resp = handle_email_get(&[cid1.to_string(), cid2.to_string()], &ipfs, None, "0").await;
         let list = resp["list"].as_array().unwrap();
         assert_eq!(list.len(), 2);
     }

@@ -2,6 +2,14 @@
 //!
 //! Both mechanisms are only advertised and accepted after TLS is established
 //! (enforced by the caller — `LOGINDISABLED` is advertised when TLS is absent).
+//!
+//! # Password storage
+//!
+//! Passwords in `[auth.users]` must be bcrypt hashes (not plaintext).
+//! Use `htpasswd -B -n username` or `python3 -c "import bcrypt; print(bcrypt.hashpw(b'pass', bcrypt.gensalt()).decode())"`.
+//!
+//! A dummy bcrypt hash is always verified for unknown usernames to prevent
+//! timing-based username enumeration.
 
 use std::borrow::Cow;
 
@@ -14,10 +22,24 @@ use imap_next::{
     },
     server::Server,
 };
-use subtle::ConstantTimeEq;
 use tracing::warn;
 
 use crate::config::Config;
+
+/// Bcrypt hash of `"__dummy__"` at cost 10.  Recomputed once at startup.
+///
+/// When the requested username does not exist, `verify_credentials` verifies
+/// against this dummy hash rather than returning immediately.  This ensures
+/// the function always performs a full bcrypt computation regardless of
+/// whether the username was found, preventing timing-based user enumeration.
+static DUMMY_HASH: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+fn dummy_hash() -> &'static str {
+    DUMMY_HASH.get_or_init(|| {
+        bcrypt::hash("__dummy__never_matches__", bcrypt::DEFAULT_COST)
+            .expect("bcrypt::hash must not fail with a valid cost")
+    })
+}
 
 /// In-progress multi-step authentication state.
 ///
@@ -39,18 +61,28 @@ pub enum AuthProgress {
 
 /// Verify username/password against the configured user list.
 ///
-/// Password comparison is constant-time (via `subtle`).
-pub fn verify_credentials(config: &Config, username: &str, password: &str) -> bool {
-    config.auth.users.iter().any(|cred| {
-        cred.username == username && bool::from(cred.password.as_bytes().ct_eq(password.as_bytes()))
-    })
+/// Passwords must be bcrypt hashes. A dummy hash is always verified even for
+/// unknown usernames to prevent timing-based username enumeration.
+/// The bcrypt work is offloaded to a blocking thread via `spawn_blocking`.
+pub async fn verify_credentials(config: &Config, username: &str, password: &str) -> bool {
+    let hash = config
+        .auth
+        .users
+        .iter()
+        .find(|c| c.username.eq_ignore_ascii_case(username))
+        .map(|c| c.password.clone())
+        .unwrap_or_else(|| dummy_hash().to_owned());
+    let password = password.to_owned();
+    tokio::task::spawn_blocking(move || bcrypt::verify(&password, &hash).unwrap_or(false))
+        .await
+        .unwrap_or(false)
 }
 
 /// Handle the initial `CommandAuthenticateReceived` event.
 ///
 /// Returns `Some(username)` if auth succeeds immediately (PLAIN with initial
 /// response), `None` if a multi-step flow was started or auth failed.
-pub fn handle_authenticate_start(
+pub async fn handle_authenticate_start(
     server: &mut Server,
     config: &Config,
     auth_progress: &mut AuthProgress,
@@ -60,7 +92,7 @@ pub fn handle_authenticate_start(
 ) -> Option<String> {
     match mechanism {
         AuthMechanism::Plain => {
-            handle_plain_start(server, config, auth_progress, tag, initial_response)
+            handle_plain_start(server, config, auth_progress, tag, initial_response).await
         }
         AuthMechanism::Login => {
             handle_login_start(server, auth_progress, tag);
@@ -80,7 +112,7 @@ pub fn handle_authenticate_start(
 ///
 /// Returns `Some(username)` when auth succeeds, `None` if the flow continues
 /// or failed.
-pub fn handle_authenticate_data(
+pub async fn handle_authenticate_data(
     server: &mut Server,
     config: &Config,
     auth_progress: &mut AuthProgress,
@@ -100,7 +132,8 @@ pub fn handle_authenticate_data(
 
         // AUTH=PLAIN step 2: continuation payload arrives.
         (AuthProgress::PlainExpectingPayload { tag }, AuthenticateData::Continue(payload)) => {
-            plain_finish(server, config, Some(tag), payload.declassify().as_ref())
+            let bytes = payload.declassify();
+            plain_finish(server, config, Some(tag), bytes.as_ref()).await
         }
 
         // AUTH=LOGIN step 1: username received.
@@ -132,7 +165,7 @@ pub fn handle_authenticate_data(
             AuthenticateData::Continue(payload),
         ) => {
             let password = match std::str::from_utf8(payload.declassify().as_ref()) {
-                Ok(p) => p,
+                Ok(p) => p.to_owned(),
                 Err(_) => {
                     let no = Status::no(Some(tag), None, "Invalid UTF-8 in password")
                         .expect("static no is valid");
@@ -141,7 +174,7 @@ pub fn handle_authenticate_data(
                 }
             };
 
-            if verify_credentials(config, &username, password) {
+            if verify_credentials(config, &username, &password).await {
                 let ok =
                     Status::ok(Some(tag), None, "Authentication successful").expect("static ok");
                 server.authenticate_finish(ok).ok();
@@ -165,7 +198,7 @@ pub fn handle_authenticate_data(
 
 /// Start AUTH=PLAIN.  If an initial response is present, verifies immediately.
 /// Otherwise sends a continuation request and tracks state.
-fn handle_plain_start(
+async fn handle_plain_start(
     server: &mut Server,
     config: &Config,
     auth_progress: &mut AuthProgress,
@@ -173,7 +206,10 @@ fn handle_plain_start(
     initial_response: Option<Secret<Cow<'static, [u8]>>>,
 ) -> Option<String> {
     match initial_response {
-        Some(payload) => plain_finish(server, config, Some(tag), payload.declassify().as_ref()),
+        Some(payload) => {
+            let bytes = payload.declassify();
+            plain_finish(server, config, Some(tag), bytes.as_ref()).await
+        }
         None => {
             // Empty continuation request asks client to send the PLAIN payload.
             let ccr = CommandContinuationRequest::basic(None, "").expect("empty CCR is valid");
@@ -191,8 +227,12 @@ fn handle_plain_start(
 /// Parse the PLAIN payload and verify credentials.
 ///
 /// PLAIN format (RFC 4616): `[authzid] NUL authcid NUL passwd`
-/// We use `authcid` as the username and ignore `authzid`.
-fn plain_finish(
+///
+/// `authzid` (authorization identity) must be either empty or equal to
+/// `authcid` (authentication identity).  A non-empty `authzid` that differs
+/// from `authcid` is an impersonation request that this server does not
+/// support; it is rejected with NO to prevent silent privilege escalation.
+async fn plain_finish(
     server: &mut Server,
     config: &Config,
     tag: Option<Tag<'static>>,
@@ -206,7 +246,7 @@ fn plain_finish(
     }
 
     let username = match std::str::from_utf8(parts[1]) {
-        Ok(u) => u,
+        Ok(u) => u.to_owned(),
         Err(_) => {
             let no = Status::no(tag, None, "Invalid UTF-8 in PLAIN username")
                 .expect("static no is valid");
@@ -215,7 +255,7 @@ fn plain_finish(
         }
     };
     let password = match std::str::from_utf8(parts[2]) {
-        Ok(p) => p,
+        Ok(p) => p.to_owned(),
         Err(_) => {
             let no = Status::no(tag, None, "Invalid UTF-8 in PLAIN password")
                 .expect("static no is valid");
@@ -224,10 +264,31 @@ fn plain_finish(
         }
     };
 
-    if verify_credentials(config, username, password) {
+    // RFC 4616 §2: if authzid is non-empty it must equal authcid.
+    // We do not support proxy/impersonation; reject mismatched authzid.
+    let authzid = parts[0];
+    if !authzid.is_empty() {
+        let authzid_str = match std::str::from_utf8(authzid) {
+            Ok(s) => s,
+            Err(_) => {
+                let no = Status::no(tag, None, "Invalid UTF-8 in PLAIN authzid")
+                    .expect("static no is valid");
+                server.authenticate_finish(no).ok();
+                return None;
+            }
+        };
+        if authzid_str != username {
+            let no = Status::no(tag, None, "Authorization identity not supported")
+                .expect("static no is valid");
+            server.authenticate_finish(no).ok();
+            return None;
+        }
+    }
+
+    if verify_credentials(config, &username, &password).await {
         let ok = Status::ok(tag, None, "Authentication successful").expect("static ok");
         server.authenticate_finish(ok).ok();
-        Some(username.to_owned())
+        Some(username)
     } else {
         let no = Status::no(tag, None, "Invalid credentials").expect("static no");
         server.authenticate_finish(no).ok();
@@ -278,36 +339,42 @@ mod tests {
         }
     }
 
-    #[test]
-    fn verify_correct_credentials() {
-        let cfg = make_config(&[("alice", "hunter2")]);
-        assert!(verify_credentials(&cfg, "alice", "hunter2"));
+    // Passwords in auth config must be bcrypt hashes.  Cost 4 is the minimum
+    // valid value and makes tests fast without sacrificing correctness.
+    fn hash(pw: &str) -> String {
+        bcrypt::hash(pw, 4).expect("bcrypt::hash must not fail")
     }
 
-    #[test]
-    fn verify_wrong_password_fails() {
-        let cfg = make_config(&[("alice", "hunter2")]);
-        assert!(!verify_credentials(&cfg, "alice", "wrongpass"));
+    #[tokio::test]
+    async fn verify_correct_credentials() {
+        let cfg = make_config(&[("alice", &hash("hunter2"))]);
+        assert!(verify_credentials(&cfg, "alice", "hunter2").await);
     }
 
-    #[test]
-    fn verify_unknown_user_fails() {
-        let cfg = make_config(&[("alice", "hunter2")]);
-        assert!(!verify_credentials(&cfg, "bob", "hunter2"));
+    #[tokio::test]
+    async fn verify_wrong_password_fails() {
+        let cfg = make_config(&[("alice", &hash("hunter2"))]);
+        assert!(!verify_credentials(&cfg, "alice", "wrongpass").await);
     }
 
-    #[test]
-    fn verify_empty_user_list_fails() {
+    #[tokio::test]
+    async fn verify_unknown_user_fails() {
+        let cfg = make_config(&[("alice", &hash("hunter2"))]);
+        assert!(!verify_credentials(&cfg, "bob", "hunter2").await);
+    }
+
+    #[tokio::test]
+    async fn verify_empty_user_list_fails() {
         let cfg = make_config(&[]);
-        assert!(!verify_credentials(&cfg, "alice", "hunter2"));
+        assert!(!verify_credentials(&cfg, "alice", "hunter2").await);
     }
 
-    #[test]
-    fn verify_multiple_users() {
-        let cfg = make_config(&[("alice", "pw1"), ("bob", "pw2")]);
-        assert!(verify_credentials(&cfg, "alice", "pw1"));
-        assert!(verify_credentials(&cfg, "bob", "pw2"));
-        assert!(!verify_credentials(&cfg, "alice", "pw2"));
+    #[tokio::test]
+    async fn verify_multiple_users() {
+        let cfg = make_config(&[("alice", &hash("pw1")), ("bob", &hash("pw2"))]);
+        assert!(verify_credentials(&cfg, "alice", "pw1").await);
+        assert!(verify_credentials(&cfg, "bob", "pw2").await);
+        assert!(!verify_credentials(&cfg, "alice", "pw2").await);
     }
 
     #[test]
@@ -322,11 +389,23 @@ mod tests {
     }
 
     #[test]
-    fn plain_payload_with_authzid() {
+    fn plain_payload_authzid_equals_authcid_parses() {
+        // authzid == authcid is valid (client naming itself explicitly).
         let payload = b"alice\x00alice\x00hunter2";
         let parts: Vec<&[u8]> = payload.splitn(3, |&b| b == 0).collect();
         assert_eq!(parts.len(), 3);
-        assert_eq!(parts[0], b"alice"); // authzid (ignored)
+        assert_eq!(parts[0], b"alice"); // authzid matches authcid — permitted
+        assert_eq!(parts[1], b"alice"); // authcid
+        assert_eq!(parts[2], b"hunter2");
+    }
+
+    #[test]
+    fn plain_payload_authzid_differs_from_authcid_parses() {
+        // Verifies parsing only; plain_finish rejects this at the logic level.
+        let payload = b"bob\x00alice\x00hunter2";
+        let parts: Vec<&[u8]> = payload.splitn(3, |&b| b == 0).collect();
+        assert_eq!(parts.len(), 3);
+        assert_eq!(parts[0], b"bob");   // authzid differs from authcid
         assert_eq!(parts[1], b"alice"); // authcid
         assert_eq!(parts[2], b"hunter2");
     }

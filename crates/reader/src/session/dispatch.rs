@@ -1,14 +1,10 @@
 use stoa_auth::TrustedIssuerStore;
-use stoa_core::audit::AuditLoggerHandle;
 
 use crate::{
     config::AuthConfig,
     session::{
         command::{ArticleRef, Command, ListSubcommand, OverArg},
-        commands::{
-            auth::authinfo_response,
-            list::{list_active, list_newsgroups, list_overview_fmt, newgroups, newnews},
-        },
+        commands::list::{list_active, list_newsgroups, list_overview_fmt, newgroups, newnews},
         context::SessionContext,
         response::Response,
         state::SessionState,
@@ -20,9 +16,6 @@ use crate::{
 ///
 /// Returns a `Response` to send to the client. Updates `ctx` for state-
 /// changing commands (GROUP, AUTHINFO, STARTTLS, QUIT).
-///
-/// If `audit_logger` is provided, `AuthAttempt` events are emitted for
-/// every AUTHINFO command.
 ///
 /// `cert_store`: the client certificate fingerprint store.  When an
 /// `AUTHINFO USER` command is received over a TLS connection and the session's
@@ -44,10 +37,7 @@ pub fn dispatch(
     auth_config: &AuthConfig,
     cert_store: &ClientCertStore,
     trusted_issuer_store: &TrustedIssuerStore,
-    audit_logger: Option<&AuditLoggerHandle>,
 ) -> Response {
-    let peer_addr = ctx.peer_addr.to_string();
-
     // Precondition: Authenticating state — only auth/setup commands allowed.
     if ctx.state == SessionState::Authenticating {
         return match cmd {
@@ -86,22 +76,6 @@ pub fn dispatch(
                 }
                 ctx.pending_auth_user = Some(username);
                 Response::enter_password()
-            }
-            Command::AuthinfoPass(password) => {
-                if auth_config.required && !ctx.tls_active {
-                    return Response::new(483, "Encryption required for authentication");
-                }
-                let username = match ctx.pending_auth_user.take() {
-                    Some(u) => u,
-                    None => return Response::authentication_out_of_sequence(),
-                };
-                let success = check_credentials(auth_config, &username, &password);
-                let resp_str = authinfo_response(&username, &peer_addr, success, audit_logger);
-                if success {
-                    ctx.state = SessionState::Active;
-                    ctx.authenticated_user = Some(username);
-                }
-                Response::from_static_str(resp_str)
             }
             // STARTTLS is not supported: this server uses implicit TLS only (NNTPS port 563).
             Command::StartTls => Response::new(502, "Command unavailable"),
@@ -202,21 +176,6 @@ pub fn dispatch(
             ctx.pending_auth_user = Some(username);
             Response::enter_password()
         }
-        Command::AuthinfoPass(password) => {
-            if auth_config.required && !ctx.tls_active {
-                return Response::new(483, "Encryption required for authentication");
-            }
-            let username = match ctx.pending_auth_user.take() {
-                Some(u) => u,
-                None => return Response::authentication_out_of_sequence(),
-            };
-            let success = check_credentials(auth_config, &username, &password);
-            let resp_str = authinfo_response(&username, &peer_addr, success, audit_logger);
-            if success {
-                ctx.authenticated_user = Some(username);
-            }
-            Response::from_static_str(resp_str)
-        }
         Command::StartTls => Response::new(502, "Command unavailable"),
         Command::List(sub) => match sub {
             ListSubcommand::Active => list_active(&ctx.known_groups, None),
@@ -246,26 +205,6 @@ pub fn dispatch(
     }
 }
 
-/// Check whether `username`/`password` are valid per `auth_config`.
-///
-/// If `auth_config.users` is empty and `auth_config.required` is false,
-/// all attempts succeed (development mode). Otherwise the credentials
-/// must match an entry in `auth_config.users` using bcrypt verification.
-///
-/// Passwords stored in `UserCredential.password` must be bcrypt hashes.
-/// A dummy hash is verified even when the username is not found, to prevent
-/// a timing oracle on username existence.
-fn check_credentials(auth_config: &AuthConfig, username: &str, password: &str) -> bool {
-    if auth_config.users.is_empty() && !auth_config.required {
-        return true;
-    }
-    let hash = auth_config
-        .users
-        .iter()
-        .find(|u| u.username.eq_ignore_ascii_case(username))
-        .map(|u| u.password.as_str());
-    crate::store::credentials::verify_bcrypt_sync(hash, password)
-}
 
 #[cfg(test)]
 mod tests {
@@ -323,7 +262,6 @@ mod tests {
             &empty_auth(),
             &no_certs(),
             &no_issuers(),
-            None,
         );
         ctx
     }
@@ -337,7 +275,6 @@ mod tests {
             &empty_auth(),
             &no_certs(),
             &no_issuers(),
-            None,
         );
         assert_eq!(resp.code, 480);
     }
@@ -351,7 +288,6 @@ mod tests {
             &empty_auth(),
             &no_certs(),
             &no_issuers(),
-            None,
         );
         assert_eq!(resp.code, 205);
     }
@@ -365,33 +301,9 @@ mod tests {
             &empty_auth(),
             &no_certs(),
             &no_issuers(),
-            None,
         );
         assert_eq!(resp.code, 381);
         assert_eq!(ctx.state, SessionState::Authenticating);
-    }
-
-    #[test]
-    fn test_authenticating_authinfo_pass_after_user_succeeds() {
-        let mut ctx = ctx_authenticating();
-        dispatch(
-            &mut ctx,
-            Command::AuthinfoUser("alice".into()),
-            &empty_auth(),
-            &no_certs(),
-            &no_issuers(),
-            None,
-        );
-        let resp = dispatch(
-            &mut ctx,
-            Command::AuthinfoPass("any".into()),
-            &empty_auth(),
-            &no_certs(),
-            &no_issuers(),
-            None,
-        );
-        assert_eq!(resp.code, 281);
-        assert_eq!(ctx.state, SessionState::Active);
     }
 
     #[test]
@@ -403,7 +315,6 @@ mod tests {
             &empty_auth(),
             &no_certs(),
             &no_issuers(),
-            None,
         );
         assert_eq!(resp.code, 412);
     }
@@ -417,7 +328,6 @@ mod tests {
             &empty_auth(),
             &no_certs(),
             &no_issuers(),
-            None,
         );
         assert_eq!(resp.code, 423);
     }
@@ -431,7 +341,6 @@ mod tests {
             &empty_auth(),
             &no_certs(),
             &no_issuers(),
-            None,
         );
         assert_eq!(resp.code, 440);
     }
@@ -445,7 +354,6 @@ mod tests {
             &empty_auth(),
             &no_certs(),
             &no_issuers(),
-            None,
         );
         assert_eq!(resp.code, 340);
     }
@@ -460,7 +368,6 @@ mod tests {
                 &empty_auth(),
                 &no_certs(),
                 &no_issuers(),
-                None
             )
             .code,
             101
@@ -474,7 +381,6 @@ mod tests {
                 &empty_auth(),
                 &no_certs(),
                 &no_issuers(),
-                None
             )
             .code,
             101
@@ -488,7 +394,6 @@ mod tests {
                 &empty_auth(),
                 &no_certs(),
                 &no_issuers(),
-                None
             )
             .code,
             101
@@ -504,7 +409,6 @@ mod tests {
             &empty_auth(),
             &no_certs(),
             &no_issuers(),
-            None,
         );
         assert_eq!(resp.code, 101);
         assert!(resp.body.iter().any(|l| l == "VERSION 2"));
@@ -519,7 +423,6 @@ mod tests {
             &empty_auth(),
             &no_certs(),
             &no_issuers(),
-            None,
         );
         assert!(resp.body.iter().any(|l| l == "POST"));
     }
@@ -533,7 +436,6 @@ mod tests {
             &empty_auth(),
             &no_certs(),
             &no_issuers(),
-            None,
         );
         assert!(!resp.body.iter().any(|l| l == "POST"));
     }
@@ -547,7 +449,6 @@ mod tests {
             &empty_auth(),
             &no_certs(),
             &no_issuers(),
-            None,
         );
         assert_eq!(resp.code, 200);
     }
@@ -561,7 +462,6 @@ mod tests {
             &empty_auth(),
             &no_certs(),
             &no_issuers(),
-            None,
         );
         assert_eq!(resp.code, 201);
     }
@@ -575,7 +475,6 @@ mod tests {
             &empty_auth(),
             &no_certs(),
             &no_issuers(),
-            None,
         );
         assert_eq!(resp.code, 205);
     }
@@ -590,78 +489,8 @@ mod tests {
             &empty_auth(),
             &no_certs(),
             &no_issuers(),
-            None,
         );
         assert_eq!(resp.code, 502);
-    }
-
-    #[test]
-    fn authinfo_with_credential_match_returns_281() {
-        // password field must be a bcrypt hash; cost 4 is the minimum (fast for tests).
-        let hash = bcrypt::hash("secret", 4).expect("bcrypt::hash must not fail");
-        let auth = AuthConfig {
-            required: true,
-            users: vec![UserCredential {
-                username: "alice".into(),
-                password: hash,
-            }],
-            credential_file: None,
-            client_certs: vec![],
-            trusted_issuers: vec![],
-        };
-        // tls_active=true: TLS session, auth is allowed.
-        let mut ctx = SessionContext::new(test_addr(), false, true, true);
-        dispatch(
-            &mut ctx,
-            Command::AuthinfoUser("alice".into()),
-            &auth,
-            &no_certs(),
-            &no_issuers(),
-            None,
-        );
-        let resp = dispatch(
-            &mut ctx,
-            Command::AuthinfoPass("secret".into()),
-            &auth,
-            &no_certs(),
-            &no_issuers(),
-            None,
-        );
-        assert_eq!(resp.code, 281);
-    }
-
-    #[test]
-    fn authinfo_with_wrong_password_returns_481() {
-        let hash = bcrypt::hash("secret", 4).expect("bcrypt::hash must not fail");
-        let auth = AuthConfig {
-            required: true,
-            users: vec![UserCredential {
-                username: "alice".into(),
-                password: hash,
-            }],
-            credential_file: None,
-            client_certs: vec![],
-            trusted_issuers: vec![],
-        };
-        // tls_active=true: TLS session, auth is allowed.
-        let mut ctx = SessionContext::new(test_addr(), false, true, true);
-        dispatch(
-            &mut ctx,
-            Command::AuthinfoUser("alice".into()),
-            &auth,
-            &no_certs(),
-            &no_issuers(),
-            None,
-        );
-        let resp = dispatch(
-            &mut ctx,
-            Command::AuthinfoPass("wrong".into()),
-            &auth,
-            &no_certs(),
-            &no_issuers(),
-            None,
-        );
-        assert_eq!(resp.code, 481);
     }
 
     #[test]
@@ -685,26 +514,11 @@ mod tests {
             &auth,
             &no_certs(),
             &no_issuers(),
-            None,
         );
         assert_eq!(
             resp.code, 483,
             "AUTHINFO on plain must return 483 when required=true"
         );
-    }
-
-    #[test]
-    fn authinfo_pass_without_user_returns_482() {
-        let mut ctx = ctx_active();
-        let resp = dispatch(
-            &mut ctx,
-            Command::AuthinfoPass("secret".into()),
-            &empty_auth(),
-            &no_certs(),
-            &no_issuers(),
-            None,
-        );
-        assert_eq!(resp.code, 482);
     }
 
     #[test]
@@ -719,7 +533,6 @@ mod tests {
                 &empty_auth(),
                 &no_certs(),
                 &no_issuers(),
-                None,
             );
             assert!(
                 !resp.body.iter().any(|l| l == "STARTTLS"),
@@ -739,7 +552,6 @@ mod tests {
             &empty_auth(),
             &no_certs(),
             &no_issuers(),
-            None,
         );
         assert!(
             resp.body.iter().any(|l| l == "STARTTLS"),
@@ -759,7 +571,6 @@ mod tests {
             &empty_auth(),
             &no_certs(),
             &no_issuers(),
-            None,
         );
         assert!(
             !resp.body.iter().any(|l| l == "STARTTLS"),
@@ -776,7 +587,6 @@ mod tests {
             &empty_auth(),
             &no_certs(),
             &no_issuers(),
-            None,
         );
         assert_eq!(resp.code, 411);
     }
@@ -798,7 +608,6 @@ mod tests {
             &empty_auth(),
             &no_certs(),
             &no_issuers(),
-            None,
         );
         assert_eq!(resp.code, 211);
     }
@@ -824,7 +633,6 @@ mod tests {
             &empty_auth(),
             &no_certs(),
             &no_issuers(),
-            None,
         );
         assert_eq!(resp.code, 411, "invalid group name must return 411");
         assert!(
@@ -857,7 +665,6 @@ mod tests {
             &empty_auth(),
             &no_certs(),
             &no_issuers(),
-            None,
         );
         assert_eq!(resp.code, 411, "invalid group name must return 411");
         assert_eq!(
@@ -880,7 +687,6 @@ mod tests {
             &empty_auth(),
             &no_certs(),
             &no_issuers(),
-            None,
         );
         assert_eq!(resp.code, 412);
     }
@@ -896,7 +702,6 @@ mod tests {
             &empty_auth(),
             &no_certs(),
             &no_issuers(),
-            None,
         );
         assert_eq!(resp.code, 430);
     }
@@ -912,7 +717,6 @@ mod tests {
             &empty_auth(),
             &no_certs(),
             &no_issuers(),
-            None,
         );
         assert_eq!(resp.code, 430);
     }
@@ -928,7 +732,6 @@ mod tests {
             &empty_auth(),
             &no_certs(),
             &no_issuers(),
-            None,
         );
         assert_eq!(resp.code, 430);
     }
@@ -944,7 +747,6 @@ mod tests {
             &empty_auth(),
             &no_certs(),
             &no_issuers(),
-            None,
         );
         assert_eq!(resp.code, 430);
     }
