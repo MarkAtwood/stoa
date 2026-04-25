@@ -4,10 +4,8 @@
 //! using an in-memory IPFS store and in-memory SQLite pool.
 //!
 //! Section 2 — Latency: measures p50/p99 per-article latency over 1,000
-//! articles using a fresh store. A gossipsub channel is wired so the
-//! publish step (step 4 of the pipeline) is included in the measurement.
-//! End-to-end latency covers: IPFS write + msgid SQLite insert +
-//! log append + gossipsub channel send.
+//! articles using a fresh store.
+//! End-to-end latency covers: IPFS write + msgid SQLite insert + log append.
 //!
 //! Run with:
 //!   cargo bench -p stoa-transit --bench ihave_throughput
@@ -17,7 +15,6 @@ use std::time::{Duration, Instant};
 
 use ed25519_dalek::SigningKey;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-use tokio::sync::mpsc;
 use stoa_core::{group_log::MemLogStorage, hlc::HlcTimestamp, msgid_map::MsgIdMap};
 use stoa_transit::peering::pipeline::{run_pipeline, MemIpfsStore, PipelineCtx};
 
@@ -97,8 +94,6 @@ async fn main() {
         let ctx = PipelineCtx {
             timestamp,
             operator_signing_key: Arc::new(signing_key.clone()),
-            gossip_tx: None,
-            sender_peer_id: "bench-peer",
             local_hostname: "bench.local",
             verify_store: None,
             trusted_keys: &[],
@@ -118,12 +113,10 @@ async fn main() {
     // Section 2 — Per-article latency (p50 / p99)
     //
     // Uses a fresh store so the latency run is independent of the throughput
-    // run. A gossipsub channel (capacity = ARTICLE_COUNT) is wired so step 4
-    // (gossipsub channel send) is included. Articles are processed one at a
-    // time; the channel is never full, so sends never block.
+    // run. Articles are processed one at a time.
     //
     // End-to-end latency covers:
-    //   IPFS write → msgid SQLite insert → log append → gossipsub channel send
+    //   IPFS write → msgid SQLite insert → log append
     // ══════════════════════════════════════════════════════════════════════════
 
     let ipfs2 = MemIpfsStore::new();
@@ -131,9 +124,6 @@ async fn main() {
     let msgid_map2 = MsgIdMap::new(pool2);
     let log_storage2 = MemLogStorage::new();
     let transit_pool2 = make_transit_pool("ihave_bench_transit_latency").await;
-
-    // Channel capacity equals ARTICLE_COUNT so no send ever blocks.
-    let (gossip_tx, _gossip_rx) = mpsc::channel::<(String, Vec<u8>)>(ARTICLE_COUNT);
 
     let mut latencies: Vec<Duration> = Vec::with_capacity(ARTICLE_COUNT);
 
@@ -147,8 +137,6 @@ async fn main() {
         let ctx = PipelineCtx {
             timestamp,
             operator_signing_key: Arc::new(signing_key.clone()),
-            gossip_tx: Some(&gossip_tx),
-            sender_peer_id: "bench-peer",
             local_hostname: "bench.local",
             verify_store: None,
             trusted_keys: &[],
@@ -173,6 +161,6 @@ async fn main() {
     let p99_us = latencies[989].as_micros();
     println!("latency p50: {p50_us}µs  p99: {p99_us}µs");
     println!(
-        "  (end-to-end: IPFS write + msgid SQLite insert + log append + gossipsub channel send)"
+        "  (end-to-end: IPFS write + msgid SQLite insert + log append)"
     );
 }

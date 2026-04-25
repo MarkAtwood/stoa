@@ -126,8 +126,6 @@ fn make_ctx(key: &SigningKey) -> PipelineCtx<'static> {
     PipelineCtx {
         timestamp: make_timestamp(),
         operator_signing_key: Arc::new(key.clone()),
-        gossip_tx: None,
-        sender_peer_id: "test-peer",
         local_hostname: "test.local",
         verify_store: None,
         trusted_keys: &[],

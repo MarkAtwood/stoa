@@ -4,7 +4,6 @@ pub mod car_writer;
 pub mod cli;
 pub mod config;
 pub mod export;
-pub mod gossip;
 pub mod hlc_persist;
 pub mod import;
 pub mod metrics;

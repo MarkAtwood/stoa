@@ -149,8 +149,6 @@ fn make_ctx(key: &SigningKey) -> PipelineCtx<'static> {
             node_id: [9, 8, 7, 6, 5, 4, 3, 2],
         },
         operator_signing_key: Arc::new(key.clone()),
-        gossip_tx: None,
-        sender_peer_id: "test-peer-sqlite",
         local_hostname: "test.local",
         verify_store: None,
         trusted_keys: &[],

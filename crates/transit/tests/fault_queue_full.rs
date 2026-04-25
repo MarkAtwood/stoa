@@ -142,14 +142,12 @@ async fn takethis_queue_full_returns_431_not_239() {
         ipfs: Arc::new(MemIpfsStore::new()),
         msgid_map: Arc::new(msgid_map),
         log_storage: Arc::new(log_storage),
-        gossip_tx: None,
         signing_key: Arc::new(SigningKey::from_bytes(&[0x42u8; 32])),
         hlc: Arc::new(Mutex::new(HlcClock::new(
             [1, 2, 3, 4, 5, 6, 7, 8],
             1_700_000_000_000,
         ))),
         ingestion_sender: Arc::new(sender),
-        local_peer_id: "test-peer".to_owned(),
         local_hostname: "test.local".to_owned(),
         peer_rate_limiter: Arc::new(std::sync::Mutex::new(PeerRateLimiter::new(
             1000.0,
@@ -264,14 +262,12 @@ async fn ihave_queue_full_returns_436_not_235() {
         ipfs: Arc::new(MemIpfsStore::new()),
         msgid_map: Arc::new(msgid_map),
         log_storage: Arc::new(log_storage),
-        gossip_tx: None,
         signing_key: Arc::new(SigningKey::from_bytes(&[0x42u8; 32])),
         hlc: Arc::new(Mutex::new(HlcClock::new(
             [1, 2, 3, 4, 5, 6, 7, 8],
             1_700_000_000_000,
         ))),
         ingestion_sender: Arc::new(sender),
-        local_peer_id: "test-peer".to_owned(),
         local_hostname: "test.local".to_owned(),
         peer_rate_limiter: Arc::new(std::sync::Mutex::new(PeerRateLimiter::new(
             1000.0,
@@ -377,14 +373,12 @@ async fn takethis_queue_not_full_returns_239() {
         ipfs: Arc::new(MemIpfsStore::new()),
         msgid_map: Arc::new(msgid_map),
         log_storage: Arc::new(log_storage),
-        gossip_tx: None,
         signing_key: Arc::new(SigningKey::from_bytes(&[0x42u8; 32])),
         hlc: Arc::new(Mutex::new(HlcClock::new(
             [1, 2, 3, 4, 5, 6, 7, 8],
             1_700_000_000_000,
         ))),
         ingestion_sender: Arc::new(sender),
-        local_peer_id: "test-peer".to_owned(),
         local_hostname: "test.local".to_owned(),
         peer_rate_limiter: Arc::new(std::sync::Mutex::new(PeerRateLimiter::new(
             1000.0,

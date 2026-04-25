@@ -10,4 +10,3 @@ pub mod peer_registry;
 pub mod pipeline;
 pub mod rate_limit;
 pub mod session;
-pub mod xcid_client;

@@ -1,8 +1,7 @@
 //! Store-and-forward pipeline for the transit daemon.
 //!
 //! After an article passes `check_ingest`, `run_pipeline` writes it to IPFS,
-//! records the Message-ID → CID mapping, appends to each group log, and
-//! publishes tip advertisements via gossipsub.
+//! records the Message-ID → CID mapping, and appends to each group log.
 
 use async_trait::async_trait;
 use cid::Cid;
@@ -12,7 +11,6 @@ use sqlx::SqlitePool;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
-use tokio::sync::mpsc;
 use stoa_core::{
     article::GroupName,
     canonical::log_entry_canonical_bytes,
@@ -248,10 +246,6 @@ pub struct PipelineCtx<'a> {
     /// Operator Ed25519 signing key. Log entry signatures are computed inside
     /// the pipeline after the article CID is known.
     pub operator_signing_key: Arc<SigningKey>,
-    /// Optional gossipsub send channel; `None` disables tip publication.
-    pub gossip_tx: Option<&'a mpsc::Sender<(String, Vec<u8>)>>,
-    /// Sending peer's identity string, embedded in tip advertisements.
-    pub sender_peer_id: &'a str,
     /// Local FQDN prepended to the `Path:` header (Son-of-RFC-1036 §3.3).
     pub local_hostname: &'a str,
     /// Verification store. `None` disables signature recording.
@@ -334,11 +328,9 @@ pub async fn verify_article(
 /// 1. Write article bytes to IPFS → CID.
 /// 2. Insert Message-ID → CID in `msgid_map`.
 /// 3. Append a [`LogEntry`] to each group named in `Newsgroups:`.
-/// 4. Publish a [`TipAdvertisement`] for each group via `ctx.gossip_tx` (best-effort).
 ///
 /// Returns `Err` immediately if the IPFS write or articles table insert fails.
 /// Log-append failures are logged as warnings but do not abort the pipeline.
-/// Gossipsub publish failures are logged but not propagated.
 pub async fn run_pipeline<I, S>(
     article_bytes: &[u8],
     ipfs: &I,
@@ -351,7 +343,6 @@ where
     I: IpfsStore + ?Sized,
     S: LogStorage,
 {
-    use crate::gossip::tip_advert::TipAdvertisement;
     use crate::peering::ingestion::prepend_path_header;
 
     // Snapshot original bytes for signature verification before Path: is prepended.
@@ -463,29 +454,6 @@ where
         .execute(pool)
         .await
         .map_err(|e| format!("articles table insert failed for CID {cid_str}: {e}"))?;
-    }
-
-    // 4. Publish tip advertisements (best-effort).
-    // Advertise the LogEntryId wrapped as a CID so that receiving peers can
-    // use the digest directly as a LogEntryId during reconciliation.
-    if let Some(tx) = ctx.gossip_tx {
-        for (group_name_str, entry_id) in &appended_groups {
-            let tip_cid_str = entry_id.to_cid().to_string();
-            let advert = TipAdvertisement {
-                group_name: group_name_str.clone(),
-                tip_cids: vec![tip_cid_str],
-                hlc_ms: ctx.timestamp.wall_ms,
-                hlc_logical: ctx.timestamp.logical,
-                hlc_node_id: hex::encode(ctx.timestamp.node_id),
-                sender_peer_id: ctx.sender_peer_id.to_owned(),
-            };
-            let hierarchy = group_name_str.split('.').next().unwrap_or(group_name_str);
-            let topic = format!("stoa.hier.{hierarchy}");
-            let bytes = advert.to_bytes();
-            if let Err(e) = tx.send((topic, bytes)).await {
-                tracing::warn!("gossip tip publish failed for {group_name_str}: {e}");
-            }
-        }
     }
 
     let group_names: Vec<String> = appended_groups.into_iter().map(|(name, _)| name).collect();
@@ -648,8 +616,6 @@ mod tests {
         PipelineCtx {
             timestamp: ts,
             operator_signing_key: key,
-            gossip_tx: None,
-            sender_peer_id: "peer1",
             local_hostname: "local.test.example.com",
             verify_store: None,
             trusted_keys: &[],
@@ -756,36 +722,6 @@ mod tests {
             "ingested_at_ms {ingested_at_ms} must be within [{before_ms}, {after_ms}]"
         );
         assert_eq!(byte_count as usize, expected_bytes.len());
-    }
-
-    #[tokio::test]
-    async fn pipeline_publishes_gossip_tip() {
-        let ipfs = MemIpfsStore::new();
-        let (msgid_map, _tmp) = make_msgid_map().await;
-        let storage = stoa_core::group_log::MemLogStorage::new();
-        let key = make_signing_key();
-        let article = make_article("<gossip@example.com>", "comp.lang.rust");
-
-        let (tx, mut rx) = tokio::sync::mpsc::channel(10);
-        let ctx = PipelineCtx {
-            timestamp: make_timestamp(),
-            operator_signing_key: Arc::new(key),
-            gossip_tx: Some(&tx),
-            sender_peer_id: "peer1",
-            local_hostname: "local.test.example.com",
-            verify_store: None,
-            trusted_keys: &[],
-            dkim_auth: None,
-        };
-        let transit_pool = make_transit_pool().await;
-        let result = run_pipeline(&article, &ipfs, &msgid_map, &storage, &transit_pool, ctx).await;
-        assert!(result.is_ok(), "pipeline should succeed: {result:?}");
-
-        // Should have received a gossip message.
-        let (topic, bytes) = rx.try_recv().expect("should have gossip message");
-        assert_eq!(topic, "stoa.hier.comp");
-        let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-        assert_eq!(v["group_name"], "comp.lang.rust");
     }
 
     #[test]
@@ -999,8 +935,6 @@ mod tests {
         let ctx = PipelineCtx {
             timestamp: make_timestamp(),
             operator_signing_key: Arc::new(signing_key),
-            gossip_tx: None,
-            sender_peer_id: "peer1",
             local_hostname: "local.test.example.com",
             verify_store: Some(&verify_store),
             trusted_keys: &[verifying_key],

@@ -12,7 +12,7 @@ use mail_auth::MessageAuthenticator;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::Mutex;
 use tokio_rustls;
 
 use stoa_core::group_log::{LogEntryId, LogStorage as _, SqliteLogStorage};
@@ -42,16 +42,12 @@ pub struct PeeringShared {
     pub msgid_map: Arc<MsgIdMap>,
     /// Group-log storage.
     pub log_storage: Arc<SqliteLogStorage>,
-    /// Gossipsub send channel; `None` if gossipsub is not running.
-    pub gossip_tx: Option<mpsc::Sender<(String, Vec<u8>)>>,
     /// Operator signing key (articles are signed before log-append).
     pub signing_key: Arc<ed25519_dalek::SigningKey>,
     /// HLC clock shared across sessions (mutex for exclusive send() access).
     pub hlc: Arc<Mutex<stoa_core::hlc::HlcClock>>,
     /// Ingestion queue sender; sessions enqueue articles here.
     pub ingestion_sender: Arc<IngestionSender>,
-    /// Libp2p peer identity string (used in tip advertisements).
-    pub local_peer_id: String,
     /// Local FQDN prepended to `Path:` on every ingested article (Son-of-RFC-1036 §3.3).
     pub local_hostname: String,
     /// Per-IP rate limiter shared across all sessions.

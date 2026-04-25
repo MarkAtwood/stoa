@@ -1,25 +1,21 @@
 use std::{
-    collections::HashSet,
     path::PathBuf,
     sync::Arc,
     time::{Duration, Instant},
 };
 
-use cid::Cid;
 use mail_auth::MessageAuthenticator;
 use rand_core::OsRng;
 use tokio::{net::TcpListener, sync::Mutex};
 use tracing::{info, warn};
 use stoa_core::{
-    group_log::{backfill, reconcile, LogEntryId, SqliteLogStorage},
+    group_log::SqliteLogStorage,
     hlc::HlcClock,
     msgid_map::MsgIdMap,
-    GroupName,
 };
 use stoa_transit::{
     admin::start_admin_server,
     config::{check_admin_addr, Config},
-    gossip::{swarm::start_swarm, tip_advert::handle_tip_advertisement},
     hlc_persist::{load_hlc_checkpoint, save_hlc_checkpoint},
     peering::{
         auth::parse_trusted_peer_keys,
@@ -28,7 +24,6 @@ use stoa_transit::{
         pipeline::{run_pipeline, PipelineCtx},
         rate_limit::{ExhaustionAction, PeerRateLimiter},
         session::{run_peering_session, PeeringShared},
-        xcid_client::{PeerInfo as XcidPeerInfo, XcidClient},
     },
     retention::{
         ipns_publisher::{IpnsEvent, IpnsPublisher},
@@ -396,150 +391,12 @@ async fn main() {
         }
     });
 
-    // ── Gossipsub swarm (j7n) ─────────────────────────────────────────────────
-
-    info!("starting gossipsub swarm");
-    let (gossip_handle, subscribe_handle, peer_id) = match start_swarm("/ip4/0.0.0.0/tcp/0").await {
-        Ok(r) => r,
-        Err(e) => {
-            eprintln!("error: gossipsub swarm failed to start: {e}");
-            std::process::exit(1);
-        }
-    };
-    info!(%peer_id, "gossipsub swarm started");
-
-    let mut seen_hier: HashSet<String> = HashSet::new();
-    for group in &config.groups.names {
-        let hier = group.split('.').next().unwrap_or(group.as_str());
-        if seen_hier.insert(hier.to_owned()) {
-            let topic = format!("stoa.hier.{hier}");
-            if let Err(e) = subscribe_handle.subscribe(&topic).await {
-                warn!(topic, "gossipsub subscribe failed: {e}");
-            } else {
-                info!(topic, "subscribed to gossipsub topic");
-            }
-        }
-    }
-
-    // ── Trusted peer keys (needed for both gossip backfill and peering auth) ────
+    // ── Trusted peer keys ─────────────────────────────────────────────────────
 
     let trusted_keys = parse_trusted_peer_keys(&config.peering.trusted_peers).unwrap_or_else(|e| {
         warn!("invalid trusted_peers key in config: {e} — peering auth disabled");
         Vec::new()
     });
-
-    // ── XCID client for gossip backfill ───────────────────────────────────────
-
-    let xcid_peers: Vec<XcidPeerInfo> = config
-        .peers
-        .addresses
-        .iter()
-        .map(|addr| XcidPeerInfo {
-            addr: addr.clone(),
-            tls: false,
-            cert_sha256: None,
-        })
-        .chain(config.peers.peer.iter().map(|p| XcidPeerInfo {
-            addr: p.addr.clone(),
-            tls: p.tls,
-            cert_sha256: p.cert_sha256.clone(),
-        }))
-        .collect();
-    let xcid_client = Arc::new(XcidClient::new(xcid_peers, trusted_keys.clone()));
-
-    // Wire inbound gossip tips → group-log reconciliation.
-    let gossip_tx = gossip_handle.tx;
-    let mut gossip_rx = gossip_handle.rx;
-    {
-        let log_storage_gossip = Arc::clone(&log_storage);
-        let xcid_client_gossip = Arc::clone(&xcid_client);
-        tokio::spawn(async move {
-            while let Some((_topic, verified_source, data)) = gossip_rx.recv().await {
-                let Some(advert) = handle_tip_advertisement(&data) else {
-                    continue;
-                };
-
-                // Cross-check the self-reported sender_peer_id against the
-                // gossipsub-verified source peer_id.  A mismatch is logged as
-                // a warning but does not prevent reconciliation — the content
-                // is safe regardless, since we only use tip CIDs for CRDT
-                // reconciliation, not for trust decisions.
-                if let Some(ref src) = verified_source {
-                    if src.to_string() != advert.sender_peer_id {
-                        warn!(
-                            gossip_source = %src,
-                            payload_peer_id = %advert.sender_peer_id,
-                            "gossip: sender_peer_id mismatch — payload field differs from signed source"
-                        );
-                    }
-                }
-
-                let group = match GroupName::new(&advert.group_name) {
-                    Ok(g) => g,
-                    Err(_) => {
-                        warn!(group = %advert.group_name, "gossip: invalid group name");
-                        continue;
-                    }
-                };
-
-                // Convert tip CID strings → LogEntryIds via their multihash digest.
-                let mut remote_tips: Vec<LogEntryId> = Vec::new();
-                for cid_str in &advert.tip_cids {
-                    let cid = match Cid::try_from(cid_str.as_str()) {
-                        Ok(c) => c,
-                        Err(_) => {
-                            warn!(group = %group, cid = %cid_str, "gossip: unparseable tip CID");
-                            continue;
-                        }
-                    };
-                    match <[u8; 32]>::try_from(cid.hash().digest()) {
-                        Ok(raw) => remote_tips.push(LogEntryId::from_bytes(raw)),
-                        Err(_) => {
-                            warn!(group = %group, "gossip: tip CID digest is not 32 bytes");
-                        }
-                    }
-                }
-
-                let result = match reconcile(&*log_storage_gossip, &group, &remote_tips).await {
-                    Ok(r) => r,
-                    Err(e) => {
-                        warn!(group = %group, "gossip: reconcile error: {e}");
-                        continue;
-                    }
-                };
-
-                if result.want.is_empty() && result.have.is_empty() {
-                    continue;
-                }
-
-                info!(
-                    group = %group,
-                    want = result.want.len(),
-                    have = result.have.len(),
-                    sender = %advert.sender_peer_id,
-                    "gossip: reconcile result"
-                );
-
-                // Backfill missing entries via XCID peer block fetch.
-                for entry_id in &result.want {
-                    let xcid = Arc::clone(&xcid_client_gossip);
-                    let fetch = move |id: LogEntryId| {
-                        let c = Arc::clone(&xcid);
-                        async move { c.fetch_entry(&id).await }
-                    };
-                    match backfill(&*log_storage_gossip, &group, entry_id.clone(), fetch).await {
-                        Ok(n) if n > 0 => {
-                            info!(group = %group, fetched = n, "gossip: backfilled entries via xcid");
-                        }
-                        Ok(_) => {}
-                        Err(e) => {
-                            warn!(group = %group, entry = %entry_id, "gossip: xcid backfill failed: {e}");
-                        }
-                    }
-                }
-            }
-        });
-    }
 
     // ── HLC clock and ingestion queue ─────────────────────────────────────────
 
@@ -663,11 +520,9 @@ async fn main() {
         ipfs: Arc::clone(&ipfs_store),
         msgid_map: Arc::clone(&msgid_map),
         log_storage: Arc::clone(&log_storage),
-        gossip_tx: Some(gossip_tx.clone()),
         signing_key: Arc::clone(&signing_key),
         hlc: Arc::clone(&hlc),
         ingestion_sender: Arc::clone(&ingestion_sender),
-        local_peer_id: peer_id.to_string(),
         local_hostname: local_hostname.clone(),
         // Per-IP rate limiter: all connections from one host share this budget.
         peer_rate_limiter: Arc::new(std::sync::Mutex::new(PeerRateLimiter::new(
@@ -695,12 +550,9 @@ async fn main() {
         .map(|s| (s.name.clone(), s.groups.clone()))
         .collect();
 
-    // Pre-clone values that both drain tasks need.  Sender::clone is cheap
-    // (shares the channel), String::clone is a heap copy.
-    let gossip_tx_staging = gossip_tx.clone();
+    // Pre-clone values that both drain tasks need.  String::clone is a heap copy.
     let ipns_tx_staging = ipns_tx.clone();
     let local_hostname_staging = local_hostname.clone();
-    let peer_id_staging = peer_id.to_string();
     let pin_service_filters_staging = pin_service_filters.clone();
     let verification_store_staging = Arc::clone(&verification_store);
     let dkim_authenticator_staging = Arc::clone(&dkim_authenticator);
@@ -719,8 +571,6 @@ async fn main() {
         let log_storage_drain = Arc::clone(&log_storage);
         let signing_key_drain = Arc::clone(&signing_key);
         let hlc_drain = Arc::clone(&hlc);
-        let gossip_tx_drain = gossip_tx;
-        let local_peer_id = peer_id.to_string();
         let local_hostname_drain = local_hostname;
         let transit_pool_drain = Arc::clone(&transit_pool);
         let ingestion_metrics_task = Arc::clone(&ingestion_metrics);
@@ -741,8 +591,6 @@ async fn main() {
                 let ctx = PipelineCtx {
                     timestamp,
                     operator_signing_key: Arc::clone(&signing_key_drain),
-                    gossip_tx: Some(&gossip_tx_drain),
-                    sender_peer_id: &local_peer_id,
                     local_hostname: &local_hostname_drain,
                     verify_store: Some(&verification_store_drain),
                     trusted_keys: &trusted_keys_for_drain,
@@ -840,8 +688,6 @@ async fn main() {
         let log_storage_drain = Arc::clone(&log_storage);
         let signing_key_drain = Arc::clone(&signing_key);
         let hlc_drain = Arc::clone(&hlc);
-        let gossip_tx_drain = gossip_tx_staging;
-        let local_peer_id = peer_id_staging;
         let local_hostname_drain = local_hostname_staging;
         let transit_pool_drain = Arc::clone(&transit_pool);
         let ipns_tx_drain = ipns_tx_staging;
@@ -868,8 +714,6 @@ async fn main() {
                         let ctx = PipelineCtx {
                             timestamp,
                             operator_signing_key: Arc::clone(&signing_key_drain),
-                            gossip_tx: Some(&gossip_tx_drain),
-                            sender_peer_id: &local_peer_id,
                             local_hostname: &local_hostname_drain,
                             verify_store: Some(&verification_store_drain),
                             trusted_keys: &trusted_keys_for_drain,

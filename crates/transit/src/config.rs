@@ -146,7 +146,7 @@ pub struct OperatorConfig {
 /// When `enabled` is true, the transit daemon publishes a signed IPNS record
 /// after each article ingestion.  The record points to a JSON index block that
 /// maps every active newsgroup to its most-recently-ingested article CID.
-/// The stable IPNS address is derived from the node's libp2p peer identity key.
+/// The stable IPNS address is derived from the Kubo node's peer identity key.
 #[derive(Debug, Deserialize)]
 pub struct IpnsConfig {
     /// Publish IPNS records after each article ingestion.  Default: false.
