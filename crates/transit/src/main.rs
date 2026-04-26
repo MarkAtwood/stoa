@@ -146,15 +146,44 @@ async fn run_startup_checks(config: &stoa_transit::config::Config) -> Vec<String
         if let Err(e) = std::fs::read(&tls_cfg.cert_path) {
             errors.push(format!("TLS file unreadable: {}: {e}", tls_cfg.cert_path));
         }
-        if let Err(e) = std::fs::read(&tls_cfg.key_path) {
+        // For secretx: URIs, validate URI syntax here; resolution happens at startup.
+        if tls_cfg.key_path.starts_with("secretx:") {
+            if let Err(e) = secretx::from_uri(&tls_cfg.key_path) {
+                errors.push(format!(
+                    "tls.key_path: invalid secretx URI: {e}"
+                ));
+            }
+        } else if let Err(e) = std::fs::read(&tls_cfg.key_path) {
             errors.push(format!("TLS file unreadable: {}: {e}", tls_cfg.key_path));
         }
     }
 
     // Signing key check.
     if let Some(ref path) = config.operator.signing_key_path {
-        if let Err(e) = stoa_core::signing::load_signing_key(std::path::Path::new(path)) {
+        if path.starts_with("secretx:") {
+            // Validate URI syntax; retrieval and byte validation happen at load time.
+            if let Err(e) = secretx::from_uri(path) {
+                errors.push(format!("operator.signing_key_path: invalid secretx URI: {e}"));
+            }
+        } else if let Err(e) = stoa_core::signing::load_signing_key(std::path::Path::new(path)) {
             errors.push(e.to_string());
+        }
+    }
+
+    // Validate secretx URI syntax for remaining string secrets.
+    if let Some(ref tok) = config.admin.bearer_token {
+        if tok.starts_with("secretx:") {
+            if let Err(e) = secretx::from_uri(tok) {
+                errors.push(format!("admin.bearer_token: invalid secretx URI: {e}"));
+            }
+        }
+    }
+    for svc in &config.pinning.external_services {
+        if let Err(e) = svc.api_key.validate_uri_syntax() {
+            errors.push(format!(
+                "pinning.external_services[{}].api_key: invalid secretx URI: {e}",
+                svc.name
+            ));
         }
     }
 
@@ -170,6 +199,50 @@ async fn run_startup_checks(config: &stoa_transit::config::Config) -> Vec<String
     }
 
     errors
+}
+
+/// Resolve `value` from a `secretx:` URI when it starts with that prefix,
+/// otherwise return it unchanged.  Exits the process on any URI or retrieval
+/// error so that misconfigured secrets are caught at startup, not at request
+/// time.
+///
+/// **UTF-8 strings only.** This helper calls `.as_str()` and returns a
+/// `String`. For binary secrets (TLS private key, Ed25519 signing key seed),
+/// call `.as_bytes()` on the `SecretValue` directly — those paths are resolved
+/// inline rather than through this helper.
+///
+/// NOTE: An identical copy of this function exists in `crates/reader/src/main.rs`.
+/// If you change the logic here, change it there too.
+async fn resolve_secret_uri(value: Option<String>, label: &str) -> Option<String> {
+    let s = match value {
+        None => return None,
+        Some(s) => s,
+    };
+    if !s.starts_with("secretx:") {
+        return Some(s);
+    }
+    let store = match secretx::from_uri(&s) {
+        Ok(store) => store,
+        Err(e) => {
+            eprintln!("error: {label}: invalid secretx URI: {e}");
+            std::process::exit(1);
+        }
+    };
+    let secret = match store.get().await {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("error: {label}: secretx retrieval failed: {e}");
+            std::process::exit(1);
+        }
+    };
+    let text = match secret.as_str() {
+        Ok(s) => s.trim().to_string(),
+        Err(e) => {
+            eprintln!("error: {label}: secretx value not valid UTF-8: {e}");
+            std::process::exit(1);
+        }
+    };
+    Some(text)
 }
 
 #[tokio::main]
@@ -259,6 +332,13 @@ async fn main() {
     };
 
     // ── Remote pinning worker ─────────────────────────────────────────────────
+
+    // Resolve any secretx: URIs in pinning service API keys before the worker starts.
+    for svc in config.pinning.external_services.iter_mut() {
+        let label = format!("pinning.external_services[{}].api_key", svc.name);
+        svc.api_key = svc.api_key.clone().resolve(&label).await;
+    }
+
     if !config.pinning.external_services.is_empty() {
         match RemotePinWorker::from_config(
             (*transit_pool).clone(),
@@ -370,6 +450,34 @@ async fn main() {
     }
 
     let signing_key = Arc::new(match &config.operator.signing_key_path {
+        Some(path) if path.starts_with("secretx:") => {
+            let store = match secretx::from_uri(path) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("error: operator.signing_key_path: invalid secretx URI: {e}");
+                    std::process::exit(1);
+                }
+            };
+            let secret = match store.get().await {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!(
+                        "error: operator.signing_key_path: secretx retrieval failed: {e}"
+                    );
+                    std::process::exit(1);
+                }
+            };
+            match stoa_core::signing::load_signing_key_from_bytes(secret.as_bytes()) {
+                Ok(k) => {
+                    info!(path, "loaded operator signing key via secretx");
+                    k
+                }
+                Err(e) => {
+                    eprintln!("error: operator.signing_key_path: {e}");
+                    std::process::exit(1);
+                }
+            }
+        }
         Some(path) => {
             match stoa_core::signing::load_signing_key(std::path::Path::new(path)) {
                 Ok(k) => {
@@ -480,7 +588,30 @@ async fn main() {
 
     let tls_acceptor: Option<Arc<tokio_rustls::TlsAcceptor>> = if let Some(ref tls_cfg) = config.tls
     {
-        match stoa_tls::load_tls_server_config(&tls_cfg.cert_path, &tls_cfg.key_path) {
+        let server_config_result = if tls_cfg.key_path.starts_with("secretx:") {
+            let store = match secretx::from_uri(&tls_cfg.key_path) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("error: tls.key_path: invalid secretx URI: {e}");
+                    std::process::exit(1);
+                }
+            };
+            let secret = match store.get().await {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("error: tls.key_path: secretx retrieval failed: {e}");
+                    std::process::exit(1);
+                }
+            };
+            stoa_tls::load_tls_server_config_with_key_bytes(
+                &tls_cfg.cert_path,
+                secret.as_bytes(),
+                &tls_cfg.key_path,
+            )
+        } else {
+            stoa_tls::load_tls_server_config(&tls_cfg.cert_path, &tls_cfg.key_path)
+        };
+        match server_config_result {
             Ok(server_config) => {
                 info!("peering TLS enabled");
                 Some(Arc::new(tokio_rustls::TlsAcceptor::from(server_config)))
@@ -819,11 +950,14 @@ async fn main() {
 
     match config.admin.addr.parse::<std::net::SocketAddr>() {
         Ok(admin_addr) => {
+            let admin_bearer_token =
+                resolve_secret_uri(config.admin.bearer_token.clone(), "admin.bearer_token")
+                    .await;
             if let Err(e) = start_admin_server(
                 admin_addr,
                 Arc::clone(&transit_pool),
                 start_time,
-                config.admin.bearer_token.clone(),
+                admin_bearer_token,
                 config.admin.rate_limit_rpm,
                 Arc::clone(&ipfs_store),
                 ipns_path_string.clone(),

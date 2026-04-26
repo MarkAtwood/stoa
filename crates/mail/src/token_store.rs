@@ -1,4 +1,4 @@
-use rand::RngCore as _;
+use rand_core::{OsRng, RngCore as _};
 use sha2::{Digest, Sha256};
 use sqlx::SqlitePool;
 use std::sync::Arc;
@@ -39,7 +39,7 @@ impl TokenStore {
     ) -> Result<(String, String, Option<i64>), sqlx::Error> {
         // Generate 32 cryptographically random bytes.
         let mut raw = [0u8; 32];
-        rand::thread_rng().fill_bytes(&mut raw);
+        OsRng.fill_bytes(&mut raw);
 
         // base64url-encode (no padding) for the token value returned to the caller.
         let raw_b64url = data_encoding::BASE64URL_NOPAD.encode(&raw);
@@ -182,7 +182,7 @@ mod tests {
         store.issue("alice", None, None).await.unwrap();
         // Generate a fresh random token that was never issued.
         let mut raw = [0u8; 32];
-        rand::thread_rng().fill_bytes(&mut raw);
+        OsRng.fill_bytes(&mut raw);
         let unknown = data_encoding::BASE64URL_NOPAD.encode(&raw);
         let result = store.verify(&unknown).await.unwrap();
         assert_eq!(result, None);

@@ -75,11 +75,39 @@ async fn main() {
     let listener_smtps = if let Some(ref smtps_addr) = config.listen.smtps_addr {
         let cert_path = config.tls.cert_path.as_deref().unwrap_or("");
         let key_path = config.tls.key_path.as_deref().unwrap_or("");
-        let acceptor = match build_tls_acceptor(cert_path, key_path) {
-            Ok(a) => a,
-            Err(e) => {
-                error!("failed to build SMTPS TLS acceptor: {e}");
-                std::process::exit(1);
+        let acceptor = if key_path.starts_with("secretx:") {
+            let store = match secretx::from_uri(key_path) {
+                Ok(s) => s,
+                Err(e) => {
+                    error!("tls.key_path: invalid secretx URI: {e}");
+                    std::process::exit(1);
+                }
+            };
+            let secret = match store.get().await {
+                Ok(v) => v,
+                Err(e) => {
+                    error!("tls.key_path: secretx retrieval failed: {e}");
+                    std::process::exit(1);
+                }
+            };
+            match stoa_smtp::tls::build_tls_acceptor_with_key_bytes(
+                cert_path,
+                secret.as_bytes(),
+                key_path,
+            ) {
+                Ok(a) => a,
+                Err(e) => {
+                    error!("failed to build SMTPS TLS acceptor: {e}");
+                    std::process::exit(1);
+                }
+            }
+        } else {
+            match build_tls_acceptor(cert_path, key_path) {
+                Ok(a) => a,
+                Err(e) => {
+                    error!("failed to build SMTPS TLS acceptor: {e}");
+                    std::process::exit(1);
+                }
             }
         };
         match TcpListener::bind(smtps_addr).await {

@@ -82,15 +82,40 @@ async fn run_startup_checks(config: &Config) -> Vec<String> {
         }
     }
     if let Some(key) = config.tls.key_path.as_deref() {
-        if let Err(e) = std::fs::read(key) {
+        // For secretx: URIs, validate URI syntax; resolution happens at load time.
+        if key.starts_with("secretx:") {
+            if let Err(e) = secretx::from_uri(key) {
+                errors.push(format!("tls.key_path: invalid secretx URI: {e}"));
+            }
+        } else if let Err(e) = std::fs::read(key) {
             errors.push(format!("TLS file unreadable: {key}: {e}"));
         }
     }
 
     // Signing key check.
     if let Some(path) = config.operator.signing_key_path.as_deref() {
-        if let Err(e) = stoa_core::signing::load_signing_key(std::path::Path::new(path)) {
+        if path.starts_with("secretx:") {
+            if let Err(e) = secretx::from_uri(path) {
+                errors.push(format!("operator.signing_key_path: invalid secretx URI: {e}"));
+            }
+        } else if let Err(e) = stoa_core::signing::load_signing_key(std::path::Path::new(path)) {
             errors.push(e.to_string());
+        }
+    }
+
+    // Validate secretx URI syntax for remaining string secrets.
+    if let Some(ref tok) = config.admin.admin_token {
+        if tok.starts_with("secretx:") {
+            if let Err(e) = secretx::from_uri(tok) {
+                errors.push(format!("admin.admin_token: invalid secretx URI: {e}"));
+            }
+        }
+    }
+    if let Some(ref path) = config.auth.credential_file {
+        if path.starts_with("secretx:") {
+            if let Err(e) = secretx::from_uri(path) {
+                errors.push(format!("auth.credential_file: invalid secretx URI: {e}"));
+            }
         }
     }
 
@@ -154,6 +179,50 @@ fn cmd_keygen(args: &[String]) -> ! {
     println!("node_id:    {node_id_hex}");
     println!("key_file:   {}", output_path.display());
     std::process::exit(0);
+}
+
+/// Resolve `value` from a `secretx:` URI when it starts with that prefix,
+/// otherwise return it unchanged.  Exits the process on any URI or retrieval
+/// error so that misconfigured secrets are caught at startup, not at request
+/// time.
+///
+/// **UTF-8 strings only.** This helper calls `.as_str()` and returns a
+/// `String`. For binary secrets (TLS private key, Ed25519 signing key seed),
+/// call `.as_bytes()` on the `SecretValue` directly — those paths are resolved
+/// inline rather than through this helper.
+///
+/// NOTE: An identical copy of this function exists in `crates/transit/src/main.rs`.
+/// If you change the logic here, change it there too.
+async fn resolve_secret_uri(value: Option<String>, label: &str) -> Option<String> {
+    let s = match value {
+        None => return None,
+        Some(s) => s,
+    };
+    if !s.starts_with("secretx:") {
+        return Some(s);
+    }
+    let store = match secretx::from_uri(&s) {
+        Ok(store) => store,
+        Err(e) => {
+            eprintln!("error: {label}: invalid secretx URI: {e}");
+            std::process::exit(1);
+        }
+    };
+    let secret = match store.get().await {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("error: {label}: secretx retrieval failed: {e}");
+            std::process::exit(1);
+        }
+    };
+    let text = match secret.as_str() {
+        Ok(s) => s.trim().to_string(),
+        Err(e) => {
+            eprintln!("error: {label}: secretx value not valid UTF-8: {e}");
+            std::process::exit(1);
+        }
+    };
+    Some(text)
 }
 
 #[tokio::main]
@@ -250,16 +319,37 @@ async fn main() {
         config.tls.cert_path.as_deref(),
         config.tls.key_path.as_deref(),
     ) {
-        (Some(cert), Some(key)) => match stoa_reader::tls::load_tls_acceptor(cert, key) {
-            Ok(a) => {
-                info!(cert = cert, "TLS acceptor loaded");
-                Some(Arc::new(a))
+        (Some(cert), Some(key)) => {
+            let acceptor_result = if key.starts_with("secretx:") {
+                let store = match secretx::from_uri(key) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        error!("tls.key_path: invalid secretx URI: {e}");
+                        std::process::exit(1);
+                    }
+                };
+                let secret = match store.get().await {
+                    Ok(v) => v,
+                    Err(e) => {
+                        error!("tls.key_path: secretx retrieval failed: {e}");
+                        std::process::exit(1);
+                    }
+                };
+                stoa_reader::tls::load_tls_acceptor_with_key_bytes(cert, secret.as_bytes(), key)
+            } else {
+                stoa_reader::tls::load_tls_acceptor(cert, key)
+            };
+            match acceptor_result {
+                Ok(a) => {
+                    info!(cert = cert, "TLS acceptor loaded");
+                    Some(Arc::new(a))
+                }
+                Err(e) => {
+                    error!("Failed to load TLS acceptor: {e}");
+                    std::process::exit(1);
+                }
             }
-            Err(e) => {
-                error!("Failed to load TLS acceptor: {e}");
-                std::process::exit(1);
-            }
-        },
+        }
         _ => None,
     };
 
@@ -272,10 +362,12 @@ async fn main() {
                 std::process::exit(1);
             }
         };
+        let admin_token =
+            resolve_secret_uri(config.admin.admin_token.clone(), "admin.admin_token").await;
         if let Err(e) = start_admin_server(
             admin_addr,
             std::time::Instant::now(),
-            config.admin.admin_token.clone(),
+            admin_token,
             config.admin.rate_limit_rpm,
         ) {
             error!("{e}");

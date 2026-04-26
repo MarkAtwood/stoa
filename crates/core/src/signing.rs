@@ -10,6 +10,23 @@ pub use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
 
 use crate::error::SigningError;
 
+/// Load an Ed25519 signing key from raw bytes.
+///
+/// `bytes` must contain exactly 32 bytes (the Ed25519 seed).  Unlike
+/// [`load_signing_key`], no file-permission checks are performed — the caller
+/// is responsible for securing the key material before passing it here (e.g.
+/// when the bytes were retrieved from a secrets manager rather than a file).
+pub fn load_signing_key_from_bytes(bytes: &[u8]) -> Result<SigningKey, String> {
+    if bytes.len() != 32 {
+        return Err(format!(
+            "signing key must be exactly 32 bytes, got {}",
+            bytes.len()
+        ));
+    }
+    let arr: [u8; 32] = bytes.try_into().unwrap();
+    Ok(SigningKey::from_bytes(&arr))
+}
+
 /// Load an Ed25519 signing key from a raw 32-byte binary file.
 ///
 /// The file must contain exactly 32 bytes (the Ed25519 seed/private scalar).
@@ -257,6 +274,33 @@ mod tests {
             hlc_node_id(&key_b),
             "node_id must differ for distinct keys"
         );
+    }
+
+    /// load_signing_key_from_bytes produces the correct verifying key for a known seed.
+    ///
+    /// Test vector oracle: pyca/cryptography (independent Ed25519 implementation).
+    ///   seed   = [0x42; 32]
+    ///   verifying key = 2152f8d19b791d24453242e15f2eab6cb7cffa7b6a5ed30097960e069881db12
+    /// Verified with:
+    ///   Ed25519PrivateKey.from_private_bytes(b'\x42'*32).public_key().public_bytes(Raw,Raw).hex()
+    #[test]
+    fn load_signing_key_from_bytes_known_vector() {
+        let key = load_signing_key_from_bytes(&[0x42u8; 32]).expect("must succeed with 32 bytes");
+        let expected = hex::decode("2152f8d19b791d24453242e15f2eab6cb7cffa7b6a5ed30097960e069881db12")
+            .unwrap();
+        assert_eq!(
+            key.verifying_key().to_bytes().as_slice(),
+            expected.as_slice(),
+            "verifying key must match pyca/cryptography oracle"
+        );
+    }
+
+    /// load_signing_key_from_bytes rejects wrong lengths.
+    #[test]
+    fn load_signing_key_from_bytes_rejects_wrong_length() {
+        let result = load_signing_key_from_bytes(&[0u8; 31]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("32 bytes"));
     }
 
     /// write_signing_key + load_signing_key round-trip.

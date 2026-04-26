@@ -16,7 +16,7 @@ use rustls::server::danger::{ClientCertVerified, ClientCertVerifier};
 use rustls::ServerConfig;
 use rustls::{DigitallySignedStruct, DistinguishedName, Error, SignatureScheme};
 use sha2::Digest as _;
-use stoa_tls::{load_cert_chain, load_private_key};
+use stoa_tls::{load_cert_chain, load_private_key, load_private_key_from_bytes};
 
 pub use stoa_tls::TlsError;
 
@@ -121,6 +121,33 @@ pub fn extract_client_cert_data(
     (Some(fingerprint), Some(der))
 }
 
+/// Load a TLS acceptor from a certificate file and private key bytes.
+///
+/// `key_label` identifies the key source in error messages (typically the
+/// `secretx:` URI used to retrieve the key).
+///
+/// Equivalent to [`load_tls_acceptor`] but the private key is supplied as PEM
+/// bytes rather than a file path.  Use this when the key was retrieved from a
+/// secrets manager via a `secretx:` URI.
+pub fn load_tls_acceptor_with_key_bytes(
+    cert_path: &str,
+    key_pem_bytes: &[u8],
+    key_label: &str,
+) -> Result<TlsAcceptor, TlsError> {
+    let cert_chain = load_cert_chain(cert_path)?;
+    let private_key = load_private_key_from_bytes(key_pem_bytes, key_label)?;
+    let config = ServerConfig::builder_with_protocol_versions(&[
+        &rustls::version::TLS13,
+        &rustls::version::TLS12,
+    ])
+    .with_client_cert_verifier(Arc::new(PermissiveClientAuth))
+    .with_single_cert(cert_chain, private_key)
+    .map_err(TlsError::Config)?;
+    Ok(TlsAcceptor {
+        inner: tokio_rustls::TlsAcceptor::from(Arc::new(config)),
+    })
+}
+
 /// Build a `TlsAcceptor` from PEM certificate and private-key files.
 ///
 /// The resulting `ServerConfig` requires TLS 1.2 or higher; TLS 1.0 and 1.1
@@ -132,10 +159,6 @@ pub fn extract_client_cert_data(
 pub fn load_tls_acceptor(cert_path: &str, key_path: &str) -> Result<TlsAcceptor, TlsError> {
     let cert_chain = load_cert_chain(cert_path)?;
     let private_key = load_private_key(key_path)?;
-
-    // --- Build ServerConfig with minimum TLS 1.2 ---
-    // Request but do not require a client certificate.  Fingerprint validation
-    // is performed at the application layer after the handshake.
     let config = ServerConfig::builder_with_protocol_versions(&[
         &rustls::version::TLS13,
         &rustls::version::TLS12,

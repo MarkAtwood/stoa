@@ -29,8 +29,9 @@ tokio-rustls = "0.26"
 multihash-codetable = { version = "0.2", features = ["sha2"] }
 sha2 = "0.10"
 uuid = { version = "1", features = ["v4"] }
-rand = "0.8"
+rand_core = { version = "0.6", features = ["getrandom"] }
 mailparse = "0.15"
+secretx = { workspace = true }
 stoa-core = { path = "../core" }
 stoa-tls = { path = "../tls" }
 stoa-reader = { path = "../reader" }

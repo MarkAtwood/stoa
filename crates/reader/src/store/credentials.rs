@@ -68,15 +68,15 @@ impl CredentialStore {
         Self { entries, dummy_hash }
     }
 
-    /// Build a `CredentialStore` from a credential file at `path`.
+    /// Build a `CredentialStore` from credential file content.
     ///
     /// File format: one `username:bcrypt_hash` per line. Blank lines and lines
     /// starting with `#` are ignored. Duplicate usernames: last wins.
     ///
-    /// Returns `Err(String)` if the file cannot be read or a line is malformed.
-    pub fn from_file(path: &str) -> Result<Self, String> {
-        let content =
-            std::fs::read_to_string(path).map_err(|e| format!("cannot read {path}: {e}"))?;
+    /// `label` is used in error messages (typically the file path or URI).
+    ///
+    /// Returns `Err(String)` if a line is malformed.
+    pub fn from_content(label: &str, content: &str) -> Result<Self, String> {
         let mut entries = HashMap::new();
         for (lineno, line) in content.lines().enumerate() {
             let line = line.trim();
@@ -85,16 +85,39 @@ impl CredentialStore {
             }
             let (user, hash) = line
                 .split_once(':')
-                .ok_or_else(|| format!("{path}:{}: missing ':' separator", lineno + 1))?;
+                .ok_or_else(|| format!("{label}:{}: missing ':' separator", lineno + 1))?;
             let user = user.trim().to_ascii_lowercase();
             let hash = hash.trim().to_string();
             if user.is_empty() {
-                return Err(format!("{path}:{}: empty username", lineno + 1));
+                return Err(format!("{label}:{}: empty username", lineno + 1));
             }
             entries.insert(user, hash);
         }
         let dummy_hash = make_dummy_hash(&entries);
         Ok(Self { entries, dummy_hash })
+    }
+
+    /// Build a `CredentialStore` from a credential file at `path`.
+    ///
+    /// Reads the file and delegates to [`from_content`](Self::from_content).
+    ///
+    /// Returns `Err(String)` if the file cannot be read or a line is malformed.
+    pub fn from_file(path: &str) -> Result<Self, String> {
+        let content =
+            std::fs::read_to_string(path).map_err(|e| format!("cannot read {path}: {e}"))?;
+        Self::from_content(path, &content)
+    }
+
+    /// Merge credentials from raw content into an existing store, overwriting
+    /// any duplicate usernames with the content's version.  The dummy hash is
+    /// recomputed from the merged entry set.
+    ///
+    /// `label` is used in error messages (typically the source path or URI).
+    pub fn merge_from_content(&mut self, label: &str, content: &str) -> Result<(), String> {
+        let other = Self::from_content(label, content)?;
+        self.entries.extend(other.entries);
+        self.dummy_hash = make_dummy_hash(&self.entries);
+        Ok(())
     }
 
     /// Merge credentials from a file into an existing store, overwriting

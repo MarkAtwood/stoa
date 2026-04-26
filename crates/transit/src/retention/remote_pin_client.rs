@@ -34,6 +34,54 @@ impl PinningApiKey {
     pub(crate) fn as_bearer_header(&self) -> String {
         format!("Bearer {}", self.0)
     }
+
+    /// Validate URI syntax if the stored value is a `secretx:` URI.
+    ///
+    /// Returns `Ok(())` for literal tokens and for syntactically valid secretx
+    /// URIs. Returns `Err(String)` if the value is a secretx URI with a parse
+    /// error. Does not attempt to retrieve the secret.
+    pub fn validate_uri_syntax(&self) -> Result<(), String> {
+        if !self.0.starts_with("secretx:") {
+            return Ok(());
+        }
+        secretx::from_uri(&self.0)
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+    }
+
+    /// Resolve `self` from a `secretx:` URI if the stored value starts with
+    /// that prefix, returning a new `PinningApiKey` containing the retrieved
+    /// secret.  If the value is a literal token, returns `self` unchanged.
+    ///
+    /// Intended for call at daemon startup — any URI parse or retrieval error
+    /// is fatal and exits the process immediately.
+    pub async fn resolve(self, label: &str) -> Self {
+        if !self.0.starts_with("secretx:") {
+            return self;
+        }
+        let store = match secretx::from_uri(&self.0) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("error: {label}: invalid secretx URI: {e}");
+                std::process::exit(1);
+            }
+        };
+        let secret = match store.get().await {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("error: {label}: secretx retrieval failed: {e}");
+                std::process::exit(1);
+            }
+        };
+        let text = match secret.as_str() {
+            Ok(s) => s.trim().to_string(),
+            Err(e) => {
+                eprintln!("error: {label}: secretx value not valid UTF-8: {e}");
+                std::process::exit(1);
+            }
+        };
+        PinningApiKey(text)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -408,6 +456,31 @@ mod tests {
         assert!(
             matches!(err, RemotePinError::Http { status: 404, .. }),
             "expected Http(404), got: {err}"
+        );
+    }
+
+    /// validate_uri_syntax returns Ok for a literal token.
+    #[test]
+    fn validate_uri_syntax_literal_is_ok() {
+        let key = PinningApiKey("plain-api-token".to_string());
+        assert!(key.validate_uri_syntax().is_ok());
+    }
+
+    /// validate_uri_syntax returns Ok for a syntactically valid secretx:env URI.
+    #[test]
+    fn validate_uri_syntax_valid_secretx_is_ok() {
+        let key = PinningApiKey("secretx:env:MY_API_KEY".to_string());
+        assert!(key.validate_uri_syntax().is_ok());
+    }
+
+    /// validate_uri_syntax returns Err for a malformed secretx URI (no backend specified).
+    #[test]
+    fn validate_uri_syntax_invalid_secretx_is_err() {
+        // "secretx:" with no backend name is a parse error per the secretx crate spec.
+        let key = PinningApiKey("secretx:".to_string());
+        assert!(
+            key.validate_uri_syntax().is_err(),
+            "secretx: with no backend must be a parse error"
         );
     }
 

@@ -26,6 +26,7 @@ mail-parser = "0.11"
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio-rustls"] }
 axum = "0.8"
 subtle = "2"
+secretx = { workspace = true }
 stoa-core = { path = "../core" }
 stoa-tls = { path = "../tls" }
 stoa-sieve-native = { path = "../sieve-native" }

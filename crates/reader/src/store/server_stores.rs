@@ -113,7 +113,7 @@ impl ServerStores {
             .unwrap()
             .as_millis() as u64;
 
-        let signing_key = load_or_generate_signing_key(&config.operator.signing_key_path)?;
+        let signing_key = load_or_generate_signing_key(&config.operator.signing_key_path).await?;
         let node_id = hlc_node_id(&signing_key);
 
         let trusted_issuer_store = build_trusted_issuer_store(&config.auth.trusted_issuers)?;
@@ -132,7 +132,7 @@ impl ServerStores {
             log_storage: Arc::new(MemLogStorage::new()),
             article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
             overview_store: Arc::new(OverviewStore::new(reader_pool)),
-            credential_store: Arc::new(build_credential_store(&config.auth)?),
+            credential_store: Arc::new(build_credential_store(&config.auth).await?),
             client_cert_store: Arc::new(ClientCertStore::from_config(&config.auth.client_certs)),
             trusted_issuer_store: Arc::new(trusted_issuer_store),
             clock: Arc::new(Mutex::new(HlcClock::new(node_id, now_ms))),
@@ -363,22 +363,53 @@ fn build_trusted_issuer_store(
 ///
 /// Loads inline `users` first, then merges any entries from `credential_file`
 /// (file entries override inline entries with the same username).
-fn build_credential_store(auth: &crate::config::AuthConfig) -> Result<CredentialStore, String> {
+///
+/// `credential_file` may be either a filesystem path or a `secretx:` URI.
+/// When it is a `secretx:` URI, the secret is fetched and its text content is
+/// parsed as a credential file; no filesystem access is performed.
+async fn build_credential_store(
+    auth: &crate::config::AuthConfig,
+) -> Result<CredentialStore, String> {
     let mut store = CredentialStore::from_credentials(&auth.users);
     if let Some(ref path) = auth.credential_file {
-        store.merge_from_file(path)?;
+        if path.starts_with("secretx:") {
+            let secret_store = secretx::from_uri(path)
+                .map_err(|e| format!("auth.credential_file: invalid secretx URI: {e}"))?;
+            let secret = secret_store
+                .get()
+                .await
+                .map_err(|e| format!("auth.credential_file: secretx retrieval failed: {e}"))?;
+            let content = secret
+                .as_str()
+                .map_err(|e| format!("auth.credential_file: secretx value not valid UTF-8: {e}"))?;
+            store.merge_from_content(path, content)?;
+        } else {
+            store.merge_from_file(path)?;
+        }
     }
     Ok(store)
 }
 
-/// Load a 32-byte Ed25519 signing key from the given file path, or generate a
-/// fresh random key if no path is configured.
+/// Load a 32-byte Ed25519 signing key from the given file path or secretx URI,
+/// or generate a fresh random key if no path is configured.
 ///
 /// If `path` is `None`, a random ephemeral key is generated and a warning is
 /// emitted.  This is acceptable for development but insecure for production
 /// because the signing key changes on every restart.
-fn load_or_generate_signing_key(path: &Option<String>) -> Result<SigningKey, String> {
+///
+/// `path` may be either a filesystem path (read as a 32-byte binary file) or
+/// a `secretx:` URI whose resolved bytes are used directly.
+async fn load_or_generate_signing_key(path: &Option<String>) -> Result<SigningKey, String> {
     match path {
+        Some(p) if p.starts_with("secretx:") => {
+            let store = secretx::from_uri(p)
+                .map_err(|e| format!("operator.signing_key_path: invalid secretx URI: {e}"))?;
+            let secret = store
+                .get()
+                .await
+                .map_err(|e| format!("operator.signing_key_path: secretx retrieval failed: {e}"))?;
+            stoa_core::signing::load_signing_key_from_bytes(secret.as_bytes())
+        }
         Some(p) => stoa_core::signing::load_signing_key(std::path::Path::new(p)),
         None => {
             let key = generate_signing_key();

@@ -80,15 +80,15 @@ impl CredentialStore {
         self.entries.is_empty()
     }
 
-    /// Build a `CredentialStore` from a credential file at `path`.
+    /// Build a `CredentialStore` from credential file content.
     ///
     /// File format: one `username:bcrypt_hash` per line. Blank lines and lines
     /// starting with `#` are ignored. Duplicate usernames: last wins.
     ///
-    /// Returns `Err(String)` if the file cannot be read or a line is malformed.
-    pub fn from_file(path: &str) -> Result<Self, String> {
-        let content =
-            std::fs::read_to_string(path).map_err(|e| format!("cannot read {path}: {e}"))?;
+    /// `label` is used in error messages (typically the file path or URI).
+    ///
+    /// Returns `Err(String)` if a line is malformed.
+    pub fn from_content(label: &str, content: &str) -> Result<Self, String> {
         let mut entries = HashMap::new();
         for (lineno, line) in content.lines().enumerate() {
             let line = line.trim();
@@ -97,16 +97,39 @@ impl CredentialStore {
             }
             let (user, hash) = line
                 .split_once(':')
-                .ok_or_else(|| format!("{path}:{}: missing ':' separator", lineno + 1))?;
+                .ok_or_else(|| format!("{label}:{}: missing ':' separator", lineno + 1))?;
             let user = user.trim().to_ascii_lowercase();
             let hash = hash.trim().to_string();
             if user.is_empty() {
-                return Err(format!("{path}:{}: empty username", lineno + 1));
+                return Err(format!("{label}:{}: empty username", lineno + 1));
             }
             entries.insert(user, hash);
         }
         let dummy_hash = make_dummy_hash(&entries);
         Ok(Self { entries, dummy_hash })
+    }
+
+    /// Build a `CredentialStore` from a credential file at `path`.
+    ///
+    /// Reads the file and delegates to [`from_content`](Self::from_content).
+    ///
+    /// Returns `Err(String)` if the file cannot be read or a line is malformed.
+    pub fn from_file(path: &str) -> Result<Self, String> {
+        let content =
+            std::fs::read_to_string(path).map_err(|e| format!("cannot read {path}: {e}"))?;
+        Self::from_content(path, &content)
+    }
+
+    /// Merge credentials from raw content into an existing store, overwriting
+    /// any duplicate usernames with the content's version.  The dummy hash is
+    /// recomputed from the merged entry set.
+    ///
+    /// `label` is used in error messages (typically the source path or URI).
+    pub fn merge_from_content(&mut self, label: &str, content: &str) -> Result<(), String> {
+        let other = Self::from_content(label, content)?;
+        self.entries.extend(other.entries);
+        self.dummy_hash = make_dummy_hash(&self.entries);
+        Ok(())
     }
 
     /// Merge credentials from a file into an existing store, overwriting
@@ -235,6 +258,43 @@ mod tests {
         assert!(
             result.is_err(),
             "from_file must return Err for line missing ':'"
+        );
+    }
+
+    #[test]
+    fn from_content_parses_valid_credential_lines() {
+        let hash = bcrypt::hash("pass", 4).unwrap();
+        let content = format!("alice:{hash}\n# comment\n\nbob:{hash}\n");
+        let store = CredentialStore::from_content("<test>", &content).unwrap();
+        assert!(store.entries.contains_key("alice"));
+        assert!(store.entries.contains_key("bob"));
+    }
+
+    #[test]
+    fn from_content_returns_err_for_malformed_line() {
+        let result = CredentialStore::from_content("<test>", "nocolon\n");
+        assert!(result.is_err(), "must fail on malformed line");
+        let msg = result.err().unwrap();
+        assert!(msg.contains("missing ':' separator"), "got: {msg}");
+    }
+
+    #[tokio::test]
+    async fn merge_from_content_overrides_inline() {
+        let inline_hash = bcrypt::hash("inline-pass", 4).unwrap();
+        let file_hash = bcrypt::hash("file-pass", 4).unwrap();
+        let entries = HashMap::from([("alice".to_string(), inline_hash)]);
+        let dummy_hash = make_dummy_hash(&entries);
+        let mut store = CredentialStore { entries, dummy_hash };
+        let content = format!("alice:{file_hash}\n");
+        store.merge_from_content("<test>", &content).unwrap();
+        // The file version should now authenticate, not the inline one.
+        assert!(
+            store.check("alice", "file-pass").await,
+            "alice must authenticate with file-pass after merge_from_content"
+        );
+        assert!(
+            !store.check("alice", "inline-pass").await,
+            "alice must not authenticate with old inline-pass after override"
         );
     }
 

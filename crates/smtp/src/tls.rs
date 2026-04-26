@@ -3,7 +3,7 @@
 //! Delegates PEM loading to `stoa-tls` and adds SMTP-specific helpers
 //! (`build_tls_acceptor`, `accept_tls`, `tls_configured`).
 
-use stoa_tls::load_tls_server_config;
+use stoa_tls::{load_tls_server_config, load_tls_server_config_with_key_bytes};
 pub use stoa_tls::TlsError;
 
 /// A `tokio_rustls` TLS acceptor for the SMTPS listener.
@@ -15,6 +15,24 @@ pub type TlsAcceptor = tokio_rustls::TlsAcceptor;
 /// requiring TLS 1.2 or higher, and wraps it in a `tokio_rustls::TlsAcceptor`.
 pub fn build_tls_acceptor(cert_path: &str, key_path: &str) -> Result<TlsAcceptor, TlsError> {
     let server_config = load_tls_server_config(cert_path, key_path)?;
+    Ok(tokio_rustls::TlsAcceptor::from(server_config))
+}
+
+/// Build a [`TlsAcceptor`] from a certificate file and private-key bytes.
+///
+/// `key_label` identifies the key source in error messages (typically the
+/// `secretx:` URI used to retrieve the key).
+///
+/// Equivalent to [`build_tls_acceptor`] but the private key is supplied as PEM
+/// bytes rather than a file path.  Use this when the key was retrieved from a
+/// secrets manager via a `secretx:` URI.
+pub fn build_tls_acceptor_with_key_bytes(
+    cert_path: &str,
+    key_pem_bytes: &[u8],
+    key_label: &str,
+) -> Result<TlsAcceptor, TlsError> {
+    let server_config =
+        load_tls_server_config_with_key_bytes(cert_path, key_pem_bytes, key_label)?;
     Ok(tokio_rustls::TlsAcceptor::from(server_config))
 }
 

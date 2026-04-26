@@ -1965,6 +1965,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "inventory"
+version = "0.3.24"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4f0c30c76f2f4ccee3fe55a2435f691ca00c0e4bd87abe4f4a851b1d4dac39b"
+dependencies = [
+ "rustversion",
+]
+
+[[package]]
 name = "ipconfig"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3444,6 +3453,53 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
+name = "secretx"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7016a1060c1457ea7ad6f67496031bbb4fc0cf59fcfc05cd8af6e280c4314f68"
+dependencies = [
+ "inventory",
+ "secretx-core",
+ "secretx-env",
+ "secretx-file",
+]
+
+[[package]]
+name = "secretx-core"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8cc68938b44925d8d317ff27a0231a7cb76540f0146356071b4638c3c1e74b60"
+dependencies = [
+ "async-trait",
+ "inventory",
+ "thiserror 2.0.18",
+ "zeroize",
+]
+
+[[package]]
+name = "secretx-env"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec4b89a703389db5c770f6ed879c6bf72521f2c22cfe530047735c26e6563ccb"
+dependencies = [
+ "async-trait",
+ "inventory",
+ "secretx-core",
+]
+
+[[package]]
+name = "secretx-file"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "314857f9f8b2d652df9d6327a80b7d5483e99712e79abcb367159793f475e0fd"
+dependencies = [
+ "async-trait",
+ "inventory",
+ "secretx-core",
+ "tokio",
+]
+
+[[package]]
 name = "security-framework"
 version = "3.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4050,10 +4106,11 @@ dependencies = [
  "mailparse",
  "multihash-codetable",
  "prometheus",
- "rand 0.8.6",
+ "rand_core 0.6.4",
  "reqwest",
  "rustls",
  "rustls-pemfile",
+ "secretx",
  "serde",
  "serde_ipld_dagcbor",
  "serde_json",
@@ -4094,6 +4151,7 @@ dependencies = [
  "rcgen",
  "rustls",
  "rustls-pemfile",
+ "secretx",
  "serde",
  "serde_ipld_dagcbor",
  "serde_json",
@@ -4145,6 +4203,7 @@ dependencies = [
  "rcgen",
  "rustls",
  "rustls-pemfile",
+ "secretx",
  "serde",
  "serde_json",
  "sqlx",
@@ -4167,8 +4226,10 @@ dependencies = [
 name = "stoa-tls"
 version = "0.1.0"
 dependencies = [
+ "rcgen",
  "rustls",
  "rustls-pemfile",
+ "tempfile",
 ]
 
 [[package]]
@@ -4187,6 +4248,7 @@ dependencies = [
  "proptest",
  "rand_core 0.6.4",
  "reqwest",
+ "secretx",
  "serde",
  "serde_ipld_dagcbor",
  "serde_json",

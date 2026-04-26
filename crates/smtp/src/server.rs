@@ -47,11 +47,41 @@ pub async fn run_server(
     };
 
     // Build the credential store once at startup and share it across sessions.
+    // credential_file may be a filesystem path or a secretx: URI.
     let credential_store = {
         let mut store = CredentialStore::from_credentials(&config.auth.users);
         if let Some(ref path) = config.auth.credential_file {
-            if let Err(e) = store.merge_from_file(path) {
-                warn!("failed to load credential_file {path}: {e}");
+            if path.starts_with("secretx:") {
+                let secret_store = match secretx::from_uri(path) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        eprintln!("error: auth.credential_file: invalid secretx URI: {e}");
+                        std::process::exit(1);
+                    }
+                };
+                let secret = match secret_store.get().await {
+                    Ok(v) => v,
+                    Err(e) => {
+                        eprintln!("error: auth.credential_file: secretx retrieval failed: {e}");
+                        std::process::exit(1);
+                    }
+                };
+                let content = match secret.as_str() {
+                    Ok(s) => s,
+                    Err(e) => {
+                        eprintln!(
+                            "error: auth.credential_file: secretx value not valid UTF-8: {e}"
+                        );
+                        std::process::exit(1);
+                    }
+                };
+                if let Err(e) = store.merge_from_content(path, content) {
+                    eprintln!("error: failed to parse credential file from secretx: {e}");
+                    std::process::exit(1);
+                }
+            } else if let Err(e) = store.merge_from_file(path) {
+                eprintln!("error: failed to load credential_file '{path}': {e}");
+                std::process::exit(1);
             }
         }
         Arc::new(store)
