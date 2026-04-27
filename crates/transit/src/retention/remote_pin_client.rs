@@ -13,6 +13,15 @@ use serde::{Deserialize, Serialize};
 ///
 /// Debug and Display implementations redact the value to prevent accidental
 /// credential leakage in logs, panic messages, and error reports.
+///
+/// # DECISION (rbe3.36): Debug impl redacts the secret value
+///
+/// Rust's derived `Debug` would print the raw string, exposing the bearer
+/// token in panic messages, structured log lines that format config structs,
+/// and test output.  The manual `Debug` impl prints `PinningApiKey(**redacted**)`
+/// instead.  A test in `config.rs` asserts that `format!("{:?}", key)` does
+/// not contain the raw token string so that this invariant is regression-tested.
+/// Do NOT derive `Debug` on this type.
 #[derive(Clone, Deserialize)]
 #[serde(transparent)]
 pub struct PinningApiKey(pub(crate) String);

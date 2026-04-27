@@ -155,6 +155,23 @@ impl GroupFilter {
     /// An empty `name` is always rejected (defensive: empty group names are
     /// invalid in NNTP).  Patterns are tested in order; the first match
     /// determines the outcome.  If no pattern matches, the name is rejected.
+    ///
+    /// # DECISION (rbe3.38): empty name rejected as defensive guard
+    ///
+    /// An empty string cannot be a valid NNTP group name (RFC 3977 §4).
+    /// Explicitly rejecting it here prevents a wildmat `*` pattern from
+    /// accidentally accepting empty strings that could arise from splitting a
+    /// comma-separated newsgroup list on consecutive commas.  The check is
+    /// O(1) and has no downside.  Do NOT remove the empty-check guard.
+    ///
+    /// # DECISION (rbe3.37): first-match-wins implements ordered policy
+    ///
+    /// First-match-wins is the standard wildmat semantics (RFC 3977 §4).  It
+    /// allows operators to write policies like `["comp.*", "!comp.binaries"]`
+    /// where `comp.*` pins everything under comp but the `!` pattern then
+    /// exempts binaries — the exception must come second.  Reversing to
+    /// last-match-wins or any-match-wins would break this composability.
+    /// Do NOT change the evaluation order to last-match or union semantics.
     pub fn accepts(&self, name: &str) -> bool {
         if name.is_empty() {
             return false;

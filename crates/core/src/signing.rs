@@ -60,6 +60,20 @@ pub fn load_signing_key(path: &std::path::Path) -> Result<SigningKey, String> {
 /// - Stable across restarts (as long as the key file is unchanged).
 /// - Unique per operator (Ed25519 key pairs are effectively unique).
 /// - Not the raw key (only a truncated hash is exposed).
+///
+/// # DECISION (rbe3.33): node_id derived from signing key, not random or libp2p peer ID
+///
+/// Using the signing key as the node ID source makes it stable across restarts
+/// and globally unique assuming Ed25519 keys are not reused.  Alternative
+/// approaches are worse:
+/// - Random per restart: HLC timestamps from different runs are not comparable,
+///   breaking Merkle-CRDT ordering across a server restart.
+/// - libp2p peer ID: couples node identity to the IPFS backend; breaks for
+///   non-Kubo backends (iroh, rust-ipfs) and requires the IPFS layer to be
+///   initialized before the HLC.
+/// - Raw public key bytes: leaks more key material than necessary and is
+///   larger than 8 bytes.
+/// Do NOT change this to use a random value or a libp2p peer ID.
 pub fn hlc_node_id(signing_key: &SigningKey) -> [u8; 8] {
     use multihash_codetable::{Code, MultihashDigest};
     let vk = signing_key.verifying_key();

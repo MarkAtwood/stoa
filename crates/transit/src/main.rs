@@ -476,6 +476,15 @@ async fn main() {
 
     // ── Operator signing key ──────────────────────────────────────────────────
 
+    // DECISION (rbe3.35): signing key required for non-loopback listeners
+    //
+    // An ephemeral key (generated at startup, not saved) changes on every
+    // restart, breaking X-Stoa-Sig verification for peers that cached the
+    // operator's public key.  Loopback-only deployments (dev/test mode) are
+    // permitted to use ephemeral keys with a warn-level log; production
+    // deployments that accept external peering connections must supply a
+    // persistent key file so that signatures remain verifiable across restarts.
+    // Do NOT remove this check for non-loopback listeners.
     // Enforce signing_key_path for non-loopback deployments (zn0k).
     if config.operator.signing_key_path.is_none()
         && !stoa_transit::config::is_loopback_addr(&config.listen.addr)
@@ -564,6 +573,16 @@ async fn main() {
         id.copy_from_slice(&hash[..8]);
         id
     };
+    // DECISION (rbe3.34): HLC checkpoint persisted across restarts for monotone timestamps
+    //
+    // Without persistence, a server restart resets the HLC logical counter to 0.
+    // If the wall-clock millisecond at restart equals the last emitted timestamp's
+    // wall millisecond, the new timestamp would collide with or regress below a
+    // previous one, violating the HLC ordering guarantee that the Merkle-CRDT
+    // group log depends on for causal consistency.  Loading the checkpoint and
+    // seeding the clock ensures the first post-restart timestamp is strictly
+    // greater than any previously emitted one.
+    // Do NOT remove the checkpoint load; do NOT seed the clock with zero on startup.
     // Load persisted HLC checkpoint so the first send() after restart is
     // strictly greater than any previously emitted timestamp (usenet-ipfs-gq0z).
     let hlc = {

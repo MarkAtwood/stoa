@@ -442,14 +442,24 @@ where
 
     // 3.5. Record in articles table for GC tracking.
     //
-    // This is a hard error: if IPFS write, msgid_map, and group log all succeed
-    // but the articles table insert fails, the block exists in IPFS but is
-    // invisible to select_gc_candidates — it will never be collected.
+    // DECISION (rbe3.32): hard error on articles table insert failure
+    //
+    // If the IPFS write, msgid_map, and group log all succeed but the articles
+    // table insert fails, the block exists in IPFS but is invisible to
+    // select_gc_candidates — it will never be collected (orphaned block leak).
+    // Unlike log-append failures (which are logged and skipped), this is
+    // treated as a pipeline error.  The articles table is the GC ledger; its
+    // integrity is non-negotiable.
+    //
+    // DECISION (rbe3.31): ingested_at_ms from local wall clock, not peer time
     //
     // `ingested_at_ms` MUST be the current wall-clock time (SystemTime::now()),
     // NOT from the article's Date header or ctx.timestamp — those are
-    // peer-supplied.  The grace period check in gc_candidates.rs only protects
-    // newly ingested articles from immediate collection when this invariant holds.
+    // peer-supplied.  A backdated article (Date: 2001-01-01) would cause the
+    // GC grace period to have already expired, allowing the collector to
+    // immediately evict an article that was just ingested.  Using the local
+    // wall clock ensures that all newly ingested articles are protected for the
+    // full grace period regardless of the article timestamp.
     {
         let cid_str = cid.to_string();
         let primary_group = group_name_strs.first().map(String::as_str).unwrap_or("");
