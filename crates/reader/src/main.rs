@@ -183,48 +183,21 @@ fn cmd_keygen(args: &[String]) -> ! {
     std::process::exit(0);
 }
 
-/// Resolve `value` from a `secretx:` URI when it starts with that prefix,
-/// otherwise return it unchanged.  Exits the process on any URI or retrieval
-/// error so that misconfigured secrets are caught at startup, not at request
-/// time.
+/// Resolve `value` from a `secretx:` URI at startup; exits on any error.
 ///
-/// **UTF-8 strings only.** This helper calls `.as_str()` and returns a
-/// `String`. For binary secrets (TLS private key, Ed25519 signing key seed),
-/// call `.as_bytes()` on the `SecretValue` directly — those paths are resolved
-/// inline rather than through this helper.
+/// Delegates to [`stoa_core::secret::resolve_secret_uri`].  Exits the process
+/// with a descriptive message on URI parse errors, retrieval failures, or
+/// non-UTF-8 values, so that misconfigured secrets are caught at startup.
 ///
-/// NOTE: An identical copy of this function exists in `crates/transit/src/main.rs`.
-/// If you change the logic here, change it there too.
+/// **UTF-8 strings only.** For binary secrets (TLS private key, Ed25519 seed),
+/// call `.as_bytes()` on the `SecretValue` directly.
 async fn resolve_secret_uri(value: Option<String>, label: &str) -> Option<String> {
-    let s = match value {
-        None => return None,
-        Some(s) => s,
-    };
-    if !s.starts_with("secretx:") {
-        return Some(s);
-    }
-    let store = match secretx::from_uri(&s) {
-        Ok(store) => store,
-        Err(e) => {
-            eprintln!("error: {label}: invalid secretx URI: {e}");
+    stoa_core::secret::resolve_secret_uri(value, label)
+        .await
+        .unwrap_or_else(|msg| {
+            eprintln!("{msg}");
             std::process::exit(1);
-        }
-    };
-    let secret = match store.get().await {
-        Ok(v) => v,
-        Err(e) => {
-            eprintln!("error: {label}: secretx retrieval failed: {e}");
-            std::process::exit(1);
-        }
-    };
-    let text = match secret.as_str() {
-        Ok(s) => s.trim().to_string(),
-        Err(e) => {
-            eprintln!("error: {label}: secretx value not valid UTF-8: {e}");
-            std::process::exit(1);
-        }
-    };
-    Some(text)
+        })
 }
 
 #[tokio::main]

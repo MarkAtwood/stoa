@@ -11,7 +11,7 @@
 //! - `POST /reload`  — signal daemon to reload config (stub, returns `{"reloaded":true}`)
 
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use stoa_core::rate_limiter::RateLimiter;
 use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 
@@ -84,27 +84,43 @@ async fn handle_admin_connection(
     let peer_ip = stream.peer_addr()?.ip();
     let mut reader = BufReader::new(stream);
 
-    // Read request line.
-    let mut request_line = String::new();
-    reader.read_line(&mut request_line).await?;
-    let request_line = request_line.trim_end_matches(['\r', '\n']);
-    let mut parts = request_line.splitn(3, ' ');
-    let method = parts.next().unwrap_or("");
-    let path = parts.next().unwrap_or("");
+    // Hard deadline for receiving the full request line + headers.  A client
+    // that drips bytes one at a time (slowloris) will be dropped after this.
+    const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+    // Cap on header lines: prevents an infinite loop of valid lines with no
+    // blank terminator.
+    const MAX_HEADER_LINES: usize = 64;
 
-    // Read headers until the blank line.
-    let mut auth_header: Option<String> = None;
-    loop {
-        let mut line = String::new();
-        reader.read_line(&mut line).await?;
-        let line = line.trim_end_matches(['\r', '\n']);
-        if line.is_empty() {
-            break;
+    let (method_owned, path_owned, auth_header) = tokio::time::timeout(REQUEST_TIMEOUT, async {
+        let mut request_line = String::new();
+        reader.read_line(&mut request_line).await?;
+        let rl = request_line.trim_end_matches(['\r', '\n']).to_string();
+        let mut parts = rl.splitn(3, ' ');
+        let method = parts.next().unwrap_or("").to_string();
+        let path = parts.next().unwrap_or("").to_string();
+
+        let mut auth_header: Option<String> = None;
+        for _ in 0..MAX_HEADER_LINES {
+            let mut line = String::new();
+            reader.read_line(&mut line).await?;
+            let line = line.trim_end_matches(['\r', '\n']);
+            if line.is_empty() {
+                break;
+            }
+            if let Some(val) = line.strip_prefix("Authorization: ") {
+                auth_header = Some(val.to_string());
+            }
         }
-        if let Some(val) = line.strip_prefix("Authorization: ") {
-            auth_header = Some(val.to_string());
-        }
-    }
+
+        Ok::<_, std::io::Error>((method, path, auth_header))
+    })
+    .await
+    .map_err(|_| {
+        std::io::Error::new(std::io::ErrorKind::TimedOut, "admin request read timeout")
+    })??;
+
+    let method = method_owned.as_str();
+    let path = path_owned.as_str();
 
     let mut writer = reader.into_inner();
 

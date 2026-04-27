@@ -199,48 +199,80 @@ async fn run_startup_checks(config: &stoa_transit::config::Config) -> Vec<String
     errors
 }
 
-/// Resolve `value` from a `secretx:` URI when it starts with that prefix,
-/// otherwise return it unchanged.  Exits the process on any URI or retrieval
-/// error so that misconfigured secrets are caught at startup, not at request
-/// time.
+/// Resolve `value` from a `secretx:` URI at startup; exits on any error.
 ///
-/// **UTF-8 strings only.** This helper calls `.as_str()` and returns a
-/// `String`. For binary secrets (TLS private key, Ed25519 signing key seed),
-/// call `.as_bytes()` on the `SecretValue` directly — those paths are resolved
-/// inline rather than through this helper.
+/// Delegates to [`stoa_core::secret::resolve_secret_uri`].  Exits the process
+/// with a descriptive message on URI parse errors, retrieval failures, or
+/// non-UTF-8 values, so that misconfigured secrets are caught at startup.
 ///
-/// NOTE: An identical copy of this function exists in `crates/reader/src/main.rs`.
-/// If you change the logic here, change it there too.
+/// **UTF-8 strings only.** For binary secrets (TLS private key, Ed25519 seed),
+/// call `.as_bytes()` on the `SecretValue` directly.
 async fn resolve_secret_uri(value: Option<String>, label: &str) -> Option<String> {
-    let s = match value {
-        None => return None,
-        Some(s) => s,
-    };
-    if !s.starts_with("secretx:") {
-        return Some(s);
+    stoa_core::secret::resolve_secret_uri(value, label)
+        .await
+        .unwrap_or_else(|msg| {
+            eprintln!("{msg}");
+            std::process::exit(1);
+        })
+}
+
+/// Notify the IPNS publisher of the new article tip for each group.
+///
+/// Called from both the ingestion drain and the staging drain after a
+/// successful `run_pipeline` to avoid duplicating the channel-send loop.
+fn publish_ipns_tip(
+    result: &stoa_transit::peering::pipeline::PipelineResult,
+    ipns_tx: &Option<tokio::sync::mpsc::Sender<IpnsEvent>>,
+) {
+    if let Some(ref tx) = ipns_tx {
+        for group in &result.groups {
+            let event = IpnsEvent {
+                group: group.clone(),
+                cid: result.cid,
+            };
+            if let Err(e) = tx.try_send(event) {
+                warn!(group, "IPNS channel full, skipping publish: {e}");
+            }
+        }
     }
-    let store = match secretx::from_uri(&s) {
-        Ok(store) => store,
-        Err(e) => {
-            eprintln!("error: {label}: invalid secretx URI: {e}");
-            std::process::exit(1);
+}
+
+/// Enqueue successfully stored articles for external pinning services.
+///
+/// Called from both the ingestion drain and the staging drain after a
+/// successful `run_pipeline` to avoid duplicating the SQL insert loop.
+async fn enqueue_pin_jobs(
+    result: &stoa_transit::peering::pipeline::PipelineResult,
+    pin_service_filters: &[(String, Option<Arc<GroupFilter>>)],
+    pool: &sqlx::SqlitePool,
+) {
+    if pin_service_filters.is_empty() {
+        return;
+    }
+    let cid_str = result.cid.to_string();
+    for (svc_name, filter) in pin_service_filters {
+        let should_pin = match filter {
+            None => true,
+            Some(f) => result.groups.iter().any(|g| f.accepts(g)),
+        };
+        if should_pin {
+            if let Err(e) = sqlx::query(
+                "INSERT OR IGNORE INTO remote_pin_jobs \
+                 (cid, service_name) VALUES (?1, ?2)",
+            )
+            .bind(&cid_str)
+            .bind(svc_name)
+            .execute(pool)
+            .await
+            {
+                warn!(
+                    cid = %cid_str,
+                    service = %svc_name,
+                    "failed to enqueue remote pin job: {e}"
+                );
+            }
         }
-    };
-    let secret = match store.get().await {
-        Ok(v) => v,
-        Err(e) => {
-            eprintln!("error: {label}: secretx retrieval failed: {e}");
-            std::process::exit(1);
-        }
-    };
-    let text = match secret.as_str() {
-        Ok(s) => s.trim().to_string(),
-        Err(e) => {
-            eprintln!("error: {label}: secretx value not valid UTF-8: {e}");
-            std::process::exit(1);
-        }
-    };
-    Some(text)
+    }
 }
 
 #[tokio::main]
@@ -764,46 +796,8 @@ async fn main() {
                             msgid = %article.message_id,
                             "article ingested"
                         );
-                        // Notify IPNS publisher of new article tip per group.
-                        if let Some(ref tx) = ipns_tx_drain {
-                            for group in &result.groups {
-                                let event = IpnsEvent {
-                                    group: group.clone(),
-                                    cid: result.cid,
-                                };
-                                if let Err(e) = tx.try_send(event) {
-                                    warn!(group, "IPNS channel full, skipping publish: {e}");
-                                }
-                            }
-                        }
-
-                        // Enqueue for external pinning services whose group filter matches.
-                        if !pin_service_filters.is_empty() {
-                            let cid_str = result.cid.to_string();
-                            for (svc_name, filter) in &pin_service_filters {
-                                let should_pin = match filter {
-                                    None => true, // no filter = accept all groups
-                                    Some(f) => result.groups.iter().any(|g| f.accepts(g)),
-                                };
-                                if should_pin {
-                                    if let Err(e) = sqlx::query(
-                                        "INSERT OR IGNORE INTO remote_pin_jobs \
-                                         (cid, service_name) VALUES (?1, ?2)",
-                                    )
-                                    .bind(&cid_str)
-                                    .bind(svc_name)
-                                    .execute(&*transit_pool_drain)
-                                    .await
-                                    {
-                                        warn!(
-                                            cid = %cid_str,
-                                            service = %svc_name,
-                                            "failed to enqueue remote pin job: {e}"
-                                        );
-                                    }
-                                }
-                            }
-                        }
+                        publish_ipns_tip(&result, &ipns_tx_drain);
+                        enqueue_pin_jobs(&result, &pin_service_filters, &transit_pool_drain).await;
                     }
                     Err(e) => {
                         warn!(msgid = %article.message_id, "pipeline failed: {e}");
@@ -889,46 +883,13 @@ async fn main() {
                                     msgid = %article.message_id,
                                     "staged article ingested"
                                 );
-                                if let Some(ref tx) = ipns_tx_drain {
-                                    for group in &result.groups {
-                                        let event = IpnsEvent {
-                                            group: group.clone(),
-                                            cid: result.cid,
-                                        };
-                                        if let Err(e) = tx.try_send(event) {
-                                            warn!(
-                                                group,
-                                                "IPNS channel full, skipping publish: {e}"
-                                            );
-                                        }
-                                    }
-                                }
-                                if !pin_service_filters.is_empty() {
-                                    let cid_str = result.cid.to_string();
-                                    for (svc_name, filter) in &pin_service_filters {
-                                        let should_pin = match filter {
-                                            None => true, // no filter = accept all groups
-                                            Some(f) => result.groups.iter().any(|g| f.accepts(g)),
-                                        };
-                                        if should_pin {
-                                            if let Err(e) = sqlx::query(
-                                                "INSERT OR IGNORE INTO remote_pin_jobs \
-                                                 (cid, service_name) VALUES (?1, ?2)",
-                                            )
-                                            .bind(&cid_str)
-                                            .bind(svc_name)
-                                            .execute(&*transit_pool_drain)
-                                            .await
-                                            {
-                                                warn!(
-                                                    cid = %cid_str,
-                                                    service = %svc_name,
-                                                    "failed to enqueue remote pin job: {e}"
-                                                );
-                                            }
-                                        }
-                                    }
-                                }
+                                publish_ipns_tip(&result, &ipns_tx_drain);
+                                enqueue_pin_jobs(
+                                    &result,
+                                    &pin_service_filters,
+                                    &transit_pool_drain,
+                                )
+                                .await;
                                 if let Err(e) = staging.complete(&article).await {
                                     warn!(
                                         msgid = %article.message_id,

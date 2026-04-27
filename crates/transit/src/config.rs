@@ -8,73 +8,12 @@ use crate::staging::StagingConfig;
 use stoa_core::wildmat::GroupFilter;
 
 // ── Backend config (pluggable block store) ────────────────────────────────────
-
-/// Selects the IPFS block storage backend.
-///
-/// Use `[backend]` with a `type` key instead of the legacy `[ipfs]` section
-/// to activate a specific backend.  `[ipfs]` is retained for backward
-/// compatibility; when both are present `[backend]` takes precedence.
-#[derive(Debug, Deserialize, Clone)]
-pub struct BackendConfig {
-    /// Backend discriminator.  Supported values: `"kubo"`, `"s3"`, `"filesystem"`.
-    #[serde(rename = "type")]
-    pub backend_type: BackendType,
-    /// Kubo-specific settings.  Required when `type = "kubo"`.
-    #[serde(default)]
-    pub kubo: Option<KuboBackendConfig>,
-    /// S3-specific settings (not yet implemented).
-    #[serde(default)]
-    pub s3: Option<S3BackendConfig>,
-    /// Filesystem-specific settings (not yet implemented).
-    #[serde(default)]
-    pub filesystem: Option<FsBackendConfig>,
-    /// LMDB-specific settings.  Required when `type = "lmdb"`.
-    #[serde(default)]
-    pub lmdb: Option<LmdbBackendConfig>,
-}
-
-/// Backend type discriminator.
-#[derive(Debug, Deserialize, Clone, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum BackendType {
-    Kubo,
-    S3,
-    Filesystem,
-    Lmdb,
-}
-
-/// Configuration for the Kubo HTTP RPC backend.
-#[derive(Debug, Deserialize, Clone)]
-pub struct KuboBackendConfig {
-    /// Kubo daemon HTTP RPC API URL (e.g. `"http://127.0.0.1:5001"`).
-    pub api_url: String,
-}
-
-/// Placeholder — S3 backend not yet implemented.
-#[derive(Debug, Deserialize, Clone, Default)]
-pub struct S3BackendConfig {}
-
-/// Placeholder — filesystem backend not yet implemented.
-#[derive(Debug, Deserialize, Clone)]
-pub struct FsBackendConfig {
-    /// Root directory for block files.
-    pub path: String,
-}
-
-/// Configuration for the LMDB block store backend.
-#[derive(Debug, Deserialize, Clone)]
-pub struct LmdbBackendConfig {
-    /// Directory for the LMDB environment.  Created at startup if absent.
-    pub path: String,
-    /// Virtual address space reservation in GiB.  Default: 1024 (1 TiB).
-    /// Does not pre-allocate disk space on 64-bit systems.
-    #[serde(default = "default_lmdb_map_size_gb")]
-    pub map_size_gb: u64,
-}
-
-fn default_lmdb_map_size_gb() -> u64 {
-    1024
-}
+// Types are defined in stoa_core::ipfs_backend and re-exported here so that
+// transit config validation code can use them without a long path prefix.
+pub use stoa_core::ipfs_backend::{
+    BackendConfig, BackendType, FsBackendConfig, KuboBackendConfig, LmdbBackendConfig,
+    S3BackendConfig,
+};
 
 // Config fields are read from TOML; server logic will consume them as epics are implemented.
 #[allow(dead_code)]

@@ -15,10 +15,19 @@
 //! - `GET /version`          — binary name and semver version
 //! - `GET /groups`           — distinct group names known to this node
 //! - `POST /reload`          — stub; returns HTTP 501 with `{"reloaded":false}` until config reload is implemented
+//!
+//! ## Authorization model (v1 limitation)
+//!
+//! A single bearer token controls access to all endpoints, including
+//! `/export/car` which can export complete article archives.  Any bearer token
+//! holder has full read access to all data.  Do not share the admin token with
+//! read-only monitoring systems in a production deployment; use network-level
+//! access controls (firewall, loopback binding) to restrict `/export/car`
+//! access until per-endpoint authorization is implemented in a future release.
 
 use sqlx::SqlitePool;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use stoa_core::rate_limiter::RateLimiter;
 use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 
@@ -125,33 +134,52 @@ async fn handle_admin_connection(
     let peer_ip = stream.peer_addr()?.ip();
     let mut reader = BufReader::new(stream);
 
-    // Read request line.
-    let mut request_line = String::new();
-    reader.read_line(&mut request_line).await?;
-    let request_line = request_line.trim_end_matches(['\r', '\n']);
-    let mut parts = request_line.splitn(3, ' ');
-    let method = parts.next().unwrap_or("");
-    let path_and_query = parts.next().unwrap_or("");
+    // Hard deadline for receiving the full request line + headers.  A client
+    // that drips bytes one at a time (slowloris) will be dropped after this.
+    const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+    // Cap on header lines: prevents an infinite loop of valid lines with no
+    // blank terminator.
+    const MAX_HEADER_LINES: usize = 64;
+
+    let (method_owned, path_and_query_owned, auth_header) =
+        tokio::time::timeout(REQUEST_TIMEOUT, async {
+            // Read request line.
+            let mut request_line = String::new();
+            reader.read_line(&mut request_line).await?;
+            let rl = request_line.trim_end_matches(['\r', '\n']).to_string();
+            let mut parts = rl.splitn(3, ' ');
+            let method = parts.next().unwrap_or("").to_string();
+            let path_and_query = parts.next().unwrap_or("").to_string();
+
+            // Read headers until blank line.
+            let mut auth_header: Option<String> = None;
+            for _ in 0..MAX_HEADER_LINES {
+                let mut line = String::new();
+                reader.read_line(&mut line).await?;
+                let line = line.trim_end_matches(['\r', '\n']);
+                if line.is_empty() {
+                    break;
+                }
+                if let Some(val) = line.strip_prefix("Authorization: ") {
+                    auth_header = Some(val.to_string());
+                }
+            }
+
+            Ok::<_, std::io::Error>((method, path_and_query, auth_header))
+        })
+        .await
+        .map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::TimedOut, "admin request read timeout")
+        })??;
+
+    let method = method_owned.as_str();
+    let path_and_query = path_and_query_owned.as_str();
 
     // Split path from query string (needed before rate-limit check for /metrics exemption).
     let (path, query) = match path_and_query.split_once('?') {
         Some((p, q)) => (p, q),
         None => (path_and_query, ""),
     };
-
-    // Read and parse remaining headers until empty line.
-    let mut auth_header: Option<String> = None;
-    loop {
-        let mut line = String::new();
-        reader.read_line(&mut line).await?;
-        let line = line.trim_end_matches(['\r', '\n']);
-        if line.is_empty() {
-            break;
-        }
-        if let Some(val) = line.strip_prefix("Authorization: ") {
-            auth_header = Some(val.to_string());
-        }
-    }
 
     // Extract the underlying stream for writing responses.
     let mut writer = reader.into_inner();
