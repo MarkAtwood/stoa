@@ -65,26 +65,36 @@ impl UserFlagsStore {
         seen: Option<bool>,
         flagged: Option<bool>,
     ) -> Result<Vec<Cid>, sqlx::Error> {
-        // Build query dynamically based on which filters are set.
-        let mut conditions = vec!["user_id = ?"];
-        if seen.is_some() {
-            conditions.push("seen = ?");
-        }
-        if flagged.is_some() {
-            conditions.push("flagged = ?");
-        }
-        let sql = format!(
-            "SELECT article_cid FROM user_flags WHERE {}",
-            conditions.join(" AND ")
-        );
-        let mut query = sqlx::query_scalar::<_, Vec<u8>>(&sql).bind(user_id);
-        if let Some(s) = seen {
-            query = query.bind(s as i64);
-        }
-        if let Some(f) = flagged {
-            query = query.bind(f as i64);
-        }
-        let rows: Vec<Vec<u8>> = query.fetch_all(&self.pool).await?;
+        let rows: Vec<Vec<u8>> = match (seen, flagged) {
+            (None, None) => sqlx::query_scalar(
+                "SELECT article_cid FROM user_flags WHERE user_id = ?",
+            )
+            .bind(user_id)
+            .fetch_all(&self.pool)
+            .await?,
+            (Some(s), None) => sqlx::query_scalar(
+                "SELECT article_cid FROM user_flags WHERE user_id = ? AND seen = ?",
+            )
+            .bind(user_id)
+            .bind(s as i64)
+            .fetch_all(&self.pool)
+            .await?,
+            (None, Some(f)) => sqlx::query_scalar(
+                "SELECT article_cid FROM user_flags WHERE user_id = ? AND flagged = ?",
+            )
+            .bind(user_id)
+            .bind(f as i64)
+            .fetch_all(&self.pool)
+            .await?,
+            (Some(s), Some(f)) => sqlx::query_scalar(
+                "SELECT article_cid FROM user_flags WHERE user_id = ? AND seen = ? AND flagged = ?",
+            )
+            .bind(user_id)
+            .bind(s as i64)
+            .bind(f as i64)
+            .fetch_all(&self.pool)
+            .await?,
+        };
         rows.into_iter()
             .map(|bytes| {
                 Cid::try_from(bytes.as_slice()).map_err(|e| sqlx::Error::Decode(Box::new(e)))

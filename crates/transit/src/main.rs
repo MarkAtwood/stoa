@@ -17,7 +17,7 @@ use stoa_transit::{
         auth::parse_trusted_peer_keys,
         blacklist::BlacklistConfig,
         ingestion_queue::ingestion_queue,
-        pipeline::{run_pipeline, PipelineCtx},
+        pipeline::{run_pipeline, IpfsStore, PipelineCtx},
         rate_limit::{ExhaustionAction, PeerRateLimiter},
         session::{run_peering_session, PeeringShared},
     },
@@ -199,23 +199,6 @@ async fn run_startup_checks(config: &stoa_transit::config::Config) -> Vec<String
     errors
 }
 
-/// Resolve `value` from a `secretx:` URI at startup; exits on any error.
-///
-/// Delegates to [`stoa_core::secret::resolve_secret_uri`].  Exits the process
-/// with a descriptive message on URI parse errors, retrieval failures, or
-/// non-UTF-8 values, so that misconfigured secrets are caught at startup.
-///
-/// **UTF-8 strings only.** For binary secrets (TLS private key, Ed25519 seed),
-/// call `.as_bytes()` on the `SecretValue` directly.
-async fn resolve_secret_uri(value: Option<String>, label: &str) -> Option<String> {
-    stoa_core::secret::resolve_secret_uri(value, label)
-        .await
-        .unwrap_or_else(|msg| {
-            eprintln!("{msg}");
-            std::process::exit(1);
-        })
-}
-
 /// Notify the IPNS publisher of the new article tip for each group.
 ///
 /// Called from both the ingestion drain and the staging drain after a
@@ -271,6 +254,63 @@ async fn enqueue_pin_jobs(
                     "failed to enqueue remote pin job: {e}"
                 );
             }
+        }
+    }
+}
+
+/// Run `run_pipeline`, emit structured telemetry, and drive post-success hooks
+/// (IPNS publish + remote pin enqueue).  Common to the ingestion drain and the
+/// staging drain; the only difference is the success log message.
+///
+/// Returns `true` on success, `false` on pipeline error (already logged).
+#[allow(clippy::too_many_arguments)]
+async fn run_pipeline_and_notify(
+    bytes: &[u8],
+    message_id: &str,
+    success_label: &'static str,
+    hlc: &tokio::sync::Mutex<HlcClock>,
+    signing_key: Arc<ed25519_dalek::SigningKey>,
+    local_hostname: &str,
+    verify_store: Option<&VerificationStore>,
+    trusted_keys: &[ed25519_dalek::VerifyingKey],
+    dkim_auth: Option<&MessageAuthenticator>,
+    group_filter: Option<Arc<GroupFilter>>,
+    ipfs: &dyn IpfsStore,
+    msgid_map: &MsgIdMap,
+    log_storage: &SqliteLogStorage,
+    transit_pool: &sqlx::SqlitePool,
+    ipns_tx: &Option<tokio::sync::mpsc::Sender<IpnsEvent>>,
+    pin_service_filters: &[(String, Option<Arc<GroupFilter>>)],
+) -> bool {
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64;
+    let timestamp = hlc.lock().await.send(now_ms);
+    let ctx = PipelineCtx {
+        timestamp,
+        operator_signing_key: signing_key,
+        local_hostname,
+        verify_store,
+        trusted_keys,
+        dkim_auth,
+        group_filter,
+    };
+    match run_pipeline(bytes, ipfs, msgid_map, log_storage, transit_pool, ctx).await {
+        Ok((result, _metrics)) => {
+            info!(
+                cid = %result.cid,
+                groups = ?result.groups,
+                msgid = %message_id,
+                "{success_label}",
+            );
+            publish_ipns_tip(&result, ipns_tx);
+            enqueue_pin_jobs(&result, pin_service_filters, transit_pool).await;
+            true
+        }
+        Err(e) => {
+            warn!(msgid = %message_id, "pipeline failed: {e}");
+            false
         }
     }
 }
@@ -783,44 +823,25 @@ async fn main() {
             while let Some(article) = ingestion_receiver.recv().await {
                 stoa_transit::metrics::INGESTION_QUEUE_DEPTH
                     .set(ingestion_metrics_task.current_depth() as i64);
-                let now_ms = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis() as u64;
-                let timestamp = hlc_drain.lock().await.send(now_ms);
-                let ctx = PipelineCtx {
-                    timestamp,
-                    operator_signing_key: Arc::clone(&signing_key_drain),
-                    local_hostname: &local_hostname_drain,
-                    verify_store: Some(&verification_store_drain),
-                    trusted_keys: &trusted_keys_for_drain,
-                    dkim_auth: Some(&dkim_authenticator_drain),
-                    group_filter: group_filter_drain.clone(),
-                };
-                match run_pipeline(
+                run_pipeline_and_notify(
                     &article.bytes,
+                    &article.message_id,
+                    "article ingested",
+                    &hlc_drain,
+                    Arc::clone(&signing_key_drain),
+                    &local_hostname_drain,
+                    Some(&verification_store_drain),
+                    &trusted_keys_for_drain,
+                    Some(&dkim_authenticator_drain),
+                    group_filter_drain.clone(),
                     &*ipfs,
                     &msgid_map_drain,
                     &*log_storage_drain,
                     &transit_pool_drain,
-                    ctx,
+                    &ipns_tx_drain,
+                    &pin_service_filters,
                 )
-                .await
-                {
-                    Ok((result, _metrics)) => {
-                        info!(
-                            cid = %result.cid,
-                            groups = ?result.groups,
-                            msgid = %article.message_id,
-                            "article ingested"
-                        );
-                        publish_ipns_tip(&result, &ipns_tx_drain);
-                        enqueue_pin_jobs(&result, &pin_service_filters, &transit_pool_drain).await;
-                    }
-                    Err(e) => {
-                        warn!(msgid = %article.message_id, "pipeline failed: {e}");
-                    }
-                }
+                .await;
             }
             info!("ingestion drain task stopped");
         })
@@ -870,56 +891,34 @@ async fn main() {
                         }
                     }
                     Ok(Some(article)) => {
-                        let now_ms = std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap()
-                            .as_millis() as u64;
-                        let timestamp = hlc_drain.lock().await.send(now_ms);
-                        let ctx = PipelineCtx {
-                            timestamp,
-                            operator_signing_key: Arc::clone(&signing_key_drain),
-                            local_hostname: &local_hostname_drain,
-                            verify_store: Some(&verification_store_drain),
-                            trusted_keys: &trusted_keys_for_drain,
-                            dkim_auth: Some(&dkim_authenticator_drain),
-                            group_filter: group_filter_drain.clone(),
-                        };
-                        match run_pipeline(
+                        let success = run_pipeline_and_notify(
                             &article.bytes,
+                            &article.message_id,
+                            "staged article ingested",
+                            &hlc_drain,
+                            Arc::clone(&signing_key_drain),
+                            &local_hostname_drain,
+                            Some(&verification_store_drain),
+                            &trusted_keys_for_drain,
+                            Some(&dkim_authenticator_drain),
+                            group_filter_drain.clone(),
                             &*ipfs,
                             &msgid_map_drain,
                             &*log_storage_drain,
                             &transit_pool_drain,
-                            ctx,
+                            &ipns_tx_drain,
+                            &pin_service_filters,
                         )
-                        .await
-                        {
-                            Ok((result, _metrics)) => {
-                                info!(
-                                    cid = %result.cid,
-                                    groups = ?result.groups,
+                        .await;
+                        if success {
+                            if let Err(e) = staging.complete(&article).await {
+                                warn!(
                                     msgid = %article.message_id,
-                                    "staged article ingested"
+                                    "could not complete staging record: {e}"
                                 );
-                                publish_ipns_tip(&result, &ipns_tx_drain);
-                                enqueue_pin_jobs(
-                                    &result,
-                                    &pin_service_filters,
-                                    &transit_pool_drain,
-                                )
-                                .await;
-                                if let Err(e) = staging.complete(&article).await {
-                                    warn!(
-                                        msgid = %article.message_id,
-                                        "could not complete staging record: {e}"
-                                    );
-                                }
-                            }
-                            Err(e) => {
-                                warn!(msgid = %article.message_id, "staged article pipeline failed: {e}");
-                                // Leave the row in place; it will be retried on next drain_one().
                             }
                         }
+                        // On failure, leave the row in place; it will be retried on next drain_one().
                     }
                     Err(e) => {
                         warn!("staging drain error: {e}");
@@ -949,8 +948,15 @@ async fn main() {
 
     match config.admin.addr.parse::<std::net::SocketAddr>() {
         Ok(admin_addr) => {
-            let admin_bearer_token =
-                resolve_secret_uri(config.admin.bearer_token.clone(), "admin.bearer_token").await;
+            let admin_bearer_token = stoa_core::secret::resolve_secret_uri(
+                config.admin.bearer_token.clone(),
+                "admin.bearer_token",
+            )
+            .await
+            .unwrap_or_else(|msg| {
+                eprintln!("{msg}");
+                std::process::exit(1);
+            });
             if let Err(e) = start_admin_server(
                 admin_addr,
                 AdminPools {

@@ -218,7 +218,7 @@ async fn send_ihave(addr: &str, msgid: &str, article_bytes: &[u8]) -> SendResult
     }
 
     // Send article with dot-stuffing, terminated by ".\r\n".
-    let stuffed = dot_stuff(article_bytes);
+    let stuffed = stoa_core::util::nntp_dot_stuff(article_bytes);
     if writer.write_all(&stuffed).await.is_err() {
         return SendResult::Rejected;
     }
@@ -253,40 +253,6 @@ async fn send_ihave(addr: &str, msgid: &str, article_bytes: &[u8]) -> SendResult
 /// the trailing `\r` attached would emit a dangling `\r\n\n` for CRLF input
 /// that ends with a newline — this implementation avoids that by scanning
 /// byte-by-byte and stripping any `\r` immediately before `\n`.
-fn dot_stuff(bytes: &[u8]) -> Vec<u8> {
-    let mut out = Vec::with_capacity(bytes.len() + 16);
-    let mut start = 0;
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'\n' {
-            // Strip a preceding \r so that CRLF input produces CRLF output
-            // without a dangling bare \r on each line.
-            let line_end = if i > 0 && bytes[i - 1] == b'\r' {
-                i - 1
-            } else {
-                i
-            };
-            let line = &bytes[start..line_end];
-            if line.starts_with(b".") {
-                out.push(b'.');
-            }
-            out.extend_from_slice(line);
-            out.extend_from_slice(b"\r\n");
-            start = i + 1;
-        }
-        i += 1;
-    }
-    // Any remaining bytes after the last newline (no trailing newline in input).
-    if start < bytes.len() {
-        let line = &bytes[start..];
-        if line.starts_with(b".") {
-            out.push(b'.');
-        }
-        out.extend_from_slice(line);
-    }
-    out
-}
-
 /// Parse the 3-digit NNTP response code from the start of a response line.
 ///
 /// Returns 0 if the line is too short or the first three characters are not digits.
@@ -383,7 +349,7 @@ mod tests {
     #[test]
     fn dot_stuff_prefixes_dot_lines() {
         let input = b"Normal line\r\n.dotted line\r\nAnother\r\n";
-        let output = dot_stuff(input);
+        let output = stoa_core::util::nntp_dot_stuff(input);
         let s = std::str::from_utf8(&output).unwrap();
         assert!(
             s.contains("..dotted line"),
@@ -395,7 +361,7 @@ mod tests {
     #[test]
     fn dot_stuff_no_dot_lines_unchanged_content() {
         let input = b"Line one\r\nLine two\r\n";
-        let output = dot_stuff(input);
+        let output = stoa_core::util::nntp_dot_stuff(input);
         // Content should be present; length same or +1 per dot-start line (none here).
         let s = std::str::from_utf8(&output).unwrap();
         assert!(s.contains("Line one"));
@@ -410,7 +376,7 @@ mod tests {
     #[test]
     fn dot_stuff_crlf_input_no_extra_newline() {
         let input = b"Line one\r\nLine two\r\n";
-        let output = dot_stuff(input);
+        let output = stoa_core::util::nntp_dot_stuff(input);
         assert_eq!(
             output,
             b"Line one\r\nLine two\r\n",
@@ -423,7 +389,7 @@ mod tests {
     #[test]
     fn dot_stuff_crlf_dot_line_stuffed() {
         let input = b".top\r\nregular\r\n..already-double\r\n";
-        let output = dot_stuff(input);
+        let output = stoa_core::util::nntp_dot_stuff(input);
         let s = std::str::from_utf8(&output).unwrap();
         assert!(
             s.contains("..top\r\n"),

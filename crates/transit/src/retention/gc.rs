@@ -10,6 +10,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
+use crate::retention::gc_candidates::GcArticleRecord;
 use crate::retention::pin_client::PinClient;
 use crate::retention::policy::{ArticleMeta, PinPolicy};
 
@@ -41,6 +42,17 @@ pub struct GcCandidate {
     pub ingested_at_ms: u64,
     /// Article size in bytes.
     pub byte_count: usize,
+}
+
+impl From<GcArticleRecord> for GcCandidate {
+    fn from(r: GcArticleRecord) -> Self {
+        GcCandidate {
+            cid: r.cid,
+            group: r.group,
+            ingested_at_ms: r.ingested_at_ms,
+            byte_count: r.byte_count,
+        }
+    }
 }
 
 /// GC runner that evaluates candidates against the policy and unpins rejects.

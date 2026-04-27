@@ -352,6 +352,18 @@ pub fn glob_match(pattern: &str, name: &str) -> bool {
 /// adversarial patterns like `%%%%%...` on long strings.
 ///
 /// `dp[i][j]` = true if `pat[..i]` matches `s[..j]`.
+///
+/// # DECISION (rbe3.82): iterative DP glob matcher prevents IMAP LIST ReDoS
+///
+/// Recursive backtracking glob matchers have worst-case O(2^n) time on
+/// adversarial patterns (e.g. `%*%*%*...` against a long non-matching string).
+/// IMAP LIST patterns come from the authenticated client but the input is still
+/// attacker-controlled; a single LIST command with a malicious pattern could
+/// block the session goroutine for seconds.  The DP approach fills an
+/// (m+1)×(n+1) boolean table in O(m*n) time regardless of pattern structure.
+/// The combined-length cap in `glob_match` (MAX_GLOB_BYTES) further bounds
+/// worst-case work.  Do NOT replace this with a recursive implementation.  Do
+/// NOT remove the MAX_GLOB_BYTES cap in `glob_match`.
 fn glob_bytes(pat: &[u8], s: &[u8]) -> bool {
     let m = pat.len();
     let n = s.len();

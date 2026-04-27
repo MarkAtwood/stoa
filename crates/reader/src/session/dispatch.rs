@@ -205,6 +205,14 @@ pub fn dispatch(
             }
         }
         Command::Search { .. } => {
+            // DECISION (rbe3.80): SEARCH intercepted by lifecycle.rs; reaching here is a bug
+            //
+            // SEARCH is a multi-round command (query → result → FETCH loop) that cannot be
+            // handled as a single dispatch call.  lifecycle.rs intercepts it before calling
+            // dispatch() and drives the sub-loop directly.  If dispatch() ever sees a SEARCH
+            // variant, the lifecycle invariant is broken.  unreachable!() with an explicit
+            // message makes the violated invariant visible at the failure site.  Do NOT
+            // replace this with a fallback 503 response — that would silently hide the bug.
             unreachable!(
                 "SEARCH must be intercepted by lifecycle.rs before reaching dispatch; \
                  if this panics, the session lifecycle is missing the interception"

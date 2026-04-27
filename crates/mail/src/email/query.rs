@@ -65,11 +65,14 @@ pub fn handle_email_query(
     if let Some(f) = filter {
         if let Some(after) = f.get("after").and_then(|v| v.as_str()) {
             if let Some(after_ts) = parse_date_timestamp(after) {
+                // map_or(true, ...): articles with unparseable dates pass the filter.
+                // Policy: prefer false negatives (include ambiguous) over false positives (drop valid).
                 filtered.retain(|e| parse_date_timestamp(&e.date).map_or(true, |ts| ts > after_ts));
             }
         }
         if let Some(before) = f.get("before").and_then(|v| v.as_str()) {
             if let Some(before_ts) = parse_date_timestamp(before) {
+                // Same policy: unparseable-date articles pass the before filter.
                 filtered
                     .retain(|e| parse_date_timestamp(&e.date).map_or(true, |ts| ts < before_ts));
             }

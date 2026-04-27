@@ -35,27 +35,7 @@ pub struct ArticleContent {
 /// has an additional '.' prepended, per RFC 3977 §3.1.1. The output preserves
 /// CRLF line endings.
 pub fn dot_stuff(data: &[u8]) -> Vec<u8> {
-    let mut out = Vec::with_capacity(data.len() + 16);
-    let mut pos = 0;
-    while pos < data.len() {
-        // Find end of line (CRLF or end of data).
-        let (line, advance) = if let Some(rel) = find_crlf(&data[pos..]) {
-            (&data[pos..pos + rel], rel + 2)
-        } else {
-            (&data[pos..], data.len() - pos)
-        };
-
-        if line.first() == Some(&b'.') {
-            out.push(b'.');
-        }
-        out.extend_from_slice(line);
-        // Always emit CRLF after every line, including the final line even
-        // if it lacked a trailing CRLF in the input.  RFC 3977 §3.1.1
-        // requires that every line in a multi-line response end with CRLF.
-        out.extend_from_slice(b"\r\n");
-        pos += advance;
-    }
-    out
+    stoa_core::util::nntp_dot_stuff(data)
 }
 
 /// Find the position of `\r\n` in `data`, returning the byte offset of `\r`.

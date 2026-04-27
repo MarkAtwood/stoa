@@ -183,23 +183,6 @@ fn cmd_keygen(args: &[String]) -> ! {
     std::process::exit(0);
 }
 
-/// Resolve `value` from a `secretx:` URI at startup; exits on any error.
-///
-/// Delegates to [`stoa_core::secret::resolve_secret_uri`].  Exits the process
-/// with a descriptive message on URI parse errors, retrieval failures, or
-/// non-UTF-8 values, so that misconfigured secrets are caught at startup.
-///
-/// **UTF-8 strings only.** For binary secrets (TLS private key, Ed25519 seed),
-/// call `.as_bytes()` on the `SecretValue` directly.
-async fn resolve_secret_uri(value: Option<String>, label: &str) -> Option<String> {
-    stoa_core::secret::resolve_secret_uri(value, label)
-        .await
-        .unwrap_or_else(|msg| {
-            eprintln!("{msg}");
-            std::process::exit(1);
-        })
-}
-
 #[tokio::main]
 async fn main() {
     let (config_path, check_only) = parse_args();
@@ -349,8 +332,15 @@ async fn main() {
                 std::process::exit(1);
             }
         };
-        let admin_token =
-            resolve_secret_uri(config.admin.admin_token.clone(), "admin.admin_token").await;
+        let admin_token = stoa_core::secret::resolve_secret_uri(
+            config.admin.admin_token.clone(),
+            "admin.admin_token",
+        )
+        .await
+        .unwrap_or_else(|msg| {
+            eprintln!("{msg}");
+            std::process::exit(1);
+        });
         if let Err(e) = start_admin_server(
             admin_addr,
             std::time::Instant::now(),

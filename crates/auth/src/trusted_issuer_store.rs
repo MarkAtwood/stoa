@@ -250,6 +250,17 @@ fn extract_cn(subject: &X509Name<'_>) -> Option<String> {
 ///
 /// Returns `true` on successful verification; `false` on any parse or
 /// cryptographic failure.
+///
+/// # DECISION (rbe3.83): explicit TBS extraction and verify_strict for Ed25519 certs
+///
+/// x509-parser's built-in signature verification delegates to ring or other
+/// backends that may not reject non-canonical Ed25519 signatures (small-order
+/// public keys, scalar-range violations).  `ed25519-dalek::verify_strict`
+/// explicitly rejects these malleability vectors.  Issuer DN comparison is done
+/// over raw DER bytes before the cryptographic check to prevent cross-CA
+/// confusion attacks where a different CA's cert happens to contain the same
+/// public key.  Do NOT replace this with x509-parser's `verify_signature()`
+/// built-in — it does not guarantee strict rejection of non-canonical forms.
 fn ed25519_verify_with_spki(tbs_bytes: &[u8], sig_bytes: &[u8], spki_der: &[u8]) -> bool {
     // Parse the SPKI to extract algorithm OID and raw key bytes.
     let (_, spki) = match SubjectPublicKeyInfo::from_der(spki_der) {

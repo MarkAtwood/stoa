@@ -499,7 +499,7 @@ fn newnews_returns_230_empty() {
 fn post_oversized_article_returns_441() {
     let article =
         b"Newsgroups: comp.lang.rust\r\nFrom: user@example.com\r\nSubject: x\r\n\r\nbody\r\n";
-    let err = complete_post(article, 1, None).unwrap_err(); // limit of 1 byte forces rejection
+    let err = complete_post(article, 1).unwrap_err(); // limit of 1 byte forces rejection
     assert_eq!(
         err.code, 441,
         "RFC 3977 §6.3.1: oversized article must yield 441"
@@ -513,7 +513,7 @@ fn post_oversized_article_returns_441() {
 #[test]
 fn post_missing_newsgroups_header_returns_441() {
     let article = make_article(None, Some("user@example.com"));
-    let err = complete_post(&article, 1_048_576, None).unwrap_err();
+    let err = complete_post(&article, 1_048_576).unwrap_err();
     assert_eq!(
         err.code, 441,
         "RFC 3977 §6.3.1: missing Newsgroups must yield 441"
@@ -528,7 +528,7 @@ fn post_missing_newsgroups_header_returns_441() {
 #[test]
 fn post_missing_from_header_returns_441() {
     let article = make_article(Some("comp.lang.rust"), None);
-    let err = complete_post(&article, 1_048_576, None).unwrap_err();
+    let err = complete_post(&article, 1_048_576).unwrap_err();
     assert_eq!(
         err.code, 441,
         "RFC 3977 §6.3.1: missing From must yield 441"
@@ -545,7 +545,7 @@ fn post_missing_from_header_returns_441() {
 fn post_valid_article_returns_240() {
     let article = make_article(Some("comp.lang.rust"), Some("user@example.com"));
     assert!(
-        complete_post(&article, 1_048_576, None).is_ok(),
+        complete_post(&article, 1_048_576).is_ok(),
         "RFC 3977 §6.3.1: valid POST must pass validation"
     );
 }

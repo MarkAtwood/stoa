@@ -107,7 +107,9 @@ pub fn stat_article(
     arg: Option<&str>,
 ) -> Response {
     match arg {
-        // Message-ID form: no group required; return 430 stub.
+        // Message-ID form: STAT <msgid> must query msgid_map to check whether
+        // the article is present locally.  Not yet wired up — returns 430
+        // until the msgid_map lookup path is implemented.
         Some(s) if s.starts_with('<') => Response::no_article_with_message_id(),
         // Number form (or no arg — use current article pointer).
         _ => {

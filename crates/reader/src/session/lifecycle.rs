@@ -841,7 +841,7 @@ async fn run_post_pipeline(
     let article_bytes = article_bytes.as_slice();
 
     // Step 2: Validate headers.
-    if let Err(resp) = complete_post(article_bytes, max_article_bytes, None) {
+    if let Err(resp) = complete_post(article_bytes, max_article_bytes) {
         return resp;
     }
 

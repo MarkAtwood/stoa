@@ -24,6 +24,15 @@ use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufRea
 /// Returns `Err` if `addr` is non-loopback and `bearer_token` is `None`.
 /// An unauthenticated admin endpoint on a reachable interface is a security
 /// footgun in production; the server must not start in that configuration.
+///
+/// # DECISION (rbe3.79): fail-closed admin endpoint on non-loopback without bearer token
+///
+/// An admin server on `0.0.0.0` or any non-loopback address without a bearer
+/// token would expose destructive operations (e.g. GC, config reload) to any
+/// host on the network without authentication.  Returning `Err` here forces a
+/// startup failure rather than a runtime authentication bypass.  Never relax
+/// this to a warning or a loopback-only exclusion without explicit security
+/// review.  Do NOT remove the loopback check.
 pub fn start_admin_server(
     addr: std::net::SocketAddr,
     start_time: Instant,
@@ -251,6 +260,15 @@ async fn handle_admin_connection(
 ///
 /// The comparison is constant-time (via `subtle::ConstantTimeEq`) to prevent
 /// timing oracles that could leak the token one character at a time.
+///
+/// # DECISION (rbe3.77): constant-time bearer token comparison prevents timing oracle
+///
+/// A variable-time comparison (e.g. `==` on `&str`) returns early on the first
+/// mismatched byte, leaking token prefix information through response latency.
+/// An attacker with sub-millisecond latency measurement (common on LAN) can
+/// recover a 32-byte token with ~256 requests.  `subtle::ConstantTimeEq` runs
+/// in constant time regardless of where the mismatch occurs.  Do NOT replace
+/// this with `==`, `starts_with`, or any standard equality comparison.
 pub(crate) fn check_bearer_token(auth_header: Option<&str>, bearer_token: Option<&str>) -> bool {
     use subtle::ConstantTimeEq;
     match bearer_token {

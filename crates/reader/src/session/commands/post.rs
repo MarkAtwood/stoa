@@ -1,6 +1,5 @@
 use tokio::io::{AsyncBufRead, AsyncBufReadExt};
 
-use stoa_core::audit::{AuditEvent, AuditLoggerHandle};
 
 use crate::post::{find_header_boundary, validate_headers::validate_post_headers};
 use crate::session::response::Response;
@@ -93,10 +92,6 @@ where
 /// `article_bytes`.  This function is pure (no I/O) so it can be tested
 /// directly without a network connection.
 ///
-/// If `audit_logger` is provided, an `ArticleSigned` event is emitted when the
-/// article passes all validation.  The CID and key fingerprint use placeholder
-/// values until IPFS writing and operator signing are wired in by a later epic.
-///
 /// Returns:
 /// - `240 Article received OK` on success
 /// - `441 Article too large` if the article exceeds `max_article_bytes`
@@ -104,7 +99,6 @@ where
 pub fn complete_post(
     article_bytes: &[u8],
     max_article_bytes: usize,
-    audit_logger: Option<&AuditLoggerHandle>,
 ) -> Result<(), Response> {
     if article_bytes.len() > max_article_bytes {
         return Err(Response::new(441, "Article too large"));
@@ -128,35 +122,7 @@ pub fn complete_post(
 
     validate_post_headers(header_bytes)?;
 
-    let headers = String::from_utf8_lossy(header_bytes);
-
-    if let Some(logger) = audit_logger {
-        let message_id =
-            extract_header_value(&headers, "Message-ID").unwrap_or_else(|| "missing".to_string());
-        logger.log(AuditEvent::ArticleSigned {
-            message_id,
-            cid: "not-yet-stored".to_string(),
-            key_fingerprint: "not-yet-signed".to_string(),
-        });
-    }
-
     Ok(())
-}
-
-/// Extract the trimmed value of the first matching header field, or `None`.
-///
-/// Matches case-insensitively.  Returns the raw value string as-is; no
-/// unfolding or RFC 2047 decoding is performed.
-fn extract_header_value(headers: &str, name: &str) -> Option<String> {
-    let prefix_colon = format!("{}:", name.to_ascii_lowercase());
-    for line in headers.lines() {
-        let lower = line.to_ascii_lowercase();
-        if lower.starts_with(&prefix_colon) {
-            let value = line[prefix_colon.len()..].trim().to_string();
-            return Some(value);
-        }
-    }
-    None
 }
 
 #[cfg(test)]
@@ -220,13 +186,13 @@ mod tests {
     #[test]
     fn complete_post_valid_article_returns_240() {
         let article = minimal_article(Some("comp.lang.rust"), Some("user@example.com"));
-        assert!(complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES, None).is_ok());
+        assert!(complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES).is_ok());
     }
 
     #[test]
     fn complete_post_oversized_returns_441_too_large() {
         let article = minimal_article(Some("comp.lang.rust"), Some("user@example.com"));
-        let err = complete_post(&article, 1, None).unwrap_err(); // limit of 1 byte
+        let err = complete_post(&article, 1).unwrap_err(); // limit of 1 byte
         assert_eq!(err.code, 441);
         assert!(err.text.contains("too large"));
     }
@@ -234,7 +200,7 @@ mod tests {
     #[test]
     fn complete_post_missing_newsgroups_returns_441() {
         let article = minimal_article(None, Some("user@example.com"));
-        let err = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES, None).unwrap_err();
+        let err = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES).unwrap_err();
         assert_eq!(err.code, 441);
         assert!(
             err.text.contains("Newsgroups"),
@@ -246,7 +212,7 @@ mod tests {
     #[test]
     fn complete_post_missing_from_returns_441() {
         let article = minimal_article(Some("comp.lang.rust"), None);
-        let err = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES, None).unwrap_err();
+        let err = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES).unwrap_err();
         assert_eq!(err.code, 441);
         assert!(
             err.text.contains("From"),
@@ -260,7 +226,7 @@ mod tests {
         // validate_post_headers checks mandatory headers in order:
         // From, Date, Message-ID, Newsgroups, Subject — so From is reported first.
         let article = minimal_article(None, None);
-        let err = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES, None).unwrap_err();
+        let err = complete_post(&article, DEFAULT_MAX_ARTICLE_BYTES).unwrap_err();
         assert_eq!(err.code, 441);
         assert!(
             err.text.contains("From"),

@@ -186,6 +186,16 @@ impl CredentialStore {
     /// is offloaded to a blocking thread pool via `tokio::task::spawn_blocking`.
     ///
     /// Returns `false` on any error (unknown user, wrong password, malformed hash).
+    ///
+    /// # DECISION (rbe3.81): always verify against dummy hash for unknown usernames
+    ///
+    /// A naive early-return for missing users makes the unknown-user path O(1)
+    /// while the known-user path is O(bcrypt_cost), leaking username existence via
+    /// timing.  The dummy hash is precomputed at the same cost factor as the real
+    /// hashes so total bcrypt work is identical regardless of whether the user
+    /// exists.  Do NOT add an early `return false` for missing usernames.  Do NOT
+    /// use a hardcoded dummy-hash cost — it must track the production cost so the
+    /// timing profile stays flat as the cost factor is rotated.
     pub async fn check(&self, username: &str, password: &str) -> bool {
         // Always run bcrypt::verify even for unknown usernames.  Without this,
         // a user-not-found path completes in microseconds while a known-username
