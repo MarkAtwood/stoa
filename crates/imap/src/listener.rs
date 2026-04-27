@@ -18,6 +18,7 @@ pub async fn run_plain_listener(
     config: Arc<Config>,
     pool: Arc<sqlx::SqlitePool>,
     semaphore: Arc<Semaphore>,
+    credential_store: Arc<stoa_auth::CredentialStore>,
 ) {
     let listener = match TcpListener::bind(&config.listen.addr).await {
         Ok(l) => l,
@@ -41,9 +42,10 @@ pub async fn run_plain_listener(
             Ok((stream, peer)) => {
                 let config = config.clone();
                 let pool = pool.clone();
+                let store = credential_store.clone();
                 tokio::spawn(async move {
                     let _permit = permit;
-                    run_session_plain(stream, peer, config, pool).await;
+                    run_session_plain(stream, peer, config, pool, store).await;
                 });
             }
             Err(e) => {
@@ -64,6 +66,7 @@ pub async fn run_tls_listener(
     tls_acceptor: Arc<TlsAcceptor>,
     pool: Arc<sqlx::SqlitePool>,
     semaphore: Arc<Semaphore>,
+    credential_store: Arc<stoa_auth::CredentialStore>,
 ) {
     let addr = match config.listen.tls_addr.as_deref() {
         Some(a) => a,
@@ -96,11 +99,12 @@ pub async fn run_tls_listener(
                 let config = config.clone();
                 let pool = pool.clone();
                 let acceptor = tls_acceptor.clone();
+                let store = credential_store.clone();
                 tokio::spawn(async move {
                     let _permit = permit;
                     match acceptor.accept(stream).await {
                         Ok(tls_stream) => {
-                            run_session_tls(tls_stream, peer, config, pool).await;
+                            run_session_tls(tls_stream, peer, config, pool, store).await;
                         }
                         Err(e) => warn!(%peer, "IMAPS TLS handshake failed: {e}"),
                     }

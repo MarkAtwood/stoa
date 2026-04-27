@@ -65,6 +65,9 @@ const MAX_AUTH_FAILURES: u32 = 3;
 pub struct SessionContext {
     pub pool: Arc<SqlitePool>,
     pub config: Arc<Config>,
+    /// Credential store built from `config.auth.users` at session start.
+    /// Shared via Arc so multiple sessions share the pre-computed dummy hash.
+    pub credential_store: Arc<stoa_auth::CredentialStore>,
     pub peer: SocketAddr,
     /// Whether the transport is TLS (IMAPS or post-STARTTLS).
     pub tls: bool,
@@ -85,11 +88,13 @@ pub async fn run_session_plain(
     peer: SocketAddr,
     config: Arc<Config>,
     pool: Arc<SqlitePool>,
+    credential_store: Arc<stoa_auth::CredentialStore>,
 ) {
     let imap_stream = Stream::insecure(stream);
     let ctx = SessionContext {
         pool,
         config,
+        credential_store,
         peer,
         tls: false,
         state: ImapState::NotAuthenticated,
@@ -106,12 +111,14 @@ pub async fn run_session_tls(
     peer: SocketAddr,
     config: Arc<Config>,
     pool: Arc<SqlitePool>,
+    credential_store: Arc<stoa_auth::CredentialStore>,
 ) {
     // Wrap server-side TlsStream into the enum variant that imap-next expects.
     let imap_stream = Stream::tls(TlsStreamEnum::Server(stream));
     let ctx = SessionContext {
         pool,
         config,
+        credential_store,
         peer,
         tls: true,
         state: ImapState::NotAuthenticated,
@@ -535,7 +542,7 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
                     }
                 } else if let Some(username) = auth::handle_authenticate_start(
                     &mut server,
-                    &ctx.config,
+                    &ctx.credential_store,
                     &mut ctx.auth_progress,
                     tag,
                     mechanism,
@@ -560,7 +567,7 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
             Event::AuthenticateDataReceived { authenticate_data } => {
                 if let Some(username) = auth::handle_authenticate_data(
                     &mut server,
-                    &ctx.config,
+                    &ctx.credential_store,
                     &mut ctx.auth_progress,
                     authenticate_data,
                 )

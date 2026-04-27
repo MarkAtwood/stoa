@@ -61,6 +61,12 @@ fn test_config() -> Arc<stoa_imap::config::Config> {
     })
 }
 
+fn test_store(config: &stoa_imap::config::Config) -> Arc<stoa_auth::CredentialStore> {
+    Arc::new(stoa_auth::CredentialStore::from_credentials(
+        &config.auth.users,
+    ))
+}
+
 /// Read one IMAP line, stripping CRLF.
 async fn read_line<R: tokio::io::AsyncBufRead + Unpin>(reader: &mut R) -> String {
     let mut line = String::new();
@@ -79,9 +85,10 @@ async fn smoke_greeting_capability_noop_logout() {
     // Spawn the server session; it handles exactly one connection.
     let srv_pool = Arc::clone(&pool);
     let srv_config = Arc::clone(&config);
+    let srv_store = test_store(&config);
     tokio::spawn(async move {
         let (stream, peer) = listener.accept().await.expect("accept");
-        run_session_plain(stream, peer, srv_config, srv_pool).await;
+        run_session_plain(stream, peer, srv_config, srv_pool, srv_store).await;
     });
 
     // Connect a raw client.
@@ -142,9 +149,10 @@ async fn smoke_unknown_command_returns_bad() {
 
     let srv_pool = Arc::clone(&pool);
     let srv_config = Arc::clone(&config);
+    let srv_store = test_store(&config);
     tokio::spawn(async move {
         let (stream, peer) = listener.accept().await.expect("accept");
-        run_session_plain(stream, peer, srv_config, srv_pool).await;
+        run_session_plain(stream, peer, srv_config, srv_pool, srv_store).await;
     });
 
     let stream = TcpStream::connect(addr).await.expect("connect");

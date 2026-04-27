@@ -8,12 +8,10 @@
 //! Passwords in `[auth.users]` must be bcrypt hashes (not plaintext).
 //! Use `htpasswd -B -n username` or `python3 -c "import bcrypt; print(bcrypt.hashpw(b'pass', bcrypt.gensalt()).decode())"`.
 //!
-//! For unknown usernames, a fixed-duration sleep is used for timing
-//! equalization rather than a dummy bcrypt verification.  This avoids the
-//! timing oracle that arises when the operator's configured hashes use a
-//! higher bcrypt cost than the dummy hash: a dummy verified at cost 10 while
-//! real hashes use cost 12 completes ~4× faster, revealing which usernames
-//! exist.  A constant sleep is simpler and cost-independent.
+//! Credential verification is delegated to `stoa_auth::CredentialStore` which
+//! handles bcrypt verification, case-insensitive username matching, and
+//! timing equalization (via a pre-computed dummy hash) so unknown usernames
+//! take the same time as known ones.
 
 use std::borrow::Cow;
 
@@ -27,16 +25,6 @@ use imap_next::{
     server::Server,
 };
 use tracing::warn;
-
-use crate::config::Config;
-
-/// Duration to sleep when the requested username is not found.
-///
-/// This equalizes the response time for unknown users with that of known users
-/// undergoing a bcrypt verification, preventing timing-based username
-/// enumeration.  100 ms is safely above the bcrypt work at any cost ≤ 12 and
-/// far below any interactive timeout.
-const UNKNOWN_USER_DELAY: std::time::Duration = std::time::Duration::from_millis(100);
 
 /// In-progress multi-step authentication state.
 ///
@@ -56,34 +44,18 @@ pub enum AuthProgress {
     LoginExpectingPassword { tag: Tag<'static>, username: String },
 }
 
-/// Verify username/password against the configured user list.
+/// Verify username/password against the credential store.
 ///
-/// Passwords must be bcrypt hashes.  For unknown usernames a fixed-duration
-/// sleep is performed instead of a bcrypt verification so that the response
-/// time is independent of whether the username exists, preventing timing-based
-/// username enumeration.  The bcrypt work for known users is offloaded to a
-/// blocking thread via `spawn_blocking`.
-pub async fn verify_credentials(config: &Config, username: &str, password: &str) -> bool {
-    let hash = config
-        .auth
-        .users
-        .iter()
-        .find(|c| c.username.eq_ignore_ascii_case(username))
-        .map(|c| c.password.clone());
-    match hash {
-        Some(h) => {
-            let password = password.to_owned();
-            tokio::task::spawn_blocking(move || bcrypt::verify(&password, &h).unwrap_or(false))
-                .await
-                .unwrap_or(false)
-        }
-        None => {
-            // Username not found: sleep for a fixed duration to equalize
-            // timing with a successful bcrypt verification, then return false.
-            tokio::time::sleep(UNKNOWN_USER_DELAY).await;
-            false
-        }
-    }
+/// Delegates to `stoa_auth::CredentialStore::check` which handles bcrypt
+/// verification on a blocking thread, case-insensitive username matching,
+/// and timing equalization so unknown usernames take the same time as known
+/// ones (dummy hash at the configured cost factor).
+pub async fn verify_credentials(
+    credential_store: &stoa_auth::CredentialStore,
+    username: &str,
+    password: &str,
+) -> bool {
+    credential_store.check(username, password).await
 }
 
 /// Handle the initial `CommandAuthenticateReceived` event.
@@ -92,7 +64,7 @@ pub async fn verify_credentials(config: &Config, username: &str, password: &str)
 /// response), `None` if a multi-step flow was started or auth failed.
 pub async fn handle_authenticate_start(
     server: &mut Server,
-    config: &Config,
+    credential_store: &stoa_auth::CredentialStore,
     auth_progress: &mut AuthProgress,
     tag: Tag<'static>,
     mechanism: AuthMechanism<'static>,
@@ -100,7 +72,7 @@ pub async fn handle_authenticate_start(
 ) -> Option<String> {
     match mechanism {
         AuthMechanism::Plain => {
-            handle_plain_start(server, config, auth_progress, tag, initial_response).await
+            handle_plain_start(server, credential_store, auth_progress, tag, initial_response).await
         }
         AuthMechanism::Login => {
             handle_login_start(server, auth_progress, tag);
@@ -122,7 +94,7 @@ pub async fn handle_authenticate_start(
 /// or failed.
 pub async fn handle_authenticate_data(
     server: &mut Server,
-    config: &Config,
+    credential_store: &stoa_auth::CredentialStore,
     auth_progress: &mut AuthProgress,
     data: AuthenticateData<'static>,
 ) -> Option<String> {
@@ -141,7 +113,7 @@ pub async fn handle_authenticate_data(
         // AUTH=PLAIN step 2: continuation payload arrives.
         (AuthProgress::PlainExpectingPayload { tag }, AuthenticateData::Continue(payload)) => {
             let bytes = payload.declassify();
-            plain_finish(server, config, Some(tag), bytes.as_ref()).await
+            plain_finish(server, credential_store, Some(tag), bytes.as_ref()).await
         }
 
         // AUTH=LOGIN step 1: username received.
@@ -182,7 +154,7 @@ pub async fn handle_authenticate_data(
                 }
             };
 
-            if verify_credentials(config, &username, &password).await {
+            if verify_credentials(credential_store, &username, &password).await {
                 let ok =
                     Status::ok(Some(tag), None, "Authentication successful").expect("static ok");
                 server.authenticate_finish(ok).ok();
@@ -208,7 +180,7 @@ pub async fn handle_authenticate_data(
 /// Otherwise sends a continuation request and tracks state.
 async fn handle_plain_start(
     server: &mut Server,
-    config: &Config,
+    credential_store: &stoa_auth::CredentialStore,
     auth_progress: &mut AuthProgress,
     tag: Tag<'static>,
     initial_response: Option<Secret<Cow<'static, [u8]>>>,
@@ -216,7 +188,7 @@ async fn handle_plain_start(
     match initial_response {
         Some(payload) => {
             let bytes = payload.declassify();
-            plain_finish(server, config, Some(tag), bytes.as_ref()).await
+            plain_finish(server, credential_store, Some(tag), bytes.as_ref()).await
         }
         None => {
             // Empty continuation request asks client to send the PLAIN payload.
@@ -242,7 +214,7 @@ async fn handle_plain_start(
 /// support; it is rejected with NO to prevent silent privilege escalation.
 async fn plain_finish(
     server: &mut Server,
-    config: &Config,
+    credential_store: &stoa_auth::CredentialStore,
     tag: Option<Tag<'static>>,
     payload: &[u8],
 ) -> Option<String> {
@@ -293,7 +265,7 @@ async fn plain_finish(
         }
     }
 
-    if verify_credentials(config, &username, &password).await {
+    if verify_credentials(credential_store, &username, &password).await {
         let ok = Status::ok(tag, None, "Authentication successful").expect("static ok");
         server.authenticate_finish(ok).ok();
         Some(username)
@@ -317,71 +289,53 @@ fn handle_login_start(server: &mut Server, auth_progress: &mut AuthProgress, tag
 mod tests {
     use super::*;
 
-    fn make_config(users: &[(&str, &str)]) -> Config {
-        use crate::config::*;
-        Config {
-            listen: ListenConfig {
-                addr: "127.0.0.1:143".into(),
-                tls_addr: None,
-            },
-            database: DatabaseConfig {
-                path: "/tmp/test.db".into(),
-            },
-            limits: LimitsConfig::default(),
-            auth: AuthConfig {
-                mechanisms: vec!["PLAIN".into(), "LOGIN".into()],
-                users: users
-                    .iter()
-                    .map(|(u, p)| UserCredential {
-                        username: u.to_string(),
-                        password: p.to_string(),
-                    })
-                    .collect(),
-            },
-            tls: TlsConfig {
-                cert_path: None,
-                key_path: None,
-            },
-            log: LogConfig::default(),
-        }
-    }
-
     // Passwords in auth config must be bcrypt hashes.  Cost 4 is the minimum
     // valid value and makes tests fast without sacrificing correctness.
     fn hash(pw: &str) -> String {
         bcrypt::hash(pw, 4).expect("bcrypt::hash must not fail")
     }
 
+    fn make_store(users: &[(&str, &str)]) -> stoa_auth::CredentialStore {
+        let creds: Vec<stoa_auth::config::UserCredential> = users
+            .iter()
+            .map(|(u, p)| stoa_auth::config::UserCredential {
+                username: u.to_string(),
+                password: p.to_string(),
+            })
+            .collect();
+        stoa_auth::CredentialStore::from_credentials(&creds)
+    }
+
     #[tokio::test]
     async fn verify_correct_credentials() {
-        let cfg = make_config(&[("alice", &hash("hunter2"))]);
-        assert!(verify_credentials(&cfg, "alice", "hunter2").await);
+        let store = make_store(&[("alice", &hash("hunter2"))]);
+        assert!(verify_credentials(&store, "alice", "hunter2").await);
     }
 
     #[tokio::test]
     async fn verify_wrong_password_fails() {
-        let cfg = make_config(&[("alice", &hash("hunter2"))]);
-        assert!(!verify_credentials(&cfg, "alice", "wrongpass").await);
+        let store = make_store(&[("alice", &hash("hunter2"))]);
+        assert!(!verify_credentials(&store, "alice", "wrongpass").await);
     }
 
     #[tokio::test]
     async fn verify_unknown_user_fails() {
-        let cfg = make_config(&[("alice", &hash("hunter2"))]);
-        assert!(!verify_credentials(&cfg, "bob", "hunter2").await);
+        let store = make_store(&[("alice", &hash("hunter2"))]);
+        assert!(!verify_credentials(&store, "bob", "hunter2").await);
     }
 
     #[tokio::test]
     async fn verify_empty_user_list_fails() {
-        let cfg = make_config(&[]);
-        assert!(!verify_credentials(&cfg, "alice", "hunter2").await);
+        let store = make_store(&[]);
+        assert!(!verify_credentials(&store, "alice", "hunter2").await);
     }
 
     #[tokio::test]
     async fn verify_multiple_users() {
-        let cfg = make_config(&[("alice", &hash("pw1")), ("bob", &hash("pw2"))]);
-        assert!(verify_credentials(&cfg, "alice", "pw1").await);
-        assert!(verify_credentials(&cfg, "bob", "pw2").await);
-        assert!(!verify_credentials(&cfg, "alice", "pw2").await);
+        let store = make_store(&[("alice", &hash("pw1")), ("bob", &hash("pw2"))]);
+        assert!(verify_credentials(&store, "alice", "pw1").await);
+        assert!(verify_credentials(&store, "bob", "pw2").await);
+        assert!(!verify_credentials(&store, "alice", "pw2").await);
     }
 
     #[test]

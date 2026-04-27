@@ -1,6 +1,10 @@
 use serde::Deserialize;
 use std::path::Path;
 
+/// Re-export the shared credential type so callers within this crate
+/// can import it from `crate::config` without depending on stoa-auth directly.
+pub use stoa_auth::config::UserCredential;
+
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -67,14 +71,6 @@ impl Default for LimitsConfig {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct UserCredential {
-    pub username: String,
-    /// bcrypt hash of the user's password. Plaintext passwords are NOT accepted.
-    /// Generate with: `python3 -c "import bcrypt; print(bcrypt.hashpw(b'pass', bcrypt.gensalt()).decode())"`
-    pub password: String,
-}
-
-#[derive(Debug, Deserialize)]
 pub struct AuthConfig {
     /// IMAP AUTHENTICATE mechanisms to advertise.
     /// Supported: "PLAIN", "LOGIN".
@@ -82,6 +78,9 @@ pub struct AuthConfig {
     #[serde(default = "default_mechanisms")]
     pub mechanisms: Vec<String>,
     /// Inline user accounts. The `password` field must be a bcrypt hash.
+    ///
+    /// Uses the shared `stoa_auth::config::UserCredential` type so that
+    /// user configuration is consistent across IMAP, NNTP, and JMAP.
     #[serde(default)]
     pub users: Vec<UserCredential>,
 }

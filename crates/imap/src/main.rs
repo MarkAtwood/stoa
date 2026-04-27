@@ -98,6 +98,12 @@ async fn main() {
 
     // Semaphore enforces config.limits.max_connections across both listeners.
     let semaphore = Arc::new(Semaphore::new(config.limits.max_connections));
+
+    // Build the credential store once; all sessions share it so the dummy
+    // hash is computed only once rather than per-connection.
+    let credential_store = Arc::new(stoa_auth::CredentialStore::from_credentials(
+        &config.auth.users,
+    ));
     let config = Arc::new(config);
 
     // Optional IMAPS (implicit TLS) listener.
@@ -109,6 +115,7 @@ async fn main() {
                     acceptor,
                     pool.clone(),
                     semaphore.clone(),
+                    credential_store.clone(),
                 )),
                 None => {
                     error!("listen.tls_addr is set but tls.cert_path/key_path are not configured");
@@ -120,7 +127,7 @@ async fn main() {
         };
 
     tokio::select! {
-        _ = run_plain_listener(config.clone(), pool, semaphore) => {}
+        _ = run_plain_listener(config.clone(), pool, semaphore, credential_store) => {}
         _ = tls_future => {}
         _ = tokio::signal::ctrl_c() => {
             info!("received CTRL-C, shutting down");
