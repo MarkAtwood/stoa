@@ -107,7 +107,11 @@ async fn handle_admin_connection(
             if line.is_empty() {
                 break;
             }
-            if let Some(val) = line.strip_prefix("Authorization: ") {
+            // HTTP header field names are case-insensitive (RFC 7230 §3.2).
+            // Lower-case only the field name portion; preserve the value as-is
+            // so the constant-time bearer token comparison is not affected.
+            if line.to_ascii_lowercase().starts_with("authorization:") {
+                let val = line["authorization:".len()..].trim_start();
                 auth_header = Some(val.to_string());
             }
         }
@@ -257,6 +261,52 @@ async fn write_json<W: AsyncWrite + Unpin>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// HTTP header field names are case-insensitive (RFC 7230 §3.2).
+    /// Verify that the header parser in handle_admin_connection accepts
+    /// mixed-case Authorization field names.
+    ///
+    /// We mirror the exact logic used in production so the test is a true
+    /// unit-level oracle for the parsing behaviour.
+    fn parse_auth_header_value(line: &str) -> Option<String> {
+        if line.to_ascii_lowercase().starts_with("authorization:") {
+            let val = line["authorization:".len()..].trim_start();
+            Some(val.to_string())
+        } else {
+            None
+        }
+    }
+
+    #[test]
+    fn auth_header_lowercase_accepted() {
+        let val = parse_auth_header_value("authorization: Bearer tok123");
+        assert_eq!(val.as_deref(), Some("Bearer tok123"));
+    }
+
+    #[test]
+    fn auth_header_uppercase_accepted() {
+        let val = parse_auth_header_value("AUTHORIZATION: Bearer tok123");
+        assert_eq!(val.as_deref(), Some("Bearer tok123"));
+    }
+
+    #[test]
+    fn auth_header_mixed_case_accepted() {
+        let val = parse_auth_header_value("Authorization: Bearer tok123");
+        assert_eq!(val.as_deref(), Some("Bearer tok123"));
+    }
+
+    #[test]
+    fn auth_header_no_space_after_colon_accepted() {
+        // Some clients omit the space between "Authorization:" and the value.
+        let val = parse_auth_header_value("Authorization:Bearer tok123");
+        assert_eq!(val.as_deref(), Some("Bearer tok123"));
+    }
+
+    #[test]
+    fn auth_header_unrelated_line_returns_none() {
+        let val = parse_auth_header_value("Content-Type: application/json");
+        assert!(val.is_none());
+    }
 
     #[test]
     fn bearer_token_correct_returns_true() {

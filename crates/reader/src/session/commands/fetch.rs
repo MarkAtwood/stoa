@@ -49,10 +49,10 @@ pub fn dot_stuff(data: &[u8]) -> Vec<u8> {
             out.push(b'.');
         }
         out.extend_from_slice(line);
-        // Restore CRLF if it was present.
-        if pos + advance <= data.len() && advance > line.len() {
-            out.extend_from_slice(b"\r\n");
-        }
+        // Always emit CRLF after every line, including the final line even
+        // if it lacked a trailing CRLF in the input.  RFC 3977 §3.1.1
+        // requires that every line in a multi-line response end with CRLF.
+        out.extend_from_slice(b"\r\n");
         pos += advance;
     }
     out
@@ -251,6 +251,35 @@ mod tests {
         let input = b"normal\r\n.dotted\r\nnormal again\r\n";
         let expected = b"normal\r\n..dotted\r\nnormal again\r\n";
         assert_eq!(dot_stuff(input), expected.to_vec());
+    }
+
+    /// RFC 3977 §3.1.1: every line in a multi-line block must end with CRLF,
+    /// including the final line even when the raw input lacks a trailing CRLF.
+    #[test]
+    fn dot_stuff_final_line_without_crlf_gets_crlf() {
+        // Input with no trailing CRLF on the last line.
+        let input = b"hello\r\nworld";
+        let output = dot_stuff(input);
+        assert!(
+            output.ends_with(b"\r\n"),
+            "dot_stuff output must end with CRLF even when input does not; got: {:?}",
+            output
+        );
+        assert_eq!(output, b"hello\r\nworld\r\n");
+    }
+
+    #[test]
+    fn dot_stuff_single_line_no_crlf_gets_crlf() {
+        let input = b"nodot";
+        let output = dot_stuff(input);
+        assert_eq!(output, b"nodot\r\n");
+    }
+
+    #[test]
+    fn dot_stuff_dotted_line_no_crlf_gets_escaped_and_crlf() {
+        let input = b".escape me";
+        let output = dot_stuff(input);
+        assert_eq!(output, b"..escape me\r\n");
     }
 
     #[test]
