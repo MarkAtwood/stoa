@@ -316,7 +316,6 @@ async fn transit_reader_shared_store() {
     let transit_shared = Arc::new(PeeringShared {
         ipfs: Arc::clone(&shared_ipfs) as Arc<dyn IpfsStore>,
         msgid_map: Arc::clone(&msgid_map),
-        log_storage: Arc::clone(&transit_log_storage),
         signing_key: Arc::clone(&transit_signing_key),
         hlc: Arc::clone(&transit_hlc),
         ingestion_sender: Arc::clone(&ingestion_sender),

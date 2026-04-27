@@ -20,10 +20,14 @@ pub fn handle_mode_stream(_current_mode: PeeringMode) -> (String, PeeringMode) {
 
 /// Build the CAPABILITIES response for the transit daemon.
 ///
-/// Always includes VERSION 2, IHAVE, STREAMING (RFC 4644), and XCID (stoa
-/// extension for log-entry block fetch by LogEntryId CID).
+/// Includes VERSION 2, IHAVE, and STREAMING (RFC 4644).
+///
+/// XCID is intentionally NOT advertised: it exposed full CRDT log entry
+/// structure (timestamps, parent CIDs, operator signatures) to any unauthenticated
+/// peer, violating Hard Design Invariant 1 (CRDT log internals must not be
+/// exposed via protocol extensions).  The XCID handler now returns 502.
 pub fn capabilities_response() -> String {
-    "101 Capability list:\r\nVERSION 2\r\nIHAVE\r\nSTREAMING\r\nXCID\r\n.\r\n".to_string()
+    "101 Capability list:\r\nVERSION 2\r\nIHAVE\r\nSTREAMING\r\n.\r\n".to_string()
 }
 
 #[cfg(test)]

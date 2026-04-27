@@ -6,8 +6,6 @@
 //! shared [`IngestionSender`]; the pipeline drain task in `main.rs` processes
 //! them asynchronously.
 
-use base64::Engine as _;
-use cid::Cid;
 use mail_auth::MessageAuthenticator;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -15,7 +13,6 @@ use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader
 use tokio::sync::Mutex;
 use tokio_rustls;
 
-use stoa_core::group_log::{LogEntryId, LogStorage as _, SqliteLogStorage};
 use stoa_core::{msgid_map::MsgIdMap, validation::validate_message_id};
 use stoa_verify::VerificationStore;
 
@@ -40,8 +37,6 @@ pub struct PeeringShared {
     pub ipfs: Arc<dyn IpfsStore>,
     /// Message-ID → CID mapping.
     pub msgid_map: Arc<MsgIdMap>,
-    /// Group-log storage.
-    pub log_storage: Arc<SqliteLogStorage>,
     /// Operator signing key (articles are signed before log-append).
     pub signing_key: Arc<ed25519_dalek::SigningKey>,
     /// HLC clock shared across sessions (mutex for exclusive send() access).
@@ -320,21 +315,9 @@ pub async fn run_peering_session<S>(
                     IngestResult::Rejected(_) => Some("437 Article rejected\r\n".to_owned()),
                 }
             }
-            "XCID" => {
-                let cid_str = arg.trim();
-                let response = match xcid_lookup(cid_str, &shared.log_storage).await {
-                    XcidResponse::Block {
-                        cid_str: c,
-                        encoded,
-                    } => {
-                        format!("224 Block follows ({c})\r\n{encoded}\r\n.\r\n")
-                    }
-                    XcidResponse::NotFound => "430 No such block\r\n".to_owned(),
-                    XcidResponse::SyntaxError => "501 Syntax error in arguments\r\n".to_owned(),
-                    XcidResponse::InternalError => "500 Internal error\r\n".to_owned(),
-                };
-                Some(response)
-            }
+            // XCID is not advertised in CAPABILITIES (Hard Design Invariant 1: CRDT log
+            // internals must not be exposed via protocol extensions).
+            "XCID" => Some("502 Command unavailable\r\n".to_owned()),
             _ => Some(format!("500 Unknown command: {verb}\r\n")),
         };
 
@@ -449,64 +432,6 @@ async fn enqueue_article(
         })
 }
 
-// ── XCID helpers ──────────────────────────────────────────────────────────────
-
-/// Outcome of an XCID block lookup.
-enum XcidResponse {
-    /// Entry found; `encoded` is the base64-encoded DAG-CBOR bytes (76-char lines).
-    Block { cid_str: String, encoded: String },
-    /// CID is valid but the entry is not in local storage.
-    NotFound,
-    /// The CID argument was unparseable or had a non-32-byte digest.
-    SyntaxError,
-    /// Storage or serialization error.
-    InternalError,
-}
-
-/// Look up a log entry by its LogEntryId CID and prepare the XCID response body.
-async fn xcid_lookup(cid_str: &str, log_storage: &SqliteLogStorage) -> XcidResponse {
-    // Parse the CID and extract the 32-byte SHA-256 digest → LogEntryId.
-    let cid = match Cid::try_from(cid_str) {
-        Ok(c) => c,
-        Err(_) => return XcidResponse::SyntaxError,
-    };
-    let raw: [u8; 32] = match cid.hash().digest().try_into() {
-        Ok(b) => b,
-        Err(_) => return XcidResponse::SyntaxError,
-    };
-    let entry_id = LogEntryId::from_bytes(raw);
-
-    let entry = match log_storage.get_entry(&entry_id).await {
-        Ok(Some(e)) => e,
-        Ok(None) => return XcidResponse::NotFound,
-        Err(e) => {
-            tracing::warn!(cid = %cid_str, "xcid: storage lookup failed: {e}");
-            return XcidResponse::InternalError;
-        }
-    };
-
-    let cbor_bytes = match serde_ipld_dagcbor::to_vec(&entry) {
-        Ok(b) => b,
-        Err(e) => {
-            tracing::warn!(cid = %cid_str, "xcid: dagcbor serialize failed: {e}");
-            return XcidResponse::InternalError;
-        }
-    };
-
-    // Base64-encode with 76-character line wrapping (RFC 2045 MIME convention).
-    let b64 = base64::engine::general_purpose::STANDARD.encode(&cbor_bytes);
-    let encoded = b64
-        .as_bytes()
-        .chunks(76)
-        .map(|chunk| std::str::from_utf8(chunk).unwrap_or(""))
-        .collect::<Vec<_>>()
-        .join("\r\n");
-
-    XcidResponse::Block {
-        cid_str: cid_str.to_owned(),
-        encoded,
-    }
-}
 
 /// Result of reading a dot-stuffed article from a peer.
 enum DotStuffedResult {

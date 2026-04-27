@@ -689,7 +689,6 @@ async fn main() {
     let shared = Arc::new(PeeringShared {
         ipfs: Arc::clone(&ipfs_store),
         msgid_map: Arc::clone(&msgid_map),
-        log_storage: Arc::clone(&log_storage),
         signing_key: Arc::clone(&signing_key),
         hlc: Arc::clone(&hlc),
         ingestion_sender: Arc::clone(&ingestion_sender),

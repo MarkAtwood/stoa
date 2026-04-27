@@ -16,7 +16,7 @@ use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::str::FromStr as _;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use stoa_core::{group_log::SqliteLogStorage, hlc::HlcClock, msgid_map::MsgIdMap};
+use stoa_core::{hlc::HlcClock, msgid_map::MsgIdMap};
 use stoa_transit::peering::{
     blacklist::BlacklistConfig,
     ingestion_queue::{ingestion_queue, QueuedArticle},
@@ -60,18 +60,6 @@ async fn make_transit_pool() -> sqlx::SqlitePool {
     pool
 }
 
-async fn make_log_storage() -> SqliteLogStorage {
-    let opts = SqliteConnectOptions::from_str("sqlite::memory:")
-        .unwrap()
-        .create_if_missing(true);
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
-        .await
-        .unwrap();
-    stoa_core::migrations::run_migrations(&pool).await.unwrap();
-    SqliteLogStorage::new(pool)
-}
 
 fn make_article(msgid: &str) -> String {
     format!(
@@ -121,7 +109,6 @@ async fn bind_listener() -> (TcpListener, std::net::SocketAddr) {
 async fn takethis_queue_full_returns_431_not_239() {
     let (msgid_map, _tmp) = make_core_pool().await;
     let transit_pool = make_transit_pool().await;
-    let log_storage = make_log_storage().await;
 
     // Queue depth = 1; we fill it before the session starts.
     let (sender, _rx) = ingestion_queue(1);
@@ -137,7 +124,6 @@ async fn takethis_queue_full_returns_431_not_239() {
     let shared = Arc::new(PeeringShared {
         ipfs: Arc::new(MemIpfsStore::new()),
         msgid_map: Arc::new(msgid_map),
-        log_storage: Arc::new(log_storage),
         signing_key: Arc::new(SigningKey::from_bytes(&[0x42u8; 32])),
         hlc: Arc::new(Mutex::new(HlcClock::new(
             [1, 2, 3, 4, 5, 6, 7, 8],
@@ -241,7 +227,6 @@ async fn takethis_queue_full_returns_431_not_239() {
 async fn ihave_queue_full_returns_436_not_235() {
     let (msgid_map, _tmp) = make_core_pool().await;
     let transit_pool = make_transit_pool().await;
-    let log_storage = make_log_storage().await;
 
     // Queue depth = 1; fill it before the session starts.
     let (sender, _rx) = ingestion_queue(1);
@@ -257,7 +242,6 @@ async fn ihave_queue_full_returns_436_not_235() {
     let shared = Arc::new(PeeringShared {
         ipfs: Arc::new(MemIpfsStore::new()),
         msgid_map: Arc::new(msgid_map),
-        log_storage: Arc::new(log_storage),
         signing_key: Arc::new(SigningKey::from_bytes(&[0x42u8; 32])),
         hlc: Arc::new(Mutex::new(HlcClock::new(
             [1, 2, 3, 4, 5, 6, 7, 8],
@@ -360,7 +344,6 @@ async fn ihave_queue_full_returns_436_not_235() {
 async fn takethis_queue_not_full_returns_239() {
     let (msgid_map, _tmp) = make_core_pool().await;
     let transit_pool = make_transit_pool().await;
-    let log_storage = make_log_storage().await;
 
     // Queue has plenty of space.
     let (sender, _rx) = ingestion_queue(100);
@@ -368,7 +351,6 @@ async fn takethis_queue_not_full_returns_239() {
     let shared = Arc::new(PeeringShared {
         ipfs: Arc::new(MemIpfsStore::new()),
         msgid_map: Arc::new(msgid_map),
-        log_storage: Arc::new(log_storage),
         signing_key: Arc::new(SigningKey::from_bytes(&[0x42u8; 32])),
         hlc: Arc::new(Mutex::new(HlcClock::new(
             [1, 2, 3, 4, 5, 6, 7, 8],
