@@ -196,6 +196,13 @@ mod tests {
 
     #[test]
     fn metric_names_present() {
+        // HistogramVec metrics only appear in Prometheus text output after at
+        // least one label combination is observed (unlike plain counters/gauges
+        // which always appear at 0).  Observe a sentinel value so this test is
+        // deterministic regardless of which other tests ran first.
+        NNTP_COMMAND_DURATION_SECONDS
+            .with_label_values(&["__test__"])
+            .observe(0.0);
         let output = gather_metrics();
         assert!(
             output.contains("articles_ingested_total"),

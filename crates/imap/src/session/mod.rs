@@ -543,6 +543,7 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
                 )
                 .await
                 {
+                    ctx.auth_failures = 0;
                     ctx.state = ImapState::Authenticated { username };
                 } else if matches!(ctx.auth_progress, AuthProgress::None) {
                     // handle_authenticate_start returned None without setting a
@@ -565,6 +566,7 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
                 )
                 .await
                 {
+                    ctx.auth_failures = 0;
                     ctx.state = ImapState::Authenticated { username };
                 } else {
                     // Failure: cancelled by client or bad credentials.

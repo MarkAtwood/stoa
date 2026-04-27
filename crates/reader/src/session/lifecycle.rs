@@ -1282,14 +1282,35 @@ fn extract_post_metadata(
 }
 
 /// Extract the trimmed value of the first matching header field, or `None`.
+///
+/// Implements RFC 5322 §2.2.3 header unfolding: continuation lines that begin
+/// with a single SP (0x20) or HTAB (0x09) are appended to the field value
+/// (after replacing the leading whitespace with a single space) until a line
+/// that does not start with whitespace is encountered.
 fn extract_header_value(headers: &str, name: &str) -> Option<String> {
     let prefix_colon = format!("{}:", name.to_ascii_lowercase());
-    for line in headers.lines() {
-        let lower = line.to_ascii_lowercase();
+    let lines: Vec<&str> = headers.lines().collect();
+    let mut i = 0;
+    while i < lines.len() {
+        let lower = lines[i].to_ascii_lowercase();
         if lower.starts_with(&prefix_colon) {
-            let value = line[prefix_colon.len()..].trim().to_string();
-            return Some(value);
+            // Capture the value from the first line (after "Name:").
+            let mut value = lines[i][prefix_colon.len()..].trim_start().to_string();
+            i += 1;
+            // Collect continuation lines (RFC 5322 §2.2.3).
+            while i < lines.len() {
+                let next = lines[i];
+                if next.starts_with(' ') || next.starts_with('\t') {
+                    value.push(' ');
+                    value.push_str(next.trim());
+                    i += 1;
+                } else {
+                    break;
+                }
+            }
+            return Some(value.trim_end().to_string());
         }
+        i += 1;
     }
     None
 }
@@ -2130,6 +2151,55 @@ mod tests {
             resp.starts_with(b"501"),
             "SEARCH BEFORE must return 501 (not implemented), got: {:?}",
             String::from_utf8_lossy(&resp)
+        );
+    }
+
+    // ── usenet-ipfs-07rs.8: RFC 5322 §2.2.3 folded header unfolding ──────
+
+    /// extract_header_value must unfold a Message-ID header folded across two
+    /// lines per RFC 5322 §2.2.3.  The continuation line starts with a single
+    /// SP or HTAB; the result must be the unfolded value with internal
+    /// whitespace collapsed to a single space.
+    ///
+    /// Oracle: RFC 5322 §2.2.3 specifies the exact unfolding algorithm.
+    /// The expected result is the concatenation of the first-line value and the
+    /// continuation-line value, separated by exactly one space.
+    #[test]
+    fn extract_header_value_unfolds_folded_header() {
+        // Folded Message-ID: value split across two lines.
+        // The continuation line begins with a single space followed by content.
+        let headers = "From: sender@example.com\r\nMessage-ID: <part1\r\n part2@example.com>\r\nSubject: Test\r\n";
+        let result = extract_header_value(headers, "Message-ID");
+        assert_eq!(
+            result.as_deref(),
+            Some("<part1 part2@example.com>"),
+            "folded Message-ID must be unfolded to a single value; got: {result:?}"
+        );
+    }
+
+    /// extract_header_value must unfold a header folded with HTAB as the
+    /// continuation leader (RFC 5322 §2.2.3 permits both SP and HTAB).
+    #[test]
+    fn extract_header_value_unfolds_htab_continuation() {
+        let headers = "Message-ID: <abc\r\n\tdef@example.com>\r\n";
+        let result = extract_header_value(headers, "Message-ID");
+        assert_eq!(
+            result.as_deref(),
+            Some("<abc def@example.com>"),
+            "HTAB continuation must be unfolded; got: {result:?}"
+        );
+    }
+
+    /// extract_header_value must not include lines after the first
+    /// non-continuation line in the value.
+    #[test]
+    fn extract_header_value_stops_at_non_continuation() {
+        let headers = "Message-ID: <abc@example.com>\r\nSubject: not part of msgid\r\n";
+        let result = extract_header_value(headers, "Message-ID");
+        assert_eq!(
+            result.as_deref(),
+            Some("<abc@example.com>"),
+            "value must not bleed into the next header; got: {result:?}"
         );
     }
 }

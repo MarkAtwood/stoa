@@ -131,15 +131,19 @@ pub fn write_signing_key(
     let tmp_path = parent.join(format!(".signing_key_tmp_{}.tmp", std::process::id()));
 
     let result = (|| {
-        let mut f = std::fs::File::create(&tmp_path)
-            .map_err(|e| format!("cannot create temp key file '{}': {e}", tmp_path.display()))?;
-
         #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            f.set_permissions(std::fs::Permissions::from_mode(0o600))
-                .map_err(|e| format!("cannot set permissions on '{}': {e}", tmp_path.display()))?;
-        }
+        let mut f = {
+            use std::os::unix::fs::OpenOptionsExt;
+            std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .mode(0o600)
+                .open(&tmp_path)
+                .map_err(|e| format!("cannot create temp key file '{}': {e}", tmp_path.display()))?
+        };
+        #[cfg(not(unix))]
+        let mut f = std::fs::File::create_new(&tmp_path)
+            .map_err(|e| format!("cannot create temp key file '{}': {e}", tmp_path.display()))?;
 
         f.write_all(&key.to_bytes())
             .map_err(|e| format!("cannot write signing key to '{}': {e}", tmp_path.display()))?;

@@ -140,10 +140,16 @@ impl StagingStore {
     /// pass the checks and collectively exceed the configured limits.
     pub async fn try_stage(&self, message_id: &str, bytes: &[u8]) -> Result<bool, StagingError> {
         let id = new_staging_id();
-        let file_path = PathBuf::from(&self.config.path)
-            .join(&id)
-            .to_string_lossy()
-            .into_owned();
+        let path_buf = PathBuf::from(&self.config.path).join(&id);
+        let file_path = path_buf.to_str().ok_or_else(|| {
+            StagingError::Io(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!(
+                    "staging path contains non-UTF-8 bytes: {}",
+                    path_buf.display()
+                ),
+            ))
+        })?;
 
         // Write to disk before taking the DB lock.  If the DB checks reject
         // the article we delete the file; if the DB write fails we also
@@ -197,7 +203,7 @@ impl StagingStore {
             )
             .bind(&id)
             .bind(message_id)
-            .bind(&file_path)
+            .bind(file_path)
             .bind(now_secs)
             .bind(bytes.len() as i64)
             .execute(&mut *conn)

@@ -35,14 +35,18 @@ pub struct TokenListEntry {
 /// Issues a new bearer token for the authenticated user.
 /// The raw token is returned once in the response and cannot be retrieved again.
 ///
-/// In dev mode (no auth required) the middleware does not inject `AuthenticatedUser`;
-/// we fall back to the empty string so tokens can still be issued and verified.
+/// In dev mode (no auth required) the middleware does not inject `AuthenticatedUser`.
+/// When no user identity is present we assign the canonical dev username `"dev"` rather
+/// than an empty string, which would produce a token with no meaningful owner.
 pub async fn issue_token(
     State(state): State<Arc<AppState>>,
     user: Option<Extension<AuthenticatedUser>>,
     body: Option<Json<TokenIssueRequest>>,
 ) -> impl IntoResponse {
-    let username = user.map(|Extension(u)| u.0).unwrap_or_default();
+    let username = user
+        .map(|Extension(u)| u.0)
+        .filter(|u| !u.is_empty())
+        .unwrap_or_else(|| "dev".to_string());
 
     let (label, expires_in_days) = match body {
         Some(Json(req)) => (req.label, req.expires_in_days),

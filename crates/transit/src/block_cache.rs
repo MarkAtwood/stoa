@@ -171,10 +171,16 @@ impl BlockCache {
         // Evict until there is room for this entry.
         self.evict_for(bytes.len() as u64).await?;
 
-        let file_path = PathBuf::from(&self.config.path)
-            .join(&cid_str)
-            .to_string_lossy()
-            .into_owned();
+        let path_buf = PathBuf::from(&self.config.path).join(&cid_str);
+        let file_path = path_buf.to_str().ok_or_else(|| {
+            CacheError::Io(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!(
+                    "block cache path contains non-UTF-8 bytes: {}",
+                    path_buf.display()
+                ),
+            ))
+        })?;
 
         fs::write(&file_path, bytes).await?;
 
@@ -184,7 +190,7 @@ impl BlockCache {
              (cid, file_path, byte_size, last_access) VALUES (?, ?, ?, ?)",
         )
         .bind(&cid_str)
-        .bind(&file_path)
+        .bind(file_path)
         .bind(bytes.len() as i64)
         .bind(now)
         .execute(&*self.pool)

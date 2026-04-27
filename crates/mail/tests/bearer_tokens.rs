@@ -911,3 +911,51 @@ fn uuid_v4_helper_correctly_validates_format() {
         "short first segment must fail"
     );
 }
+
+// ── Test 15: Dev mode token username is "dev", not empty string ───────────────
+
+/// In dev mode, POST /jmap/auth/token must bind the issued token to the
+/// canonical username "dev", not to an empty string.
+///
+/// Oracle: after issuing the token via HTTP, we call token_store.verify() on
+/// the raw token directly.  verify() returns Some(username) on success.
+/// An empty username would indicate the pre-fix bug; "dev" is the correct value.
+/// This test does NOT read the issue_token implementation — it uses verify() as
+/// an independent oracle.
+#[tokio::test]
+async fn dev_mode_token_username_is_dev_not_empty() {
+    let pool = make_mail_pool("t15").await;
+    let token_store = Arc::new(TokenStore::new(Arc::new(pool)));
+    let base = spawn_server(dev_app_state(Arc::clone(&token_store))).await;
+
+    // Issue a token in dev mode (no credentials).
+    let resp = reqwest::Client::new()
+        .post(format!("{base}/jmap/auth/token"))
+        .json(&serde_json::json!({"label": "dev-user-check"}))
+        .send()
+        .await
+        .expect("request must succeed");
+    assert_eq!(resp.status(), 201, "dev mode must issue a token");
+
+    let body: serde_json::Value = resp.json().await.expect("body must be JSON");
+    let raw_token = body["token"]
+        .as_str()
+        .expect("response must contain a token field")
+        .to_string();
+
+    // Verify the token and check the bound username via the store directly.
+    let verified_username = token_store
+        .verify(&raw_token)
+        .await
+        .expect("verify must not fail")
+        .expect("token must be found and valid");
+
+    assert_eq!(
+        verified_username, "dev",
+        "dev mode token must be bound to username 'dev', not '{verified_username}'"
+    );
+    assert!(
+        !verified_username.is_empty(),
+        "dev mode token username must not be empty"
+    );
+}

@@ -33,18 +33,6 @@ async fn test_pool() -> Arc<sqlx::SqlitePool> {
     .execute(&pool)
     .await
     .expect("create table");
-    sqlx::query(
-        "CREATE TABLE imap_flags (
-            username TEXT    NOT NULL,
-            mailbox  TEXT    NOT NULL,
-            uid      INTEGER NOT NULL,
-            flags    TEXT    NOT NULL DEFAULT '',
-            PRIMARY KEY (username, mailbox, uid)
-        )",
-    )
-    .execute(&pool)
-    .await
-    .expect("create flags table");
     Arc::new(pool)
 }
 

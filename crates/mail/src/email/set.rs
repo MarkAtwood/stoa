@@ -191,13 +191,14 @@ async fn create_one_email(
         }
     }
 
-    let text_body = obj
+    let text_body_raw = obj
         .get("textBody")
         .and_then(|v| v.as_array())
         .and_then(|arr| arr.first())
         .and_then(|part| part.get("value"))
         .and_then(|v| v.as_str())
         .unwrap_or("");
+    let text_body = strip_nul(text_body_raw);
 
     let now = chrono::Utc::now();
     let timestamp_ms = now.timestamp_millis();
@@ -242,6 +243,14 @@ async fn create_one_email(
 /// into RFC 5322 header fields constructed via `format!`.
 fn strip_crlf(s: &str) -> String {
     s.chars().filter(|&c| c != '\r' && c != '\n').collect()
+}
+
+/// Remove NUL bytes (`\0`) from a string to prevent MIME corruption.
+///
+/// NUL bytes in a body part can corrupt MIME-encoded articles and confuse
+/// downstream parsers that treat NUL as a string terminator.
+fn strip_nul(s: &str) -> String {
+    s.chars().filter(|&c| c != '\0').collect()
 }
 
 fn extract_email_addrs(field: Option<&Value>) -> Vec<String> {

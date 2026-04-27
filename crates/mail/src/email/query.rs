@@ -14,6 +14,12 @@ fn parse_date_timestamp(date_str: &str) -> Option<i64> {
         .map(|dt| dt.timestamp())
 }
 
+/// Maximum number of results returned by a single Email/query call.
+///
+/// Caps the client-supplied `limit` parameter to prevent silent truncation
+/// when converting a large u64 to usize and to bound memory usage.
+pub const MAX_FETCH_LIMIT: u64 = 10_000;
+
 /// An overview record enriched with its CID.
 pub struct EmailOverviewEntry {
     pub cid: Cid,
@@ -92,10 +98,13 @@ pub fn handle_email_query(
     let total = filtered.len() as u64;
 
     let start = position as usize;
+    let capped_limit = limit
+        .unwrap_or(MAX_FETCH_LIMIT)
+        .min(MAX_FETCH_LIMIT) as usize;
     let page: Vec<Value> = filtered
         .iter()
         .skip(start)
-        .take(limit.unwrap_or(u64::MAX) as usize)
+        .take(capped_limit)
         .map(|e| Value::String(e.cid.to_string()))
         .collect();
 
@@ -394,5 +403,43 @@ mod tests {
             "text+subject combined filter must intersect both"
         );
         assert_eq!(ids[0].as_str().unwrap(), test_cid(b"article-a").to_string());
+    }
+
+    /// A client-supplied limit of u64::MAX must be silently capped to MAX_FETCH_LIMIT.
+    ///
+    /// Before the fix, `limit.unwrap_or(u64::MAX) as usize` would produce usize::MAX
+    /// on 32-bit platforms (silent truncation) and allowed unbounded allocations on
+    /// 64-bit platforms.  The cap prevents both.
+    ///
+    /// Oracle: the result length must equal min(entry_count, MAX_FETCH_LIMIT) because
+    /// there are only 3 test entries; the cap must not cause any entries to be dropped.
+    #[test]
+    fn limit_u64_max_is_capped_to_max_fetch_limit() {
+        let entries = make_entries(); // 3 entries
+        // Pass u64::MAX as the limit — this is the boundary case from the bug report.
+        let resp = handle_email_query(&entries, None, 0, Some(u64::MAX), "0", None);
+        let ids = resp["ids"].as_array().unwrap();
+        // 3 < MAX_FETCH_LIMIT, so all 3 entries are returned (cap does not truncate).
+        assert_eq!(
+            ids.len(),
+            3,
+            "u64::MAX limit must be capped; with only 3 entries all should be returned"
+        );
+        // Also verify that a limit explicitly equal to MAX_FETCH_LIMIT is accepted.
+        let resp2 = handle_email_query(&entries, None, 0, Some(MAX_FETCH_LIMIT), "0", None);
+        let ids2 = resp2["ids"].as_array().unwrap();
+        assert_eq!(
+            ids2.len(),
+            3,
+            "limit equal to MAX_FETCH_LIMIT must return all available entries"
+        );
+        // And a limit exceeding MAX_FETCH_LIMIT is silently capped (not rejected).
+        let resp3 = handle_email_query(&entries, None, 0, Some(MAX_FETCH_LIMIT + 1), "0", None);
+        let ids3 = resp3["ids"].as_array().unwrap();
+        assert_eq!(
+            ids3.len(),
+            3,
+            "limit above MAX_FETCH_LIMIT must be capped; all 3 entries should still be returned"
+        );
     }
 }

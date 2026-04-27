@@ -75,15 +75,23 @@ pub fn generate_keypair(
 
     let public_pem = to_pem("PUBLIC KEY", &public_der);
 
-    // Write private key as raw 32-byte binary: set mode 0600 before writing
+    // Write private key as raw 32-byte binary.
+    // On Unix, pass mode 0o600 to open(2) so the file is never world-readable,
+    // not even for the instant between creation and a subsequent chmod.
     {
-        let mut f = fs::File::create(output_path).map_err(|e| e.to_string())?;
         #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            f.set_permissions(fs::Permissions::from_mode(0o600))
-                .map_err(|e| e.to_string())?;
-        }
+        let mut f = {
+            use std::os::unix::fs::OpenOptionsExt;
+            fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .mode(0o600)
+                .open(output_path)
+                .map_err(|e| e.to_string())?
+        };
+        #[cfg(not(unix))]
+        let mut f = fs::File::create(output_path).map_err(|e| e.to_string())?;
         f.write_all(&signing_key.to_bytes())
             .map_err(|e| e.to_string())?;
     }

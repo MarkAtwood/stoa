@@ -13,7 +13,7 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use stoa_core::rate_limiter::RateLimiter;
-use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 
 /// Start the admin HTTP server on the given address.
 ///
@@ -91,40 +91,68 @@ async fn handle_admin_connection(
     // blank terminator.
     const MAX_HEADER_LINES: usize = 64;
 
-    let (method_owned, path_owned, auth_header) = tokio::time::timeout(REQUEST_TIMEOUT, async {
-        let mut request_line = String::new();
-        reader.read_line(&mut request_line).await?;
-        let rl = request_line.trim_end_matches(['\r', '\n']).to_string();
-        let mut parts = rl.splitn(3, ' ');
-        let method = parts.next().unwrap_or("").to_string();
-        let path = parts.next().unwrap_or("").to_string();
+    // Cap on body size: prevents a POST with a huge Content-Length from
+    // allocating unbounded memory.
+    const MAX_BODY_BYTES: usize = 64 * 1024;
 
-        let mut auth_header: Option<String> = None;
-        for _ in 0..MAX_HEADER_LINES {
-            let mut line = String::new();
-            reader.read_line(&mut line).await?;
-            let line = line.trim_end_matches(['\r', '\n']);
-            if line.is_empty() {
-                break;
-            }
-            // HTTP header field names are case-insensitive (RFC 7230 §3.2).
-            // Lower-case only the field name portion; preserve the value as-is
-            // so the constant-time bearer token comparison is not affected.
-            if line.to_ascii_lowercase().starts_with("authorization:") {
-                let val = line["authorization:".len()..].trim_start();
-                auth_header = Some(val.to_string());
-            }
-        }
+    let (method_owned, path_owned, auth_header, content_length) =
+        tokio::time::timeout(REQUEST_TIMEOUT, async {
+            let mut request_line = String::new();
+            reader.read_line(&mut request_line).await?;
+            let rl = request_line.trim_end_matches(['\r', '\n']).to_string();
+            let mut parts = rl.splitn(3, ' ');
+            let method = parts.next().unwrap_or("").to_string();
+            let path = parts.next().unwrap_or("").to_string();
 
-        Ok::<_, std::io::Error>((method, path, auth_header))
-    })
-    .await
-    .map_err(|_| {
-        std::io::Error::new(std::io::ErrorKind::TimedOut, "admin request read timeout")
-    })??;
+            let mut auth_header: Option<String> = None;
+            let mut content_length: usize = 0;
+            for _ in 0..MAX_HEADER_LINES {
+                let mut line = String::new();
+                reader.read_line(&mut line).await?;
+                let line = line.trim_end_matches(['\r', '\n']);
+                if line.is_empty() {
+                    break;
+                }
+                // HTTP header field names are case-insensitive (RFC 7230 §3.2).
+                // Lower-case only the field name portion; preserve the value as-is
+                // so the constant-time bearer token comparison is not affected.
+                let lower = line.to_ascii_lowercase();
+                if lower.starts_with("authorization:") {
+                    let val = line["authorization:".len()..].trim_start();
+                    auth_header = Some(val.to_string());
+                } else if lower.starts_with("content-length:") {
+                    let val = line["content-length:".len()..].trim();
+                    content_length = val.parse().unwrap_or(0);
+                }
+            }
+
+            Ok::<_, std::io::Error>((method, path, auth_header, content_length))
+        })
+        .await
+        .map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::TimedOut, "admin request read timeout")
+        })??;
 
     let method = method_owned.as_str();
     let path = path_owned.as_str();
+
+    // Read the request body for POST requests.  We consume it before writing
+    // any response so the connection is left in a clean state.  Body content
+    // is currently unused (all POST endpoints are stubs), but reading it
+    // ensures future handlers that need the payload can access it, and
+    // prevents the client from seeing a broken-pipe error on its send.
+    let _request_body: Vec<u8> = if method == "POST" && content_length > 0 {
+        let clamped = content_length.min(MAX_BODY_BYTES);
+        let mut buf = vec![0u8; clamped];
+        tokio::time::timeout(REQUEST_TIMEOUT, reader.read_exact(&mut buf))
+            .await
+            .map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::TimedOut, "admin request body read timeout")
+            })??;
+        buf
+    } else {
+        Vec::new()
+    };
 
     let mut writer = reader.into_inner();
 

@@ -48,7 +48,7 @@ impl VerificationStore {
             .bind(&cid_bytes)
             .bind(sig_type)
             .bind(result_str)
-            .bind(identity.unwrap_or(""))
+            .bind(identity)
             .bind(reason)
             .bind(verified_at_ms)
             .execute(&self.pool)
@@ -65,7 +65,7 @@ impl VerificationStore {
         cid: &Cid,
     ) -> Result<Vec<ArticleVerification>, sqlx::Error> {
         let cid_bytes = cid.to_bytes();
-        let rows: Vec<(String, String, String, Option<String>)> = sqlx::query_as(
+        let rows: Vec<(String, String, Option<String>, Option<String>)> = sqlx::query_as(
             "SELECT sig_type, result, identity, reason \
              FROM article_verifications \
              WHERE cid = ?",
@@ -79,12 +79,6 @@ impl VerificationStore {
             .filter_map(|(sig_type_str, result_str, identity, reason)| {
                 let sig_type = parse_sig_type(&sig_type_str)?;
                 let result = parse_result(&result_str, reason.as_deref(), &sig_type);
-                // Empty string means identity was unknown at verification time.
-                let identity = if identity.is_empty() {
-                    None
-                } else {
-                    Some(identity)
-                };
                 Some(ArticleVerification {
                     sig_type,
                     result,
