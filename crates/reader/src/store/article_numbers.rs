@@ -23,45 +23,54 @@ impl ArticleNumberStore {
     ///
     /// Idempotent: if `(group, cid)` already has a number, return it.
     /// Numbers start at 1 and increment by 1.
+    ///
+    /// # DECISION (rbe3.4): two queries instead of three
+    ///
+    /// The previous implementation used three round-trips: SELECT (idempotency
+    /// check) + SELECT MAX (next number) + INSERT.  This collapses to two:
+    ///
+    /// 1. `INSERT OR IGNORE … VALUES (?, (SELECT COALESCE(MAX…)+1 …), ?)` —
+    ///    atomic under SQLite's write lock; the subquery computes the next
+    ///    number only when the insert fires; the UNIQUE index on (group_name,
+    ///    cid) causes OR IGNORE to suppress the insert idempotently.
+    /// 2. `SELECT article_number … WHERE group_name = ? AND cid = ?` —
+    ///    reads back the assigned number (works for both new and existing rows).
+    ///
+    /// The write transaction wraps both queries so concurrent callers cannot
+    /// observe a partial state.
     pub async fn assign_number(&self, group: &str, cid: &Cid) -> Result<u64, sqlx::Error> {
         let cid_bytes = cid.to_bytes();
 
         let mut tx = self.pool.begin().await?;
 
-        // Check if this (group, cid) pair already has a number.
-        let existing: Option<i64> = sqlx::query_scalar(
-            "SELECT article_number FROM article_numbers WHERE group_name = ? AND cid = ?",
-        )
-        .bind(group)
-        .bind(&cid_bytes)
-        .fetch_optional(&mut *tx)
-        .await?;
-
-        if let Some(n) = existing {
-            tx.commit().await?;
-            return Ok(n as u64);
-        }
-
-        // Compute the next number: MAX + 1, or 1 if the group is empty.
-        let next: i64 = sqlx::query_scalar(
-            "SELECT COALESCE(MAX(article_number), 0) + 1 FROM article_numbers WHERE group_name = ?",
-        )
-        .bind(group)
-        .fetch_one(&mut *tx)
-        .await?;
-
+        // Attempt to insert, computing the next sequential number via subquery.
+        // OR IGNORE suppresses the insert (and the subquery) when (group, cid)
+        // already has a row — the UNIQUE index on article_numbers_cid_idx
+        // enforces uniqueness on (group_name, cid).
         sqlx::query(
-            "INSERT INTO article_numbers (group_name, article_number, cid) VALUES (?, ?, ?)",
+            "INSERT OR IGNORE INTO article_numbers (group_name, article_number, cid)
+             VALUES (?, (SELECT COALESCE(MAX(article_number), 0) + 1
+                         FROM article_numbers WHERE group_name = ?), ?)",
         )
         .bind(group)
-        .bind(next)
+        .bind(group)
         .bind(&cid_bytes)
         .execute(&mut *tx)
         .await?;
 
+        // Read back the assigned number — valid for both the newly-inserted row
+        // and the pre-existing row when the insert was suppressed by OR IGNORE.
+        let number: i64 = sqlx::query_scalar(
+            "SELECT article_number FROM article_numbers WHERE group_name = ? AND cid = ?",
+        )
+        .bind(group)
+        .bind(&cid_bytes)
+        .fetch_one(&mut *tx)
+        .await?;
+
         tx.commit().await?;
 
-        Ok(next as u64)
+        Ok(number as u64)
     }
 
     /// Look up the CID for a given `(group, number)` pair.

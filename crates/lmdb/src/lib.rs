@@ -212,6 +212,42 @@ impl LmdbBlockDb {
         Ok(result.map(|v| v.to_vec()))
     }
 
+    /// Write multiple `(key, value)` pairs in a single write transaction.
+    ///
+    /// More efficient than calling [`put`] repeatedly: each `put` opens and
+    /// commits a separate write transaction, incurring a full `fsync` per
+    /// call.  This method amortises that overhead across all pairs.
+    ///
+    /// Idempotent: re-writing the same key with the same value is a no-op.
+    /// If any individual write fails, the transaction is aborted and no
+    /// pairs are committed.
+    ///
+    /// Returns `Ok(())` immediately if `pairs` is empty.
+    ///
+    /// # DECISION (rbe3.5): batch write for multi-block ingestion
+    ///
+    /// LMDB serialises write transactions at the environment level: each
+    /// call to `put` opens a write txn, writes one record, then commits
+    /// (fsync).  When ingesting a multi-block article — root block plus
+    /// one or more chunk blocks — calling `put` N times costs N fsyncs.
+    /// `put_batch` writes all N blocks in one transaction and commits once.
+    /// The caller must not hold the result of a previous read transaction
+    /// across this call, because LMDB readers and writers do not block each
+    /// other but a long-lived read transaction prevents the write from
+    /// advancing the free-list.
+    pub fn put_batch(&self, pairs: &[(&[u8], &[u8])]) -> Result<(), LmdbError> {
+        if pairs.is_empty() {
+            return Ok(());
+        }
+        let mut wtxn = self.env.write_txn().map_err(LmdbError::from)?;
+        for (key, value) in pairs {
+            self.db
+                .put(&mut wtxn, key, value)
+                .map_err(LmdbError::from)?;
+        }
+        wtxn.commit().map_err(LmdbError::from)
+    }
+
     /// Delete `key` from the database.
     ///
     /// Idempotent: deleting a key that does not exist returns `Ok(false)`
@@ -265,5 +301,36 @@ mod tests {
         let second = db.delete(b"k").unwrap();
         assert!(first);
         assert!(!second, "second delete must return false");
+    }
+
+    #[test]
+    fn put_batch_writes_all_pairs() {
+        let (db, _tmp) = open_test_db();
+        let pairs: &[(&[u8], &[u8])] = &[
+            (b"block1", b"data1"),
+            (b"block2", b"data2"),
+            (b"block3", b"data3"),
+        ];
+        db.put_batch(pairs).unwrap();
+        assert_eq!(db.get(b"block1").unwrap(), Some(b"data1".to_vec()));
+        assert_eq!(db.get(b"block2").unwrap(), Some(b"data2".to_vec()));
+        assert_eq!(db.get(b"block3").unwrap(), Some(b"data3".to_vec()));
+    }
+
+    #[test]
+    fn put_batch_empty_is_noop() {
+        let (db, _tmp) = open_test_db();
+        db.put_batch(&[]).unwrap();
+        // No error; database is still usable.
+        assert!(db.get(b"any").unwrap().is_none());
+    }
+
+    #[test]
+    fn put_batch_idempotent() {
+        let (db, _tmp) = open_test_db();
+        let pairs: &[(&[u8], &[u8])] = &[(b"k", b"v")];
+        db.put_batch(pairs).unwrap();
+        db.put_batch(pairs).unwrap();
+        assert_eq!(db.get(b"k").unwrap(), Some(b"v".to_vec()));
     }
 }

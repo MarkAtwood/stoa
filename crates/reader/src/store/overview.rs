@@ -162,6 +162,20 @@ impl OverviewStore {
     /// Returns records in ascending `article_number` order, capped at
     /// [`MAX_OVER_RESULTS`]. Article numbers within the range that have no
     /// record are silently skipped.
+    ///
+    /// # DECISION (rbe3.7): bounded materialization, not true wire streaming
+    ///
+    /// `fetch_all` materializes at most `MAX_OVER_RESULTS` rows before the
+    /// caller formats and writes them to the NNTP wire.  True streaming
+    /// (writing each row to the wire as it is fetched from SQLite) would
+    /// require restructuring the command loop to write incrementally rather
+    /// than building a complete `Response` and calling `write_all` once.
+    /// The current architecture keeps command handlers as pure functions that
+    /// return a `Response` value, which simplifies testing and error handling.
+    /// `MAX_OVER_RESULTS = 10_000` bounds peak memory to ≈2 MB per OVER
+    /// response, which is acceptable.  If a future benchmark shows this is a
+    /// bottleneck for very high-volume groups, the fix is to change the
+    /// command loop to accept an `AsyncWrite` sink and pipe rows directly.
     pub async fn query_range(
         &self,
         group: &str,

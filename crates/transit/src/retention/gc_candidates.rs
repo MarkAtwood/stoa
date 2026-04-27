@@ -25,6 +25,24 @@ pub struct GcArticleRecord {
 ///
 /// The caller passes in the current time and the grace period. The policy
 /// is evaluated in-process using ArticleMeta built from the row data.
+///
+/// # DECISION (rbe3.2): policy evaluation stays in Rust, not SQL
+///
+/// The primary age predicate (`ingested_at_ms < cutoff_ms`) is pushed to
+/// SQL and uses the `idx_articles_ingested_at` index, so the query is not
+/// a full table scan.  The remaining policy predicates (group glob patterns,
+/// `max_article_bytes`, first-rule-wins semantics, cross-posting) cannot be
+/// expressed as a single SQL predicate because:
+/// - Glob patterns (`comp.*`, `all`) are not a SQL built-in.
+/// - Cross-posted articles list multiple groups in one field; SQL cannot
+///   split on commas and match each independently against a rule set.
+/// - First-rule-wins semantics across an ordered rule list have no SQL
+///   equivalent without a recursive CTE or application-side logic.
+/// The result set is already bounded to `now - grace_period` rows, which
+/// is typically a small fraction of the total `articles` table, so the
+/// in-process evaluation adds negligible overhead.
+/// Do NOT inline the policy into a SQL WHERE clause; the semantics would
+/// be incorrect for cross-posted articles and multi-rule policies.
 pub async fn select_gc_candidates(
     pool: &SqlitePool,
     policy: &PinPolicy,

@@ -21,6 +21,29 @@
 //! The `\x00\n` separator is chosen so that it cannot appear in well-formed
 //! RFC 5322 header values (NUL is forbidden), making the header/body boundary
 //! unambiguous in the canonical stream.
+//!
+//! # DECISION (rbe3.8): NUL byte as header/body separator
+//!
+//! The separator `\x00\n` is deliberately not `\r\n\r\n` (the RFC 5322
+//! blank-line separator).  If we used blank-line separation, an attacker
+//! could inject a blank line into an article header field to create a
+//! canonical byte string that looks like a different article (header
+//! injection → CID collision).  `\x00` is forbidden in RFC 5322 header
+//! values, so it cannot appear in any well-formed header field value.
+//! Do NOT change this to `\r\n\r\n`, `\n\n`, or any sequence that could
+//! appear in a valid header field value.
+//!
+//! # DECISION (rbe3.10): deterministic header and newsgroup ordering
+//!
+//! Mandatory headers are serialized in a fixed order (From, Date, Message-ID,
+//! Newsgroups, Subject, Path) so that the same article always hashes to the
+//! same CID regardless of header insertion order at the call site.
+//! `extra_headers` are sorted by key (primary) then by value (secondary) for
+//! the same reason — a `HashMap` would produce non-deterministic orderings.
+//! The `Newsgroups` groups list is sorted lexicographically before joining
+//! so that `["alt.test", "comp.lang.rust"]` and `["comp.lang.rust",
+//! "alt.test"]` produce identical canonical bytes.
+//! Do NOT remove these sorts; doing so would silently break CID stability.
 
 use cid::Cid;
 

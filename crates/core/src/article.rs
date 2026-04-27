@@ -5,6 +5,17 @@ use serde::{Deserialize, Serialize};
 ///
 /// Group name format per RFC 3977: dot-separated components, each matching
 /// `[a-zA-Z][a-zA-Z0-9\-+_]*`, minimum one component.
+///
+/// # DECISION (rbe3.6): validation at construction, not at use
+///
+/// `GroupName::new` validates the format once and returns a typed value.
+/// This means every function that accepts `&GroupName` can trust the
+/// value is well-formed without re-validating.  The alternative — accepting
+/// `&str` and validating at every call site — duplicates the validation
+/// logic and creates a class of bugs where call sites forget to validate.
+/// `new_unchecked` is restricted to `#[cfg(any(test, fuzzing))]` so that
+/// invalid names can only enter the validation pipeline in controlled test
+/// environments, never in production paths.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct GroupName(String);
 
