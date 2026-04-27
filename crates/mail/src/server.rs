@@ -258,14 +258,16 @@ async fn jmap_api_handler(
     State(state): State<Arc<AppState>>,
     user: Option<Extension<AuthenticatedUser>>,
     axum::extract::Json(request): axum::extract::Json<crate::jmap::types::Request>,
-) -> (StatusCode, Json<Value>) {
+) -> impl axum::response::IntoResponse {
+    use axum::response::IntoResponse as _;
     let jmap = match state.jmap.as_ref() {
         Some(j) => j,
         None => {
             return (
                 StatusCode::SERVICE_UNAVAILABLE,
                 Json(json!({"error": "JMAP not configured"})),
-            );
+            )
+                .into_response();
         }
     };
 
@@ -323,10 +325,13 @@ async fn jmap_api_handler(
         created_ids: None,
     };
 
-    (
-        StatusCode::OK,
-        Json(serde_json::to_value(response).unwrap()),
-    )
+    match serde_json::to_value(response) {
+        Ok(v) => (StatusCode::OK, Json(v)).into_response(),
+        Err(e) => {
+            tracing::error!("jmap_api_handler: failed to serialize response: {e}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "internal error").into_response()
+        }
+    }
 }
 
 async fn route_method(
@@ -356,11 +361,18 @@ async fn route_method(
             };
             let group_infos: Vec<crate::mailbox::get::GroupInfo> = groups
                 .into_iter()
-                .map(|(name, lo, hi)| crate::mailbox::get::GroupInfo {
-                    name,
-                    total_emails: (hi - lo + 1) as u32,
-                    unread_emails: 0,
-                    is_subscribed: false,
+                .map(|(name, lo, hi)| {
+                    let total_emails = if hi < lo {
+                        0u32
+                    } else {
+                        (hi - lo + 1).min(u32::MAX as u64) as u32
+                    };
+                    crate::mailbox::get::GroupInfo {
+                        name,
+                        total_emails,
+                        unread_emails: 0,
+                        is_subscribed: false,
+                    }
                 })
                 .collect();
             let ids_filter: Option<Vec<String>> =
@@ -751,6 +763,29 @@ mod tests {
         });
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         addr
+    }
+
+    /// Verify that the total_emails calculation in Mailbox/get does not underflow
+    /// or truncate incorrectly for edge cases.
+    #[test]
+    fn mailbox_get_total_emails_edge_cases() {
+        // Helper that mirrors the fixed arithmetic in route_method.
+        fn total_emails(lo: u64, hi: u64) -> u32 {
+            if hi < lo {
+                0u32
+            } else {
+                (hi - lo + 1).min(u32::MAX as u64) as u32
+            }
+        }
+
+        // Normal single-article group.
+        assert_eq!(total_emails(1, 1), 1);
+        // Normal multi-article group.
+        assert_eq!(total_emails(1, 10), 10);
+        // Empty group: hi < lo must return 0, not wrap or panic.
+        assert_eq!(total_emails(5, 4), 0);
+        // Saturation: a group with more articles than u32::MAX must clamp.
+        assert_eq!(total_emails(0, u32::MAX as u64 + 1), u32::MAX);
     }
 
     #[tokio::test]

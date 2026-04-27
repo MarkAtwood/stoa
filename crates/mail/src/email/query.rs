@@ -1,11 +1,16 @@
 use cid::Cid;
 use serde_json::{json, Value};
 
-/// Parse an RFC 3339 date string to a Unix timestamp (seconds).
-/// Returns None if parsing fails.
-fn parse_rfc3339_timestamp(date_str: &str) -> Option<i64> {
-    chrono::DateTime::parse_from_rfc3339(date_str)
+/// Parse a date string to a Unix timestamp (seconds).
+///
+/// Tries RFC 2822 first (the format used in NNTP Date: headers,
+/// e.g. "Mon, 01 Jan 2024 00:00:00 +0000"), then falls back to RFC 3339
+/// (used in JMAP filter arguments, e.g. "2024-01-01T00:00:00Z").
+/// Returns None if both formats fail.
+fn parse_date_timestamp(date_str: &str) -> Option<i64> {
+    chrono::DateTime::parse_from_rfc2822(date_str)
         .ok()
+        .or_else(|| chrono::DateTime::parse_from_rfc3339(date_str).ok())
         .map(|dt| dt.timestamp())
 }
 
@@ -53,15 +58,14 @@ pub fn handle_email_query(
 
     if let Some(f) = filter {
         if let Some(after) = f.get("after").and_then(|v| v.as_str()) {
-            if let Some(after_ts) = parse_rfc3339_timestamp(after) {
-                filtered
-                    .retain(|e| parse_rfc3339_timestamp(&e.date).map_or(true, |ts| ts > after_ts));
+            if let Some(after_ts) = parse_date_timestamp(after) {
+                filtered.retain(|e| parse_date_timestamp(&e.date).map_or(true, |ts| ts > after_ts));
             }
         }
         if let Some(before) = f.get("before").and_then(|v| v.as_str()) {
-            if let Some(before_ts) = parse_rfc3339_timestamp(before) {
+            if let Some(before_ts) = parse_date_timestamp(before) {
                 filtered
-                    .retain(|e| parse_rfc3339_timestamp(&e.date).map_or(true, |ts| ts < before_ts));
+                    .retain(|e| parse_date_timestamp(&e.date).map_or(true, |ts| ts < before_ts));
             }
         }
         if let Some(from_filter) = f.get("from").and_then(|v| v.as_str()) {
@@ -80,8 +84,8 @@ pub fn handle_email_query(
 
     // Sort by date descending (newest first) using parsed timestamps.
     filtered.sort_by(|a, b| {
-        let ta = parse_rfc3339_timestamp(&a.date).unwrap_or(i64::MIN);
-        let tb = parse_rfc3339_timestamp(&b.date).unwrap_or(i64::MIN);
+        let ta = parse_date_timestamp(&a.date).unwrap_or(i64::MIN);
+        let tb = parse_date_timestamp(&b.date).unwrap_or(i64::MIN);
         tb.cmp(&ta)
     });
 
@@ -200,6 +204,80 @@ mod tests {
             ids.len(),
             2,
             "Should return articles from 2026-04-01 and 2026-04-02"
+        );
+    }
+
+    /// Verify that the date filter actually rejects articles when the OverviewRecord
+    /// date field contains RFC 2822 format (the real format from NNTP Date: headers).
+    /// Before the fix, parse_date_timestamp used only RFC 3339 and silently
+    /// passed all articles through via the map_or(true, …) fallback.
+    #[test]
+    fn filter_date_rejects_rfc2822_articles_outside_range() {
+        // These entries have RFC 2822 dates, as they would come from NNTP headers.
+        let entries = vec![
+            EmailOverviewEntry {
+                cid: test_cid(b"rfc2822-a"),
+                message_id: "<rfc2822-a@example.com>".to_string(),
+                subject: "Early article".to_string(),
+                from: "a@example.com".to_string(),
+                // RFC 2822: 2024-01-01 00:00:00 UTC
+                date: "Mon, 01 Jan 2024 00:00:00 +0000".to_string(),
+                byte_count: 100,
+            },
+            EmailOverviewEntry {
+                cid: test_cid(b"rfc2822-b"),
+                message_id: "<rfc2822-b@example.com>".to_string(),
+                subject: "Later article".to_string(),
+                from: "b@example.com".to_string(),
+                // RFC 2822: 2024-06-15 12:00:00 UTC
+                date: "Sat, 15 Jun 2024 12:00:00 +0000".to_string(),
+                byte_count: 200,
+            },
+            EmailOverviewEntry {
+                cid: test_cid(b"rfc2822-c"),
+                message_id: "<rfc2822-c@example.com>".to_string(),
+                subject: "Last article".to_string(),
+                from: "c@example.com".to_string(),
+                // RFC 2822: 2024-12-31 23:59:59 UTC
+                date: "Tue, 31 Dec 2024 23:59:59 +0000".to_string(),
+                byte_count: 300,
+            },
+        ];
+
+        // after: 2024-06-01 (RFC 3339 as used in JMAP filter) — should keep b and c only.
+        let filter = json!({"after": "2024-06-01T00:00:00Z"});
+        let resp = handle_email_query(&entries, Some(&filter), 0, None, "0", None);
+        let ids = resp["ids"].as_array().unwrap();
+        assert_eq!(
+            ids.len(),
+            2,
+            "after filter must reject the January article; got {ids:?}"
+        );
+        let returned: Vec<String> = ids
+            .iter()
+            .map(|v| v.as_str().unwrap().to_string())
+            .collect();
+        assert!(
+            !returned.contains(&test_cid(b"rfc2822-a").to_string()),
+            "early article must be excluded by after filter"
+        );
+
+        // before: 2024-06-30 — should keep a and b only.
+        let filter2 = json!({"before": "2024-06-30T00:00:00Z"});
+        let resp2 = handle_email_query(&entries, Some(&filter2), 0, None, "0", None);
+        let ids2 = resp2["ids"].as_array().unwrap();
+        assert_eq!(
+            ids2.len(),
+            2,
+            "before filter must reject the December article; got {ids2:?}"
+        );
+        let returned2: Vec<String> = ids2
+            .iter()
+            .map(|v| v.as_str().unwrap().to_string())
+            .collect();
+        assert!(
+            !returned2.contains(&test_cid(b"rfc2822-c").to_string()),
+            "late article must be excluded by before filter"
         );
     }
 
