@@ -7,6 +7,7 @@ use crate::message;
 use crate::SieveAction;
 use std::cmp::Reverse;
 use std::collections::HashMap;
+use tracing::warn;
 
 // ---------------------------------------------------------------------------
 // Evaluation context
@@ -432,8 +433,14 @@ fn str_matches_regex_pat(value: &str, anchored: &str, casemap: bool) -> bool {
         anchored.to_string()
     };
     match fancy_regex::Regex::new(&pat) {
-        Ok(re) => re.is_match(value).unwrap_or(false),
-        Err(_) => false,
+        Ok(re) => re.is_match(value).unwrap_or_else(|e| {
+            warn!(pattern = %pat, "Sieve :regex execution error (backtracking limit?): {e}");
+            false
+        }),
+        Err(e) => {
+            warn!(pattern = %pat, "Sieve :regex compile error: {e}");
+            false
+        }
     }
 }
 

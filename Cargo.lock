@@ -4189,6 +4189,7 @@ version = "0.1.0"
 dependencies = [
  "fancy-regex 0.13.0",
  "stoa-sieve",
+ "tracing",
 ]
 
 [[package]]

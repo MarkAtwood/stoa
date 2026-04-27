@@ -321,8 +321,7 @@ mod tests {
             b"From: test@example.com\r\nX-Stoa-DID-Sig: dummy sig\r\n\r\nBody \xff byte.\r\n";
         let stripped = super::strip_did_sig_header(article);
         assert_eq!(
-            stripped,
-            b"From: test@example.com\r\n\r\nBody \xff byte.\r\n",
+            stripped, b"From: test@example.com\r\n\r\nBody \xff byte.\r\n",
             "non-UTF-8 body bytes must be preserved unchanged after stripping DID-Sig header"
         );
     }
