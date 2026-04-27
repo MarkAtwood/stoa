@@ -7,7 +7,11 @@ use std::{
 use mail_auth::MessageAuthenticator;
 use rand_core::OsRng;
 use stoa_core::{
-    group_log::SqliteLogStorage, hlc::HlcClock, msgid_map::MsgIdMap, wildmat::GroupFilter,
+    audit::start_audit_logger,
+    group_log::SqliteLogStorage,
+    hlc::HlcClock,
+    msgid_map::MsgIdMap,
+    wildmat::GroupFilter,
 };
 use stoa_transit::{
     admin::{start_admin_server, AdminPools},
@@ -972,11 +976,17 @@ async fn main() {
                 eprintln!("{msg}");
                 std::process::exit(1);
             });
+            let admin_audit_logger = Arc::new(start_audit_logger(
+                (*core_pool).clone(),
+                100,
+                Duration::from_secs(5),
+            ));
             if let Err(e) = start_admin_server(
                 admin_addr,
                 AdminPools {
                     transit_pool: Arc::clone(&transit_pool),
                     core_pool: Arc::clone(&core_pool),
+                    audit_logger: Some(admin_audit_logger),
                 },
                 start_time,
                 admin_bearer_token,

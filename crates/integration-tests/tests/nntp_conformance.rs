@@ -271,6 +271,7 @@ async fn nntp_conformance_via_nntplib() {
             mail_auth::MessageAuthenticator::new_cloudflare_tls().unwrap(),
         ),
         path_hostname: "localhost".to_string(),
+        audit_logger: None,
     });
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();

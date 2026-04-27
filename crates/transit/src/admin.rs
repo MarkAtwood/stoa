@@ -28,6 +28,7 @@
 use sqlx::SqlitePool;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use stoa_core::audit::{AuditEvent, AuditLoggerHandle};
 use stoa_core::rate_limiter::RateLimiter;
 use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 
@@ -41,6 +42,7 @@ use crate::peering::pipeline::IpfsStore;
 pub struct AdminPools {
     pub transit_pool: Arc<SqlitePool>,
     pub core_pool: Arc<SqlitePool>,
+    pub audit_logger: Option<Arc<AuditLoggerHandle>>,
 }
 
 /// Start the admin HTTP server on the given address.
@@ -78,6 +80,7 @@ pub fn start_admin_server(
     let ipns_path = Arc::new(ipns_path);
     let transit_pool = pools.transit_pool;
     let core_pool = pools.core_pool;
+    let audit_logger = pools.audit_logger;
     tokio::spawn(async move {
         let listener = match tokio::net::TcpListener::bind(addr).await {
             Ok(l) => l,
@@ -96,6 +99,7 @@ pub fn start_admin_server(
                     let rate_limiter = Arc::clone(&rate_limiter);
                     let ipfs = Arc::clone(&ipfs);
                     let ipns_path = Arc::clone(&ipns_path);
+                    let audit_logger = audit_logger.clone();
                     tokio::spawn(async move {
                         if let Err(e) = handle_admin_connection(
                             stream,
@@ -105,6 +109,7 @@ pub fn start_admin_server(
                             &rate_limiter,
                             &*ipfs,
                             ipns_path.as_deref(),
+                            audit_logger.as_deref(),
                         )
                         .await
                         {
@@ -129,6 +134,7 @@ async fn handle_admin_connection(
     rate_limiter: &RateLimiter,
     ipfs: &dyn IpfsStore,
     ipns_path: Option<&str>,
+    audit_logger: Option<&AuditLoggerHandle>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let (pool, core_pool) = pools;
     let peer_ip = stream.peer_addr()?.ip();
@@ -237,6 +243,18 @@ async fn handle_admin_connection(
         )
         .await?;
         return Ok(());
+    }
+
+    // Audit: log authenticated, non-rate-limited, method-valid requests at dispatch
+    // time (before the handler runs). status_code 0 is a pre-response sentinel;
+    // the key audit information is who accessed what path.
+    if let Some(logger) = audit_logger {
+        logger.log(AuditEvent::AdminAccess {
+            peer_addr: peer_ip.to_string(),
+            path: path.to_string(),
+            method: method.to_string(),
+            status_code: 0,
+        });
     }
 
     match path {

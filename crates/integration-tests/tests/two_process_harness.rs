@@ -298,6 +298,7 @@ async fn transit_reader_shared_store() {
             mail_auth::MessageAuthenticator::new_cloudflare_tls().unwrap(),
         ),
         path_hostname: "localhost".to_string(),
+        audit_logger: None,
     });
 
     // ── Transit stores ────────────────────────────────────────────────────────
