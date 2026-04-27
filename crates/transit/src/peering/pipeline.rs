@@ -366,7 +366,18 @@ where
     let ipfs_write_latency_ms = elapsed.as_millis() as u64;
 
     // 1b. Verify article signatures against the original received bytes.
-    // Signature was computed by the peer before transit Path: modification.
+    //
+    // DESIGN NOTE (rbe3.46): `cid` is the CID of the post-Path-modified bytes
+    // (the block written to IPFS above).  Verification runs over
+    // `original_bytes` (pre-Path-modification) because the originating peer
+    // signed the article before this transit hop prepended its hostname.
+    //
+    // Consequence: the stored result "CID X is verified" cannot be reproduced
+    // by fetching block X from IPFS and re-running verification — the block
+    // contains the added Path hop that the signer never saw.  This is
+    // intentional: X-Stoa-Sig is local provenance tracking only.  The CID
+    // serves purely as a stable database key for the pre-computed result;
+    // no code path re-derives verification status by re-fetching from IPFS.
     if let Some(store) = ctx.verify_store {
         verify_article(original_bytes, &cid, store, ctx.trusted_keys, ctx.dkim_auth).await;
     }
