@@ -1,8 +1,8 @@
 //! Prometheus metrics for the transit daemon.
 
 use prometheus::{
-    register_counter_vec, register_histogram, register_histogram_vec, register_int_counter,
-    register_int_gauge,
+    register_counter_vec, register_gauge_vec, register_histogram, register_histogram_vec,
+    register_int_counter, register_int_gauge,
 };
 
 lazy_static::lazy_static! {
@@ -101,6 +101,19 @@ lazy_static::lazy_static! {
             &["reason"]
         )
         .expect("failed to register articles_rejected_total");
+
+    /// Unix timestamp of each configured TLS certificate's NotAfter date.
+    ///
+    /// Labels: `path` — the filesystem path of the certificate file.
+    /// Updated at startup (and on config reload when implemented).
+    /// Absent from `/metrics` output until at least one cert is configured.
+    pub static ref TLS_CERT_EXPIRY_SECONDS: prometheus::GaugeVec =
+        register_gauge_vec!(
+            "tls_cert_expiry_seconds",
+            "Unix timestamp of TLS certificate expiry (NotAfter), labeled by cert path",
+            &["path"]
+        )
+        .expect("failed to register tls_cert_expiry_seconds");
 }
 
 /// Returns all metrics in Prometheus text format.

@@ -4247,6 +4247,7 @@ dependencies = [
  "rustls",
  "rustls-pemfile",
  "tempfile",
+ "x509-parser",
 ]
 
 [[package]]

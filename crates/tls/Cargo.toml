@@ -11,6 +11,7 @@ path = "src/lib.rs"
 [dependencies]
 rustls = { version = "0.23", default-features = false, features = ["std", "tls12"] }
 rustls-pemfile = "2"
+x509-parser = { version = "0.16", default-features = false }
 
 [dev-dependencies]
 rcgen = "0.13"

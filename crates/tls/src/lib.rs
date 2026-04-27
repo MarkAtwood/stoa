@@ -151,6 +151,23 @@ pub fn load_tls_server_config_with_key_bytes(
     Ok(Arc::new(config))
 }
 
+/// Return the Unix timestamp (seconds) of the NotAfter date of the first
+/// certificate in a PEM certificate chain file.
+///
+/// Used at startup to emit expiry warnings and populate the
+/// `tls_cert_expiry_seconds` Prometheus gauge.  Returns an error if the file
+/// cannot be read, contains no certificates, or cannot be parsed as DER.
+pub fn cert_not_after(cert_path: &str) -> Result<i64, String> {
+    let certs = load_cert_chain(cert_path).map_err(|e| e.to_string())?;
+    let first = certs
+        .into_iter()
+        .next()
+        .ok_or_else(|| format!("no certificates found in '{cert_path}'"))?;
+    let (_, parsed) = x509_parser::parse_x509_certificate(&first)
+        .map_err(|e| format!("failed to parse certificate '{cert_path}': {e}"))?;
+    Ok(parsed.validity().not_after.timestamp())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -229,5 +246,43 @@ mod tests {
         );
         let msg = e.to_string();
         assert!(msg.contains("/foo/cert.pem"), "display: {msg}");
+    }
+
+    /// cert_not_after extracts the NotAfter timestamp from a self-signed cert.
+    ///
+    /// Asserts the returned Unix timestamp is in the future and is a plausible
+    /// date (after 2024-01-01, i.e. > 1704067200).
+    #[test]
+    fn cert_not_after_returns_future_timestamp() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let (cert_pem, _) = generate_self_signed_pem();
+        let cert_path = dir.path().join("cert.pem");
+        std::fs::write(&cert_path, &cert_pem).unwrap();
+
+        let expiry = cert_not_after(cert_path.to_str().unwrap())
+            .expect("cert_not_after must succeed for valid cert");
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+        assert!(
+            expiry > now,
+            "NotAfter must be in the future; expiry={expiry}, now={now}"
+        );
+        assert!(
+            expiry > 1_704_067_200,
+            "NotAfter must be after 2024-01-01; expiry={expiry}"
+        );
+    }
+
+    /// cert_not_after returns an error for a nonexistent path.
+    #[test]
+    fn cert_not_after_missing_file_returns_error() {
+        let result = cert_not_after("/nonexistent/cert.pem");
+        assert!(
+            result.is_err(),
+            "must return Err for nonexistent cert path"
+        );
     }
 }

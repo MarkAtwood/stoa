@@ -154,10 +154,45 @@ async fn run_startup_checks(config: &Config) -> Vec<String> {
         }
     }
 
-    // TLS file readability check.
+    // TLS file readability check and certificate expiry warning.
     if let Some(cert) = config.tls.cert_path.as_deref() {
         if let Err(e) = std::fs::read(cert) {
             errors.push(format!("TLS file unreadable: {cert}: {e}"));
+        } else {
+            match stoa_tls::cert_not_after(cert) {
+                Ok(expiry_unix) => {
+                    let now_secs = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs() as i64;
+                    let days_remaining = (expiry_unix - now_secs) / 86400;
+                    let expires_at = chrono::DateTime::from_timestamp(expiry_unix, 0)
+                        .map(|t: chrono::DateTime<chrono::Utc>| {
+                            t.format("%Y-%m-%dT%H:%M:%SZ").to_string()
+                        })
+                        .unwrap_or_else(|| expiry_unix.to_string());
+                    if days_remaining <= 7 {
+                        error!(
+                            event = "cert_expiry_critical",
+                            path = cert,
+                            days_remaining,
+                            expires_at = %expires_at,
+                            "TLS certificate expires very soon"
+                        );
+                    } else if days_remaining <= 30 {
+                        warn!(
+                            event = "cert_expiry_warning",
+                            path = cert,
+                            days_remaining,
+                            expires_at = %expires_at,
+                            "TLS certificate expiring soon"
+                        );
+                    }
+                }
+                Err(e) => {
+                    warn!(path = cert, "TLS cert expiry check failed: {e}");
+                }
+            }
         }
     }
     if let Some(key) = config.tls.key_path.as_deref() {
