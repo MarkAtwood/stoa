@@ -71,10 +71,7 @@ core-20260427T030000Z.db
 
 ## Scheduled automatic backup
 
-> **Not yet implemented.**  Scheduled backup is tracked in issue usenet-ipfs-l79h.2.
-> When implemented, the `[backup] schedule` field will accept a cron expression.
-
-Planned configuration:
+Add a `schedule` field to the `[backup]` section:
 
 ```toml
 [backup]
@@ -82,24 +79,32 @@ dest_dir = "/var/backups/stoa"
 schedule = "0 3 * * *"   # 03:00 UTC daily
 ```
 
+The `schedule` field accepts standard 5-field cron syntax (`min hour dom month
+dow`) or 6-field syntax with an explicit seconds field prepended.  When the
+daemon starts it logs the next scheduled fire time.  A failed backup attempt is
+logged at error level and retried at the next scheduled time.
+
+`dest_dir` is required when `schedule` is set; the daemon will fail validation
+if `schedule` is set without `dest_dir`.
+
 ---
 
 ## S3 upload
 
-> **Not yet implemented.**  S3 upload is tracked in issue usenet-ipfs-l79h.2.
-> When implemented, backup files will be uploaded to S3 after the local write.
-
-Planned configuration:
+Add `s3_bucket` (and optionally `s3_prefix`) to the `[backup]` section.
+After each backup (scheduled or manual via `POST /admin/backup`), each backup
+file is uploaded with `aws s3 cp`.  The `aws` CLI must be installed and
+configured with credentials that have `s3:PutObject` permission on the bucket.
 
 ```toml
 [backup]
 dest_dir = "/var/backups/stoa"
 s3_bucket = "my-stoa-backups"
+s3_prefix = "stoa/backups/"   # optional; defaults to bucket root
 schedule = "0 3 * * *"
 ```
 
-For now, operators can upload backup files using the AWS CLI after triggering
-a manual backup:
+Manual one-shot upload after a `POST /admin/backup`:
 
 ```bash
 # Trigger backup and capture output

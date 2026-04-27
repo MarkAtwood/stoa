@@ -71,6 +71,26 @@ pub struct BackupConfig {
     /// When absent, `POST /admin/backup` returns 503.
     #[serde(default)]
     pub dest_dir: Option<String>,
+    /// S3 bucket to upload backup files to after writing locally.
+    ///
+    /// Requires the `aws` CLI to be installed and configured with credentials.
+    /// When absent, backups are written locally only.
+    #[serde(default)]
+    pub s3_bucket: Option<String>,
+    /// S3 key prefix prepended to backup filenames.
+    ///
+    /// For example `"stoa/backups/"` produces keys like
+    /// `stoa/backups/transit-20260427T030000Z.db`.
+    /// Defaults to empty (files land at the bucket root).
+    #[serde(default)]
+    pub s3_prefix: Option<String>,
+    /// Cron schedule for automatic backups (5-field standard cron syntax).
+    ///
+    /// Example: `"0 3 * * *"` runs at 03:00 UTC daily.
+    /// When absent, backups run only on demand via `POST /admin/backup`.
+    /// Requires `dest_dir` to be set.
+    #[serde(default)]
+    pub schedule: Option<String>,
 }
 
 /// Operator identity configuration.
@@ -578,6 +598,17 @@ impl Config {
         // Validate GC cron schedule.
         validate_cron_schedule(&self.gc.schedule)
             .map_err(|e| ConfigError::Validation(format!("gc.schedule: {e}")))?;
+
+        // Validate backup cron schedule if set.
+        if let Some(sched) = &self.backup.schedule {
+            validate_cron_schedule(sched)
+                .map_err(|e| ConfigError::Validation(format!("backup.schedule: {e}")))?;
+            if self.backup.dest_dir.is_none() {
+                return Err(ConfigError::Validation(
+                    "backup.schedule requires backup.dest_dir to be set".into(),
+                ));
+            }
+        }
 
         // Validate external pinning service entries.
         let mut seen_service_names: std::collections::HashSet<&str> =

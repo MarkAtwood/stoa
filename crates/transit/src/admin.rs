@@ -464,7 +464,7 @@ async fn handle_admin_connection(
 /// destination directory is created if it does not exist.
 ///
 /// Returns the list of backup file paths on success.
-async fn backup_databases(
+pub(crate) async fn backup_databases(
     transit_pool: &SqlitePool,
     core_pool: &SqlitePool,
     dest_dir: &str,

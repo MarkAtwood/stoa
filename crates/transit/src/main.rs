@@ -1088,6 +1088,22 @@ async fn main() {
         }
     }
 
+    // ── Scheduled backup (optional) ───────────────────────────────────────────
+
+    if let (Some(schedule), Some(dest_dir)) =
+        (config.backup.schedule.clone(), config.backup.dest_dir.clone())
+    {
+        info!(schedule = %schedule, "backup scheduler starting");
+        tokio::spawn(stoa_transit::backup_scheduler::run_backup_scheduler(
+            Arc::clone(&transit_pool),
+            Arc::clone(&core_pool),
+            dest_dir,
+            config.backup.s3_bucket.clone(),
+            config.backup.s3_prefix.clone(),
+            schedule,
+        ));
+    }
+
     // ── Shutdown ──────────────────────────────────────────────────────────────
 
     let drain_timeout_secs = config.peering.drain_timeout_secs.unwrap_or(30);
