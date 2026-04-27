@@ -2,7 +2,7 @@
 
 use sqlx::SqlitePool;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use stoa_core::error::StorageError;
+use stoa_core::{error::StorageError, msgid_map::MsgIdMap};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 
@@ -40,9 +40,19 @@ impl std::fmt::Display for SuckPullSummary {
 }
 
 /// Run the suck pull import for all configured groups.
+///
+/// Fetched articles are validated (format, size, duplicate check) via
+/// [`check_ingest`] and then enqueued into `ingestion_sender` for processing
+/// by the shared pipeline drain task.  Duplicate articles increment
+/// `skipped_duplicate`; articles that fail validation or queue insertion
+/// increment `failed`.
+///
+/// [`check_ingest`]: crate::peering::ingestion::check_ingest
 pub async fn run_suck_pull(
     pool: &SqlitePool,
     config: &SuckPullConfig,
+    ingestion_sender: &crate::peering::ingestion_queue::IngestionSender,
+    msgid_map: &MsgIdMap,
 ) -> Result<SuckPullSummary, StorageError> {
     let start = Instant::now();
 
@@ -156,12 +166,45 @@ pub async fn run_suck_pull(
                 .await
             {
                 FetchResult::Fetched(bytes) => {
-                    tracing::debug!(
-                        "suck_pull: fetched {msgid} ({} bytes); \
-                         pipeline wiring pending (usenet-ipfs-a4b6 epic)",
-                        bytes.len()
-                    );
-                    summary.fetched += 1;
+                    use crate::peering::ingestion::{check_ingest, IngestResult};
+                    use crate::peering::ingestion_queue::QueuedArticle;
+
+                    match check_ingest(msgid, &bytes, msgid_map).await {
+                        IngestResult::Accepted => {
+                            match ingestion_sender
+                                .try_enqueue(QueuedArticle {
+                                    bytes,
+                                    message_id: msgid.to_string(),
+                                })
+                                .await
+                            {
+                                Ok(()) => {
+                                    tracing::debug!("suck_pull: enqueued {msgid}");
+                                    summary.fetched += 1;
+                                }
+                                Err(e) => {
+                                    tracing::warn!(
+                                        "suck_pull: ingestion queue rejected {msgid}: {e}"
+                                    );
+                                    summary.failed += 1;
+                                }
+                            }
+                        }
+                        IngestResult::Duplicate => {
+                            tracing::debug!("suck_pull: duplicate {msgid}");
+                            summary.skipped_duplicate += 1;
+                        }
+                        IngestResult::Rejected(reason) => {
+                            tracing::warn!("suck_pull: rejected {msgid}: {reason}");
+                            summary.failed += 1;
+                        }
+                        IngestResult::TransientError(reason) => {
+                            tracing::warn!(
+                                "suck_pull: transient error checking {msgid}: {reason}"
+                            );
+                            summary.failed += 1;
+                        }
+                    }
                 }
                 FetchResult::NotFound => {
                     tracing::debug!("suck_pull: not found (430) {msgid}");
@@ -432,6 +475,10 @@ mod tests {
 
     #[tokio::test]
     async fn run_suck_pull_connection_refused_fails_gracefully() {
+        use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+        use std::str::FromStr as _;
+        use stoa_core::msgid_map::MsgIdMap;
+
         // Use a port that nothing is listening on
         let pool_url = "file:suck_test?mode=memory&cache=shared";
         let opts = sqlx::sqlite::SqliteConnectOptions::new()
@@ -442,6 +489,26 @@ mod tests {
             .connect_with(opts)
             .await
             .unwrap();
+
+        // Build a MsgIdMap backed by a temp in-memory pool.
+        let core_opts = SqliteConnectOptions::from_str("sqlite::memory:")
+            .unwrap()
+            .create_if_missing(true);
+        let core_pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(core_opts)
+            .await
+            .unwrap();
+        stoa_core::migrations::run_migrations(&core_pool)
+            .await
+            .unwrap();
+        let msgid_map = MsgIdMap::new(core_pool);
+
+        // Minimal ingestion queue; the receiver is dropped immediately since
+        // no articles will be enqueued in this test (TCP connect fails).
+        let (ingestion_sender, _rx) =
+            crate::peering::ingestion_queue::ingestion_queue(16);
+
         let config = SuckPullConfig {
             remote_addr: "127.0.0.1:19998".to_string(),
             groups: vec!["comp.lang.rust".to_string()],
@@ -449,7 +516,7 @@ mod tests {
             max_retries: 1,
         };
         // Should not panic; connection failure is handled gracefully
-        let result = run_suck_pull(&pool, &config).await;
+        let result = run_suck_pull(&pool, &config, &ingestion_sender, &msgid_map).await;
         // Either Ok with 0 fetched or Err — either is acceptable, no panic
         match result {
             Ok(s) => assert_eq!(s.fetched, 0),
