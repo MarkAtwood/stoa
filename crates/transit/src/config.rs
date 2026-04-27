@@ -56,6 +56,21 @@ pub struct Config {
     /// Audit log backend configuration.  Defaults to SQLite.
     #[serde(default)]
     pub audit: stoa_core::audit::AuditConfig,
+    /// SQLite backup configuration.  Omit to disable scheduled/on-demand backups.
+    #[serde(default)]
+    pub backup: BackupConfig,
+}
+
+/// Configuration for SQLite online backup.
+#[derive(Debug, Deserialize, Default, Clone)]
+pub struct BackupConfig {
+    /// Directory where backup files are written.
+    ///
+    /// Created at backup time if absent.  Backup filenames include a UTC
+    /// timestamp: `transit-20260427T030000Z.db`, `core-20260427T030000Z.db`.
+    /// When absent, `POST /admin/backup` returns 503.
+    #[serde(default)]
+    pub dest_dir: Option<String>,
 }
 
 /// Operator identity configuration.

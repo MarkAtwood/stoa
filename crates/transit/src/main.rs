@@ -987,6 +987,7 @@ async fn main() {
                     transit_pool: Arc::clone(&transit_pool),
                     core_pool: Arc::clone(&core_pool),
                     audit_logger: Some(admin_audit_logger),
+                    backup_dest_dir: config.backup.dest_dir.clone(),
                 },
                 start_time,
                 admin_bearer_token,

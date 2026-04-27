@@ -43,6 +43,8 @@ pub struct AdminPools {
     pub transit_pool: Arc<SqlitePool>,
     pub core_pool: Arc<SqlitePool>,
     pub audit_logger: Option<Arc<dyn AuditLogger>>,
+    /// Directory for SQLite backups.  `None` disables `POST /admin/backup`.
+    pub backup_dest_dir: Option<String>,
 }
 
 /// Start the admin HTTP server on the given address.
@@ -81,6 +83,7 @@ pub fn start_admin_server(
     let transit_pool = pools.transit_pool;
     let core_pool = pools.core_pool;
     let audit_logger = pools.audit_logger;
+    let backup_dest_dir = Arc::new(pools.backup_dest_dir);
     tokio::spawn(async move {
         let listener = match tokio::net::TcpListener::bind(addr).await {
             Ok(l) => l,
@@ -100,6 +103,7 @@ pub fn start_admin_server(
                     let ipfs = Arc::clone(&ipfs);
                     let ipns_path = Arc::clone(&ipns_path);
                     let audit_logger = audit_logger.clone();
+                    let backup_dest_dir = Arc::clone(&backup_dest_dir);
                     tokio::spawn(async move {
                         if let Err(e) = handle_admin_connection(
                             stream,
@@ -110,6 +114,7 @@ pub fn start_admin_server(
                             &*ipfs,
                             ipns_path.as_deref(),
                             audit_logger.as_deref(),
+                            backup_dest_dir.as_deref(),
                         )
                         .await
                         {
@@ -135,6 +140,7 @@ async fn handle_admin_connection(
     ipfs: &dyn IpfsStore,
     ipns_path: Option<&str>,
     audit_logger: Option<&dyn AuditLogger>,
+    backup_dest_dir: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let (pool, core_pool) = pools;
     let peer_ip = stream.peer_addr()?.ip();
@@ -231,7 +237,7 @@ async fn handle_admin_connection(
     }
 
     let method_ok = match path {
-        "/reload" => method == "POST",
+        "/reload" | "/backup" => method == "POST",
         _ => method == "GET",
     };
     if !method_ok {
@@ -396,6 +402,42 @@ async fn handle_admin_connection(
                 .await?;
             }
         },
+        "/backup" => {
+            match backup_dest_dir {
+                None => {
+                    write_json(
+                        &mut writer,
+                        503,
+                        "Service Unavailable",
+                        r#"{"error":"backup.dest_dir is not configured"}"#,
+                    )
+                    .await?;
+                }
+                Some(dest_dir) => {
+                    match backup_databases(pool, core_pool, dest_dir).await {
+                        Ok(paths) => {
+                            let files_json = paths
+                                .iter()
+                                .map(|p| format!("\"{}\"", p.replace('\\', "\\\\").replace('"', "\\\"")))
+                                .collect::<Vec<_>>()
+                                .join(",");
+                            let body = format!("{{\"backups\":[{files_json}]}}");
+                            write_json(&mut writer, 200, "OK", &body).await?;
+                        }
+                        Err(e) => {
+                            tracing::warn!("admin /backup error: {e}");
+                            write_json(
+                                &mut writer,
+                                500,
+                                "Internal Server Error",
+                                r#"{"error":"backup failed"}"#,
+                            )
+                            .await?;
+                        }
+                    }
+                }
+            }
+        }
         "/reload" => {
             // Config reload is not yet implemented.  Return 501 so operators
             // know to restart the daemon rather than assuming config was applied.
@@ -413,6 +455,38 @@ async fn handle_admin_connection(
     }
 
     Ok(())
+}
+
+/// Backup `transit_pool` and `core_pool` to timestamped files in `dest_dir`.
+///
+/// Uses SQLite's `VACUUM INTO` statement, which copies the live database to a
+/// new file atomically and is safe to run while the database is open.  The
+/// destination directory is created if it does not exist.
+///
+/// Returns the list of backup file paths on success.
+async fn backup_databases(
+    transit_pool: &SqlitePool,
+    core_pool: &SqlitePool,
+    dest_dir: &str,
+) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+    let timestamp = chrono::Utc::now().format("%Y%m%dT%H%M%SZ").to_string();
+    tokio::fs::create_dir_all(dest_dir).await?;
+
+    let mut paths = Vec::new();
+    for (name, pool) in [("transit", transit_pool), ("core", core_pool)] {
+        let filename = format!("{name}-{timestamp}.db");
+        let dest = format!("{dest_dir}/{filename}");
+        // VACUUM INTO requires a literal path; dest_dir is operator-controlled config.
+        // Reject paths containing single-quote to prevent SQL syntax errors.
+        if dest.contains('\'') {
+            return Err(format!("backup path must not contain single quotes: {dest}").into());
+        }
+        sqlx::query(&format!("VACUUM INTO '{dest}'"))
+            .execute(pool)
+            .await?;
+        paths.push(dest);
+    }
+    Ok(paths)
 }
 
 /// Check whether an Authorization header satisfies the configured bearer token.
@@ -1063,5 +1137,68 @@ mod tests {
         assert_eq!(web3["service"], "web3");
         assert_eq!(web3["queued"], 1);
         assert_eq!(web3["pending"], 0);
+    }
+
+    /// `backup_databases` creates valid SQLite files that can be opened.
+    #[tokio::test]
+    async fn backup_creates_sqlite_files() {
+        let (transit_pool, core_pool) = make_pools().await;
+        let dest_dir = tempfile::TempDir::new().expect("tempdir");
+        let dest_str = dest_dir.path().to_str().expect("utf8 path");
+
+        let paths = backup_databases(&transit_pool, &core_pool, dest_str)
+            .await
+            .expect("backup must succeed");
+
+        assert_eq!(paths.len(), 2, "must produce 2 backup files");
+
+        for path in &paths {
+            // Verify the file exists and is non-empty.
+            let meta = std::fs::metadata(path)
+                .unwrap_or_else(|e| panic!("backup file missing {path}: {e}"));
+            assert!(meta.len() > 0, "backup file must be non-empty: {path}");
+
+            // Verify the file is a valid SQLite database (header magic bytes).
+            let header = std::fs::read(path)
+                .unwrap_or_else(|e| panic!("cannot read backup file {path}: {e}"));
+            assert_eq!(
+                &header[..16],
+                b"SQLite format 3\0",
+                "backup file must have SQLite magic header: {path}"
+            );
+        }
+    }
+
+    /// `backup_databases` filenames include a UTC timestamp component.
+    #[tokio::test]
+    async fn backup_filenames_contain_timestamp() {
+        let (transit_pool, core_pool) = make_pools().await;
+        let dest_dir = tempfile::TempDir::new().expect("tempdir");
+        let dest_str = dest_dir.path().to_str().expect("utf8 path");
+
+        let paths = backup_databases(&transit_pool, &core_pool, dest_str)
+            .await
+            .expect("backup must succeed");
+
+        // Both filenames must contain a UTC timestamp (e.g. "20260427T030000Z").
+        for path in &paths {
+            let filename = std::path::Path::new(path)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or(path);
+            assert!(
+                filename.contains('T') && filename.ends_with("Z.db"),
+                "backup filename must contain UTC timestamp: {filename}"
+            );
+        }
+    }
+
+    /// `backup_databases` rejects dest paths containing single quotes.
+    #[tokio::test]
+    async fn backup_rejects_path_with_single_quote() {
+        let (transit_pool, core_pool) = make_pools().await;
+        let result = backup_databases(&transit_pool, &core_pool, "/tmp/bad'path")
+            .await;
+        assert!(result.is_err(), "single-quote path must be rejected");
     }
 }
