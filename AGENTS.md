@@ -90,6 +90,16 @@ cargo test --workspace
 
 All three must pass clean. If `cargo fmt` changes files, stage and include those changes in the commit.
 
+For feature-powerset checks, use `--depth 2` (pairwise only — full powerset is exponential and unnecessary) and group mutually exclusive backends so only one is tested at a time:
+
+```bash
+# --depth 2: pairwise combinations only, not every 2^n combo
+# --group-features: backends are mutually exclusive — test one at a time, not together
+cargo hack check --feature-powerset --depth 2 \
+  --group-features lmdb,kubo,s3 \
+  --no-dev-deps -p <crate>
+```
+
 ## Agent Interaction Rules
 
 **Fail fast, report up.** If a shell command fails twice with the same error, stop and report the exact error to the user with context. Do not try variants. A repeated failure means your model of the problem is wrong.
