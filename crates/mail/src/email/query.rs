@@ -88,24 +88,24 @@ pub fn handle_email_query(
         filtered.retain(|e| id_set.contains(&e.message_id));
     }
 
-    // Sort by date descending (newest first) using parsed timestamps.
-    filtered.sort_by(|a, b| {
-        let ta = parse_date_timestamp(&a.date).unwrap_or(i64::MIN);
-        let tb = parse_date_timestamp(&b.date).unwrap_or(i64::MIN);
-        tb.cmp(&ta)
-    });
+    // Pre-compute timestamps once, then sort — avoids O(N log N) repeated parses.
+    let mut with_ts: Vec<(i64, &EmailOverviewEntry)> = filtered
+        .iter()
+        .map(|e| (parse_date_timestamp(&e.date).unwrap_or(i64::MIN), *e))
+        .collect();
+    with_ts.sort_by(|(ta, _), (tb, _)| tb.cmp(ta));
 
-    let total = filtered.len() as u64;
+    let total = with_ts.len() as u64;
 
     let start = position as usize;
     let capped_limit = limit
         .unwrap_or(MAX_FETCH_LIMIT)
         .min(MAX_FETCH_LIMIT) as usize;
-    let page: Vec<Value> = filtered
+    let page: Vec<Value> = with_ts
         .iter()
         .skip(start)
         .take(capped_limit)
-        .map(|e| Value::String(e.cid.to_string()))
+        .map(|(_, e)| Value::String(e.cid.to_string()))
         .collect();
 
     json!({

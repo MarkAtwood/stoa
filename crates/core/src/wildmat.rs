@@ -7,59 +7,61 @@ pub fn matches_wildmat(name: &str, pattern: &str) -> bool {
     if pattern == "*" {
         return true;
     }
+    if !pattern.contains(['*', '?']) {
+        return name.eq_ignore_ascii_case(pattern);
+    }
     let name = name.to_ascii_lowercase();
     let pattern = pattern.to_ascii_lowercase();
     wildmat_match(name.as_bytes(), pattern.as_bytes())
 }
 
-/// Iterative DP wildmat matching — O(text.len() * pattern.len()) time and space.
+/// Iterative DP wildmat matching — O(text.len() * pattern.len()) time,
+/// O(pattern.len()) space (two-row rolling buffer).
 ///
-/// `dp[i][j]` is true when `text[..i]` matches `pattern[..j]`.
-/// This avoids the exponential blowup of recursive backtracking on patterns
-/// like `*a*a*a*a*a` matched against long strings of 'a' that end with a
-/// non-matching character.
+/// `prev[j]` / `curr[j]` is true when `text[..i-1]` / `text[..i]` matches
+/// `pattern[..j]`.  This avoids the exponential blowup of recursive
+/// backtracking on patterns like `*a*a*a*a*a` against long strings.
 fn wildmat_match(text: &[u8], pattern: &[u8]) -> bool {
     let m = text.len();
     let n = pattern.len();
 
-    // Flat row-major DP table: index (i, j) → i * row + j.
-    // dp[i*row+j] is true when text[..i] matches pattern[..j].
-    let row = n + 1;
-    let mut dp = vec![false; (m + 1) * (n + 1)];
-    dp[0] = true;
-
-    // A run of leading stars can match the empty prefix.
+    let mut prev = vec![false; n + 1];
+    prev[0] = true;
     for j in 1..=n {
         if pattern[j - 1] == b'*' {
-            dp[j] = dp[j - 1];
+            prev[j] = prev[j - 1];
         } else {
             break;
         }
     }
 
+    let mut curr = vec![false; n + 1];
     for i in 1..=m {
+        curr[0] = false;
         for j in 1..=n {
-            match pattern[j - 1] {
-                b'*' => {
-                    // Star matches zero chars (dp[i][j-1]) or one more char (dp[i-1][j]).
-                    dp[i * row + j] = dp[i * row + j - 1] || dp[(i - 1) * row + j];
-                }
-                b'?' => {
-                    dp[i * row + j] = dp[(i - 1) * row + j - 1];
-                }
-                pc => {
-                    dp[i * row + j] = dp[(i - 1) * row + j - 1] && text[i - 1] == pc;
-                }
-            }
+            curr[j] = match pattern[j - 1] {
+                b'*' => curr[j - 1] || prev[j],
+                b'?' => prev[j - 1],
+                pc => prev[j - 1] && text[i - 1] == pc,
+            };
         }
+        std::mem::swap(&mut prev, &mut curr);
     }
 
-    dp[m * row + n]
+    prev[n]
 }
 
 /// Like `matches_wildmat` but assumes `pattern_bytes` is already ASCII-lowercased.
 /// Only lowercases `name`. Saves one allocation in the hot path.
 fn matches_wildmat_prefolded(name: &str, pattern_bytes: &[u8]) -> bool {
+    if !pattern_bytes.contains(&b'*') && !pattern_bytes.contains(&b'?') {
+        return name.len() == pattern_bytes.len()
+            && name
+                .as_bytes()
+                .iter()
+                .zip(pattern_bytes)
+                .all(|(a, b)| a.to_ascii_lowercase() == *b);
+    }
     let name = name.to_ascii_lowercase();
     wildmat_match(name.as_bytes(), pattern_bytes)
 }
