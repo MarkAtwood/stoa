@@ -4,8 +4,11 @@
 //! - [`validate_article_ingress`] — all structural checks for POST/IHAVE
 //! - [`check_duplicate`] — Message-ID deduplication against storage
 
+use std::sync::Arc;
+
 use crate::article::Article;
 use crate::error::{ProtocolError, ValidationError};
+use crate::wildmat::GroupFilter;
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -23,9 +26,11 @@ pub const MAX_NEWSGROUPS: usize = 100;
 pub struct ValidationConfig {
     /// Maximum article body size in bytes. Default: 1 MiB.
     pub max_article_bytes: usize,
-    /// If Some, only articles destined for these groups are accepted.
-    /// If None, all valid group names are accepted.
-    pub allowed_groups: Option<Vec<crate::article::GroupName>>,
+    /// If `Some`, an article is accepted only when at least one of its
+    /// `Newsgroups` entries matches the filter.  Wildmat patterns are
+    /// supported (e.g. `comp.*`, `!alt.*`).  If `None`, all valid group
+    /// names are accepted.
+    pub allowed_groups: Option<Arc<GroupFilter>>,
 }
 
 impl Default for ValidationConfig {
@@ -110,7 +115,7 @@ pub fn validate_message_id(id: &str) -> Result<(), ValidationError> {
 /// 2. Message-ID format valid: must match `<local@domain>` with no whitespace
 /// 3. Newsgroups not empty
 /// 4. All group names in Newsgroups are valid RFC 3977 group names
-/// 5. If `config.allowed_groups` is `Some`, all groups must be in the allowed set
+/// 5. If `config.allowed_groups` is `Some`, at least one group must match the filter
 /// 6. All header field values ≤ 998 bytes (RFC 5322 §2.1.1)
 /// 7. Article body size ≤ `config.max_article_bytes`
 pub fn validate_article_ingress(
@@ -163,14 +168,16 @@ pub fn validate_article_ingress(
         }
     }
 
-    // 5. If allowed_groups filter is active, all destination groups must be listed.
-    if let Some(ref allowed) = config.allowed_groups {
-        for group in &h.newsgroups {
-            if !allowed.contains(group) {
-                return Err(
-                    ValidationError::InvalidGroupInNewsgroups(group.as_str().into()).into(),
-                );
-            }
+    // 5. If allowed_groups filter is active, at least one destination group must
+    //    match.  A crossposted article is accepted if any of its groups passes
+    //    the filter; it is rejected only when none do.
+    if let Some(ref filter) = config.allowed_groups {
+        let any_match = h.newsgroups.iter().any(|g| filter.accepts(g.as_str()));
+        if !any_match {
+            return Err(ValidationError::InvalidGroupInNewsgroups(
+                "none of the article's groups match the configured filter".into(),
+            )
+            .into());
         }
     }
 
@@ -253,7 +260,9 @@ pub fn check_duplicate(message_id: &str, storage: &dyn MsgIdStorage) -> Result<(
 mod tests {
     use super::*;
     use crate::article::{Article, ArticleBody, ArticleHeader, GroupName};
+    use crate::wildmat::GroupFilter;
     use std::collections::HashSet;
+    use std::sync::Arc;
 
     struct InMemoryMsgIdStore(HashSet<String>);
     impl MsgIdStorage for InMemoryMsgIdStore {
@@ -495,17 +504,18 @@ mod tests {
         let article = make_valid_article();
         let config = ValidationConfig {
             max_article_bytes: 1024 * 1024,
-            allowed_groups: Some(vec![GroupName::new("comp.lang.rust").unwrap()]),
+            allowed_groups: Some(Arc::new(GroupFilter::new(&["comp.lang.rust"]).unwrap())),
         };
         assert!(validate_article_ingress(&article, &config).is_ok());
     }
 
     #[test]
     fn test_allowed_groups_rejects_non_member() {
-        let article = make_valid_article();
+        let article = make_valid_article(); // newsgroups: ["comp.lang.rust"]
         let config = ValidationConfig {
             max_article_bytes: 1024 * 1024,
-            allowed_groups: Some(vec![GroupName::new("alt.test").unwrap()]),
+            // filter only accepts alt.test — comp.lang.rust does not match
+            allowed_groups: Some(Arc::new(GroupFilter::new(&["alt.test"]).unwrap())),
         };
         let err = validate_article_ingress(&article, &config).unwrap_err();
         assert!(

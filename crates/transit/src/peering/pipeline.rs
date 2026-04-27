@@ -3,6 +3,7 @@
 //! After an article passes `check_ingest`, `run_pipeline` writes it to IPFS,
 //! records the Message-ID → CID mapping, and appends to each group log.
 
+use super::lmdb_store::LmdbStore;
 use async_trait::async_trait;
 use cid::Cid;
 use mail_auth::MessageAuthenticator;
@@ -15,17 +16,15 @@ use stoa_core::{
     article::GroupName,
     canonical::log_entry_canonical_bytes,
     group_log::{
-        append::append as crdt_append,
-        storage::LogStorage,
-        types::LogEntry,
+        append::append as crdt_append, storage::LogStorage, types::LogEntry,
         verify::verify_signature,
     },
     hlc::HlcTimestamp,
     msgid_map::MsgIdMap,
     signing::{sign, SigningKey},
+    wildmat::GroupFilter,
 };
 use stoa_verify::VerificationStore;
-use super::lmdb_store::LmdbStore;
 
 // ── IPFS abstraction ──────────────────────────────────────────────────────────
 
@@ -66,10 +65,7 @@ pub trait IpfsStore: Send + Sync {
     /// The default implementation signals that deletion is deferred — callers
     /// must not assume the block is gone until `get_raw` returns `None`.
     /// Override to provide backend-specific behaviour (e.g. Kubo `pin/rm`).
-    async fn delete(
-        &self,
-        _cid: &Cid,
-    ) -> Result<stoa_core::ipfs::DeletionOutcome, IpfsError> {
+    async fn delete(&self, _cid: &Cid) -> Result<stoa_core::ipfs::DeletionOutcome, IpfsError> {
         Ok(stoa_core::ipfs::DeletionOutcome::Deferred {
             readable_for_approx_secs: None,
         })
@@ -161,10 +157,7 @@ impl IpfsStore for KuboStore {
     }
 
     /// Unpin `cid` from Kubo. The block remains readable until `ipfs repo gc` runs.
-    async fn delete(
-        &self,
-        cid: &Cid,
-    ) -> Result<stoa_core::ipfs::DeletionOutcome, IpfsError> {
+    async fn delete(&self, cid: &Cid) -> Result<stoa_core::ipfs::DeletionOutcome, IpfsError> {
         self.client
             .pin_rm(cid)
             .await
@@ -254,6 +247,8 @@ pub struct PipelineCtx<'a> {
     pub trusted_keys: &'a [ed25519_dalek::VerifyingKey],
     /// DKIM authenticator. `None` disables DKIM checks.
     pub dkim_auth: Option<&'a MessageAuthenticator>,
+    /// Group filter. `None` accepts all groups (default-permit).
+    pub group_filter: Option<Arc<GroupFilter>>,
 }
 
 /// Result of running the store-and-forward pipeline.
@@ -395,6 +390,12 @@ where
                 continue;
             }
         };
+        if let Some(ref filter) = ctx.group_filter {
+            if !filter.accepts(group_name_str) {
+                tracing::debug!(group = %group_name_str, "skipped by group filter");
+                continue;
+            }
+        }
         // Genesis entry: no parent chain; peers reconcile via CRDT.
         let parent_cids: Vec<Cid> = vec![];
         let canonical = log_entry_canonical_bytes(ctx.timestamp.wall_ms, &cid, &parent_cids);
@@ -594,9 +595,7 @@ mod tests {
             .connect_with(opts)
             .await
             .unwrap();
-        stoa_core::migrations::run_migrations(&pool)
-            .await
-            .unwrap();
+        stoa_core::migrations::run_migrations(&pool).await.unwrap();
         (MsgIdMap::new(pool), tmp)
     }
 
@@ -620,6 +619,7 @@ mod tests {
             verify_store: None,
             trusted_keys: &[],
             dkim_auth: None,
+            group_filter: None,
         }
     }
 
@@ -939,6 +939,7 @@ mod tests {
             verify_store: Some(&verify_store),
             trusted_keys: &[verifying_key],
             dkim_auth: None,
+            group_filter: None,
         };
         let (pr, _metrics) = run_pipeline(&signed, &ipfs, &msgid_map, &storage, &transit_pool, ctx)
             .await
@@ -966,5 +967,379 @@ mod tests {
         let (_, sig_type, result) = pass_row.unwrap();
         assert_eq!(sig_type, "x-stoa-sig");
         assert_eq!(result, "pass");
+    }
+
+    fn make_ctx_with_filter(
+        key: Arc<SigningKey>,
+        ts: HlcTimestamp,
+        filter: Option<Arc<GroupFilter>>,
+    ) -> PipelineCtx<'static> {
+        PipelineCtx {
+            timestamp: ts,
+            operator_signing_key: key,
+            local_hostname: "local.test.example.com",
+            verify_store: None,
+            trusted_keys: &[],
+            dkim_auth: None,
+            group_filter: filter,
+        }
+    }
+
+    #[tokio::test]
+    async fn group_filter_accepts_matching_group() {
+        let ipfs = MemIpfsStore::new();
+        let (msgid_map, _tmp) = make_msgid_map().await;
+        let storage = stoa_core::group_log::MemLogStorage::new();
+        let transit_pool = make_transit_pool().await;
+        let key = Arc::new(make_signing_key());
+        let article = make_article("<gf-accept@example.com>", "comp.lang.rust");
+        let filter = Arc::new(GroupFilter::new(&["comp.*"]).expect("valid filter"));
+
+        let result = run_pipeline(
+            &article,
+            &ipfs,
+            &msgid_map,
+            &storage,
+            &transit_pool,
+            make_ctx_with_filter(key, make_timestamp(), Some(filter)),
+        )
+        .await;
+
+        assert!(result.is_ok(), "pipeline must succeed: {result:?}");
+        let (pr, _metrics) = result.unwrap();
+        assert!(
+            pr.groups.contains(&"comp.lang.rust".to_string()),
+            "comp.lang.rust must be in groups: {:?}",
+            pr.groups
+        );
+    }
+
+    #[tokio::test]
+    async fn group_filter_rejects_non_matching_group() {
+        let ipfs = MemIpfsStore::new();
+        let (msgid_map, _tmp) = make_msgid_map().await;
+        let storage = stoa_core::group_log::MemLogStorage::new();
+        let transit_pool = make_transit_pool().await;
+        let key = Arc::new(make_signing_key());
+        let article = make_article("<gf-reject@example.com>", "alt.test");
+        let filter = Arc::new(GroupFilter::new(&["comp.*"]).expect("valid filter"));
+
+        let result = run_pipeline(
+            &article,
+            &ipfs,
+            &msgid_map,
+            &storage,
+            &transit_pool,
+            make_ctx_with_filter(key, make_timestamp(), Some(filter)),
+        )
+        .await;
+
+        // Article is stored in IPFS (Ok), but no log entry for alt.test.
+        assert!(
+            result.is_ok(),
+            "pipeline must succeed even when group is filtered: {result:?}"
+        );
+        let (pr, _metrics) = result.unwrap();
+        assert!(
+            !pr.groups.contains(&"alt.test".to_string()),
+            "alt.test must NOT be in groups when filtered out: {:?}",
+            pr.groups
+        );
+    }
+
+    #[tokio::test]
+    async fn group_filter_negation_excludes() {
+        let ipfs = MemIpfsStore::new();
+        let (msgid_map, _tmp) = make_msgid_map().await;
+        let storage = stoa_core::group_log::MemLogStorage::new();
+        let transit_pool = make_transit_pool().await;
+        let key = Arc::new(make_signing_key());
+        let article = make_article("<gf-neg-excl@example.com>", "alt.binaries.pictures");
+        let filter = Arc::new(
+            GroupFilter::new(&["comp.*", "sci.*", "!alt.binaries.*", "alt.test"])
+                .expect("valid filter"),
+        );
+
+        let result = run_pipeline(
+            &article,
+            &ipfs,
+            &msgid_map,
+            &storage,
+            &transit_pool,
+            make_ctx_with_filter(key, make_timestamp(), Some(filter)),
+        )
+        .await;
+
+        assert!(result.is_ok(), "pipeline must succeed: {result:?}");
+        let (pr, _metrics) = result.unwrap();
+        assert!(
+            !pr.groups.contains(&"alt.binaries.pictures".to_string()),
+            "alt.binaries.pictures must NOT be in groups due to negation: {:?}",
+            pr.groups
+        );
+    }
+
+    #[tokio::test]
+    async fn group_filter_negation_accepts_exact() {
+        let ipfs = MemIpfsStore::new();
+        let (msgid_map, _tmp) = make_msgid_map().await;
+        let storage = stoa_core::group_log::MemLogStorage::new();
+        let transit_pool = make_transit_pool().await;
+        let key = Arc::new(make_signing_key());
+        let article = make_article("<gf-neg-accept@example.com>", "alt.test");
+        let filter = Arc::new(
+            GroupFilter::new(&["comp.*", "sci.*", "!alt.binaries.*", "alt.test"])
+                .expect("valid filter"),
+        );
+
+        let result = run_pipeline(
+            &article,
+            &ipfs,
+            &msgid_map,
+            &storage,
+            &transit_pool,
+            make_ctx_with_filter(key, make_timestamp(), Some(filter)),
+        )
+        .await;
+
+        assert!(result.is_ok(), "pipeline must succeed: {result:?}");
+        let (pr, _metrics) = result.unwrap();
+        assert!(
+            pr.groups.contains(&"alt.test".to_string()),
+            "alt.test must be in groups (explicit positive match): {:?}",
+            pr.groups
+        );
+    }
+
+    #[tokio::test]
+    async fn group_filter_no_filter_accepts_all() {
+        let ipfs = MemIpfsStore::new();
+        let (msgid_map, _tmp) = make_msgid_map().await;
+        let storage = stoa_core::group_log::MemLogStorage::new();
+        let transit_pool = make_transit_pool().await;
+        let key = Arc::new(make_signing_key());
+        let article = make_article("<gf-no-filter@example.com>", "alt.test");
+
+        let result = run_pipeline(
+            &article,
+            &ipfs,
+            &msgid_map,
+            &storage,
+            &transit_pool,
+            make_ctx(key, make_timestamp()),
+        )
+        .await;
+
+        assert!(
+            result.is_ok(),
+            "pipeline must succeed with no filter: {result:?}"
+        );
+        let (pr, _metrics) = result.unwrap();
+        assert!(
+            pr.groups.contains(&"alt.test".to_string()),
+            "alt.test must be accepted when group_filter is None: {:?}",
+            pr.groups
+        );
+    }
+
+    #[tokio::test]
+    async fn group_filter_crosspost_partial_match() {
+        let ipfs = MemIpfsStore::new();
+        let (msgid_map, _tmp) = make_msgid_map().await;
+        let storage = stoa_core::group_log::MemLogStorage::new();
+        let transit_pool = make_transit_pool().await;
+        let key = Arc::new(make_signing_key());
+        let article = make_article("<gf-crosspost@example.com>", "comp.lang.rust,alt.test");
+        let filter = Arc::new(GroupFilter::new(&["comp.*"]).expect("valid filter"));
+
+        let result = run_pipeline(
+            &article,
+            &ipfs,
+            &msgid_map,
+            &storage,
+            &transit_pool,
+            make_ctx_with_filter(key, make_timestamp(), Some(filter)),
+        )
+        .await;
+
+        assert!(
+            result.is_ok(),
+            "pipeline must succeed for crosspost: {result:?}"
+        );
+        let (pr, _metrics) = result.unwrap();
+        assert!(
+            pr.groups.contains(&"comp.lang.rust".to_string()),
+            "comp.lang.rust must be in groups: {:?}",
+            pr.groups
+        );
+        assert!(
+            !pr.groups.contains(&"alt.test".to_string()),
+            "alt.test must NOT be in groups when filtered out: {:?}",
+            pr.groups
+        );
+    }
+
+    /// Build an [`Article`] struct suitable for passing to
+    /// [`validate_article_ingress`].  All mandatory RFC 5536 headers are
+    /// populated with valid placeholder values; only `newsgroups` and
+    /// `message_id` vary per test case.
+    fn make_article_struct(msgid: &str, newsgroup: &str) -> stoa_core::article::Article {
+        use stoa_core::article::{Article, ArticleBody, ArticleHeader, GroupName};
+        Article {
+            header: ArticleHeader {
+                from: "sender@example.com".into(),
+                date: "Mon, 01 Jan 2024 00:00:00 +0000".into(),
+                message_id: msgid.into(),
+                newsgroups: vec![GroupName::new(newsgroup).expect("valid group name")],
+                subject: "Test Article".into(),
+                path: "local.test.example.com!not-for-mail".into(),
+                extra_headers: vec![],
+            },
+            body: ArticleBody::from_text("This is the body.\r\n"),
+        }
+    }
+
+    /// End-to-end acceptance-criteria test for wildmat group filtering.
+    ///
+    /// Oracle: epic acceptance criteria (stoa bead usenet-ipfs-whss.8).
+    /// Filter: ["comp.*", "sci.*", "!alt.binaries.*", "alt.test"]
+    ///
+    /// Article A  comp.lang.rust       → accepted  (comp.* matches)
+    /// Article B  sci.math             → accepted  (sci.* matches)
+    /// Article C  alt.binaries.pictures → rejected  (!alt.binaries.* negation)
+    /// Article D  alt.test             → accepted  (exact match)
+    /// Article E  rec.humor            → rejected  (no pattern matches)
+    #[tokio::test]
+    async fn e2e_wildmat_group_filter_acceptance_criteria() {
+        use stoa_core::validation::{validate_article_ingress, ValidationConfig};
+
+        let patterns = ["comp.*", "sci.*", "!alt.binaries.*", "alt.test"];
+        let filter = Arc::new(GroupFilter::new(&patterns).expect("valid filter"));
+
+        let val_config = ValidationConfig {
+            max_article_bytes: 1024 * 1024,
+            allowed_groups: Some(Arc::clone(&filter)),
+        };
+
+        let transit_pool = make_transit_pool().await;
+        let (msgid_map, _tmp) = make_msgid_map().await;
+        let storage = stoa_core::group_log::MemLogStorage::new();
+        let key = Arc::new(make_signing_key());
+
+        // ── Article A: comp.lang.rust → accepted ─────────────────────────────
+        {
+            let article_struct = make_article_struct("<a@e2e.test>", "comp.lang.rust");
+            let result = validate_article_ingress(&article_struct, &val_config);
+            assert!(
+                result.is_ok(),
+                "Article A (comp.lang.rust) must pass validation: {result:?}"
+            );
+
+            let ipfs = MemIpfsStore::new();
+            let article_bytes = make_article("<a@e2e.test>", "comp.lang.rust");
+            let (pr, _metrics) = run_pipeline(
+                &article_bytes,
+                &ipfs,
+                &msgid_map,
+                &storage,
+                &transit_pool,
+                make_ctx_with_filter(
+                    Arc::clone(&key),
+                    make_timestamp(),
+                    Some(Arc::clone(&filter)),
+                ),
+            )
+            .await
+            .expect("Article A pipeline must succeed");
+            assert!(
+                pr.groups.contains(&"comp.lang.rust".to_string()),
+                "Article A: comp.lang.rust must be in groups: {:?}",
+                pr.groups
+            );
+        }
+
+        // ── Article B: sci.math → accepted ───────────────────────────────────
+        {
+            let article_struct = make_article_struct("<b@e2e.test>", "sci.math");
+            let result = validate_article_ingress(&article_struct, &val_config);
+            assert!(
+                result.is_ok(),
+                "Article B (sci.math) must pass validation: {result:?}"
+            );
+
+            let ipfs = MemIpfsStore::new();
+            let article_bytes = make_article("<b@e2e.test>", "sci.math");
+            let (pr, _metrics) = run_pipeline(
+                &article_bytes,
+                &ipfs,
+                &msgid_map,
+                &storage,
+                &transit_pool,
+                make_ctx_with_filter(
+                    Arc::clone(&key),
+                    make_timestamp(),
+                    Some(Arc::clone(&filter)),
+                ),
+            )
+            .await
+            .expect("Article B pipeline must succeed");
+            assert!(
+                pr.groups.contains(&"sci.math".to_string()),
+                "Article B: sci.math must be in groups: {:?}",
+                pr.groups
+            );
+        }
+
+        // ── Article C: alt.binaries.pictures → rejected (!alt.binaries.*) ────
+        {
+            let article_struct = make_article_struct("<c@e2e.test>", "alt.binaries.pictures");
+            let result = validate_article_ingress(&article_struct, &val_config);
+            assert!(
+                result.is_err(),
+                "Article C (alt.binaries.pictures) must be rejected by validate_article_ingress"
+            );
+        }
+
+        // ── Article D: alt.test → accepted (exact match) ─────────────────────
+        {
+            let article_struct = make_article_struct("<d@e2e.test>", "alt.test");
+            let result = validate_article_ingress(&article_struct, &val_config);
+            assert!(
+                result.is_ok(),
+                "Article D (alt.test) must pass validation: {result:?}"
+            );
+
+            let ipfs = MemIpfsStore::new();
+            let article_bytes = make_article("<d@e2e.test>", "alt.test");
+            let (pr, _metrics) = run_pipeline(
+                &article_bytes,
+                &ipfs,
+                &msgid_map,
+                &storage,
+                &transit_pool,
+                make_ctx_with_filter(
+                    Arc::clone(&key),
+                    make_timestamp(),
+                    Some(Arc::clone(&filter)),
+                ),
+            )
+            .await
+            .expect("Article D pipeline must succeed");
+            assert!(
+                pr.groups.contains(&"alt.test".to_string()),
+                "Article D: alt.test must be in groups: {:?}",
+                pr.groups
+            );
+        }
+
+        // ── Article E: rec.humor → rejected (no pattern matches) ─────────────
+        {
+            let article_struct = make_article_struct("<e@e2e.test>", "rec.humor");
+            let result = validate_article_ingress(&article_struct, &val_config);
+            assert!(
+                result.is_err(),
+                "Article E (rec.humor) must be rejected by validate_article_ingress"
+            );
+        }
     }
 }

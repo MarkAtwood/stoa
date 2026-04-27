@@ -15,6 +15,7 @@ pub mod rate_limiter;
 pub mod signing;
 pub mod util;
 pub mod validation;
+pub mod wildmat;
 
 pub use article::{Article, ArticleBody, ArticleHeader, GroupName};
 pub use error::{

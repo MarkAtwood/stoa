@@ -1,4 +1,5 @@
 use crate::session::response::Response;
+use stoa_core::wildmat::matches_wildmat;
 
 /// Information about a single newsgroup, passed to LIST handlers.
 pub struct GroupInfo {
@@ -7,58 +8,6 @@ pub struct GroupInfo {
     pub low: u64,
     pub posting_allowed: bool,
     pub description: String,
-}
-
-/// Returns true if `name` matches `pattern` using wildmat rules:
-/// `*` matches any sequence of characters, `?` matches any single character.
-/// Comparison is case-insensitive.
-pub fn matches_wildmat(name: &str, pattern: &str) -> bool {
-    let name = name.to_ascii_lowercase();
-    let pattern = pattern.to_ascii_lowercase();
-    wildmat_match(name.as_bytes(), pattern.as_bytes())
-}
-
-/// Iterative DP wildmat matching — O(text.len() * pattern.len()) time and space.
-///
-/// `dp[i][j]` is true when `text[..i]` matches `pattern[..j]`.
-/// This avoids the exponential blowup of recursive backtracking on patterns
-/// like `*a*a*a*a*a` matched against long strings of 'a' that end with a
-/// non-matching character.
-fn wildmat_match(text: &[u8], pattern: &[u8]) -> bool {
-    let m = text.len();
-    let n = pattern.len();
-
-    // dp[i][j]: text[..i] matches pattern[..j]
-    let mut dp = vec![vec![false; n + 1]; m + 1];
-    dp[0][0] = true;
-
-    // A run of leading stars can match the empty prefix.
-    for j in 1..=n {
-        if pattern[j - 1] == b'*' {
-            dp[0][j] = dp[0][j - 1];
-        } else {
-            break;
-        }
-    }
-
-    for i in 1..=m {
-        for j in 1..=n {
-            match pattern[j - 1] {
-                b'*' => {
-                    // Star matches zero chars (dp[i][j-1]) or one more char (dp[i-1][j]).
-                    dp[i][j] = dp[i][j - 1] || dp[i - 1][j];
-                }
-                b'?' => {
-                    dp[i][j] = dp[i - 1][j - 1];
-                }
-                pc => {
-                    dp[i][j] = dp[i - 1][j - 1] && text[i - 1] == pc;
-                }
-            }
-        }
-    }
-
-    dp[m][n]
 }
 
 /// LIST ACTIVE [wildmat]: returns one line per matching group.
@@ -300,61 +249,5 @@ mod tests {
         assert_eq!(info.low, 1);
         assert!(info.posting_allowed);
         assert_eq!(info.description, "Rust programming language");
-    }
-
-    // ---- matches_wildmat ----
-
-    #[test]
-    fn wildmat_star_matches_hierarchy() {
-        assert!(matches_wildmat("comp.lang.rust", "comp.*"));
-        assert!(!matches_wildmat("alt.test", "comp.*"));
-    }
-
-    #[test]
-    fn wildmat_question_mark() {
-        assert!(matches_wildmat("alt.x", "alt.?"));
-        assert!(!matches_wildmat("alt.xy", "alt.?"));
-    }
-
-    #[test]
-    fn wildmat_case_insensitive() {
-        assert!(matches_wildmat("COMP.LANG.RUST", "comp.*"));
-        assert!(matches_wildmat("comp.lang.rust", "COMP.*"));
-    }
-
-    #[test]
-    fn wildmat_exact_match() {
-        assert!(matches_wildmat("alt.test", "alt.test"));
-        assert!(!matches_wildmat("alt.test2", "alt.test"));
-    }
-
-    #[test]
-    fn wildmat_star_only() {
-        assert!(matches_wildmat("anything.goes", "*"));
-        assert!(matches_wildmat("", "*"));
-    }
-
-    /// Adversarial pattern that causes exponential backtracking in a recursive
-    /// implementation but runs in O(n*m) with the iterative DP approach.
-    ///
-    /// Pattern `*a*a*a*a*a*a*a*a*a` (no trailing star) cannot match a string
-    /// of 'a's followed by 'b' because the pattern requires the last character
-    /// to be 'a'.  A recursive matcher must exhaust all 2^18 backtracking paths
-    /// before determining this; the DP table fills in O(19 * 20) = O(380) steps.
-    #[test]
-    fn wildmat_no_catastrophic_backtracking() {
-        let pattern = "*a*a*a*a*a*a*a*a*a"; // ends with literal 'a', not '*'
-        let text = "aaaaaaaaaaaaaaaaaab"; // 18 'a's then 'b' — never matches
-
-        let start = std::time::Instant::now();
-        let result = matches_wildmat(text, pattern);
-        let elapsed = start.elapsed();
-
-        assert!(!result, "pattern must not match text ending in 'b'");
-        assert!(
-            elapsed.as_millis() < 100,
-            "wildmat must complete in <100 ms; took {}ms",
-            elapsed.as_millis()
-        );
     }
 }

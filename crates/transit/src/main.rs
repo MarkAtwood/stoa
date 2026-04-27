@@ -6,12 +6,8 @@ use std::{
 
 use mail_auth::MessageAuthenticator;
 use rand_core::OsRng;
-use tokio::{net::TcpListener, sync::Mutex};
-use tracing::{info, warn};
 use stoa_core::{
-    group_log::SqliteLogStorage,
-    hlc::HlcClock,
-    msgid_map::MsgIdMap,
+    group_log::SqliteLogStorage, hlc::HlcClock, msgid_map::MsgIdMap, wildmat::GroupFilter,
 };
 use stoa_transit::{
     admin::start_admin_server,
@@ -32,6 +28,8 @@ use stoa_transit::{
     staging::StagingStore,
 };
 use stoa_verify::VerificationStore;
+use tokio::{net::TcpListener, sync::Mutex};
+use tracing::{info, warn};
 
 fn parse_args() -> (PathBuf, bool) {
     let args: Vec<String> = std::env::args().collect();
@@ -149,9 +147,7 @@ async fn run_startup_checks(config: &stoa_transit::config::Config) -> Vec<String
         // For secretx: URIs, validate URI syntax here; resolution happens at startup.
         if tls_cfg.key_path.starts_with("secretx:") {
             if let Err(e) = secretx::from_uri(&tls_cfg.key_path) {
-                errors.push(format!(
-                    "tls.key_path: invalid secretx URI: {e}"
-                ));
+                errors.push(format!("tls.key_path: invalid secretx URI: {e}"));
             }
         } else if let Err(e) = std::fs::read(&tls_cfg.key_path) {
             errors.push(format!("TLS file unreadable: {}: {e}", tls_cfg.key_path));
@@ -163,7 +159,9 @@ async fn run_startup_checks(config: &stoa_transit::config::Config) -> Vec<String
         if path.starts_with("secretx:") {
             // Validate URI syntax; retrieval and byte validation happen at load time.
             if let Err(e) = secretx::from_uri(path) {
-                errors.push(format!("operator.signing_key_path: invalid secretx URI: {e}"));
+                errors.push(format!(
+                    "operator.signing_key_path: invalid secretx URI: {e}"
+                ));
             }
         } else if let Err(e) = stoa_core::signing::load_signing_key(std::path::Path::new(path)) {
             errors.push(e.to_string());
@@ -286,6 +284,16 @@ async fn main() {
         std::process::exit(0);
     }
 
+    // Build group filter from config. Empty names list means accept all groups.
+    let group_filter: Option<Arc<GroupFilter>> = if config.groups.names.is_empty() {
+        None
+    } else {
+        Some(Arc::new(
+            GroupFilter::new(&config.groups.names)
+                .expect("config already validated group patterns"),
+        ))
+    };
+
     info!(
         listen_addr = %config.listen.addr,
         peer_count = config.peers.addresses.len() + config.peers.peer.len(),
@@ -376,8 +384,7 @@ async fn main() {
     } else {
         None
     };
-    let mut ipfs_store: Arc<dyn stoa_transit::peering::pipeline::IpfsStore> =
-        build_result.store;
+    let mut ipfs_store: Arc<dyn stoa_transit::peering::pipeline::IpfsStore> = build_result.store;
 
     // ── Block cache (optional) ─────────────────────────────────────────────────
 
@@ -461,9 +468,7 @@ async fn main() {
             let secret = match store.get().await {
                 Ok(v) => v,
                 Err(e) => {
-                    eprintln!(
-                        "error: operator.signing_key_path: secretx retrieval failed: {e}"
-                    );
+                    eprintln!("error: operator.signing_key_path: secretx retrieval failed: {e}");
                     std::process::exit(1);
                 }
             };
@@ -478,18 +483,16 @@ async fn main() {
                 }
             }
         }
-        Some(path) => {
-            match stoa_core::signing::load_signing_key(std::path::Path::new(path)) {
-                Ok(k) => {
-                    info!(path, "loaded operator signing key");
-                    k
-                }
-                Err(e) => {
-                    eprintln!("error: cannot load operator signing key from '{path}': {e}");
-                    std::process::exit(1);
-                }
+        Some(path) => match stoa_core::signing::load_signing_key(std::path::Path::new(path)) {
+            Ok(k) => {
+                info!(path, "loaded operator signing key");
+                k
             }
-        }
+            Err(e) => {
+                eprintln!("error: cannot load operator signing key from '{path}': {e}");
+                std::process::exit(1);
+            }
+        },
         None => {
             warn!(
                 "operator.signing_key_path not set — using ephemeral key; \
@@ -672,13 +675,23 @@ async fn main() {
 
     // ── Pipeline drain task ───────────────────────────────────────────────────
 
-    // Extract (service_name, groups) pairs for the pipeline hook.
+    // Extract (service_name, filter) pairs for the pipeline hook.
     // Avoids moving the full config (with PinningApiKey) into the async closure.
-    let pin_service_filters: Vec<(String, Vec<String>)> = config
+    // GroupFilter patterns were validated in Config::validate(), so expect() cannot fail.
+    let pin_service_filters: Vec<(String, Option<Arc<GroupFilter>>)> = config
         .pinning
         .external_services
         .iter()
-        .map(|s| (s.name.clone(), s.groups.clone()))
+        .map(|svc| {
+            let filter = if svc.groups.is_empty() {
+                None
+            } else {
+                Some(Arc::new(GroupFilter::new(&svc.groups).expect(
+                    "config already validated pin service group patterns",
+                )))
+            };
+            (svc.name.clone(), filter)
+        })
         .collect();
 
     // Pre-clone values that both drain tasks need.  String::clone is a heap copy.
@@ -687,6 +700,7 @@ async fn main() {
     let pin_service_filters_staging = pin_service_filters.clone();
     let verification_store_staging = Arc::clone(&verification_store);
     let dkim_authenticator_staging = Arc::clone(&dkim_authenticator);
+    let group_filter_staging = group_filter.clone();
     // trusted_keys is moved into PeeringShared; clone for drain tasks before that.
     let trusted_keys_drain = shared.trusted_keys.clone();
     let trusted_keys_staging = shared.trusted_keys.clone();
@@ -709,6 +723,7 @@ async fn main() {
         let verification_store_drain = Arc::clone(&verification_store);
         let dkim_authenticator_drain = Arc::clone(&dkim_authenticator);
         let trusted_keys_for_drain = trusted_keys_drain;
+        let group_filter_drain = group_filter.clone();
 
         tokio::spawn(async move {
             while let Some(article) = ingestion_receiver.recv().await {
@@ -726,6 +741,7 @@ async fn main() {
                     verify_store: Some(&verification_store_drain),
                     trusted_keys: &trusted_keys_for_drain,
                     dkim_auth: Some(&dkim_authenticator_drain),
+                    group_filter: group_filter_drain.clone(),
                 };
                 match run_pipeline(
                     &article.bytes,
@@ -760,11 +776,11 @@ async fn main() {
                         // Enqueue for external pinning services whose group filter matches.
                         if !pin_service_filters.is_empty() {
                             let cid_str = result.cid.to_string();
-                            for (svc_name, svc_groups) in &pin_service_filters {
-                                let should_pin = svc_groups.is_empty()
-                                    || result.groups.iter().any(|g| {
-                                        svc_groups.iter().any(|p| group_matches_pattern(g, p))
-                                    });
+                            for (svc_name, filter) in &pin_service_filters {
+                                let should_pin = match filter {
+                                    None => true, // no filter = accept all groups
+                                    Some(f) => result.groups.iter().any(|g| f.accepts(g)),
+                                };
                                 if should_pin {
                                     if let Err(e) = sqlx::query(
                                         "INSERT OR IGNORE INTO remote_pin_jobs \
@@ -826,6 +842,7 @@ async fn main() {
         let verification_store_drain = verification_store_staging;
         let dkim_authenticator_drain = dkim_authenticator_staging;
         let trusted_keys_for_drain = trusted_keys_staging;
+        let group_filter_drain = group_filter_staging;
 
         staging_drain_opt = Some(tokio::spawn(async move {
             loop {
@@ -849,6 +866,7 @@ async fn main() {
                             verify_store: Some(&verification_store_drain),
                             trusted_keys: &trusted_keys_for_drain,
                             dkim_auth: Some(&dkim_authenticator_drain),
+                            group_filter: group_filter_drain.clone(),
                         };
                         match run_pipeline(
                             &article.bytes,
@@ -883,13 +901,11 @@ async fn main() {
                                 }
                                 if !pin_service_filters.is_empty() {
                                     let cid_str = result.cid.to_string();
-                                    for (svc_name, svc_groups) in &pin_service_filters {
-                                        let should_pin = svc_groups.is_empty()
-                                            || result.groups.iter().any(|g| {
-                                                svc_groups
-                                                    .iter()
-                                                    .any(|p| group_matches_pattern(g, p))
-                                            });
+                                    for (svc_name, filter) in &pin_service_filters {
+                                        let should_pin = match filter {
+                                            None => true, // no filter = accept all groups
+                                            Some(f) => result.groups.iter().any(|g| f.accepts(g)),
+                                        };
                                         if should_pin {
                                             if let Err(e) = sqlx::query(
                                                 "INSERT OR IGNORE INTO remote_pin_jobs \
@@ -951,8 +967,7 @@ async fn main() {
     match config.admin.addr.parse::<std::net::SocketAddr>() {
         Ok(admin_addr) => {
             let admin_bearer_token =
-                resolve_secret_uri(config.admin.bearer_token.clone(), "admin.bearer_token")
-                    .await;
+                resolve_secret_uri(config.admin.bearer_token.clone(), "admin.bearer_token").await;
             if let Err(e) = start_admin_server(
                 admin_addr,
                 Arc::clone(&transit_pool),
@@ -1077,20 +1092,6 @@ async fn open_pool(path: &str, pool_size: u32) -> sqlx::SqlitePool {
             eprintln!("error: failed to open database '{path}': {e}");
             std::process::exit(1);
         }
-    }
-}
-
-/// Return true if `group` matches the newsgroup glob `pattern`.
-///
-/// Rules:
-/// - If `pattern` ends with `*`, it matches any group that starts with the
-///   prefix before `*`. Example: `"comp.*"` matches `"comp.lang.rust"`.
-/// - Otherwise, exact match only.
-fn group_matches_pattern(group: &str, pattern: &str) -> bool {
-    if let Some(prefix) = pattern.strip_suffix('*') {
-        group.starts_with(prefix)
-    } else {
-        group == pattern
     }
 }
 

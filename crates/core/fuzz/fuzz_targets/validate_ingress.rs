@@ -1,9 +1,12 @@
 #![no_main]
 
+use std::sync::Arc;
+
 use libfuzzer_sys::fuzz_target;
 use stoa_core::{
     article::{Article, ArticleBody, ArticleHeader, GroupName},
     validation::{validate_article_ingress, ValidationConfig},
+    wildmat::GroupFilter,
 };
 
 fuzz_target!(|data: &[u8]| {
@@ -46,12 +49,11 @@ fuzz_target!(|data: &[u8]| {
 
     // Use a non-None allowed_groups so that both error paths are reachable:
     // - InvalidGroupInNewsgroups from step 4 (invalid group name format)
-    // - InvalidGroupInNewsgroups from step 5 (group not in allowed set)
+    // - InvalidGroupInNewsgroups from step 5 (no group matched the filter)
     let config = ValidationConfig {
-        allowed_groups: Some(vec![
-            GroupName::new("comp.lang.rust").unwrap(),
-            GroupName::new("alt.test").unwrap(),
-        ]),
+        allowed_groups: Some(Arc::new(
+            GroupFilter::new(&["comp.lang.rust", "alt.test"]).unwrap(),
+        )),
         ..ValidationConfig::default()
     };
 

@@ -5,6 +5,7 @@ use crate::block_cache::CacheConfig;
 use crate::retention::policy::{PinPolicy, PolicyValidationError};
 use crate::retention::remote_pin_client::PinningApiKey;
 use crate::staging::StagingConfig;
+use stoa_core::wildmat::GroupFilter;
 
 // ── Backend config (pluggable block store) ────────────────────────────────────
 
@@ -576,7 +577,11 @@ impl Config {
             ));
         }
         for name in &self.groups.names {
-            validate_group_name(name)?;
+            validate_group_pattern(name)?;
+        }
+        if !self.groups.names.is_empty() {
+            GroupFilter::new(&self.groups.names)
+                .map_err(|e| ConfigError::Validation(e.to_string()))?;
         }
         for peer in &self.peers.peer {
             if peer.tls && peer.cert_sha256.is_none() {
@@ -624,6 +629,22 @@ impl Config {
                     "pinning.external_services '{}': max_attempts must be ≥ 1",
                     svc.name
                 )));
+            }
+            for pattern in &svc.groups {
+                validate_group_pattern(pattern).map_err(|e| {
+                    ConfigError::Validation(format!(
+                        "external pin service '{}' groups: {}",
+                        svc.name, e
+                    ))
+                })?;
+            }
+            if !svc.groups.is_empty() {
+                GroupFilter::new(&svc.groups).map_err(|e| {
+                    ConfigError::Validation(format!(
+                        "external pin service '{}' groups: {}",
+                        svc.name, e
+                    ))
+                })?;
             }
         }
 
@@ -678,28 +699,31 @@ pub fn check_admin_addr(admin: &AdminConfig) -> Result<(), String> {
     }
 }
 
-/// Validates that a group name conforms to RFC 3977 syntax.
-/// Group names consist of dot-separated components, each component
-/// containing only lowercase letters, digits, '+', '-', and '_'.
-fn validate_group_name(name: &str) -> Result<(), ConfigError> {
-    if name.is_empty() {
-        return Err(ConfigError::Validation(
-            "group name must not be empty".into(),
-        ));
+/// Validates that a wildmat group pattern in `GroupsConfig::names` is syntactically
+/// valid.  Accepts an optional leading `!` (negation prefix) followed by a non-empty
+/// sequence of `[a-z0-9+\-_.?*]` characters with no consecutive dots.
+///
+/// This is intentionally more permissive than `validate_group_name`: wildcards
+/// (`*`, `?`) and the negation prefix are valid here because the value is a filter
+/// pattern rather than an article newsgroup name.
+fn validate_group_pattern(s: &str) -> Result<(), ConfigError> {
+    let bare = s.strip_prefix('!').unwrap_or(s);
+    if bare.is_empty() {
+        return Err(ConfigError::Validation(format!(
+            "group pattern '{s}' has an empty bare pattern after stripping '!'"
+        )));
     }
-    for component in name.split('.') {
-        if component.is_empty() {
+    for ch in bare.chars() {
+        if !matches!(ch, 'a'..='z' | '0'..='9' | '+' | '-' | '_' | '.' | '*' | '?') {
             return Err(ConfigError::Validation(format!(
-                "group name '{name}' has an empty component"
+                "group pattern '{s}' contains invalid character '{ch}'"
             )));
         }
-        for ch in component.chars() {
-            if !matches!(ch, 'a'..='z' | '0'..='9' | '+' | '-' | '_') {
-                return Err(ConfigError::Validation(format!(
-                    "group name '{name}' contains invalid character '{ch}'"
-                )));
-            }
-        }
+    }
+    if bare.contains("..") {
+        return Err(ConfigError::Validation(format!(
+            "group pattern '{s}' contains consecutive dots"
+        )));
     }
     Ok(())
 }
@@ -1354,6 +1378,70 @@ max_age_days = 30
         );
     }
 
+    /// Wildmat patterns (with * and ?) are accepted in groups.names.
+    #[test]
+    fn wildmat_pattern_in_groups_names_is_valid() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = ["comp.*", "!comp.lang.fortran", "alt.?est"]
+
+[ipfs]
+api_url = "http://127.0.0.1:5001"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        Config::from_file(f.path()).expect("wildmat patterns must be valid");
+    }
+
+    /// A groups.names list consisting entirely of negated patterns is rejected.
+    #[test]
+    fn all_negation_groups_names_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = ["!comp.lang.rust", "!alt.test"]
+
+[ipfs]
+api_url = "http://127.0.0.1:5001"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path()).expect_err("all-negation filter must fail");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+        if let ConfigError::Validation(msg) = err {
+            assert!(
+                msg.contains("non-negated"),
+                "error message must mention non-negated pattern, got: {msg}"
+            );
+        }
+    }
+
     /// Missing both [backend] and [ipfs] is a validation error.
     #[test]
     fn missing_both_backend_and_ipfs_is_validation_error() {
@@ -1379,6 +1467,216 @@ max_age_days = 30
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
+        );
+    }
+
+    // ── GroupFilter wildmat semantics tests (RFC 3977 §4.1 oracle) ────────────
+
+    /// RFC 3977 §4.1: `?` matches exactly one character.
+    #[test]
+    fn group_filter_question_mark_matches_one_char() {
+        let f = GroupFilter::new(&["comp.lang.?"]).unwrap();
+        assert!(
+            !f.accepts("comp.lang.rust"),
+            "comp.lang.? must not match comp.lang.rust (4 chars, not 1)"
+        );
+        assert!(
+            f.accepts("comp.lang.c"),
+            "comp.lang.? must match comp.lang.c (exactly 1 suffix char)"
+        );
+    }
+
+    /// RFC 3977 §4.1: `?` matches exactly one character.
+    #[test]
+    fn group_filter_question_mark_single_char_suffix() {
+        let f = GroupFilter::new(&["alt.?"]).unwrap();
+        assert!(f.accepts("alt.x"), "alt.? must match alt.x");
+        assert!(
+            !f.accepts("alt.xy"),
+            "alt.? must not match alt.xy (2 chars)"
+        );
+    }
+
+    /// RFC 3977 §4.1: `*` matches any sequence including dots, even mid-pattern.
+    #[test]
+    fn group_filter_mid_string_star_matches() {
+        let f = GroupFilter::new(&["comp.*.rust"]).unwrap();
+        assert!(
+            f.accepts("comp.lang.rust"),
+            "comp.*.rust must match comp.lang.rust"
+        );
+        assert!(
+            !f.accepts("comp.lang.python"),
+            "comp.*.rust must not match comp.lang.python"
+        );
+    }
+
+    /// RFC 3977 §4.1: `!` prefix negates; first-match-wins.
+    #[test]
+    fn group_filter_negation_excludes_before_positive() {
+        let f = GroupFilter::new(&["!alt.binaries.*", "alt.*"]).unwrap();
+        assert!(
+            !f.accepts("alt.binaries.pictures"),
+            "!alt.binaries.* must reject alt.binaries.pictures before alt.* fires"
+        );
+        assert!(
+            f.accepts("alt.test"),
+            "alt.* must accept alt.test (negation pattern does not fire)"
+        );
+    }
+
+    /// RFC 3977 §4.1: comparison is case-insensitive (uppercase name).
+    #[test]
+    fn group_filter_case_insensitive_name_matches_lowercase_pattern() {
+        let f = GroupFilter::new(&["comp.*"]).unwrap();
+        assert!(
+            f.accepts("COMP.LANG.RUST"),
+            "comp.* must match COMP.LANG.RUST (case-insensitive per RFC 3977 §4.1)"
+        );
+    }
+
+    /// RFC 3977 §4.1: comparison is case-insensitive (uppercase pattern).
+    #[test]
+    fn group_filter_case_insensitive_pattern_matches_lowercase_name() {
+        let f = GroupFilter::new(&["COMP.*"]).unwrap();
+        assert!(
+            f.accepts("comp.lang.rust"),
+            "COMP.* must match comp.lang.rust (case-insensitive)"
+        );
+    }
+
+    /// Empty groups list in external pin service must validate successfully
+    /// (accept-all case, no GroupFilter constructed).
+    #[test]
+    fn external_pin_service_empty_groups_accepts_all() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[ipfs]
+api_url = "http://127.0.0.1:5001"
+
+[pinning]
+rules = ["pin-all"]
+
+[[pinning.external_services]]
+name = "pinata"
+endpoint = "https://api.pinata.cloud/psa"
+api_key = "secretx://env/PINATA_TOKEN"
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("empty groups must be valid (accept all)");
+        let svc = &cfg.pinning.external_services[0];
+        assert!(
+            svc.groups.is_empty(),
+            "groups must be empty to trigger accept-all path"
+        );
+    }
+
+    /// Invalid wildmat character in ExternalPinServiceConfig::groups must
+    /// be rejected at config validation time.
+    #[test]
+    fn external_pin_service_invalid_group_pattern_rejected() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[ipfs]
+api_url = "http://127.0.0.1:5001"
+
+[pinning]
+rules = ["pin-all"]
+
+[[pinning.external_services]]
+name = "pinata"
+endpoint = "https://api.pinata.cloud/psa"
+api_key = "secretx://env/PINATA_TOKEN"
+groups = ["comp.@invalid"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("invalid pattern character must fail config validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// All-negation groups in external pin service must be rejected.
+    #[test]
+    fn external_pin_service_all_negation_groups_rejected() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[ipfs]
+api_url = "http://127.0.0.1:5001"
+
+[pinning]
+rules = ["pin-all"]
+
+[[pinning.external_services]]
+name = "pinata"
+endpoint = "https://api.pinata.cloud/psa"
+api_key = "secretx://env/PINATA_TOKEN"
+groups = ["!comp.*", "!alt.*"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("all-negation groups in external pin service must fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// RFC 3977 §4.1: first-match-wins, positive before negation.
+    #[test]
+    fn group_filter_first_match_wins_positive_before_negation() {
+        let f = GroupFilter::new(&["comp.*", "!comp.lang.*"]).unwrap();
+        assert!(
+            f.accepts("comp.lang.rust"),
+            "comp.* fires before !comp.lang.* — must accept comp.lang.rust"
+        );
+    }
+
+    /// RFC 3977 §4.1: first-match-wins, negation before positive.
+    #[test]
+    fn group_filter_first_match_wins_negation_before_positive() {
+        let f = GroupFilter::new(&["!comp.lang.*", "comp.*"]).unwrap();
+        assert!(
+            !f.accepts("comp.lang.rust"),
+            "!comp.lang.* fires before comp.* — must reject comp.lang.rust"
         );
     }
 }
