@@ -13,7 +13,7 @@ use stoa_reader::{
     tls::TlsAcceptor,
 };
 
-fn parse_args() -> (PathBuf, bool) {
+fn parse_args() -> (PathBuf, bool, Vec<PathBuf>) {
     let args: Vec<String> = std::env::args().collect();
 
     // Subcommand dispatch: `stoa-reader keygen --output <path> [--force]`
@@ -23,6 +23,7 @@ fn parse_args() -> (PathBuf, bool) {
 
     let mut config_path: Option<PathBuf> = None;
     let mut check_only = false;
+    let mut restore_files: Vec<PathBuf> = Vec::new();
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
@@ -39,18 +40,96 @@ fn parse_args() -> (PathBuf, bool) {
                 check_only = true;
                 i += 1;
             }
+            "--restore" => {
+                i += 1;
+                while i < args.len() && !args[i].starts_with("--") {
+                    restore_files.push(PathBuf::from(&args[i]));
+                    i += 1;
+                }
+                if restore_files.is_empty() {
+                    eprintln!("error: --restore requires at least one backup file path");
+                    std::process::exit(1);
+                }
+            }
             _ => {
                 i += 1;
             }
         }
     }
     match config_path {
-        Some(p) => (p, check_only),
+        Some(p) => (p, check_only, restore_files),
         None => {
             eprintln!("error: --config <path> is required");
             std::process::exit(1);
         }
     }
+}
+
+/// Restore SQLite databases from backup files.
+///
+/// Each `backup_file` must be a valid SQLite file (verified by magic header).
+/// The destination path is determined by the filename prefix:
+/// - `reader-*.db` → `db.reader_path` (reader schema)
+/// - `core-*.db`   → `db.core_path` (core schema)
+/// - `verify-*.db` → `db.verify_path` (verify schema)
+///
+/// Files with unrecognised prefixes are skipped with a warning.
+/// Exits 0 after all files are restored.
+fn cmd_restore(backup_files: &[PathBuf], db: &stoa_reader::config::DatabaseConfig) -> ! {
+    for src in backup_files {
+        let stem = src
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or_default();
+
+        // Verify SQLite magic header.
+        let data = match std::fs::read(src) {
+            Ok(d) => d,
+            Err(e) => {
+                eprintln!("error: cannot read backup file {}: {e}", src.display());
+                std::process::exit(1);
+            }
+        };
+        if data.len() < 16 || &data[..16] != b"SQLite format 3\0" {
+            eprintln!(
+                "error: {} is not a valid SQLite file (bad magic header)",
+                src.display()
+            );
+            std::process::exit(1);
+        }
+
+        let dest = if stem.starts_with("reader-") {
+            &db.reader_path
+        } else if stem.starts_with("core-") {
+            &db.core_path
+        } else if stem.starts_with("verify-") {
+            &db.verify_path
+        } else {
+            eprintln!(
+                "warning: skipping {}: unrecognised prefix (expected reader-, core-, or verify-)",
+                src.display()
+            );
+            continue;
+        };
+
+        if let Some(parent) = std::path::Path::new(dest).parent() {
+            if !parent.as_os_str().is_empty() {
+                if let Err(e) = std::fs::create_dir_all(parent) {
+                    eprintln!("error: cannot create directory {}: {e}", parent.display());
+                    std::process::exit(1);
+                }
+            }
+        }
+        if let Err(e) = std::fs::copy(src, dest) {
+            eprintln!(
+                "error: cannot restore {} → {dest}: {e}",
+                src.display()
+            );
+            std::process::exit(1);
+        }
+        println!("restored {} → {dest}", src.display());
+    }
+    std::process::exit(0);
 }
 
 async fn run_startup_checks(config: &Config) -> Vec<String> {
@@ -185,7 +264,7 @@ fn cmd_keygen(args: &[String]) -> ! {
 
 #[tokio::main]
 async fn main() {
-    let (config_path, check_only) = parse_args();
+    let (config_path, check_only, restore_files) = parse_args();
 
     let config = match Config::from_file(&config_path) {
         Ok(c) => c,
@@ -198,6 +277,10 @@ async fn main() {
             std::process::exit(1);
         }
     };
+
+    if !restore_files.is_empty() {
+        cmd_restore(&restore_files, &config.database);
+    }
 
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(&config.log.level));
