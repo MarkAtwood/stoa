@@ -104,21 +104,6 @@ impl Response {
     pub fn starttls_ready() -> Self {
         Self::new(382, "Continue with TLS negotiation")
     }
-    /// Build a Response by parsing a static `"NNN text\r\n"` string.
-    ///
-    /// Used to convert the `&'static str` returned by `authinfo_response`
-    /// into a `Response` without duplicating the response text.
-    ///
-    /// # Panics
-    /// Panics in debug builds if the string does not start with a 3-digit code.
-    /// Only call with known-good static strings from the `auth` module.
-    pub fn from_static_str(s: &'static str) -> Self {
-        let code: u16 = s[..3]
-            .parse()
-            .expect("authinfo_response must start with 3-digit code");
-        let text = s[4..].trim_end_matches(['\r', '\n']).to_string();
-        Self::new(code, text)
-    }
     pub fn no_group_selected() -> Self {
         Self::no_newsgroup_selected()
     }
