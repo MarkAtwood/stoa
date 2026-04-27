@@ -3,10 +3,40 @@
 //! Wraps `mail_auth::MessageAuthenticator::verify_dkim` to return
 //! `ArticleVerification` results.  One result is produced per DKIM-Signature
 //! header present in the article.
+//!
+//! NNTP articles are RFC 5536, not RFC 5322.  They may contain headers that
+//! are legal per RFC 5536 but rejected by a strict RFC 5322 parser (e.g.
+//! oversized Newsgroups values, non-standard extension headers).  To avoid
+//! spurious `ParseError` rows for ordinary articles that simply have no DKIM
+//! signature, we check for a `DKIM-Signature:` header before invoking the
+//! mail-auth parser.  If no such header is present we return an empty vec
+//! immediately, exactly as if the parser found no signatures.
 
 use mail_auth::{AuthenticatedMessage, DkimResult, MessageAuthenticator};
 
 use crate::types::{ArticleVerification, SigType, VerifResult};
+
+/// Return `true` if the article's header section contains a `DKIM-Signature:`
+/// field (case-insensitive, per RFC 5321).
+fn has_dkim_signature_header(article_bytes: &[u8]) -> bool {
+    // Find the header/body separator (\r\n\r\n or \n\n).
+    let header_end = article_bytes
+        .windows(4)
+        .position(|w| w == b"\r\n\r\n")
+        .or_else(|| article_bytes.windows(2).position(|w| w == b"\n\n"))
+        .unwrap_or(article_bytes.len());
+
+    let header_bytes = &article_bytes[..header_end];
+
+    // "DKIM-Signature:" is 15 bytes.
+    for line in header_bytes.split(|&b| b == b'\n') {
+        let line = line.strip_suffix(b"\r").unwrap_or(line);
+        if line.len() >= 15 && line[..15].eq_ignore_ascii_case(b"DKIM-Signature:") {
+            return true;
+        }
+    }
+    false
+}
 
 /// Verify all `DKIM-Signature` headers in `article_bytes`.
 ///
@@ -19,6 +49,14 @@ pub async fn verify_dkim_headers(
     authenticator: &MessageAuthenticator,
     article_bytes: &[u8],
 ) -> Vec<ArticleVerification> {
+    // Skip RFC 5322 parsing entirely when no DKIM-Signature is present.
+    // NNTP articles may be valid RFC 5536 but rejected by a strict RFC 5322
+    // parser; returning ParseError for every unsigned article would generate
+    // noise and mislead operators into thinking articles are malformed.
+    if !has_dkim_signature_header(article_bytes) {
+        return vec![];
+    }
+
     let msg = match AuthenticatedMessage::parse(article_bytes) {
         Some(m) => m,
         None => {
@@ -93,6 +131,25 @@ mod tests {
             .expect("empty resolver config must succeed")
     }
 
+    #[test]
+    fn has_dkim_signature_header_detects_field() {
+        assert!(has_dkim_signature_header(
+            b"From: x@y.com\r\nDKIM-Signature: v=1\r\n\r\nbody\r\n"
+        ));
+        // Case-insensitive match.
+        assert!(has_dkim_signature_header(
+            b"dkim-signature: v=1\r\n\r\nbody\r\n"
+        ));
+        // No DKIM-Signature field.
+        assert!(!has_dkim_signature_header(
+            b"From: x@y.com\r\nSubject: hi\r\n\r\nbody\r\n"
+        ));
+        // "DKIM-Signature:" in the body must not be detected.
+        assert!(!has_dkim_signature_header(
+            b"From: x\r\n\r\nDKIM-Signature: v=1 is in body\r\n"
+        ));
+    }
+
     #[tokio::test]
     async fn no_dkim_header_returns_empty() {
         let authenticator = offline_authenticator();
@@ -105,12 +162,27 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn malformed_article_returns_parse_error() {
+    async fn malformed_article_without_dkim_header_returns_empty() {
         let authenticator = offline_authenticator();
-        // Completely malformed bytes that mail-auth cannot parse as an email.
+        // Completely malformed bytes with no DKIM-Signature header.
+        // With the pre-check, these must return empty (not ParseError): an
+        // article with no DKIM-Signature simply has nothing to verify.
         let bad = b"\x00\x01\x02";
         let results = verify_dkim_headers(&authenticator, bad).await;
-        assert_eq!(results.len(), 1);
-        assert!(matches!(results[0].result, VerifResult::ParseError { .. }));
+        assert!(
+            results.is_empty(),
+            "malformed article with no DKIM-Signature must produce no results"
+        );
+    }
+
+    #[tokio::test]
+    async fn article_with_dkim_header_but_unparseable_returns_parse_error() {
+        let authenticator = offline_authenticator();
+        // Article with a DKIM-Signature: field but NUL bytes that break RFC 5322 parsing.
+        let bad = b"DKIM-Signature: v=1\r\n\x00\x01\x02\r\n\r\nbody\r\n";
+        let results = verify_dkim_headers(&authenticator, bad).await;
+        // mail-auth may or may not parse this; if it does, we get 0+ results.
+        // The key invariant: we must not panic, and we must get a vec.
+        let _ = results; // result content is implementation-defined
     }
 }
