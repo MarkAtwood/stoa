@@ -181,7 +181,12 @@ pub fn validate_article_ingress(
         }
     }
 
-    // 6. Header field values ≤ 998 bytes (RFC 5322 §2.1.1).
+    // 6. Header field values ≤ 998 bytes (RFC 5322 §2.1.1); no bare CR/LF or NUL.
+    //
+    // After NNTP header parsing and unfolding, no CR or LF should remain in a
+    // header value. A remaining bare CR or LF indicates either a malformed
+    // article or an injection attempt. Bare CR/LF can corrupt canonical
+    // serialisation and downstream parsers that use line-oriented protocols.
     const MAX_HEADER_VALUE: usize = 998;
 
     let mandatory_fields = [
@@ -200,6 +205,13 @@ pub fn validate_article_ingress(
             }
             .into());
         }
+        if value.contains('\r') || value.contains('\n') {
+            return Err(ValidationError::InvalidHeaderValue {
+                field: name.into(),
+                reason: "bare CR or LF forbidden in header values (RFC 5322 §2.2)".into(),
+            }
+            .into());
+        }
     }
     for (name, value) in &h.extra_headers {
         if value.len() > MAX_HEADER_VALUE {
@@ -212,10 +224,11 @@ pub fn validate_article_ingress(
         }
         // NUL bytes in extra-header values would corrupt the canonical
         // serialisation, which uses "\x00\n" as the header/body separator.
-        if value.contains('\x00') {
+        if value.contains('\x00') || value.contains('\r') || value.contains('\n') {
             return Err(ValidationError::InvalidHeaderValue {
                 field: name.clone(),
-                reason: "NUL byte forbidden in header values (RFC 5322 §2.2)".into(),
+                reason: "NUL byte or bare CR/LF forbidden in header values (RFC 5322 §2.2)"
+                    .into(),
             }
             .into());
         }
@@ -560,6 +573,59 @@ mod tests {
         // NUL in domain part
         let id_nul_domain = "<test@exam\x00ple.com>";
         assert!(validate_message_id(id_nul_domain).is_err());
+    }
+
+    // ── bare CR/LF in header values ───────────────────────────────────────────
+
+    #[test]
+    fn test_bare_cr_in_mandatory_header_rejected() {
+        let mut article = make_valid_article();
+        article.header.subject = "hello\rworld".into();
+        let err = validate_article_ingress(&article, &ValidationConfig::default()).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                ProtocolError::ValidationFailed(ValidationError::InvalidHeaderValue {
+                    ref field,
+                    ..
+                }) if field == "Subject"
+            ),
+            "unexpected error: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_bare_lf_in_mandatory_header_rejected() {
+        let mut article = make_valid_article();
+        article.header.from = "user@ex\nample.com".into();
+        let err = validate_article_ingress(&article, &ValidationConfig::default()).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                ProtocolError::ValidationFailed(ValidationError::InvalidHeaderValue {
+                    ref field,
+                    ..
+                }) if field == "From"
+            ),
+            "unexpected error: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_bare_cr_in_extra_header_rejected() {
+        let mut article = make_valid_article();
+        article.header.extra_headers = vec![("X-Custom".into(), "val\rue".into())];
+        let err = validate_article_ingress(&article, &ValidationConfig::default()).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                ProtocolError::ValidationFailed(ValidationError::InvalidHeaderValue {
+                    ref field,
+                    ..
+                }) if field == "X-Custom"
+            ),
+            "unexpected error: {err:?}"
+        );
     }
 
     // ── Newsgroups cap ────────────────────────────────────────────────────────
