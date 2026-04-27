@@ -155,8 +155,12 @@ pub async fn run_suck_pull(
             match fetch_article_with_retry(&mut writer, &mut reader, msgid, config.max_retries)
                 .await
             {
-                FetchResult::Fetched => {
-                    tracing::debug!("suck_pull: fetched {msgid}");
+                FetchResult::Fetched(bytes) => {
+                    tracing::debug!(
+                        "suck_pull: fetched {msgid} ({} bytes); \
+                         pipeline wiring pending (usenet-ipfs-a4b6 epic)",
+                        bytes.len()
+                    );
                     summary.fetched += 1;
                 }
                 FetchResult::NotFound => {
@@ -222,7 +226,13 @@ async fn update_cursor(pool: &SqlitePool, group: &str, unix_secs: u64) -> Result
 
 #[derive(Debug)]
 enum FetchResult {
-    Fetched,
+    /// Article bytes were successfully received from the wire.
+    ///
+    /// The accumulated bytes are returned so the caller can feed them into the
+    /// ingestion pipeline.  Full pipeline wiring (run_pipeline / AppState) is
+    /// not yet plumbed through the suck_pull import path — see follow-up work
+    /// tracked in the usenet-ipfs-a4b6 epic.
+    Fetched(Vec<u8>),
     NotFound,
     Failed,
 }
@@ -236,7 +246,7 @@ async fn fetch_article_with_retry(
     let mut attempts = 0usize;
     loop {
         match fetch_article(writer, reader, msgid).await {
-            FetchResult::Fetched => return FetchResult::Fetched,
+            FetchResult::Fetched(bytes) => return FetchResult::Fetched(bytes),
             FetchResult::NotFound => return FetchResult::NotFound,
             FetchResult::Failed => {
                 attempts += 1;
@@ -285,7 +295,10 @@ async fn fetch_article(
         }
     }
 
-    // Read dot-terminated article body; discard content (storage handled elsewhere).
+    // Read dot-terminated article body and accumulate bytes.
+    // RFC 3977 §3.1.1: a lone "." terminates the block; ".." on the wire
+    // represents a single "." in the article (dot-stuffing).
+    let mut body: Vec<u8> = Vec::new();
     loop {
         line.clear();
         match reader.read_line(&mut line).await {
@@ -300,9 +313,18 @@ async fn fetch_article(
         if trimmed == "." {
             break;
         }
+        // Undo dot-stuffing: a line beginning with ".." on the wire is a
+        // single "." in the article.
+        let out_line = if trimmed.starts_with("..") {
+            &trimmed[1..]
+        } else {
+            trimmed
+        };
+        body.extend_from_slice(out_line.as_bytes());
+        body.extend_from_slice(b"\r\n");
     }
 
-    FetchResult::Fetched
+    FetchResult::Fetched(body)
 }
 
 // ── Date formatting ────────────────────────────────────────────────────────────

@@ -6,6 +6,15 @@ use crate::group_log::storage::LogStorage;
 use crate::group_log::types::{LogEntry, LogEntryId};
 use crate::group_log::verify::VerifiedEntry;
 
+/// Maximum number of entries fetched in a single backfill BFS traversal.
+///
+/// Matches the order of magnitude of `MAX_BFS_VISITS` in `reconcile.rs`
+/// (5 000) but is set higher (50 000) because backfill must retrieve the full
+/// ancestry of a tip, not just build a `have` list.  An adversarial peer
+/// serving more entries than this limit will trigger [`BackfillError::Truncated`]
+/// rather than causing unbounded heap growth.
+const MAX_BACKFILL_ENTRIES: usize = 50_000;
+
 /// Error returned by [`backfill`].
 #[derive(Debug)]
 pub enum BackfillError {
@@ -17,6 +26,13 @@ pub enum BackfillError {
     /// bytes.  Storing this entry would silently disconnect the DAG, so the
     /// operation is aborted instead.
     MalformedParentCid(String),
+    /// The BFS traversal fetched more than [`MAX_BACKFILL_ENTRIES`] entries
+    /// without exhausting the remote DAG.  The partial result is stored and the
+    /// caller should schedule a follow-up backfill from the same tip.
+    Truncated {
+        /// Number of entries fetched and inserted before the limit was hit.
+        fetched: usize,
+    },
 }
 
 impl std::fmt::Display for BackfillError {
@@ -25,6 +41,11 @@ impl std::fmt::Display for BackfillError {
             Self::Storage(e) => write!(f, "storage error: {e}"),
             Self::FetchFailed(msg) => write!(f, "fetch failed: {msg}"),
             Self::MalformedParentCid(msg) => write!(f, "malformed parent CID: {msg}"),
+            Self::Truncated { fetched } => write!(
+                f,
+                "backfill truncated after {fetched} entries (limit {MAX_BACKFILL_ENTRIES}); \
+                 schedule a follow-up backfill to retrieve remaining ancestors"
+            ),
         }
     }
 }
@@ -33,7 +54,7 @@ impl std::error::Error for BackfillError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Storage(e) => Some(e),
-            Self::FetchFailed(_) | Self::MalformedParentCid(_) => None,
+            Self::FetchFailed(_) | Self::MalformedParentCid(_) | Self::Truncated { .. } => None,
         }
     }
 }
@@ -132,6 +153,12 @@ where
             Err(e) => return Err(BackfillError::Storage(e)),
         }
         fetched_count += 1;
+
+        if fetched_count >= MAX_BACKFILL_ENTRIES {
+            return Err(BackfillError::Truncated {
+                fetched: fetched_count,
+            });
+        }
 
         for parent_cid in &entry.parent_cids {
             let digest_bytes = parent_cid.hash().digest();
@@ -502,5 +529,45 @@ mod tests {
             count, 0,
             "entry already in local storage: must return Ok(0)"
         );
+    }
+
+    // ── backfill_truncated_at_limit ───────────────────────────────────────────
+    //
+    // An adversarial peer serves a chain longer than MAX_BACKFILL_ENTRIES.
+    // backfill() must return BackfillError::Truncated rather than exhausting
+    // memory by fetching all entries.
+    //
+    // We build a remote chain of MAX_BACKFILL_ENTRIES + 2 entries and verify
+    // that Truncated is returned with fetched == MAX_BACKFILL_ENTRIES.
+
+    #[tokio::test]
+    async fn backfill_truncated_at_limit() {
+        let chain_len = MAX_BACKFILL_ENTRIES + 2;
+        let (remote, ids) = make_chain(chain_len).await;
+        let local = MemLogStorage::new();
+
+        let tip_id = ids[chain_len - 1].clone();
+
+        let result = backfill(&local, &test_group(), tip_id, |id| {
+            let r = &remote;
+            async move {
+                r.get_entry(&id)
+                    .await
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| format!("entry not found: {id}"))
+                    .map(VerifiedEntry::new_for_test)
+            }
+        })
+        .await;
+
+        match result {
+            Err(BackfillError::Truncated { fetched }) => {
+                assert_eq!(
+                    fetched, MAX_BACKFILL_ENTRIES,
+                    "Truncated must report exactly MAX_BACKFILL_ENTRIES fetched"
+                );
+            }
+            other => panic!("expected BackfillError::Truncated, got {other:?}"),
+        }
     }
 }
