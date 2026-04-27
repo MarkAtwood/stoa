@@ -6,7 +6,12 @@
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::Mutex;
-use std::time::Instant;
+use std::time::{Duration, Instant};
+
+/// Evict idle entries every 1024 calls to amortize O(n) scan cost.
+const EVICT_INTERVAL: u64 = 1024;
+/// Evict entries idle longer than one hour.
+const IDLE_TTL: Duration = Duration::from_secs(3600);
 
 struct RateLimitState {
     /// Tokens available (fractional).
@@ -15,18 +20,24 @@ struct RateLimitState {
     last_refill: Instant,
 }
 
+struct Inner {
+    map: HashMap<IpAddr, RateLimitState>,
+    /// Monotonically increasing call counter; wraps at u64::MAX (harmless).
+    call_count: u64,
+}
+
 pub struct RateLimiter {
     /// Max requests per minute. 0 = unlimited.
     rpm: u32,
     /// Per-IP state.
-    state: Mutex<HashMap<IpAddr, RateLimitState>>,
+    state: Mutex<Inner>,
 }
 
 impl RateLimiter {
     pub fn new(rpm: u32) -> Self {
         Self {
             rpm,
-            state: Mutex::new(HashMap::new()),
+            state: Mutex::new(Inner { map: HashMap::new(), call_count: 0 }),
         }
     }
 
@@ -36,15 +47,15 @@ impl RateLimiter {
         if self.rpm == 0 {
             return true;
         }
-        let mut state = self.state.lock().unwrap();
+        let mut inner = self.state.lock().unwrap();
         let tokens_per_sec = self.rpm as f64 / 60.0;
         let max_tokens = self.rpm as f64;
         let now = Instant::now();
 
         let allowed;
         {
-            // Inner block: drop the `entry` borrow before state.retain() needs &mut state.
-            let entry = state.entry(ip).or_insert(RateLimitState {
+            // Inner block: drop the `entry` borrow before eviction needs &mut inner.map.
+            let entry = inner.map.entry(ip).or_insert(RateLimitState {
                 tokens: max_tokens,
                 last_refill: now,
             });
@@ -59,9 +70,13 @@ impl RateLimiter {
             }
         }
 
-        // Evict entries idle for more than one hour to bound HashMap size.
-        let evict_before = now - std::time::Duration::from_secs(3600);
-        state.retain(|_, v| v.last_refill >= evict_before);
+        // Evict entries idle for more than one hour, but only every EVICT_INTERVAL
+        // calls to amortize the O(n) scan across many requests.
+        inner.call_count = inner.call_count.wrapping_add(1);
+        if inner.call_count % EVICT_INTERVAL == 0 {
+            let evict_before = now - IDLE_TTL;
+            inner.map.retain(|_, v| v.last_refill >= evict_before);
+        }
 
         allowed
     }

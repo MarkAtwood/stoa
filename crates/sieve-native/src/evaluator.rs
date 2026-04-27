@@ -5,9 +5,15 @@
 use crate::form::{Form, Script, Stmt};
 use crate::message;
 use crate::SieveAction;
+use std::cell::RefCell;
 use std::cmp::Reverse;
 use std::collections::HashMap;
 use tracing::warn;
+
+thread_local! {
+    static REGEX_CACHE: RefCell<HashMap<String, fancy_regex::Regex>> =
+        RefCell::new(HashMap::new());
+}
 
 // ---------------------------------------------------------------------------
 // Evaluation context
@@ -425,23 +431,30 @@ fn str_matches_regex(value: &str, pattern: &str, casemap: bool) -> bool {
 }
 
 fn str_matches_regex_pat(value: &str, anchored: &str, casemap: bool) -> bool {
-    // PERF(qc9j.1): regex is recompiled on every call; compile once in
-    // CompiledScript and pass pre-built Regex values to the evaluator.
     let pat = if casemap {
         format!("(?i){anchored}")
     } else {
-        anchored.to_string()
+        anchored.to_owned()
     };
-    match fancy_regex::Regex::new(&pat) {
-        Ok(re) => re.is_match(value).unwrap_or_else(|e| {
+    REGEX_CACHE.with(|cache| {
+        let mut cache = cache.borrow_mut();
+        let re = match cache.entry(pat.clone()) {
+            std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
+            std::collections::hash_map::Entry::Vacant(e) => {
+                match fancy_regex::Regex::new(&pat) {
+                    Ok(re) => e.insert(re),
+                    Err(err) => {
+                        warn!(pattern = %pat, "Sieve :regex compile error: {err}");
+                        return false;
+                    }
+                }
+            }
+        };
+        re.is_match(value).unwrap_or_else(|e| {
             warn!(pattern = %pat, "Sieve :regex execution error (backtracking limit?): {e}");
             false
-        }),
-        Err(e) => {
-            warn!(pattern = %pat, "Sieve :regex compile error: {e}");
-            false
-        }
-    }
+        })
+    })
 }
 
 fn apply_match(value: &str, key: &str, mt: MatchType, casemap: bool) -> bool {

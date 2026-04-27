@@ -282,8 +282,7 @@ pub fn prepend_path_header(article_bytes: Vec<u8>, hostname: &str) -> Vec<u8> {
             continue;
         }
 
-        let lower = String::from_utf8_lossy(trimmed).to_ascii_lowercase();
-        if lower.starts_with("path:") {
+        if trimmed.len() >= 5 && trimmed[..5].eq_ignore_ascii_case(b"path:") {
             let old_val = String::from_utf8_lossy(&trimmed["path:".len()..]);
             let old_val = old_val.trim();
             let new_line = format!("Path: {hostname}!{old_val}\r\n");
@@ -305,8 +304,7 @@ pub fn prepend_path_header(article_bytes: Vec<u8>, hostname: &str) -> Vec<u8> {
 /// Scans the header section (up to the first blank line) for a line that
 /// starts with `name:` (case-insensitive ASCII comparison).
 fn has_header(article_bytes: &[u8], name: &str) -> bool {
-    let name_lower = name.to_ascii_lowercase();
-    let needle = format!("{name_lower}:");
+    let name_bytes = name.as_bytes();
 
     for line in article_bytes.split(|&b| b == b'\n') {
         // Stop at the blank line separating headers from body.
@@ -318,8 +316,10 @@ fn has_header(article_bytes: &[u8], name: &str) -> bool {
         if trimmed.is_empty() {
             break;
         }
-        let line_lower = String::from_utf8_lossy(line).to_ascii_lowercase();
-        if line_lower.starts_with(&needle) {
+        if trimmed.len() > name_bytes.len()
+            && trimmed[..name_bytes.len()].eq_ignore_ascii_case(name_bytes)
+            && trimmed[name_bytes.len()] == b':'
+        {
             return true;
         }
     }

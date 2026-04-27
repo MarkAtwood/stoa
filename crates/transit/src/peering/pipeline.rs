@@ -494,8 +494,7 @@ where
 /// not found or the bytes are not valid UTF-8 on that line.
 #[cfg(test)]
 fn extract_header<'a>(article_bytes: &'a [u8], name: &str) -> Option<&'a str> {
-    let name_lower = name.to_ascii_lowercase();
-    let needle = format!("{name_lower}:");
+    let needle = format!("{}:", name);
 
     for line in article_bytes.split(|&b| b == b'\n') {
         let trimmed = if line.last() == Some(&b'\r') {
@@ -507,7 +506,7 @@ fn extract_header<'a>(article_bytes: &'a [u8], name: &str) -> Option<&'a str> {
             break;
         }
         let s = std::str::from_utf8(trimmed).ok()?;
-        if s.to_ascii_lowercase().starts_with(&needle) {
+        if s.len() >= needle.len() && s[..needle.len()].eq_ignore_ascii_case(&needle) {
             return Some(s[needle.len()..].trim());
         }
     }
@@ -535,11 +534,18 @@ fn parse_message_id_and_newsgroups(article_bytes: &[u8]) -> Option<(String, Vec<
             Ok(s) => s,
             Err(_) => continue,
         };
-        let lower = s.to_ascii_lowercase();
-        if message_id.is_none() && lower.starts_with("message-id:") {
-            message_id = Some(s["message-id:".len()..].trim().to_owned());
-        } else if newsgroups_val.is_none() && lower.starts_with("newsgroups:") {
-            newsgroups_val = Some(s["newsgroups:".len()..].trim().to_owned());
+        const MID: &str = "message-id:";
+        const NG: &str = "newsgroups:";
+        if message_id.is_none()
+            && s.len() >= MID.len()
+            && s[..MID.len()].eq_ignore_ascii_case(MID)
+        {
+            message_id = Some(s[MID.len()..].trim().to_owned());
+        } else if newsgroups_val.is_none()
+            && s.len() >= NG.len()
+            && s[..NG.len()].eq_ignore_ascii_case(NG)
+        {
+            newsgroups_val = Some(s[NG.len()..].trim().to_owned());
         }
         if message_id.is_some() && newsgroups_val.is_some() {
             break;
