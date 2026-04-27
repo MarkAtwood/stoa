@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 use std::time::Instant;
 
+/// Evict fully-refilled buckets every N calls to amortize O(n) retain cost.
+const EVICT_INTERVAL: u64 = 64;
+
 /// What happens when the token bucket is exhausted.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExhaustionAction {
@@ -86,6 +89,7 @@ pub struct PeerRateLimiter {
     rate: f64,
     capacity: u64,
     action: ExhaustionAction,
+    call_count: u64,
 }
 
 impl PeerRateLimiter {
@@ -95,14 +99,15 @@ impl PeerRateLimiter {
             rate,
             capacity,
             action,
+            call_count: 0,
         }
     }
 
     /// Check and consume one article slot for the given peer.
     /// Creates a new bucket for the peer if not seen before.
     ///
-    /// Evicts fully-refilled buckets from other peers on each call to bound
-    /// the HashMap to only actively-rate-limited peers.
+    /// Evicts fully-refilled buckets every EVICT_INTERVAL calls to amortize
+    /// the O(n) retain cost across many articles from many peers.
     pub fn check(&mut self, peer_addr: &str) -> Option<RateLimitResult> {
         let rate = self.rate;
         let capacity = self.capacity;
@@ -112,13 +117,14 @@ impl PeerRateLimiter {
             .entry(peer_addr.to_owned())
             .or_insert_with(|| TokenBucket::new(rate, capacity, action));
         let result = bucket.check_and_consume();
-        // Evict buckets that have fully refilled — they impose no rate constraint
-        // and retaining them wastes memory. A fresh full bucket is equivalent.
-        let cap = capacity as f64;
-        self.buckets.retain(|_, b| {
-            b.refill();
-            b.tokens < cap
-        });
+        self.call_count = self.call_count.wrapping_add(1);
+        if self.call_count % EVICT_INTERVAL == 0 {
+            let cap = capacity as f64;
+            self.buckets.retain(|_, b| {
+                b.refill();
+                b.tokens < cap
+            });
+        }
         result
     }
 

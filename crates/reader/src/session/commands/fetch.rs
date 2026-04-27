@@ -60,7 +60,7 @@ pub fn dot_stuff(data: &[u8]) -> Vec<u8> {
 
 /// Find the position of `\r\n` in `data`, returning the byte offset of `\r`.
 fn find_crlf(data: &[u8]) -> Option<usize> {
-    data.windows(2).position(|w| w == b"\r\n")
+    memchr::memmem::find(data, b"\r\n")
 }
 
 /// Split raw bytes on CRLF into a Vec of Strings (without the CRLF).

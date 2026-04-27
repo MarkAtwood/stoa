@@ -170,14 +170,11 @@ impl OverviewStore {
 /// Replace tab, CR, and LF with a space to prevent corruption of
 /// tab-separated OVER/XOVER responses.
 fn sanitize_overview_field(s: &str) -> String {
+    if !s.contains(['\t', '\r', '\n']) {
+        return s.to_owned();
+    }
     s.chars()
-        .map(|c| {
-            if c == '\t' || c == '\r' || c == '\n' {
-                ' '
-            } else {
-                c
-            }
-        })
+        .map(|c| if c == '\t' || c == '\r' || c == '\n' { ' ' } else { c })
         .collect()
 }
 

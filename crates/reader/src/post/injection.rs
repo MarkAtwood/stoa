@@ -25,33 +25,25 @@ pub fn strip_server_synthesized_headers(article_bytes: &mut Vec<u8>) {
 }
 
 /// Remove every header line whose name (lowercase, with colon) matches
-/// `header_name_lower`.  Rescans after each removal to handle multiple
-/// occurrences.  Only the header section (before the blank line) is scanned.
+/// `header_name_lower`.  Single-pass copy excluding matched lines to avoid
+/// O(k·n) from repeated drain + rescan.  Only the header section is scanned.
 fn strip_all_occurrences(article_bytes: &mut Vec<u8>, header_name_lower: &[u8]) {
-    loop {
-        let header_end = find_header_end(article_bytes);
-        let mut i = 0;
-        let mut found = false;
-        while i < header_end {
-            let line_end = find_line_end(article_bytes, i, header_end);
-            let line = &article_bytes[i..line_end];
-            if line.len() >= header_name_lower.len()
-                && line[..header_name_lower.len()]
-                    .iter()
-                    .zip(header_name_lower.iter())
-                    .all(|(a, b)| a.to_ascii_lowercase() == *b)
-            {
-                let end = skip_line_terminator(article_bytes, line_end);
-                article_bytes.drain(i..end);
-                found = true;
-                break; // Restart scan: buffer indices changed after drain.
-            }
-            i = skip_line_terminator(article_bytes, line_end);
+    let header_end = find_header_end(article_bytes);
+    let mut out: Vec<u8> = Vec::with_capacity(article_bytes.len());
+    let mut i = 0;
+    while i < header_end {
+        let line_end = find_line_end(article_bytes, i, header_end);
+        let line = &article_bytes[i..line_end];
+        let end = skip_line_terminator(article_bytes, line_end);
+        if line.len() < header_name_lower.len()
+            || !line[..header_name_lower.len()].eq_ignore_ascii_case(header_name_lower)
+        {
+            out.extend_from_slice(&article_bytes[i..end]);
         }
-        if !found {
-            break;
-        }
+        i = end;
     }
+    out.extend_from_slice(&article_bytes[header_end..]);
+    *article_bytes = out;
 }
 
 /// Extract and remove the `X-Stoa-Injection-Source:` header from
@@ -112,7 +104,10 @@ pub fn extract_injection_source(article_bytes: &mut Vec<u8>) -> InjectionSource 
     }
 
     if let (Some(src), Some(start), Some(end)) = (value, found_line_start, found_line_end) {
-        article_bytes.drain(start..end);
+        let mut new_bytes = Vec::with_capacity(article_bytes.len() - (end - start));
+        new_bytes.extend_from_slice(&article_bytes[..start]);
+        new_bytes.extend_from_slice(&article_bytes[end..]);
+        *article_bytes = new_bytes;
         src
     } else {
         InjectionSource::NntpPost
