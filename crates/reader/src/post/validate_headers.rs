@@ -158,9 +158,12 @@ fn is_valid_message_id(id: &str) -> bool {
         return false;
     }
     // Must contain exactly one '@' with non-empty local and domain parts.
-    let mut parts = inner.splitn(2, '@');
-    let local = parts.next().unwrap_or("");
-    let domain = parts.next().unwrap_or("");
+    let at_count = inner.chars().filter(|&c| c == '@').count();
+    if at_count != 1 {
+        return false;
+    }
+    // split_once is safe: we just confirmed exactly one '@'.
+    let (local, domain) = inner.split_once('@').expect("one '@' confirmed above");
     !local.is_empty() && !domain.is_empty()
 }
 
@@ -420,5 +423,17 @@ mod tests {
     #[test]
     fn message_id_valid() {
         assert!(is_valid_message_id("<test@example.com>"));
+    }
+
+    /// Regression test for rbe3.30: multiple '@' signs must be rejected.
+    ///
+    /// Before the fix, `splitn(2, '@')` returned `["local", "dom@extra"]`,
+    /// both non-empty, so `<local@dom@extra>` was accepted.
+    #[test]
+    fn message_id_multiple_at_signs_rejected() {
+        // Two '@' signs — must be rejected.
+        assert!(!is_valid_message_id("<local@domain@extra>"));
+        // Three '@' signs — must be rejected.
+        assert!(!is_valid_message_id("<a@b@c>"));
     }
 }

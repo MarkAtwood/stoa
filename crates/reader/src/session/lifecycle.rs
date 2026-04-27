@@ -32,7 +32,7 @@ use crate::{
             hdr::{extract_field, hdr_response, HdrRecord},
             list::GroupInfo,
             over::over_response,
-            post::{complete_post, read_dot_terminated, DEFAULT_MAX_ARTICLE_BYTES},
+            post::{complete_post, read_dot_terminated},
         },
         context::SessionContext,
         dispatch::dispatch,
@@ -663,7 +663,7 @@ where
             let body_timeout = std::time::Duration::from_secs(config.limits.post_body_timeout_secs);
             let read_result = tokio::time::timeout(
                 body_timeout,
-                read_dot_terminated(reader, DEFAULT_MAX_ARTICLE_BYTES),
+                read_dot_terminated(reader, config.limits.max_article_bytes),
             )
             .await;
             let article_bytes = match read_result {
@@ -694,7 +694,8 @@ where
                 }
             };
 
-            let final_resp = run_post_pipeline(&article_bytes, stores).await;
+            let final_resp =
+                run_post_pipeline(&article_bytes, stores, config.limits.max_article_bytes).await;
             if writer
                 .write_all(final_resp.to_string().as_bytes())
                 .await
@@ -780,8 +781,15 @@ async fn run_session_io<S>(
 ///    numbers (always).
 /// 8. Index overview fields.
 ///
+/// `max_article_bytes` is the operator-configured article size limit; articles
+/// exceeding it are rejected with 441.
+///
 /// Returns 240 on success or a 441 error response on failure.
-async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Response {
+async fn run_post_pipeline(
+    article_bytes: &[u8],
+    stores: &ServerStores,
+    max_article_bytes: usize,
+) -> Response {
     // Step 1: Strip the X-Stoa-Injection-Source header so it is not stored
     // in IPFS.  All articles entering via NNTP POST are classified as NntpPost
     // regardless of any client-supplied header value — trusting the header
@@ -795,7 +803,7 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
     let article_bytes = article_bytes.as_slice();
 
     // Step 2: Validate headers.
-    if let Err(resp) = complete_post(article_bytes, DEFAULT_MAX_ARTICLE_BYTES, None) {
+    if let Err(resp) = complete_post(article_bytes, max_article_bytes, None) {
         return resp;
     }
 
@@ -1684,6 +1692,7 @@ async fn handle_nntp_search(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::session::commands::post::DEFAULT_MAX_ARTICLE_BYTES;
     use crate::store::server_stores::ServerStores;
     use std::time::{SystemTime, UNIX_EPOCH};
     use stoa_core::group_log::LogStorage;
@@ -1739,6 +1748,32 @@ mod tests {
         .into_bytes()
     }
 
+    /// Regression test for rbe3.50: run_post_pipeline must honour the
+    /// operator-configured max_article_bytes, not a hardcoded constant.
+    ///
+    /// Before the fix, `complete_post` was always called with
+    /// `DEFAULT_MAX_ARTICLE_BYTES` regardless of the operator's config value.
+    #[tokio::test]
+    async fn post_pipeline_rejects_article_over_operator_limit() {
+        let stores = ServerStores::new_mem().await;
+        // Build a minimal article that is valid but large enough to exceed a
+        // tiny operator-imposed limit.
+        let article = minimal_article("comp.test", "Too Large", "<toolarge@test.example>");
+
+        // Limit of 1 byte — any real article will exceed it.
+        let resp = run_post_pipeline(&article, &stores, 1).await;
+        assert_eq!(
+            resp.code, 441,
+            "POST pipeline must return 441 when article exceeds operator limit; got: {}",
+            resp.text
+        );
+        assert!(
+            resp.text.to_ascii_lowercase().contains("too large"),
+            "error text must mention 'too large': {}",
+            resp.text
+        );
+    }
+
     /// Regression test for o0r.2: verify that the group log entry produced by
     /// run_post_pipeline carries a valid operator Ed25519 signature.
     ///
@@ -1756,7 +1791,7 @@ mod tests {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Signature Verify", "<sigverify@test.example>");
 
-        let resp = run_post_pipeline(&article, &stores).await;
+        let resp = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES).await;
         assert_eq!(
             resp.code, 240,
             "POST pipeline must succeed; got: {}",
@@ -1801,7 +1836,7 @@ mod tests {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Integration Test", "<integ@test.example>");
 
-        let resp = run_post_pipeline(&article, &stores).await;
+        let resp = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES).await;
         assert_eq!(
             resp.code, 240,
             "POST pipeline must return 240; got: {}",
@@ -1830,7 +1865,7 @@ mod tests {
     async fn article_by_number_returns_220() {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "By Number Test", "<bynumber@test.example>");
-        let post_resp = run_post_pipeline(&article, &stores).await;
+        let post_resp = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES).await;
         assert_eq!(post_resp.code, 240, "POST must succeed");
 
         let mut ctx = crate::session::context::SessionContext::new(
@@ -1855,7 +1890,7 @@ mod tests {
     async fn head_by_msgid_returns_221() {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Head By Msgid", "<headmsgid@test.example>");
-        let post_resp = run_post_pipeline(&article, &stores).await;
+        let post_resp = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES).await;
         assert_eq!(post_resp.code, 240, "POST must succeed");
 
         let resp = lookup_head_by_msgid(&stores, "<headmsgid@test.example>").await;
@@ -1879,7 +1914,7 @@ mod tests {
     async fn body_by_msgid_returns_222() {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Body By Msgid", "<bodymsgid@test.example>");
-        let post_resp = run_post_pipeline(&article, &stores).await;
+        let post_resp = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES).await;
         assert_eq!(post_resp.code, 240, "POST must succeed");
 
         let resp = lookup_body_by_msgid(&stores, "<bodymsgid@test.example>").await;

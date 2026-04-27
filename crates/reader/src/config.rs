@@ -278,6 +278,14 @@ pub struct LimitsConfig {
     /// response if the upload does not complete within this window.
     #[serde(default = "default_post_body_timeout_secs")]
     pub post_body_timeout_secs: u64,
+    /// Maximum accepted article size in bytes for POST.  Default: 1 MiB.
+    ///
+    /// Articles larger than this value are rejected with 441 after the body is
+    /// fully drained (so the NNTP connection stays valid for subsequent commands).
+    /// Operators who want to reduce storage load or enforce a site policy can
+    /// lower this value; operators who carry large text articles can raise it.
+    #[serde(default = "default_max_article_bytes")]
+    pub max_article_bytes: usize,
     /// Seconds to wait for in-flight connections to finish after a shutdown
     /// signal before forcing exit.  Default: 30.  Set to 0 to exit immediately.
     #[serde(default)]
@@ -290,6 +298,11 @@ fn default_max_connections() -> usize {
 
 fn default_post_body_timeout_secs() -> u64 {
     300
+}
+
+fn default_max_article_bytes() -> usize {
+    // Match DEFAULT_MAX_ARTICLE_BYTES in crates/reader/src/session/commands/post.rs.
+    1_048_576
 }
 
 #[derive(Debug, Deserialize)]

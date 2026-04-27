@@ -23,22 +23,30 @@ pub enum IngestResult {
 /// Checks (in order):
 /// 1. Message-ID format valid (angle brackets, single `@`, non-empty parts)
 /// 2. Article size ≤ [`MAX_ARTICLE_BYTES`]  — cheap array-len check before any I/O
-/// 3. Duplicate check via `msgid_map`       — DB round-trip only for plausible articles
+/// 3. Duplicate check via `msgid_map` — keyed on the body's `Message-ID` header,
+///    NOT on the IHAVE/TAKETHIS envelope msgid.  A peer that sends
+///    `IHAVE <envelope@example>` with `Message-ID: <body@example>` in the body
+///    would bypass dedup if we keyed on the envelope.
 /// 4. Mandatory headers present (`From`, `Date`, `Message-ID`, `Newsgroups`, `Subject`)
+///
+/// The `envelope_msgid` parameter is validated for format (step 1) so that
+/// obviously malformed commands are rejected early, but the deduplication key
+/// (step 3) always comes from the body.
 ///
 /// Returns [`IngestResult`] without storing anything — the caller is
 /// responsible for actually writing to IPFS and the group log.
 pub async fn check_ingest(
-    message_id: &str,
+    envelope_msgid: &str,
     article_bytes: &[u8],
     msgid_map: &MsgIdMap,
 ) -> IngestResult {
-    // 1. Message-ID format.
-    if let Err(e) = validate_message_id(message_id) {
+    // 1. Envelope Message-ID format — validate before reading the body so that
+    // malformed commands are rejected early (before the duplicate DB round-trip).
+    if let Err(e) = validate_message_id(envelope_msgid) {
         crate::metrics::ARTICLES_REJECTED_TOTAL
             .with_label_values(&["malformed"])
             .inc();
-        return IngestResult::Rejected(format!("invalid Message-ID format: {e}"));
+        return IngestResult::Rejected(format!("invalid envelope Message-ID format: {e}"));
     }
 
     // 2. Size limit — O(1) check before the DB round-trip below.
@@ -55,20 +63,34 @@ pub async fn check_ingest(
         ));
     }
 
-    // 3. Duplicate check.
-    match msgid_map.lookup_by_msgid(message_id).await {
-        Err(e) => {
-            return IngestResult::TransientError(format!(
-                "storage error during duplicate check: {e}"
-            ));
+    // 3. Duplicate check keyed on the body's Message-ID header.
+    //
+    // Using the envelope msgid for dedup would allow a peer to bypass it:
+    //   IHAVE <known-dup@example>  → rejected (435)
+    //   IHAVE <fresh-envelope@example> (same body with Message-ID: <known-dup@example>)
+    //   → envelope is unknown, so dedup passes; body msgid is stored as a new entry.
+    //
+    // By extracting the body msgid here we close that gap: the duplicate check
+    // and the pipeline storage key are always the same value.
+    // If the body has no Message-ID header the string is empty; step 4 below
+    // will produce the Rejected response via has_header("Message-ID").
+    let body_msgid = extract_body_msgid(article_bytes).unwrap_or_default();
+
+    if !body_msgid.is_empty() {
+        match msgid_map.lookup_by_msgid(&body_msgid).await {
+            Err(e) => {
+                return IngestResult::TransientError(format!(
+                    "storage error during duplicate check: {e}"
+                ));
+            }
+            Ok(Some(_)) => {
+                crate::metrics::ARTICLES_REJECTED_TOTAL
+                    .with_label_values(&["duplicate"])
+                    .inc();
+                return IngestResult::Duplicate;
+            }
+            Ok(None) => {}
         }
-        Ok(Some(_)) => {
-            crate::metrics::ARTICLES_REJECTED_TOTAL
-                .with_label_values(&["duplicate"])
-                .inc();
-            return IngestResult::Duplicate;
-        }
-        Ok(None) => {}
     }
 
     // 4. Mandatory headers.
@@ -83,6 +105,31 @@ pub async fn check_ingest(
     }
 
     IngestResult::Accepted
+}
+
+/// Extract the `Message-ID:` header value from raw article bytes.
+///
+/// Scans only the header section (before the first blank line).  Returns the
+/// trimmed value string, or `None` if the header is absent or the bytes are
+/// not valid UTF-8 on the relevant line.
+fn extract_body_msgid(article_bytes: &[u8]) -> Option<String> {
+    for line in article_bytes.split(|&b| b == b'\n') {
+        let trimmed = if line.last() == Some(&b'\r') {
+            &line[..line.len() - 1]
+        } else {
+            line
+        };
+        if trimmed.is_empty() {
+            // Blank line: end of headers.
+            break;
+        }
+        let s = std::str::from_utf8(trimmed).ok()?;
+        let lower = s.to_ascii_lowercase();
+        if lower.starts_with("message-id:") {
+            return Some(s["message-id:".len()..].trim().to_owned());
+        }
+    }
+    None
 }
 
 /// Format the NNTP response line for an IHAVE result.
@@ -478,6 +525,38 @@ mod tests {
         assert!(
             text.contains("Para one.\n\n"),
             "blank line after Para one must be preserved: {text:?}"
+        );
+    }
+
+    /// Regression test for rbe3.33: duplicate check must use the body's
+    /// Message-ID, not the envelope msgid.
+    ///
+    /// Before the fix, `check_ingest` keyed on `envelope_msgid`, so a peer could
+    /// bypass dedup by presenting a fresh envelope msgid while reusing a known
+    /// body Message-ID.
+    #[tokio::test]
+    async fn dedup_keyed_on_body_msgid_not_envelope() {
+        use cid::Cid;
+        use multihash_codetable::{Code, MultihashDigest};
+
+        let (map, _tmp) = make_msgid_map().await;
+        let body_msgid = "<body-dup@example.com>";
+
+        // Pre-insert a CID for the body msgid to simulate a known article.
+        let cid = Cid::new_v1(0x71, Code::Sha2_256.digest(b"some-article"));
+        map.insert(body_msgid, &cid).await.unwrap();
+
+        // Article body contains the known Message-ID, but the envelope presents
+        // a fresh (unknown) msgid — the attack vector for bypass.
+        let fresh_envelope = "<fresh-envelope@example.com>";
+        let bytes = valid_article(body_msgid); // body has Message-ID: <body-dup@example.com>
+
+        // With the fix: dedup is keyed on the body msgid → must be Duplicate.
+        let result = check_ingest(fresh_envelope, &bytes, &map).await;
+        assert_eq!(
+            result,
+            IngestResult::Duplicate,
+            "must deduplicate on body Message-ID, not on envelope: got {result:?}"
         );
     }
 
