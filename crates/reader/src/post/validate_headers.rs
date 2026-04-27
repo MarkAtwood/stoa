@@ -107,6 +107,14 @@ fn check_newsgroups(headers: &HashMap<String, Vec<String>>) -> Result<(), Respon
 }
 
 /// Validate the `Date` header: must parse as RFC 2822 and be within ±24 h of now.
+///
+/// # DECISION (rbe3.67): window check is intentional, not just a parse check
+///
+/// The 24-hour window is a hard requirement, not just defensive validation.
+/// Out-of-range dates corrupt `NEWNEWS` queries (which filter by date) and
+/// enable replay injection of old articles.  Relaxing this to parse-only would
+/// accept arbitrary-dated articles and break time-based queries.  Do NOT
+/// simplify `check_date` to just call `mailparse::dateparse` without the range check.
 fn check_date(headers: &HashMap<String, Vec<String>>) -> Result<(), Response> {
     let value = headers
         .get("date")

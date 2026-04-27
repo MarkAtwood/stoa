@@ -66,6 +66,13 @@ impl IpfsLatencyMonitor {
         let threshold = self.threshold_ms as f64;
 
         if !was_active && new_ema > threshold {
+            // ORDERING: Release on write, Acquire on read (backpressure_active).
+            // This establishes a happens-before edge: any thread that reads
+            // active == true via Acquire is guaranteed to observe the ema_us
+            // value that caused the transition.  Do NOT downgrade to Relaxed
+            // for "consistency" — a Relaxed store could become visible before
+            // the ema_us update, breaking any diagnostic that reads ema_ms()
+            // after observing backpressure_active() == true.
             self.active.store(true, Ordering::Release);
             tracing::warn!(
                 ema_ms = new_ema,
@@ -85,11 +92,13 @@ impl IpfsLatencyMonitor {
     /// Whether backpressure is currently active.
     ///
     /// When true, callers should reduce ingestion queue high-water mark to 50%.
+    /// Uses Acquire ordering — see the Release comment in `record_sample` above.
     pub fn backpressure_active(&self) -> bool {
         self.active.load(Ordering::Acquire)
     }
 
     /// Current EMA latency in milliseconds.
+    /// Uses Relaxed ordering — the value is advisory and written from one place only.
     pub fn ema_ms(&self) -> f64 {
         f64::from_bits(self.ema_us.load(Ordering::Relaxed))
     }

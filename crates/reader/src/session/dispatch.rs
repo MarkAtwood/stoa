@@ -44,6 +44,11 @@ pub fn dispatch(
             Command::Capabilities => Response::capabilities_with_ctx(
                 ctx.posting_allowed,
                 true,
+                // DECISION (rbe3.68): STARTTLS is excluded from CAPABILITIES
+                // once TLS is active.  RFC 4642 §2.2 forbids advertising
+                // STARTTLS on an already-encrypted session; a client that saw
+                // it would attempt a second upgrade and get a confused server.
+                // Do NOT remove the `&& !ctx.tls_active` guard.
                 ctx.starttls_available && !ctx.tls_active,
             ),
             Command::Quit => Response::closing_connection(),
@@ -88,6 +93,9 @@ pub fn dispatch(
         Command::Capabilities => Response::capabilities_with_ctx(
             ctx.posting_allowed,
             false,
+            // DECISION (rbe3.68): exclude STARTTLS once TLS is active.
+            // RFC 4642 §2.2: a server MUST NOT advertise STARTTLS on a
+            // session that is already TLS-protected.
             ctx.starttls_available && !ctx.tls_active,
         ),
         Command::ModeReader => {

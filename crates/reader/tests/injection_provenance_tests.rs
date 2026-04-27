@@ -6,6 +6,17 @@
 //!
 //! Rule: every `is_peerable()` source → log entry written.
 //!       `SmtpListId` → no log entry, article still in article_numbers.
+//!
+//! # DECISION (rbe3.75): oracle must stay independent
+//!
+//! The oracle for each test case is `InjectionSource::is_peerable()`.
+//! Do NOT change the oracle to the routing code under test (e.g. by calling
+//! `append_to_groups` and then checking what it did to infer expected
+//! behavior).  A roundtrip test that uses the function under test as its own
+//! oracle cannot detect a routing logic bug.  The old-queue-file test also
+//! checks that the serde default for a missing injection_source field is
+//! `SmtpSieve` (peerable), which protects against old queue files being
+//! silently dropped from the group log after a schema migration.
 
 use cid::Cid;
 use multihash_codetable::{Code, MultihashDigest};

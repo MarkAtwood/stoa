@@ -103,6 +103,19 @@ pub fn log_entry_canonical_bytes(
 /// excludes the signature), this function *includes* the signature so that
 /// two entries that are identical except for their signature produce
 /// different IDs.
+///
+/// # DECISION (rbe3.74): signature is included for ID uniqueness
+///
+/// `entry_id_bytes` includes `operator_signature` while
+/// `log_entry_canonical_bytes` (the thing actually signed) excludes it.
+/// This asymmetry is intentional and must not be "unified":
+/// - If IDs excluded the signature, two operators signing the same article
+///   at identical HLC timestamps would produce the same ID, and one entry
+///   would overwrite the other in the group log store.
+/// - If the signing input included the signature, it would be circular
+///   (you cannot sign data that includes its own signature).
+/// Do NOT add `operator_signature` to `log_entry_canonical_bytes` and do
+/// NOT remove it from `entry_id_bytes`.
 pub fn entry_id_bytes(
     hlc_timestamp: u64,
     article_cid: &Cid,
@@ -152,6 +165,15 @@ mod tests {
     /// change across code changes. This is the authoritative test vector for
     /// the canonical format; the expected bytes were computed by hand from the
     /// format specification above, not derived from the implementation.
+    ///
+    /// # DECISION (rbe3.76): independent oracle is mandatory
+    ///
+    /// The expected bytes MUST be constructed by hand from the format spec,
+    /// not derived from calling `canonical_bytes()` itself.  A test that
+    /// calls the function twice and compares the results verifies idempotency
+    /// only — it cannot detect a systematic encoding bug.  If you need to
+    /// update this test, re-derive the expected bytes from the spec, byte by
+    /// byte, and document the derivation in a comment.
     #[test]
     fn stability_regression() {
         let article = base_article();
