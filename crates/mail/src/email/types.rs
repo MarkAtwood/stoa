@@ -163,80 +163,23 @@ impl Email {
 }
 
 /// Convert HLC millisecond timestamp to RFC 3339 UTC string.
+///
+/// Uses `chrono` for correct calendar arithmetic. Returns the RFC 3339
+/// representation with `+00:00` UTC offset (e.g. `"2024-01-01T00:00:00+00:00"`).
+/// On the extremely unlikely case that `hlc_ms` is out of chrono's representable
+/// range, logs a warning and returns the Unix epoch sentinel.
 fn hlc_ms_to_rfc3339(hlc_ms: u64) -> String {
-    let secs = hlc_ms / 1000;
-    let nanos = ((hlc_ms % 1000) * 1_000_000) as u32;
-    format_rfc3339(secs, nanos)
-}
-
-fn format_rfc3339(secs: u64, nanos: u32) -> String {
-    let (y, mo, d, h, min, sec) = secs_to_ymd_hms(secs);
-    if nanos == 0 {
-        format!("{y:04}-{mo:02}-{d:02}T{h:02}:{min:02}:{sec:02}Z")
-    } else {
-        let ms = nanos / 1_000_000;
-        format!("{y:04}-{mo:02}-{d:02}T{h:02}:{min:02}:{sec:02}.{ms:03}Z")
-    }
-}
-
-fn secs_to_ymd_hms(secs: u64) -> (u64, u64, u64, u64, u64, u64) {
-    let s = secs % 60;
-    let m = (secs / 60) % 60;
-    let h = (secs / 3600) % 24;
-    let days = secs / 86400;
-    let (y, doy) = days_to_year_doy(days);
-    let (mo, d) = doy_to_month_day(y, doy);
-    (y, mo, d, h, m, s)
-}
-
-fn is_leap(y: u64) -> bool {
-    (y % 4 == 0 && y % 100 != 0) || y % 400 == 0
-}
-
-fn days_in_year(y: u64) -> u64 {
-    if is_leap(y) {
-        366
-    } else {
-        365
-    }
-}
-
-fn days_to_year_doy(mut days: u64) -> (u64, u64) {
-    let mut y = 1970u64;
-    loop {
-        let dy = days_in_year(y);
-        if days < dy {
-            break;
+    use chrono::{DateTime, Utc};
+    match DateTime::<Utc>::from_timestamp_millis(hlc_ms as i64) {
+        Some(dt) => dt.to_rfc3339(),
+        None => {
+            tracing::warn!(
+                hlc_ms,
+                "HLC timestamp out of chrono range; using epoch sentinel"
+            );
+            "1970-01-01T00:00:00+00:00".to_string()
         }
-        days -= dy;
-        y += 1;
     }
-    (y, days)
-}
-
-fn doy_to_month_day(y: u64, doy: u64) -> (u64, u64) {
-    let months = [
-        31u64,
-        if is_leap(y) { 29 } else { 28 },
-        31,
-        30,
-        31,
-        30,
-        31,
-        31,
-        30,
-        31,
-        30,
-        31,
-    ];
-    let mut rem = doy;
-    for (i, &days) in months.iter().enumerate() {
-        if rem < days {
-            return (i as u64 + 1, rem + 1);
-        }
-        rem -= days;
-    }
-    (12, 31)
 }
 
 fn get_single(hm: &HeaderMapNode, key: &str) -> Option<String> {
@@ -354,15 +297,61 @@ mod tests {
         let cid = dummy_cid(b"article2");
         let root = dummy_root(vec!["alt.test".to_string()], 1_714_560_000_000, 100);
         let email = Email::from_root_node(&cid, &root, None, HashMap::new(), None);
+        // chrono::to_rfc3339() emits UTC offset as "+00:00", which is a valid RFC 3339 form.
         assert!(
-            email.received_at.ends_with('Z'),
-            "must end with Z: {}",
+            email.received_at.ends_with("+00:00"),
+            "must end with +00:00: {}",
             email.received_at
         );
         assert!(
             email.received_at.contains('T'),
             "must contain T: {}",
             email.received_at
+        );
+    }
+
+    // ---------- hlc_ms_to_rfc3339 pinned test vectors ----------
+    //
+    // Independent oracle: Python `datetime.utcfromtimestamp(ms/1000).isoformat()` and
+    // `date -d '...' +%s` on Linux, cross-checked against RFC 3339 §5.8 examples.
+    // chrono::to_rfc3339() emits "+00:00" not "Z"; both are valid per RFC 3339 §4.2.
+
+    #[test]
+    fn hlc_ms_to_rfc3339_unix_epoch() {
+        // ms=0 is the Unix epoch: 1970-01-01T00:00:00 UTC.
+        // Oracle: universally agreed reference point; no computation required.
+        assert_eq!(hlc_ms_to_rfc3339(0), "1970-01-01T00:00:00+00:00");
+    }
+
+    #[test]
+    fn hlc_ms_to_rfc3339_2024_01_01() {
+        // ms=1704067200000 → 2024-01-01T00:00:00 UTC.
+        // Oracle: `date -d '2024-01-01 00:00:00 UTC' +%s` → 1704067200 (verified on Linux).
+        // Python: datetime(2024,1,1,tzinfo=timezone.utc).timestamp() == 1704067200.0
+        assert_eq!(
+            hlc_ms_to_rfc3339(1_704_067_200_000),
+            "2024-01-01T00:00:00+00:00"
+        );
+    }
+
+    #[test]
+    fn hlc_ms_to_rfc3339_fractional_seconds() {
+        // ms=1704067200500 → 2024-01-01T00:00:00.500 UTC.
+        // Oracle: base timestamp 1704067200000 (verified above) plus 500 ms.
+        assert_eq!(
+            hlc_ms_to_rfc3339(1_704_067_200_500),
+            "2024-01-01T00:00:00.500+00:00"
+        );
+    }
+
+    #[test]
+    fn hlc_ms_to_rfc3339_leap_day() {
+        // ms=1709251200000 → 2024-03-01T00:00:00 UTC (day after 2024 leap day Feb 29).
+        // Oracle: `date -d '2024-03-01 00:00:00 UTC' +%s` → 1709251200.
+        // This catches off-by-one errors in leap-year month boundaries.
+        assert_eq!(
+            hlc_ms_to_rfc3339(1_709_251_200_000),
+            "2024-03-01T00:00:00+00:00"
         );
     }
 
