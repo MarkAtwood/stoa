@@ -297,6 +297,7 @@ async fn transit_reader_shared_store() {
         dkim_authenticator: Arc::new(
             mail_auth::MessageAuthenticator::new_cloudflare_tls().unwrap(),
         ),
+        path_hostname: "localhost".to_string(),
     });
 
     // ── Transit stores ────────────────────────────────────────────────────────

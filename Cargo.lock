@@ -4150,6 +4150,7 @@ dependencies = [
  "lazy_static",
  "mail-auth",
  "mailparse",
+ "memchr",
  "multihash-codetable",
  "prometheus",
  "rcgen",

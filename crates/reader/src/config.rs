@@ -9,10 +9,19 @@ pub use stoa_core::ipfs_backend::{
     S3BackendConfig,
 };
 
+/// Default hostname for the NNTP Path: header injected on POST.
+fn default_path_hostname() -> String {
+    "localhost".to_string()
+}
+
 // Config fields are read from TOML; server logic will consume them as epics are implemented.
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct Config {
+    /// Hostname used to build the Path: header on incoming NNTP POST articles
+    /// (RFC 5536 §3.1).  Defaults to `"localhost"`.
+    #[serde(default = "default_path_hostname")]
+    pub path_hostname: String,
     pub listen: ListenConfig,
     pub limits: LimitsConfig,
     pub auth: AuthConfig,

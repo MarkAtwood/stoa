@@ -64,6 +64,8 @@ pub struct ServerStores {
     pub verification_store: Arc<VerificationStore>,
     /// DKIM verifier backed by system DNS resolver.
     pub dkim_authenticator: Arc<MessageAuthenticator>,
+    /// Hostname injected into the Path: header of POST articles (RFC 5536 §3.1).
+    pub path_hostname: String,
 }
 
 impl ServerStores {
@@ -143,6 +145,7 @@ impl ServerStores {
             smtp_relay_queue,
             verification_store: Arc::new(VerificationStore::new(verify_pool)),
             dkim_authenticator: Arc::new(dkim_authenticator),
+            path_hostname: config.path_hostname.clone(),
         })
     }
 
@@ -190,6 +193,7 @@ impl ServerStores {
                 MessageAuthenticator::new_cloudflare_tls()
                     .expect("DKIM authenticator init must not fail"),
             ),
+            path_hostname: "localhost".to_string(),
         }
     }
 
@@ -227,6 +231,7 @@ impl ServerStores {
                 MessageAuthenticator::new_cloudflare_tls()
                     .expect("DKIM authenticator init must not fail"),
             ),
+            path_hostname: "localhost".to_string(),
         }
     }
 }

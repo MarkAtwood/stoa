@@ -13,7 +13,7 @@ use crate::{
     config::Config,
     post::{
         find_header_boundary,
-        injection::{extract_injection_source, strip_server_synthesized_headers},
+        injection::{extract_injection_source, prepend_path_header, strip_server_synthesized_headers},
         ipfs_write::{write_ipld_article_to_ipfs, IpfsBlockStore},
         log_append::append_to_groups,
         pipeline::check_duplicate_msgid,
@@ -835,6 +835,9 @@ async fn run_post_pipeline(
     // verbatim before the server's own injected value, allowing the client to
     // forge integrity signals seen by readers.
     strip_server_synthesized_headers(&mut article_bytes);
+    // Step 1b: Inject the Path: header required by RFC 5536 §3.1.
+    // Must happen before signing so the header is covered by the operator signature.
+    let article_bytes = prepend_path_header(&article_bytes, &stores.path_hostname);
     let article_bytes = article_bytes.as_slice();
 
     // Step 2: Validate headers.
@@ -1903,6 +1906,36 @@ mod tests {
         assert_eq!(records[0].article_number, 1);
         assert_eq!(records[0].subject, "Integration Test");
         assert_eq!(records[0].message_id, "<integ@test.example>");
+    }
+
+    /// Article stored via POST must contain a Path: header (RFC 5536 §3.1).
+    #[tokio::test]
+    async fn post_pipeline_stored_article_has_path_header() {
+        let stores = ServerStores::new_mem().await;
+        let article = minimal_article("comp.test", "Path Test", "<pathtest@test.example>");
+
+        let resp = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES).await;
+        assert_eq!(resp.code, 240, "POST must succeed; got: {}", resp.text);
+
+        let cid = stores
+            .msgid_map
+            .lookup_by_msgid("<pathtest@test.example>")
+            .await
+            .expect("msgid lookup must not fail")
+            .expect("msgid must be in map after POST");
+        let wire = fetch_article_wire_bytes(stores.ipfs_store.as_ref(), &cid)
+            .await
+            .expect("fetch_article_wire_bytes must succeed");
+        let text = String::from_utf8_lossy(&wire);
+        assert!(
+            text.to_ascii_lowercase().contains("path:"),
+            "stored article must contain a Path: header (RFC 5536 §3.1): {text:.200}"
+        );
+        // The path_hostname for new_mem() is "localhost".
+        assert!(
+            text.contains("Path: localhost"),
+            "Path header must contain the configured hostname: {text:.200}"
+        );
     }
 
     // ── ARTICLE/HEAD/BODY by number (usenet-ipfs-1jr7) ───────────────────

@@ -114,6 +114,43 @@ pub fn extract_injection_source(article_bytes: &mut Vec<u8>) -> InjectionSource 
     }
 }
 
+/// Add or prepend-to the `Path:` header required by RFC 5536 §3.1.
+///
+/// POST articles from newsreader clients MUST NOT include a `Path:` header
+/// (RFC 5536 §3.1).  This function handles both cases:
+/// - No existing `Path:` header → inserts `Path: hostname\r\n` before the
+///   blank line separating headers from body.
+/// - Existing `Path:` header → prepends `hostname!` to the existing value.
+///
+/// Returns the new article bytes.
+pub fn prepend_path_header(article_bytes: &[u8], hostname: &str) -> Vec<u8> {
+    let header_end = find_header_end(article_bytes);
+    let mut out = Vec::with_capacity(article_bytes.len() + 64);
+    let mut path_found = false;
+    let mut i = 0;
+    while i < header_end {
+        let line_end = find_line_end(article_bytes, i, header_end);
+        let line = &article_bytes[i..line_end];
+        let end = skip_line_terminator(article_bytes, line_end);
+        if line.len() >= 5 && line[..5].eq_ignore_ascii_case(b"path:") {
+            let old_val = String::from_utf8_lossy(&line[5..]);
+            let old_val = old_val.trim();
+            let new_line = format!("Path: {hostname}!{old_val}\r\n");
+            out.extend_from_slice(new_line.as_bytes());
+            path_found = true;
+        } else {
+            out.extend_from_slice(&article_bytes[i..end]);
+        }
+        i = end;
+    }
+    if !path_found {
+        let path_line = format!("Path: {hostname}\r\n");
+        out.extend_from_slice(path_line.as_bytes());
+    }
+    out.extend_from_slice(&article_bytes[header_end..]);
+    out
+}
+
 /// Return the byte offset of the first blank line separator (`\r\n\r\n` or
 /// `\n\n`), pointing to the start of the blank line itself.  Returns
 /// `article_bytes.len()` if no separator is found (treat entire buffer as
@@ -327,6 +364,49 @@ mod tests {
         assert!(
             !s.to_ascii_lowercase().contains("x-stoa-did-verified"),
             "stripping must be case-insensitive: {s:?}"
+        );
+    }
+
+    // ── prepend_path_header tests ─────────────────────────────────────────────
+
+    #[test]
+    fn path_header_added_when_absent() {
+        let article = make_article(None, "body\r\n");
+        let result = prepend_path_header(&article, "news.example.com");
+        let s = String::from_utf8(result).unwrap();
+        assert!(
+            s.contains("Path: news.example.com\r\n"),
+            "Path header must be added: {s:?}"
+        );
+        assert!(s.contains("Newsgroups:"), "other headers must remain");
+        assert!(s.contains("\r\n\r\n"), "blank-line separator must remain");
+        assert!(s.ends_with("body\r\n"), "body must be unchanged");
+    }
+
+    #[test]
+    fn path_header_prepended_when_existing() {
+        let article = make_article(Some("Path: upstream.example.com"), "body\r\n");
+        let result = prepend_path_header(&article, "news.example.com");
+        let s = String::from_utf8(result).unwrap();
+        assert!(
+            s.contains("Path: news.example.com!upstream.example.com\r\n"),
+            "Path must be prepended: {s:?}"
+        );
+        // Original Path header value must not appear standalone.
+        assert!(
+            !s.contains("Path: upstream.example.com\r\n"),
+            "old Path header must be replaced: {s:?}"
+        );
+    }
+
+    #[test]
+    fn path_header_injection_case_insensitive() {
+        let article = make_article(Some("path: old.example.com"), "body\r\n");
+        let result = prepend_path_header(&article, "new.example.com");
+        let s = String::from_utf8(result).unwrap();
+        assert!(
+            s.contains("Path: new.example.com!old.example.com\r\n"),
+            "Path must be prepended case-insensitively: {s:?}"
         );
     }
 }
