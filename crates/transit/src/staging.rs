@@ -501,7 +501,10 @@ mod tests {
         store.reset_claims().await.unwrap();
 
         let re = store.drain_one().await.unwrap();
-        assert!(re.is_some(), "after reset_claims the article must be re-drainable");
+        assert!(
+            re.is_some(),
+            "after reset_claims the article must be re-drainable"
+        );
     }
 
     #[tokio::test]

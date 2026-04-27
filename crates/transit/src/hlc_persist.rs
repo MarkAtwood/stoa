@@ -12,14 +12,11 @@ use stoa_core::hlc::HlcTimestamp;
 /// Load the persisted HLC checkpoint.
 ///
 /// Returns `Ok(None)` on first run (table row does not exist yet).
-pub async fn load_hlc_checkpoint(
-    pool: &SqlitePool,
-) -> Result<Option<HlcTimestamp>, sqlx::Error> {
-    let row: Option<(i64, i64)> = sqlx::query_as(
-        "SELECT wall_ms, logical FROM hlc_checkpoint WHERE id = 1",
-    )
-    .fetch_optional(pool)
-    .await?;
+pub async fn load_hlc_checkpoint(pool: &SqlitePool) -> Result<Option<HlcTimestamp>, sqlx::Error> {
+    let row: Option<(i64, i64)> =
+        sqlx::query_as("SELECT wall_ms, logical FROM hlc_checkpoint WHERE id = 1")
+            .fetch_optional(pool)
+            .await?;
 
     Ok(row.map(|(wall_ms, logical)| HlcTimestamp {
         wall_ms: wall_ms as u64,

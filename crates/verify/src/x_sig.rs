@@ -272,15 +272,13 @@ mod tests {
         let sig_line_start = sig_str.find("X-Stoa-Sig:").unwrap();
         let sig_line_end = sig_str[sig_line_start..].find('\n').unwrap() + sig_line_start + 1;
         let sig_line = &sig_str[sig_line_start..sig_line_end]; // "X-Stoa-Sig: <value>\r\n"
-        // Split the value at midpoint and create a folded version.
+                                                               // Split the value at midpoint and create a folded version.
         let colon_pos = sig_line.find(':').unwrap();
-        let value = sig_line[colon_pos + 1..].trim_end_matches(['\r', '\n']).trim();
+        let value = sig_line[colon_pos + 1..]
+            .trim_end_matches(['\r', '\n'])
+            .trim();
         let mid = value.len() / 2;
-        let folded = format!(
-            "X-Stoa-Sig: {}\r\n\t{}\r\n",
-            &value[..mid],
-            &value[mid..]
-        );
+        let folded = format!("X-Stoa-Sig: {}\r\n\t{}\r\n", &value[..mid], &value[mid..]);
         let folded_article = format!(
             "{}{}{}",
             &sig_str[..sig_line_start],

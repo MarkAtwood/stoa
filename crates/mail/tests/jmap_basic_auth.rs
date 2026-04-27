@@ -13,12 +13,12 @@ use std::time::Instant;
 
 use data_encoding::BASE64;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-use tokio::net::TcpListener;
 use stoa_auth::{AuthConfig, CredentialStore, UserCredential};
 use stoa_mail::{
     server::{build_router, AppState},
     token_store::TokenStore,
 };
+use tokio::net::TcpListener;
 
 static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
 

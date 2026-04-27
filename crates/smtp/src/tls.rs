@@ -3,8 +3,8 @@
 //! Delegates PEM loading to `stoa-tls` and adds SMTP-specific helpers
 //! (`build_tls_acceptor`, `accept_tls`, `tls_configured`).
 
-use stoa_tls::{load_tls_server_config, load_tls_server_config_with_key_bytes};
 pub use stoa_tls::TlsError;
+use stoa_tls::{load_tls_server_config, load_tls_server_config_with_key_bytes};
 
 /// A `tokio_rustls` TLS acceptor for the SMTPS listener.
 pub type TlsAcceptor = tokio_rustls::TlsAcceptor;
@@ -31,8 +31,7 @@ pub fn build_tls_acceptor_with_key_bytes(
     key_pem_bytes: &[u8],
     key_label: &str,
 ) -> Result<TlsAcceptor, TlsError> {
-    let server_config =
-        load_tls_server_config_with_key_bytes(cert_path, key_pem_bytes, key_label)?;
+    let server_config = load_tls_server_config_with_key_bytes(cert_path, key_pem_bytes, key_label)?;
     Ok(tokio_rustls::TlsAcceptor::from(server_config))
 }
 

@@ -468,7 +468,10 @@ mod tests {
         let mut clock = HlcClock::new_seeded(NODE_A, 1000, checkpoint);
         let t = clock.send(1000);
         assert_eq!(t.wall_ms, 1000);
-        assert_eq!(t.logical, 1, "logical must start at 1 after send on fresh wall");
+        assert_eq!(
+            t.logical, 1,
+            "logical must start at 1 after send on fresh wall"
+        );
     }
 
     #[test]

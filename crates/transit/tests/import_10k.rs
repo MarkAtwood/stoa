@@ -13,11 +13,11 @@ use cid::Cid;
 use multihash_codetable::{Code, MultihashDigest};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use tempfile::TempDir;
 use stoa_transit::import::{
     mbox::parse_mbox_file,
     reindex::{run_reindex, ReindexConfig},
 };
+use tempfile::TempDir;
 
 static DB_COUNTER: AtomicUsize = AtomicUsize::new(0);
 

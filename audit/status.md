@@ -147,3 +147,18 @@ Phase markers reset for new epic
 [06:08:18] COORDINATOR: 6o91 committed. Spawning review round.
 [06:10:00] COORDINATOR: 6o91 closed. Starting next epic.
 [06:10:19] COORDINATOR: Starting epic sfmz (Pluggable block store). Phase 0.
+[23:17:17] COORDINATOR: claimed epic usenet-ipfs-whss (wildmat pattern support)
+[23:25:55] COORDINATOR: phase1 done — 8 beads in 5 waves; whss.1 unblocked; gossipsub criterion obsolete (bcd4026)
+[23:26:18] COORDINATOR: phase2 started — dispatching team for whss.1 (wildmat extract)
+[23:47:37] COORDINATOR: whss.1 closed and validated — wildmat in core, reader imports clean
+[23:47:49] COORDINATOR: dispatching critical-path team for whss.2 (WildmatPattern + GroupFilter)
+[23:52:49] COORDINATOR: whss.2 closed — WildmatPattern+GroupFilter in core, 22 tests pass
+[23:53:09] COORDINATOR: whss.4 closed (done in whss.2); dispatching team for whss.3 (config pattern validation)
+[00:03:52] COORDINATOR: whss.3 closed — GroupsConfig wildmat validation + all-negation rejection, 271 tests
+[00:13:55] COORDINATOR: whss.5 closed — GroupFilter in PipelineCtx, all tests pass
+[00:18:00] COORDINATOR: whss.5+whss.6 closed — GroupFilter wired into pipeline + ValidationConfig, 253+271 tests pass
+[00:22:11] COORDINATOR: whss.7 closed — 6 integration tests pass (accept, reject, negation, crosspost)
+[00:28:24] COORDINATOR: review round 1, epic usenet-ipfs-7h4l
+[00:38:08] REVIEW round 1: P0=0 P1=1 P2=6 P3=3 P4=3 opinion=4 decisions=21
+[00:56:47] COORDINATOR: phase 3 done; review converged in 1 round; proceeding to phase 4
+[00:56:55] COORDINATOR: epic usenet-ipfs-whss closed; phase 4 done

@@ -33,13 +33,12 @@ impl MsgIdMap {
         // and rows_affected() returns 0.  This avoids the SELECT→INSERT TOCTOU
         // where two concurrent callers both see no row, then one fails with a
         // UNIQUE constraint violation.
-        let result =
-            sqlx::query("INSERT OR IGNORE INTO msgid_map (message_id, cid) VALUES (?, ?)")
-                .bind(message_id)
-                .bind(&cid_bytes)
-                .execute(&self.pool)
-                .await
-                .map_err(|e| StorageError::Database(e.to_string()))?;
+        let result = sqlx::query("INSERT OR IGNORE INTO msgid_map (message_id, cid) VALUES (?, ?)")
+            .bind(message_id)
+            .bind(&cid_bytes)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| StorageError::Database(e.to_string()))?;
 
         if result.rows_affected() == 1 {
             // We inserted the row — no collision possible.

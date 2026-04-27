@@ -2,9 +2,9 @@
 
 use sqlx::SqlitePool;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use stoa_core::error::StorageError;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
-use stoa_core::error::StorageError;
 
 /// Configuration for the suck pull import.
 #[derive(Debug, Clone)]

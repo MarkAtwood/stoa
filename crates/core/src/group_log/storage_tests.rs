@@ -188,7 +188,10 @@ pub async fn test_advance_tips_basic(storage: &impl LogStorage) {
     let tip_bytes: Vec<[u8; 32]> = tips.iter().map(|id| *id.as_bytes()).collect();
     assert!(!tip_bytes.contains(old1.as_bytes()), "old1 must be removed");
     assert!(tip_bytes.contains(old2.as_bytes()), "old2 must survive");
-    assert!(tip_bytes.contains(new_tip.as_bytes()), "new_tip must be added");
+    assert!(
+        tip_bytes.contains(new_tip.as_bytes()),
+        "new_tip must be added"
+    );
     assert_eq!(tips.len(), 2, "must have exactly 2 tips: old2 and new_tip");
 }
 
@@ -216,7 +219,10 @@ pub async fn test_advance_tips_concurrent(storage: &impl LogStorage) {
 
     let tips = storage.list_tips(&group).await.expect("list_tips");
     let tip_bytes: Vec<[u8; 32]> = tips.iter().map(|id| *id.as_bytes()).collect();
-    assert!(!tip_bytes.contains(parent.as_bytes()), "parent must be gone");
+    assert!(
+        !tip_bytes.contains(parent.as_bytes()),
+        "parent must be gone"
+    );
     assert!(tip_bytes.contains(tip_a.as_bytes()), "tip_a must survive");
     assert!(tip_bytes.contains(tip_b.as_bytes()), "tip_b must survive");
     assert_eq!(tips.len(), 2, "both concurrent tips must be present");

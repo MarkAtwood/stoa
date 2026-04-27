@@ -288,9 +288,7 @@ async fn transit_reader_shared_store() {
         ),
         trusted_issuer_store: Arc::new(stoa_auth::TrustedIssuerStore::empty()),
         clock: Arc::new(Mutex::new(HlcClock::new([0x01u8; 8], now_ms))),
-        signing_key: Arc::new(stoa_core::signing::SigningKey::from_bytes(
-            &[0x42u8; 32],
-        )),
+        signing_key: Arc::new(stoa_core::signing::SigningKey::from_bytes(&[0x42u8; 32])),
         search_index: None,
         smtp_relay_queue: None,
         verification_store: Arc::new(stoa_verify::VerificationStore::new(

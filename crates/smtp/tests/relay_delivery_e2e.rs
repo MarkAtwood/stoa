@@ -1,8 +1,8 @@
 use std::time::Duration;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::TcpListener;
 use stoa_smtp::config::SmtpRelayPeerConfig;
 use stoa_smtp::SmtpRelayQueue;
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::net::TcpListener;
 
 fn test_peer(port: u16) -> SmtpRelayPeerConfig {
     SmtpRelayPeerConfig {

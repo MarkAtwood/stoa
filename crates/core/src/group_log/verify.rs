@@ -66,7 +66,10 @@ pub enum VerifyError {
     Storage(StorageError),
     InvalidSignature(SigningError),
     MissingParent(String),
-    HlcNotMonotonic { entry: u64, parent: u64 },
+    HlcNotMonotonic {
+        entry: u64,
+        parent: u64,
+    },
     /// The provided `entry_id` does not match the SHA2-256 of the entry's
     /// canonical bytes.  Indicates the entry was tampered with or the wrong
     /// ID was supplied.
@@ -95,9 +98,7 @@ impl std::error::Error for VerifyError {
         match self {
             Self::Storage(e) => Some(e),
             Self::InvalidSignature(e) => Some(e),
-            Self::MissingParent(_)
-            | Self::HlcNotMonotonic { .. }
-            | Self::EntryIdMismatch => None,
+            Self::MissingParent(_) | Self::HlcNotMonotonic { .. } | Self::EntryIdMismatch => None,
         }
     }
 }

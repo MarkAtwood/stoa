@@ -615,8 +615,7 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
                 "IMAP auth failure limit reached; sending BYE"
             );
             let bye = server.enqueue_status(
-                Status::bye(None, "Too many authentication failures")
-                    .expect("static bye is valid"),
+                Status::bye(None, "Too many authentication failures").expect("static bye is valid"),
             );
             let _ = tokio::time::timeout(
                 Duration::from_secs(5),

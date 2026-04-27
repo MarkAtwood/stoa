@@ -106,13 +106,11 @@ impl LmdbBlockDb {
                 "map_size_gb {map_size_gb} overflows usize on this platform"
             ))
         })?;
-        let map_size = map_size_gb_usize
-            .checked_mul(GIB)
-            .ok_or_else(|| {
-                LmdbError::Other(format!(
-                    "map_size_gb {map_size_gb} overflows usize on this platform"
-                ))
-            })?;
+        let map_size = map_size_gb_usize.checked_mul(GIB).ok_or_else(|| {
+            LmdbError::Other(format!(
+                "map_size_gb {map_size_gb} overflows usize on this platform"
+            ))
+        })?;
 
         // SAFETY: We open this environment exactly once per process at this
         // path.  The `LmdbBlockDb` wrapper type is the only entry point; wrap
@@ -152,10 +150,7 @@ impl LmdbBlockDb {
     /// Returns `Ok(None)` if the key does not exist.
     pub fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, LmdbError> {
         let rtxn = self.env.read_txn().map_err(LmdbError::from)?;
-        let result = self
-            .db
-            .get(&rtxn, key)
-            .map_err(LmdbError::from)?;
+        let result = self.db.get(&rtxn, key).map_err(LmdbError::from)?;
         Ok(result.map(|v| v.to_vec()))
     }
 
@@ -165,10 +160,7 @@ impl LmdbBlockDb {
     /// without error.  Returns `Ok(true)` if the key was found and removed.
     pub fn delete(&self, key: &[u8]) -> Result<bool, LmdbError> {
         let mut wtxn = self.env.write_txn().map_err(LmdbError::from)?;
-        let found = self
-            .db
-            .delete(&mut wtxn, key)
-            .map_err(LmdbError::from)?;
+        let found = self.db.delete(&mut wtxn, key).map_err(LmdbError::from)?;
         wtxn.commit().map_err(LmdbError::from)?;
         Ok(found)
     }

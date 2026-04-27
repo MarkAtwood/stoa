@@ -58,14 +58,20 @@ impl CredentialStore {
             .map(|u| (u.username.to_ascii_lowercase(), u.password.clone()))
             .collect();
         let dummy_hash = make_dummy_hash(&entries);
-        Self { entries, dummy_hash }
+        Self {
+            entries,
+            dummy_hash,
+        }
     }
 
     /// Return an empty `CredentialStore` (no users configured; all checks fail).
     pub fn empty() -> Self {
         let entries = HashMap::new();
         let dummy_hash = make_dummy_hash(&entries);
-        Self { entries, dummy_hash }
+        Self {
+            entries,
+            dummy_hash,
+        }
     }
 
     /// Build a `CredentialStore` from credential file content.
@@ -94,7 +100,10 @@ impl CredentialStore {
             entries.insert(user, hash);
         }
         let dummy_hash = make_dummy_hash(&entries);
-        Ok(Self { entries, dummy_hash })
+        Ok(Self {
+            entries,
+            dummy_hash,
+        })
     }
 
     /// Build a `CredentialStore` from a credential file at `path`.

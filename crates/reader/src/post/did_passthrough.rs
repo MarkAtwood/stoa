@@ -118,8 +118,7 @@ mod tests {
     fn folded_header_value_is_joined() {
         // RFC 5322 §2.2.3: a long header may be folded across multiple lines
         // by inserting a CRLF followed by at least one SP or HTAB.
-        let headers =
-            b"From: a@b\r\nX-Stoa-DID-Sig: did:key:z6Mk\r\n abc123\r\nSubject: hi\r\n";
+        let headers = b"From: a@b\r\nX-Stoa-DID-Sig: did:key:z6Mk\r\n abc123\r\nSubject: hi\r\n";
         let result = extract_did_sig(headers);
         assert_eq!(result, Some("did:key:z6Mk abc123".to_owned()));
     }
@@ -127,8 +126,7 @@ mod tests {
     #[test]
     fn body_injection_is_ignored() {
         // An attacker plants the header in the body; it must not be extracted.
-        let article =
-            b"From: a@b\r\nSubject: test\r\n\r\nX-Stoa-DID-Sig: did:key:z6Mk...\r\n";
+        let article = b"From: a@b\r\nSubject: test\r\n\r\nX-Stoa-DID-Sig: did:key:z6Mk...\r\n";
         assert_eq!(extract_did_sig(article), None);
     }
 

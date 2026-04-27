@@ -206,14 +206,12 @@ impl LogStorage for SqliteLogStorage {
         }
 
         let new_tip_bytes = new_tip.as_bytes().as_slice().to_vec();
-        sqlx::query(
-            "INSERT OR IGNORE INTO group_tips (group_name, tip_id) VALUES (?, ?)",
-        )
-        .bind(group_name)
-        .bind(&new_tip_bytes)
-        .execute(&mut *tx)
-        .await
-        .map_err(db_err)?;
+        sqlx::query("INSERT OR IGNORE INTO group_tips (group_name, tip_id) VALUES (?, ?)")
+            .bind(group_name)
+            .bind(&new_tip_bytes)
+            .execute(&mut *tx)
+            .await
+            .map_err(db_err)?;
 
         tx.commit().await.map_err(db_err)?;
         Ok(())

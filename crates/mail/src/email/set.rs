@@ -349,9 +349,7 @@ mod tests {
             .connect("sqlite::memory:")
             .await
             .unwrap();
-        stoa_core::migrations::run_migrations(&pool)
-            .await
-            .unwrap();
+        stoa_core::migrations::run_migrations(&pool).await.unwrap();
         let msgid_map = stoa_core::msgid_map::MsgIdMap::new(pool);
         let ipfs = MemIpfsStore::new();
 
@@ -380,9 +378,7 @@ mod tests {
             .connect("sqlite::memory:")
             .await
             .unwrap();
-        stoa_core::migrations::run_migrations(&pool)
-            .await
-            .unwrap();
+        stoa_core::migrations::run_migrations(&pool).await.unwrap();
         stoa_core::msgid_map::MsgIdMap::new(pool)
     }
 

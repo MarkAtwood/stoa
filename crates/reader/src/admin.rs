@@ -113,7 +113,11 @@ async fn handle_admin_connection(
         tracing::debug!("admin request rate-limited from {peer_ip}");
         let rpm = rate_limiter.rpm();
         // clamp to [1, 60]: prevents Retry-After: 0 for high rpm (e.g. rpm=120 → 60/120=0 → 1s).
-        let retry_after = if rpm > 0 { (60u32 / rpm).clamp(1, 60) } else { 60 };
+        let retry_after = if rpm > 0 {
+            (60u32 / rpm).clamp(1, 60)
+        } else {
+            60
+        };
         let body = r#"{"error":"rate limit exceeded"}"#;
         let content_length = body.len();
         let response = format!(
@@ -302,10 +306,10 @@ mod tests {
         // Verify the retry_after formula for key rpm values.
         // Expected: ceil(60/rpm), clamped to [1, 60].
         let cases: &[(u32, u32)] = &[
-            (1, 60),   // 60/1 = 60s
-            (60, 1),   // 60/60 = 1s
-            (120, 1),  // 60/120 = 0.5s → bumped to 1s (this was the bug)
-            (600, 1),  // 60/600 = 0.1s → bumped to 1s
+            (1, 60),  // 60/1 = 60s
+            (60, 1),  // 60/60 = 1s
+            (120, 1), // 60/120 = 0.5s → bumped to 1s (this was the bug)
+            (600, 1), // 60/600 = 0.1s → bumped to 1s
         ];
         for &(rpm, expected) in cases {
             let got = (60u32 / rpm).clamp(1, 60);

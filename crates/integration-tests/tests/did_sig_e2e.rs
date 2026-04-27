@@ -66,10 +66,7 @@ async fn read_multiline(r: &mut BufReader<tokio::io::ReadHalf<TcpStream>>) -> Ve
 ///
 /// The server loop runs in a background task and accepts connections for the
 /// lifetime of the test (dropped when the test exits).
-async fn start_server() -> (
-    std::net::SocketAddr,
-    Arc<stoa_reader::config::Config>,
-) {
+async fn start_server() -> (std::net::SocketAddr, Arc<stoa_reader::config::Config>) {
     let stores = Arc::new(ServerStores::new_mem().await);
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();

@@ -127,7 +127,10 @@ fn parse_sig_type(s: &str) -> Option<SigType> {
         "dkim" => Some(SigType::Dkim),
         "x-stoa-sig" => Some(SigType::XUsenetIpfsSig),
         other => {
-            tracing::warn!(sig_type = other, "unrecognised sig_type in article_verifications; skipping row");
+            tracing::warn!(
+                sig_type = other,
+                "unrecognised sig_type in article_verifications; skipping row"
+            );
             None
         }
     }

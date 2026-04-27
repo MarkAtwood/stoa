@@ -405,7 +405,7 @@ mod tests {
         let payload = b"bob\x00alice\x00hunter2";
         let parts: Vec<&[u8]> = payload.splitn(3, |&b| b == 0).collect();
         assert_eq!(parts.len(), 3);
-        assert_eq!(parts[0], b"bob");   // authzid differs from authcid
+        assert_eq!(parts[0], b"bob"); // authzid differs from authcid
         assert_eq!(parts[1], b"alice"); // authcid
         assert_eq!(parts[2], b"hunter2");
     }

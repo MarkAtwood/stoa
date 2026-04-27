@@ -65,7 +65,10 @@ async fn main() {
     {
         Ok(p) => Arc::new(p),
         Err(e) => {
-            error!("failed to open IMAP database at {}: {e}", config.database.path);
+            error!(
+                "failed to open IMAP database at {}: {e}",
+                config.database.path
+            );
             std::process::exit(1);
         }
     };

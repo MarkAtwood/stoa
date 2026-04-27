@@ -234,8 +234,7 @@ async fn authinfo_rate_limiter_closes_after_max_failures() {
          [[auth.users]]\nusername = \"alice\"\npassword = \"placeholder\"\n\
          [tls]\n"
     );
-    let config: stoa_reader::config::Config =
-        toml::from_str(&toml).expect("config must parse");
+    let config: stoa_reader::config::Config = toml::from_str(&toml).expect("config must parse");
     let config = std::sync::Arc::new(config);
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();

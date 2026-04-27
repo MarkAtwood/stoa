@@ -5,10 +5,10 @@
 
 use cid::Cid;
 use serde::Serialize;
-use tokio::sync::mpsc;
 use stoa_core::article::GroupName;
 use stoa_core::hlc::HlcTimestamp;
 use stoa_core::msgid_map::MsgIdMap;
+use tokio::sync::mpsc;
 
 use crate::session::response::Response;
 
@@ -118,9 +118,7 @@ mod tests {
             .connect("sqlite::memory:")
             .await
             .unwrap();
-        stoa_core::migrations::run_migrations(&pool)
-            .await
-            .unwrap();
+        stoa_core::migrations::run_migrations(&pool).await.unwrap();
         MsgIdMap::new(pool)
     }
 

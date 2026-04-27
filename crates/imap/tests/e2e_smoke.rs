@@ -6,16 +6,16 @@
 
 use std::sync::Arc;
 
-use tokio::{
-    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
-    net::{TcpListener, TcpStream},
-};
 use stoa_imap::{
     config::{
         AdminConfig, AuthConfig, DatabaseConfig, LimitsConfig, ListenConfig, LogConfig, TlsConfig,
         UserCredential,
     },
     session::run_session_plain,
+};
+use tokio::{
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
+    net::{TcpListener, TcpStream},
 };
 
 /// Build an in-memory pool with the IMAP schema applied.

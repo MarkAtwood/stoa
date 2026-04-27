@@ -11,7 +11,6 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use cid::Cid;
 use multihash_codetable::{Code, MultihashDigest};
-use tokio::net::TcpListener;
 use stoa_core::ipld::root_node::{ArticleMetadata, ArticleRootNode};
 use stoa_mail::{
     server::{build_router, AppState, JmapStores},
@@ -25,6 +24,7 @@ use stoa_reader::{
         overview::{extract_overview, OverviewStore},
     },
 };
+use tokio::net::TcpListener;
 
 static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
 
@@ -174,10 +174,7 @@ async fn jmap_session_e2e() {
         },
     };
     let cbor = serde_ipld_dagcbor::to_vec(&root).expect("DAG-CBOR encode must succeed");
-    let cid = ipfs
-        .put_raw(&cbor)
-        .await
-        .expect("put_raw must succeed");
+    let cid = ipfs.put_raw(&cbor).await.expect("put_raw must succeed");
 
     // Assign article number in article_numbers store.
     let article_number = article_numbers

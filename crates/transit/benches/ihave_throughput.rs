@@ -160,7 +160,5 @@ async fn main() {
     let p50_us = latencies[499].as_micros();
     let p99_us = latencies[989].as_micros();
     println!("latency p50: {p50_us}µs  p99: {p99_us}µs");
-    println!(
-        "  (end-to-end: IPFS write + msgid SQLite insert + log append)"
-    );
+    println!("  (end-to-end: IPFS write + msgid SQLite insert + log append)");
 }

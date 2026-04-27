@@ -29,7 +29,9 @@ async fn make_transit_pool(name: &str) -> sqlx::SqlitePool {
         .connect_with(opts)
         .await
         .unwrap();
-    stoa_transit::migrations::run_migrations(&pool).await.unwrap();
+    stoa_transit::migrations::run_migrations(&pool)
+        .await
+        .unwrap();
     pool
 }
 

@@ -4,8 +4,8 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
 use stoa_core::InjectionSource;
+use tracing::{info, warn};
 
 use crate::nntp_client::{self, NntpClientConfig};
 

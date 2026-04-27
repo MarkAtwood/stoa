@@ -26,7 +26,9 @@ use crate::{
             parse_command, ArticleRange, ArticleRef, Command, ListSubcommand, OverArg, SearchKey,
         },
         commands::{
-            fetch::{article_response, body_response, head_response, xcid_response, ArticleContent},
+            fetch::{
+                article_response, body_response, head_response, xcid_response, ArticleContent,
+            },
             hdr::{extract_field, hdr_response, HdrRecord},
             list::GroupInfo,
             over::over_response,
@@ -454,7 +456,9 @@ where
                 _ => unreachable!(),
             };
             let resp = match lookup_article_content_by_number(stores, ctx, number).await {
-                Ok(content) => Response::article_exists(content.article_number, &content.message_id),
+                Ok(content) => {
+                    Response::article_exists(content.article_number, &content.message_id)
+                }
                 Err(r) => r,
             };
             if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
@@ -656,15 +660,18 @@ where
 
         // POST two-phase completion: if dispatch returned 340, read the article.
         if is_post && resp_code == 340 {
-            let body_timeout =
-                std::time::Duration::from_secs(config.limits.post_body_timeout_secs);
-            let read_result =
-                tokio::time::timeout(body_timeout, read_dot_terminated(reader, DEFAULT_MAX_ARTICLE_BYTES))
-                    .await;
+            let body_timeout = std::time::Duration::from_secs(config.limits.post_body_timeout_secs);
+            let read_result = tokio::time::timeout(
+                body_timeout,
+                read_dot_terminated(reader, DEFAULT_MAX_ARTICLE_BYTES),
+            )
+            .await;
             let article_bytes = match read_result {
                 Err(_elapsed) => {
                     warn!(peer = %peer_addr, "post body upload timed out");
-                    let _ = writer.write_all(b"400 Timeout - closing connection\r\n").await;
+                    let _ = writer
+                        .write_all(b"400 Timeout - closing connection\r\n")
+                        .await;
                     return CommandLoopExit::Done;
                 }
                 Ok(Ok(bytes)) => bytes,
@@ -878,11 +885,8 @@ async fn run_post_pipeline(article_bytes: &[u8], stores: &ServerStores) -> Respo
         use stoa_verify::x_sig::verify_x_sig;
         let pubkey = stores.signing_key.verifying_key();
         let x_sig_results = verify_x_sig(&[pubkey], &signed_bytes);
-        let dkim_results = stoa_verify::dkim::verify_dkim_headers(
-            &stores.dkim_authenticator,
-            &signed_bytes,
-        )
-        .await;
+        let dkim_results =
+            stoa_verify::dkim::verify_dkim_headers(&stores.dkim_authenticator, &signed_bytes).await;
         let all_verifications: Vec<_> = x_sig_results.into_iter().chain(dkim_results).collect();
         let verified_at_ms = now_ms as i64;
         if let Err(e) = stores
@@ -1825,8 +1829,7 @@ mod tests {
     #[tokio::test]
     async fn article_by_number_returns_220() {
         let stores = ServerStores::new_mem().await;
-        let article =
-            minimal_article("comp.test", "By Number Test", "<bynumber@test.example>");
+        let article = minimal_article("comp.test", "By Number Test", "<bynumber@test.example>");
         let post_resp = run_post_pipeline(&article, &stores).await;
         assert_eq!(post_resp.code, 240, "POST must succeed");
 
@@ -1836,8 +1839,7 @@ mod tests {
             true,
             false,
         );
-        ctx.current_group =
-            Some(stoa_core::article::GroupName::new("comp.test").unwrap());
+        ctx.current_group = Some(stoa_core::article::GroupName::new("comp.test").unwrap());
         ctx.state = crate::session::state::SessionState::GroupSelected;
 
         let content = lookup_article_content_by_number(&stores, &mut ctx, 1)
@@ -1852,30 +1854,48 @@ mod tests {
     #[tokio::test]
     async fn head_by_msgid_returns_221() {
         let stores = ServerStores::new_mem().await;
-        let article =
-            minimal_article("comp.test", "Head By Msgid", "<headmsgid@test.example>");
+        let article = minimal_article("comp.test", "Head By Msgid", "<headmsgid@test.example>");
         let post_resp = run_post_pipeline(&article, &stores).await;
         assert_eq!(post_resp.code, 240, "POST must succeed");
 
         let resp = lookup_head_by_msgid(&stores, "<headmsgid@test.example>").await;
-        assert_eq!(resp.code, 221, "HEAD <msgid> must return 221; got: {}", resp.text);
-        assert!(resp.body.iter().any(|l| l.contains("Head By Msgid")), "headers must contain Subject");
-        assert!(!resp.body.iter().any(|l| l == "Article body."), "body must not appear in HEAD");
+        assert_eq!(
+            resp.code, 221,
+            "HEAD <msgid> must return 221; got: {}",
+            resp.text
+        );
+        assert!(
+            resp.body.iter().any(|l| l.contains("Head By Msgid")),
+            "headers must contain Subject"
+        );
+        assert!(
+            !resp.body.iter().any(|l| l == "Article body."),
+            "body must not appear in HEAD"
+        );
     }
 
     /// After posting, BODY <msgid> must return 222 and contain the body.
     #[tokio::test]
     async fn body_by_msgid_returns_222() {
         let stores = ServerStores::new_mem().await;
-        let article =
-            minimal_article("comp.test", "Body By Msgid", "<bodymsgid@test.example>");
+        let article = minimal_article("comp.test", "Body By Msgid", "<bodymsgid@test.example>");
         let post_resp = run_post_pipeline(&article, &stores).await;
         assert_eq!(post_resp.code, 240, "POST must succeed");
 
         let resp = lookup_body_by_msgid(&stores, "<bodymsgid@test.example>").await;
-        assert_eq!(resp.code, 222, "BODY <msgid> must return 222; got: {}", resp.text);
-        assert!(resp.body.iter().any(|l| l.contains("Article body.")), "body content must appear");
-        assert!(!resp.body.iter().any(|l| l.contains("Subject:")), "headers must not appear in BODY");
+        assert_eq!(
+            resp.code, 222,
+            "BODY <msgid> must return 222; got: {}",
+            resp.text
+        );
+        assert!(
+            resp.body.iter().any(|l| l.contains("Article body.")),
+            "body content must appear"
+        );
+        assert!(
+            !resp.body.iter().any(|l| l.contains("Subject:")),
+            "headers must not appear in BODY"
+        );
     }
 
     /// ARTICLE N with unknown number must return 423.
@@ -1888,8 +1908,7 @@ mod tests {
             true,
             false,
         );
-        ctx.current_group =
-            Some(stoa_core::article::GroupName::new("comp.test").unwrap());
+        ctx.current_group = Some(stoa_core::article::GroupName::new("comp.test").unwrap());
         ctx.state = crate::session::state::SessionState::GroupSelected;
 
         match lookup_article_content_by_number(&stores, &mut ctx, 999).await {

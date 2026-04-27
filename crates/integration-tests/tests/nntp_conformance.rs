@@ -261,9 +261,7 @@ async fn nntp_conformance_via_nntplib() {
         client_cert_store: Arc::new(ClientCertStore::empty()),
         trusted_issuer_store: Arc::new(stoa_auth::TrustedIssuerStore::empty()),
         clock: Arc::new(Mutex::new(HlcClock::new([0x03u8; 8], now_ms))),
-        signing_key: Arc::new(stoa_core::signing::SigningKey::from_bytes(
-            &[0x44u8; 32],
-        )),
+        signing_key: Arc::new(stoa_core::signing::SigningKey::from_bytes(&[0x44u8; 32])),
         search_index: None,
         smtp_relay_queue: None,
         verification_store: Arc::new(stoa_verify::VerificationStore::new(

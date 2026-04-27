@@ -8,10 +8,10 @@
 
 use cid::Cid;
 use ed25519_dalek::SigningKey;
-use std::sync::Arc;
 use multihash_codetable::{Code, MultihashDigest};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::str::FromStr as _;
+use std::sync::Arc;
 use stoa_core::{group_log::MemLogStorage, hlc::HlcTimestamp, msgid_map::MsgIdMap};
 use stoa_transit::peering::{
     ingestion::{
@@ -54,9 +54,7 @@ async fn make_msgid_map() -> (MsgIdMap, tempfile::TempPath) {
         .connect_with(opts)
         .await
         .unwrap();
-    stoa_core::migrations::run_migrations(&pool)
-        .await
-        .unwrap();
+    stoa_core::migrations::run_migrations(&pool).await.unwrap();
     (MsgIdMap::new(pool), tmp)
 }
 
@@ -81,6 +79,7 @@ fn make_pipeline_ctx(key: &SigningKey, ts: HlcTimestamp) -> PipelineCtx<'static>
         verify_store: None,
         trusted_keys: &[],
         dkim_auth: None,
+        group_filter: None,
     }
 }
 

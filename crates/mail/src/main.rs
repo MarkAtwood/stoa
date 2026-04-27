@@ -2,9 +2,9 @@ use std::{path::PathBuf, sync::Arc, time::Instant};
 
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::str::FromStr as _;
-use tracing::info;
 use stoa_auth::CredentialStore;
 use stoa_mail::{config::Config, server::AppState, token_store::TokenStore};
+use tracing::info;
 
 fn parse_args() -> PathBuf {
     let args: Vec<String> = std::env::args().collect();

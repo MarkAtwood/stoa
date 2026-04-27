@@ -18,7 +18,6 @@ use cid::Cid;
 use multihash_codetable::{Code, MultihashDigest};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::str::FromStr as _;
-use tokio::net::TcpListener;
 use stoa_auth::{AuthConfig, CredentialStore};
 use stoa_mail::{
     server::{build_router, AppState, JmapStores},
@@ -31,6 +30,7 @@ use stoa_reader::{
         article_numbers::ArticleNumberStore, overview::OverviewRecord, overview::OverviewStore,
     },
 };
+use tokio::net::TcpListener;
 
 // ── Counter for unique in-memory DB names ────────────────────────────────────
 

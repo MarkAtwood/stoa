@@ -16,9 +16,6 @@ use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::str::FromStr as _;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::Mutex;
 use stoa_core::{group_log::SqliteLogStorage, hlc::HlcClock, msgid_map::MsgIdMap};
 use stoa_transit::peering::{
     blacklist::BlacklistConfig,
@@ -27,6 +24,9 @@ use stoa_transit::peering::{
     rate_limit::{ExhaustionAction, PeerRateLimiter},
     session::{run_peering_session, PeeringShared},
 };
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::Mutex;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -41,9 +41,7 @@ async fn make_core_pool() -> (MsgIdMap, tempfile::TempPath) {
         .connect_with(opts)
         .await
         .unwrap();
-    stoa_core::migrations::run_migrations(&pool)
-        .await
-        .unwrap();
+    stoa_core::migrations::run_migrations(&pool).await.unwrap();
     (MsgIdMap::new(pool), tmp)
 }
 
@@ -71,9 +69,7 @@ async fn make_log_storage() -> SqliteLogStorage {
         .connect_with(opts)
         .await
         .unwrap();
-    stoa_core::migrations::run_migrations(&pool)
-        .await
-        .unwrap();
+    stoa_core::migrations::run_migrations(&pool).await.unwrap();
     SqliteLogStorage::new(pool)
 }
 

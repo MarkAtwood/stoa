@@ -9,8 +9,6 @@ use axum::{
     Json, Router,
 };
 use serde_json::{json, Value};
-use tokio::net::TcpListener;
-use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer, ExposeHeaders};
 use stoa_auth::{AuthConfig, CredentialStore};
 use stoa_core::msgid_map::MsgIdMap;
 use stoa_reader::{
@@ -19,6 +17,8 @@ use stoa_reader::{
     store::{article_numbers::ArticleNumberStore, overview::OverviewStore},
 };
 use stoa_smtp::SmtpRelayQueue;
+use tokio::net::TcpListener;
+use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer, ExposeHeaders};
 
 use crate::{
     config::CorsConfig,
@@ -585,12 +585,12 @@ mod tests {
     use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
     use std::str::FromStr as _;
     use std::sync::atomic::{AtomicUsize, Ordering};
-    use tokio::net::TcpListener;
     use stoa_auth::{AuthConfig, CredentialStore, UserCredential};
     use stoa_reader::{
         post::ipfs_write::MemIpfsStore,
         store::{article_numbers::ArticleNumberStore, overview::OverviewStore},
     };
+    use tokio::net::TcpListener;
 
     use crate::state::{flags::UserFlagsStore, version::StateStore};
 
@@ -820,10 +820,7 @@ mod tests {
             www_auth.contains("Basic"),
             "WWW-Authenticate must advertise Basic"
         );
-        assert!(
-            www_auth.contains("stoa"),
-            "realm must be stoa"
-        );
+        assert!(www_auth.contains("stoa"), "realm must be stoa");
     }
 
     #[tokio::test]

@@ -128,10 +128,7 @@ pub fn write_signing_key(
 
     // Write to a temp file in the same directory so the rename is on the
     // same filesystem (required for atomicity on most platforms).
-    let tmp_path = parent.join(format!(
-        ".signing_key_tmp_{}.tmp",
-        std::process::id()
-    ));
+    let tmp_path = parent.join(format!(".signing_key_tmp_{}.tmp", std::process::id()));
 
     let result = (|| {
         let mut f = std::fs::File::create(&tmp_path)
@@ -286,8 +283,9 @@ mod tests {
     #[test]
     fn load_signing_key_from_bytes_known_vector() {
         let key = load_signing_key_from_bytes(&[0x42u8; 32]).expect("must succeed with 32 bytes");
-        let expected = hex::decode("2152f8d19b791d24453242e15f2eab6cb7cffa7b6a5ed30097960e069881db12")
-            .unwrap();
+        let expected =
+            hex::decode("2152f8d19b791d24453242e15f2eab6cb7cffa7b6a5ed30097960e069881db12")
+                .unwrap();
         assert_eq!(
             key.verifying_key().to_bytes().as_slice(),
             expected.as_slice(),

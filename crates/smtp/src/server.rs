@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use mail_auth::MessageAuthenticator;
 use sqlx::SqlitePool;
+use stoa_auth::CredentialStore;
 use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
 use tracing::{debug, error, info, warn};
-use stoa_auth::CredentialStore;
 
 use crate::config::Config;
 use crate::queue::NntpQueue;

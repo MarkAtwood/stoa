@@ -152,9 +152,7 @@ where
     // Advance the tip set so reconcile can see the new entries.  This mirrors
     // what `append` does: add want_id as a tip and retire its direct parents.
     if let Some(parent_ids) = want_parent_ids {
-        storage
-            .advance_tips(group, &parent_ids, &want_id)
-            .await?;
+        storage.advance_tips(group, &parent_ids, &want_id).await?;
     }
 
     Ok(fetched_count)

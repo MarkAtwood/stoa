@@ -50,11 +50,10 @@ pub async fn run_gc_executor<P: PinClient>(
                 // Remove from the articles table so the CID is no longer
                 // offered as a GC candidate on the next run.
                 let cid_str = candidate.cid.to_string();
-                if let Err(e) =
-                    sqlx::query("DELETE FROM articles WHERE cid = ?")
-                        .bind(&cid_str)
-                        .execute(transit_pool)
-                        .await
+                if let Err(e) = sqlx::query("DELETE FROM articles WHERE cid = ?")
+                    .bind(&cid_str)
+                    .execute(transit_pool)
+                    .await
                 {
                     tracing::warn!(cid = %candidate.cid, "GC: failed to delete articles row: {e}");
                 }

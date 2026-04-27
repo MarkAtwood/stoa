@@ -29,9 +29,7 @@ async fn make_msgid_map() -> (MsgIdMap, tempfile::TempPath) {
         .connect_with(opts)
         .await
         .unwrap();
-    stoa_core::migrations::run_migrations(&pool)
-        .await
-        .unwrap();
+    stoa_core::migrations::run_migrations(&pool).await.unwrap();
     (MsgIdMap::new(pool), tmp)
 }
 

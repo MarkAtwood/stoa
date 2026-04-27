@@ -64,7 +64,10 @@ impl CredentialStore {
             .map(|u| (u.username.to_ascii_lowercase(), u.password.clone()))
             .collect();
         let dummy_hash = make_dummy_hash(&entries);
-        Self { entries, dummy_hash }
+        Self {
+            entries,
+            dummy_hash,
+        }
     }
 
     /// Return an empty `CredentialStore` (no users configured; all checks fail).
@@ -106,7 +109,10 @@ impl CredentialStore {
             entries.insert(user, hash);
         }
         let dummy_hash = make_dummy_hash(&entries);
-        Ok(Self { entries, dummy_hash })
+        Ok(Self {
+            entries,
+            dummy_hash,
+        })
     }
 
     /// Build a `CredentialStore` from a credential file at `path`.
@@ -176,7 +182,10 @@ mod tests {
         let hash = bcrypt::hash("correct-horse", 4).expect("bcrypt::hash must not fail");
         let entries = HashMap::from([("alice".to_string(), hash)]);
         let dummy_hash = make_dummy_hash(&entries);
-        CredentialStore { entries, dummy_hash }
+        CredentialStore {
+            entries,
+            dummy_hash,
+        }
     }
 
     #[tokio::test]
@@ -284,7 +293,10 @@ mod tests {
         let file_hash = bcrypt::hash("file-pass", 4).unwrap();
         let entries = HashMap::from([("alice".to_string(), inline_hash)]);
         let dummy_hash = make_dummy_hash(&entries);
-        let mut store = CredentialStore { entries, dummy_hash };
+        let mut store = CredentialStore {
+            entries,
+            dummy_hash,
+        };
         let content = format!("alice:{file_hash}\n");
         store.merge_from_content("<test>", &content).unwrap();
         // The file version should now authenticate, not the inline one.
@@ -305,7 +317,10 @@ mod tests {
         // Alice in inline store with inline-pass.
         let entries = HashMap::from([("alice".to_string(), inline_hash)]);
         let dummy_hash = make_dummy_hash(&entries);
-        let mut store = CredentialStore { entries, dummy_hash };
+        let mut store = CredentialStore {
+            entries,
+            dummy_hash,
+        };
         // File has alice with file-pass (overrides) + bob.
         let contents = format!("alice:{file_hash}\nbob:{}\n", bcrypt::hash("b", 4).unwrap());
         let tmp = tempfile::NamedTempFile::new().unwrap();

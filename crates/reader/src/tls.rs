@@ -75,7 +75,12 @@ impl ClientCertVerifier for PermissiveClientAuth {
     ) -> Result<rustls::client::danger::HandshakeSignatureValid, Error> {
         let provider = rustls::crypto::CryptoProvider::get_default()
             .ok_or(Error::General("no default crypto provider".into()))?;
-        verify_tls12_signature(message, cert, dss, &provider.signature_verification_algorithms)
+        verify_tls12_signature(
+            message,
+            cert,
+            dss,
+            &provider.signature_verification_algorithms,
+        )
     }
 
     fn verify_tls13_signature(
@@ -86,7 +91,12 @@ impl ClientCertVerifier for PermissiveClientAuth {
     ) -> Result<rustls::client::danger::HandshakeSignatureValid, Error> {
         let provider = rustls::crypto::CryptoProvider::get_default()
             .ok_or(Error::General("no default crypto provider".into()))?;
-        verify_tls13_signature(message, cert, dss, &provider.signature_verification_algorithms)
+        verify_tls13_signature(
+            message,
+            cert,
+            dss,
+            &provider.signature_verification_algorithms,
+        )
     }
 
     fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {

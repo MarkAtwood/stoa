@@ -132,9 +132,7 @@ pub async fn append<S: LogStorage>(
     // adds the new entry.  This preserves CRDT semantics: two concurrent
     // appends that share the same parent both survive as tips rather than one
     // overwriting the other.
-    storage
-        .advance_tips(group, &parent_ids, &entry_id)
-        .await?;
+    storage.advance_tips(group, &parent_ids, &entry_id).await?;
 
     Ok(entry_id)
 }
@@ -183,7 +181,9 @@ mod tests {
             operator_signature: vec![0xaa],
             parent_cids: vec![],
         };
-        let id1 = append(&storage, &group, VerifiedEntry::new_for_test(e1)).await.expect("append e1");
+        let id1 = append(&storage, &group, VerifiedEntry::new_for_test(e1))
+            .await
+            .expect("append e1");
 
         let tips = storage.list_tips(&group).await.unwrap();
         assert_eq!(tips, vec![id1.clone()], "tip after e1");
@@ -195,7 +195,9 @@ mod tests {
             operator_signature: vec![0xbb],
             parent_cids: vec![entry_id_to_cid(&id1)],
         };
-        let id2 = append(&storage, &group, VerifiedEntry::new_for_test(e2)).await.expect("append e2");
+        let id2 = append(&storage, &group, VerifiedEntry::new_for_test(e2))
+            .await
+            .expect("append e2");
 
         let tips = storage.list_tips(&group).await.unwrap();
         assert_eq!(tips, vec![id2.clone()], "tip after e2");
@@ -208,7 +210,9 @@ mod tests {
             operator_signature: vec![0xcc],
             parent_cids: vec![entry_id_to_cid(&id2)],
         };
-        let id3 = append(&storage, &group, VerifiedEntry::new_for_test(e3)).await.expect("append e3");
+        let id3 = append(&storage, &group, VerifiedEntry::new_for_test(e3))
+            .await
+            .expect("append e3");
 
         let tips = storage.list_tips(&group).await.unwrap();
         assert_eq!(tips, vec![id3.clone()], "tip after e3");
@@ -301,7 +305,9 @@ mod tests {
             operator_signature: vec![0x00],
             parent_cids: vec![],
         };
-        let genesis_id = append(&storage, &group, VerifiedEntry::new_for_test(genesis)).await.expect("genesis");
+        let genesis_id = append(&storage, &group, VerifiedEntry::new_for_test(genesis))
+            .await
+            .expect("genesis");
 
         // Two concurrent appends, both with genesis as parent.
         let genesis_cid = entry_id_to_cid(&genesis_id);
@@ -318,8 +324,12 @@ mod tests {
             parent_cids: vec![genesis_cid.clone()],
         };
 
-        let id_a = append(&storage, &group, VerifiedEntry::new_for_test(ea)).await.expect("append A");
-        let id_b = append(&storage, &group, VerifiedEntry::new_for_test(eb)).await.expect("append B");
+        let id_a = append(&storage, &group, VerifiedEntry::new_for_test(ea))
+            .await
+            .expect("append A");
+        let id_b = append(&storage, &group, VerifiedEntry::new_for_test(eb))
+            .await
+            .expect("append B");
 
         let tips = storage.list_tips(&group).await.unwrap();
         let tip_bytes: Vec<[u8; 32]> = tips.iter().map(|id| *id.as_bytes()).collect();
@@ -332,7 +342,10 @@ mod tests {
             tip_bytes.contains(id_b.as_bytes()),
             "entry B must be in tip set; tips = {tips:?}"
         );
-        assert!(!tip_bytes.contains(genesis_id.as_bytes()), "genesis must not be a tip");
+        assert!(
+            !tip_bytes.contains(genesis_id.as_bytes()),
+            "genesis must not be a tip"
+        );
         assert_eq!(tips.len(), 2, "must have exactly 2 tips");
     }
 

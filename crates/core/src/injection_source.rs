@@ -22,7 +22,10 @@ impl InjectionSource {
     /// Uses positive matching: only explicitly listed variants return `true`.
     /// Any future variant is non-peerable by default until explicitly added here.
     pub fn is_peerable(self) -> bool {
-        matches!(self, Self::NntpPost | Self::SmtpNewsgroups | Self::SmtpSieve)
+        matches!(
+            self,
+            Self::NntpPost | Self::SmtpNewsgroups | Self::SmtpSieve
+        )
     }
 }
 

@@ -403,7 +403,10 @@ mod tests {
         // A pattern + name exceeding MAX_GLOB_BYTES must be rejected to bound
         // worst-case O(m×n) work and prevent time-DoS.
         let pat = "*".repeat(MAX_GLOB_BYTES + 1);
-        assert!(!glob_match(&pat, "INBOX"), "oversized pattern must return false");
+        assert!(
+            !glob_match(&pat, "INBOX"),
+            "oversized pattern must return false"
+        );
     }
 
     #[test]

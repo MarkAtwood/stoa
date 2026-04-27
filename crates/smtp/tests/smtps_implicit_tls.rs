@@ -238,8 +238,8 @@ fn config_smtps_addr_field_exists_and_defaults_to_none() {
 #[test]
 fn config_smtps_addr_parses_from_toml() {
     use std::io::Write;
-    use tempfile::NamedTempFile;
     use stoa_smtp::config::Config;
+    use tempfile::NamedTempFile;
 
     // Without smtps_addr — must parse with None.
     let toml_without = r#"

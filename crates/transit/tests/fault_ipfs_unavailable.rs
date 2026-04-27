@@ -89,9 +89,7 @@ async fn make_msgid_map() -> (MsgIdMap, tempfile::TempPath) {
         .connect_with(opts)
         .await
         .unwrap();
-    stoa_core::migrations::run_migrations(&pool)
-        .await
-        .unwrap();
+    stoa_core::migrations::run_migrations(&pool).await.unwrap();
     (MsgIdMap::new(pool), tmp)
 }
 
@@ -130,6 +128,7 @@ fn make_ctx(key: &SigningKey) -> PipelineCtx<'static> {
         verify_store: None,
         trusted_keys: &[],
         dkim_auth: None,
+        group_filter: None,
     }
 }
 

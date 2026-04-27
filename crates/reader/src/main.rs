@@ -96,7 +96,9 @@ async fn run_startup_checks(config: &Config) -> Vec<String> {
     if let Some(path) = config.operator.signing_key_path.as_deref() {
         if path.starts_with("secretx:") {
             if let Err(e) = secretx::from_uri(path) {
-                errors.push(format!("operator.signing_key_path: invalid secretx URI: {e}"));
+                errors.push(format!(
+                    "operator.signing_key_path: invalid secretx URI: {e}"
+                ));
             }
         } else if let Err(e) = stoa_core::signing::load_signing_key(std::path::Path::new(path)) {
             errors.push(e.to_string());

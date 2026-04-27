@@ -76,10 +76,7 @@ pub fn build_session(username: &str, base_url: &str) -> SessionResource {
     // Custom capability: signals that Email objects carry the
     // "x-stoa-cid" property containing the DAG-CBOR root CID.
     // Clients that do not recognise this capability may ignore it (RFC 8620 §3.3).
-    capabilities.insert(
-        "urn:stoa:jmap:cid".to_string(),
-        serde_json::json!({}),
-    );
+    capabilities.insert("urn:stoa:jmap:cid".to_string(), serde_json::json!({}));
 
     let account_id = format!("u_{username}");
     let mut account_capabilities: HashMap<String, Value> = HashMap::new();

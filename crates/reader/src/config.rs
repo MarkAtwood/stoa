@@ -1046,8 +1046,7 @@ required = false
 [tls]
 "#;
         let f = write_toml(toml);
-        let err =
-            Config::from_file(f.path()).expect_err("missing ipfs and backend must fail");
+        let err = Config::from_file(f.path()).expect_err("missing ipfs and backend must fail");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"

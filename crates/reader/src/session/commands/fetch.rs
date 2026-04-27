@@ -1,6 +1,6 @@
 use cid::Cid;
-use tracing::debug;
 use stoa_verify::ArticleVerification;
+use tracing::debug;
 
 use crate::session::response::Response;
 
@@ -90,10 +90,7 @@ fn dot_stuffed_lines(data: &[u8]) -> Vec<String> {
 ///
 /// Returns `None` when no CID is available (legacy articles or failed lookups).
 fn cid_header_line(content: &ArticleContent) -> Option<String> {
-    content
-        .cid
-        .as_ref()
-        .map(|c| format!("X-Stoa-CID: {c}"))
+    content.cid.as_ref().map(|c| format!("X-Stoa-CID: {c}"))
 }
 
 /// Build the X-Stoa-DID-Verified header line string for injection into responses.
@@ -113,12 +110,8 @@ fn did_verified_header_line(content: &ArticleContent) -> Option<String> {
 /// Returns `Some("X-Stoa-Verified: pass")` if any method passed,
 /// `Some("X-Stoa-Verified: fail")` if all methods tried and none passed.
 fn verified_header_line(content: &ArticleContent) -> Option<String> {
-    stoa_verify::aggregate_status(&content.verifications).map(|pass| {
-        format!(
-            "X-Stoa-Verified: {}",
-            if pass { "pass" } else { "fail" }
-        )
-    })
+    stoa_verify::aggregate_status(&content.verifications)
+        .map(|pass| format!("X-Stoa-Verified: {}", if pass { "pass" } else { "fail" }))
 }
 
 /// ARTICLE response: 220 + article_number + message_id, followed by headers,
@@ -318,9 +311,7 @@ mod tests {
         };
         let resp = article_response(&content);
         assert!(
-            resp.body
-                .iter()
-                .any(|l| l == "X-Stoa-DID-Verified: true"),
+            resp.body.iter().any(|l| l == "X-Stoa-DID-Verified: true"),
             "expected X-Stoa-DID-Verified: true in article response"
         );
     }
@@ -338,9 +329,7 @@ mod tests {
         };
         let resp = article_response(&content);
         assert!(
-            resp.body
-                .iter()
-                .any(|l| l == "X-Stoa-DID-Verified: false"),
+            resp.body.iter().any(|l| l == "X-Stoa-DID-Verified: false"),
             "expected X-Stoa-DID-Verified: false in article response"
         );
     }
@@ -371,9 +360,7 @@ mod tests {
         };
         let resp = head_response(&content);
         assert!(
-            resp.body
-                .iter()
-                .any(|l| l == "X-Stoa-DID-Verified: true"),
+            resp.body.iter().any(|l| l == "X-Stoa-DID-Verified: true"),
             "expected X-Stoa-DID-Verified: true in head response"
         );
     }

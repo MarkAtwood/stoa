@@ -141,10 +141,7 @@ mod tests {
 
     #[test]
     fn smtp_list_id_is_extracted_and_removed() {
-        let mut article = make_article(
-            Some("X-Stoa-Injection-Source: SmtpListId"),
-            "body\r\n",
-        );
+        let mut article = make_article(Some("X-Stoa-Injection-Source: SmtpListId"), "body\r\n");
         let src = extract_injection_source(&mut article);
         assert_eq!(src, InjectionSource::SmtpListId);
         // Header line must be gone.
@@ -159,10 +156,7 @@ mod tests {
 
     #[test]
     fn smtp_newsgroups_is_extracted_and_removed() {
-        let mut article = make_article(
-            Some("X-Stoa-Injection-Source: SmtpNewsgroups"),
-            "body\r\n",
-        );
+        let mut article = make_article(Some("X-Stoa-Injection-Source: SmtpNewsgroups"), "body\r\n");
         let src = extract_injection_source(&mut article);
         assert_eq!(src, InjectionSource::SmtpNewsgroups);
         let s = String::from_utf8(article).unwrap();
@@ -171,10 +165,7 @@ mod tests {
 
     #[test]
     fn smtp_sieve_is_extracted_and_removed() {
-        let mut article = make_article(
-            Some("X-Stoa-Injection-Source: SmtpSieve"),
-            "body\r\n",
-        );
+        let mut article = make_article(Some("X-Stoa-Injection-Source: SmtpSieve"), "body\r\n");
         let src = extract_injection_source(&mut article);
         assert_eq!(src, InjectionSource::SmtpSieve);
         let s = String::from_utf8(article).unwrap();
@@ -183,8 +174,7 @@ mod tests {
 
     #[test]
     fn nntp_post_is_extracted_and_removed() {
-        let mut article =
-            make_article(Some("X-Stoa-Injection-Source: NntpPost"), "body\r\n");
+        let mut article = make_article(Some("X-Stoa-Injection-Source: NntpPost"), "body\r\n");
         let src = extract_injection_source(&mut article);
         assert_eq!(src, InjectionSource::NntpPost);
         let s = String::from_utf8(article).unwrap();
@@ -205,10 +195,7 @@ mod tests {
     fn header_removal_leaves_valid_structure() {
         // After removal the blank-line separator must still be present so
         // downstream header parsing succeeds.
-        let mut article = make_article(
-            Some("X-Stoa-Injection-Source: SmtpListId"),
-            "body\r\n",
-        );
+        let mut article = make_article(Some("X-Stoa-Injection-Source: SmtpListId"), "body\r\n");
         extract_injection_source(&mut article);
         let s = String::from_utf8(article).unwrap();
         assert!(

@@ -113,7 +113,10 @@ fn cmd_status(client: &AdminClient, json: bool) -> Result<(), String> {
     let h: serde_json::Value = serde_json::from_str(&health).unwrap_or_default();
     let s: serde_json::Value = serde_json::from_str(&stats).unwrap_or_default();
     println!("Status:      {}", h["status"].as_str().unwrap_or("unknown"));
-    println!("Uptime:      {} secs", h["uptime_secs"].as_u64().unwrap_or(0));
+    println!(
+        "Uptime:      {} secs",
+        h["uptime_secs"].as_u64().unwrap_or(0)
+    );
     println!("Articles:    {}", s["articles"].as_i64().unwrap_or(0));
     println!("Pinned CIDs: {}", s["pinned_cids"].as_i64().unwrap_or(0));
     println!("Groups:      {}", s["groups"].as_i64().unwrap_or(0));

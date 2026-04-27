@@ -60,10 +60,7 @@ pub trait IpfsBlockStore: Send + Sync {
     /// The default implementation signals that deletion is deferred — callers
     /// must not assume the block is gone until `get_raw` returns `NotFound`.
     /// Override to provide backend-specific behaviour.
-    async fn delete(
-        &self,
-        _cid: &Cid,
-    ) -> Result<stoa_core::ipfs::DeletionOutcome, IpfsWriteError> {
+    async fn delete(&self, _cid: &Cid) -> Result<stoa_core::ipfs::DeletionOutcome, IpfsWriteError> {
         Ok(stoa_core::ipfs::DeletionOutcome::Deferred {
             readable_for_approx_secs: None,
         })
@@ -208,10 +205,7 @@ impl IpfsBlockStore for KuboBlockStore {
     }
 
     /// Unpin `cid` from Kubo. The block remains readable until `ipfs repo gc` runs.
-    async fn delete(
-        &self,
-        cid: &Cid,
-    ) -> Result<stoa_core::ipfs::DeletionOutcome, IpfsWriteError> {
+    async fn delete(&self, cid: &Cid) -> Result<stoa_core::ipfs::DeletionOutcome, IpfsWriteError> {
         self.client
             .pin_rm(cid)
             .await
@@ -392,9 +386,7 @@ mod tests {
             .connect("sqlite::memory:")
             .await
             .unwrap();
-        stoa_core::migrations::run_migrations(&pool)
-            .await
-            .unwrap();
+        stoa_core::migrations::run_migrations(&pool).await.unwrap();
         MsgIdMap::new(pool)
     }
 

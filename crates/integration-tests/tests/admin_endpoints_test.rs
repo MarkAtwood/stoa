@@ -45,10 +45,7 @@ async fn read_response(stream: TcpStream) -> (String, String) {
     }
     let mut body = String::new();
     reader.read_to_string(&mut body).await.expect("read body");
-    (
-        status_line.trim_end_matches(['\r', '\n']).to_string(),
-        body,
-    )
+    (status_line.trim_end_matches(['\r', '\n']).to_string(), body)
 }
 
 /// Bind a free loopback port; drop the listener to release it, then return
@@ -90,10 +87,7 @@ async fn admin_version_returns_binary_and_version_fields() {
     let (status, body) = http_get(&format!("127.0.0.1:{port}"), "/version").await;
     assert!(status.contains("200"), "expected 200, got: {status}");
     let v: serde_json::Value = serde_json::from_str(&body).expect("valid JSON");
-    assert!(
-        v["version"].is_string(),
-        "version must be a string: {body}"
-    );
+    assert!(v["version"].is_string(), "version must be a string: {body}");
     assert!(v["binary"].is_string(), "binary must be a string: {body}");
 }
 
@@ -139,11 +133,11 @@ async fn admin_metrics_returns_text_plain() {
     start_admin_server(addr, Instant::now(), None, 60).expect("start admin server");
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
-    let mut stream =
-        TcpStream::connect(format!("127.0.0.1:{port}")).await.expect("connect");
-    let request = format!(
-        "GET /metrics HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n"
-    );
+    let mut stream = TcpStream::connect(format!("127.0.0.1:{port}"))
+        .await
+        .expect("connect");
+    let request =
+        format!("GET /metrics HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n");
     stream.write_all(request.as_bytes()).await.expect("write");
 
     let mut reader = BufReader::new(stream);

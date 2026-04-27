@@ -169,7 +169,11 @@ mod tests {
     fn load_private_key_from_bytes_parses_valid_pem() {
         let (_cert_pem, key_pem) = generate_self_signed_pem();
         let result = load_private_key_from_bytes(&key_pem, "test-label");
-        assert!(result.is_ok(), "must parse a valid PEM key: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "must parse a valid PEM key: {:?}",
+            result.err()
+        );
     }
 
     /// load_private_key_from_bytes returns a KeyLoad error for empty bytes.
@@ -200,7 +204,11 @@ mod tests {
             &key_pem,
             "test-label",
         );
-        assert!(result.is_ok(), "must build ServerConfig: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "must build ServerConfig: {:?}",
+            result.err()
+        );
     }
 
     #[test]

@@ -80,7 +80,10 @@ mod tests {
     fn allows_under_limit() {
         let limiter = RateLimiter::new(60);
         let ip: IpAddr = "10.0.0.1".parse().unwrap();
-        assert!(limiter.check_and_consume(ip), "first request must be allowed");
+        assert!(
+            limiter.check_and_consume(ip),
+            "first request must be allowed"
+        );
     }
 
     #[test]
@@ -89,7 +92,10 @@ mod tests {
         let ip: IpAddr = "10.0.0.1".parse().unwrap();
         assert!(limiter.check_and_consume(ip));
         assert!(limiter.check_and_consume(ip));
-        assert!(!limiter.check_and_consume(ip), "third request must be blocked");
+        assert!(
+            !limiter.check_and_consume(ip),
+            "third request must be blocked"
+        );
     }
 
     #[test]
@@ -110,5 +116,4 @@ mod tests {
         assert!(!limiter.check_and_consume(ip1)); // ip1 exhausted
         assert!(limiter.check_and_consume(ip2)); // ip2 still has token
     }
-
 }
