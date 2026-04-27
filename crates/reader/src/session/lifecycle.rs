@@ -581,12 +581,45 @@ where
                         auth_method: "password".to_string(),
                     });
                 }
+                let peer_ip = peer_addr.ip();
                 if accepted {
+                    // Stable structured log field (fail2ban-compatible): event=auth_success.
+                    debug!(
+                        event = "auth_success",
+                        service = "nntp",
+                        remote_ip = %peer_ip,
+                        username = %username,
+                    );
+                    if let Ok(mut tracker) = stores.auth_failure_tracker.lock() {
+                        tracker.record_success(peer_ip);
+                    }
                     ctx.state = SessionState::Active;
                     ctx.authenticated_user = Some(username);
                     ctx.auth_failure_count = 0;
                     send!(Response::authentication_accepted());
                 } else {
+                    // Stable structured log field (fail2ban-compatible): event=auth_failure.
+                    warn!(
+                        event = "auth_failure",
+                        service = "nntp",
+                        remote_ip = %peer_ip,
+                        username = %username,
+                        reason = "bad_password",
+                    );
+                    let lockout = stores
+                        .auth_failure_tracker
+                        .lock()
+                        .map(|mut t| t.record_failure(peer_ip))
+                        .unwrap_or(false);
+                    if lockout {
+                        // Stable structured log field (fail2ban-compatible): event=auth_lockout.
+                        warn!(
+                            event = "auth_lockout",
+                            service = "nntp",
+                            remote_ip = %peer_ip,
+                            "auth_lockout: failure threshold reached for IP"
+                        );
+                    }
                     ctx.auth_failure_count += 1;
                     if ctx.auth_failure_count >= crate::session::context::MAX_AUTH_FAILURES {
                         warn!(peer = %peer_addr, "AUTHINFO: too many failures, closing connection");

@@ -19,6 +19,7 @@ use tokio::sync::Mutex;
 
 use stoa_core::{hlc::HlcClock, msgid_map::MsgIdMap};
 use stoa_reader::{
+    auth_limiter::{AuthFailureTracker, DEFAULT_MAX_ENTRIES},
     post::ipfs_write::{IpfsBlockStore, IpfsWriteError},
     session::lifecycle::run_session,
     store::{
@@ -299,6 +300,11 @@ async fn transit_reader_shared_store() {
         ),
         path_hostname: "localhost".to_string(),
         audit_logger: None,
+        auth_failure_tracker: Arc::new(std::sync::Mutex::new(AuthFailureTracker::new(
+            10,
+            std::time::Duration::from_secs(60),
+            DEFAULT_MAX_ENTRIES,
+        ))),
     });
 
     // ── Transit stores ────────────────────────────────────────────────────────

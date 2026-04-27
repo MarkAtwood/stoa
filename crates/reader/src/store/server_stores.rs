@@ -23,6 +23,8 @@ use stoa_core::hlc::HlcClock;
 use stoa_core::msgid_map::MsgIdMap;
 use stoa_core::signing::{generate_signing_key, hlc_node_id, SigningKey};
 
+use crate::auth_limiter::{AuthFailureTracker, DEFAULT_MAX_ENTRIES};
+
 use mail_auth::MessageAuthenticator;
 use stoa_auth::TrustedIssuerStore;
 use stoa_smtp::SmtpRelayQueue;
@@ -69,6 +71,8 @@ pub struct ServerStores {
     pub path_hostname: String,
     /// Async audit logger. None only in unit-test stores created by new_mem().
     pub audit_logger: Option<Arc<AuditLoggerHandle>>,
+    /// Per-IP authentication failure tracker for fail2ban-compatible lockout events.
+    pub auth_failure_tracker: Arc<std::sync::Mutex<AuthFailureTracker>>,
 }
 
 impl ServerStores {
@@ -155,6 +159,11 @@ impl ServerStores {
             dkim_authenticator: Arc::new(dkim_authenticator),
             path_hostname: config.path_hostname.clone(),
             audit_logger: Some(audit_logger),
+            auth_failure_tracker: Arc::new(std::sync::Mutex::new(AuthFailureTracker::new(
+                10,
+                std::time::Duration::from_secs(60),
+                DEFAULT_MAX_ENTRIES,
+            ))),
         })
     }
 
@@ -204,6 +213,11 @@ impl ServerStores {
             ),
             path_hostname: "localhost".to_string(),
             audit_logger: None,
+            auth_failure_tracker: Arc::new(std::sync::Mutex::new(AuthFailureTracker::new(
+                10,
+                std::time::Duration::from_secs(60),
+                DEFAULT_MAX_ENTRIES,
+            ))),
         }
     }
 
@@ -243,6 +257,11 @@ impl ServerStores {
             ),
             path_hostname: "localhost".to_string(),
             audit_logger: None,
+            auth_failure_tracker: Arc::new(std::sync::Mutex::new(AuthFailureTracker::new(
+                10,
+                std::time::Duration::from_secs(60),
+                DEFAULT_MAX_ENTRIES,
+            ))),
         }
     }
 }
