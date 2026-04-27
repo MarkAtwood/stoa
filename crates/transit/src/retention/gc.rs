@@ -35,8 +35,10 @@ pub struct GcCandidate {
     pub cid: Cid,
     /// Newsgroup the article belongs to.
     pub group: String,
-    /// Unix timestamp in milliseconds from the article's Date header.
-    pub date_ms: u64,
+    /// Unix timestamp in milliseconds when the article was ingested locally.
+    /// Used (not the peer-supplied Date header) so the grace period protects
+    /// newly-arrived articles regardless of their stated publication date.
+    pub ingested_at_ms: u64,
     /// Article size in bytes.
     pub byte_count: usize,
 }
@@ -71,7 +73,7 @@ impl<P: PinClient> GcRunner<P> {
 
         for candidate in candidates {
             let age_days = now_ms
-                .saturating_sub(candidate.date_ms)
+                .saturating_sub(candidate.ingested_at_ms)
                 .checked_div(ms_per_day)
                 .unwrap_or(0);
             let meta = ArticleMeta {
@@ -177,7 +179,7 @@ mod tests {
         GcCandidate {
             cid: make_cid(&[n]),
             group: group.to_string(),
-            date_ms: NOW_MS.saturating_sub(age_ms),
+            ingested_at_ms: NOW_MS.saturating_sub(age_ms),
             byte_count: 1024,
         }
     }

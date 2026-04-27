@@ -396,8 +396,18 @@ where
                 continue;
             }
         }
-        // Genesis entry: no parent chain; peers reconcile via CRDT.
-        let parent_cids: Vec<Cid> = vec![];
+        // Use the current tips as parent CIDs to maintain the Merkle-CRDT
+        // parent chain.  Every ingested article links back to the node's
+        // current local tips so the DAG is connected, not a forest of
+        // isolated genesis entries.
+        let tip_ids = match log_storage.list_tips(&group).await {
+            Ok(tips) => tips,
+            Err(e) => {
+                tracing::warn!("list_tips failed for {group_name_str}: {e}");
+                continue;
+            }
+        };
+        let parent_cids: Vec<Cid> = tip_ids.iter().map(|id| id.to_cid()).collect();
         let canonical = log_entry_canonical_bytes(ctx.timestamp.wall_ms, &cid, &parent_cids);
         let sig = sign(&ctx.operator_signing_key, &canonical);
         let entry = LogEntry {
@@ -409,8 +419,12 @@ where
         let verified = match verify_signature(entry, &pubkey) {
             Ok(v) => v,
             Err(e) => {
-                tracing::warn!("log entry self-check failed for {group_name_str}: {e}");
-                continue;
+                // Self-check failure is a programming error (wrong key or
+                // canonical bytes bug) — abort the article rather than
+                // silently skipping groups.
+                return Err(format!(
+                    "log entry signature self-check failed for {group_name_str}: {e}"
+                ));
             }
         };
         match crdt_append(log_storage, &group, verified).await {

@@ -1372,18 +1372,10 @@ async fn handle_group_live(
         Err(_) => return Response::no_such_newsgroup(),
     };
     // RFC 3977 §6.1.1: return 411 if the group is not served by this server.
-    // Query list_groups() live so that articles posted during the session are
-    // immediately visible (no stale session-start cache).
-    let carried = match stores.article_numbers.list_groups().await {
-        Ok(groups) => groups.into_iter().any(|(n, _, _)| n == name),
-        Err(e) => {
-            warn!("handle_group_live: list_groups error for {name}: {e}");
-            return Response::program_fault();
-        }
-    };
-    if !carried {
-        return Response::no_such_newsgroup();
-    }
+    // group_range() issues a targeted single-group query; (low > high) means
+    // no articles exist for this group (the RFC 3977 empty sentinel is (1, 0)).
+    // This avoids the O(n-groups) list_groups() scan followed by a linear
+    // contains() search.
     let (low, high) = match stores.article_numbers.group_range(name).await {
         Ok(r) => r,
         Err(e) => {
@@ -1391,6 +1383,9 @@ async fn handle_group_live(
             return Response::program_fault();
         }
     };
+    if low > high {
+        return Response::no_such_newsgroup();
+    }
     let count = if low <= high { high - low + 1 } else { 0 };
     ctx.current_group = Some(group_name);
     ctx.current_article_number = if count > 0 { Some(low) } else { None };

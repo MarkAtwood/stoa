@@ -233,46 +233,73 @@ impl StagingStore {
     ///
     /// Returns `Ok(None)` when the staging table has no unclaimed rows.
     pub async fn drain_one(&self) -> Result<Option<StagedArticle>, StagingError> {
-        // Atomically claim the oldest unclaimed row.  BEGIN IMMEDIATE prevents
-        // any other writer from inserting or updating between the SELECT and
-        // the UPDATE, making the claim exclusive even with multiple workers.
+        // BEGIN IMMEDIATE prevents any other writer from inserting or updating
+        // between the SELECT and the UPDATE, making the claim exclusive even
+        // with multiple concurrent drain workers.
+        //
+        // pool.begin() issues DEFERRED which only upgrades to a write lock on
+        // the first write — too late; another worker could SELECT the same
+        // unclaimed row between our SELECT and our UPDATE.
         let now_secs = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs() as i64;
 
-        let mut tx = self.pool.begin().await?;
-
-        let row: Option<(String, String, String)> = sqlx::query_as(
-            "SELECT id, message_id, file_path \
-             FROM transit_staging \
-             WHERE claimed_at IS NULL \
-             ORDER BY received_at ASC \
-             LIMIT 1",
-        )
-        .fetch_optional(&mut *tx)
-        .await?;
-
-        let Some((id, message_id, file_path)) = row else {
-            tx.rollback().await?;
-            return Ok(None);
+        let mut conn = match self.pool.acquire().await {
+            Ok(c) => c,
+            Err(e) => return Err(StagingError::Db(e)),
         };
 
-        sqlx::query("UPDATE transit_staging SET claimed_at = ? WHERE id = ?")
-            .bind(now_secs)
-            .bind(&id)
-            .execute(&mut *tx)
+        if let Err(e) = sqlx::query("BEGIN IMMEDIATE").execute(&mut *conn).await {
+            return Err(StagingError::Db(e));
+        }
+
+        let result: Result<Option<(String, String, String)>, StagingError> = async {
+            let row: Option<(String, String, String)> = sqlx::query_as(
+                "SELECT id, message_id, file_path \
+                 FROM transit_staging \
+                 WHERE claimed_at IS NULL \
+                 ORDER BY received_at ASC \
+                 LIMIT 1",
+            )
+            .fetch_optional(&mut *conn)
             .await?;
 
-        tx.commit().await?;
+            if let Some((ref id, _, _)) = row {
+                sqlx::query("UPDATE transit_staging SET claimed_at = ? WHERE id = ?")
+                    .bind(now_secs)
+                    .bind(id)
+                    .execute(&mut *conn)
+                    .await?;
+            }
 
-        let bytes = fs::read(&file_path).await?;
-        Ok(Some(StagedArticle {
-            id,
-            message_id,
-            bytes,
-            file_path,
-        }))
+            Ok(row)
+        }
+        .await;
+
+        match result {
+            Ok(None) => {
+                let _ = sqlx::query("ROLLBACK").execute(&mut *conn).await;
+                Ok(None)
+            }
+            Ok(Some((id, message_id, file_path))) => {
+                if let Err(e) = sqlx::query("COMMIT").execute(&mut *conn).await {
+                    let _ = sqlx::query("ROLLBACK").execute(&mut *conn).await;
+                    return Err(StagingError::Db(e));
+                }
+                let bytes = fs::read(&file_path).await?;
+                Ok(Some(StagedArticle {
+                    id,
+                    message_id,
+                    bytes,
+                    file_path,
+                }))
+            }
+            Err(e) => {
+                let _ = sqlx::query("ROLLBACK").execute(&mut *conn).await;
+                Err(e)
+            }
+        }
     }
 
     /// Clear stale claims left by a previous run that crashed after claiming

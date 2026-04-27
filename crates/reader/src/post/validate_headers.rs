@@ -153,8 +153,8 @@ fn is_valid_message_id(id: &str) -> bool {
     if inner.contains('<') || inner.contains('>') {
         return false;
     }
-    // Must not contain whitespace.
-    if inner.chars().any(|c| c.is_ascii_whitespace()) {
+    // Must not contain whitespace or NUL bytes.
+    if inner.chars().any(|c| c.is_ascii_whitespace() || c == '\0') {
         return false;
     }
     // Must contain exactly one '@' with non-empty local and domain parts.
@@ -382,6 +382,15 @@ mod tests {
     #[test]
     fn message_id_valid() {
         assert!(is_valid_message_id("<test@example.com>"));
+    }
+
+    /// Regression test for 3vye.6: NUL bytes inside the angle brackets must
+    /// be rejected.  NUL is not ASCII whitespace so the old whitespace check
+    /// alone did not catch it.
+    #[test]
+    fn message_id_nul_byte_rejected() {
+        assert!(!is_valid_message_id("<local\0part@domain>"));
+        assert!(!is_valid_message_id("<local@dom\0ain>"));
     }
 
     /// Regression test for rbe3.30: multiple '@' signs must be rejected.

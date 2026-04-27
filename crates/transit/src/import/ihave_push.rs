@@ -247,19 +247,42 @@ async fn send_ihave(addr: &str, msgid: &str, article_bytes: &[u8]) -> SendResult
 }
 
 /// Apply NNTP dot-stuffing: prefix any line starting with `.` with an extra `.`.
+///
+/// Handles both CRLF (`\r\n`) and bare-LF (`\n`) input and always produces
+/// CRLF output as required by RFC 3977.  Splitting on bare `\n` and keeping
+/// the trailing `\r` attached would emit a dangling `\r\n\n` for CRLF input
+/// that ends with a newline — this implementation avoids that by scanning
+/// byte-by-byte and stripping any `\r` immediately before `\n`.
 fn dot_stuff(bytes: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(bytes.len() + 16);
-    for line in bytes.split(|&b| b == b'\n') {
-        // Restore the newline (split removes it).
+    let mut start = 0;
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'\n' {
+            // Strip a preceding \r so that CRLF input produces CRLF output
+            // without a dangling bare \r on each line.
+            let line_end = if i > 0 && bytes[i - 1] == b'\r' {
+                i - 1
+            } else {
+                i
+            };
+            let line = &bytes[start..line_end];
+            if line.starts_with(b".") {
+                out.push(b'.');
+            }
+            out.extend_from_slice(line);
+            out.extend_from_slice(b"\r\n");
+            start = i + 1;
+        }
+        i += 1;
+    }
+    // Any remaining bytes after the last newline (no trailing newline in input).
+    if start < bytes.len() {
+        let line = &bytes[start..];
         if line.starts_with(b".") {
             out.push(b'.');
         }
         out.extend_from_slice(line);
-        out.push(b'\n');
-    }
-    // Remove the trailing extra newline added for the final (empty) split element.
-    if out.last() == Some(&b'\n') && !bytes.ends_with(b"\n") {
-        out.pop();
     }
     out
 }
@@ -377,6 +400,52 @@ mod tests {
         let s = std::str::from_utf8(&output).unwrap();
         assert!(s.contains("Line one"));
         assert!(s.contains("Line two"));
+    }
+
+    /// Regression test for 3vye.7: CRLF input must produce exactly CRLF output
+    /// with no extra bare `\n` at the end.  The old implementation split on
+    /// `\n` and appended `\n` to each segment, leaving the `\r` attached.
+    /// For input ending with `\r\n` this produced a trailing bare `\n` via
+    /// the final empty split element.
+    #[test]
+    fn dot_stuff_crlf_input_no_extra_newline() {
+        let input = b"Line one\r\nLine two\r\n";
+        let output = dot_stuff(input);
+        assert_eq!(
+            output,
+            b"Line one\r\nLine two\r\n",
+            "CRLF input must not produce a trailing bare \\n; got: {:?}",
+            std::str::from_utf8(&output).unwrap_or("<non-utf8>")
+        );
+    }
+
+    /// Dot-stuffing with CRLF preserves CRLF in output and stuffs correctly.
+    #[test]
+    fn dot_stuff_crlf_dot_line_stuffed() {
+        let input = b".top\r\nregular\r\n..already-double\r\n";
+        let output = dot_stuff(input);
+        let s = std::str::from_utf8(&output).unwrap();
+        assert!(s.contains("..top\r\n"), "first dot-line must be stuffed: {s:?}");
+        assert!(s.contains("regular\r\n"), "regular line unchanged: {s:?}");
+        assert!(
+            s.contains("...already-double\r\n"),
+            "double-dot line must get one more dot: {s:?}"
+        );
+        assert_eq!(
+            output.last(),
+            Some(&b'\n'),
+            "output must end with \\n"
+        );
+        // Must not have bare \n (every \n must be preceded by \r).
+        for i in 1..output.len() {
+            if output[i] == b'\n' {
+                assert_eq!(
+                    output[i - 1],
+                    b'\r',
+                    "bare \\n at position {i}; output: {s:?}"
+                );
+            }
+        }
     }
 
     #[test]
