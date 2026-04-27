@@ -507,7 +507,7 @@ mod tests {
         // Minimal ingestion queue; the receiver is dropped immediately since
         // no articles will be enqueued in this test (TCP connect fails).
         let (ingestion_sender, _rx) =
-            crate::peering::ingestion_queue::ingestion_queue(16);
+            crate::peering::ingestion_queue::ingestion_queue(16, u64::MAX);
 
         let config = SuckPullConfig {
             remote_addr: "127.0.0.1:19998".to_string(),

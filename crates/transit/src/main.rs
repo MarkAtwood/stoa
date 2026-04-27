@@ -811,8 +811,10 @@ async fn main() {
         });
     }
 
-    let (ingestion_sender, mut ingestion_receiver) =
-        ingestion_queue(config.peering.ingestion_queue_capacity);
+    let (ingestion_sender, mut ingestion_receiver) = ingestion_queue(
+        config.ingest.max_pending_articles,
+        config.ingest.max_pending_bytes,
+    );
     let ingestion_sender = Arc::new(ingestion_sender);
 
     // ── Local hostname for Path: header (Son-of-RFC-1036 §3.3) ───────────────

@@ -59,6 +59,9 @@ pub struct Config {
     /// SQLite backup configuration.  Omit to disable scheduled/on-demand backups.
     #[serde(default)]
     pub backup: BackupConfig,
+    /// Ingestion queue limits.  Controls backpressure applied to IHAVE/TAKETHIS senders.
+    #[serde(default)]
+    pub ingest: IngestConfig,
 }
 
 /// Configuration for SQLite online backup.
@@ -91,6 +94,36 @@ pub struct BackupConfig {
     /// Requires `dest_dir` to be set.
     #[serde(default)]
     pub schedule: Option<String>,
+}
+
+/// Ingestion queue limits for backpressure on IHAVE/TAKETHIS senders.
+///
+/// When either high-water mark is exceeded, the transit daemon responds with
+/// `436 Transfer not possible; try again later` (RFC 4644) until the queue
+/// drains below the threshold.
+#[derive(Debug, Deserialize, Clone)]
+pub struct IngestConfig {
+    /// Maximum number of articles that may wait in the ingestion queue.
+    ///
+    /// When this count is reached, new IHAVE/TAKETHIS transfers are rejected
+    /// with 436 until the drain catches up.  Default: 1000.
+    #[serde(default = "default_max_pending_articles")]
+    pub max_pending_articles: usize,
+    /// Maximum total bytes of article data in the ingestion queue.
+    ///
+    /// Prevents large-article floods from exhausting memory independently of
+    /// the article count limit.  Default: 268435456 (256 MiB).
+    #[serde(default = "default_max_pending_bytes")]
+    pub max_pending_bytes: u64,
+}
+
+impl Default for IngestConfig {
+    fn default() -> Self {
+        Self {
+            max_pending_articles: default_max_pending_articles(),
+            max_pending_bytes: default_max_pending_bytes(),
+        }
+    }
 }
 
 /// Operator identity configuration.
@@ -430,6 +463,14 @@ pub struct PeeringConfig {
 
 fn default_ingestion_queue_capacity() -> usize {
     1024
+}
+
+fn default_max_pending_articles() -> usize {
+    1000
+}
+
+fn default_max_pending_bytes() -> u64 {
+    256 * 1024 * 1024 // 256 MiB
 }
 
 fn default_rate_limit_rps() -> f64 {

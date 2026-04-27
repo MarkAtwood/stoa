@@ -102,6 +102,13 @@ lazy_static::lazy_static! {
         )
         .expect("failed to register articles_rejected_total");
 
+    pub static ref INGEST_BACKPRESSURE_TOTAL: prometheus::IntCounter =
+        register_int_counter!(
+            "ingest_backpressure_total",
+            "Total articles rejected due to ingestion queue high-water mark (backpressure)"
+        )
+        .expect("failed to register ingest_backpressure_total");
+
     /// Unix timestamp of each configured TLS certificate's NotAfter date.
     ///
     /// Labels: `path` — the filesystem path of the certificate file.
@@ -132,6 +139,8 @@ pub fn gather_metrics() -> String {
     lazy_static::initialize(&NNTP_COMMAND_DURATION_SECONDS);
     lazy_static::initialize(&ARTICLES_INGESTED_GROUP_TOTAL);
     lazy_static::initialize(&ARTICLES_REJECTED_TOTAL);
+    lazy_static::initialize(&INGEST_BACKPRESSURE_TOTAL);
+    lazy_static::initialize(&TLS_CERT_EXPIRY_SECONDS);
 
     use prometheus::Encoder;
     let encoder = prometheus::TextEncoder::new();

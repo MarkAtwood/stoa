@@ -226,7 +226,7 @@ pub async fn run_peering_session<S>(
                                         record_accepted(&registry, &peer_ip).await;
                                         takethis_response(&result)
                                     } else {
-                                        "431 Article too soon, try again later"
+                                        "436 Transfer not possible; try again later"
                                     }
                                 } else {
                                     tracing::warn!(
@@ -234,7 +234,7 @@ pub async fn run_peering_session<S>(
                                         "TAKETHIS rate limit exceeded"
                                     );
                                     record_and_maybe_blacklist(&registry, &shared, &peer_ip).await;
-                                    "431 Article too soon, try again later"
+                                    "436 Transfer not possible; try again later"
                                 }
                             } else {
                                 if matches!(result, IngestResult::Rejected(_)) {

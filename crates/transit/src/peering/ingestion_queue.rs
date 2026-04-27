@@ -1,8 +1,9 @@
 //! Bounded ingestion queue with back-pressure signaling.
 //!
 //! Articles from peering connections are buffered here before the
-//! store-and-forward pipeline processes them. When the queue is full,
-//! new articles receive a 431 response and the peer is asked to retry.
+//! store-and-forward pipeline processes them. When the queue is full
+//! (by article count or total byte size), new articles receive a 436
+//! response (RFC 4644 "Transfer not possible; try again later").
 //! The drain threshold (80%) prevents oscillation.
 
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
@@ -20,21 +21,27 @@ pub struct QueuedArticle {
 
 /// Prometheus-style queue metrics (in-process; no external dependency).
 pub struct QueueMetrics {
-    /// Current queue depth.
+    /// Current queue depth (article count).
     pub depth_current: AtomicUsize,
-    /// Maximum configured queue depth.
+    /// Maximum article count before backpressure is applied.
     pub depth_max: usize,
+    /// Current total bytes of article data waiting in the queue.
+    pub bytes_current: AtomicU64,
+    /// Maximum total bytes before backpressure is applied.
+    pub bytes_max: u64,
     /// Total articles accepted into the queue.
     pub accepted_total: AtomicU64,
-    /// Total articles rejected with 431 due to full queue.
+    /// Total articles rejected due to queue full (depth or bytes limit).
     pub rejected_full_total: AtomicU64,
 }
 
 impl QueueMetrics {
-    fn new(max: usize) -> Self {
+    fn new(max_depth: usize, max_bytes: u64) -> Self {
         Self {
             depth_current: AtomicUsize::new(0),
-            depth_max: max,
+            depth_max: max_depth,
+            bytes_current: AtomicU64::new(0),
+            bytes_max: max_bytes,
             accepted_total: AtomicU64::new(0),
             rejected_full_total: AtomicU64::new(0),
         }
@@ -46,6 +53,11 @@ impl QueueMetrics {
 
     pub fn is_full(&self) -> bool {
         self.current_depth() >= self.depth_max
+    }
+
+    /// True if adding `article_bytes` more bytes would exceed the bytes high-water mark.
+    pub fn is_bytes_overloaded(&self, article_bytes: usize) -> bool {
+        self.bytes_current.load(Ordering::Relaxed) + article_bytes as u64 > self.bytes_max
     }
 
     /// True if queue has drained below the 80% threshold after being full.
@@ -74,11 +86,23 @@ impl IngestionSender {
     /// limit.  `try_send` is atomic at the channel level: the capacity check
     /// and the enqueue happen together.  Do NOT replace with `is_full()+send()`.
     ///
-    /// Returns `Ok(())` if accepted, `Err("431 ...")` if the queue is full.
+    /// Returns `Ok(())` if accepted, `Err("436 ...")` if either high-water mark is exceeded.
     pub async fn try_enqueue(&self, article: QueuedArticle) -> Result<(), &'static str> {
+        let article_bytes = article.bytes.len();
+        // Bytes high-water mark check (soft limit; checked before channel try_send).
+        if self.metrics.is_bytes_overloaded(article_bytes) {
+            self.metrics
+                .rejected_full_total
+                .fetch_add(1, Ordering::Relaxed);
+            crate::metrics::INGEST_BACKPRESSURE_TOTAL.inc();
+            return Err("436 Transfer not possible; try again later\r\n");
+        }
         match self.tx.try_send(article) {
             Ok(()) => {
                 self.metrics.depth_current.fetch_add(1, Ordering::Relaxed);
+                self.metrics
+                    .bytes_current
+                    .fetch_add(article_bytes as u64, Ordering::Relaxed);
                 self.metrics.accepted_total.fetch_add(1, Ordering::Relaxed);
                 Ok(())
             }
@@ -86,7 +110,8 @@ impl IngestionSender {
                 self.metrics
                     .rejected_full_total
                     .fetch_add(1, Ordering::Relaxed);
-                Err("431 Ingestion queue full, try again later\r\n")
+                crate::metrics::INGEST_BACKPRESSURE_TOTAL.inc();
+                Err("436 Transfer not possible; try again later\r\n")
             }
             Err(mpsc::error::TrySendError::Closed(_)) => {
                 // Receiver dropped — queue is shutting down.
@@ -132,13 +157,19 @@ impl IngestionReceiver {
     pub async fn recv(&mut self) -> Option<QueuedArticle> {
         let article = self.rx.recv().await?;
         self.metrics.depth_current.fetch_sub(1, Ordering::Relaxed);
+        self.metrics
+            .bytes_current
+            .fetch_sub(article.bytes.len() as u64, Ordering::Relaxed);
         Some(article)
     }
 }
 
-/// Create an ingestion queue with the given maximum depth.
-pub fn ingestion_queue(max_depth: usize) -> (IngestionSender, IngestionReceiver) {
-    let metrics = Arc::new(QueueMetrics::new(max_depth));
+/// Create an ingestion queue with the given depth limit and bytes limit.
+///
+/// `max_depth` — maximum article count before backpressure (436) is applied.
+/// `max_bytes` — maximum total bytes before backpressure (436) is applied.
+pub fn ingestion_queue(max_depth: usize, max_bytes: u64) -> (IngestionSender, IngestionReceiver) {
+    let metrics = Arc::new(QueueMetrics::new(max_depth, max_bytes));
     let (tx, rx) = mpsc::channel(max_depth);
     let sender = IngestionSender {
         tx,
@@ -159,21 +190,28 @@ mod tests {
         }
     }
 
+    fn make_article_bytes(n: u64, size: usize) -> QueuedArticle {
+        QueuedArticle {
+            bytes: vec![b'X'; size],
+            message_id: format!("<{n}@example.com>"),
+        }
+    }
+
     #[tokio::test]
     async fn queue_accepts_up_to_capacity() {
-        let (sender, _rx) = ingestion_queue(3);
+        let (sender, _rx) = ingestion_queue(3, u64::MAX);
         assert!(sender.try_enqueue(make_article(1)).await.is_ok());
         assert!(sender.try_enqueue(make_article(2)).await.is_ok());
         assert!(sender.try_enqueue(make_article(3)).await.is_ok());
-        // 4th should fail (queue full).
+        // 4th should fail with 436 (queue full).
         let result = sender.try_enqueue(make_article(4)).await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().starts_with("431"));
+        assert!(result.unwrap_err().starts_with("436"));
     }
 
     #[tokio::test]
     async fn queue_depth_tracked_on_enqueue() {
-        let (sender, _rx) = ingestion_queue(10);
+        let (sender, _rx) = ingestion_queue(10, u64::MAX);
         assert_eq!(sender.depth(), 0);
         sender.try_enqueue(make_article(1)).await.unwrap();
         assert_eq!(sender.depth(), 1);
@@ -183,7 +221,7 @@ mod tests {
 
     #[tokio::test]
     async fn queue_depth_decreases_on_recv() {
-        let (sender, mut receiver) = ingestion_queue(10);
+        let (sender, mut receiver) = ingestion_queue(10, u64::MAX);
         sender.try_enqueue(make_article(1)).await.unwrap();
         sender.try_enqueue(make_article(2)).await.unwrap();
         assert_eq!(sender.depth(), 2);
@@ -197,7 +235,7 @@ mod tests {
 
     #[tokio::test]
     async fn rejected_articles_increment_counter() {
-        let (sender, _rx) = ingestion_queue(1);
+        let (sender, _rx) = ingestion_queue(1, u64::MAX);
         sender.try_enqueue(make_article(1)).await.unwrap(); // fills queue
         sender.try_enqueue(make_article(2)).await.unwrap_err(); // rejected
         sender.try_enqueue(make_article(3)).await.unwrap_err(); // rejected
@@ -209,7 +247,7 @@ mod tests {
 
     #[tokio::test]
     async fn drain_threshold_fires_at_80_percent() {
-        let (sender, mut receiver) = ingestion_queue(10);
+        let (sender, mut receiver) = ingestion_queue(10, u64::MAX);
         // Fill to 100%.
         for i in 1..=10 {
             sender.try_enqueue(make_article(i)).await.unwrap();
@@ -230,20 +268,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn fill_queue_verify_431_drain_verify_resumption() {
-        // Acceptance test: fill → 431 → drain → resume.
-        let (sender, mut receiver) = ingestion_queue(5);
+    async fn fill_queue_verify_436_drain_verify_resumption() {
+        // Acceptance test: fill → 436 → drain → resume.
+        let (sender, mut receiver) = ingestion_queue(5, u64::MAX);
 
         // Fill queue.
         for i in 1..=5 {
             assert!(sender.try_enqueue(make_article(i)).await.is_ok());
         }
 
-        // Additional enqueues return 431.
+        // Additional enqueues return 436.
         for i in 6..=10 {
             let result = sender.try_enqueue(make_article(i)).await;
             assert!(result.is_err(), "article {i} should be rejected");
-            assert!(result.unwrap_err().contains("431"));
+            assert!(result.unwrap_err().contains("436"));
         }
 
         // Drain queue.
@@ -254,6 +292,43 @@ mod tests {
         // Queue is now empty; new enqueues should succeed again.
         assert!(sender.try_enqueue(make_article(100)).await.is_ok());
         assert_eq!(sender.depth(), 1);
+    }
+
+    /// Bytes high-water mark triggers 436 backpressure independently of depth.
+    #[tokio::test]
+    async fn bytes_limit_triggers_backpressure() {
+        // Queue depth allows 100 articles but total bytes is capped at 50.
+        let (sender, _rx) = ingestion_queue(100, 50);
+        // First 5 articles of 10 bytes each fill 50 bytes exactly.
+        for i in 1..=5 {
+            assert!(
+                sender.try_enqueue(make_article_bytes(i, 10)).await.is_ok(),
+                "article {i} should be accepted"
+            );
+        }
+        // Next article (10 bytes) would push bytes to 60 — exceeds limit.
+        let result = sender.try_enqueue(make_article_bytes(6, 10)).await;
+        assert!(result.is_err(), "should be rejected when bytes limit exceeded");
+        assert!(result.unwrap_err().contains("436"));
+    }
+
+    /// Bytes counter decrements on recv, allowing more articles after drain.
+    #[tokio::test]
+    async fn bytes_counter_decrements_on_recv() {
+        let (sender, mut receiver) = ingestion_queue(100, 50);
+        // Fill to byte limit.
+        for i in 1..=5 {
+            sender.try_enqueue(make_article_bytes(i, 10)).await.unwrap();
+        }
+        // Should be rejected now.
+        assert!(sender.try_enqueue(make_article_bytes(6, 10)).await.is_err());
+        // Drain one article (10 bytes).
+        receiver.recv().await.unwrap();
+        // Now there is room for one more.
+        assert!(
+            sender.try_enqueue(make_article_bytes(7, 10)).await.is_ok(),
+            "should be accepted after draining one article"
+        );
     }
 
     /// Regression test for stoa-76h: concurrent TAKETHIS flood must never
@@ -268,7 +343,7 @@ mod tests {
 
         let capacity = 10usize;
         let n_senders = 100usize;
-        let (sender, _rx) = ingestion_queue(capacity);
+        let (sender, _rx) = ingestion_queue(capacity, u64::MAX);
         let sender = Arc::new(sender);
 
         let handles: Vec<_> = (0..n_senders)

@@ -316,7 +316,7 @@ async fn transit_reader_shared_store() {
     let transit_signing_key = Arc::new(ed25519_dalek::SigningKey::from_bytes(&[0x43u8; 32]));
     let transit_hlc = Arc::new(Mutex::new(HlcClock::new([0x02u8; 8], now_ms)));
 
-    let (ingestion_sender, mut ingestion_receiver) = ingestion_queue(64);
+    let (ingestion_sender, mut ingestion_receiver) = ingestion_queue(64, u64::MAX);
     let ingestion_sender = Arc::new(ingestion_sender);
 
     let transit_db_pool = Arc::new(make_transit_db_pool(&db_dir).await);

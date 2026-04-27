@@ -94,24 +94,23 @@ async fn bind_listener() -> (TcpListener, std::net::SocketAddr) {
     (listener, addr)
 }
 
-// ── Test 1: TAKETHIS returns 431 when queue is full ───────────────────────────
+// ── Test 1: TAKETHIS returns 436 when queue is full ───────────────────────────
 
-/// RFC 4644 §2.5: 239 must only be sent when the article is accepted.
-/// When the ingestion queue is full, 431 must be returned and record_accepted()
+/// When the ingestion queue is full, 436 must be returned and record_accepted()
 /// must not be called.
 ///
 /// Verified by:
 /// 1. Pre-filling the queue to capacity so the next enqueue will fail.
-/// 2. Confirming the session returns 431 (not 239) for TAKETHIS.
+/// 2. Confirming the session returns 436 (not 239) for TAKETHIS.
 /// 3. Confirming the `rejected_full_total` metric incremented (proving the
 ///    article was never placed in the queue).
 #[tokio::test]
-async fn takethis_queue_full_returns_431_not_239() {
+async fn takethis_queue_full_returns_436_not_239() {
     let (msgid_map, _tmp) = make_core_pool().await;
     let transit_pool = make_transit_pool().await;
 
     // Queue depth = 1; we fill it before the session starts.
-    let (sender, _rx) = ingestion_queue(1);
+    let (sender, _rx) = ingestion_queue(1, u64::MAX);
     let filler = QueuedArticle {
         bytes: b"filler".to_vec(),
         message_id: "<filler@fill.test>".to_owned(),
@@ -193,10 +192,10 @@ async fn takethis_queue_full_returns_431_not_239() {
     line.clear();
     reader.read_line(&mut line).await.unwrap();
 
-    // Must be 431 (try again later), NOT 239 (accepted).
+    // Must be 436 (transfer not possible, retry), NOT 239 (accepted).
     assert!(
-        line.starts_with("431"),
-        "queue-full TAKETHIS must return 431 (RFC 4644 §2.5), got: {line:?}"
+        line.starts_with("436"),
+        "queue-full TAKETHIS must return 436 (RFC 4644 transient), got: {line:?}"
     );
     assert!(
         !line.starts_with("239"),
@@ -229,7 +228,7 @@ async fn ihave_queue_full_returns_436_not_235() {
     let transit_pool = make_transit_pool().await;
 
     // Queue depth = 1; fill it before the session starts.
-    let (sender, _rx) = ingestion_queue(1);
+    let (sender, _rx) = ingestion_queue(1, u64::MAX);
     let filler = QueuedArticle {
         bytes: b"filler".to_vec(),
         message_id: "<filler2@fill.test>".to_owned(),
@@ -346,7 +345,7 @@ async fn takethis_queue_not_full_returns_239() {
     let transit_pool = make_transit_pool().await;
 
     // Queue has plenty of space.
-    let (sender, _rx) = ingestion_queue(100);
+    let (sender, _rx) = ingestion_queue(100, u64::MAX);
 
     let shared = Arc::new(PeeringShared {
         ipfs: Arc::new(MemIpfsStore::new()),
