@@ -172,14 +172,23 @@ async fn create_one_email(
             .unwrap_or("unknown@example.com"),
     );
 
-    let newsgroups: Vec<String> = obj
+    let newsgroups: Vec<&str> = obj
         .get("mailboxIds")
         .and_then(|v| v.as_object())
-        .map(|m| m.keys().map(|k| strip_crlf(k)).collect())
+        .map(|m| m.keys().map(String::as_str).collect())
         .unwrap_or_default();
 
     if newsgroups.is_empty() {
         return Err("mailboxIds must not be empty".to_string());
+    }
+
+    // Validate each mailbox key against RFC 3977 group name syntax.  This
+    // also prevents comma injection (commas would split into spurious groups
+    // in the Newsgroups: header) and CRLF injection (invalid group names).
+    for &name in &newsgroups {
+        if !crate::feed::validate_group_name(name) {
+            return Err(format!("mailboxId {name:?} is not a valid newsgroup name"));
+        }
     }
 
     let text_body = obj
@@ -243,7 +252,7 @@ fn extract_email_addrs(field: Option<&Value>) -> Vec<String> {
                 .filter_map(|obj| obj.get("email"))
                 .filter_map(|e| e.as_str())
                 .filter(|s| s.contains('@'))
-                .map(|s| s.to_string())
+                .map(strip_crlf)
                 .collect()
         })
         .unwrap_or_default()

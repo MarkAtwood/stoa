@@ -144,9 +144,9 @@ fn extract_body_msgid(article_bytes: &[u8]) -> Option<String> {
                 break;
             }
             if ct.first().is_some_and(|&b| b == b' ' || b == b'\t') {
-                if let Ok(cs) = std::str::from_utf8(ct) {
-                    value.push_str(cs.trim_ascii());
-                }
+                // Non-UTF-8 continuation of the Message-ID field → malformed; bail out.
+                let cs = std::str::from_utf8(ct).ok()?;
+                value.push_str(cs.trim_ascii());
             } else {
                 break;
             }
@@ -629,6 +629,19 @@ mod tests {
             extract_body_msgid(article),
             Some("<ok@example.com>".to_owned()),
             "non-UTF-8 header before Message-ID must not abort extraction"
+        );
+    }
+
+    #[test]
+    fn extract_body_msgid_returns_none_for_non_utf8_continuation() {
+        // A non-UTF-8 byte sequence on a continuation line of the Message-ID
+        // field is unrecoverable — the partial value cannot be trusted, so the
+        // function must return None.
+        let article: &[u8] = b"Message-ID:\r\n \xff\xfe<broken@example.com>\r\n\r\nBody.\r\n";
+        assert_eq!(
+            extract_body_msgid(article),
+            None,
+            "non-UTF-8 Message-ID continuation must return None"
         );
     }
 
