@@ -4019,6 +4019,7 @@ dependencies = [
  "quoted_printable",
  "rand_core 0.6.4",
  "reqwest",
+ "secretx",
  "serde",
  "serde_ipld_dagcbor",
  "serde_json",
