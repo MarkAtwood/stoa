@@ -215,14 +215,22 @@ impl LogStorage for SqliteLogStorage {
         let mut tx = self.pool.begin().await.map_err(db_err)?;
         let group_name = group.as_str();
 
-        for parent in parents_to_remove {
-            let parent_bytes = parent.as_bytes().as_slice().to_vec();
-            sqlx::query("DELETE FROM group_tips WHERE group_name = ? AND tip_id = ?")
-                .bind(group_name)
-                .bind(&parent_bytes)
-                .execute(&mut *tx)
-                .await
-                .map_err(db_err)?;
+        if !parents_to_remove.is_empty() {
+            // Single bulk DELETE: WHERE tip_id IN (?, ?, ...) avoids O(P) round-trips
+            // for P parents.  SQLite supports multi-value IN with bound parameters.
+            let placeholders = parents_to_remove.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+            let sql = format!(
+                "DELETE FROM group_tips WHERE group_name = ? AND tip_id IN ({placeholders})"
+            );
+            let parent_byte_vecs: Vec<Vec<u8>> = parents_to_remove
+                .iter()
+                .map(|p| p.as_bytes().as_slice().to_vec())
+                .collect();
+            let mut q = sqlx::query(&sql).bind(group_name);
+            for parent_bytes in &parent_byte_vecs {
+                q = q.bind(parent_bytes.as_slice());
+            }
+            q.execute(&mut *tx).await.map_err(db_err)?;
         }
 
         let new_tip_bytes = new_tip.as_bytes().as_slice().to_vec();

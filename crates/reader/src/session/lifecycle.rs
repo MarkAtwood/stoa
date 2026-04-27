@@ -160,7 +160,7 @@ async fn run_plain_session(
         Response::service_available_posting_prohibited()
     };
     if write_half
-        .write_all(greeting.to_string().as_bytes())
+        .write_all(greeting.to_bytes().as_slice())
         .await
         .is_err()
     {
@@ -301,7 +301,7 @@ where
             }
             Err(_) => {
                 let resp = Response::new(400, "Timeout - closing connection");
-                let _ = writer.write_all(resp.to_string().as_bytes()).await;
+                let _ = writer.write_all(resp.to_bytes().as_slice()).await;
                 return CommandLoopExit::Done;
             }
         };
@@ -318,7 +318,7 @@ where
             Ok(c) => c,
             Err(_) => {
                 let resp = Response::unknown_command();
-                if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
                     return CommandLoopExit::Done;
                 }
                 continue;
@@ -328,7 +328,7 @@ where
         // ARTICLE <msgid>: resolve from stores before dispatching.
         if let Command::Article(Some(ArticleRef::MessageId(ref msgid))) = cmd {
             let resp = lookup_article_by_msgid(stores, msgid).await;
-            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
                 return CommandLoopExit::Done;
             }
             continue;
@@ -337,7 +337,7 @@ where
         // ARTICLE cid:<cid>: fetch directly by CID (ADR-0007).
         if let Command::Article(Some(ArticleRef::Cid(ref cid_str))) = cmd {
             let resp = lookup_article_by_cid(stores, cid_str).await;
-            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
                 return CommandLoopExit::Done;
             }
             continue;
@@ -354,7 +354,7 @@ where
                     Some(n) => n,
                     None => {
                         let resp = Response::new(420, "Current article number is invalid");
-                        if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                        if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
                             return CommandLoopExit::Done;
                         }
                         continue;
@@ -366,7 +366,7 @@ where
                 Ok(content) => article_response(&content),
                 Err(r) => r,
             };
-            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
                 return CommandLoopExit::Done;
             }
             continue;
@@ -398,7 +398,7 @@ where
                 },
                 _ => unreachable!(),
             };
-            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
                 return CommandLoopExit::Done;
             }
             continue;
@@ -430,7 +430,7 @@ where
                 },
                 _ => unreachable!(),
             };
-            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
                 return CommandLoopExit::Done;
             }
             continue;
@@ -447,7 +447,7 @@ where
                     Some(n) => n,
                     None => {
                         let resp = Response::new(420, "Current article number is invalid");
-                        if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                        if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
                             return CommandLoopExit::Done;
                         }
                         continue;
@@ -461,7 +461,7 @@ where
                 }
                 Err(r) => r,
             };
-            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
                 return CommandLoopExit::Done;
             }
             continue;
@@ -470,7 +470,7 @@ where
         // STAT <msgid>: look up existence by message-id, no group required.
         if let Command::Stat(Some(ArticleRef::MessageId(ref msgid))) = cmd {
             let resp = stat_by_msgid(stores, msgid).await;
-            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
                 return CommandLoopExit::Done;
             }
             continue;
@@ -485,7 +485,7 @@ where
                 ctx.current_article_number,
             )
             .await;
-            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
                 return CommandLoopExit::Done;
             }
             continue;
@@ -499,7 +499,7 @@ where
         } = cmd
         {
             let resp = handle_xverify(stores, message_id, expected_cid, verify_sig).await;
-            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
                 return CommandLoopExit::Done;
             }
             continue;
@@ -513,7 +513,7 @@ where
                 stores.msgid_map.as_ref(),
             )
             .await;
-            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
                 return CommandLoopExit::Done;
             }
             continue;
@@ -522,7 +522,7 @@ where
         // GROUP: serve live article count/range from article_numbers store.
         if let Command::Group(ref name) = cmd {
             let resp = handle_group_live(stores, ctx, name).await;
-            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
                 return CommandLoopExit::Done;
             }
             continue;
@@ -531,7 +531,7 @@ where
         // LIST ACTIVE: serve live article ranges for all configured groups.
         if let Command::List(ListSubcommand::Active) = cmd {
             let resp = handle_list_active_live(stores, ctx).await;
-            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
                 return CommandLoopExit::Done;
             }
             continue;
@@ -540,7 +540,7 @@ where
         // OVER/XOVER: serve overview records from the overview index.
         if let Command::Over(ref arg) = cmd {
             let resp = handle_over_live(stores, ctx, arg.as_ref()).await;
-            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
                 return CommandLoopExit::Done;
             }
             continue;
@@ -554,7 +554,7 @@ where
         } = cmd
         {
             let resp = handle_hdr_live(stores, ctx, field, range_or_msgid.as_deref()).await;
-            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
                 return CommandLoopExit::Done;
             }
             continue;
@@ -580,7 +580,7 @@ where
                     return CommandLoopExit::Done;
                 }
                 if writer
-                    .write_all(Response::starttls_ready().to_string().as_bytes())
+                    .write_all(Response::starttls_ready().to_bytes().as_slice())
                     .await
                     .is_err()
                 {
@@ -596,7 +596,7 @@ where
         if let Command::AuthinfoPass(_) = cmd {
             if config.auth.required && !ctx.tls_active {
                 let resp = Response::new(483, "Encryption required for authentication");
-                if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
                     return CommandLoopExit::Done;
                 }
                 continue;
@@ -607,7 +607,7 @@ where
                 Some(u) => u,
                 None => {
                     let resp = Response::authentication_out_of_sequence();
-                    if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                    if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
                         return CommandLoopExit::Done;
                     }
                     continue;
@@ -629,7 +629,7 @@ where
                 ctx.authenticated_user = Some(username);
                 ctx.auth_failure_count = 0;
                 let resp = Response::authentication_accepted();
-                if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
                     return CommandLoopExit::Done;
                 }
             } else {
@@ -637,11 +637,11 @@ where
                 if ctx.auth_failure_count >= crate::session::context::MAX_AUTH_FAILURES {
                     warn!(peer = %peer_addr, "AUTHINFO: too many failures, closing connection");
                     let resp = Response::new(400, "Too many authentication failures");
-                    let _ = writer.write_all(resp.to_string().as_bytes()).await;
+                    let _ = writer.write_all(resp.to_bytes().as_slice()).await;
                     return CommandLoopExit::Done;
                 }
                 let resp = Response::authentication_failed();
-                if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
                     return CommandLoopExit::Done;
                 }
             }
@@ -677,7 +677,7 @@ where
             .observe(cmd_start.elapsed().as_secs_f64());
         let resp_code = resp.code;
 
-        if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+        if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
             return CommandLoopExit::Done;
         }
 
@@ -724,7 +724,7 @@ where
             let final_resp =
                 run_post_pipeline(&article_bytes, stores, config.limits.max_article_bytes).await;
             if writer
-                .write_all(final_resp.to_string().as_bytes())
+                .write_all(final_resp.to_bytes().as_slice())
                 .await
                 .is_err()
             {
@@ -772,7 +772,7 @@ async fn run_session_io<S>(
         Response::service_available_posting_prohibited()
     };
     if writer
-        .write_all(greeting.to_string().as_bytes())
+        .write_all(greeting.to_bytes().as_slice())
         .await
         .is_err()
     {
@@ -1128,15 +1128,23 @@ async fn lookup_article_content_by_number(
         }
     };
     let (header_bytes, body_bytes) = split_article(&wire_bytes);
-    let headers_str = String::from_utf8_lossy(&header_bytes);
-    let message_id = extract_header_value(&headers_str, "Message-ID").unwrap_or_default();
-    let did_sig_valid = stores
+    // Use query_by_number (1 DB query) instead of header-scan + query_by_msgid
+    // (header parse + 1 DB query).  Fall back to the header parse only if the
+    // overview record is missing (article indexed before overview was written).
+    let overview = stores
         .overview_store
-        .query_by_msgid(&message_id)
+        .query_by_number(&group, number)
         .await
         .ok()
-        .flatten()
-        .and_then(|r| r.did_sig_valid);
+        .flatten();
+    let message_id = overview
+        .as_ref()
+        .map(|r| r.message_id.clone())
+        .unwrap_or_else(|| {
+            let headers_str = String::from_utf8_lossy(&header_bytes);
+            extract_header_value(&headers_str, "Message-ID").unwrap_or_default()
+        });
+    let did_sig_valid = overview.and_then(|r| r.did_sig_valid);
     let verifications = stores
         .verification_store
         .get_verifications(&cid)

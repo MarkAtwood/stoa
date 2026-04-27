@@ -172,6 +172,12 @@ where
 
     // Round 2 — exchange pubkey+sig frames concurrently (96 bytes each side).
     // Signed message = their_nonce || my_pubkey (64 bytes).
+    // DECISION (rbe3.24): signed message is their_nonce || my_pubkey.
+    // Including my_pubkey binds the signature to the sender's own identity,
+    // preventing cross-protocol replay: a captured signature cannot be reused
+    // in another session (nonce differs) or by a different key (pubkey differs).
+    // Signing only their_nonce would allow key-substitution replay attacks.
+    // Do NOT simplify to sign(their_nonce).
     let my_pubkey_bytes = signing_key.verifying_key().to_bytes();
     let mut signing_msg = [0u8; 64];
     signing_msg[..32].copy_from_slice(&their_nonce);
@@ -195,7 +201,11 @@ where
     let their_pubkey_bytes: [u8; 32] = in_frame[..32].try_into().unwrap();
     let their_sig_bytes: [u8; 64] = in_frame[32..].try_into().unwrap();
 
-    // Constant-time check: is their pubkey in the trusted list?
+    // DECISION (rbe3.28): constant-time lookup prevents timing oracle.
+    // Using `==` or an early-exit find() would leak the Hamming distance to
+    // the nearest trusted key via response latency.  `subtle::ConstantTimeEq`
+    // takes the same wall time regardless of where keys differ.  Do NOT
+    // replace `ct_eq` with a plain byte comparison, even on loopback.
     let is_trusted = trusted_keys
         .iter()
         .any(|k| bool::from(k.to_bytes().ct_eq(&their_pubkey_bytes)));

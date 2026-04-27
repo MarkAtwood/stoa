@@ -249,17 +249,17 @@ pub fn prepend_path_header(article_bytes: Vec<u8>, hostname: &str) -> Vec<u8> {
     let mut path_found = false;
     let mut in_body = false;
 
-    // Pre-collect lines split on LF.  Remove the trailing empty slice that
-    // `split` produces when input ends with '\n'; we must NOT skip empty slices
-    // inside the body because they represent genuine blank lines.
-    let raw_lines: Vec<&[u8]> = article_bytes.split(|&b| b == b'\n').collect();
-    let lines = if raw_lines.last().is_some_and(|l| l.is_empty()) {
-        &raw_lines[..raw_lines.len() - 1]
-    } else {
-        &raw_lines[..]
-    };
-
-    for line in lines {
+    // Use peekable iterator to avoid the Vec<&[u8]> heap allocation from
+    // split().collect().  The trailing empty slice produced when the article
+    // ends with '\n' is skipped by checking peek() before acting on an empty
+    // slice at the end of the stream.
+    let mut iter = article_bytes.split(|&b| b == b'\n').peekable();
+    while let Some(line) = iter.next() {
+        // Skip the trailing empty element that split() produces when the
+        // article bytes end with '\n' — this is not a genuine blank line.
+        if line.is_empty() && iter.peek().is_none() {
+            break;
+        }
         if in_body {
             out.extend_from_slice(line);
             out.push(b'\n');

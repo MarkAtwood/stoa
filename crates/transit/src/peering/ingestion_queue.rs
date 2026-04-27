@@ -67,6 +67,13 @@ impl IngestionSender {
     /// respect to the channel — no TOCTOU between a separate `is_full()` read
     /// and the actual send.
     ///
+    /// # DECISION (rbe3.34): try_send is mandatory; is_full()+send() is incorrect
+    ///
+    /// Two concurrent TAKETHIS handlers that both observe `is_full() == false`
+    /// would both call `send().await`, pushing depth beyond the configured
+    /// limit.  `try_send` is atomic at the channel level: the capacity check
+    /// and the enqueue happen together.  Do NOT replace with `is_full()+send()`.
+    ///
     /// Returns `Ok(())` if accepted, `Err("431 ...")` if the queue is full.
     pub async fn try_enqueue(&self, article: QueuedArticle) -> Result<(), &'static str> {
         match self.tx.try_send(article) {

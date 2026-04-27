@@ -121,6 +121,42 @@ impl OverviewStore {
         }))
     }
 
+    /// Look up a single overview record by (group, article_number).
+    ///
+    /// Returns `None` if no record exists for that article number in that group.
+    /// Avoids the header-scan + `query_by_msgid` round-trip used by
+    /// `lookup_article_content_by_number` when the overview has been indexed.
+    pub async fn query_by_number(
+        &self,
+        group: &str,
+        article_number: u64,
+    ) -> Result<Option<OverviewRecord>, sqlx::Error> {
+        let number = article_number as i64;
+        let row: Option<OverviewRow> = sqlx::query_as(
+            "SELECT article_number, subject, from_header, date_header, \
+             message_id, references_header, byte_count, line_count, did_sig_valid \
+             FROM overview \
+             WHERE group_name = ? AND article_number = ? \
+             LIMIT 1",
+        )
+        .bind(group)
+        .bind(number)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|r| OverviewRecord {
+            article_number: r.article_number as u64,
+            subject: r.subject,
+            from: r.from_header,
+            date: r.date_header,
+            message_id: r.message_id,
+            references: r.references_header,
+            byte_count: r.byte_count as u64,
+            line_count: r.line_count as u64,
+            did_sig_valid: r.did_sig_valid.map(|v| v != 0),
+        }))
+    }
+
     /// Query overview records for a range of article numbers (inclusive).
     ///
     /// Returns records in ascending `article_number` order, capped at
@@ -195,32 +231,47 @@ pub fn extract_overview(header_bytes: &[u8], body_bytes: &[u8]) -> OverviewRecor
     let mut message_id = String::new();
     let mut references = String::new();
 
-    // Unfold continuation lines (RFC 5322 §2.2.3): a line beginning with
-    // whitespace is a continuation of the previous header.
-    let mut lines: Vec<String> = Vec::new();
-    for raw in header_text.split('\n') {
-        let raw = raw.trim_end_matches('\r');
-        if raw.starts_with(' ') || raw.starts_with('\t') {
-            if let Some(last) = lines.last_mut() {
-                last.push(' ');
-                last.push_str(raw.trim_start());
-            }
-        } else {
-            lines.push(raw.to_owned());
-        }
-    }
+    // Single-pass scan with RFC 5322 §2.2.3 folding, no intermediate Vec<String>.
+    // Track which of the five target fields is being accumulated so that
+    // continuation lines (starting with SP or HTAB) can be appended correctly.
+    #[derive(Clone, Copy)]
+    enum CurField { None, Subject, From, Date, MessageId, References }
+    let mut cur = CurField::None;
 
-    for line in &lines {
+    for raw in header_text.split('\n') {
+        let line = raw.trim_end_matches('\r');
+        if line.is_empty() {
+            break; // blank line = end of headers
+        }
+        if line.starts_with(' ') || line.starts_with('\t') {
+            // Continuation line: append trimmed content to current field.
+            let cont = line.trim_start();
+            match cur {
+                CurField::Subject => { subject.push(' '); subject.push_str(cont); }
+                CurField::From => { from.push(' '); from.push_str(cont); }
+                CurField::Date => { date.push(' '); date.push_str(cont); }
+                CurField::MessageId => { message_id.push(' '); message_id.push_str(cont); }
+                CurField::References => { references.push(' '); references.push_str(cont); }
+                CurField::None => {}
+            }
+            continue;
+        }
+        cur = CurField::None;
         if let Some(value) = strip_header_name(line, "Subject") {
             subject = value.to_owned();
+            cur = CurField::Subject;
         } else if let Some(value) = strip_header_name(line, "From") {
             from = value.to_owned();
+            cur = CurField::From;
         } else if let Some(value) = strip_header_name(line, "Date") {
             date = value.to_owned();
+            cur = CurField::Date;
         } else if let Some(value) = strip_header_name(line, "Message-ID") {
             message_id = value.to_owned();
+            cur = CurField::MessageId;
         } else if let Some(value) = strip_header_name(line, "References") {
             references = value.to_owned();
+            cur = CurField::References;
         }
     }
 

@@ -1,5 +1,15 @@
 //! CID utilities and the dual-CID model for stoa articles.
 //!
+//! # DECISION (rbe3.20): dual-CID model separates dedup identity from IPFS address
+//!
+//! A single CID cannot serve both roles.  The root CID (DAG-CBOR) is not
+//! stable across ingests because it encodes HLC timestamp and operator
+//! signature, both of which differ per ingest.  The canonical CID (raw
+//! wire bytes) is stable but not an IPFS address — requesting it from IPFS
+//! would not return the article root node.  Conflating the two would break
+//! either dedup (using root CID) or IPFS addressability (using canonical CID).
+//! Do NOT use a single CID for both purposes.
+//!
 //! # The Dual-CID Model
 //!
 //! Every article in stoa has **two distinct CIDs**, and they must never

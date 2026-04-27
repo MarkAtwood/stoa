@@ -220,6 +220,35 @@ impl Response {
     }
 }
 
+/// Serialize the response to wire bytes without materialising an intermediate String.
+///
+/// Pre-allocates a `Vec<u8>` sized to the approximate response length and
+/// writes each component with `extend_from_slice`, avoiding the per-`write!`
+/// overhead of the `Display` path.  For OVER responses with thousands of body
+/// lines this is meaningfully faster than `to_string().into_bytes()`.
+impl Response {
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let capacity = 6 + self.text.len() + 2
+            + self.body.iter().map(|l| l.len() + 2).sum::<usize>()
+            + if self.multiline { 3 } else { 0 };
+        let mut out = Vec::with_capacity(capacity);
+        // Status line: "NNN text\r\n"
+        let code_str = self.code.to_string();
+        out.extend_from_slice(code_str.as_bytes());
+        out.push(b' ');
+        out.extend_from_slice(self.text.as_bytes());
+        out.extend_from_slice(b"\r\n");
+        for line in &self.body {
+            out.extend_from_slice(line.as_bytes());
+            out.extend_from_slice(b"\r\n");
+        }
+        if self.multiline {
+            out.extend_from_slice(b".\r\n");
+        }
+        out
+    }
+}
+
 impl fmt::Display for Response {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} {}\r\n", self.code, self.text)?;

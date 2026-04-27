@@ -1,3 +1,12 @@
+// DECISION (rbe3.37): BFS visits and result count are bounded to prevent unbounded work
+//
+// A group log DAG may have millions of entries. Without caps, a single
+// reconciliation round would walk the entire DAG, consuming O(N) memory and
+// blocking indefinitely. MAX_BFS_VISITS limits per-round traversal work;
+// MAX_HAVE limits the result set. `partial_have = true` signals callers to
+// schedule a follow-up round. Do NOT remove these limits — they are the only
+// safeguard against a malicious or very large remote log exhausting memory.
+
 use std::collections::{HashSet, VecDeque};
 
 use crate::article::GroupName;
