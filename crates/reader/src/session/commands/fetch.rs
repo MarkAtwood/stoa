@@ -106,11 +106,20 @@ fn did_verified_header_line(content: &ArticleContent) -> Option<String> {
 
 /// Build the `X-Stoa-Verified` header line for injection into responses.
 ///
-/// Returns `None` when no verification results have been recorded (empty slice).
-/// Returns `Some("X-Stoa-Verified: pass")` if any method passed,
-/// `Some("X-Stoa-Verified: fail")` if all methods tried and none passed.
+/// Returns `None` when no X-Stoa-Sig verification results exist for this article.
+/// Returns `Some("X-Stoa-Verified: pass")` if the operator key verified,
+/// `Some("X-Stoa-Verified: fail")` if verification was attempted and failed.
+///
+/// DKIM results are intentionally excluded: DKIM attests the sending MTA, not
+/// the Stoa operator key.  Only `SigType::XUsenetIpfsSig` results are considered.
 fn verified_header_line(content: &ArticleContent) -> Option<String> {
-    stoa_verify::aggregate_status(&content.verifications)
+    let x_sig_only: Vec<_> = content
+        .verifications
+        .iter()
+        .filter(|v| v.sig_type == stoa_verify::SigType::XUsenetIpfsSig)
+        .cloned()
+        .collect();
+    stoa_verify::aggregate_status(&x_sig_only)
         .map(|pass| format!("X-Stoa-Verified: {}", if pass { "pass" } else { "fail" }))
 }
 

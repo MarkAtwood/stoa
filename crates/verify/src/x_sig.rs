@@ -54,6 +54,15 @@ pub fn verify_x_sig(
                 identity: None,
             }];
         }
+        Err(ExtractError::Duplicate) => {
+            return vec![ArticleVerification {
+                sig_type: SigType::XUsenetIpfsSig,
+                result: VerifResult::ParseError {
+                    reason: "duplicate X-Stoa-Sig headers; article is malformed".to_owned(),
+                },
+                identity: None,
+            }];
+        }
     };
 
     if trusted_keys.is_empty() {
@@ -112,6 +121,8 @@ enum ExtractError {
     NotFound,
     NonUtf8,
     BadBase64(base64::DecodeError),
+    /// More than one `X-Stoa-Sig` header was found; the article is malformed.
+    Duplicate,
 }
 
 fn extract_sig_header(article_bytes: &[u8]) -> Result<Extracted, ExtractError> {
@@ -132,6 +143,7 @@ fn extract_sig_header(article_bytes: &[u8]) -> Result<Extracted, ExtractError> {
     // bytes.
     let mut cursor = 0usize;
     let mut in_sig = false;
+    let mut sig_count = 0u32;
     for raw_line in header_str.split_inclusive('\n') {
         let line = raw_line.trim_end_matches(['\r', '\n']);
         if in_sig {
@@ -143,10 +155,15 @@ fn extract_sig_header(article_bytes: &[u8]) -> Result<Extracted, ExtractError> {
                 continue;
             } else {
                 // Not a continuation — folded header is complete.
-                break;
+                in_sig = false;
             }
         }
         if line.starts_with(&prefix) {
+            sig_count += 1;
+            if sig_count > 1 {
+                // Duplicate X-Stoa-Sig header — reject the article.
+                return Err(ExtractError::Duplicate);
+            }
             sig_value_buf.push_str(line[prefix.len()..].trim());
             sig_line_start = Some(cursor);
             sig_line_end = Some(cursor + raw_line.len());

@@ -97,7 +97,11 @@ async fn basic_auth_middleware(
                 req.extensions_mut().insert(AuthenticatedUser(username));
                 return next.run(req).await;
             }
-            _ => return unauthorized_response(),
+            Ok(None) => return unauthorized_response(),
+            Err(e) => {
+                tracing::error!("token store DB error during auth: {e}");
+                return unauthorized_response();
+            }
         }
     }
 
