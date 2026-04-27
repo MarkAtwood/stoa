@@ -425,17 +425,16 @@ mod tests {
         let input = b".top\r\nregular\r\n..already-double\r\n";
         let output = dot_stuff(input);
         let s = std::str::from_utf8(&output).unwrap();
-        assert!(s.contains("..top\r\n"), "first dot-line must be stuffed: {s:?}");
+        assert!(
+            s.contains("..top\r\n"),
+            "first dot-line must be stuffed: {s:?}"
+        );
         assert!(s.contains("regular\r\n"), "regular line unchanged: {s:?}");
         assert!(
             s.contains("...already-double\r\n"),
             "double-dot line must get one more dot: {s:?}"
         );
-        assert_eq!(
-            output.last(),
-            Some(&b'\n'),
-            "output must end with \\n"
-        );
+        assert_eq!(output.last(), Some(&b'\n'), "output must end with \\n");
         // Must not have bare \n (every \n must be preceded by \r).
         for i in 1..output.len() {
             if output[i] == b'\n' {

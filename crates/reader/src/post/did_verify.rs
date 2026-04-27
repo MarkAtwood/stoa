@@ -305,27 +305,57 @@ mod tests {
             "should strip DID-Sig header and verify against original article bytes"
         );
     }
+
+    /// Regression test: strip_did_sig_header must not corrupt non-UTF-8 bytes.
+    ///
+    /// Articles with Latin-1 or other non-UTF-8 encodings in the body are valid
+    /// NNTP text.  from_utf8_lossy would silently replace 0xFF and similar bytes
+    /// with U+FFFD (3 bytes), changing the byte content and causing valid DID
+    /// signatures to fail.  The byte-level implementation must pass them through
+    /// unchanged.
+    #[test]
+    fn strip_did_sig_header_preserves_non_utf8_bytes() {
+        // 0xFF is never valid in UTF-8; from_utf8_lossy would replace it with
+        // the 3-byte replacement character sequence EF BF BD.
+        let article: &[u8] =
+            b"From: test@example.com\r\nX-Stoa-DID-Sig: dummy sig\r\n\r\nBody \xff byte.\r\n";
+        let stripped = super::strip_did_sig_header(article);
+        assert_eq!(
+            stripped,
+            b"From: test@example.com\r\n\r\nBody \xff byte.\r\n",
+            "non-UTF-8 body bytes must be preserved unchanged after stripping DID-Sig header"
+        );
+    }
 }
 
 /// Strip the `X-Stoa-DID-Sig` header (including any RFC 5322 folded
 /// continuation lines) from raw article bytes.
 ///
 /// Handles both `\r\n` and bare `\n` line endings.  All other headers and
-/// the body are returned unchanged.
+/// the body are returned byte-for-byte unchanged — including any non-UTF-8
+/// sequences in the body, which must be preserved so that the byte content
+/// the DID author signed is reproduced exactly.
 fn strip_did_sig_header(article_bytes: &[u8]) -> Vec<u8> {
-    let text = String::from_utf8_lossy(article_bytes);
     let prefix = format!(
         "{}:",
         crate::post::did_passthrough::DID_SIG_HEADER.to_ascii_lowercase()
     );
+    let prefix_bytes = prefix.as_bytes();
 
     // Split on bare \n; preserve \r\n by keeping the \r at end of each chunk.
-    let mut out_lines: Vec<&str> = Vec::new();
+    // Operating directly on bytes avoids any UTF-8 conversion that would
+    // silently replace non-UTF-8 sequences and corrupt the byte content.
+    let mut out_lines: Vec<&[u8]> = Vec::new();
     let mut skip_continuations = false;
 
-    for line in text.split('\n') {
-        let stripped = line.trim_end_matches('\r');
-        if stripped.starts_with(' ') || stripped.starts_with('\t') {
+    for line in article_bytes.split(|&b| b == b'\n') {
+        let stripped = line.strip_suffix(b"\r").unwrap_or(line);
+        if stripped
+            .first()
+            .copied()
+            .map(|b| b == b' ' || b == b'\t')
+            .unwrap_or(false)
+        {
             // Continuation line: skip if we are inside the DID-Sig header.
             if skip_continuations {
                 continue;
@@ -333,12 +363,13 @@ fn strip_did_sig_header(article_bytes: &[u8]) -> Vec<u8> {
             skip_continuations = false;
         } else {
             // Non-continuation: check whether this is the DID-Sig header.
-            skip_continuations = stripped.to_ascii_lowercase().starts_with(&prefix);
+            skip_continuations = stripped.len() >= prefix_bytes.len()
+                && stripped[..prefix_bytes.len()].eq_ignore_ascii_case(prefix_bytes);
             if skip_continuations {
                 continue;
             }
         }
         out_lines.push(line);
     }
-    out_lines.join("\n").into_bytes()
+    out_lines.join(b"\n".as_slice())
 }
