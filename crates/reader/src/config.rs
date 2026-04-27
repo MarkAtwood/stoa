@@ -43,6 +43,8 @@ pub struct Config {
     pub smtp_relay: SmtpRelayConfig,
     #[serde(default)]
     pub database: DatabaseConfig,
+    #[serde(default)]
+    pub audit: stoa_core::audit::AuditConfig,
 }
 
 /// SQLite database path configuration for the reader daemon.

@@ -26,6 +26,7 @@ pub fn dropped_event_count() -> u64 {
 }
 
 /// A security-relevant event to be recorded in the audit log.
+#[non_exhaustive]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum AuditEvent {
@@ -191,6 +192,91 @@ impl AuditLoggerHandle {
         drop(self.tx);
         let _ = self.join.await;
     }
+}
+
+/// Trait for all audit log backends.
+///
+/// Both the SQLite batch logger ([`AuditLoggerHandle`]) and the JSONL file
+/// logger ([`JsonlFileLogger`]) implement this trait.  Use `Arc<dyn AuditLogger>`
+/// as the storage type when the backend is chosen at runtime.
+pub trait AuditLogger: Send + Sync {
+    /// Record an audit event.  Implementations must be non-blocking and
+    /// infallible from the caller's perspective — events may be silently
+    /// dropped if the backend cannot keep up or fails.
+    fn log(&self, event: AuditEvent);
+}
+
+impl AuditLogger for AuditLoggerHandle {
+    fn log(&self, event: AuditEvent) {
+        // Calls the inherent AuditLoggerHandle::log (method resolution prefers
+        // inherent methods over trait methods, so this is not recursive).
+        AuditLoggerHandle::log(self, event);
+    }
+}
+
+/// Audit logger that appends one JSON object per line to a file.
+///
+/// The file is opened with `O_APPEND | O_CREAT` so multiple processes can
+/// append to the same log file without overwriting each other (on POSIX systems
+/// where `write(2)` is atomic for writes up to `PIPE_BUF` bytes).
+/// The file is never truncated or rotated by this implementation.
+pub struct JsonlFileLogger {
+    file: std::sync::Mutex<std::fs::File>,
+    path: String,
+}
+
+impl JsonlFileLogger {
+    /// Open (or create) a JSONL audit log at `path`.
+    ///
+    /// The file is opened in append mode; existing content is never overwritten.
+    pub fn open(path: &str) -> std::io::Result<Self> {
+        use std::fs::OpenOptions;
+        let file = OpenOptions::new().append(true).create(true).open(path)?;
+        Ok(Self {
+            file: std::sync::Mutex::new(file),
+            path: path.to_string(),
+        })
+    }
+
+    /// Return the path this logger was opened with.
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+}
+
+impl AuditLogger for JsonlFileLogger {
+    fn log(&self, event: AuditEvent) {
+        use std::io::Write as _;
+        // Best-effort: silently ignore lock poisoning and I/O failures.
+        // Operators should monitor the file descriptor via OS-level alerting.
+        if let Ok(mut f) = self.file.lock() {
+            let _ = writeln!(f, "{}", event.to_json());
+        }
+    }
+}
+
+/// Configuration for the audit log backend.
+///
+/// Used in both `stoa-transit` and `stoa-reader` config files under
+/// the `[audit]` section.
+#[derive(Debug, serde::Deserialize, Default, Clone)]
+pub struct AuditConfig {
+    /// Audit log backend.  Defaults to `sqlite`.
+    #[serde(default)]
+    pub backend: AuditBackend,
+    /// Path for the JSONL file backend.  Required when `backend = "file"`.
+    pub path: Option<String>,
+}
+
+/// Selects the audit log implementation used at startup.
+#[derive(Debug, serde::Deserialize, Default, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum AuditBackend {
+    /// Write audit events to the core SQLite database (default).
+    #[default]
+    Sqlite,
+    /// Write audit events as newline-delimited JSON to a file.
+    File,
 }
 
 /// Start the background audit logger task.

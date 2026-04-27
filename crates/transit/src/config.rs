@@ -53,6 +53,9 @@ pub struct Config {
     /// Local LRU block cache for IPFS content.  Optional; omit to disable.
     #[serde(default)]
     pub cache: Option<CacheConfig>,
+    /// Audit log backend configuration.  Defaults to SQLite.
+    #[serde(default)]
+    pub audit: stoa_core::audit::AuditConfig,
 }
 
 /// Operator identity configuration.
