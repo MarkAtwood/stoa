@@ -17,7 +17,7 @@ use tokio::sync::Mutex;
 
 static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
 
-use stoa_core::audit::{start_audit_logger, AuditLoggerHandle};
+use stoa_core::audit::{build_audit_logger, AuditLogger};
 use stoa_core::group_log::MemLogStorage;
 use stoa_core::hlc::HlcClock;
 use stoa_core::msgid_map::MsgIdMap;
@@ -70,7 +70,7 @@ pub struct ServerStores {
     /// Hostname injected into the Path: header of POST articles (RFC 5536 §3.1).
     pub path_hostname: String,
     /// Async audit logger. None only in unit-test stores created by new_mem().
-    pub audit_logger: Option<Arc<AuditLoggerHandle>>,
+    pub audit_logger: Option<Arc<dyn AuditLogger>>,
     /// Per-IP authentication failure tracker for fail2ban-compatible lockout events.
     pub auth_failure_tracker: Arc<std::sync::Mutex<AuthFailureTracker>>,
 }
@@ -116,11 +116,8 @@ impl ServerStores {
         let reader_pool =
             make_disk_pool_with_reader_migrations(&config.database.reader_path).await?;
         let core_pool = make_disk_pool_with_core_migrations(&config.database.core_path).await?;
-        let audit_logger = Arc::new(start_audit_logger(
-            core_pool.clone(),
-            100,
-            std::time::Duration::from_secs(5),
-        ));
+        let audit_logger = build_audit_logger(&config.audit, &core_pool)
+            .map_err(|e| format!("audit logger init failed: {e}"))?;
 
         let now_ms = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)

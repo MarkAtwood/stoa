@@ -1,6 +1,6 @@
 //! AUTHINFO command handler (RFC 4643).
 
-use stoa_core::audit::{AuditEvent, AuditLoggerHandle};
+use stoa_core::audit::{AuditEvent, AuditLogger};
 
 /// Process an AUTHINFO USER/PASS attempt and return the appropriate NNTP response.
 ///
@@ -17,7 +17,7 @@ pub fn authinfo_response(
     success: bool,
     service: &str,
     auth_method: &str,
-    audit_logger: Option<&AuditLoggerHandle>,
+    audit_logger: Option<&dyn AuditLogger>,
 ) -> &'static str {
     if let Some(logger) = audit_logger {
         logger.log(AuditEvent::AuthAttempt {

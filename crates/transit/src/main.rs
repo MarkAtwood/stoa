@@ -7,7 +7,7 @@ use std::{
 use mail_auth::MessageAuthenticator;
 use rand_core::OsRng;
 use stoa_core::{
-    audit::start_audit_logger,
+    audit::{start_audit_logger, AuditLogger},
     group_log::SqliteLogStorage,
     hlc::HlcClock,
     msgid_map::MsgIdMap,
@@ -976,7 +976,7 @@ async fn main() {
                 eprintln!("{msg}");
                 std::process::exit(1);
             });
-            let admin_audit_logger = Arc::new(start_audit_logger(
+            let admin_audit_logger: Arc<dyn AuditLogger> = Arc::new(start_audit_logger(
                 (*core_pool).clone(),
                 100,
                 Duration::from_secs(5),

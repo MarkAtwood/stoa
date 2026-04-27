@@ -28,7 +28,7 @@
 use sqlx::SqlitePool;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use stoa_core::audit::{AuditEvent, AuditLoggerHandle};
+use stoa_core::audit::{AuditEvent, AuditLogger};
 use stoa_core::rate_limiter::RateLimiter;
 use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 
@@ -42,7 +42,7 @@ use crate::peering::pipeline::IpfsStore;
 pub struct AdminPools {
     pub transit_pool: Arc<SqlitePool>,
     pub core_pool: Arc<SqlitePool>,
-    pub audit_logger: Option<Arc<AuditLoggerHandle>>,
+    pub audit_logger: Option<Arc<dyn AuditLogger>>,
 }
 
 /// Start the admin HTTP server on the given address.
@@ -134,7 +134,7 @@ async fn handle_admin_connection(
     rate_limiter: &RateLimiter,
     ipfs: &dyn IpfsStore,
     ipns_path: Option<&str>,
-    audit_logger: Option<&AuditLoggerHandle>,
+    audit_logger: Option<&dyn AuditLogger>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let (pool, core_pool) = pools;
     let peer_ip = stream.peer_addr()?.ip();

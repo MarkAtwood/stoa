@@ -279,6 +279,35 @@ pub enum AuditBackend {
     File,
 }
 
+/// Construct the audit logger backend specified by `config`.
+///
+/// - `backend = "sqlite"` (default) — starts a background task that batches
+///   events into the `audit_log` table of `pool`.
+/// - `backend = "file"` — opens (or creates) a JSONL file at `config.path`.
+///   `config.path` must be set when this backend is selected.
+///
+/// Returns `Err` only when `backend = "file"` and `path` is absent or the
+/// file cannot be opened.
+pub fn build_audit_logger(
+    config: &AuditConfig,
+    pool: &sqlx::SqlitePool,
+) -> Result<std::sync::Arc<dyn AuditLogger>, String> {
+    match config.backend {
+        AuditBackend::Sqlite => {
+            let handle = start_audit_logger(pool.clone(), 100, std::time::Duration::from_secs(5));
+            Ok(std::sync::Arc::new(handle) as std::sync::Arc<dyn AuditLogger>)
+        }
+        AuditBackend::File => {
+            let path = config.path.as_deref().ok_or_else(|| {
+                "audit.path is required when audit.backend = \"file\"".to_string()
+            })?;
+            let logger = JsonlFileLogger::open(path)
+                .map_err(|e| format!("cannot open audit log file '{}': {e}", path))?;
+            Ok(std::sync::Arc::new(logger) as std::sync::Arc<dyn AuditLogger>)
+        }
+    }
+}
+
 /// Start the background audit logger task.
 ///
 /// The task accumulates events until either `batch_size` events are buffered
