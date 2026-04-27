@@ -25,6 +25,15 @@ use std::sync::{Mutex, OnceLock};
 
 type BlocksDb = Database<Bytes, Bytes>;
 
+// Compile-time assertion that LmdbBlockDb is Send + Sync.
+// If a future change adds a !Send or !Sync field (e.g. Rc, RefCell, raw pointer)
+// this will fail to compile rather than silently losing the thread-safety guarantee
+// that callers rely on when wrapping LmdbBlockDb in Arc.
+const _: () = {
+    fn assert_send_sync<T: Send + Sync>() {}
+    let _ = assert_send_sync::<LmdbBlockDb>;
+};
+
 /// Process-global set of canonicalized paths with open LMDB environments.
 ///
 /// LMDB requires that each environment path is opened **at most once per

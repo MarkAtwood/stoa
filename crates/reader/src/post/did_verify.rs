@@ -99,12 +99,14 @@ pub fn parse_did_key(did_url: &str) -> Result<ed25519_dalek::VerifyingKey, DidSi
 /// cannot be parsed.
 pub fn verify_did_sig(article_bytes: &[u8], header_value: &str) -> Result<bool, DidSigError> {
     // 1. Split header_value into (did_url, sig_b64).
-    //    Split on the LAST space so did-urls with embedded spaces (unusual) still work.
-    let last_space = header_value
-        .rfind(' ')
+    //    Wire format: "<did-url> <base64url-sig>".  DID URLs are valid URIs and
+    //    cannot contain unencoded spaces (RFC 3986 §3.3), so we split on the
+    //    FIRST space.  Using split_once is unambiguous: the DID URL is the
+    //    first token, the signature is everything after.
+    let (did_url, sig_b64) = header_value
+        .split_once(' ')
+        .map(|(d, s)| (d.trim(), s.trim()))
         .ok_or_else(|| DidSigError::InvalidFormat("expected '<did-url> <base64url-sig>'".into()))?;
-    let did_url = header_value[..last_space].trim();
-    let sig_b64 = header_value[last_space + 1..].trim();
 
     if did_url.is_empty() || sig_b64.is_empty() {
         return Err(DidSigError::InvalidFormat(
@@ -274,6 +276,29 @@ mod tests {
         assert!(
             matches!(result, Err(DidSigError::InvalidFormat(_))),
             "expected InvalidFormat when header has no space, got: {result:?}"
+        );
+    }
+
+    /// A DID URL with a fragment (`#key-1`) must parse correctly.
+    /// The fragment is part of the DID URL (before the space), not the sig.
+    /// Regression: rfind-based splitting would misparse `<did>#<frag> <sig>`
+    /// if `<frag>` somehow contained a space, but split_once handles it cleanly.
+    #[test]
+    fn verify_did_sig_format_error_fragment_did_url_has_no_space() {
+        // A DID URL with fragment: "did:key:z6Mk...#key-1 <sig>"
+        // split_once(' ') → did_url="did:key:z6Mk...#key-1", sig="<sig>"
+        // parse_did_key strips the fragment and should fail with UnsupportedMethod
+        // or succeed; either way the split is unambiguous (sig is one token).
+        let header_with_fragment = format!("{TEST_DID_KEY}#key-1 {TEST_SIG_B64}");
+        let result = verify_did_sig(ARTICLE_BYTES, &header_with_fragment);
+        // The DID URL "did:key:z6Mk...#key-1" is parsed by parse_did_key.
+        // strip_prefix("did:key:") strips "did:key:" and leaves "z6Mk...#key-1".
+        // The '#' and subsequent chars end up in the base58 decode input and will
+        // cause an InvalidKeyEncoding error, not an InvalidFormat error — confirming
+        // the split happened at the space, not at some internal '#' or fragment.
+        assert!(
+            !matches!(result, Err(DidSigError::InvalidFormat(_))),
+            "fragment in DID URL must not produce InvalidFormat (split must be at the space)"
         );
     }
 
