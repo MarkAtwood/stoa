@@ -177,6 +177,10 @@ impl TrustedIssuerStore {
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
 /// Extract a `TrustedIssuer` by parsing PEM-encoded CA certificate bytes.
+///
+/// Returns `Err` if the CA cert has expired or is not yet valid: an expired
+/// CA that is loaded silently would continue authenticating leaf certs
+/// indefinitely, undermining certificate expiry as a security control.
 fn issuer_from_pem(pem_bytes: &[u8], path: &str) -> Result<TrustedIssuer, String> {
     let (_, pem) = x509_parser::pem::parse_x509_pem(pem_bytes)
         .map_err(|e| format!("trusted_issuer: cannot parse PEM from '{path}': {e}"))?;
@@ -184,6 +188,15 @@ fn issuer_from_pem(pem_bytes: &[u8], path: &str) -> Result<TrustedIssuer, String
 
     let (_, ca_cert) = X509Certificate::from_der(&der)
         .map_err(|e| format!("trusted_issuer: cannot parse X.509 from '{path}': {e}"))?;
+
+    if !ca_cert.validity().is_valid() {
+        return Err(format!(
+            "trusted_issuer: CA certificate '{path}' is expired or not yet valid \
+             (NotBefore={}, NotAfter={}); refusing to load an invalid CA",
+            ca_cert.validity().not_before,
+            ca_cert.validity().not_after,
+        ));
+    }
 
     let spki_der = ca_cert.tbs_certificate.subject_pki.raw.to_vec();
     let subject_der = ca_cert.tbs_certificate.subject.as_raw().to_vec();

@@ -564,9 +564,18 @@ where
         // Intercept before dispatch so we can signal the caller when 382 is sent.
         if let Command::StartTls = cmd {
             if ctx.starttls_available && !ctx.tls_active {
-                // RFC 4642: client MUST NOT pipeline commands after STARTTLS.
+                // RFC 4642 §2.2: the client MUST NOT pipeline commands after
+                // STARTTLS.  This check is best-effort: it catches data that
+                // is already in the BufReader's internal buffer, but cannot
+                // detect commands that the client has sent but that have not
+                // yet been copied from the kernel TCP receive buffer into the
+                // userspace buffer.  A well-behaved client will wait for the
+                // 382 before sending further data; a malicious client may still
+                // slip a command through the gap.  Connections caught by this
+                // check are closed; connections that slip through will see
+                // garbled output once the TLS handshake starts.
                 if !reader.buffer().is_empty() {
-                    warn!(peer = %peer_addr, "STARTTLS: pipelined data detected, closing");
+                    warn!(peer = %peer_addr, "STARTTLS: pipelined data detected (best-effort check), closing");
                     let _ = writer.write_all(b"502 Command unavailable\r\n").await;
                     return CommandLoopExit::Done;
                 }
