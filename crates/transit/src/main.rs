@@ -372,6 +372,14 @@ async fn main() {
         group_count = config.groups.names.len(),
         "stoa-transit starting"
     );
+    if !config.groups.names.is_empty() {
+        info!(
+            patterns = %config.groups.names.join(", "),
+            "group filter active: accepting articles matching configured patterns"
+        );
+    } else {
+        info!("group filter inactive: accepting articles from all groups");
+    }
 
     if let Err(e) = check_admin_addr(&config.admin) {
         eprintln!("error: {e}");
