@@ -109,25 +109,49 @@ pub async fn check_ingest(
 
 /// Extract the `Message-ID:` header value from raw article bytes.
 ///
-/// Scans only the header section (before the first blank line).  Returns the
-/// trimmed value string, or `None` if the header is absent or the bytes are
-/// not valid UTF-8 on the relevant line.
+/// Scans only the header section (before the first blank line).  Handles
+/// RFC 5322 §2.2.3 header folding: if the field value starts on the next
+/// line (or continues on subsequent lines that begin with SP or HTAB), those
+/// continuation lines are concatenated into the returned string.
+///
+/// Non-UTF-8 header lines other than the target field are skipped (not an
+/// error); non-UTF-8 on the `Message-ID` line itself returns `None`.
 fn extract_body_msgid(article_bytes: &[u8]) -> Option<String> {
-    for line in article_bytes.split(|&b| b == b'\n') {
-        let trimmed = if line.last() == Some(&b'\r') {
-            &line[..line.len() - 1]
-        } else {
-            line
-        };
+    let mut lines = article_bytes.split(|&b| b == b'\n');
+    while let Some(line) = lines.next() {
+        let trimmed = line.strip_suffix(b"\r").unwrap_or(line);
         if trimmed.is_empty() {
             // Blank line: end of headers.
             break;
         }
-        let s = std::str::from_utf8(trimmed).ok()?;
-        let lower = s.to_ascii_lowercase();
-        if lower.starts_with("message-id:") {
-            return Some(s["message-id:".len()..].trim().to_owned());
+        // Skip RFC 5322 continuation lines belonging to a preceding non-target header.
+        if trimmed.first().is_some_and(|&b| b == b' ' || b == b'\t') {
+            continue;
         }
+        let Ok(s) = std::str::from_utf8(trimmed) else {
+            // Skip non-UTF-8 header lines; don't abort the scan.
+            continue;
+        };
+        let prefix = "message-id:";
+        if s.len() < prefix.len() || !s[..prefix.len()].eq_ignore_ascii_case(prefix) {
+            continue;
+        }
+        // Collect the field value, including any folded continuation lines.
+        let mut value = s[prefix.len()..].trim_ascii_start().to_owned();
+        for cont in &mut lines {
+            let ct = cont.strip_suffix(b"\r").unwrap_or(cont);
+            if ct.is_empty() {
+                break;
+            }
+            if ct.first().is_some_and(|&b| b == b' ' || b == b'\t') {
+                if let Ok(cs) = std::str::from_utf8(ct) {
+                    value.push_str(cs.trim_ascii());
+                }
+            } else {
+                break;
+            }
+        }
+        return Some(value.trim_ascii().to_owned());
     }
     None
 }
@@ -570,6 +594,84 @@ mod tests {
         assert!(
             text.contains("Para one.\r\n\r\nPara two."),
             "blank line between paragraphs must be preserved in CRLF article: {text:?}"
+        );
+    }
+
+    // ── extract_body_msgid folding tests ──────────────────────────────────────
+
+    #[test]
+    fn extract_body_msgid_handles_folded_value_on_continuation() {
+        // RFC 5322 §2.2.3: field value entirely on a continuation line.
+        // Note: the continuation line must begin with SP or HTAB — not stripped
+        // by backslash-continuation so we use concat! to preserve the leading space.
+        let article = concat!(
+            "From: sender@example.com\r\n",
+            "Message-ID:\r\n",
+            " <folded@example.com>\r\n",
+            "Subject: Test\r\n",
+            "\r\n",
+            "Body.\r\n"
+        )
+        .as_bytes();
+        assert_eq!(
+            extract_body_msgid(article),
+            Some("<folded@example.com>".to_owned()),
+            "folded Message-ID value must be extracted correctly"
+        );
+    }
+
+    #[test]
+    fn extract_body_msgid_skips_non_utf8_header_before_msgid() {
+        // A non-UTF-8 header line before Message-ID must be skipped, not abort.
+        let article: &[u8] =
+            b"From: \xff\xfe sender\r\nMessage-ID: <ok@example.com>\r\n\r\nBody.\r\n";
+        assert_eq!(
+            extract_body_msgid(article),
+            Some("<ok@example.com>".to_owned()),
+            "non-UTF-8 header before Message-ID must not abort extraction"
+        );
+    }
+
+    /// Regression test: a folded Message-ID header must be correctly deduped.
+    ///
+    /// Before the fix, `extract_body_msgid` returned `Some("")` for a folded
+    /// `Message-ID:` (value on the next line), causing `body_msgid.is_empty()`
+    /// to skip the duplicate check — a storage-amplification vector for
+    /// authenticated peers.
+    #[tokio::test]
+    async fn folded_msgid_is_deduped_correctly() {
+        use cid::Cid;
+        use multihash_codetable::{Code, MultihashDigest};
+
+        let (map, _tmp) = make_msgid_map().await;
+        let body_msgid = "<folded-dup@example.com>";
+
+        // Pre-insert a CID for this Message-ID.
+        let cid = Cid::new_v1(0x71, Code::Sha2_256.digest(b"folded-article"));
+        map.insert(body_msgid, &cid).await.unwrap();
+
+        // Article with the same Message-ID folded onto a continuation line.
+        // Use String::from to preserve the leading space on the continuation.
+        let bytes = {
+            let mut s = String::new();
+            s.push_str("From: sender@example.com\r\n");
+            s.push_str("Date: Mon, 01 Jan 2024 00:00:00 +0000\r\n");
+            s.push_str("Message-ID:\r\n");
+            s.push(' ');
+            s.push_str(body_msgid);
+            s.push_str("\r\n");
+            s.push_str("Newsgroups: alt.test\r\n");
+            s.push_str("Subject: Test\r\n");
+            s.push_str("\r\n");
+            s.push_str("Body.\r\n");
+            s.into_bytes()
+        };
+
+        let result = check_ingest(body_msgid, &bytes, &map).await;
+        assert_eq!(
+            result,
+            IngestResult::Duplicate,
+            "folded Message-ID must be deduped: got {result:?}"
         );
     }
 }

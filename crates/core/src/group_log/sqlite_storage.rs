@@ -233,6 +233,12 @@ impl LogStorage for SqliteLogStorage {
             .fetch_one(&self.pool)
             .await
             .map_err(db_err)?;
+        if row.0 < 0 {
+            return Err(StorageError::Database(format!(
+                "corrupt tip_count {}: expected non-negative",
+                row.0
+            )));
+        }
         Ok(row.0 as u64)
     }
 }

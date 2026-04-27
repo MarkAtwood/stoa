@@ -202,7 +202,7 @@ pub fn dispatch(
                  if this panics, the session lifecycle is missing the interception"
             )
         }
-        _ => Response::information_follows(),
+        _ => Response::unknown_command(),
     }
 }
 

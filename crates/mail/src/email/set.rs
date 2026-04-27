@@ -157,23 +157,25 @@ async fn create_one_email(
     msgid_map: &MsgIdMap,
     smtp_queue: Option<&Arc<SmtpRelayQueue>>,
 ) -> Result<Cid, String> {
-    let subject = obj
-        .get("subject")
-        .and_then(|v| v.as_str())
-        .unwrap_or("(no subject)");
+    let subject = strip_crlf(
+        obj.get("subject")
+            .and_then(|v| v.as_str())
+            .unwrap_or("(no subject)"),
+    );
 
-    let from_email = obj
-        .get("from")
-        .and_then(|v| v.as_array())
-        .and_then(|arr| arr.first())
-        .and_then(|addr| addr.get("email"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("unknown@example.com");
+    let from_email = strip_crlf(
+        obj.get("from")
+            .and_then(|v| v.as_array())
+            .and_then(|arr| arr.first())
+            .and_then(|addr| addr.get("email"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown@example.com"),
+    );
 
-    let newsgroups: Vec<&str> = obj
+    let newsgroups: Vec<String> = obj
         .get("mailboxIds")
         .and_then(|v| v.as_object())
-        .map(|m| m.keys().map(String::as_str).collect())
+        .map(|m| m.keys().map(|k| strip_crlf(k)).collect())
         .unwrap_or_default();
 
     if newsgroups.is_empty() {
@@ -213,7 +215,7 @@ async fn create_one_email(
         rcpt_list.extend(extract_email_addrs(obj.get("cc")));
         if !rcpt_list.is_empty() {
             let rcpts: Vec<&str> = rcpt_list.iter().map(String::as_str).collect();
-            if let Err(e) = queue.enqueue(article.as_bytes(), from_email, &rcpts).await {
+            if let Err(e) = queue.enqueue(article.as_bytes(), &from_email, &rcpts).await {
                 tracing::warn!("smtp relay enqueue failed: {e}");
                 stoa_smtp::metrics::inc_relay_enqueue_failure();
             }
@@ -227,6 +229,12 @@ async fn create_one_email(
 ///
 /// Accepts `None` gracefully (returns empty vec).  Skips entries without a
 /// valid `email` string containing `@`.
+/// Remove CR (`\r`) and LF (`\n`) from a string to prevent CRLF injection
+/// into RFC 5322 header fields constructed via `format!`.
+fn strip_crlf(s: &str) -> String {
+    s.chars().filter(|&c| c != '\r' && c != '\n').collect()
+}
+
 fn extract_email_addrs(field: Option<&Value>) -> Vec<String> {
     field
         .and_then(|v| v.as_array())

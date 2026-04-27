@@ -291,7 +291,10 @@ async fn activate_script(
 /// POST /admin/sieve/check
 /// Validates the body as a Sieve script without storing it.
 /// Returns 200 on success, 422 with error text on failure.
-async fn check_script(body: Bytes) -> Response {
+async fn check_script(State(s): State<AdminState>, body: Bytes) -> Response {
+    if body.len() as u64 > s.config.sieve_admin.max_script_bytes {
+        return (StatusCode::PAYLOAD_TOO_LARGE, "script exceeds size limit").into_response();
+    }
     match stoa_sieve_native::compile(&body) {
         Ok(_) => (StatusCode::OK, "OK").into_response(),
         Err(e) => (

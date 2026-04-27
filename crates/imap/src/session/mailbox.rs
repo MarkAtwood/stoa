@@ -174,7 +174,16 @@ pub async fn handle_status(
     };
 
     let (uidvalidity, next_uid) = match row {
-        Some((v, n)) => (v as u32, n as u32),
+        Some((v, n)) => (
+            u32::try_from(v).unwrap_or_else(|_| {
+                tracing::warn!(mailbox = %name, uidvalidity = v, "corrupt uidvalidity exceeds u32, clamping to 1");
+                1
+            }),
+            u32::try_from(n).unwrap_or_else(|_| {
+                tracing::warn!(mailbox = %name, next_uid = n, "corrupt next_uid exceeds u32, clamping to 1");
+                1
+            }),
+        ),
         None => return None,
     };
 
@@ -221,7 +230,24 @@ pub async fn get_or_create_uidvalidity(
             .await?;
 
     if let Some((v, n)) = row {
-        return Ok((v as u32, n as u32));
+        return Ok((
+            u32::try_from(v).unwrap_or_else(|_| {
+                tracing::warn!(
+                    mailbox,
+                    uidvalidity = v,
+                    "corrupt uidvalidity exceeds u32, clamping to 1"
+                );
+                1
+            }),
+            u32::try_from(n).unwrap_or_else(|_| {
+                tracing::warn!(
+                    mailbox,
+                    next_uid = n,
+                    "corrupt next_uid exceeds u32, clamping to 1"
+                );
+                1
+            }),
+        ));
     }
 
     // Generate UIDVALIDITY from current Unix time (seconds).
@@ -247,7 +273,24 @@ pub async fn get_or_create_uidvalidity(
             .fetch_one(pool)
             .await?;
 
-    Ok((v as u32, n as u32))
+    Ok((
+        u32::try_from(v).unwrap_or_else(|_| {
+            tracing::warn!(
+                mailbox,
+                uidvalidity = v,
+                "corrupt uidvalidity exceeds u32, clamping to 1"
+            );
+            1
+        }),
+        u32::try_from(n).unwrap_or_else(|_| {
+            tracing::warn!(
+                mailbox,
+                next_uid = n,
+                "corrupt next_uid exceeds u32, clamping to 1"
+            );
+            1
+        }),
+    ))
 }
 
 // ── Flag helpers ──────────────────────────────────────────────────────────────
