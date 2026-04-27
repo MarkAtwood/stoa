@@ -98,6 +98,14 @@ impl MethodError {
             description: Some("accountNotFound".to_string()),
         }
     }
+
+    /// RFC 8620 §3.3: returned when ids.len() exceeds maxObjectsInGet.
+    pub fn request_too_large(limit: usize) -> Self {
+        Self {
+            error_type: ErrorType::RequestTooLarge,
+            description: Some(format!("ids exceeds maxObjectsInGet limit of {limit}")),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -156,5 +164,13 @@ mod tests {
         };
         let json = serde_json::to_string(&err).unwrap();
         assert!(json.contains("invalidArguments"), "got: {json}");
+    }
+
+    #[test]
+    fn request_too_large_serializes_correctly() {
+        let err = MethodError::request_too_large(500);
+        let json = serde_json::to_string(&err).unwrap();
+        assert!(json.contains("requestTooLarge"), "got: {json}");
+        assert!(json.contains("500"), "description must include limit, got: {json}");
     }
 }

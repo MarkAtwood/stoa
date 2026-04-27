@@ -1,7 +1,7 @@
 use std::{net::SocketAddr, sync::Arc, time::Instant};
 
 use axum::{
-    extract::{Extension, Request, State},
+    extract::{DefaultBodyLimit, Extension, Request, State},
     http::{header, HeaderName, Method, StatusCode},
     middleware::Next,
     response::Response,
@@ -212,6 +212,11 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             basic_auth_middleware,
         ));
 
+    // Enforce the advertised maxSizeRequest: 10 MiB at the transport layer so
+    // an unauthenticated client cannot stream an unbounded body and exhaust
+    // server memory.  Applies to all routes including public ones.
+    const MAX_BODY: usize = 10 * 1024 * 1024;
+
     Router::new()
         .route("/", get(crate::landing::landing_page))
         .route("/health", get(health_handler))
@@ -220,6 +225,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/feed/{*path}", get(crate::feed::feed_handler))
         .merge(protected)
         .layer(cors_layer)
+        .layer(DefaultBodyLimit::max(MAX_BODY))
         .with_state(state)
 }
 
@@ -499,6 +505,16 @@ async fn route_method(
                         .collect()
                 })
                 .unwrap_or_default();
+            // RFC 8620 §3.3: reject requests that exceed maxObjectsInGet (500).
+            // Silently truncating would lie to the caller; a clear error lets
+            // the client split the request rather than getting a partial result.
+            const MAX_IDS: usize = 500;
+            if ids.len() > MAX_IDS {
+                return serde_json::to_value(
+                    crate::jmap::types::MethodError::request_too_large(MAX_IDS),
+                )
+                .unwrap_or(json!({}));
+            }
             let email_state = jmap
                 .state_store
                 .get_state("Email")
@@ -1174,6 +1190,99 @@ mod tests {
         assert_eq!(
             acao, "https://client.example.com",
             "specific origin preflight must echo the origin back"
+        );
+    }
+
+    /// POST body larger than 10 MiB must be rejected at the transport layer.
+    #[tokio::test]
+    async fn jmap_api_oversized_body_rejected() {
+        let addr = spawn_server(dev_state().await).await;
+
+        // 11 MiB of zeros — exceeds the 10 MiB DefaultBodyLimit.
+        let big_body = vec![0u8; 11 * 1024 * 1024];
+
+        let resp = reqwest::Client::new()
+            .post(format!("http://{addr}/jmap/api"))
+            .header("Content-Type", "application/json")
+            .body(big_body)
+            .send()
+            .await
+            .expect("request must succeed");
+
+        // axum returns 413 Payload Too Large when DefaultBodyLimit is exceeded.
+        assert_eq!(
+            resp.status(),
+            413,
+            "oversized body must be rejected with 413"
+        );
+    }
+
+    /// Email/get with more than 500 ids must return requestTooLarge.
+    #[tokio::test]
+    async fn email_get_too_many_ids_returns_request_too_large() {
+        let (state, _ipfs) = jmap_state().await;
+        let addr = spawn_server(state).await;
+
+        // 501 dummy CID strings — exceeds maxObjectsInGet: 500.
+        let ids: Vec<serde_json::Value> = (0..501)
+            .map(|i| serde_json::Value::String(format!("fake-cid-{i}")))
+            .collect();
+
+        let resp = reqwest::Client::new()
+            .post(format!("http://{addr}/jmap/api"))
+            .json(&serde_json::json!({
+                "using": ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
+                "methodCalls": [[
+                    "Email/get",
+                    {"accountId": null, "ids": ids},
+                    "r1"
+                ]]
+            }))
+            .send()
+            .await
+            .expect("request must succeed");
+
+        assert_eq!(resp.status(), 200);
+        let body: serde_json::Value = resp.json().await.unwrap();
+        let responses = body["methodResponses"].as_array().unwrap();
+        assert_eq!(responses[0][0], "error", "response method must be 'error'");
+        assert_eq!(
+            responses[0][1]["type"], "requestTooLarge",
+            "error type must be requestTooLarge"
+        );
+    }
+
+    /// Email/get with exactly 500 ids must be accepted (boundary check).
+    #[tokio::test]
+    async fn email_get_exactly_500_ids_accepted() {
+        let (state, _ipfs) = jmap_state().await;
+        let addr = spawn_server(state).await;
+
+        let ids: Vec<serde_json::Value> = (0..500)
+            .map(|i| serde_json::Value::String(format!("fake-cid-{i}")))
+            .collect();
+
+        let resp = reqwest::Client::new()
+            .post(format!("http://{addr}/jmap/api"))
+            .json(&serde_json::json!({
+                "using": ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
+                "methodCalls": [[
+                    "Email/get",
+                    {"accountId": null, "ids": ids},
+                    "r1"
+                ]]
+            }))
+            .send()
+            .await
+            .expect("request must succeed");
+
+        assert_eq!(resp.status(), 200);
+        let body: serde_json::Value = resp.json().await.unwrap();
+        let responses = body["methodResponses"].as_array().unwrap();
+        // Should not be an error — all 500 IDs are processed (all will be notFound).
+        assert_ne!(
+            responses[0][0], "error",
+            "exactly 500 ids must not return requestTooLarge"
         );
     }
 
