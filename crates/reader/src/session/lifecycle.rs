@@ -467,6 +467,15 @@ where
             continue;
         }
 
+        // STAT <msgid>: look up existence by message-id, no group required.
+        if let Command::Stat(Some(ArticleRef::MessageId(ref msgid))) = cmd {
+            let resp = stat_by_msgid(stores, msgid).await;
+            if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
+                return CommandLoopExit::Done;
+            }
+            continue;
+        }
+
         // XCID: return CID for current or named article (ADR-0007).
         if let Command::Xcid(ref arg) = cmd {
             let resp = handle_xcid(
@@ -1108,6 +1117,21 @@ async fn lookup_article_content_by_number(
         did_sig_valid,
         verifications,
     })
+}
+
+/// STAT <msgid>: check article existence by message-id without fetching content.
+///
+/// Returns 223 with `0 <msgid>` if the article is known, 430 if not found.
+/// RFC 3977 §6.2.4: STAT <msgid> does not require a currently selected group.
+async fn stat_by_msgid(stores: &ServerStores, msgid: &str) -> Response {
+    match stores.msgid_map.lookup_by_msgid(msgid).await {
+        Ok(Some(_)) => Response::article_exists(0, msgid),
+        Ok(None) => Response::no_article_with_message_id(),
+        Err(e) => {
+            warn!("msgid_map lookup error for STAT {msgid}: {e}");
+            Response::program_fault()
+        }
+    }
 }
 
 /// HEAD <msgid>: look up an article by Message-ID and return headers only.
@@ -1900,6 +1924,37 @@ mod tests {
         assert!(
             !resp.body.iter().any(|l| l.contains("Subject:")),
             "headers must not appear in BODY"
+        );
+    }
+
+    /// Regression test for 3vye.12: STAT <msgid> must return 223 for a known
+    /// article and 430 for an unknown message-id.
+    ///
+    /// Before the fix, `stat_article` in group.rs always returned 430 for the
+    /// message-id form without consulting the msgid_map store.
+    #[tokio::test]
+    async fn stat_by_msgid_known_returns_223() {
+        let stores = ServerStores::new_mem().await;
+        let article = minimal_article("comp.test", "Stat Test", "<stattest@test.example>");
+        let post_resp = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES).await;
+        assert_eq!(post_resp.code, 240, "POST must succeed");
+
+        let resp = stat_by_msgid(&stores, "<stattest@test.example>").await;
+        assert_eq!(
+            resp.code, 223,
+            "STAT <known-msgid> must return 223; got: {}",
+            resp.text
+        );
+    }
+
+    #[tokio::test]
+    async fn stat_by_msgid_unknown_returns_430() {
+        let stores = ServerStores::new_mem().await;
+        let resp = stat_by_msgid(&stores, "<unknown@test.example>").await;
+        assert_eq!(
+            resp.code, 430,
+            "STAT <unknown-msgid> must return 430; got: {}",
+            resp.text
         );
     }
 

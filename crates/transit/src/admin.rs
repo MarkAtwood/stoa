@@ -426,16 +426,59 @@ pub(crate) fn check_bearer_token(auth_header: Option<&str>, bearer_token: Option
 }
 
 /// Extract the value of a named query parameter from a URL query string.
-/// Only handles simple `key=value` pairs; does not decode percent-encoding.
+///
+/// Handles simple `key=value` pairs and percent-decodes the value so that
+/// clients using `percent_encode` (e.g. `stoa-ctl`) get back the original
+/// string regardless of whether any characters were encoded.
 fn extract_query_param(query: &str, name: &str) -> Option<String> {
     for pair in query.split('&') {
         if let Some((k, v)) = pair.split_once('=') {
             if k == name {
-                return Some(v.to_string());
+                return Some(percent_decode(v));
             }
         }
     }
     None
+}
+
+/// Decode a percent-encoded string (e.g. `%20` → space, `%2F` → `/`).
+///
+/// Invalid `%XX` sequences (non-hex digits or truncated) are left as-is.
+/// If the decoded bytes are not valid UTF-8, replacement characters are
+/// substituted (defensive: well-formed inputs are always valid UTF-8).
+fn percent_decode(s: &str) -> String {
+    let bytes = s.as_bytes();
+    let mut out: Vec<u8> = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' {
+            if let (Some(hi), Some(lo)) = (
+                i.checked_add(2)
+                    .filter(|&end| end < bytes.len())
+                    .and_then(|_| hex_nibble(bytes[i + 1])),
+                i.checked_add(2)
+                    .filter(|&end| end < bytes.len())
+                    .and_then(|_| hex_nibble(bytes[i + 2])),
+            ) {
+                out.push((hi << 4) | lo);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8(out).unwrap_or_else(|e| String::from_utf8_lossy(e.as_bytes()).into_owned())
+}
+
+/// Convert a single ASCII hex digit byte to its numeric value, or `None`.
+fn hex_nibble(b: u8) -> Option<u8> {
+    match b {
+        b'0'..=b'9' => Some(b - b'0'),
+        b'a'..=b'f' => Some(b - b'a' + 10),
+        b'A'..=b'F' => Some(b - b'A' + 10),
+        _ => None,
+    }
 }
 
 async fn write_json<W: AsyncWrite + Unpin>(
@@ -891,6 +934,49 @@ mod tests {
             v.as_array().unwrap().len(),
             0,
             "expected empty array: {json}"
+        );
+    }
+
+    // ── percent_decode tests ───────────────────────────────────────────────────
+
+    #[test]
+    fn percent_decode_plain_string_unchanged() {
+        assert_eq!(percent_decode("comp.lang.rust"), "comp.lang.rust");
+    }
+
+    #[test]
+    fn percent_decode_space_encoded() {
+        assert_eq!(percent_decode("hello%20world"), "hello world");
+    }
+
+    #[test]
+    fn percent_decode_slash_encoded() {
+        assert_eq!(percent_decode("a%2Fb"), "a/b");
+    }
+
+    #[test]
+    fn percent_decode_uppercase_hex() {
+        assert_eq!(percent_decode("%2F"), "/");
+    }
+
+    #[test]
+    fn percent_decode_invalid_sequence_passed_through() {
+        // %GG is not valid hex — leave it as-is.
+        assert_eq!(percent_decode("%GG"), "%GG");
+    }
+
+    #[test]
+    fn percent_decode_truncated_sequence_passed_through() {
+        // % at end of string — leave it as-is.
+        assert_eq!(percent_decode("foo%"), "foo%");
+    }
+
+    #[test]
+    fn extract_query_param_decodes_percent_encoding() {
+        let query = "group=alt.test%2Bfoo&limit=10";
+        assert_eq!(
+            extract_query_param(query, "group").as_deref(),
+            Some("alt.test+foo")
         );
     }
 

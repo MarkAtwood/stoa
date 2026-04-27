@@ -150,17 +150,27 @@ where
     R: AsyncReadExt + Unpin,
     W: AsyncWriteExt + Unpin,
 {
-    // Round 1 — send local nonce, then read remote nonce.
-    // Write before reading to avoid deadlock (both sides do the same).
+    // Round 1 — exchange nonces concurrently.
+    //
+    // Both sides write and read simultaneously via tokio::join! to eliminate
+    // the theoretical deadlock that would arise if both sides blocked in
+    // write_all() before reading (the two sends can be larger than the kernel
+    // TCP send buffer under memory pressure, even though 32 bytes is tiny).
     let mut my_nonce = [0u8; 32];
     OsRng.fill_bytes(&mut my_nonce);
-    writer.write_all(&my_nonce).await?;
-    writer.flush().await?;
 
     let mut their_nonce = [0u8; 32];
-    reader.read_exact(&mut their_nonce).await?;
+    let (write_res, read_res) = tokio::join!(
+        async {
+            writer.write_all(&my_nonce).await?;
+            writer.flush().await
+        },
+        reader.read_exact(&mut their_nonce),
+    );
+    write_res?;
+    read_res?;
 
-    // Round 2 — build and send pubkey || sig (96 bytes).
+    // Round 2 — exchange pubkey+sig frames concurrently (96 bytes each side).
     // Signed message = their_nonce || my_pubkey (64 bytes).
     let my_pubkey_bytes = signing_key.verifying_key().to_bytes();
     let mut signing_msg = [0u8; 64];
@@ -171,12 +181,17 @@ where
     let mut out_frame = [0u8; 96];
     out_frame[..32].copy_from_slice(&my_pubkey_bytes);
     out_frame[32..].copy_from_slice(&sig.to_bytes());
-    writer.write_all(&out_frame).await?;
-    writer.flush().await?;
 
-    // Read the remote's 96-byte frame: their_pubkey || their_sig.
     let mut in_frame = [0u8; 96];
-    reader.read_exact(&mut in_frame).await?;
+    let (write_res, read_res) = tokio::join!(
+        async {
+            writer.write_all(&out_frame).await?;
+            writer.flush().await
+        },
+        reader.read_exact(&mut in_frame),
+    );
+    write_res?;
+    read_res?;
     let their_pubkey_bytes: [u8; 32] = in_frame[..32].try_into().unwrap();
     let their_sig_bytes: [u8; 64] = in_frame[32..].try_into().unwrap();
 
