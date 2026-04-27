@@ -18,12 +18,11 @@ The current `AdminConfig` in `crates/transit/src/config.rs` has two fields:
 ```rust
 pub struct AdminConfig {
     pub addr: String,           // default "127.0.0.1:9090"
-    pub allow_non_loopback: bool,
 }
 ```
 
 `check_admin_addr` emits a startup warning when the bind address is non-loopback and
-`allow_non_loopback` is not set. This is a deterrent, not enforcement. There is currently
+no `bearer_token` is configured. This is a deterrent, not enforcement. There is currently
 no authentication.
 
 The loopback default is safe for single-host deployments where the Prometheus scraper
@@ -202,8 +201,7 @@ The implementation rule is:
 - If `token` is non-empty: enforce `Authorization: Bearer <token>` on all requests
   regardless of bind address.
 - If `token` is empty and `addr` is non-loopback: existing `check_admin_addr` warning
-  fires; requests are served unauthenticated (operator opted in via
-  `allow_non_loopback`).
+  fires; requests are served unauthenticated.
 
 Unix socket (Option 3) is a clean follow-on for operators who want OS-level access
 control on a single host. It can be added in a later iteration without touching the
@@ -220,7 +218,6 @@ Minimal addition to `AdminConfig`: one optional `token` field.
 ```toml
 [admin]
 addr = "127.0.0.1:9090"
-allow_non_loopback = false
 token = ""  # empty = no auth required (loopback only); set for remote access
 ```
 
@@ -229,7 +226,6 @@ Corresponding Rust struct delta:
 ```rust
 pub struct AdminConfig {
     pub addr: String,
-    pub allow_non_loopback: bool,
     /// Bearer token for admin endpoint authentication.
     /// Empty string disables authentication (safe only on loopback).
     /// Generate with: openssl rand -hex 32
@@ -239,9 +235,8 @@ pub struct AdminConfig {
 ```
 
 The `check_admin_addr` function (or a sibling `check_admin_config`) should be
-extended to also warn when `addr` is non-loopback and `token` is empty, even if
-`allow_non_loopback` is set — making the intent explicit rather than relying on the
-operator to remember the token field.
+extended to also warn when `addr` is non-loopback and `token` is empty — making
+the intent explicit rather than relying on the operator to remember the token field.
 
 Config file containing a token must be created with `chmod 0600`. A startup check
 that warns if the config file is world-readable is a worthwhile addition alongside

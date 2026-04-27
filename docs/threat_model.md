@@ -157,9 +157,9 @@ The STRIDE categories used below: **S**poofing, **T**ampering, **R**epudiation,
 | Actor | A4 (local attacker), A5 (misconfiguration) |
 | Attack | Admin endpoint bound to `0.0.0.0` instead of `127.0.0.1`; any network host can call operator-only APIs (trigger GC, read metrics, modify pinning policy) |
 | Impact | Unauthorized operator-level control of daemon; potential data deletion via GC trigger |
-| Current mitigation | **Partially mitigated.** Default config binds admin endpoint to `127.0.0.1:9090`. A `check_admin_addr` function warns at startup if a non-loopback address is configured. The `allow_non_loopback` config knob must be explicitly set to suppress the warning. No authentication is implemented on the admin endpoint in v1. |
-| Residual risk | **Medium** when `allow_non_loopback = true` with no firewall. The warning does not prevent the bind — it only notifies. An operator who ignores the warning has an unauthenticated admin endpoint exposed to the network. |
-| Recommended follow-up | When `allow_non_loopback = true`, require a shared secret token (HTTP Bearer) on all admin requests. Document this clearly in operator setup guide. |
+| Current mitigation | **Partially mitigated.** Default config binds admin endpoint to `127.0.0.1:9090`. A `check_admin_addr` function warns at startup if a non-loopback address is configured without a `bearer_token`. Authentication is available via `bearer_token` in the admin config. |
+| Residual risk | **Medium** when `addr` is non-loopback with no `bearer_token` and no firewall. The warning does not prevent the bind — it only notifies. An operator who ignores the warning has an unauthenticated admin endpoint exposed to the network. |
+| Recommended follow-up | When binding to a non-loopback address, always set `bearer_token` and document this clearly in the operator setup guide. |
 
 ---
 

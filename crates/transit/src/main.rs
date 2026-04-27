@@ -10,7 +10,7 @@ use stoa_core::{
     group_log::SqliteLogStorage, hlc::HlcClock, msgid_map::MsgIdMap, wildmat::GroupFilter,
 };
 use stoa_transit::{
-    admin::start_admin_server,
+    admin::{start_admin_server, AdminPools},
     config::{check_admin_addr, Config},
     hlc_persist::{load_hlc_checkpoint, save_hlc_checkpoint},
     peering::{
@@ -308,13 +308,14 @@ async fn main() {
 
     // ── SQLite databases (two separate pools: core schema + transit schema) ───
 
-    let core_pool = open_pool(&config.database.core_path, config.database.pool_size).await;
+    let core_pool =
+        Arc::new(open_pool(&config.database.core_path, config.database.pool_size).await);
     if let Err(e) = stoa_core::migrations::run_migrations(&core_pool).await {
         eprintln!("error: core database migration failed: {e}");
         std::process::exit(1);
     }
-    let msgid_map = Arc::new(MsgIdMap::new(core_pool.clone()));
-    let log_storage = Arc::new(SqliteLogStorage::new(core_pool));
+    let msgid_map = Arc::new(MsgIdMap::new((*core_pool).clone()));
+    let log_storage = Arc::new(SqliteLogStorage::new((*core_pool).clone()));
 
     let transit_pool = Arc::new(open_pool(&config.database.path, config.database.pool_size).await);
     if let Err(e) = stoa_transit::migrations::run_migrations(&transit_pool).await {
@@ -973,7 +974,10 @@ async fn main() {
                 resolve_secret_uri(config.admin.bearer_token.clone(), "admin.bearer_token").await;
             if let Err(e) = start_admin_server(
                 admin_addr,
-                Arc::clone(&transit_pool),
+                AdminPools {
+                    transit_pool: Arc::clone(&transit_pool),
+                    core_pool: Arc::clone(&core_pool),
+                },
                 start_time,
                 admin_bearer_token,
                 config.admin.rate_limit_rpm,

@@ -183,9 +183,8 @@ and related subcommands). This section is optional; all fields have defaults.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `addr` | string | `"127.0.0.1:9090"` | `"host:port"` to bind the admin HTTP endpoint. Default is loopback-only. Binding to a non-loopback address without `allow_non_loopback = true` triggers a startup warning. |
-| `allow_non_loopback` | boolean | `false` | Set to `true` to suppress the non-loopback binding warning. Has no effect if `addr` is a loopback address. |
-| `bearer_token` | string | none | If set, all admin HTTP requests must include `Authorization: Bearer <token>`. In production, always set this when `addr` is non-loopback. When unset and `addr` is non-loopback, an additional warning is logged at startup. |
+| `addr` | string | `"127.0.0.1:9090"` | `"host:port"` to bind the admin HTTP endpoint. Default is loopback-only. |
+| `bearer_token` | string | none | If set, all admin HTTP requests must include `Authorization: Bearer <token>`. In production, always set this when `addr` is non-loopback. When unset and `addr` is non-loopback, a warning is logged at startup. |
 | `rate_limit_rpm` | integer | `60` | Maximum admin HTTP requests per minute per source IP. Set to `0` to disable rate limiting (not recommended on non-loopback addresses). |
 
 Example:
@@ -193,7 +192,6 @@ Example:
 ```toml
 [admin]
 addr = "127.0.0.1:9090"
-allow_non_loopback = false
 bearer_token = "replace-with-a-strong-random-token"
 rate_limit_rpm = 60
 ```
@@ -354,8 +352,7 @@ defaults.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `addr` | string | `"127.0.0.1:9090"` | `"host:port"` to bind the admin HTTP endpoint. Default is loopback-only. Binding to a non-loopback address without `allow_non_loopback = true` triggers a startup warning. |
-| `allow_non_loopback` | boolean | `false` | Set to `true` to suppress the non-loopback binding warning. No effect if `addr` is already a loopback address. |
+| `addr` | string | `"127.0.0.1:9090"` | `"host:port"` to bind the admin HTTP endpoint. Default is loopback-only. |
 
 Note: the reader's `[admin]` section does not include `bearer_token` or
 `rate_limit_rpm` fields (those exist only in the transit config struct).

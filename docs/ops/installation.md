@@ -182,10 +182,9 @@ max_age_days = 90
 # [admin] — admin HTTP endpoint (optional section; defaults shown)
 # ---------------------------------------------------------------------------
 [admin]
-# Loopback-only by default. Non-loopback requires allow_non_loopback = true
-# and is warned at startup unless a bearer_token is configured.
+# Loopback-only by default. Non-loopback address without a bearer_token
+# is warned at startup.
 addr = "127.0.0.1:9090"
-# allow_non_loopback = false
 # bearer_token = "change-me-to-a-strong-random-string"
 # rate_limit_rpm = 60
 
@@ -268,7 +267,6 @@ key_path  = "/etc/ssl/private/nntp-server.key"
 # ---------------------------------------------------------------------------
 [admin]
 addr = "127.0.0.1:9090"
-# allow_non_loopback = false
 
 # ---------------------------------------------------------------------------
 # [log] — logging (optional section; defaults shown)

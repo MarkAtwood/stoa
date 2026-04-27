@@ -108,6 +108,21 @@ async fn handle_admin_connection(
 
     let mut writer = reader.into_inner();
 
+    // Check bearer token before rate limiting so that invalid credentials are
+    // rejected without consuming a rate-limit slot (prevents token-enumeration
+    // amplification via the rate limiter).
+    if !check_bearer_token(auth_header.as_deref(), bearer_token) {
+        tracing::debug!("admin request rejected: missing or invalid bearer token");
+        write_json(
+            &mut writer,
+            401,
+            "Unauthorized",
+            r#"{"error":"unauthorized"}"#,
+        )
+        .await?;
+        return Ok(());
+    }
+
     // Apply per-IP rate limiting. /metrics is exempt (polled frequently by Prometheus).
     if path != "/metrics" && !rate_limiter.check_and_consume(peer_ip) {
         tracing::debug!("admin request rate-limited from {peer_ip}");
@@ -124,19 +139,6 @@ async fn handle_admin_connection(
             "HTTP/1.1 429 Too Many Requests\r\nContent-Type: application/json\r\nRetry-After: {retry_after}\r\nContent-Length: {content_length}\r\n\r\n{body}"
         );
         writer.write_all(response.as_bytes()).await?;
-        return Ok(());
-    }
-
-    // Check bearer token if configured.
-    if !check_bearer_token(auth_header.as_deref(), bearer_token) {
-        tracing::debug!("admin request rejected: missing or invalid bearer token");
-        write_json(
-            &mut writer,
-            401,
-            "Unauthorized",
-            r#"{"error":"unauthorized"}"#,
-        )
-        .await?;
         return Ok(());
     }
 

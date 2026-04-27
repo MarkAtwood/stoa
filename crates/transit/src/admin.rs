@@ -24,11 +24,25 @@ use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 
 use crate::peering::pipeline::IpfsStore;
 
+/// SQLite pool pair for the admin server.
+///
+/// `transit_pool` is the transit schema (transit.db); `core_pool` is the core
+/// schema (transit_core.db).  Grouped here to keep `start_admin_server` under
+/// clippy's 7-argument limit.
+pub struct AdminPools {
+    pub transit_pool: Arc<SqlitePool>,
+    pub core_pool: Arc<SqlitePool>,
+}
+
 /// Start the admin HTTP server on the given address.
 ///
 /// Accepts `SqlitePool` for live stats queries, an optional bearer token for
 /// authentication, and a per-IP rate limit in requests per minute (0 = unlimited).
 /// Spawns a background tokio task. Returns immediately.
+///
+/// `core_pool` is the SQLite pool for the core schema (transit_core.db); it is
+/// used by `build_stats_json` to query `msgid_map`. `pool` is the transit schema
+/// pool (transit.db) used for all other queries.
 ///
 /// # Fail-closed: non-loopback without bearer token
 ///
@@ -37,7 +51,7 @@ use crate::peering::pipeline::IpfsStore;
 /// footgun in production; the server must not start in that configuration.
 pub fn start_admin_server(
     addr: std::net::SocketAddr,
-    pool: Arc<SqlitePool>,
+    pools: AdminPools,
     start_time: Instant,
     bearer_token: Option<String>,
     rate_limit_rpm: u32,
@@ -53,6 +67,8 @@ pub fn start_admin_server(
     let bearer_token = Arc::new(bearer_token);
     let rate_limiter = Arc::new(RateLimiter::new(rate_limit_rpm));
     let ipns_path = Arc::new(ipns_path);
+    let transit_pool = pools.transit_pool;
+    let core_pool = pools.core_pool;
     tokio::spawn(async move {
         let listener = match tokio::net::TcpListener::bind(addr).await {
             Ok(l) => l,
@@ -65,7 +81,8 @@ pub fn start_admin_server(
         loop {
             match listener.accept().await {
                 Ok((stream, peer)) => {
-                    let pool = Arc::clone(&pool);
+                    let transit_pool = Arc::clone(&transit_pool);
+                    let core_pool = Arc::clone(&core_pool);
                     let bearer_token = Arc::clone(&bearer_token);
                     let rate_limiter = Arc::clone(&rate_limiter);
                     let ipfs = Arc::clone(&ipfs);
@@ -73,7 +90,7 @@ pub fn start_admin_server(
                     tokio::spawn(async move {
                         if let Err(e) = handle_admin_connection(
                             stream,
-                            &pool,
+                            (&*transit_pool, &*core_pool),
                             start_time,
                             bearer_token.as_deref(),
                             &rate_limiter,
@@ -97,13 +114,14 @@ pub fn start_admin_server(
 
 async fn handle_admin_connection(
     stream: tokio::net::TcpStream,
-    pool: &SqlitePool,
+    pools: (&SqlitePool, &SqlitePool),
     start_time: Instant,
     bearer_token: Option<&str>,
     rate_limiter: &RateLimiter,
     ipfs: &dyn IpfsStore,
     ipns_path: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let (pool, core_pool) = pools;
     let peer_ip = stream.peer_addr()?.ip();
     let mut reader = BufReader::new(stream);
 
@@ -138,6 +156,27 @@ async fn handle_admin_connection(
     // Extract the underlying stream for writing responses.
     let mut writer = reader.into_inner();
 
+    // Check bearer token if configured. This runs before rate limiting so that
+    // unauthenticated requests are rejected with 401 without consuming a
+    // rate-limit slot (rbe3.22).
+    // Bearer token comparison uses subtle::ConstantTimeEq (see check_bearer_token
+    // below) to prevent timing-oracle attacks even on loopback.
+    if !check_bearer_token(auth_header.as_deref(), bearer_token) {
+        tracing::debug!("admin request rejected: missing or invalid bearer token");
+        write_json(
+            &mut writer,
+            401,
+            "Unauthorized",
+            r#"{"error":"unauthorized"}"#,
+        )
+        .await?;
+        return Ok(());
+    }
+
+    if bearer_token.is_none() {
+        tracing::debug!("admin request accepted: no bearer token configured");
+    }
+
     // Apply per-IP rate limiting. /metrics is exempt (polled frequently by Prometheus).
     if path != "/metrics" && !rate_limiter.check_and_consume(peer_ip) {
         tracing::debug!("admin request rate-limited from {peer_ip}");
@@ -155,25 +194,6 @@ async fn handle_admin_connection(
         );
         writer.write_all(response.as_bytes()).await?;
         return Ok(());
-    }
-
-    // Check bearer token if configured.
-    // Bearer token comparison uses subtle::ConstantTimeEq (see check_bearer_token
-    // below) to prevent timing-oracle attacks even on loopback.
-    if !check_bearer_token(auth_header.as_deref(), bearer_token) {
-        tracing::debug!("admin request rejected: missing or invalid bearer token");
-        write_json(
-            &mut writer,
-            401,
-            "Unauthorized",
-            r#"{"error":"unauthorized"}"#,
-        )
-        .await?;
-        return Ok(());
-    }
-
-    if bearer_token.is_none() {
-        tracing::debug!("admin request accepted: no bearer token configured");
     }
 
     let method_ok = match path {
@@ -196,7 +216,7 @@ async fn handle_admin_connection(
             let body = build_health_json(start_time);
             write_json(&mut writer, 200, "OK", &body).await?;
         }
-        "/stats" => match build_stats_json(pool).await {
+        "/stats" => match build_stats_json(pool, core_pool).await {
             Ok(body) => write_json(&mut writer, 200, "OK", &body).await?,
             Err(e) => {
                 tracing::warn!("admin /stats error: {e}");
@@ -425,9 +445,14 @@ pub(crate) fn build_health_json(start_time: Instant) -> String {
     .to_string()
 }
 
-pub(crate) async fn build_stats_json(pool: &SqlitePool) -> Result<String, sqlx::Error> {
+pub(crate) async fn build_stats_json(
+    pool: &SqlitePool,
+    core_pool: &SqlitePool,
+) -> Result<String, sqlx::Error> {
+    // msgid_map lives in the core schema (transit_core.db), not the transit
+    // schema (transit.db) — use core_pool here (rbe3.12).
     let articles: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM msgid_map")
-        .fetch_one(pool)
+        .fetch_one(core_pool)
         .await
         .unwrap_or(0);
 
@@ -615,19 +640,44 @@ mod tests {
 
     static DB_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
-    async fn make_pool() -> Arc<SqlitePool> {
+    /// Returns `(transit_pool, core_pool)` — each backed by a distinct in-memory SQLite
+    /// database with the appropriate schema migrations applied.
+    async fn make_pools() -> (Arc<SqlitePool>, Arc<SqlitePool>) {
         let n = DB_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let url = format!("file:admin_{n}?mode=memory&cache=shared");
-        let opts = SqliteConnectOptions::new()
-            .filename(&url)
+
+        let transit_url = format!("file:admin_transit_{n}?mode=memory&cache=shared");
+        let transit_opts = SqliteConnectOptions::new()
+            .filename(&transit_url)
             .create_if_missing(true);
-        let pool = SqlitePoolOptions::new()
+        let transit_pool = SqlitePoolOptions::new()
             .max_connections(1)
-            .connect_with(opts)
+            .connect_with(transit_opts)
             .await
             .unwrap();
-        crate::migrations::run_migrations(&pool).await.unwrap();
-        Arc::new(pool)
+        crate::migrations::run_migrations(&transit_pool)
+            .await
+            .unwrap();
+
+        let core_url = format!("file:admin_core_{n}?mode=memory&cache=shared");
+        let core_opts = SqliteConnectOptions::new()
+            .filename(&core_url)
+            .create_if_missing(true);
+        let core_pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(core_opts)
+            .await
+            .unwrap();
+        stoa_core::migrations::run_migrations(&core_pool)
+            .await
+            .unwrap();
+
+        (Arc::new(transit_pool), Arc::new(core_pool))
+    }
+
+    /// Convenience wrapper: returns only the transit pool for tests that don't
+    /// exercise `build_stats_json` and don't need the core pool.
+    async fn make_pool() -> Arc<SqlitePool> {
+        make_pools().await.0
     }
 
     #[tokio::test]
@@ -644,8 +694,8 @@ mod tests {
 
     #[tokio::test]
     async fn stats_handler_returns_zero_counts_on_empty_db() {
-        let pool = make_pool().await;
-        let json = build_stats_json(&pool).await.unwrap();
+        let (pool, core_pool) = make_pools().await;
+        let json = build_stats_json(&pool, &core_pool).await.unwrap();
         assert!(json.contains("\"articles\""), "missing articles: {json}");
         assert!(
             json.contains("\"pinned_cids\""),

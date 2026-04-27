@@ -130,20 +130,19 @@ In `transit.toml` or `reader.toml`:
 ```toml
 [admin]
 addr = "127.0.0.1:9090"
-# allow_non_loopback = false
 ```
 
 The default is `127.0.0.1:9090`. If you bind to a non-loopback address without
-setting `allow_non_loopback = true`, the daemon will log a warning at startup:
+a `bearer_token`, the daemon will log a warning at startup:
 
 ```
 WARN stoa-transit: WARNING: admin endpoint bound to non-loopback
-address '0.0.0.0:9090' without authentication. Set admin.allow_non_loopback
-= true in config to suppress this warning, or bind to 127.0.0.1.
+address '0.0.0.0:9090' without authentication. Set admin.bearer_token
+in config, or bind to 127.0.0.1.
 ```
 
-The admin endpoint carries no authentication. Keep it on loopback, or
-restrict it with a firewall rule.
+The admin endpoint carries no authentication by default. Keep it on loopback,
+set a `bearer_token`, or restrict it with a firewall rule.
 
 ### `/metrics` — Prometheus metrics
 

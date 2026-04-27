@@ -498,9 +498,12 @@ where
 
         // XGET: fetch a raw IPFS block by CID and return it base64-encoded.
         if let Command::Xget(ref cid_str) = cmd {
-            let resp =
-                crate::session::commands::xget::handle_xget(cid_str, stores.ipfs_store.as_ref())
-                    .await;
+            let resp = crate::session::commands::xget::handle_xget(
+                cid_str,
+                stores.ipfs_store.as_ref(),
+                stores.msgid_map.as_ref(),
+            )
+            .await;
             if writer.write_all(resp.to_string().as_bytes()).await.is_err() {
                 return CommandLoopExit::Done;
             }

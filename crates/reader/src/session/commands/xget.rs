@@ -1,5 +1,6 @@
 use base64::Engine as _;
 use cid::Cid;
+use stoa_core::msgid_map::MsgIdMap;
 
 use crate::{
     post::ipfs_write::{IpfsBlockStore, IpfsWriteError},
@@ -9,17 +10,34 @@ use crate::{
 /// XGET <cid> — fetch a raw IPFS block by CID and return it as a MIME-wrapped
 /// base64 message.
 ///
+/// The CID must be present in the msgid_map (i.e., it must be a known article)
+/// before the block is returned. This prevents authenticated NNTP users from
+/// fetching arbitrary IPFS blocks that the server can reach but that are not
+/// known articles.
+///
 /// Response codes:
 /// - 290: success, followed by a synthetic RFC 5322/MIME message with the
 ///   block data base64-encoded in the body.
+/// - 403: CID is not a known article CID (group membership check failed), or
+///   internal fetch error.
 /// - 430: CID not found in the local block store.
 /// - 501: argument is not a valid CID.
-/// - 403: internal fetch error.
-pub async fn handle_xget(cid_str: &str, ipfs_store: &dyn IpfsBlockStore) -> Response {
+pub async fn handle_xget(
+    cid_str: &str,
+    ipfs_store: &dyn IpfsBlockStore,
+    msgid_map: &MsgIdMap,
+) -> Response {
     let cid: Cid = match cid_str.parse() {
         Ok(c) => c,
         Err(_) => return Response::new(501, "Syntax error: not a valid CID"),
     };
+
+    // Verify the CID is a known article before returning any block data.
+    match msgid_map.lookup_by_cid(&cid).await {
+        Ok(Some(_)) => {}
+        Ok(None) => return Response::new(403, "Not a known article CID"),
+        Err(_) => return Response::new(403, "Internal error during article lookup"),
+    }
 
     let bytes = match ipfs_store.get_raw(&cid).await {
         Ok(b) => b,
@@ -66,6 +84,8 @@ mod tests {
     use super::*;
     use crate::post::ipfs_write::MemIpfsStore;
     use multihash_codetable::{Code, MultihashDigest};
+    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+    use stoa_core::msgid_map::MsgIdMap;
 
     /// Compute a CIDv1 SHA-256 raw-leaf CID for the given bytes,
     /// matching what MemIpfsStore uses internally.
@@ -75,30 +95,73 @@ mod tests {
         Cid::new_v1(0x55, mh)
     }
 
+    /// Create an in-memory MsgIdMap with core migrations applied.
+    async fn make_msgid_map() -> MsgIdMap {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static SEQ: AtomicU64 = AtomicU64::new(0);
+        let n = SEQ.fetch_add(1, Ordering::Relaxed);
+        let url = format!("file:xget_test_{n}?mode=memory&cache=shared");
+        let opts = SqliteConnectOptions::new()
+            .filename(&url)
+            .create_if_missing(true);
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(opts)
+            .await
+            .expect("in-memory pool");
+        stoa_core::migrations::run_migrations(&pool)
+            .await
+            .expect("core migrations");
+        MsgIdMap::new(pool)
+    }
+
     #[tokio::test]
     async fn xget_invalid_cid_returns_501() {
         let store = MemIpfsStore::new();
-        let resp = handle_xget("not-a-cid", &store).await;
+        let msgid_map = make_msgid_map().await;
+        let resp = handle_xget("not-a-cid", &store, &msgid_map).await;
         assert_eq!(resp.code, 501);
     }
 
     #[tokio::test]
-    async fn xget_missing_cid_returns_430() {
+    async fn xget_unknown_cid_returns_403() {
         let store = MemIpfsStore::new();
-        // A syntactically valid CID that does not exist in the store.
-        let data = b"does not exist";
+        let msgid_map = make_msgid_map().await;
+        // A syntactically valid CID with no msgid_map entry — must be rejected.
+        let data = b"not a known article";
         let cid = cid_for(data);
-        let resp = handle_xget(&cid.to_string(), &store).await;
+        let resp = handle_xget(&cid.to_string(), &store, &msgid_map).await;
+        assert_eq!(resp.code, 403);
+    }
+
+    #[tokio::test]
+    async fn xget_known_but_missing_from_store_returns_430() {
+        let store = MemIpfsStore::new();
+        let msgid_map = make_msgid_map().await;
+        // A CID registered in msgid_map but not present in the block store.
+        let data = b"registered but not stored";
+        let cid = cid_for(data);
+        msgid_map
+            .insert("<missing@example.com>", &cid)
+            .await
+            .unwrap();
+        let resp = handle_xget(&cid.to_string(), &store, &msgid_map).await;
         assert_eq!(resp.code, 430);
     }
 
     #[tokio::test]
     async fn xget_present_cid_returns_290_with_base64_body() {
         let store = MemIpfsStore::new();
+        let msgid_map = make_msgid_map().await;
         let payload = b"hello xget test";
         let cid = store.put_raw(payload).await.unwrap();
+        // Register the CID so the group membership check passes.
+        msgid_map
+            .insert("<xget-test@example.com>", &cid)
+            .await
+            .unwrap();
 
-        let resp = handle_xget(&cid.to_string(), &store).await;
+        let resp = handle_xget(&cid.to_string(), &store, &msgid_map).await;
         assert_eq!(
             resp.code, 290,
             "expected 290, got: {} {}",

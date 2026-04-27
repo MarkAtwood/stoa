@@ -593,7 +593,15 @@ impl Config {
                     peer.addr
                 )));
             }
+            if let Some(fp) = &peer.cert_sha256 {
+                validate_cert_sha256(fp)
+                    .map_err(|e| ConfigError::Validation(format!("peer '{}': {e}", peer.addr)))?;
+            }
         }
+        // Validate GC cron schedule.
+        validate_cron_schedule(&self.gc.schedule)
+            .map_err(|e| ConfigError::Validation(format!("gc.schedule: {e}")))?;
+
         // Validate external pinning service entries.
         let mut seen_service_names: std::collections::HashSet<&str> =
             std::collections::HashSet::new();
@@ -711,6 +719,59 @@ pub fn check_admin_addr(admin: &AdminConfig) -> Result<(), String> {
     } else {
         Ok(())
     }
+}
+
+/// Validates that a `cert_sha256` fingerprint string is 32 colon-separated
+/// lowercase hex bytes (the SHA-256 fingerprint of a DER certificate).
+///
+/// Expected format: `"aa:bb:cc:..."` — exactly 32 two-character lowercase hex
+/// groups separated by `:`, e.g. the 95-character string produced by
+/// `openssl x509 -fingerprint -sha256`.
+fn validate_cert_sha256(s: &str) -> Result<(), String> {
+    let groups: Vec<&str> = s.split(':').collect();
+    if groups.len() != 32 {
+        return Err(format!(
+            "cert_sha256 must be 32 colon-separated lowercase hex bytes \
+             (e.g. 'aa:bb:cc:...'), got {} groups in '{s}'",
+            groups.len()
+        ));
+    }
+    for group in &groups {
+        if group.len() != 2 {
+            return Err(format!(
+                "cert_sha256 must be 32 colon-separated lowercase hex bytes \
+                 (e.g. 'aa:bb:cc:...'), byte group '{group}' is not 2 characters"
+            ));
+        }
+        for ch in group.chars() {
+            if !matches!(ch, '0'..='9' | 'a'..='f') {
+                return Err(format!(
+                    "cert_sha256 must be 32 colon-separated lowercase hex bytes \
+                     (e.g. 'aa:bb:cc:...'), invalid character '{ch}' in '{s}'"
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Validates that a cron schedule string has 5 or 6 space-separated non-empty
+/// fields (the standard cron field count: minute hour dom month dow, with an
+/// optional seconds field prepended by some schedulers).
+///
+/// This is a structural check only — it catches obviously wrong values such as
+/// an empty string or free prose.  Full semantic validation (field ranges, step
+/// syntax, etc.) is deferred to the runtime scheduler.
+fn validate_cron_schedule(s: &str) -> Result<(), String> {
+    let fields: Vec<&str> = s.split_whitespace().collect();
+    if fields.len() < 5 || fields.len() > 6 {
+        return Err(format!(
+            "invalid cron expression: '{s}' \
+             (expected 5 or 6 space-separated fields, got {})",
+            fields.len()
+        ));
+    }
+    Ok(())
 }
 
 /// Validates that a wildmat group pattern in `GroupsConfig::names` is syntactically
@@ -970,7 +1031,7 @@ addresses = ["192.0.2.1:119"]
 [[peers.peer]]
 addr = "192.0.2.2:119"
 tls = true
-cert_sha256 = "aa:bb:cc"
+cert_sha256 = "aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99"
 
 [[peers.peer]]
 addr = "192.0.2.3:119"
@@ -995,7 +1056,10 @@ max_age_days = 30
         let tls_peer = &cfg.peers.peer[0];
         assert_eq!(tls_peer.addr, "192.0.2.2:119");
         assert!(tls_peer.tls);
-        assert_eq!(tls_peer.cert_sha256.as_deref(), Some("aa:bb:cc"));
+        assert_eq!(
+            tls_peer.cert_sha256.as_deref(),
+            Some("aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99")
+        );
         let plain_peer = &cfg.peers.peer[1];
         assert_eq!(plain_peer.addr, "192.0.2.3:119");
         assert!(!plain_peer.tls);
@@ -1034,6 +1098,217 @@ max_age_days = 30
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
         );
+    }
+
+    /// A cert_sha256 with wrong byte count (not 32) must fail validation.
+    #[test]
+    fn cert_sha256_wrong_byte_count_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[[peers.peer]]
+addr = "192.0.2.10:119"
+tls = true
+cert_sha256 = "aa:bb:cc"
+
+[groups]
+names = []
+
+[ipfs]
+api_url = "http://127.0.0.1:5001"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path()).expect_err("short fingerprint must fail");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+        if let ConfigError::Validation(msg) = err {
+            assert!(
+                msg.contains("cert_sha256"),
+                "error must mention cert_sha256, got: {msg}"
+            );
+        }
+    }
+
+    /// A cert_sha256 with uppercase hex must fail validation.
+    #[test]
+    fn cert_sha256_uppercase_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[[peers.peer]]
+addr = "192.0.2.10:119"
+tls = false
+cert_sha256 = "AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99"
+
+[groups]
+names = []
+
+[ipfs]
+api_url = "http://127.0.0.1:5001"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path()).expect_err("uppercase fingerprint must fail");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+        if let ConfigError::Validation(msg) = err {
+            assert!(
+                msg.contains("cert_sha256"),
+                "error must mention cert_sha256, got: {msg}"
+            );
+        }
+    }
+
+    /// A valid 32-byte lowercase cert_sha256 without tls=true must pass validation.
+    #[test]
+    fn cert_sha256_valid_format_passes_validation() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[[peers.peer]]
+addr = "192.0.2.10:119"
+tls = false
+cert_sha256 = "aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99"
+
+[groups]
+names = []
+
+[ipfs]
+api_url = "http://127.0.0.1:5001"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        Config::from_file(f.path()).expect("valid 32-byte lowercase fingerprint must pass");
+    }
+
+    /// An invalid cron expression (wrong field count) must fail validation.
+    #[test]
+    fn gc_schedule_invalid_cron_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[ipfs]
+api_url = "http://127.0.0.1:5001"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "not-a-cron"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path()).expect_err("invalid cron must fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+        if let ConfigError::Validation(msg) = err {
+            assert!(
+                msg.contains("gc.schedule"),
+                "error must mention gc.schedule, got: {msg}"
+            );
+        }
+    }
+
+    /// An empty gc.schedule must fail validation.
+    #[test]
+    fn gc_schedule_empty_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[ipfs]
+api_url = "http://127.0.0.1:5001"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = ""
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path()).expect_err("empty schedule must fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// A valid 6-field cron schedule (with seconds prefix) must pass validation.
+    #[test]
+    fn gc_schedule_six_field_cron_passes_validation() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[ipfs]
+api_url = "http://127.0.0.1:5001"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        Config::from_file(f.path()).expect("6-field cron schedule must pass validation");
     }
 
     #[test]

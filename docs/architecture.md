@@ -388,7 +388,7 @@ Rules are evaluated in declaration order; the first matching rule wins. If no ru
 
 ### Admin Endpoint
 
-The admin HTTP endpoint (`admin.rs`) binds to `127.0.0.1:9090` by default (loopback-only). Binding to a non-loopback address without explicitly setting `admin.allow_non_loopback = true` in the config triggers a startup warning.
+The admin HTTP endpoint (`admin.rs`) binds to `127.0.0.1:9090` by default (loopback-only). Binding to a non-loopback address without a `bearer_token` configured triggers a startup warning.
 
 ---
 
