@@ -35,6 +35,21 @@ pub enum AuditEvent {
         cid: String,
         key_fingerprint: String,
     },
+    /// A client successfully posted an article via NNTP POST.
+    ArticlePosted {
+        peer_addr: String,
+        username: Option<String>,
+        message_id: String,
+        newsgroups: String,
+        cid: String,
+    },
+    /// A client's article was rejected during the POST pipeline.
+    ArticleRejected {
+        peer_addr: String,
+        username: Option<String>,
+        message_id: Option<String>,
+        reason: String,
+    },
     /// An authentication attempt from a peer or client.
     AuthAttempt {
         peer_addr: String,
@@ -70,6 +85,8 @@ impl AuditEvent {
     pub fn event_type(&self) -> &'static str {
         match self {
             AuditEvent::ArticleSigned { .. } => "article_signed",
+            AuditEvent::ArticlePosted { .. } => "article_posted",
+            AuditEvent::ArticleRejected { .. } => "article_rejected",
             AuditEvent::AuthAttempt { .. } => "auth_attempt",
             AuditEvent::PeerBlacklisted { .. } => "peer_blacklisted",
             AuditEvent::GcRun { .. } => "gc_run",

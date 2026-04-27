@@ -672,8 +672,25 @@ where
                 }
             };
 
-            let final_resp =
+            let (final_resp, post_meta) =
                 run_post_pipeline(&article_bytes, stores, config.limits.max_article_bytes).await;
+            if let Some(ref logger) = stores.audit_logger {
+                match post_meta {
+                    Some(ref meta) => logger.log(AuditEvent::ArticlePosted {
+                        peer_addr: peer_addr.to_string(),
+                        username: ctx.authenticated_user.clone(),
+                        message_id: meta.message_id.clone(),
+                        newsgroups: meta.newsgroups.clone(),
+                        cid: meta.cid.clone(),
+                    }),
+                    None => logger.log(AuditEvent::ArticleRejected {
+                        peer_addr: peer_addr.to_string(),
+                        username: ctx.authenticated_user.clone(),
+                        message_id: None,
+                        reason: final_resp.text.clone(),
+                    }),
+                }
+            }
             if writer
                 .write_all(final_resp.to_bytes().as_slice())
                 .await
@@ -763,11 +780,18 @@ async fn run_session_io<S>(
 /// exceeding it are rejected with 441.
 ///
 /// Returns 240 on success or a 441 error response on failure.
+/// Metadata returned by a successful `run_post_pipeline` for audit logging.
+struct PostAuditMeta {
+    message_id: String,
+    newsgroups: String,
+    cid: String,
+}
+
 async fn run_post_pipeline(
     article_bytes: &[u8],
     stores: &ServerStores,
     max_article_bytes: usize,
-) -> Response {
+) -> (Response, Option<PostAuditMeta>) {
     // Step 1: Strip the X-Stoa-Injection-Source header so it is never stored
     // in IPFS or forwarded to peers.  Classification is always NntpPost in
     // this pipeline: an NNTP POST client can forge any header value, so the
@@ -793,18 +817,18 @@ async fn run_post_pipeline(
 
     // Step 2: Validate headers.
     if let Err(resp) = complete_post(article_bytes, max_article_bytes) {
-        return resp;
+        return (resp, None);
     }
 
     // Extract Message-ID and Newsgroups from the article headers.
     let (message_id, newsgroups) = match extract_post_metadata(article_bytes) {
         Ok(meta) => meta,
-        Err(resp) => return resp,
+        Err(resp) => return (resp, None),
     };
 
     // Step 3: Duplicate check.
     if let Err(resp) = check_duplicate_msgid(&stores.msgid_map, &message_id).await {
-        return resp;
+        return (resp, None);
     }
 
     // DID author signature verification (optional, non-blocking).
@@ -883,7 +907,7 @@ async fn run_post_pipeline(
     .await
     {
         Ok(cid) => cid,
-        Err(resp) => return resp,
+        Err(resp) => return (resp, None),
     };
 
     // Step 6b: Verify article signatures (best-effort; never blocks acceptance).
@@ -918,7 +942,7 @@ async fn run_post_pipeline(
     .await
     {
         Ok(r) => r,
-        Err(resp) => return resp,
+        Err(resp) => return (resp, None),
     };
 
     // Step 8: Index overview fields for each assigned (group, article_number).
@@ -963,7 +987,19 @@ async fn run_post_pipeline(
     // Failure is non-fatal — POST already succeeded.
     maybe_enqueue_smtp_relay(stores.smtp_relay_queue.as_ref(), &signed_bytes).await;
 
-    Response::new(240, "Article received OK")
+    let newsgroups_str = newsgroups
+        .iter()
+        .map(|g| g.as_str())
+        .collect::<Vec<_>>()
+        .join(",");
+    (
+        Response::new(240, "Article received OK"),
+        Some(PostAuditMeta {
+            message_id: message_id.clone(),
+            newsgroups: newsgroups_str,
+            cid: cid.to_string(),
+        }),
+    )
 }
 
 /// Reconstruct wire-format article bytes from an IPLD DAG-CBOR root CID.
@@ -1760,7 +1796,7 @@ mod tests {
         let article = minimal_article("comp.test", "Too Large", "<toolarge@test.example>");
 
         // Limit of 1 byte — any real article will exceed it.
-        let resp = run_post_pipeline(&article, &stores, 1).await;
+        let (resp, _) = run_post_pipeline(&article, &stores,1).await;
         assert_eq!(
             resp.code, 441,
             "POST pipeline must return 441 when article exceeds operator limit; got: {}",
@@ -1790,7 +1826,7 @@ mod tests {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Signature Verify", "<sigverify@test.example>");
 
-        let resp = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES).await;
+        let (resp, _) = run_post_pipeline(&article, &stores,DEFAULT_MAX_ARTICLE_BYTES).await;
         assert_eq!(
             resp.code, 240,
             "POST pipeline must succeed; got: {}",
@@ -1835,7 +1871,7 @@ mod tests {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Integration Test", "<integ@test.example>");
 
-        let resp = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES).await;
+        let (resp, _) = run_post_pipeline(&article, &stores,DEFAULT_MAX_ARTICLE_BYTES).await;
         assert_eq!(
             resp.code, 240,
             "POST pipeline must return 240; got: {}",
@@ -1863,7 +1899,7 @@ mod tests {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Path Test", "<pathtest@test.example>");
 
-        let resp = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES).await;
+        let (resp, _) = run_post_pipeline(&article, &stores,DEFAULT_MAX_ARTICLE_BYTES).await;
         assert_eq!(resp.code, 240, "POST must succeed; got: {}", resp.text);
 
         let cid = stores
@@ -1894,7 +1930,7 @@ mod tests {
     async fn article_by_number_returns_220() {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "By Number Test", "<bynumber@test.example>");
-        let post_resp = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES).await;
+        let (post_resp, _) = run_post_pipeline(&article, &stores,DEFAULT_MAX_ARTICLE_BYTES).await;
         assert_eq!(post_resp.code, 240, "POST must succeed");
 
         let mut ctx = crate::session::context::SessionContext::new(
@@ -1922,7 +1958,7 @@ mod tests {
     async fn head_by_msgid_returns_221() {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Head By Msgid", "<headmsgid@test.example>");
-        let post_resp = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES).await;
+        let (post_resp, _) = run_post_pipeline(&article, &stores,DEFAULT_MAX_ARTICLE_BYTES).await;
         assert_eq!(post_resp.code, 240, "POST must succeed");
 
         let resp = lookup_head_by_msgid(&stores, "<headmsgid@test.example>").await;
@@ -1946,7 +1982,7 @@ mod tests {
     async fn body_by_msgid_returns_222() {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Body By Msgid", "<bodymsgid@test.example>");
-        let post_resp = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES).await;
+        let (post_resp, _) = run_post_pipeline(&article, &stores,DEFAULT_MAX_ARTICLE_BYTES).await;
         assert_eq!(post_resp.code, 240, "POST must succeed");
 
         let resp = lookup_body_by_msgid(&stores, "<bodymsgid@test.example>").await;
@@ -1974,7 +2010,7 @@ mod tests {
     async fn stat_by_msgid_known_returns_223() {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Stat Test", "<stattest@test.example>");
-        let post_resp = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES).await;
+        let (post_resp, _) = run_post_pipeline(&article, &stores,DEFAULT_MAX_ARTICLE_BYTES).await;
         assert_eq!(post_resp.code, 240, "POST must succeed");
 
         let resp = stat_by_msgid(&stores, "<stattest@test.example>").await;
