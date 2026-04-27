@@ -40,6 +40,10 @@ pub enum AuditEvent {
         peer_addr: String,
         user: String,
         success: bool,
+        /// Service that handled the attempt: `"nntp"`, `"jmap"`, `"smtp"`, etc.
+        service: String,
+        /// Authentication mechanism: `"password"`, `"client_cert"`, `"bearer_token"`.
+        auth_method: String,
     },
     /// A peer was blacklisted due to repeated failures.
     PeerBlacklisted {
@@ -339,6 +343,8 @@ mod tests {
                 peer_addr: "127.0.0.1:9000".into(),
                 user: "u".into(),
                 success: true,
+                service: "nntp".into(),
+                auth_method: "password".into(),
             },
             AuditEvent::PeerBlacklisted {
                 peer_id: "p".into(),

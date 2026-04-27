@@ -17,6 +17,7 @@ use tokio::sync::Mutex;
 
 static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
 
+use stoa_core::audit::{start_audit_logger, AuditLoggerHandle};
 use stoa_core::group_log::MemLogStorage;
 use stoa_core::hlc::HlcClock;
 use stoa_core::msgid_map::MsgIdMap;
@@ -66,6 +67,8 @@ pub struct ServerStores {
     pub dkim_authenticator: Arc<MessageAuthenticator>,
     /// Hostname injected into the Path: header of POST articles (RFC 5536 §3.1).
     pub path_hostname: String,
+    /// Async audit logger. None only in unit-test stores created by new_mem().
+    pub audit_logger: Option<Arc<AuditLoggerHandle>>,
 }
 
 impl ServerStores {
@@ -109,6 +112,11 @@ impl ServerStores {
         let reader_pool =
             make_disk_pool_with_reader_migrations(&config.database.reader_path).await?;
         let core_pool = make_disk_pool_with_core_migrations(&config.database.core_path).await?;
+        let audit_logger = Arc::new(start_audit_logger(
+            core_pool.clone(),
+            100,
+            std::time::Duration::from_secs(5),
+        ));
 
         let now_ms = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -146,6 +154,7 @@ impl ServerStores {
             verification_store: Arc::new(VerificationStore::new(verify_pool)),
             dkim_authenticator: Arc::new(dkim_authenticator),
             path_hostname: config.path_hostname.clone(),
+            audit_logger: Some(audit_logger),
         })
     }
 
@@ -194,6 +203,7 @@ impl ServerStores {
                     .expect("DKIM authenticator init must not fail"),
             ),
             path_hostname: "localhost".to_string(),
+            audit_logger: None,
         }
     }
 
@@ -232,6 +242,7 @@ impl ServerStores {
                     .expect("DKIM authenticator init must not fail"),
             ),
             path_hostname: "localhost".to_string(),
+            audit_logger: None,
         }
     }
 }

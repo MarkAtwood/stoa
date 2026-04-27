@@ -7,6 +7,7 @@ use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader
 use tokio::net::TcpStream;
 use tracing::{debug, info, warn};
 
+use stoa_core::audit::AuditEvent;
 use stoa_core::ArticleRootNode;
 
 use crate::{
@@ -571,6 +572,15 @@ where
                 } else {
                     stores.credential_store.check(&username, password).await
                 };
+                if let Some(ref logger) = stores.audit_logger {
+                    logger.log(AuditEvent::AuthAttempt {
+                        peer_addr: peer_addr.to_string(),
+                        user: username.clone(),
+                        success: accepted,
+                        service: "nntp".to_string(),
+                        auth_method: "password".to_string(),
+                    });
+                }
                 if accepted {
                     ctx.state = SessionState::Active;
                     ctx.authenticated_user = Some(username);
