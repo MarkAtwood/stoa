@@ -11,7 +11,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use stoa_reader::session::{
     commands::{
         fetch::{
-            article_response, body_response, head_response, no_group_selected, no_such_msgid,
+            article_response, body_response, head_response, no_newsgroup_selected, no_such_msgid,
             no_such_number, ArticleContent,
         },
         group::{group_select, last_article, next_article, stat_article, GroupData},
@@ -132,7 +132,7 @@ fn article_not_found_by_number_returns_423() {
 /// must respond 412 per RFC 3977 §6.1.1.
 #[test]
 fn article_fetch_without_group_returns_412() {
-    let resp = no_group_selected();
+    let resp = no_newsgroup_selected();
     assert_eq!(
         resp.code, 412,
         "RFC 3977 §6.1.1: no group selected must yield 412"
@@ -162,8 +162,8 @@ fn no_such_number_is_single_line() {
 
 /// The 412 response must be single-line.
 #[test]
-fn no_group_selected_is_single_line() {
-    let resp = no_group_selected();
+fn no_newsgroup_selected_is_single_line() {
+    let resp = no_newsgroup_selected();
     assert!(
         resp.body.is_empty(),
         "412 response must be single-line per RFC 3977 §3.2"
@@ -344,7 +344,7 @@ fn next_at_end_of_group_returns_421() {
     let mut ctx = active_ctx();
     let gd = make_group("comp.lang.rust", vec![1, 2, 3]);
     group_select(&mut ctx, Some(&gd));
-    ctx.current_article_number = Some(3); // already at the last article
+    ctx.selected_group.as_mut().unwrap().article_number = Some(3); // already at the last article
     let resp = next_article(&mut ctx, Some(&gd));
     assert_eq!(
         resp.code, 421,

@@ -193,7 +193,7 @@ pub fn no_such_number() -> Response {
 }
 
 /// 412 No newsgroup selected (when number form used without GROUP).
-pub fn no_group_selected() -> Response {
+pub fn no_newsgroup_selected() -> Response {
     Response::new(412, "No newsgroup selected")
 }
 

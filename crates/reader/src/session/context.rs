@@ -4,6 +4,21 @@ use stoa_core::article::GroupName;
 
 use crate::session::{commands::list::GroupInfo, state::SessionState};
 
+/// Jointly-held group-selection state.
+///
+/// `GroupSelected` state requires both a group name and an article pointer.
+/// Keeping them together ensures they are set and cleared atomically — the
+/// type system makes it impossible to have a group without an article pointer
+/// or an article pointer without a group.
+pub struct SelectedGroup {
+    /// Currently selected newsgroup.
+    pub name: GroupName,
+    /// Article pointer within the group per RFC 3977 §6.1.1.
+    /// `None` for an empty group (no articles) or before any NEXT/LAST/ARTICLE.
+    /// `Some(n)` once an article has been addressed.
+    pub article_number: Option<u64>,
+}
+
 /// All per-connection state for one NNTP session.
 ///
 /// Passed by mutable reference to every command handler.
@@ -34,10 +49,13 @@ pub struct SessionContext {
     pub client_cert_der: Option<Vec<u8>>,
     /// Username received from AUTHINFO USER, waiting for AUTHINFO PASS.
     pub pending_auth_user: Option<String>,
-    /// Currently selected newsgroup.
-    pub current_group: Option<GroupName>,
-    /// Article pointer within the current group (1-based, per RFC 3977 §6.1.1).
-    pub current_article_number: Option<u64>,
+    /// Currently selected group and article pointer (atomically maintained).
+    ///
+    /// `None` when no group is selected (Authenticating or Active state).
+    /// `Some(sg)` when a GROUP command has succeeded (GroupSelected state).
+    /// Setting `state = GroupSelected` and `selected_group = Some(...)` must
+    /// always happen together — do not set one without the other.
+    pub selected_group: Option<SelectedGroup>,
     /// Remote peer address for logging.
     pub peer_addr: SocketAddr,
     /// Whether posting is permitted on this server.
@@ -86,8 +104,7 @@ impl SessionContext {
             client_cert_fingerprint: None,
             client_cert_der: None,
             pending_auth_user: None,
-            current_group: None,
-            current_article_number: None,
+            selected_group: None,
             peer_addr,
             posting_allowed,
             known_groups: vec![],
@@ -121,7 +138,7 @@ mod tests {
     #[test]
     fn test_initial_no_group() {
         let ctx = SessionContext::new(test_addr(), false, true, false);
-        assert!(ctx.current_group.is_none());
+        assert!(ctx.selected_group.is_none());
     }
 
     #[test]

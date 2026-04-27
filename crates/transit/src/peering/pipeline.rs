@@ -1220,7 +1220,7 @@ mod tests {
     /// populated with valid placeholder values; only `newsgroups` and
     /// `message_id` vary per test case.
     fn make_article_struct(msgid: &str, newsgroup: &str) -> stoa_core::article::Article {
-        use stoa_core::article::{Article, ArticleBody, ArticleHeader, GroupName};
+        use stoa_core::article::{Article, ArticleHeader, GroupName};
         Article {
             header: ArticleHeader {
                 from: "sender@example.com".into(),
@@ -1231,7 +1231,7 @@ mod tests {
                 path: "local.test.example.com!not-for-mail".into(),
                 extra_headers: vec![],
             },
-            body: ArticleBody::from_text("This is the body.\r\n"),
+            body: b"This is the body.\r\n".to_vec(),
         }
     }
 

@@ -16,7 +16,7 @@ use crate::group_log::types::LogEntryId;
 
 /// Maximum number of entries returned in the `have` list per reconciliation
 /// round.  Groups with more divergent history converge over multiple rounds.
-/// Bounds memory and gossipsub message size regardless of group log depth.
+/// Bounds memory and IHAVE message size regardless of group log depth.
 const MAX_HAVE: usize = 1000;
 
 /// Maximum number of BFS node visits during the `have` traversal.
@@ -32,13 +32,15 @@ pub struct ReconcileResult {
     pub want: Vec<LogEntryId>,
     /// Entry IDs we have to offer the remote (we have them, remote doesn't).
     /// Capped at [`MAX_HAVE`] entries; further convergence happens in subsequent rounds.
-    /// If `have.len() == MAX_HAVE`, the result is truncated; callers should
-    /// issue another reconciliation round to retrieve remaining entries.
     pub have: Vec<LogEntryId>,
-    /// `true` when the local BFS was cut short by the [`MAX_HAVE`] cap.
+    /// `true` when the BFS was cut short before the local DAG was fully traversed.
     ///
-    /// Callers that need to know whether additional entries exist should
-    /// schedule a follow-up reconciliation round when this flag is set.
+    /// Two conditions set this flag:
+    /// - The BFS visit count reached [`MAX_BFS_VISITS`] (5 000) — the DAG is too large
+    ///   to traverse in a single round.
+    /// - `have.len()` reached [`MAX_HAVE`] (1 000) with entries still in the queue.
+    ///
+    /// In either case the caller should schedule a follow-up reconciliation round.
     pub partial_have: bool,
 }
 

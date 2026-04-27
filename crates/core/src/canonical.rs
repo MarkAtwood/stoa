@@ -86,7 +86,7 @@ pub fn canonical_bytes(article: &Article) -> Vec<u8> {
     out.extend_from_slice(b"\x00\n");
 
     // Raw body bytes.
-    out.extend_from_slice(&article.body.bytes);
+    out.extend_from_slice(&article.body);
 
     out
 }
@@ -167,7 +167,7 @@ fn push_header(out: &mut Vec<u8>, name: &str, value: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::article::{Article, ArticleBody, ArticleHeader, GroupName};
+    use crate::article::{Article, ArticleHeader, GroupName};
 
     fn base_article() -> Article {
         Article {
@@ -180,7 +180,7 @@ mod tests {
                 path: "news.example.com!user".into(),
                 extra_headers: vec![],
             },
-            body: ArticleBody::from_text("Body text.\r\n"),
+            body: b"Body text.\r\n".to_vec(),
         }
     }
 

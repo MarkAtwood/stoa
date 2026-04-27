@@ -291,6 +291,16 @@ where
     let mut line_buf = String::new();
     let cmd_timeout = std::time::Duration::from_secs(config.limits.command_timeout_secs);
 
+    // Helper: write a Response and return Done on I/O error.
+    // Used in the command routing match below.
+    macro_rules! send {
+        ($resp:expr) => {
+            if writer.write_all($resp.to_bytes().as_slice()).await.is_err() {
+                return CommandLoopExit::Done;
+            }
+        };
+    }
+
     loop {
         line_buf.clear();
         let n = match tokio::time::timeout(cmd_timeout, reader.read_line(&mut line_buf)).await {
@@ -325,336 +335,267 @@ where
             }
         };
 
-        // ARTICLE <msgid>: resolve from stores before dispatching.
-        if let Command::Article(Some(ArticleRef::MessageId(ref msgid))) = cmd {
-            let resp = lookup_article_by_msgid(stores, msgid).await;
-            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
-                return CommandLoopExit::Done;
+        // Route commands that need async store access before dispatch, or that
+        // require special handling (STARTTLS, AUTHINFO PASS).  All other commands
+        // fall through to the synchronous `dispatch` function at the end of the loop.
+        match &cmd {
+            Command::Article(Some(ArticleRef::MessageId(msgid))) => {
+                let resp = lookup_article_by_msgid(stores, msgid).await;
+                send!(resp);
+                continue;
             }
-            continue;
-        }
-
-        // ARTICLE cid:<cid>: fetch directly by CID (ADR-0007).
-        if let Command::Article(Some(ArticleRef::Cid(ref cid_str))) = cmd {
-            let resp = lookup_article_by_cid(stores, cid_str).await;
-            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
-                return CommandLoopExit::Done;
+            Command::Article(Some(ArticleRef::Cid(cid_str))) => {
+                let resp = lookup_article_by_cid(stores, cid_str).await;
+                send!(resp);
+                continue;
             }
-            continue;
-        }
-
-        // ARTICLE <n> / ARTICLE (current) — look up by local article number.
-        if matches!(
-            cmd,
-            Command::Article(Some(ArticleRef::Number(_))) | Command::Article(None)
-        ) {
-            let number = match &cmd {
-                Command::Article(Some(ArticleRef::Number(n))) => *n,
-                Command::Article(None) => match ctx.current_article_number {
+            Command::Article(Some(ArticleRef::Number(n))) => {
+                let resp = match lookup_article_content_by_number(stores, ctx, *n).await {
+                    Ok(content) => article_response(&content),
+                    Err(r) => r,
+                };
+                send!(resp);
+                continue;
+            }
+            Command::Article(None) => {
+                let n = match ctx.selected_group.as_ref().and_then(|sg| sg.article_number) {
                     Some(n) => n,
                     None => {
-                        let resp = Response::new(420, "Current article number is invalid");
-                        if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
-                            return CommandLoopExit::Done;
-                        }
+                        send!(Response::new(420, "Current article number is invalid"));
                         continue;
                     }
-                },
-                _ => unreachable!(),
-            };
-            let resp = match lookup_article_content_by_number(stores, ctx, number).await {
-                Ok(content) => article_response(&content),
-                Err(r) => r,
-            };
-            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
-                return CommandLoopExit::Done;
+                };
+                let resp = match lookup_article_content_by_number(stores, ctx, n).await {
+                    Ok(content) => article_response(&content),
+                    Err(r) => r,
+                };
+                send!(resp);
+                continue;
             }
-            continue;
-        }
-
-        // HEAD <msgid> / HEAD <n> / HEAD (current)
-        if matches!(
-            cmd,
-            Command::Head(Some(ArticleRef::MessageId(_)))
-                | Command::Head(Some(ArticleRef::Number(_)))
-                | Command::Head(None)
-        ) {
-            let resp = match &cmd {
-                Command::Head(Some(ArticleRef::MessageId(ref msgid))) => {
-                    lookup_head_by_msgid(stores, msgid).await
-                }
-                Command::Head(Some(ArticleRef::Number(n))) => {
-                    match lookup_article_content_by_number(stores, ctx, *n).await {
-                        Ok(content) => head_response(&content),
-                        Err(r) => r,
-                    }
-                }
-                Command::Head(None) => match ctx.current_article_number {
-                    Some(n) => match lookup_article_content_by_number(stores, ctx, n).await {
-                        Ok(content) => head_response(&content),
-                        Err(r) => r,
-                    },
-                    None => Response::new(420, "Current article number is invalid"),
-                },
-                _ => unreachable!(),
-            };
-            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
-                return CommandLoopExit::Done;
+            Command::Head(Some(ArticleRef::MessageId(msgid))) => {
+                let resp = lookup_head_by_msgid(stores, msgid).await;
+                send!(resp);
+                continue;
             }
-            continue;
-        }
-
-        // BODY <msgid> / BODY <n> / BODY (current)
-        if matches!(
-            cmd,
-            Command::Body(Some(ArticleRef::MessageId(_)))
-                | Command::Body(Some(ArticleRef::Number(_)))
-                | Command::Body(None)
-        ) {
-            let resp = match &cmd {
-                Command::Body(Some(ArticleRef::MessageId(ref msgid))) => {
-                    lookup_body_by_msgid(stores, msgid).await
-                }
-                Command::Body(Some(ArticleRef::Number(n))) => {
-                    match lookup_article_content_by_number(stores, ctx, *n).await {
-                        Ok(content) => body_response(&content),
-                        Err(r) => r,
-                    }
-                }
-                Command::Body(None) => match ctx.current_article_number {
-                    Some(n) => match lookup_article_content_by_number(stores, ctx, n).await {
-                        Ok(content) => body_response(&content),
-                        Err(r) => r,
-                    },
-                    None => Response::new(420, "Current article number is invalid"),
-                },
-                _ => unreachable!(),
-            };
-            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
-                return CommandLoopExit::Done;
+            Command::Head(Some(ArticleRef::Number(n))) => {
+                let resp = match lookup_article_content_by_number(stores, ctx, *n).await {
+                    Ok(content) => head_response(&content),
+                    Err(r) => r,
+                };
+                send!(resp);
+                continue;
             }
-            continue;
-        }
-
-        // STAT <n> / STAT (current) — check existence by local article number.
-        if matches!(
-            cmd,
-            Command::Stat(Some(ArticleRef::Number(_))) | Command::Stat(None)
-        ) {
-            let number = match &cmd {
-                Command::Stat(Some(ArticleRef::Number(n))) => *n,
-                Command::Stat(None) => match ctx.current_article_number {
+            Command::Head(None) => {
+                let n = match ctx.selected_group.as_ref().and_then(|sg| sg.article_number) {
                     Some(n) => n,
                     None => {
-                        let resp = Response::new(420, "Current article number is invalid");
-                        if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
-                            return CommandLoopExit::Done;
-                        }
+                        send!(Response::new(420, "Current article number is invalid"));
                         continue;
                     }
-                },
-                _ => unreachable!(),
-            };
-            let resp = match lookup_article_content_by_number(stores, ctx, number).await {
-                Ok(content) => {
-                    Response::article_exists(content.article_number, &content.message_id)
+                };
+                let resp = match lookup_article_content_by_number(stores, ctx, n).await {
+                    Ok(content) => head_response(&content),
+                    Err(r) => r,
+                };
+                send!(resp);
+                continue;
+            }
+            Command::Body(Some(ArticleRef::MessageId(msgid))) => {
+                let resp = lookup_body_by_msgid(stores, msgid).await;
+                send!(resp);
+                continue;
+            }
+            Command::Body(Some(ArticleRef::Number(n))) => {
+                let resp = match lookup_article_content_by_number(stores, ctx, *n).await {
+                    Ok(content) => body_response(&content),
+                    Err(r) => r,
+                };
+                send!(resp);
+                continue;
+            }
+            Command::Body(None) => {
+                let n = match ctx.selected_group.as_ref().and_then(|sg| sg.article_number) {
+                    Some(n) => n,
+                    None => {
+                        send!(Response::new(420, "Current article number is invalid"));
+                        continue;
+                    }
+                };
+                let resp = match lookup_article_content_by_number(stores, ctx, n).await {
+                    Ok(content) => body_response(&content),
+                    Err(r) => r,
+                };
+                send!(resp);
+                continue;
+            }
+            Command::Stat(Some(ArticleRef::Number(n))) => {
+                let resp = match lookup_article_content_by_number(stores, ctx, *n).await {
+                    Ok(content) => {
+                        Response::article_exists(content.article_number, &content.message_id)
+                    }
+                    Err(r) => r,
+                };
+                send!(resp);
+                continue;
+            }
+            Command::Stat(None) => {
+                let n = match ctx.selected_group.as_ref().and_then(|sg| sg.article_number) {
+                    Some(n) => n,
+                    None => {
+                        send!(Response::new(420, "Current article number is invalid"));
+                        continue;
+                    }
+                };
+                let resp = match lookup_article_content_by_number(stores, ctx, n).await {
+                    Ok(content) => {
+                        Response::article_exists(content.article_number, &content.message_id)
+                    }
+                    Err(r) => r,
+                };
+                send!(resp);
+                continue;
+            }
+            Command::Stat(Some(ArticleRef::MessageId(msgid))) => {
+                let resp = stat_by_msgid(stores, msgid).await;
+                send!(resp);
+                continue;
+            }
+            Command::Xcid(arg) => {
+                let resp = handle_xcid(
+                    stores,
+                    arg.as_deref(),
+                    ctx.selected_group.as_ref().map(|sg| sg.name.as_str()),
+                    ctx.selected_group.as_ref().and_then(|sg| sg.article_number),
+                )
+                .await;
+                send!(resp);
+                continue;
+            }
+            Command::Xverify {
+                message_id,
+                expected_cid,
+                verify_sig,
+            } => {
+                let resp =
+                    handle_xverify(stores, message_id, expected_cid, *verify_sig).await;
+                send!(resp);
+                continue;
+            }
+            Command::Xget(cid_str) => {
+                let resp = crate::session::commands::xget::handle_xget(
+                    cid_str,
+                    stores.ipfs_store.as_ref(),
+                    stores.msgid_map.as_ref(),
+                )
+                .await;
+                send!(resp);
+                continue;
+            }
+            Command::Group(name) => {
+                let resp = handle_group_live(stores, ctx, name).await;
+                send!(resp);
+                continue;
+            }
+            Command::List(ListSubcommand::Active) => {
+                let resp = handle_list_active_live(stores, ctx).await;
+                send!(resp);
+                continue;
+            }
+            Command::Over(arg) => {
+                let resp = handle_over_live(stores, ctx, arg.as_ref()).await;
+                send!(resp);
+                continue;
+            }
+            Command::Hdr {
+                field,
+                range_or_msgid,
+            } => {
+                let resp =
+                    handle_hdr_live(stores, ctx, field, range_or_msgid.as_deref()).await;
+                send!(resp);
+                continue;
+            }
+            // STARTTLS: mid-session TLS upgrade (RFC 4642).
+            // Send 382 + return StartTlsRequested when available; otherwise fall
+            // through to dispatch (which returns 502).
+            Command::StartTls => {
+                if ctx.starttls_available && !ctx.tls_active {
+                    // RFC 4642 §2.2: the client MUST NOT pipeline commands after
+                    // STARTTLS.  This check is best-effort: it catches data that
+                    // is already in the BufReader's internal buffer, but cannot
+                    // detect commands that the client has sent but that have not
+                    // yet been copied from the kernel TCP receive buffer into the
+                    // userspace buffer.  A well-behaved client will wait for the
+                    // 382 before sending further data; a malicious client may still
+                    // slip a command through the gap.  Connections caught by this
+                    // check are closed; connections that slip through will see
+                    // garbled output once the TLS handshake starts.
+                    if !reader.buffer().is_empty() {
+                        warn!(peer = %peer_addr, "STARTTLS: pipelined data detected (best-effort check), closing");
+                        let _ = writer.write_all(b"502 Command unavailable\r\n").await;
+                        return CommandLoopExit::Done;
+                    }
+                    if writer
+                        .write_all(Response::starttls_ready().to_bytes().as_slice())
+                        .await
+                        .is_err()
+                    {
+                        return CommandLoopExit::Done;
+                    }
+                    return CommandLoopExit::StartTlsRequested; // caller performs TLS handshake
                 }
-                Err(r) => r,
-            };
-            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
-                return CommandLoopExit::Done;
+                // Not available or already active — fall through to dispatch (returns 502).
             }
-            continue;
-        }
-
-        // STAT <msgid>: look up existence by message-id, no group required.
-        if let Command::Stat(Some(ArticleRef::MessageId(ref msgid))) = cmd {
-            let resp = stat_by_msgid(stores, msgid).await;
-            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
-                return CommandLoopExit::Done;
-            }
-            continue;
-        }
-
-        // XCID: return CID for current or named article (ADR-0007).
-        if let Command::Xcid(ref arg) = cmd {
-            let resp = handle_xcid(
-                stores,
-                arg.as_deref(),
-                ctx.current_group.as_ref().map(|g| g.as_str()),
-                ctx.current_article_number,
-            )
-            .await;
-            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
-                return CommandLoopExit::Done;
-            }
-            continue;
-        }
-
-        // XVERIFY: verify stored CID and optionally signature (ADR-0007).
-        if let Command::Xverify {
-            ref message_id,
-            ref expected_cid,
-            verify_sig,
-        } = cmd
-        {
-            let resp = handle_xverify(stores, message_id, expected_cid, verify_sig).await;
-            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
-                return CommandLoopExit::Done;
-            }
-            continue;
-        }
-
-        // XGET: fetch a raw IPFS block by CID and return it base64-encoded.
-        if let Command::Xget(ref cid_str) = cmd {
-            let resp = crate::session::commands::xget::handle_xget(
-                cid_str,
-                stores.ipfs_store.as_ref(),
-                stores.msgid_map.as_ref(),
-            )
-            .await;
-            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
-                return CommandLoopExit::Done;
-            }
-            continue;
-        }
-
-        // GROUP: serve live article count/range from article_numbers store.
-        if let Command::Group(ref name) = cmd {
-            let resp = handle_group_live(stores, ctx, name).await;
-            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
-                return CommandLoopExit::Done;
-            }
-            continue;
-        }
-
-        // LIST ACTIVE: serve live article ranges for all configured groups.
-        if let Command::List(ListSubcommand::Active) = cmd {
-            let resp = handle_list_active_live(stores, ctx).await;
-            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
-                return CommandLoopExit::Done;
-            }
-            continue;
-        }
-
-        // OVER/XOVER: serve overview records from the overview index.
-        if let Command::Over(ref arg) = cmd {
-            let resp = handle_over_live(stores, ctx, arg.as_ref()).await;
-            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
-                return CommandLoopExit::Done;
-            }
-            continue;
-        }
-
-        // HDR field-name [range|message-id]: serve a single header field from
-        // the overview index (RFC 3977 §8.5).
-        if let Command::Hdr {
-            ref field,
-            ref range_or_msgid,
-        } = cmd
-        {
-            let resp = handle_hdr_live(stores, ctx, field, range_or_msgid.as_deref()).await;
-            if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
-                return CommandLoopExit::Done;
-            }
-            continue;
-        }
-
-        // STARTTLS: mid-session TLS upgrade (RFC 4642).
-        // Intercept before dispatch so we can signal the caller when 382 is sent.
-        if let Command::StartTls = cmd {
-            if ctx.starttls_available && !ctx.tls_active {
-                // RFC 4642 §2.2: the client MUST NOT pipeline commands after
-                // STARTTLS.  This check is best-effort: it catches data that
-                // is already in the BufReader's internal buffer, but cannot
-                // detect commands that the client has sent but that have not
-                // yet been copied from the kernel TCP receive buffer into the
-                // userspace buffer.  A well-behaved client will wait for the
-                // 382 before sending further data; a malicious client may still
-                // slip a command through the gap.  Connections caught by this
-                // check are closed; connections that slip through will see
-                // garbled output once the TLS handshake starts.
-                if !reader.buffer().is_empty() {
-                    warn!(peer = %peer_addr, "STARTTLS: pipelined data detected (best-effort check), closing");
-                    let _ = writer.write_all(b"502 Command unavailable\r\n").await;
-                    return CommandLoopExit::Done;
+            // AUTHINFO PASS: async bcrypt credential check via CredentialStore.
+            // RFC 3977 §7.1.1 / RFC 4643: if auth.required and TLS not active, reject 483.
+            Command::AuthinfoPass(password) => {
+                if config.auth.required && !ctx.tls_active {
+                    send!(Response::new(483, "Encryption required for authentication"));
+                    continue;
                 }
-                if writer
-                    .write_all(Response::starttls_ready().to_bytes().as_slice())
-                    .await
-                    .is_err()
-                {
-                    return CommandLoopExit::Done;
+                let username = match ctx.pending_auth_user.take() {
+                    Some(u) => u,
+                    None => {
+                        send!(Response::authentication_out_of_sequence());
+                        continue;
+                    }
+                };
+                let accepted = if config.auth.is_dev_mode() {
+                    tracing::warn!(
+                        peer = %peer_addr,
+                        username = %username,
+                        "AUTHINFO: dev mode active — credential check bypassed; \
+                         do not use in production"
+                    );
+                    true
+                } else {
+                    stores.credential_store.check(&username, password).await
+                };
+                if accepted {
+                    ctx.state = SessionState::Active;
+                    ctx.authenticated_user = Some(username);
+                    ctx.auth_failure_count = 0;
+                    send!(Response::authentication_accepted());
+                } else {
+                    ctx.auth_failure_count += 1;
+                    if ctx.auth_failure_count >= crate::session::context::MAX_AUTH_FAILURES {
+                        warn!(peer = %peer_addr, "AUTHINFO: too many failures, closing connection");
+                        let resp = Response::new(400, "Too many authentication failures");
+                        let _ = writer.write_all(resp.to_bytes().as_slice()).await;
+                        return CommandLoopExit::Done;
+                    }
+                    send!(Response::authentication_failed());
                 }
-                return CommandLoopExit::StartTlsRequested; // caller performs TLS handshake
+                continue;
             }
-            // Fall through to dispatch (returns 502 when unavailable or already TLS).
-        }
-
-        // AUTHINFO PASS: async bcrypt credential check via CredentialStore.
-        // RFC 3977 §7.1.1 / RFC 4643: if auth.required and TLS not active, reject 483.
-        if let Command::AuthinfoPass(_) = cmd {
-            if config.auth.required && !ctx.tls_active {
-                let resp = Response::new(483, "Encryption required for authentication");
-                if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
+            Command::Search { key, value } => {
+                let resp = handle_nntp_search(stores, ctx, key, value).await;
+                if writer.write_all(&resp).await.is_err() {
                     return CommandLoopExit::Done;
                 }
                 continue;
             }
-        }
-        if let Command::AuthinfoPass(ref password) = cmd {
-            let username = match ctx.pending_auth_user.take() {
-                Some(u) => u,
-                None => {
-                    let resp = Response::authentication_out_of_sequence();
-                    if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
-                        return CommandLoopExit::Done;
-                    }
-                    continue;
-                }
-            };
-            let accepted = if config.auth.is_dev_mode() {
-                tracing::warn!(
-                    peer = %peer_addr,
-                    username = %username,
-                    "AUTHINFO: dev mode active — credential check bypassed; \
-                     do not use in production"
-                );
-                true
-            } else {
-                stores.credential_store.check(&username, password).await
-            };
-            if accepted {
-                ctx.state = SessionState::Active;
-                ctx.authenticated_user = Some(username);
-                ctx.auth_failure_count = 0;
-                let resp = Response::authentication_accepted();
-                if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
-                    return CommandLoopExit::Done;
-                }
-            } else {
-                ctx.auth_failure_count += 1;
-                if ctx.auth_failure_count >= crate::session::context::MAX_AUTH_FAILURES {
-                    warn!(peer = %peer_addr, "AUTHINFO: too many failures, closing connection");
-                    let resp = Response::new(400, "Too many authentication failures");
-                    let _ = writer.write_all(resp.to_bytes().as_slice()).await;
-                    return CommandLoopExit::Done;
-                }
-                let resp = Response::authentication_failed();
-                if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {
-                    return CommandLoopExit::Done;
-                }
-            }
-            continue;
-        }
-
-        // SEARCH key value: full-text search within the current group.
-        if let Command::Search { ref key, ref value } = cmd {
-            let resp = handle_nntp_search(stores, ctx, key, value).await;
-            if writer.write_all(&resp).await.is_err() {
-                return CommandLoopExit::Done;
-            }
-            continue;
+            _ => {} // fall through to dispatch
         }
 
         let is_quit = matches!(cmd, Command::Quit);
@@ -1047,26 +988,10 @@ async fn fetch_article_wire_bytes(
 
 /// Look up an article by Message-ID from stores and return a 220/430 response.
 async fn lookup_article_by_msgid(stores: &ServerStores, msgid: &str) -> Response {
-    let cid = match stores.msgid_map.lookup_by_msgid(msgid).await {
-        Ok(Some(c)) => c,
-        Ok(None) => return Response::no_article_with_message_id(),
-        Err(e) => {
-            warn!("msgid_map lookup error for {msgid}: {e}");
-            return Response::program_fault();
-        }
+    let (cid, header_bytes, body_bytes) = match resolve_msgid_to_wire(stores, msgid).await {
+        Ok(t) => t,
+        Err(r) => return r,
     };
-
-    let wire_bytes = match fetch_article_wire_bytes(stores.ipfs_store.as_ref(), &cid).await {
-        Ok(b) => b,
-        Err(e) => {
-            warn!("fetch_article_wire_bytes error for cid {cid}: {e}");
-            return Response::program_fault();
-        }
-    };
-
-    // Split the wire bytes into header and body sections.
-    let (header_bytes, body_bytes) = split_article(&wire_bytes);
-
     // Look up DID signature verification result from the overview index.
     // Silently omit the header on lookup error — do not fail the ARTICLE command.
     let did_sig_valid = stores
@@ -1076,15 +1001,12 @@ async fn lookup_article_by_msgid(stores: &ServerStores, msgid: &str) -> Response
         .ok()
         .flatten()
         .and_then(|r| r.did_sig_valid);
-
-    // Look up cryptographic verification results from the verify store.
     let verifications = stores
         .verification_store
         .get_verifications(&cid)
         .await
         .unwrap_or_default();
-
-    let content = ArticleContent {
+    article_response(&ArticleContent {
         article_number: 0,
         message_id: msgid.to_string(),
         header_bytes,
@@ -1092,9 +1014,7 @@ async fn lookup_article_by_msgid(stores: &ServerStores, msgid: &str) -> Response
         cid: Some(cid),
         did_sig_valid,
         verifications,
-    };
-
-    article_response(&content)
+    })
 }
 
 /// Resolve a local article number to its `ArticleContent`.
@@ -1108,8 +1028,8 @@ async fn lookup_article_content_by_number(
     ctx: &mut SessionContext,
     number: u64,
 ) -> Result<ArticleContent, Response> {
-    let group = match ctx.current_group.as_ref() {
-        Some(g) => g.as_str().to_string(),
+    let group = match ctx.selected_group.as_ref() {
+        Some(sg) => sg.name.as_str().to_string(),
         None => return Err(Response::no_newsgroup_selected()),
     };
     let cid = match stores.article_numbers.lookup_cid(&group, number).await {
@@ -1150,7 +1070,9 @@ async fn lookup_article_content_by_number(
         .get_verifications(&cid)
         .await
         .unwrap_or_default();
-    ctx.current_article_number = Some(number);
+    if let Some(sg) = ctx.selected_group.as_mut() {
+        sg.article_number = Some(number);
+    }
     Ok(ArticleContent {
         article_number: number,
         message_id,
@@ -1179,22 +1101,10 @@ async fn stat_by_msgid(stores: &ServerStores, msgid: &str) -> Response {
 
 /// HEAD <msgid>: look up an article by Message-ID and return headers only.
 async fn lookup_head_by_msgid(stores: &ServerStores, msgid: &str) -> Response {
-    let cid = match stores.msgid_map.lookup_by_msgid(msgid).await {
-        Ok(Some(c)) => c,
-        Ok(None) => return Response::no_article_with_message_id(),
-        Err(e) => {
-            warn!("msgid_map lookup error for {msgid}: {e}");
-            return Response::program_fault();
-        }
+    let (cid, header_bytes, body_bytes) = match resolve_msgid_to_wire(stores, msgid).await {
+        Ok(t) => t,
+        Err(r) => return r,
     };
-    let wire_bytes = match fetch_article_wire_bytes(stores.ipfs_store.as_ref(), &cid).await {
-        Ok(b) => b,
-        Err(e) => {
-            warn!("fetch_article_wire_bytes error for cid {cid}: {e}");
-            return Response::program_fault();
-        }
-    };
-    let (header_bytes, body_bytes) = split_article(&wire_bytes);
     let did_sig_valid = stores
         .overview_store
         .query_by_msgid(msgid)
@@ -1220,22 +1130,10 @@ async fn lookup_head_by_msgid(stores: &ServerStores, msgid: &str) -> Response {
 
 /// BODY <msgid>: look up an article by Message-ID and return body only.
 async fn lookup_body_by_msgid(stores: &ServerStores, msgid: &str) -> Response {
-    let cid = match stores.msgid_map.lookup_by_msgid(msgid).await {
-        Ok(Some(c)) => c,
-        Ok(None) => return Response::no_article_with_message_id(),
-        Err(e) => {
-            warn!("msgid_map lookup error for {msgid}: {e}");
-            return Response::program_fault();
-        }
+    let (cid, header_bytes, body_bytes) = match resolve_msgid_to_wire(stores, msgid).await {
+        Ok(t) => t,
+        Err(r) => return r,
     };
-    let wire_bytes = match fetch_article_wire_bytes(stores.ipfs_store.as_ref(), &cid).await {
-        Ok(b) => b,
-        Err(e) => {
-            warn!("fetch_article_wire_bytes error for cid {cid}: {e}");
-            return Response::program_fault();
-        }
-    };
-    let (header_bytes, body_bytes) = split_article(&wire_bytes);
     let verifications = stores
         .verification_store
         .get_verifications(&cid)
@@ -1250,6 +1148,37 @@ async fn lookup_body_by_msgid(stores: &ServerStores, msgid: &str) -> Response {
         did_sig_valid: None,
         verifications,
     })
+}
+
+/// Resolve a Message-ID to its CID and split wire bytes `(header, body)`.
+///
+/// Shared scaffold for `lookup_article_by_msgid`, `lookup_head_by_msgid`, and
+/// `lookup_body_by_msgid`: performs the msgid-map lookup, IPFS fetch, and
+/// header/body split that all three commands require.
+///
+/// Returns `Err(Response)` with 430 (not found) or 500 (storage error) so the
+/// caller can return early via `match … { Err(r) => return r, Ok(t) => t }`.
+async fn resolve_msgid_to_wire(
+    stores: &ServerStores,
+    msgid: &str,
+) -> Result<(cid::Cid, Vec<u8>, Vec<u8>), Response> {
+    let cid = match stores.msgid_map.lookup_by_msgid(msgid).await {
+        Ok(Some(c)) => c,
+        Ok(None) => return Err(Response::no_article_with_message_id()),
+        Err(e) => {
+            warn!("msgid_map lookup error for {msgid}: {e}");
+            return Err(Response::program_fault());
+        }
+    };
+    let wire_bytes = match fetch_article_wire_bytes(stores.ipfs_store.as_ref(), &cid).await {
+        Ok(b) => b,
+        Err(e) => {
+            warn!("fetch_article_wire_bytes error for cid {cid}: {e}");
+            return Err(Response::program_fault());
+        }
+    };
+    let (header_bytes, body_bytes) = split_article(&wire_bytes);
+    Ok((cid, header_bytes, body_bytes))
 }
 
 /// Split raw article bytes at the blank-line separator.
@@ -1475,8 +1404,10 @@ async fn handle_group_live(
         return Response::no_such_newsgroup();
     }
     let count = if low <= high { high - low + 1 } else { 0 };
-    ctx.current_group = Some(group_name);
-    ctx.current_article_number = if count > 0 { Some(low) } else { None };
+    ctx.selected_group = Some(crate::session::context::SelectedGroup {
+        name: group_name,
+        article_number: if count > 0 { Some(low) } else { None },
+    });
     ctx.state = SessionState::GroupSelected;
     Response::group_selected(name, count, low, high)
 }
@@ -1518,14 +1449,14 @@ async fn handle_over_live(
     if !ctx.state.group_selected() {
         return Response::no_newsgroup_selected();
     }
-    let group = match ctx.current_group.as_ref() {
-        Some(g) => g.as_str().to_string(),
+    let group = match ctx.selected_group.as_ref() {
+        Some(sg) => sg.name.as_str().to_string(),
         None => return Response::no_newsgroup_selected(),
     };
 
     let (low, high) = match arg {
         None => {
-            let n = match ctx.current_article_number {
+            let n = match ctx.selected_group.as_ref().and_then(|sg| sg.article_number) {
                 Some(n) => n,
                 None => return Response::current_article_invalid(),
             };
@@ -1604,14 +1535,14 @@ async fn handle_hdr_live(
     if !ctx.state.group_selected() {
         return Response::no_newsgroup_selected();
     }
-    let group = match ctx.current_group.as_ref() {
-        Some(g) => g.as_str().to_string(),
+    let group = match ctx.selected_group.as_ref() {
+        Some(sg) => sg.name.as_str().to_string(),
         None => return Response::no_newsgroup_selected(),
     };
 
     let (low, high) = match range_or_msgid {
         None => {
-            let n = match ctx.current_article_number {
+            let n = match ctx.selected_group.as_ref().and_then(|sg| sg.article_number) {
                 Some(n) => n,
                 None => return Response::current_article_invalid(),
             };
@@ -1732,8 +1663,8 @@ async fn handle_nntp_search(
     key: &SearchKey,
     value: &str,
 ) -> Vec<u8> {
-    let group = match &ctx.current_group {
-        Some(g) => g.as_str().to_owned(),
+    let group = match &ctx.selected_group {
+        Some(sg) => sg.name.as_str().to_owned(),
         None => return b"412 No newsgroup selected\r\n".to_vec(),
     };
 
@@ -1962,7 +1893,10 @@ mod tests {
             true,
             false,
         );
-        ctx.current_group = Some(stoa_core::article::GroupName::new("comp.test").unwrap());
+        ctx.selected_group = Some(crate::session::context::SelectedGroup {
+            name: stoa_core::article::GroupName::new("comp.test").unwrap(),
+            article_number: None,
+        });
         ctx.state = crate::session::state::SessionState::GroupSelected;
 
         let content = lookup_article_content_by_number(&stores, &mut ctx, 1)
@@ -1970,7 +1904,7 @@ mod tests {
             .expect("article 1 must be found");
         assert_eq!(content.article_number, 1);
         assert_eq!(content.message_id, "<bynumber@test.example>");
-        assert_eq!(ctx.current_article_number, Some(1));
+        assert_eq!(ctx.selected_group.as_ref().and_then(|sg| sg.article_number), Some(1));
     }
 
     /// After posting, HEAD <msgid> must return 221.
@@ -2062,7 +1996,10 @@ mod tests {
             true,
             false,
         );
-        ctx.current_group = Some(stoa_core::article::GroupName::new("comp.test").unwrap());
+        ctx.selected_group = Some(crate::session::context::SelectedGroup {
+            name: stoa_core::article::GroupName::new("comp.test").unwrap(),
+            article_number: None,
+        });
         ctx.state = crate::session::state::SessionState::GroupSelected;
 
         match lookup_article_content_by_number(&stores, &mut ctx, 999).await {
@@ -2118,7 +2055,10 @@ mod tests {
             true,
             false,
         );
-        ctx.current_group = Some(stoa_core::article::GroupName::new("misc.test").unwrap());
+        ctx.selected_group = Some(crate::session::context::SelectedGroup {
+            name: stoa_core::article::GroupName::new("misc.test").unwrap(),
+            article_number: None,
+        });
         ctx.state = crate::session::state::SessionState::GroupSelected;
 
         // A value containing Tantivy query syntax.  If passed raw, the colon
@@ -2155,7 +2095,10 @@ mod tests {
             true,
             false,
         );
-        ctx.current_group = Some(stoa_core::article::GroupName::new("misc.test").unwrap());
+        ctx.selected_group = Some(crate::session::context::SelectedGroup {
+            name: stoa_core::article::GroupName::new("misc.test").unwrap(),
+            article_number: None,
+        });
         ctx.state = crate::session::state::SessionState::GroupSelected;
 
         let resp = handle_nntp_search(&stores, &ctx, &SearchKey::Subject, "hello").await;
@@ -2180,7 +2123,10 @@ mod tests {
             true,
             false,
         );
-        ctx.current_group = Some(stoa_core::article::GroupName::new("misc.test").unwrap());
+        ctx.selected_group = Some(crate::session::context::SelectedGroup {
+            name: stoa_core::article::GroupName::new("misc.test").unwrap(),
+            article_number: None,
+        });
         ctx.state = crate::session::state::SessionState::GroupSelected;
 
         let resp = handle_nntp_search(
@@ -2207,7 +2153,10 @@ mod tests {
             true,
             false,
         );
-        ctx.current_group = Some(stoa_core::article::GroupName::new("misc.test").unwrap());
+        ctx.selected_group = Some(crate::session::context::SelectedGroup {
+            name: stoa_core::article::GroupName::new("misc.test").unwrap(),
+            article_number: None,
+        });
         ctx.state = crate::session::state::SessionState::GroupSelected;
 
         let resp = handle_nntp_search(

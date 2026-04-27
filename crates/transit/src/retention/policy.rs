@@ -49,10 +49,16 @@ pub struct ArticleMeta {
 /// are treated as no-match (rule is skipped) rather than panicking.
 #[derive(Debug, Deserialize, Clone)]
 pub struct PinRule {
-    /// Glob pattern for group names. `"all"` matches every group.
-    /// `"comp.*"` matches any group whose name begins with `"comp."`.
-    /// `"comp.**"` is an explicit any-depth variant with identical behavior.
-    /// Exact names such as `"comp.lang.rust"` match only that group.
+    /// Group pattern for this rule, using the **pinning glob syntax** (NOT RFC 3977 wildmat).
+    ///
+    /// Supported patterns (evaluated by `matches_group_glob`):
+    /// - `"all"` — matches every group name.
+    /// - `"comp.*"` or `"comp.**"` — matches any group whose name begins with `"comp."`.
+    /// - `"comp.lang.rust"` — exact, case-sensitive match for that group only.
+    ///
+    /// RFC 3977 wildmat operators (`?`, `!`, character classes) are **not supported** here
+    /// and will silently fail to match.  Use them in `groups.names` (which calls
+    /// `GroupFilter::new` with full wildmat support), not in pinning rules.
     pub groups: String,
     /// If `Some`, only articles no older than this many days match this rule.
     pub max_age_days: Option<u64>,

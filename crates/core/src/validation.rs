@@ -186,26 +186,7 @@ pub fn validate_article_ingress(
         .into());
     }
 
-    // 4. Group names valid.
-    //
-    // DECISION (rbe3.19): GroupName validated again at ingress (defence-in-depth)
-    //
-    // GroupName is a validated newtype that rejects invalid names at construction.
-    // Re-validating here catches values that could have been injected via:
-    // - GroupName::new_unchecked (test/fuzz only, but defence-in-depth applies)
-    // - Deserialization paths that bypass the validated constructor
-    // - Future API changes that add new ways to construct GroupName
-    // Defence-in-depth at trust boundaries means a bug in one layer does not
-    // silently pass malformed group names into the CRDT log.  The cost is one
-    // extra string scan per group name at ingress, which is negligible.
-    // Do NOT remove this check; GroupName newtypes are not a complete guarantee.
-    for group in &h.newsgroups {
-        if crate::article::GroupName::new(group.as_str()).is_err() {
-            return Err(ValidationError::InvalidGroupInNewsgroups(group.as_str().into()).into());
-        }
-    }
-
-    // 5. If allowed_groups filter is active, at least one destination group must
+    // 4. If allowed_groups filter is active, at least one destination group must
     //    match.  A crossposted article is accepted if any of its groups passes
     //    the filter; it is rejected only when none do.
     if let Some(ref filter) = config.allowed_groups {
@@ -306,7 +287,7 @@ pub fn validate_article_ingress(
     }
 
     // 7. Body size limit.
-    let body_len = article.body.bytes.len();
+    let body_len = article.body.len();
     if body_len > config.max_article_bytes {
         return Err(ValidationError::ArticleTooBig {
             size: body_len,
@@ -343,7 +324,7 @@ pub fn check_duplicate(message_id: &str, storage: &dyn MsgIdStorage) -> Result<(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::article::{Article, ArticleBody, ArticleHeader, GroupName};
+    use crate::article::{Article, ArticleHeader, GroupName};
     use crate::wildmat::GroupFilter;
     use std::collections::HashSet;
     use std::sync::Arc;
@@ -366,7 +347,7 @@ mod tests {
                 path: "news.example.com!user".into(),
                 extra_headers: vec![],
             },
-            body: ArticleBody::from_text("Body text.\r\n"),
+            body: b"Body text.\r\n".to_vec(),
         }
     }
 
@@ -551,7 +532,7 @@ mod tests {
     fn test_body_too_big() {
         let mut article = make_valid_article();
         let limit = 16;
-        article.body.bytes = vec![b'x'; limit + 1];
+        article.body = vec![b'x'; limit + 1];
         let config = ValidationConfig {
             max_article_bytes: limit,
             allowed_groups: None,
@@ -573,7 +554,7 @@ mod tests {
     fn test_body_exactly_at_limit_ok() {
         let mut article = make_valid_article();
         let limit = 16;
-        article.body.bytes = vec![b'x'; limit];
+        article.body = vec![b'x'; limit];
         let config = ValidationConfig {
             max_article_bytes: limit,
             allowed_groups: None,

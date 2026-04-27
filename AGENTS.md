@@ -52,15 +52,14 @@ For any task touching more than 3 files or requiring more than a few steps:
 | `transit` | Peering config, store-and-forward, pinning policy, GC semantics, metrics, operator CLI |
 | `reader` | RFC 3977 NNTP protocol layer, article number synthesis, overview index, POST path |
 
-**No SQL outside store modules. No NNTP parsing outside `reader`. No gossipsub code outside `transit`.**
+**No SQL outside store modules. No NNTP parsing outside `reader`. Transit protocol is IHAVE/TAKETHIS over TCP peering sessions — gossipsub was removed in commit bcd4026.**
 
 ## Architectural Non-Negotiables
 
 Before implementing anything, verify it does not violate these:
 
-- Reader speaks RFC 3977 plus standard IANA-registered extensions only — `HDR`, `LIST OVERVIEW.FMT`, `MODE STREAM`/`CHECK`/`TAKETHIS` are in scope; no custom extensions; nothing that exposes CIDs or IPFS internals to clients
+- Reader speaks RFC 3977 plus standard IANA-registered extensions — `HDR`, `LIST OVERVIEW.FMT`, `MODE STREAM`/`CHECK`/`TAKETHIS` are in scope. **Permitted additive extensions** (per ADR-0007): `X-Stoa-*` article headers and `X`-prefixed CID/integrity commands (`XCID`, `XVERIFY`, `XGET`), advertised in `CAPABILITIES` so standard clients degrade gracefully. **Prohibited**: anything that exposes peer topology, DHT state, pin status, or IPFS infrastructure to clients.
 - v1 is text-only — no binary groups, no yEnc, no NZB
-- Gossipsub topics are per-hierarchy, not per-group
 - Article numbers are local and synthetic per `(group, reader_server)` — never network-stable
 - No moderation in v1 — no curation feeds, no cancel messages, no NoCeM
 
@@ -76,7 +75,7 @@ Every issue must carry one or more of these tags:
 | Priority | What it covers |
 |---|---|
 | P0 | Core crate, reader protocol minimum-viable path |
-| P1 | Transit daemon, gossipsub topology |
+| P1 | Transit daemon, IHAVE/TAKETHIS peering |
 | P2 | Import/archival/packaging/observability |
 | P3 | Deferred (binary groups, Filecoin deal impl) |
 

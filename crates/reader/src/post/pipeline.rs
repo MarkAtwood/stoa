@@ -3,76 +3,9 @@
 //! Each function is a single stage. Stages run in order; an `Err` short-circuits
 //! the rest of the pipeline and the response is sent back to the client.
 
-use cid::Cid;
-use serde::Serialize;
-use stoa_core::article::GroupName;
-use stoa_core::hlc::HlcTimestamp;
 use stoa_core::msgid_map::MsgIdMap;
-use tokio::sync::mpsc;
 
 use crate::session::response::Response;
-
-/// Wire-format tip advertisement, compatible with transit's TipAdvertisement.
-/// Field names must match exactly for interoperability.
-#[derive(Serialize)]
-struct TipAdvert<'a> {
-    group_name: &'a str,
-    tip_cids: Vec<String>,
-    hlc_ms: u64,
-    hlc_logical: u32,
-    hlc_node_id: String,
-    sender_peer_id: &'a str,
-}
-
-/// Publish tip advertisements for each group after a successful POST.
-///
-/// Sends one TipAdvertisement per group to the gossipsub channel.
-/// If the channel is `None` or send fails, logs a warning and continues —
-/// gossipsub propagation is best-effort and must not cause POST failure.
-///
-/// Topic naming: `stoa.hier.<hierarchy>` where hierarchy is the first
-/// component of the group name (e.g. `comp.lang.rust` → `stoa.hier.comp`).
-pub async fn publish_tips_after_post(
-    gossip_tx: &Option<mpsc::Sender<(String, Vec<u8>)>>,
-    newsgroups: &[GroupName],
-    tip_cid: &Cid,
-    timestamp: &HlcTimestamp,
-    sender_peer_id: &str,
-) {
-    let tx = match gossip_tx {
-        Some(tx) => tx,
-        None => return,
-    };
-
-    let tip_str = tip_cid.to_string();
-    let node_id_hex = hex::encode(timestamp.node_id);
-
-    for group in newsgroups {
-        let group_str = group.as_str();
-        let hierarchy = group_str.split('.').next().unwrap_or(group_str);
-        let topic = format!("stoa.hier.{hierarchy}");
-
-        let advert = TipAdvert {
-            group_name: group_str,
-            tip_cids: vec![tip_str.clone()],
-            hlc_ms: timestamp.wall_ms,
-            hlc_logical: timestamp.logical,
-            hlc_node_id: node_id_hex.clone(),
-            sender_peer_id,
-        };
-
-        match serde_json::to_vec(&advert) {
-            Err(e) => {
-                tracing::warn!(group = %group_str, "failed to serialize tip advertisement: {e}");
-            }
-            Ok(bytes) => {
-                if let Err(e) = tx.send((topic, bytes)).await {
-                    tracing::warn!(group = %group_str, "gossipsub send failed: {e}");
-                }
-            }
-        }
-    }
-}
 
 /// Configuration for the POST pipeline.
 pub struct PostPipelineConfig {
@@ -160,64 +93,4 @@ mod tests {
         assert_eq!(err.code, 441);
     }
 
-    // ── publish_tips_after_post ───────────────────────────────────────────────
-
-    use stoa_core::article::GroupName;
-    use stoa_core::hlc::HlcTimestamp;
-
-    fn test_cid_dag(data: &[u8]) -> Cid {
-        Cid::new_v1(0x71, Code::Sha2_256.digest(data))
-    }
-
-    fn make_timestamp() -> HlcTimestamp {
-        HlcTimestamp {
-            wall_ms: 1700000000000,
-            logical: 0,
-            node_id: [1, 2, 3, 4, 5, 6, 7, 8],
-        }
-    }
-
-    #[tokio::test]
-    async fn no_gossip_tx_is_noop() {
-        let groups = vec![GroupName::new("comp.lang.rust").unwrap()];
-        let cid = test_cid_dag(b"article");
-        let ts = make_timestamp();
-        publish_tips_after_post(&None, &groups, &cid, &ts, "12D3abc").await;
-    }
-
-    #[tokio::test]
-    async fn publishes_one_message_per_group() {
-        let (tx, mut rx) = mpsc::channel(10);
-        let groups = vec![
-            GroupName::new("comp.lang.rust").unwrap(),
-            GroupName::new("sci.math").unwrap(),
-        ];
-        let cid = test_cid_dag(b"article");
-        let ts = make_timestamp();
-        publish_tips_after_post(&Some(tx), &groups, &cid, &ts, "12D3abc").await;
-
-        let msg1 = rx
-            .try_recv()
-            .expect("should have message for comp.lang.rust");
-        let msg2 = rx.try_recv().expect("should have message for sci.math");
-        assert!(rx.try_recv().is_err(), "should have exactly 2 messages");
-
-        assert_eq!(msg1.0, "stoa.hier.comp");
-        assert_eq!(msg2.0, "stoa.hier.sci");
-
-        let v1: serde_json::Value = serde_json::from_slice(&msg1.1).expect("must be valid JSON");
-        assert_eq!(v1["group_name"], "comp.lang.rust");
-        assert!(!v1["tip_cids"].as_array().unwrap().is_empty());
-    }
-
-    #[tokio::test]
-    async fn topic_uses_first_component_as_hierarchy() {
-        let (tx, mut rx) = mpsc::channel(10);
-        let groups = vec![GroupName::new("alt.binaries.test").unwrap()];
-        let cid = test_cid_dag(b"article");
-        let ts = make_timestamp();
-        publish_tips_after_post(&Some(tx), &groups, &cid, &ts, "12D3abc").await;
-        let (topic, _) = rx.try_recv().expect("should have a message");
-        assert_eq!(topic, "stoa.hier.alt");
-    }
 }

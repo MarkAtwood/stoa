@@ -41,17 +41,11 @@ impl Response {
 
     // --- RFC 3977 standard responses ---
 
-    pub fn service_available_posting() -> Self {
+    pub fn service_available_posting_allowed() -> Self {
         Self::new(200, "Service available, posting allowed")
     }
-    pub fn service_available_posting_allowed() -> Self {
-        Self::service_available_posting()
-    }
-    pub fn service_available_no_posting() -> Self {
-        Self::new(201, "Service available, posting prohibited")
-    }
     pub fn service_available_posting_prohibited() -> Self {
-        Self::service_available_no_posting()
+        Self::new(201, "Service available, posting prohibited")
     }
     /// Returns a CAPABILITIES response with only the VERSION 2 line.
     /// Use `capabilities_with_ctx` to build the full list from session state.
@@ -103,9 +97,6 @@ impl Response {
     /// RFC 4642 §2: server acknowledges STARTTLS, client should begin TLS handshake.
     pub fn starttls_ready() -> Self {
         Self::new(382, "Continue with TLS negotiation")
-    }
-    pub fn no_group_selected() -> Self {
-        Self::no_newsgroup_selected()
     }
     pub fn closing_connection() -> Self {
         Self::new(205, "Closing connection")
@@ -334,8 +325,8 @@ mod tests {
 
     #[test]
     fn all_constructor_codes() {
-        assert_eq!(Response::service_available_posting().code, 200);
-        assert_eq!(Response::service_available_no_posting().code, 201);
+        assert_eq!(Response::service_available_posting_allowed().code, 200);
+        assert_eq!(Response::service_available_posting_prohibited().code, 201);
         assert_eq!(Response::closing_connection().code, 205);
         assert_eq!(Response::information_follows().code, 215);
         assert_eq!(Response::article_exists(1, "<x@y>").code, 223);

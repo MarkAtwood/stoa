@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use libfuzzer_sys::fuzz_target;
 use stoa_core::{
-    article::{Article, ArticleBody, ArticleHeader, GroupName},
+    article::{Article, ArticleHeader, GroupName},
     validation::{validate_article_ingress, ValidationConfig},
     wildmat::GroupFilter,
 };
@@ -42,9 +42,7 @@ fuzz_target!(|data: &[u8]| {
             path,
             extra_headers: vec![],
         },
-        body: ArticleBody {
-            bytes: body_str.as_bytes().to_vec(),
-        },
+        body: body_str.as_bytes().to_vec(),
     };
 
     // Use a non-None allowed_groups so that both error paths are reachable:

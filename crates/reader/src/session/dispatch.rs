@@ -5,7 +5,7 @@ use crate::{
     session::{
         command::{ArticleRef, Command, ListSubcommand, OverArg},
         commands::list::{list_active, list_newsgroups, list_overview_fmt, newgroups, newnews},
-        context::SessionContext,
+        context::{SelectedGroup, SessionContext},
         response::Response,
         state::SessionState,
     },
@@ -28,9 +28,9 @@ use crate::{
 /// authenticated immediately (281) without requiring `AUTHINFO PASS`.
 ///
 /// # No business logic
-/// The dispatcher only routes and checks preconditions. All actual data
-/// retrieval (article lookup, group listing, etc.) returns stub responses
-/// until the relevant store modules are wired in by later epics.
+/// The dispatcher only routes and checks preconditions. Commands that
+/// require live store access (article lookup, etc.) return their correct
+/// RFC 3977 responses; full data retrieval is handled by lifecycle.rs.
 pub fn dispatch(
     ctx: &mut SessionContext,
     cmd: Command,
@@ -57,27 +57,12 @@ pub fn dispatch(
                 if auth_config.required && !ctx.tls_active {
                     return Response::new(483, "Encryption required for authentication");
                 }
-                // Cert bypass: if the session carries a pinned client certificate
-                // fingerprint that maps to this username, authenticate immediately.
-                if let Some(ref fp) = ctx.client_cert_fingerprint {
-                    if let Some(cert_user) = cert_store.lookup(fp) {
-                        if cert_user.eq_ignore_ascii_case(&username) {
-                            ctx.state = SessionState::Active;
-                            ctx.authenticated_user = Some(cert_user.to_lowercase());
-                            return Response::authentication_accepted();
-                        }
-                    }
-                }
-                // Issuer chain bypass: if the leaf cert was signed by a trusted CA
-                // and the cert's CN matches the requested username, authenticate.
-                if let Some(ref der) = ctx.client_cert_der {
-                    if let Ok(Some(cn)) = trusted_issuer_store.verify_and_extract_cn(der) {
-                        if cn.eq_ignore_ascii_case(&username) {
-                            ctx.state = SessionState::Active;
-                            ctx.authenticated_user = Some(cn.to_lowercase());
-                            return Response::authentication_accepted();
-                        }
-                    }
+                if let Some(authed_user) =
+                    try_cert_auth(ctx, &username, cert_store, trusted_issuer_store)
+                {
+                    ctx.state = SessionState::Active;
+                    ctx.authenticated_user = Some(authed_user);
+                    return Response::authentication_accepted();
                 }
                 ctx.pending_auth_user = Some(username);
                 Response::enter_password()
@@ -114,8 +99,10 @@ pub fn dispatch(
                 Err(_) => Response::no_such_newsgroup(),
                 Ok(group) => {
                     let group_str = group.as_str().to_owned();
-                    ctx.current_group = Some(group);
-                    ctx.current_article_number = Some(0);
+                    ctx.selected_group = Some(SelectedGroup {
+                        name: group,
+                        article_number: None,
+                    });
                     ctx.state = SessionState::GroupSelected;
                     Response::group_selected(&group_str, 0, 0, 0)
                 }
@@ -123,7 +110,7 @@ pub fn dispatch(
         }
         Command::Next | Command::Last => {
             if !ctx.state.group_selected() {
-                Response::no_group_selected()
+                Response::no_newsgroup_selected()
             } else {
                 Response::no_article_with_number()
             }
@@ -132,7 +119,7 @@ pub fn dispatch(
             Some(OverArg::MessageId(_)) => Response::overview_follows(),
             _ => {
                 if !ctx.state.group_selected() {
-                    Response::no_group_selected()
+                    Response::no_newsgroup_selected()
                 } else {
                     Response::overview_follows()
                 }
@@ -144,7 +131,7 @@ pub fn dispatch(
             Some(arg) if arg.starts_with('<') => Response::hdr_follows(vec![]),
             _ => {
                 if !ctx.state.group_selected() {
-                    Response::no_group_selected()
+                    Response::no_newsgroup_selected()
                 } else {
                     Response::hdr_follows(vec![])
                 }
@@ -161,25 +148,11 @@ pub fn dispatch(
             if auth_config.required && !ctx.tls_active {
                 return Response::new(483, "Encryption required for authentication");
             }
-            // Cert bypass: if the session carries a pinned client certificate
-            // fingerprint that maps to this username, authenticate immediately.
-            if let Some(ref fp) = ctx.client_cert_fingerprint {
-                if let Some(cert_user) = cert_store.lookup(fp) {
-                    if cert_user.eq_ignore_ascii_case(&username) {
-                        ctx.authenticated_user = Some(cert_user.to_lowercase());
-                        return Response::authentication_accepted();
-                    }
-                }
-            }
-            // Issuer chain bypass: if the leaf cert was signed by a trusted CA
-            // and the cert's CN matches the requested username, authenticate.
-            if let Some(ref der) = ctx.client_cert_der {
-                if let Ok(Some(cn)) = trusted_issuer_store.verify_and_extract_cn(der) {
-                    if cn.eq_ignore_ascii_case(&username) {
-                        ctx.authenticated_user = Some(cn.to_lowercase());
-                        return Response::authentication_accepted();
-                    }
-                }
+            if let Some(authed_user) =
+                try_cert_auth(ctx, &username, cert_store, trusted_issuer_store)
+            {
+                ctx.authenticated_user = Some(authed_user);
+                return Response::authentication_accepted();
             }
             ctx.pending_auth_user = Some(username);
             Response::enter_password()
@@ -220,6 +193,38 @@ pub fn dispatch(
         }
         _ => Response::unknown_command(),
     }
+}
+
+/// Attempt certificate-based authentication for `username`.
+///
+/// Checks the pinned-fingerprint store first, then the trusted-issuer chain.
+/// Returns `Some(lowercase_username)` on success, `None` if no matching cert
+/// credential is found. Callers are responsible for updating `ctx.state` and
+/// `ctx.authenticated_user` on success.
+///
+/// This is the shared cert-bypass logic for both the Authenticating and
+/// Active/GroupSelected dispatch branches — do not duplicate it inline.
+fn try_cert_auth(
+    ctx: &SessionContext,
+    username: &str,
+    cert_store: &ClientCertStore,
+    trusted_issuer_store: &TrustedIssuerStore,
+) -> Option<String> {
+    if let Some(ref fp) = ctx.client_cert_fingerprint {
+        if let Some(cert_user) = cert_store.lookup(fp) {
+            if cert_user.eq_ignore_ascii_case(username) {
+                return Some(cert_user.to_lowercase());
+            }
+        }
+    }
+    if let Some(ref der) = ctx.client_cert_der {
+        if let Ok(Some(cn)) = trusted_issuer_store.verify_and_extract_cn(der) {
+            if cn.eq_ignore_ascii_case(username) {
+                return Some(cn.to_lowercase());
+            }
+        }
+    }
+    None
 }
 
 #[cfg(test)]
@@ -336,7 +341,7 @@ mod tests {
     }
 
     #[test]
-    fn test_group_selected_next_returns_stub() {
+    fn test_next_with_no_article_returns_423() {
         let mut ctx = ctx_group_selected();
         let resp = dispatch(
             &mut ctx,
@@ -362,7 +367,7 @@ mod tests {
     }
 
     #[test]
-    fn test_post_permitted_stub() {
+    fn test_post_permitted_returns_340() {
         let mut ctx = ctx_active();
         let resp = dispatch(
             &mut ctx,
@@ -652,8 +657,8 @@ mod tests {
         );
         assert_eq!(resp.code, 411, "invalid group name must return 411");
         assert!(
-            ctx.current_group.is_none(),
-            "current_group must not be set after 411"
+            ctx.selected_group.is_none(),
+            "selected_group must not be set after 411"
         );
     }
 
@@ -662,8 +667,11 @@ mod tests {
     #[test]
     fn group_invalid_name_preserves_prior_group_selection() {
         // Start with a valid group selected.
-        let mut ctx = ctx_group_selected(); // current_group = comp.lang.rust
-        let prior_group = ctx.current_group.clone();
+        let mut ctx = ctx_group_selected(); // selected_group = comp.lang.rust
+        let prior_group_name = ctx
+            .selected_group
+            .as_ref()
+            .map(|sg| sg.name.as_str().to_owned());
 
         // Push a syntactically-invalid name so the known_groups check passes.
         ctx.known_groups
@@ -684,7 +692,8 @@ mod tests {
         );
         assert_eq!(resp.code, 411, "invalid group name must return 411");
         assert_eq!(
-            ctx.current_group, prior_group,
+            ctx.selected_group.as_ref().map(|sg| sg.name.as_str().to_owned()),
+            prior_group_name,
             "prior group selection must be preserved after 411"
         );
         assert_eq!(

@@ -6,7 +6,7 @@
 //! No vector is derived from the code under test.
 
 use stoa_core::{
-    article::{Article, ArticleBody, ArticleHeader, GroupName},
+    article::{Article, ArticleHeader, GroupName},
     canonical::canonical_bytes,
     signing::{sign, verify, SigningKey, VerifyingKey},
 };
@@ -25,7 +25,7 @@ fn vector1_article() -> Article {
             path: "news.example.com!user".into(),
             extra_headers: vec![],
         },
-        body: ArticleBody::from_text("Body text.\r\n"),
+        body: b"Body text.\r\n".to_vec(),
     }
 }
 

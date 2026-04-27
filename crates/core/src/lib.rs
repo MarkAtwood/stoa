@@ -19,9 +19,9 @@ pub mod util;
 pub mod validation;
 pub mod wildmat;
 
-pub use article::{Article, ArticleBody, ArticleHeader, GroupName};
+pub use article::{Article, ArticleHeader, GroupName};
 pub use error::{
-    CoreError, ProtocolError, SigningError, StorageError, UsenetIpfsError, ValidationError,
+    ProtocolError, SigningError, StorageError, UsenetIpfsError, ValidationError,
 };
 pub use injection_source::{default_injection_source, InjectionSource};
 pub use ipld::{ArticleMetadata, ArticleRootNode, MimeNode};

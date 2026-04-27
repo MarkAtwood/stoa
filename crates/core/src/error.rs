@@ -274,11 +274,6 @@ impl fmt::Display for SigningError {
 
 impl std::error::Error for SigningError {}
 
-// ── CoreError (compatibility alias) ──────────────────────────────────────────
-
-/// Backwards-compatibility alias. New code should use `ValidationError` directly.
-pub type CoreError = ValidationError;
-
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -379,9 +374,4 @@ mod tests {
         assert!(display.contains("invalid key material"));
     }
 
-    #[test]
-    fn test_core_error_alias_works() {
-        let e = CoreError::InvalidGroupName("bad.name.".into());
-        assert_eq!(e, ValidationError::InvalidGroupName("bad.name.".into()));
-    }
 }

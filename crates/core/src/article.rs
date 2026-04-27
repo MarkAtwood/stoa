@@ -1,4 +1,4 @@
-use crate::error::CoreError;
+use crate::error::ValidationError;
 use serde::{Deserialize, Serialize};
 
 /// A validated Usenet group name (e.g. `comp.lang.rust`).
@@ -16,18 +16,18 @@ use serde::{Deserialize, Serialize};
 /// `new_unchecked` is restricted to `#[cfg(any(test, fuzzing))]` so that
 /// invalid names can only enter the validation pipeline in controlled test
 /// environments, never in production paths.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 pub struct GroupName(String);
 
 impl GroupName {
-    /// Construct a validated `GroupName`. Returns `CoreError::InvalidGroupName`
+    /// Construct a validated `GroupName`. Returns `ValidationError::InvalidGroupName`
     /// if the name does not conform to RFC 3977 format.
-    pub fn new(s: impl Into<String>) -> Result<Self, CoreError> {
+    pub fn new(s: impl Into<String>) -> Result<Self, ValidationError> {
         let name: String = s.into();
         if is_valid_group_name(&name) {
             Ok(GroupName(name))
         } else {
-            Err(CoreError::InvalidGroupName(name))
+            Err(ValidationError::InvalidGroupName(name))
         }
     }
 
@@ -50,6 +50,13 @@ impl GroupName {
 impl std::fmt::Display for GroupName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.0)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for GroupName {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(d)?;
+        GroupName::new(s).map_err(serde::de::Error::custom)
     }
 }
 
@@ -103,25 +110,12 @@ pub struct ArticleHeader {
     pub extra_headers: Vec<(String, String)>,
 }
 
-/// The body of an article, stored as raw bytes (v1: text only).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ArticleBody {
-    pub bytes: Vec<u8>,
-}
-
-impl ArticleBody {
-    pub fn from_text(s: &str) -> Self {
-        ArticleBody {
-            bytes: s.as_bytes().to_vec(),
-        }
-    }
-}
-
 /// A complete Usenet article: header block plus body.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Article {
     pub header: ArticleHeader,
-    pub body: ArticleBody,
+    /// Raw body bytes (v1: text only).
+    pub body: Vec<u8>,
 }
 
 #[cfg(test)]
@@ -155,7 +149,7 @@ mod tests {
     fn group_name_empty_rejected() {
         assert_eq!(
             GroupName::new(""),
-            Err(CoreError::InvalidGroupName(String::new()))
+            Err(ValidationError::InvalidGroupName(String::new()))
         );
     }
 
@@ -190,6 +184,18 @@ mod tests {
         assert_eq!(g.to_string(), "comp.lang.rust");
     }
 
+    #[test]
+    fn group_name_deserialize_valid() {
+        let g: GroupName = serde_json::from_str("\"comp.lang.rust\"").unwrap();
+        assert_eq!(g.as_str(), "comp.lang.rust");
+    }
+
+    #[test]
+    fn group_name_deserialize_invalid_rejected() {
+        let result: Result<GroupName, _> = serde_json::from_str("\"comp..invalid\"");
+        assert!(result.is_err(), "invalid group name must be rejected by Deserialize");
+    }
+
     // ── ArticleHeader & Article construction ─────────────────────────────────
 
     fn make_article() -> Article {
@@ -203,7 +209,7 @@ mod tests {
                 path: "news.example.com!user".into(),
                 extra_headers: vec![("X-Mailer".into(), "test".into())],
             },
-            body: ArticleBody::from_text("This is the body.\r\n"),
+            body: b"This is the body.\r\n".to_vec(),
         }
     }
 
@@ -212,12 +218,6 @@ mod tests {
         let a = make_article();
         assert_eq!(a.header.subject, "Hello Rust");
         assert_eq!(a.header.newsgroups.len(), 1);
-    }
-
-    #[test]
-    fn article_body_from_text() {
-        let body = ArticleBody::from_text("hello");
-        assert_eq!(body.bytes, b"hello");
     }
 
     #[test]

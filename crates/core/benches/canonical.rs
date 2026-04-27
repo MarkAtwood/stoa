@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use stoa_core::article::{Article, ArticleBody, ArticleHeader, GroupName};
+use stoa_core::article::{Article, ArticleHeader, GroupName};
 use stoa_core::canonical::canonical_bytes;
 
 fn make_article(n: usize) -> Article {
@@ -19,12 +19,11 @@ fn make_article(n: usize) -> Article {
                 ("References".to_string(), format!("<ref-{n}@example.com>")),
             ],
         },
-        body: ArticleBody::from_text(
-            "This is the body of the article. It contains several sentences of text \
+        body: b"This is the body of the article. It contains several sentences of text \
              to make it a reasonable size for a typical news post.\r\n\
              \r\n\
-             Best regards,\r\nThe Author\r\n",
-        ),
+             Best regards,\r\nThe Author\r\n"
+            .to_vec(),
     }
 }
 
@@ -45,7 +44,7 @@ fn make_article_with_body_size(target_size: usize) -> Article {
                 ("References".to_string(), "<ref@example.com>".to_string()),
             ],
         },
-        body: ArticleBody::from_text(&"x".repeat(target_size)),
+        body: b"x".repeat(target_size),
     }
 }
 

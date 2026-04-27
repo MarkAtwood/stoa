@@ -15,8 +15,6 @@ pub use stoa_core::ipfs_backend::{
     S3BackendConfig,
 };
 
-// Config fields are read from TOML; server logic will consume them as epics are implemented.
-#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub listen: ListenConfig,
@@ -165,8 +163,6 @@ impl Default for DatabaseConfig {
     }
 }
 
-// AdminConfig fields will be used by the admin HTTP endpoint (not yet implemented).
-#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct AdminConfig {
     /// Address to bind the admin HTTP endpoint.
@@ -233,6 +229,13 @@ impl Default for LogConfig {
 
 #[derive(Debug, Deserialize)]
 pub struct ListenConfig {
+    /// Socket address for the NNTP peering listener.
+    ///
+    /// Format: `IP:port` or `[IPv6]:port`. Port 119 is the NNTP standard.
+    /// Production (public): `"0.0.0.0:119"` — binds all interfaces.
+    /// Development (local only): `"127.0.0.1:119"`.
+    /// Binding to a non-loopback address exposes the NNTP port to the network;
+    /// use firewall rules or the TLS listener when network access is required.
     pub addr: String,
 }
 
@@ -350,8 +353,8 @@ pub struct PinningConfig {
     pub external_services: Vec<ExternalPinServiceConfig>,
 }
 
-// GC fields are read from config for future use by the GC scheduler (not yet implemented).
-#[allow(dead_code)]
+/// GC scheduler configuration.  The GC scheduler implementation lives in
+/// `crates/transit/src/retention/gc.rs` but is not yet started from `main.rs`.
 #[derive(Debug, Deserialize)]
 pub struct GcConfig {
     pub schedule: String,

@@ -5,9 +5,14 @@
 //! clients from forging the injection source.  Authenticated drain sessions
 //! (usenet-ipfs-8ipr) will restore SmtpListId local-only routing once implemented.
 //!
-//! - `SmtpListId` header is stripped; article is peerable (group log entry written).
-//! - `SmtpSieve` header is stripped; article is peerable (group log entry written).
-//! - `SmtpNewsgroups` header is stripped; article is peerable (group log entry written).
+//! In all three cases below, the article is classified as `NntpPost` (peerable)
+//! because the client-supplied injection-source header is stripped.
+//! **`SmtpListId` itself is non-peerable** (`is_peerable() == false`); it is only
+//! peerable here because it was re-classified to `NntpPost` before storage.
+//!
+//! - `SmtpListId` header stripped → re-classified as NntpPost → group log entry written.
+//! - `SmtpSieve` header stripped → re-classified as NntpPost → group log entry written.
+//! - `SmtpNewsgroups` header stripped → re-classified as NntpPost → group log entry written.
 
 use std::sync::Arc;
 

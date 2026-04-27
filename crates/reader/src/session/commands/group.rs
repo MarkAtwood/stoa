@@ -1,4 +1,8 @@
-use crate::session::{context::SessionContext, response::Response, state::SessionState};
+use crate::session::{
+    context::{SelectedGroup, SessionContext},
+    response::Response,
+    state::SessionState,
+};
 
 /// Information about a newsgroup needed for GROUP/NEXT/LAST/STAT responses.
 pub struct GroupData {
@@ -27,16 +31,20 @@ pub fn group_data_from_cache(
 
 /// GROUP groupname: select a group and return its stats.
 ///
-/// On success: updates `ctx.current_group` and `ctx.current_article_number`
-/// (to the first article number, or 0 for an empty group).
+/// On success: sets `ctx.selected_group` (name + article pointer) and transitions
+/// `ctx.state` to `GroupSelected` atomically.
 /// Returns 211 with "count low high name", or 411 if `group_data` is `None`.
 pub fn group_select(ctx: &mut SessionContext, group_data: Option<&GroupData>) -> Response {
     match group_data {
         None => Response::no_such_newsgroup(),
         Some(gd) => {
-            ctx.current_group = stoa_core::article::GroupName::new(gd.name.clone()).ok();
-            ctx.current_article_number = Some(gd.article_numbers.first().copied().unwrap_or(0));
-            ctx.state = SessionState::GroupSelected;
+            if let Ok(name) = stoa_core::article::GroupName::new(gd.name.clone()) {
+                ctx.selected_group = Some(SelectedGroup {
+                    name,
+                    article_number: gd.article_numbers.first().copied(),
+                });
+                ctx.state = SessionState::GroupSelected;
+            }
             Response::group_selected(&gd.name, gd.count, gd.low, gd.high)
         }
     }
@@ -55,11 +63,13 @@ pub fn next_article(ctx: &mut SessionContext, group_data: Option<&GroupData>) ->
         Some(gd) => gd,
         None => return Response::no_next_article(),
     };
-    let current = ctx.current_article_number.unwrap_or(0);
+    let current = ctx.selected_group.as_ref().and_then(|sg| sg.article_number).unwrap_or(0);
     let next = gd.article_numbers.iter().find(|&&n| n > current).copied();
     match next {
         Some(n) => {
-            ctx.current_article_number = Some(n);
+            if let Some(sg) = ctx.selected_group.as_mut() {
+                sg.article_number = Some(n);
+            }
             Response::article_exists(n, &format!("<{n}@placeholder>"))
         }
         None => Response::no_next_article(),
@@ -79,7 +89,7 @@ pub fn last_article(ctx: &mut SessionContext, group_data: Option<&GroupData>) ->
         Some(gd) => gd,
         None => return Response::no_previous_article(),
     };
-    let current = ctx.current_article_number.unwrap_or(0);
+    let current = ctx.selected_group.as_ref().and_then(|sg| sg.article_number).unwrap_or(0);
     let prev = gd
         .article_numbers
         .iter()
@@ -88,7 +98,9 @@ pub fn last_article(ctx: &mut SessionContext, group_data: Option<&GroupData>) ->
         .copied();
     match prev {
         Some(n) => {
-            ctx.current_article_number = Some(n);
+            if let Some(sg) = ctx.selected_group.as_mut() {
+                sg.article_number = Some(n);
+            }
             Response::article_exists(n, &format!("<{n}@placeholder>"))
         }
         None => Response::no_previous_article(),
@@ -122,7 +134,7 @@ pub fn stat_article(
             };
             let number: Option<u64> = match arg {
                 Some(s) => s.parse().ok(),
-                None => ctx.current_article_number,
+                None => ctx.selected_group.as_ref().and_then(|sg| sg.article_number),
             };
             match number {
                 Some(n) if gd.article_numbers.contains(&n) => {
@@ -187,7 +199,7 @@ mod tests {
         let gd = make_group("comp.lang.rust", vec![1, 2, 3]);
         let resp = group_select(&mut ctx, Some(&gd));
         assert_eq!(resp.code, 211);
-        assert!(ctx.current_group.is_some());
+        assert!(ctx.selected_group.is_some());
         assert_eq!(ctx.state, SessionState::GroupSelected);
     }
 
@@ -215,7 +227,7 @@ mod tests {
         // cursor starts at 1 (first article)
         let resp = next_article(&mut ctx, Some(&gd));
         assert_eq!(resp.code, 223);
-        assert_eq!(ctx.current_article_number, Some(2));
+        assert_eq!(ctx.selected_group.as_ref().and_then(|sg| sg.article_number), Some(2));
     }
 
     #[test]
@@ -224,7 +236,7 @@ mod tests {
         let gd = make_group("comp.lang.rust", vec![1, 2, 3]);
         group_select(&mut ctx, Some(&gd));
         // Advance cursor to last article.
-        ctx.current_article_number = Some(3);
+        ctx.selected_group.as_mut().unwrap().article_number = Some(3);
         let resp = next_article(&mut ctx, Some(&gd));
         assert_eq!(resp.code, 421);
     }
@@ -234,10 +246,10 @@ mod tests {
         let mut ctx = make_ctx();
         let gd = make_group("comp.lang.rust", vec![1, 2, 3]);
         group_select(&mut ctx, Some(&gd));
-        ctx.current_article_number = Some(2);
+        ctx.selected_group.as_mut().unwrap().article_number = Some(2);
         let resp = last_article(&mut ctx, Some(&gd));
         assert_eq!(resp.code, 223);
-        assert_eq!(ctx.current_article_number, Some(1));
+        assert_eq!(ctx.selected_group.as_ref().and_then(|sg| sg.article_number), Some(1));
     }
 
     #[test]

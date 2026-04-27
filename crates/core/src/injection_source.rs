@@ -30,6 +30,14 @@ impl InjectionSource {
 }
 
 /// Default injection source for backward-compatible deserialization of old queue files.
+///
+/// Queue files written before `InjectionSource` was serialized (pre-enum era) lack the
+/// field entirely.  `SmtpSieve` is the correct default because those files were produced
+/// by the SMTP → Sieve → newsgroup routing path — the same path that `SmtpSieve` now
+/// names explicitly.  Using `SmtpSieve` preserves pre-existing peerability behaviour
+/// (`is_peerable()` returns `true` for `SmtpSieve`).
+///
+/// Do **not** change this default without auditing all queue files in deployed instances.
 pub fn default_injection_source() -> InjectionSource {
     InjectionSource::SmtpSieve
 }

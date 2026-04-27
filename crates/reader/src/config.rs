@@ -14,8 +14,6 @@ fn default_path_hostname() -> String {
     "localhost".to_string()
 }
 
-// Config fields are read from TOML; server logic will consume them as epics are implemented.
-#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct Config {
     /// Hostname used to build the Path: header on incoming NNTP POST articles
@@ -207,6 +205,13 @@ impl SearchConfig {
 
 #[derive(Debug, Deserialize)]
 pub struct ListenConfig {
+    /// Socket address for the NNTP reader listener.
+    ///
+    /// Format: `IP:port` or `[IPv6]:port`. Port 119 is the NNTP standard.
+    /// Production (public): `"0.0.0.0:119"` — binds all interfaces.
+    /// Development (local only): `"127.0.0.1:119"`.
+    /// Binding to a non-loopback address exposes NNTP to the network; pair with
+    /// TLS (port 563 / NNTPS) or restrict access via firewall when public-facing.
     pub addr: String,
 }
 
