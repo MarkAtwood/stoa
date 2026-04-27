@@ -809,7 +809,12 @@ async fn run_post_pipeline(
     // arriving via the SMTP drain are posted through a separate authenticated
     // path that sets its own peerability context.
     let mut article_bytes = article_bytes.to_vec();
-    let injection_source = extract_injection_source(&mut article_bytes);
+    // Call for side-effect only (header removal). Return value is intentionally
+    // discarded: NNTP POST clients can forge any X-Stoa-Injection-Source value,
+    // so the header value MUST NOT change peerability. NntpPost is always used.
+    // See closed bead usenet-ipfs-07rs.3 for full analysis.
+    let _ = extract_injection_source(&mut article_bytes);
+    let injection_source = stoa_core::InjectionSource::NntpPost;
     let article_bytes = article_bytes.as_slice();
 
     // Step 2: Validate headers.
