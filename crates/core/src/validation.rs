@@ -18,6 +18,17 @@ use crate::wildmat::GroupFilter;
 /// Without a cap, a peer can send an article with thousands of fabricated group
 /// names and force the transit pipeline to perform one group-log append per
 /// name — a DoS multiplier.
+///
+/// # DECISION (rbe3.17): MAX_NEWSGROUPS cap prevents crosspost DoS
+///
+/// Without this bound, a malicious peer sends one article with `Newsgroups:`
+/// listing thousands of fabricated group names.  The pipeline performs one
+/// `log_append` per group: one database write, one HLC tick, one CRDT DAG
+/// update.  This is a DoS multiplier that converts one network message into
+/// unbounded server work.  The limit of 100 is generous (legitimate
+/// crossposts are almost always ≤5 groups) and tested at exactly MAX and MAX+1.
+/// Do NOT remove or significantly raise this constant without re-auditing the
+/// pipeline for per-group work.
 pub const MAX_NEWSGROUPS: usize = 100;
 
 // ── Configuration ─────────────────────────────────────────────────────────────
@@ -68,8 +79,15 @@ fn is_valid_message_id(id: &str) -> bool {
         return false;
     }
 
-    // NUL (\0) is not matched by is_whitespace(); check explicitly.
-    // RFC 5322 §2.2 forbids NUL in header field values.
+    // DECISION (rbe3.12): NUL byte explicitly rejected in Message-ID
+    //
+    // Rust's char::is_whitespace() does NOT match '\0'.  RFC 5322 §2.2 forbids
+    // NUL in header field values.  A NUL byte in a Message-ID used as a map key
+    // or canonical-serialisation component would corrupt downstream storage —
+    // some C string APIs treat NUL as string terminator, and the canonical
+    // serialiser uses "\x00\n" as the header/body separator.  The explicit '\0'
+    // check in `forbidden` is intentional; do NOT simplify to `is_whitespace()`
+    // alone even if a linter suggests it.
     let forbidden = |c: char| c.is_whitespace() || c == '<' || c == '>' || c == '\0';
 
     if local.chars().any(forbidden) || domain.chars().any(forbidden) {

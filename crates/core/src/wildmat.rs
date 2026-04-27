@@ -21,6 +21,17 @@ pub fn matches_wildmat(name: &str, pattern: &str) -> bool {
 /// `prev[j]` / `curr[j]` is true when `text[..i-1]` / `text[..i]` matches
 /// `pattern[..j]`.  This avoids the exponential blowup of recursive
 /// backtracking on patterns like `*a*a*a*a*a` against long strings.
+///
+/// # DECISION (rbe3.4): iterative DP algorithm avoids ReDoS
+///
+/// Recursive backtracking wildmat/glob matching has worst-case exponential
+/// time: a pattern like `*a*a*a*a*a` against a long non-matching string forces
+/// the matcher to exhaust all O(2^n) backtrack paths.  This is a ReDoS-class
+/// vulnerability — patterns come from operator config but names come from
+/// untrusted peers, so adversarial names could trigger worst-case behaviour.
+/// The iterative DP approach fills a (text.len()+1) × (pattern.len()+1) boolean
+/// table in O(n*m) time regardless of pattern adversarialness.
+/// Do NOT replace this with a recursive backtracking implementation.
 fn wildmat_match(text: &[u8], pattern: &[u8]) -> bool {
     let m = text.len();
     let n = pattern.len();
@@ -138,6 +149,16 @@ impl GroupFilter {
     ///
     /// Returns `Err(AllNegation)` if the slice is empty or every parsed
     /// pattern is negated.
+    ///
+    /// # DECISION (rbe3.10): all-negation filter rejected at construction
+    ///
+    /// A filter where every entry is a negation (`!comp.*`, `!alt.*`) can
+    /// never accept any group name — it would silently black-hole all articles
+    /// without error.  Rejecting it at construction time (config load) produces
+    /// an immediate startup error rather than a silent operational failure that
+    /// is only discovered when traffic stops flowing.  The check is O(n) over
+    /// the pattern count.  Do NOT weaken this to a warning at construction time;
+    /// silent black-holes are worse than startup failures.
     pub fn new(raw_patterns: &[impl AsRef<str>]) -> Result<Self, WildmatError> {
         let patterns: Result<Vec<WildmatPattern>, WildmatError> = raw_patterns
             .iter()
@@ -226,6 +247,15 @@ mod tests {
     /// of 'a's followed by 'b' because the pattern requires the last character
     /// to be 'a'.  A recursive matcher must exhaust all 2^18 backtracking paths
     /// before determining this; the DP table fills in O(19 * 20) = O(380) steps.
+    ///
+    /// # DECISION (rbe3.5): adversarial backtracking test with wall-clock bound
+    ///
+    /// Most wildmat test suites only check correctness.  This test also asserts
+    /// that the worst-case pattern completes in <100 ms, catching any regression
+    /// to a recursive implementation.  The 100 ms bound is generous (the DP
+    /// matcher runs in microseconds) but tight enough to catch exponential blowup.
+    /// Do NOT remove this test; it is the automated enforcement of the O(n*m)
+    /// complexity guarantee from DECISION (rbe3.4).
     #[test]
     fn wildmat_no_catastrophic_backtracking() {
         let pattern = "*a*a*a*a*a*a*a*a*a"; // ends with literal 'a', not '*'
