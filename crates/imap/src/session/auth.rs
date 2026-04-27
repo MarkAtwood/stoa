@@ -8,8 +8,12 @@
 //! Passwords in `[auth.users]` must be bcrypt hashes (not plaintext).
 //! Use `htpasswd -B -n username` or `python3 -c "import bcrypt; print(bcrypt.hashpw(b'pass', bcrypt.gensalt()).decode())"`.
 //!
-//! A dummy bcrypt hash is always verified for unknown usernames to prevent
-//! timing-based username enumeration.
+//! For unknown usernames, a fixed-duration sleep is used for timing
+//! equalization rather than a dummy bcrypt verification.  This avoids the
+//! timing oracle that arises when the operator's configured hashes use a
+//! higher bcrypt cost than the dummy hash: a dummy verified at cost 10 while
+//! real hashes use cost 12 completes ~4× faster, revealing which usernames
+//! exist.  A constant sleep is simpler and cost-independent.
 
 use std::borrow::Cow;
 
@@ -26,20 +30,13 @@ use tracing::warn;
 
 use crate::config::Config;
 
-/// Bcrypt hash of `"__dummy__"` at cost 10.  Recomputed once at startup.
+/// Duration to sleep when the requested username is not found.
 ///
-/// When the requested username does not exist, `verify_credentials` verifies
-/// against this dummy hash rather than returning immediately.  This ensures
-/// the function always performs a full bcrypt computation regardless of
-/// whether the username was found, preventing timing-based user enumeration.
-static DUMMY_HASH: std::sync::OnceLock<String> = std::sync::OnceLock::new();
-
-fn dummy_hash() -> &'static str {
-    DUMMY_HASH.get_or_init(|| {
-        bcrypt::hash("__dummy__never_matches__", bcrypt::DEFAULT_COST)
-            .expect("bcrypt::hash must not fail with a valid cost")
-    })
-}
+/// This equalizes the response time for unknown users with that of known users
+/// undergoing a bcrypt verification, preventing timing-based username
+/// enumeration.  100 ms is safely above the bcrypt work at any cost ≤ 12 and
+/// far below any interactive timeout.
+const UNKNOWN_USER_DELAY: std::time::Duration = std::time::Duration::from_millis(100);
 
 /// In-progress multi-step authentication state.
 ///
@@ -61,21 +58,32 @@ pub enum AuthProgress {
 
 /// Verify username/password against the configured user list.
 ///
-/// Passwords must be bcrypt hashes. A dummy hash is always verified even for
-/// unknown usernames to prevent timing-based username enumeration.
-/// The bcrypt work is offloaded to a blocking thread via `spawn_blocking`.
+/// Passwords must be bcrypt hashes.  For unknown usernames a fixed-duration
+/// sleep is performed instead of a bcrypt verification so that the response
+/// time is independent of whether the username exists, preventing timing-based
+/// username enumeration.  The bcrypt work for known users is offloaded to a
+/// blocking thread via `spawn_blocking`.
 pub async fn verify_credentials(config: &Config, username: &str, password: &str) -> bool {
     let hash = config
         .auth
         .users
         .iter()
         .find(|c| c.username.eq_ignore_ascii_case(username))
-        .map(|c| c.password.clone())
-        .unwrap_or_else(|| dummy_hash().to_owned());
-    let password = password.to_owned();
-    tokio::task::spawn_blocking(move || bcrypt::verify(&password, &hash).unwrap_or(false))
-        .await
-        .unwrap_or(false)
+        .map(|c| c.password.clone());
+    match hash {
+        Some(h) => {
+            let password = password.to_owned();
+            tokio::task::spawn_blocking(move || bcrypt::verify(&password, &h).unwrap_or(false))
+                .await
+                .unwrap_or(false)
+        }
+        None => {
+            // Username not found: sleep for a fixed duration to equalize
+            // timing with a successful bcrypt verification, then return false.
+            tokio::time::sleep(UNKNOWN_USER_DELAY).await;
+            false
+        }
+    }
 }
 
 /// Handle the initial `CommandAuthenticateReceived` event.
