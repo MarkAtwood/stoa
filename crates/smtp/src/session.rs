@@ -522,6 +522,28 @@ pub async fn run_session<S>(
                     continue;
                 }
 
+                // ─── Mail loop detection (RFC 5321 §6.3) ─────────────────────
+                // Count existing Received: headers.  Each hop prepends one; a
+                // message with 25+ hops is certainly in a loop.  Reject with
+                // 554 so no further resources are consumed.  The state resets
+                // to Greeted so the session stays open for the next message.
+                const MAX_HOPS: usize = 25;
+                if count_received_headers(&raw_bytes) >= MAX_HOPS {
+                    SMTP_MESSAGES_REJECTED_TOTAL
+                        .with_label_values(&["loop"])
+                        .inc();
+                    if write_half
+                        .write_all(b"554 5.4.6 Too many hops - mail loop detected\r\n")
+                        .await
+                        .is_err()
+                    {
+                        break;
+                    }
+                    state = SessionState::Greeted { ehlo_domain };
+                    continue;
+                }
+                // ─────────────────────────────────────────────────────────────
+
                 // Run the inbound authentication pipeline if an authenticator
                 // is configured.  On DMARC reject the session sends 550 and
                 // resets to Greeted (the TCP connection stays open per RFC 5321
@@ -847,10 +869,14 @@ async fn sieve_delivery(
                             warn!(peer = %peer_addr, %username, "deliver to INBOX failed: {e}");
                         }
                     } else {
+                        // No database configured but Keep action requires local
+                        // delivery.  Return a 452 transient failure so the sending
+                        // MTA retries — silently discarding mail here is data loss.
                         warn!(
                             peer = %peer_addr, %username,
-                            "Sieve Keep: no database configured, message not stored"
+                            "Sieve Keep: no database configured, returning transient error"
                         );
+                        nntp_queue_error = true;
                     }
                 }
                 stoa_sieve_native::SieveAction::FileInto(folder) => {
@@ -937,6 +963,46 @@ async fn sieve_for_user(
         },
         None => vec![stoa_sieve_native::SieveAction::Keep],
     }
+}
+
+/// Count the number of `Received:` headers in the header section of a message.
+///
+/// Only the header section (before the first blank line) is scanned; body
+/// content is never considered.  Matching is case-insensitive.
+///
+/// Used for mail loop detection: RFC 5321 §6.3 recommends rejecting messages
+/// with 25 or more `Received:` hops as a probable loop.
+fn count_received_headers(msg: &[u8]) -> usize {
+    // Find the end of the header section (first blank line).
+    let header_end = msg
+        .windows(4)
+        .position(|w| w == b"\r\n\r\n")
+        .map(|p| p + 2)
+        .or_else(|| msg.windows(2).position(|w| w == b"\n\n").map(|p| p + 1))
+        .unwrap_or(msg.len());
+
+    let headers = &msg[..header_end];
+    let prefix = b"received:";
+    let mut count = 0;
+    let mut i = 0;
+    while i < headers.len() {
+        // Find the end of this line.
+        let line_end = headers[i..]
+            .iter()
+            .position(|&b| b == b'\n')
+            .map(|p| i + p)
+            .unwrap_or(headers.len());
+        let line = &headers[i..line_end];
+        // Strip trailing CR.
+        let line = line.strip_suffix(b"\r").unwrap_or(line);
+        if line.len() >= prefix.len()
+            && line[..prefix.len()].eq_ignore_ascii_case(prefix)
+        {
+            count += 1;
+        }
+        i = line_end + 1;
+    }
+    count
 }
 
 /// Read the RFC 5321 DATA body: accumulate dot-unstuffed lines until a lone
@@ -1986,6 +2052,131 @@ mod tests {
         )
         .await;
         assert_eq!(actions, vec![stoa_sieve_native::SieveAction::Keep]);
+    }
+
+    // ── count_received_headers unit tests ────────────────────────────────────
+
+    #[test]
+    fn count_received_zero_when_none() {
+        let msg = b"From: a@b.com\r\nSubject: hi\r\n\r\nBody\r\n";
+        assert_eq!(count_received_headers(msg), 0);
+    }
+
+    #[test]
+    fn count_received_one() {
+        let msg = b"Received: from x by y\r\nFrom: a@b\r\n\r\nBody\r\n";
+        assert_eq!(count_received_headers(msg), 1);
+    }
+
+    #[test]
+    fn count_received_many() {
+        let mut headers = Vec::new();
+        for _ in 0..25 {
+            headers.extend_from_slice(b"Received: from x by y\r\n");
+        }
+        headers.extend_from_slice(b"From: a@b\r\n\r\nBody\r\n");
+        assert_eq!(count_received_headers(&headers), 25);
+    }
+
+    #[test]
+    fn count_received_case_insensitive() {
+        let msg = b"RECEIVED: from x\r\nreceived: from y\r\n\r\nBody\r\n";
+        assert_eq!(count_received_headers(msg), 2);
+    }
+
+    #[test]
+    fn count_received_body_ignored() {
+        // A Received: line in the body must not be counted.
+        let msg = b"From: a@b\r\n\r\nReceived: from x by y\r\n";
+        assert_eq!(count_received_headers(msg), 0);
+    }
+
+    /// A message with 25+ Received: headers must be rejected with 554.
+    #[tokio::test]
+    async fn test_mail_loop_rejection_returns_554() {
+        let rcpt_user = UserConfig {
+            username: "rcpt".to_string(),
+            email: "rcpt@example.com".to_string(),
+        };
+        let config = test_config_with_users(vec![rcpt_user]);
+
+        // Build a DATA payload with 25 Received: headers — exactly the limit.
+        let mut body_lines = String::new();
+        for _ in 0..25 {
+            body_lines.push_str("Received: from x ([1.2.3.4]) by y with SMTP; Mon, 1 Jan 2024\r\n");
+        }
+        body_lines.push_str("From: sender@example.com\r\nSubject: loop\r\n\r\nBody\r\n");
+
+        let client_script = format!(
+            "EHLO client.example.com\r\n\
+             MAIL FROM:<sender@example.com>\r\n\
+             RCPT TO:<rcpt@example.com>\r\n\
+             DATA\r\n\
+             {body_lines}.\r\n\
+             QUIT\r\n"
+        );
+
+        let (response, _queue_dir) =
+            drive_session_ext(client_script.as_bytes(), config, None).await;
+
+        assert!(
+            response.contains("554"),
+            "25 Received hops must be rejected with 554, got: {response}"
+        );
+        // The DATA body must be rejected: no "250 OK" may appear after "354".
+        let after_354 = response
+            .find("354")
+            .map(|p| &response[p..])
+            .unwrap_or(&response);
+        assert!(
+            !after_354.contains("250 OK"),
+            "DATA body must not receive 250 OK after loop detection: {response}"
+        );
+    }
+
+    /// A message with exactly 24 Received: headers must still be accepted.
+    #[tokio::test]
+    async fn test_mail_loop_24_hops_accepted() {
+        let rcpt_user = UserConfig {
+            username: "rcpt".to_string(),
+            email: "rcpt@example.com".to_string(),
+        };
+        let config = test_config_with_users(vec![rcpt_user]);
+
+        let mut body_lines = String::new();
+        for _ in 0..24 {
+            body_lines.push_str("Received: from x ([1.2.3.4]) by y with SMTP; Mon, 1 Jan 2024\r\n");
+        }
+        body_lines.push_str("From: sender@example.com\r\nSubject: ok\r\n\r\nBody\r\n");
+
+        let client_script = format!(
+            "EHLO client.example.com\r\n\
+             MAIL FROM:<sender@example.com>\r\n\
+             RCPT TO:<rcpt@example.com>\r\n\
+             DATA\r\n\
+             {body_lines}.\r\n\
+             QUIT\r\n"
+        );
+
+        let (response, _queue_dir) =
+            drive_session_ext(client_script.as_bytes(), config, None).await;
+
+        assert!(
+            response.contains("250 OK"),
+            "24 hops must be accepted with 250 OK, got: {response}"
+        );
+    }
+
+    /// Sieve Keep with pool=None must return 452 (transient), not 250 OK.
+    #[tokio::test]
+    async fn test_sieve_keep_no_pool_returns_452() {
+        let config = test_config_with_users(vec![alice()]);
+        // Pass pool=None so the Keep action cannot deliver to INBOX.
+        let (response, _) = drive_session_ext(FULL_MSG, config, None).await;
+        assert!(
+            response.contains("452"),
+            "Sieve Keep with no pool must return 452 transient, got: {response}"
+        );
     }
 
     /// When a credential store is non-empty, MAIL FROM without prior AUTH

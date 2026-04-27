@@ -249,7 +249,16 @@ async fn run_smtp_session(
 
     // 5. RCPT TO (one per recipient)
     for addr in &envelope.rcpt_to {
-        // Strip any CR/LF from the address to prevent command injection.
+        // Validate address before interpolating into RCPT TO:<...>.
+        // '<' and '>' are not valid in RFC 5321 mailbox addresses; their
+        // presence indicates a malformed or injected value that would
+        // prematurely terminate the angle-bracket argument and allow SMTP
+        // command injection.  CR/LF are also stripped for belt-and-suspenders.
+        if addr.contains('>') || addr.contains('<') {
+            return Err(SmtpRelayError::Permanent(format!(
+                "recipient address contains invalid character: {addr:?}"
+            )));
+        }
         let safe_addr = addr.replace(['\r', '\n'], "");
         let rcpt_cmd = format!("RCPT TO:<{safe_addr}>\r\n");
         writer
