@@ -58,7 +58,7 @@ pub fn dispatch(
                     if let Some(cert_user) = cert_store.lookup(fp) {
                         if cert_user.eq_ignore_ascii_case(&username) {
                             ctx.state = SessionState::Active;
-                            ctx.authenticated_user = Some(cert_user.to_string());
+                            ctx.authenticated_user = Some(cert_user.to_lowercase());
                             return Response::authentication_accepted();
                         }
                     }

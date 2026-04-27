@@ -605,6 +605,12 @@ where
                 }
             };
             let accepted = if config.auth.is_dev_mode() {
+                tracing::warn!(
+                    peer = %peer_addr,
+                    username = %username,
+                    "AUTHINFO: dev mode active — credential check bypassed; \
+                     do not use in production"
+                );
                 true
             } else {
                 stores.credential_store.check(&username, password).await

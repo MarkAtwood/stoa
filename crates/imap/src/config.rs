@@ -11,8 +11,6 @@ pub struct Config {
     pub auth: AuthConfig,
     pub tls: TlsConfig,
     #[serde(default)]
-    pub admin: AdminConfig,
-    #[serde(default)]
     pub log: LogConfig,
 }
 
@@ -98,30 +96,6 @@ pub struct TlsConfig {
     pub cert_path: Option<String>,
     /// Path to the PEM-encoded private key.
     pub key_path: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct AdminConfig {
-    #[serde(default)]
-    pub enabled: bool,
-    #[serde(default = "default_admin_addr")]
-    pub addr: String,
-    #[serde(default)]
-    pub admin_token: Option<String>,
-}
-
-fn default_admin_addr() -> String {
-    "127.0.0.1:9092".to_string()
-}
-
-impl Default for AdminConfig {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            addr: default_admin_addr(),
-            admin_token: None,
-        }
-    }
 }
 
 #[derive(Debug, Deserialize)]

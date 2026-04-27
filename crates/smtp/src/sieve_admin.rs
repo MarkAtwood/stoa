@@ -331,7 +331,10 @@ async fn get_metrics() -> Response {
 }
 
 fn user_exists(s: &AdminState, username: &str) -> bool {
-    s.config.users.iter().any(|u| u.username == username)
+    s.config
+        .users
+        .iter()
+        .any(|u| u.username.eq_ignore_ascii_case(username))
 }
 
 #[cfg(test)]
@@ -449,6 +452,29 @@ mod tests {
             .unwrap();
         let resp = app.oneshot(req).await.unwrap();
         assert_eq!(resp.status(), StatusCode::PAYLOAD_TOO_LARGE);
+    }
+
+    /// The SMTP session uses eq_ignore_ascii_case for email matching; the sieve
+    /// admin must use the same case-insensitivity for usernames so that a user
+    /// configured as "Alice" is reachable at /admin/sieve/alice and /admin/sieve/ALICE.
+    #[tokio::test]
+    async fn listscripts_username_is_case_insensitive() {
+        let (app, _) = app_with_alice().await;
+        // alice() has username "alice"; try with different case.
+        for uri in &["/admin/sieve/Alice", "/admin/sieve/ALICE", "/admin/sieve/aLiCe"] {
+            let req = Request::builder()
+                .method(Method::GET)
+                .uri(*uri)
+                .body(Body::empty())
+                .unwrap();
+            let resp = app.clone().oneshot(req).await.unwrap();
+            assert_eq!(
+                resp.status(),
+                StatusCode::OK,
+                "expected 200 for {uri}; got {}",
+                resp.status()
+            );
+        }
     }
 
     #[tokio::test]

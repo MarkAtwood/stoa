@@ -342,7 +342,6 @@ mod tests {
                 cert_path: None,
                 key_path: None,
             },
-            admin: AdminConfig::default(),
             log: LogConfig::default(),
         }
     }

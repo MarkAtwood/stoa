@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use stoa_imap::{
     config::{
-        AdminConfig, AuthConfig, DatabaseConfig, LimitsConfig, ListenConfig, LogConfig, TlsConfig,
+        AuthConfig, DatabaseConfig, LimitsConfig, ListenConfig, LogConfig, TlsConfig,
         UserCredential,
     },
     session::run_session_plain,
@@ -57,7 +57,6 @@ fn test_config() -> Arc<stoa_imap::config::Config> {
             cert_path: None,
             key_path: None,
         },
-        admin: AdminConfig::default(),
         log: LogConfig::default(),
     })
 }
