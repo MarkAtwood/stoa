@@ -73,7 +73,9 @@ impl AdminClient {
         }
         let resp = req.send().map_err(|e| format!("connection error: {e}"))?;
         let status = resp.status();
-        let body = resp.text().unwrap_or_default();
+        let body = resp
+            .text()
+            .unwrap_or_else(|e| format!("<body read error: {e}>"));
         if !status.is_success() {
             return Err(format!("HTTP {status}: {body}"));
         }
@@ -88,7 +90,9 @@ impl AdminClient {
         }
         let resp = req.send().map_err(|e| format!("connection error: {e}"))?;
         let status = resp.status();
-        let body = resp.text().unwrap_or_default();
+        let body = resp
+            .text()
+            .unwrap_or_else(|e| format!("<body read error: {e}>"));
         if !status.is_success() {
             return Err(format!("HTTP {status}: {body}"));
         }

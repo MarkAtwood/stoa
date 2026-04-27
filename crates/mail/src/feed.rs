@@ -123,7 +123,11 @@ pub fn generate_rss(base_url: &str, group: &str, articles: &[OverviewRecord]) ->
     xml.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
     xml.push_str("<rss version=\"2.0\">\n<channel>\n");
     xml.push_str(&format!("  <title>{}</title>\n", escape_xml(group)));
-    xml.push_str(&format!("  <link>{}/feed/{}.rss</link>\n", base_url, group));
+    xml.push_str(&format!(
+        "  <link>{}/feed/{}.rss</link>\n",
+        escape_xml(base_url),
+        escape_xml(group)
+    ));
     xml.push_str(&format!(
         "  <description>Usenet newsgroup {}</description>\n",
         escape_xml(group)
@@ -173,11 +177,12 @@ pub fn generate_atom(base_url: &str, group: &str, articles: &[OverviewRecord]) -
     xml.push_str(&format!("  <updated>{}</updated>\n", escape_xml(&updated)));
     xml.push_str(&format!(
         "  <link rel=\"self\" href=\"{}/feed/{}.atom\"/>\n",
-        base_url, group
+        escape_xml(base_url),
+        escape_xml(group)
     ));
     xml.push_str(&format!(
         "  <link rel=\"alternate\" href=\"{}/\"/>\n",
-        base_url
+        escape_xml(base_url)
     ));
     for art in articles {
         let art_updated = to_rfc3339(&art.date);
