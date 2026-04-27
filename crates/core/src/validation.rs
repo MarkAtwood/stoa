@@ -110,6 +110,16 @@ pub fn validate_message_id(id: &str) -> Result<(), ValidationError> {
 /// handlers. Returns `Ok(())` if the article passes all checks, or the first
 /// `ProtocolError` encountered.
 ///
+/// # DECISION (rbe3.22): single validation entry point for POST and IHAVE
+///
+/// POST and IHAVE both accept articles from untrusted sources and must apply
+/// identical structural checks.  Having two separate validation paths risks
+/// one drifting out of sync with the other — a check added to POST that is
+/// missing from IHAVE could allow privilege escalation (e.g. injecting
+/// articles with oversized fields via IHAVE that POST would reject).  A single
+/// function called by both handlers guarantees consistency.  If a new check
+/// is needed, it is added here once and applies to both paths automatically.
+///
 /// # Checks (in order)
 /// 1. All 6 mandatory RFC 5536 headers present and non-empty
 /// 2. Message-ID format valid: must match `<local@domain>` with no whitespace
@@ -158,10 +168,19 @@ pub fn validate_article_ingress(
         .into());
     }
 
-    // 4. Group names valid (defence-in-depth: validate the raw string even though
-    //    GroupName::new() should have already rejected invalid names at
-    //    construction time; this catches any values injected via unchecked
-    //    constructors, deserialization paths, or future API changes).
+    // 4. Group names valid.
+    //
+    // DECISION (rbe3.19): GroupName validated again at ingress (defence-in-depth)
+    //
+    // GroupName is a validated newtype that rejects invalid names at construction.
+    // Re-validating here catches values that could have been injected via:
+    // - GroupName::new_unchecked (test/fuzz only, but defence-in-depth applies)
+    // - Deserialization paths that bypass the validated constructor
+    // - Future API changes that add new ways to construct GroupName
+    // Defence-in-depth at trust boundaries means a bug in one layer does not
+    // silently pass malformed group names into the CRDT log.  The cost is one
+    // extra string scan per group name at ingress, which is negligible.
+    // Do NOT remove this check; GroupName newtypes are not a complete guarantee.
     for group in &h.newsgroups {
         if crate::article::GroupName::new(group.as_str()).is_err() {
             return Err(ValidationError::InvalidGroupInNewsgroups(group.as_str().into()).into());

@@ -494,6 +494,15 @@ impl Config {
                         }
                     }
                 }
+                // DECISION (rbe3.29): unimplemented backends rejected at config validation
+                //
+                // BackendType::S3 and BackendType::Filesystem exist in the enum for
+                // future use.  Without this explicit rejection at config load time, an
+                // operator who writes `type = "s3"` would start the daemon successfully
+                // and only discover the error when the factory function panics or returns
+                // an uninformative error mid-startup.  Failing fast here produces a clear
+                // error message naming the unimplemented variants and directing the
+                // operator to the supported alternatives.
                 // S3 and Filesystem are declared in the enum for future use but are not
                 // yet implemented.  Reject them at config load time so the daemon fails
                 // fast with a clear message instead of panicking in the factory function.
@@ -526,6 +535,14 @@ impl Config {
                 .map_err(|e| ConfigError::Validation(e.to_string()))?;
         }
         for peer in &self.peers.peer {
+            // DECISION (rbe3.24): TLS peer config requires cert_sha256 when tls=true
+            //
+            // TLS without a pinned certificate fingerprint prevents passive
+            // eavesdropping but does NOT authenticate the peer — any entity
+            // with a valid TLS certificate from any CA can impersonate the peer.
+            // Requiring cert_sha256 at config time prevents misconfigured deployments
+            // where operators believe they have authenticated peering but actually
+            // have only encrypted (unauthenticated) connections.
             if peer.tls && peer.cert_sha256.is_none() {
                 return Err(ConfigError::Validation(format!(
                     "peers.peer entry '{}': tls = true requires cert_sha256 to be set",
@@ -556,6 +573,14 @@ impl Config {
                     svc.name
                 )));
             }
+            // DECISION (rbe3.26): external pinning endpoints must use HTTPS
+            //
+            // Sending article CIDs to a remote pinning service over plain HTTP
+            // exposes the CID list (metadata: which articles exist on this server)
+            // and the bearer token to passive network observers.  Both are
+            // sensitive: the CID list reveals the server's content, and the bearer
+            // token grants write access to the pinning service.  Enforcing HTTPS
+            // at config load time prevents accidental misconfiguration.
             if !svc.endpoint.starts_with("https://") {
                 return Err(ConfigError::Validation(format!(
                     "pinning.external_services '{}': endpoint must use HTTPS, got '{}'",
@@ -598,7 +623,12 @@ impl Config {
             }
         }
 
-        // Fail fast if the signing key path is configured but unreadable.
+        // DECISION (rbe3.28): signing key readability check at startup, not request time
+        //
+        // A missing or unreadable signing key at article-processing time causes
+        // silent article loss (the pipeline returns an error and the article is
+        // dropped).  Checking at config validation converts that silent runtime
+        // failure into a clear startup error caught before any traffic is processed.
         // Better to catch this at startup than discover it when an article arrives.
         if let Some(ref path) = self.operator.signing_key_path {
             std::fs::metadata(path).map_err(|e| {
@@ -647,6 +677,17 @@ pub fn is_loopback_addr(addr: &str) -> bool {
 /// an unauthenticated admin endpoint on a reachable interface is a security
 /// footgun that the server must not start with (fail-closed).
 /// Returns `Ok(())` if the configuration is safe.
+///
+/// # DECISION (rbe3.23): fail-closed admin endpoint
+///
+/// The default admin addr (`127.0.0.1:9090`) is loopback-only and needs no
+/// token.  If an operator binds to `0.0.0.0` or a specific network interface
+/// without a bearer token, the check returns an error at startup rather than
+/// silently exposing an unauthenticated admin API.  Fail-closed means the safe
+/// default requires no configuration, and the unsafe configuration requires
+/// explicit opt-in (the operator must set both a non-loopback addr AND a token).
+/// Do NOT weaken this to a warning; an unauthenticated admin endpoint on a
+/// network interface is a critical vulnerability, not a configuration warning.
 pub fn check_admin_addr(admin: &AdminConfig) -> Result<(), String> {
     if !is_loopback_addr(&admin.addr) && admin.bearer_token.is_none() {
         Err(format!(

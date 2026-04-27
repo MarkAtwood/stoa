@@ -340,9 +340,15 @@ where
 {
     use crate::peering::ingestion::prepend_path_header;
 
-    // Snapshot original bytes for signature verification before Path: is prepended.
-    // The X-Stoa-Sig is computed over the article as received from the peer,
-    // before any local transit modifications.
+    // DECISION (rbe3.30): signature verification over pre-Path-prepend bytes
+    //
+    // The X-Stoa-Sig is computed by the originating peer over the article
+    // as transmitted, before any transit hop prepends its hostname to Path:.
+    // Verifying over the post-prepend bytes would produce systematic
+    // false-negatives for every article that passes through a transit node —
+    // the signature would never match.  Snapshot the original bytes BEFORE
+    // calling prepend_path_header, then verify using those original bytes.
+    // Do NOT move this snapshot below prepend_path_header.
     let original_bytes = article_bytes;
 
     // 0. Prepend local hostname to Path: header (Son-of-RFC-1036 §3.3).
