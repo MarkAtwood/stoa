@@ -60,6 +60,14 @@ pub fn tip_hash(tips: &[Cid]) -> [u8; 32] {
         .expect("SHA2-256 is always 32 bytes")
 }
 
+/// Maximum number of parent CIDs allowed per log entry.
+///
+/// In normal CRDT operation entries have 1–2 parents (one after convergence,
+/// two at a merge point).  Capping at 100 prevents an adversarial peer from
+/// crafting entries that trigger O(n) DB lookups, SQL inserts, and BFS
+/// enqueue per entry.
+pub const MAX_PARENT_CIDS: usize = 100;
+
 /// Errors returned by [`verify_entry`].
 #[derive(Debug)]
 pub enum VerifyError {
@@ -74,6 +82,8 @@ pub enum VerifyError {
     /// canonical bytes.  Indicates the entry was tampered with or the wrong
     /// ID was supplied.
     EntryIdMismatch,
+    /// `entry.parent_cids` exceeds [`MAX_PARENT_CIDS`].
+    TooManyParents { count: usize },
 }
 
 impl std::fmt::Display for VerifyError {
@@ -89,6 +99,12 @@ impl std::fmt::Display for VerifyError {
             Self::EntryIdMismatch => {
                 write!(f, "entry ID does not match entry content hash")
             }
+            Self::TooManyParents { count } => {
+                write!(
+                    f,
+                    "entry has {count} parent CIDs; maximum is {MAX_PARENT_CIDS}"
+                )
+            }
         }
     }
 }
@@ -98,7 +114,10 @@ impl std::error::Error for VerifyError {
         match self {
             Self::Storage(e) => Some(e),
             Self::InvalidSignature(e) => Some(e),
-            Self::MissingParent(_) | Self::HlcNotMonotonic { .. } | Self::EntryIdMismatch => None,
+            Self::MissingParent(_)
+            | Self::HlcNotMonotonic { .. }
+            | Self::EntryIdMismatch
+            | Self::TooManyParents { .. } => None,
         }
     }
 }
@@ -164,6 +183,16 @@ pub async fn verify_entry<S: LogStorage>(
     storage: &S,
     pubkey: &VerifyingKey,
 ) -> Result<(), VerifyError> {
+    // ── 0. Structural bounds ──────────────────────────────────────────────────
+    // Reject entries with an excessively large parent set before doing any
+    // storage lookups.  This prevents amplification: one entry → O(n) DB reads
+    // + O(n) inserts + O(n) BFS enqueue.
+    if entry.parent_cids.len() > MAX_PARENT_CIDS {
+        return Err(VerifyError::TooManyParents {
+            count: entry.parent_cids.len(),
+        });
+    }
+
     // ── 1. Signature verification ─────────────────────────────────────────────
     check_signature(entry, pubkey)?;
 
@@ -431,6 +460,38 @@ mod tests {
         assert!(
             matches!(result, Err(VerifyError::EntryIdMismatch)),
             "wrong entry_id must yield EntryIdMismatch, got {result:?}"
+        );
+    }
+
+    // ── verify_entry_too_many_parents ─────────────────────────────────────────
+
+    /// An entry with more than MAX_PARENT_CIDS parents must be rejected before
+    /// any storage lookups are performed.
+    #[tokio::test]
+    async fn verify_entry_too_many_parents() {
+        let storage = MemLogStorage::new();
+        let key = test_signing_key();
+        let pubkey = key.verifying_key();
+
+        // Build an entry with MAX_PARENT_CIDS + 1 parents.
+        // The parent CIDs themselves don't exist in storage — the check must
+        // fire before any DB lookup.
+        let oversized_parents: Vec<Cid> = (0..=(MAX_PARENT_CIDS))
+            .map(|i| test_cid(format!("phantom-parent-{i}").as_bytes()))
+            .collect();
+        let mut entry = LogEntry {
+            hlc_timestamp: 10_000,
+            article_cid: test_cid(b"article-too-many-parents"),
+            operator_signature: vec![],
+            parent_cids: oversized_parents,
+        };
+        sign_entry(&mut entry, &key);
+
+        let entry_id = LogEntryId::from_bytes([0u8; 32]);
+        let result = verify_entry(&entry, &entry_id, &storage, &pubkey).await;
+        assert!(
+            matches!(result, Err(VerifyError::TooManyParents { count }) if count == MAX_PARENT_CIDS + 1),
+            "oversized parent list must yield TooManyParents, got {result:?}"
         );
     }
 }

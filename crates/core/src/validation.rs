@@ -221,7 +221,33 @@ pub fn validate_article_ingress(
             .into());
         }
     }
+    // RFC 5322 §2.2: header names are printable US-ASCII (33–126) excluding
+    // colon; a name with embedded CR/LF/NUL/colon would corrupt the canonical
+    // byte stream used for signing.
+    const MAX_HEADER_NAME: usize = 76;
     for (name, value) in &h.extra_headers {
+        if name.is_empty() {
+            return Err(ValidationError::InvalidHeaderValue {
+                field: "(empty)".into(),
+                reason: "header field name must not be empty (RFC 5322 §2.2)".into(),
+            }
+            .into());
+        }
+        if name.len() > MAX_HEADER_NAME {
+            return Err(ValidationError::HeaderFieldTooLong {
+                field: name.clone(),
+                len: name.len(),
+                limit: MAX_HEADER_NAME,
+            }
+            .into());
+        }
+        if name.contains('\x00') || name.contains('\r') || name.contains('\n') || name.contains(':') {
+            return Err(ValidationError::InvalidHeaderValue {
+                field: name.clone(),
+                reason: "header field name contains NUL, CR, LF, or colon (RFC 5322 §2.2)".into(),
+            }
+            .into());
+        }
         if value.len() > MAX_HEADER_VALUE {
             return Err(ValidationError::HeaderFieldTooLong {
                 field: name.clone(),
@@ -671,6 +697,53 @@ mod tests {
                 }) if field == "X-Custom"
             ),
             "unexpected error: {err:?}"
+        );
+    }
+
+    // ── extra-header name validation ─────────────────────────────────────────
+
+    #[test]
+    fn test_extra_header_name_with_crlf_rejected() {
+        // A header name containing CRLF would corrupt canonical serialisation.
+        let mut article = make_valid_article();
+        article.header.extra_headers =
+            vec![("X-Foo\r\nX-Injected: bar".into(), "value".into())];
+        let err = validate_article_ingress(&article, &ValidationConfig::default()).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                ProtocolError::ValidationFailed(ValidationError::InvalidHeaderValue { .. })
+            ),
+            "header name with CRLF must be rejected: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_extra_header_name_with_colon_rejected() {
+        // A header name containing a colon would be mis-parsed by line-oriented parsers.
+        let mut article = make_valid_article();
+        article.header.extra_headers = vec![("X-Bad:Name".into(), "value".into())];
+        let err = validate_article_ingress(&article, &ValidationConfig::default()).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                ProtocolError::ValidationFailed(ValidationError::InvalidHeaderValue { .. })
+            ),
+            "header name with colon must be rejected: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_empty_extra_header_name_rejected() {
+        let mut article = make_valid_article();
+        article.header.extra_headers = vec![("".into(), "value".into())];
+        let err = validate_article_ingress(&article, &ValidationConfig::default()).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                ProtocolError::ValidationFailed(ValidationError::InvalidHeaderValue { .. })
+            ),
+            "empty header name must be rejected: {err:?}"
         );
     }
 
