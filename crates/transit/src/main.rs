@@ -863,6 +863,13 @@ async fn main() {
         if let Err(e) = staging.reset_claims().await {
             warn!("staging: reset_claims failed: {e}");
         }
+        // Remove orphaned staging files: written by try_stage but never
+        // committed to the DB (e.g. future cancelled on peer disconnect).
+        match staging.cleanup_orphaned_files().await {
+            Ok(0) => {}
+            Ok(n) => info!(count = n, "staging: removed orphaned files from previous run"),
+            Err(e) => warn!("staging: cleanup_orphaned_files failed: {e}"),
+        }
 
         let (staging_shutdown_tx, mut staging_shutdown_rx) = tokio::sync::watch::channel(false);
         staging_shutdown_opt = Some(staging_shutdown_tx);

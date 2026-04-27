@@ -153,8 +153,9 @@ impl StagingStore {
 
         // Write to disk before taking the DB lock.  If the DB checks reject
         // the article we delete the file; if the DB write fails we also
-        // delete it.  File presence without a DB row is harmless — it will
-        // be cleaned up by the next GC pass.
+        // delete it.  In the pathological case where this future is cancelled
+        // after fs::write but before COMMIT, the file is left as an orphan;
+        // cleanup_orphaned_files() removes these at drain-task startup.
         fs::write(&file_path, bytes).await?;
 
         // BEGIN IMMEDIATE: takes a write lock before the capacity checks so
@@ -315,6 +316,57 @@ impl StagingStore {
             .execute(&*self.pool)
             .await?;
         Ok(())
+    }
+
+    /// Delete staging files that have no corresponding row in `transit_staging`.
+    ///
+    /// Orphans are produced when `try_stage` writes the file but is cancelled
+    /// (e.g. peer disconnects) before the `COMMIT`.  Call once at drain-task
+    /// startup alongside [`reset_claims`](Self::reset_claims).
+    ///
+    /// Non-fatal: logs warnings for any file that cannot be removed; returns
+    /// `Ok(count)` where count is the number of orphan files deleted.
+    pub async fn cleanup_orphaned_files(&self) -> Result<u32, StagingError> {
+        // Collect IDs that currently have a DB row.
+        let rows: Vec<(String,)> = sqlx::query_as("SELECT id FROM transit_staging")
+            .fetch_all(&*self.pool)
+            .await?;
+        let known_ids: std::collections::HashSet<String> =
+            rows.into_iter().map(|(id,)| id).collect();
+
+        let dir = std::path::Path::new(&self.config.path);
+        let mut read_dir = match fs::read_dir(dir).await {
+            Ok(d) => d,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(0),
+            Err(e) => return Err(StagingError::Io(e)),
+        };
+
+        let mut deleted = 0u32;
+        loop {
+            let entry = match read_dir.next_entry().await {
+                Ok(Some(e)) => e,
+                Ok(None) => break,
+                Err(e) => {
+                    warn!("staging cleanup: error reading directory entry: {e}");
+                    continue;
+                }
+            };
+            let name = entry.file_name();
+            let id = name.to_string_lossy();
+            if !known_ids.contains(id.as_ref()) {
+                let path = entry.path();
+                match fs::remove_file(&path).await {
+                    Ok(()) => {
+                        tracing::info!(path = %path.display(), "staging: removed orphaned file");
+                        deleted += 1;
+                    }
+                    Err(e) => {
+                        warn!(path = %path.display(), "staging: could not remove orphaned file: {e}");
+                    }
+                }
+            }
+        }
+        Ok(deleted)
     }
 
     /// Remove the staging file and its DB row after the pipeline has
@@ -550,5 +602,47 @@ mod tests {
         store.try_stage("<c1@t>", b"a").await.unwrap();
         store.try_stage("<c2@t>", b"b").await.unwrap();
         assert_eq!(store.pending_count().await.unwrap(), 2);
+    }
+
+    /// cleanup_orphaned_files removes files in the staging dir that have no DB row.
+    /// Simulates a try_stage cancellation after fs::write but before COMMIT.
+    #[tokio::test]
+    async fn cleanup_orphaned_files_removes_orphans() {
+        let dir = tempfile::tempdir().unwrap();
+        let pool = make_pool().await;
+        let store = StagingStore::new(staging_config(dir.path().to_str().unwrap()), pool.clone());
+
+        // Stage a legitimate article so there is a known ID in the DB.
+        store.try_stage("<legit@t>", b"hello").await.unwrap();
+
+        // Manually write an orphaned file (no DB row).
+        let orphan_path = dir.path().join("deadbeef00000000000000000000dead");
+        fs::write(&orphan_path, b"orphan").await.unwrap();
+
+        let deleted = store.cleanup_orphaned_files().await.unwrap();
+        assert_eq!(deleted, 1, "exactly one orphan must be deleted");
+        assert!(!orphan_path.exists(), "orphan file must be gone");
+
+        // The legitimate file must still exist.
+        let row: (String,) = sqlx::query_as("SELECT file_path FROM transit_staging")
+            .fetch_one(&*pool)
+            .await
+            .unwrap();
+        assert!(
+            std::path::Path::new(&row.0).exists(),
+            "legitimate staging file must survive cleanup"
+        );
+    }
+
+    /// cleanup_orphaned_files on a non-existent directory returns Ok(0).
+    #[tokio::test]
+    async fn cleanup_orphaned_files_missing_dir_returns_zero() {
+        let pool = make_pool().await;
+        let store = StagingStore::new(
+            staging_config("/tmp/stoa-staging-does-not-exist-xyzzy"),
+            pool,
+        );
+        let deleted = store.cleanup_orphaned_files().await.unwrap();
+        assert_eq!(deleted, 0);
     }
 }
