@@ -182,14 +182,24 @@ impl LogStorage for SqliteLogStorage {
             .await
             .map_err(db_err)?;
 
-        for tip in tips {
-            let tip_bytes = tip.as_bytes().as_slice().to_vec();
-            sqlx::query("INSERT INTO group_tips (group_name, tip_id) VALUES (?, ?)")
-                .bind(group.as_str())
-                .bind(&tip_bytes)
-                .execute(&mut *tx)
-                .await
-                .map_err(db_err)?;
+        if !tips.is_empty() {
+            // Single bulk INSERT avoids O(T) round-trips for T tips.
+            // SQLite supports multi-row VALUES: INSERT INTO t (a,b) VALUES (?,?),(?,?),...
+            // Each tip uses 2 bind slots; SQLite default variable limit is 999 (3.32+: 32766),
+            // well above any realistic tip count for an NNTP group.
+            let placeholders = tips.iter().map(|_| "(?, ?)").collect::<Vec<_>>().join(", ");
+            let sql = format!(
+                "INSERT INTO group_tips (group_name, tip_id) VALUES {placeholders}"
+            );
+            let tip_byte_vecs: Vec<Vec<u8>> = tips
+                .iter()
+                .map(|tip| tip.as_bytes().as_slice().to_vec())
+                .collect();
+            let mut q = sqlx::query(&sql);
+            for tip_bytes in &tip_byte_vecs {
+                q = q.bind(group.as_str()).bind(tip_bytes.as_slice());
+            }
+            q.execute(&mut *tx).await.map_err(db_err)?;
         }
 
         tx.commit().await.map_err(db_err)?;

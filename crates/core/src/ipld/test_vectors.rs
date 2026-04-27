@@ -1,5 +1,20 @@
 /// Fixed test vectors for the IPLD article block pipeline.
 ///
+/// # DECISION (rbe3.69): Python dag_cbor oracle is mandatory for CID cross-validation
+///
+/// Test vectors MUST be verified against an independent implementation.
+/// Using the code under test as its own oracle (encode then decode with the
+/// same library) cannot detect a systematic encoding bug.  The Python
+/// `dag_cbor` 0.3.3 library is the reference oracle: it is a completely
+/// independent DAG-CBOR implementation with no shared code or dependencies
+/// with the Rust `serde_ipld_dagcbor` 0.6.4 crate used here.
+///
+/// Do NOT replace the hardcoded CID strings below with values computed by
+/// calling `build_article` — that would make the test an idempotency check,
+/// not a correctness check.  If the DAG-CBOR encoding ever changes,
+/// re-derive the expected CIDs from the Python oracle and document the
+/// derivation in the commit that changes them.
+///
 /// Each vector exercises a distinct MIME path through `build_article` and
 /// verifies CID values against independent oracles:
 ///

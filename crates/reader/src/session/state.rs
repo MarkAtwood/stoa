@@ -1,5 +1,15 @@
 /// RFC 3977 NNTP session states.
 ///
+/// # DECISION (rbe3.39): three-state enum prevents unauthenticated command dispatch
+///
+/// The `Authenticating` variant makes it a compile-time impossibility to
+/// omit the authentication check at the dispatch layer: any match arm that
+/// handles `Active | GroupSelected` without matching `Authenticating` is a
+/// non-exhaustive match and will not compile.  Do NOT collapse `Authenticating`
+/// and `Active` into a single variant (e.g. a boolean `is_authenticated` field)
+/// — that removes the compiler guarantee and requires a runtime check that can
+/// be silently omitted.
+///
 /// # Valid command sets per state
 ///
 /// `Authenticating`:

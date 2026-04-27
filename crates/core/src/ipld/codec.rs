@@ -4,6 +4,13 @@
 //! stoa.  Centralising them here prevents silent drift if the codec
 //! strategy ever changes and makes the multicodec registry relationship
 //! explicit to readers.
+//!
+//! # DECISION (rbe3.72): keep all codec constants in this file
+//!
+//! All CID construction must import from this module.  Do NOT inline the hex
+//! values at call sites (e.g. `0x71` instead of `CODEC_DAG_CBOR`) — it is
+//! impossible to audit codec usage when values are scattered, and 0x55 vs
+//! 0x71 mix-ups would produce silently wrong CIDs with no compile-time error.
 
 /// IPFS multicodec code for raw binary content (0x55 in the multicodec table).
 ///

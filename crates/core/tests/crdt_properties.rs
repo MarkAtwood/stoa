@@ -2,6 +2,15 @@
 //!
 //! Uses proptest to generate arbitrary diverged group logs and verify
 //! reconciliation properties.
+//!
+//! # DECISION (rbe3.70): property-based testing is mandatory for CRDT commutativity
+//!
+//! The commutativity property (want(A→B) ⊆ have(B→A) and vice versa) cannot
+//! be adequately verified with hand-crafted unit tests: there are too many edge
+//! cases (empty sets, full overlap, partial overlap, duplicate seeds).  Proptest
+//! generates 1000 randomly-shaped diverged log pairs and shrinks counter-examples
+//! automatically.  Do NOT replace this with example-based tests — they cannot
+//! explore the state space exhaustively and have historically missed CRDT edge cases.
 
 use std::collections::HashSet;
 
