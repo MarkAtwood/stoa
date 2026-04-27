@@ -248,13 +248,31 @@ pub struct UserCredential {
 
 /// Returns `true` if `s` looks like a valid bcrypt hash.
 ///
-/// A valid bcrypt hash starts with `$2b$`, `$2a$`, or `$2y$` and is at least
-/// 60 characters long.  This is a format check, not a cryptographic one — its
+/// Checks: version prefix in `{$2a$, $2b$, $2x$, $2y$}`, cost in 4–31, and
+/// total length ≥ 60.  This is a format check, not a cryptographic one — its
 /// purpose is to catch the common operator mistake of storing a plaintext
 /// password in `[auth.users]` and surface a clear error at startup rather than
 /// silently failing every authentication attempt.
+///
+/// The cost check matches the range accepted by `CredentialStore::from_credentials`
+/// so that a hash that passes this check will not cause a startup panic there.
 pub fn looks_like_bcrypt_hash(s: &str) -> bool {
-    (s.starts_with("$2b$") || s.starts_with("$2a$") || s.starts_with("$2y$")) && s.len() >= 60
+    let has_valid_prefix = s.starts_with("$2b$")
+        || s.starts_with("$2a$")
+        || s.starts_with("$2x$")
+        || s.starts_with("$2y$");
+    if !has_valid_prefix || s.len() < 60 {
+        return false;
+    }
+    // Parse cost: "$2b$NN$..." → ["", "2b", "NN", "..."]
+    let mut parts = s.splitn(4, '$');
+    parts.next(); // empty before first $
+    parts.next(); // version
+    let cost: u32 = match parts.next().and_then(|c| c.parse().ok()) {
+        Some(c) => c,
+        None => return false,
+    };
+    (4..=31).contains(&cost)
 }
 
 /// A TLS client certificate pinned to a username.
@@ -1042,6 +1060,15 @@ required = false
     }
 
     #[test]
+    fn bcrypt_hash_2x_prefix_is_valid() {
+        let hash = "$2x$10$YzVuN3B1T0RwR3ZpVzZwbOhWv5mJkOpFgZ3KqP4D2xLz1eSBmJu6e";
+        assert!(
+            looks_like_bcrypt_hash(hash),
+            "$2x$ hash must be accepted: {hash}"
+        );
+    }
+
+    #[test]
     fn bcrypt_hash_2y_prefix_is_valid() {
         let hash = "$2y$10$YzVuN3B1T0RwR3ZpVzZwbOhWv5mJkOpFgZ3KqP4D2xLz1eSBmJu6e";
         assert!(
@@ -1063,6 +1090,27 @@ required = false
         assert!(
             !looks_like_bcrypt_hash(""),
             "empty string must not look like a bcrypt hash"
+        );
+    }
+
+    #[test]
+    fn bcrypt_hash_cost_below_minimum_is_rejected() {
+        // Cost 3 is below the valid minimum (4). The hash is otherwise
+        // well-formed and long enough. looks_like_bcrypt_hash must reject
+        // it so the startup config check catches what from_credentials panics on.
+        let hash = "$2b$03$YzVuN3B1T0RwR3ZpVzZwbOhWv5mJkOpFgZ3KqP4D2xLz1eSBmJu6e";
+        assert!(
+            !looks_like_bcrypt_hash(hash),
+            "cost-3 hash must be rejected by looks_like_bcrypt_hash: {hash}"
+        );
+    }
+
+    #[test]
+    fn bcrypt_hash_cost_above_maximum_is_rejected() {
+        let hash = "$2b$32$YzVuN3B1T0RwR3ZpVzZwbOhWv5mJkOpFgZ3KqP4D2xLz1eSBmJu6e";
+        assert!(
+            !looks_like_bcrypt_hash(hash),
+            "cost-32 hash must be rejected by looks_like_bcrypt_hash: {hash}"
         );
     }
 

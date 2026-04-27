@@ -173,7 +173,10 @@ impl TrustedIssuerStore {
         // daemon is running.  Checking here ensures the CA stops being used as
         // soon as it expires — the daemon must be restarted with a renewed CA
         // to restore issuer-based auth.
-        let now_secs = x509_parser::time::ASN1Time::now().timestamp();
+        // Clamp to 0 so a pre-epoch system clock (negative timestamp) cannot
+        // bypass the expiry check: `now_secs > not_after_secs` would be false
+        // for any `not_after_secs >= 0` if `now_secs` were negative.
+        let now_secs = x509_parser::time::ASN1Time::now().timestamp().max(0);
         for issuer in &self.issuers {
             if now_secs > issuer.not_after_secs {
                 continue; // CA cert has expired since daemon startup

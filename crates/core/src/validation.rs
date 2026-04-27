@@ -184,9 +184,9 @@ pub fn validate_article_ingress(
     // 6. Header field values ≤ 998 bytes (RFC 5322 §2.1.1); no bare CR/LF or NUL.
     //
     // PRECONDITION: callers MUST unfold RFC 5322 obs-fold (CRLF followed by
-    // whitespace) before calling this function.  The NNTP parser in
-    // `reader/session/command.rs` performs unfolding before constructing an
-    // `Article`, so this precondition is satisfied on all production paths.
+    // whitespace) before constructing the `Article` passed to this function.
+    // Any NNTP POST or IHAVE path must perform unfolding before Article
+    // construction so the header values stored in the struct are already flat.
     // If a caller forgets to unfold, a folded header (containing CRLF+WSP)
     // will be REJECTED here by the bare-CR/LF check — this is intentional.
     // Folded headers in the `Article` struct would corrupt canonical

@@ -295,6 +295,18 @@ mod tests {
         );
     }
 
+    #[test]
+    #[should_panic(expected = "not a valid bcrypt hash")]
+    fn from_credentials_panics_on_plaintext_password() {
+        // Passing a plaintext password to from_credentials must panic.
+        // A silent failure would cause every authentication attempt to fail
+        // with no operator-visible error at request time.
+        CredentialStore::from_credentials(&[UserCredential {
+            username: "alice".to_string(),
+            password: "hunter2".to_string(),
+        }]);
+    }
+
     #[tokio::test]
     async fn merge_from_file_overrides_inline() {
         let inline_hash = bcrypt::hash("inline-pass", 4).unwrap();
