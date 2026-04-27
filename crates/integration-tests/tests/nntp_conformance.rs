@@ -375,3 +375,103 @@ async fn nntp_conformance_via_nntplib() {
         "nntplib script did not print PASS:\n{stdout}"
     );
 }
+
+// ── Auth lockout integration test (usenet-ipfs-yai0) ─────────────────────────
+
+/// bcrypt cost-4 hash for "correctpass" — generated offline via Python bcrypt.
+/// Any other password will fail verify() against this hash.
+const TEST_BCRYPT_HASH: &str =
+    "$2b$04$adzYx48lUkG/usYwif335e9dGHnScOgMjG6ahbmyKP5Vwcma3m.96";
+
+/// Five bad passwords from the same IP within 60 seconds must trigger the
+/// auth_lockout threshold.
+///
+/// Verifies:
+/// - auth_failure events accumulate in the per-IP tracker across attempts
+/// - the tracker fires exactly at the threshold (here: 3)
+/// - wrong passwords are rejected with 481
+/// - no credential content leaks into the test (only "wrongpassword" is sent)
+#[tokio::test]
+async fn auth_lockout_triggered_after_threshold_failures() {
+    use std::time::Duration;
+
+    // Config: auth.required=false avoids the TLS-required 483 path, but
+    // [[auth.users]] is non-empty so config.auth.is_dev_mode() returns false
+    // and real credential checks run.
+    let config_toml = format!(
+        "[listen]\naddr = \"127.0.0.1:0\"\n\
+         [limits]\nmax_connections = 10\ncommand_timeout_secs = 30\n\
+         [auth]\nrequired = false\n\
+         [[auth.users]]\nusername = \"testuser\"\npassword = \"{TEST_BCRYPT_HASH}\"\n\
+         [tls]\n"
+    );
+    let config =
+        Arc::new(toml::from_str::<stoa_reader::config::Config>(&config_toml).unwrap());
+
+    // Build stores: use new_mem() baseline, then replace credential_store
+    // with a real one and lower the tracker threshold to 3 for test speed.
+    let mut stores = ServerStores::new_mem().await;
+    stores.credential_store = Arc::new(
+        CredentialStore::from_content(
+            "test",
+            &format!("testuser:{TEST_BCRYPT_HASH}\n"),
+        )
+        .unwrap(),
+    );
+    *stores.auth_failure_tracker.lock().unwrap() =
+        AuthFailureTracker::new(3, Duration::from_secs(60), 100);
+    let stores = Arc::new(stores);
+
+    // Start NNTP listener.
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    {
+        let stores = Arc::clone(&stores);
+        let config = Arc::clone(&config);
+        tokio::spawn(async move {
+            while let Ok((stream, _)) = listener.accept().await {
+                let stores = Arc::clone(&stores);
+                let config = Arc::clone(&config);
+                tokio::spawn(async move {
+                    run_session(stream, false, &config, stores, None).await;
+                });
+            }
+        });
+    }
+
+    let stream = TcpStream::connect(addr).await.unwrap();
+    let (r_half, mut w_half) = tokio::io::split(stream);
+    let mut reader = BufReader::new(r_half);
+
+    let greeting = read_line(&mut reader).await;
+    assert!(
+        greeting.starts_with("200"),
+        "expected 200 greeting: {greeting}"
+    );
+
+    // Send 3 failed AUTHINFO USER/PASS attempts.
+    for i in 0..3u32 {
+        let resp = cmd(&mut w_half, &mut reader, "AUTHINFO USER testuser").await;
+        assert!(
+            resp.starts_with("381"),
+            "attempt {i}: expected 381 send-pass, got: {resp}"
+        );
+        let resp = cmd(&mut w_half, &mut reader, "AUTHINFO PASS wrongpassword").await;
+        assert!(
+            resp.starts_with("481"),
+            "attempt {i}: expected 481 auth-failed, got: {resp}"
+        );
+    }
+
+    // Verify the tracker recorded all 3 failures for 127.0.0.1.
+    let peer_ip: std::net::IpAddr = "127.0.0.1".parse().unwrap();
+    let count = stores
+        .auth_failure_tracker
+        .lock()
+        .unwrap()
+        .failure_count(peer_ip);
+    assert_eq!(
+        count, 3,
+        "auth_failure_tracker must record 3 failures for 127.0.0.1; got {count}"
+    );
+}

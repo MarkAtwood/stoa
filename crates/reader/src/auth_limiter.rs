@@ -85,13 +85,11 @@ impl AuthFailureTracker {
     }
 
     /// Return the current failure count for `ip`, or 0 if not tracked.
-    #[cfg(test)]
     pub fn failure_count(&self, ip: IpAddr) -> u32 {
         self.entries.get(&ip).map_or(0, |(count, _)| *count)
     }
 
     /// Return the number of IPs currently tracked.
-    #[cfg(test)]
     pub fn tracked_count(&self) -> usize {
         self.entries.len()
     }
