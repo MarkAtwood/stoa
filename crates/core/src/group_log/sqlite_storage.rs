@@ -122,6 +122,16 @@ impl LogStorage for SqliteLogStorage {
             parent_cids.push(cid_from_bytes(&pb)?);
         }
 
+        // Guard against database corruption: hlc_timestamp is always stored as
+        // a non-negative i64 (validated on insert), so a negative value means
+        // the row is corrupt.  A blind `ts as u64` would silently wrap to a
+        // huge timestamp, corrupting Merkle-CRDT time ordering.
+        if ts < 0 {
+            return Err(StorageError::Database(format!(
+                "corrupt hlc_timestamp {ts} in log entry: expected non-negative"
+            )));
+        }
+
         Ok(Some(LogEntry {
             hlc_timestamp: ts as u64,
             article_cid,
