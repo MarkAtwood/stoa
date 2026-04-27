@@ -13,7 +13,7 @@ use crate::{
     config::Config,
     post::{
         find_header_boundary,
-        injection::extract_injection_source,
+        injection::{extract_injection_source, strip_server_synthesized_headers},
         ipfs_write::{write_ipld_article_to_ipfs, IpfsBlockStore},
         log_append::append_to_groups,
         pipeline::check_duplicate_msgid,
@@ -830,6 +830,11 @@ async fn run_post_pipeline(
     // See closed bead usenet-ipfs-07rs.3 for full analysis.
     let _ = extract_injection_source(&mut article_bytes);
     let injection_source = stoa_core::InjectionSource::NntpPost;
+    // Strip server-synthesized X-Stoa-* headers that must never be stored in
+    // IPFS.  If a client includes these in a POST, they would be returned
+    // verbatim before the server's own injected value, allowing the client to
+    // forge integrity signals seen by readers.
+    strip_server_synthesized_headers(&mut article_bytes);
     let article_bytes = article_bytes.as_slice();
 
     // Step 2: Validate headers.
@@ -852,10 +857,14 @@ async fn run_post_pipeline(
     // Must happen BEFORE operator signing so we verify against the original
     // article bytes (the author signed before the operator sig header existed).
     let did_sig_valid: Option<bool> = {
-        use crate::post::did_passthrough::{extract_did_sig, header_section};
+        use crate::post::did_passthrough::extract_did_sig;
         use crate::post::did_verify::verify_did_sig;
-        let header_bytes = header_section(article_bytes);
-        if let Some(header_val) = extract_did_sig(header_bytes) {
+        // Pass full article bytes: extract_did_sig isolates the header section
+        // internally.  Passing pre-sliced header bytes would call header_section
+        // twice (once here, once inside extract_did_sig), which is a no-op
+        // today only because header_section falls back to returning the full
+        // slice when no blank line is present.
+        if let Some(header_val) = extract_did_sig(article_bytes) {
             match verify_did_sig(article_bytes, &header_val) {
                 Ok(valid) => {
                     tracing::debug!(
@@ -866,12 +875,17 @@ async fn run_post_pipeline(
                     Some(valid)
                 }
                 Err(e) => {
+                    // A parse error on a header that claims to be a DID sig is
+                    // treated as a bad signature (Some(false)), not as absent
+                    // (None).  Downgrading to None would give a weaker signal:
+                    // None means "no DID claim" while Some(false) means "bad
+                    // DID claim", which is the accurate description.
                     tracing::warn!(
                         msgid = %message_id,
                         error = %e,
-                        "DID author signature verification error"
+                        "DID author signature verification error (treating as invalid)"
                     );
-                    None
+                    Some(false)
                 }
             }
         } else {

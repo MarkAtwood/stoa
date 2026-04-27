@@ -19,9 +19,23 @@
 
 use heed::types::Bytes;
 use heed::{Database, Env, EnvOpenOptions, MdbError};
-use std::path::Path;
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 
 type BlocksDb = Database<Bytes, Bytes>;
+
+/// Process-global set of canonicalized paths with open LMDB environments.
+///
+/// LMDB requires that each environment path is opened **at most once per
+/// process**.  Opening two environments at the same path is undefined behaviour.
+/// This set enforces the invariant at runtime, converting a prose comment into
+/// a checked error.
+static OPEN_PATHS: OnceLock<Mutex<HashSet<PathBuf>>> = OnceLock::new();
+
+fn open_paths() -> &'static Mutex<HashSet<PathBuf>> {
+    OPEN_PATHS.get_or_init(|| Mutex::new(HashSet::new()))
+}
 
 /// Typed errors from LMDB operations.
 ///
@@ -69,6 +83,16 @@ impl From<heed::Error> for LmdbError {
 pub struct LmdbBlockDb {
     env: Env,
     db: BlocksDb,
+    /// Canonicalized path registered in `OPEN_PATHS`; removed on drop.
+    canonical_path: PathBuf,
+}
+
+impl Drop for LmdbBlockDb {
+    fn drop(&mut self) {
+        if let Ok(mut set) = open_paths().lock() {
+            set.remove(&self.canonical_path);
+        }
+    }
 }
 
 impl LmdbBlockDb {
@@ -92,6 +116,31 @@ impl LmdbBlockDb {
                 path.display()
             ))
         })?;
+
+        // Enforce the single-open invariant: LMDB's EnvOpenOptions::open is
+        // `unsafe` precisely because opening the same environment path twice
+        // from the same process is undefined behaviour (mmap aliasing, silent
+        // data corruption).  We canonicalize the path (resolving symlinks) and
+        // register it in a process-global set so that a second open attempt
+        // returns a clear error rather than silently invoking UB.
+        let canonical = path.canonicalize().map_err(|e| {
+            LmdbError::Other(format!(
+                "cannot canonicalize LMDB path {}: {e}",
+                path.display()
+            ))
+        })?;
+        {
+            let mut set = open_paths()
+                .lock()
+                .map_err(|_| LmdbError::Other("OPEN_PATHS lock poisoned".into()))?;
+            if !set.insert(canonical.clone()) {
+                return Err(LmdbError::Other(format!(
+                    "LMDB environment at {} is already open in this process; \
+                     wrap LmdbBlockDb in Arc to share it across tasks",
+                    canonical.display()
+                )));
+            }
+        }
 
         // Reject map sizes that would overflow usize.  The config validator
         // catches this for production configs; this check defends callers (e.g.
@@ -131,7 +180,7 @@ impl LmdbBlockDb {
             .map_err(LmdbError::from)?;
         wtxn.commit().map_err(LmdbError::from)?;
 
-        Ok(Self { env, db })
+        Ok(Self { env, db, canonical_path: canonical })
     }
 
     /// Store `value` under `key`.  Idempotent: re-writing the same key with

@@ -3,6 +3,57 @@ use stoa_core::InjectionSource;
 /// The header name prepended by the SMTP queue drain.
 const INJECTION_SOURCE_HEADER: &[u8] = b"X-Stoa-Injection-Source:";
 
+/// Strip all server-synthesized `X-Stoa-*` headers that clients must never be
+/// able to forge by including them in a POST.
+///
+/// These headers are injected dynamically at read time and must not be stored
+/// in IPFS.  If a client includes them in a POST, they would be returned
+/// verbatim before the server's injected value, allowing a client to forge
+/// the integrity signal seen by readers.
+///
+/// Stripped headers:
+/// - `X-Stoa-DID-Verified` — DID author signature result (dynamic, per-reader)
+/// - `X-Stoa-Verified`     — operator X-Stoa-Sig result (dynamic, per-reader)
+/// - `X-Stoa-CID`          — article root CID (derived from IPFS write)
+///
+/// All occurrences are stripped (not just the first) so a client cannot hide
+/// one forged value behind another.
+pub fn strip_server_synthesized_headers(article_bytes: &mut Vec<u8>) {
+    strip_all_occurrences(article_bytes, b"x-stoa-did-verified:");
+    strip_all_occurrences(article_bytes, b"x-stoa-verified:");
+    strip_all_occurrences(article_bytes, b"x-stoa-cid:");
+}
+
+/// Remove every header line whose name (lowercase, with colon) matches
+/// `header_name_lower`.  Rescans after each removal to handle multiple
+/// occurrences.  Only the header section (before the blank line) is scanned.
+fn strip_all_occurrences(article_bytes: &mut Vec<u8>, header_name_lower: &[u8]) {
+    loop {
+        let header_end = find_header_end(article_bytes);
+        let mut i = 0;
+        let mut found = false;
+        while i < header_end {
+            let line_end = find_line_end(article_bytes, i, header_end);
+            let line = &article_bytes[i..line_end];
+            if line.len() >= header_name_lower.len()
+                && line[..header_name_lower.len()]
+                    .iter()
+                    .zip(header_name_lower.iter())
+                    .all(|(a, b)| a.to_ascii_lowercase() == *b)
+            {
+                let end = skip_line_terminator(article_bytes, line_end);
+                article_bytes.drain(i..end);
+                found = true;
+                break; // Restart scan: buffer indices changed after drain.
+            }
+            i = skip_line_terminator(article_bytes, line_end);
+        }
+        if !found {
+            break;
+        }
+    }
+}
+
 /// Extract and remove the `X-Stoa-Injection-Source:` header from
 /// `article_bytes`, returning the parsed `InjectionSource`.
 ///
@@ -201,6 +252,86 @@ mod tests {
         assert!(
             s.contains("\r\n\r\n"),
             "blank-line separator must remain after header removal"
+        );
+    }
+
+    // ── strip_server_synthesized_headers tests ────────────────────────────────
+
+    #[test]
+    fn strip_did_verified_removed() {
+        let mut article =
+            make_article(Some("X-Stoa-DID-Verified: true"), "body\r\n");
+        strip_server_synthesized_headers(&mut article);
+        let s = String::from_utf8(article).unwrap();
+        assert!(
+            !s.contains("X-Stoa-DID-Verified"),
+            "X-Stoa-DID-Verified must be stripped: {s:?}"
+        );
+        assert!(s.contains("Newsgroups:"), "other headers must remain");
+    }
+
+    #[test]
+    fn strip_x_stoa_verified_removed() {
+        let mut article = make_article(Some("X-Stoa-Verified: pass"), "body\r\n");
+        strip_server_synthesized_headers(&mut article);
+        let s = String::from_utf8(article).unwrap();
+        assert!(
+            !s.contains("X-Stoa-Verified"),
+            "X-Stoa-Verified must be stripped: {s:?}"
+        );
+    }
+
+    #[test]
+    fn strip_cid_header_removed() {
+        let mut article = make_article(Some("X-Stoa-CID: bafyreiabc"), "body\r\n");
+        strip_server_synthesized_headers(&mut article);
+        let s = String::from_utf8(article).unwrap();
+        assert!(!s.contains("X-Stoa-CID"), "X-Stoa-CID must be stripped: {s:?}");
+    }
+
+    #[test]
+    fn strip_multiple_occurrences_all_removed() {
+        // Two forged X-Stoa-DID-Verified headers must both be stripped.
+        let mut article = format!(
+            "X-Stoa-DID-Verified: true\r\n\
+             X-Stoa-DID-Verified: false\r\n\
+             Newsgroups: comp.test\r\n\
+             From: a@b\r\n\
+             Subject: test\r\n\
+             Message-ID: <x@y>\r\n\
+             \r\n\
+             body\r\n"
+        )
+        .into_bytes();
+        strip_server_synthesized_headers(&mut article);
+        let s = String::from_utf8(article).unwrap();
+        assert!(
+            !s.contains("X-Stoa-DID-Verified"),
+            "all occurrences must be stripped: {s:?}"
+        );
+        assert!(s.contains("\r\n\r\n"), "blank-line separator must remain");
+    }
+
+    #[test]
+    fn strip_no_matching_headers_unchanged() {
+        let mut article = make_article(None, "body\r\n");
+        let before = article.clone();
+        strip_server_synthesized_headers(&mut article);
+        assert_eq!(
+            article, before,
+            "article with no synthesized headers must be unchanged"
+        );
+    }
+
+    #[test]
+    fn strip_case_insensitive() {
+        let mut article =
+            make_article(Some("x-stoa-did-verified: true"), "body\r\n");
+        strip_server_synthesized_headers(&mut article);
+        let s = String::from_utf8(article).unwrap();
+        assert!(
+            !s.to_ascii_lowercase().contains("x-stoa-did-verified"),
+            "stripping must be case-insensitive: {s:?}"
         );
     }
 }
