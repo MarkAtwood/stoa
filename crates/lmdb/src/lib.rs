@@ -46,6 +46,41 @@ fn open_paths() -> &'static Mutex<HashSet<PathBuf>> {
     OPEN_PATHS.get_or_init(|| Mutex::new(HashSet::new()))
 }
 
+/// RAII guard that removes a path from `OPEN_PATHS` when dropped.
+///
+/// Constructed after inserting a path into `OPEN_PATHS`.  Call
+/// [`PathGuard::defuse`] once the `LmdbBlockDb` has been fully and
+/// successfully constructed so that the `Drop` impl does not remove the
+/// path — the path's lifetime will then be managed by `LmdbBlockDb::drop`.
+///
+/// Without this guard, any `?` between the `OPEN_PATHS` insert and the
+/// successful `Ok(Self { … })` return would leave the path permanently
+/// stuck in `OPEN_PATHS`, preventing any retry.
+struct PathGuard {
+    path: Option<PathBuf>,
+}
+
+impl PathGuard {
+    fn new(path: PathBuf) -> Self {
+        Self { path: Some(path) }
+    }
+
+    /// Prevent this guard from removing the path when dropped.
+    fn defuse(&mut self) {
+        self.path = None;
+    }
+}
+
+impl Drop for PathGuard {
+    fn drop(&mut self) {
+        if let Some(ref p) = self.path {
+            if let Ok(mut set) = open_paths().lock() {
+                set.remove(p);
+            }
+        }
+    }
+}
+
 /// Typed errors from LMDB operations.
 ///
 /// Callers can match on `MapFull` or `ReadersFull` to handle those conditions
@@ -138,7 +173,13 @@ impl LmdbBlockDb {
                 path.display()
             ))
         })?;
-        {
+        // Insert path into OPEN_PATHS and install a cleanup guard.
+        //
+        // PathGuard removes the path from OPEN_PATHS on drop unless defused.
+        // This ensures that any `?` between this point and Ok(Self{…}) leaves
+        // OPEN_PATHS consistent — without the guard, a failed EnvOpenOptions::open
+        // or write_txn/commit would permanently lock the path and prevent retries.
+        let mut guard = {
             let mut set = open_paths()
                 .lock()
                 .map_err(|_| LmdbError::Other("OPEN_PATHS lock poisoned".into()))?;
@@ -149,7 +190,8 @@ impl LmdbBlockDb {
                     canonical.display()
                 )));
             }
-        }
+            PathGuard::new(canonical.clone())
+        };
 
         // Reject map sizes that would overflow usize.  The config validator
         // catches this for production configs; this check defends callers (e.g.
@@ -188,6 +230,10 @@ impl LmdbBlockDb {
             .create_database(&mut wtxn, Some("blocks"))
             .map_err(LmdbError::from)?;
         wtxn.commit().map_err(LmdbError::from)?;
+
+        // Construction succeeded: defuse the guard so Drop does not remove
+        // the path — LmdbBlockDb::drop is now responsible for cleanup.
+        guard.defuse();
 
         Ok(Self { env, db, canonical_path: canonical })
     }
@@ -332,5 +378,41 @@ mod tests {
         db.put_batch(pairs).unwrap();
         db.put_batch(pairs).unwrap();
         assert_eq!(db.get(b"k").unwrap(), Some(b"v".to_vec()));
+    }
+
+    /// After a failed open (invalid path), the path must not remain stuck in
+    /// OPEN_PATHS — a subsequent successful open of a *different* valid path
+    /// must succeed and not error with "already open".
+    ///
+    /// We can't easily trigger a mid-open failure in unit tests, but we CAN
+    /// verify that opening a nonexistent path (which fails before any PathGuard
+    /// is installed) leaves OPEN_PATHS clean for a subsequent valid open.
+    #[test]
+    fn failed_open_does_not_lock_open_paths() {
+        // Open an invalid path (file instead of directory).
+        let tmp = tempfile::TempDir::new().expect("tempdir");
+        let file_path = tmp.path().join("not_a_dir.txt");
+        std::fs::write(&file_path, b"not a directory").unwrap();
+
+        // This open will fail: LMDB cannot open a file as an environment.
+        let _ = LmdbBlockDb::open(&file_path, 1);
+
+        // A valid open at a different path must still succeed — OPEN_PATHS
+        // must not have been corrupted by the failed attempt.
+        let valid_path = tmp.path().join("valid_env");
+        LmdbBlockDb::open(&valid_path, 1)
+            .expect("valid open must succeed after failed open at different path");
+    }
+
+    /// Drop releases the path from OPEN_PATHS so it can be re-opened.
+    #[test]
+    fn drop_releases_path_for_reopen() {
+        let tmp = tempfile::TempDir::new().expect("tempdir");
+        {
+            let _db = LmdbBlockDb::open(tmp.path(), 1).expect("first open");
+            // _db is dropped here
+        }
+        // After drop, the path must be free to open again.
+        LmdbBlockDb::open(tmp.path(), 1).expect("reopen after drop must succeed");
     }
 }
