@@ -197,9 +197,10 @@ pub fn dispatch(
             }
         }
         Command::Search { .. } => {
-            // Full handler lives in lifecycle.rs (intercepted before dispatch).
-            // This arm should be unreachable but must compile.
-            Response::new(500, "Internal error: SEARCH not intercepted")
+            unreachable!(
+                "SEARCH must be intercepted by lifecycle.rs before reaching dispatch; \
+                 if this panics, the session lifecycle is missing the interception"
+            )
         }
         _ => Response::information_follows(),
     }

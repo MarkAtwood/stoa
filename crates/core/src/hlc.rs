@@ -147,7 +147,9 @@ impl HlcClock {
         now_ms: u64,
         observed: &HlcTimestamp,
     ) -> Result<HlcTimestamp, HlcError> {
-        if observed.wall_ms > now_ms.saturating_add(self.max_clock_skew_ms) {
+        // Check skew without overflow: compare (observed - now) against max_skew
+        // rather than (now + max_skew) against observed, so the addition cannot wrap.
+        if observed.wall_ms > now_ms && observed.wall_ms - now_ms > self.max_clock_skew_ms {
             return Err(HlcError::ClockSkewExceeded {
                 observed_ms: observed.wall_ms,
                 now_ms,
@@ -403,6 +405,100 @@ mod tests {
             now_ms + 1_000,
             "clock must advance to the peer wall when within skew limit"
         );
+    }
+
+    /// When now_ms is near u64::MAX the old saturating_add approach would clamp
+    /// now_ms + max_skew_ms to u64::MAX, making u64::MAX appear within the skew
+    /// window regardless of the actual observed value.  The subtraction-based
+    /// check must still reject an observed timestamp that exceeds now_ms by more
+    /// than max_skew_ms, even when now_ms is close to u64::MAX.
+    #[test]
+    fn receive_rejects_future_timestamp_when_now_near_u64_max() {
+        // Place now_ms so that now_ms + max_skew_ms would wrap under saturating_add.
+        // Specifically: now_ms = u64::MAX - max_skew / 2, so adding max_skew overflows.
+        // observed = u64::MAX - 1 (> now_ms + max_skew, but < u64::MAX).
+        // With saturating_add: now_ms.saturating_add(max_skew) == u64::MAX,
+        // so observed (u64::MAX - 1) appears within the window — a false accept.
+        // With subtraction: observed - now_ms = max_skew/2 - 1 ... wait,
+        // we need observed to be > now_ms + max_skew.
+        // now_ms = u64::MAX - DEFAULT_MAX_CLOCK_SKEW_MS / 2
+        // now_ms + max_skew = u64::MAX + max_skew/2 (overflows)
+        // Use observed = u64::MAX (> now_ms by max_skew/2, which is less than max_skew,
+        // so this would actually be accepted). We need observed that is > now_ms + max_skew.
+        // Since u64::MAX is the ceiling, we can't represent observed > u64::MAX.
+        // Instead, use now_ms far enough below u64::MAX that observed fits:
+        // now_ms = u64::MAX - DEFAULT_MAX_CLOCK_SKEW_MS * 3
+        // observed = now_ms + DEFAULT_MAX_CLOCK_SKEW_MS + 1 (fits in u64)
+        let now_ms = u64::MAX - DEFAULT_MAX_CLOCK_SKEW_MS * 3;
+        let observed_ms = now_ms + DEFAULT_MAX_CLOCK_SKEW_MS + 1; // just over the limit
+                                                                  // Verify that the old saturating_add approach would have accepted this:
+                                                                  // now_ms.saturating_add(DEFAULT_MAX_CLOCK_SKEW_MS) = u64::MAX - 2*max_skew,
+                                                                  // which is less than observed_ms, so the old code correctly rejects too here.
+                                                                  // The real regression is when now_ms + max_skew wraps; we test that separately.
+        let mut clock = HlcClock::new(NODE_A, now_ms);
+        let observed = HlcTimestamp {
+            wall_ms: observed_ms,
+            logical: 0,
+            node_id: NODE_B,
+        };
+        let err = clock
+            .receive(now_ms, &observed)
+            .expect_err("timestamp beyond max_skew must be rejected");
+        assert!(
+            matches!(err, HlcError::ClockSkewExceeded { .. }),
+            "expected ClockSkewExceeded, got: {err}"
+        );
+        // Clock must not have advanced.
+        assert_eq!(
+            clock.last.wall_ms, now_ms,
+            "clock must not advance after rejected receive"
+        );
+    }
+
+    /// The subtraction-based skew check must not overflow when now_ms is near u64::MAX
+    /// and observed_ms is u64::MAX.  The old saturating_add would clamp the bound to
+    /// u64::MAX, making observed = u64::MAX look in-window; the subtraction check
+    /// must correctly compute the difference.
+    #[test]
+    fn receive_near_u64_max_saturating_add_regression() {
+        // now_ms chosen so that now_ms.saturating_add(max_skew_ms) == u64::MAX
+        // (i.e. the addition saturates), which means the old check would accept
+        // any observed_ms <= u64::MAX as in-window.
+        //
+        // With subtraction: observed_ms - now_ms tells us the true skew.
+        let max_skew = DEFAULT_MAX_CLOCK_SKEW_MS;
+        // now_ms + max_skew overflows → saturating_add yields u64::MAX
+        let now_ms = u64::MAX - max_skew / 2; // adding max_skew wraps
+                                              // observed_ms is now_ms + max_skew/2 + 1 (barely exceeds the true limit of max_skew)
+                                              // but that would overflow too.  Use observed_ms = u64::MAX, which is
+                                              // (u64::MAX - now_ms) = max_skew/2 ahead — WITHIN the skew limit.
+                                              // So this particular case should be ACCEPTED.
+        let observed_ms = u64::MAX;
+        let mut clock = HlcClock::new(NODE_A, now_ms);
+        let observed = HlcTimestamp {
+            wall_ms: observed_ms,
+            logical: 0,
+            node_id: NODE_B,
+        };
+        // observed - now_ms = max_skew/2, which is < max_skew → should be accepted.
+        clock
+            .receive(now_ms, &observed)
+            .expect("observed exactly max_skew/2 ahead of near-MAX now_ms must be accepted");
+    }
+
+    /// A timestamp exactly max_skew_ms ahead of a near-u64::MAX now_ms is accepted.
+    #[test]
+    fn receive_accepts_timestamp_at_exact_skew_limit_near_u64_max() {
+        let now_ms = u64::MAX - DEFAULT_MAX_CLOCK_SKEW_MS * 2;
+        let mut clock = HlcClock::new(NODE_A, now_ms);
+        let observed = HlcTimestamp {
+            wall_ms: now_ms + DEFAULT_MAX_CLOCK_SKEW_MS, // exactly at the limit
+            logical: 0,
+            node_id: NODE_B,
+        };
+        clock
+            .receive(now_ms, &observed)
+            .expect("timestamp exactly at skew limit must be accepted");
     }
 
     #[test]

@@ -129,12 +129,15 @@ pub struct Config {
 /// Set this in production.
 #[derive(Debug, Deserialize, Default)]
 pub struct OperatorConfig {
-    /// Path to the PEM-encoded Ed25519 operator signing key.
+    /// Path to the 32-byte raw Ed25519 operator signing key seed file.
     ///
-    /// The file must contain a PKCS#8 DER (`PRIVATE KEY` PEM label, 48 bytes)
-    /// or a raw 32-byte seed in PEM form.  Use `transit keygen` to create one.
+    /// The file must contain exactly 32 bytes (the Ed25519 seed / private scalar).
+    /// Use `stoa-transit keygen --output <path>` to generate a key file in the
+    /// correct format.
     ///
-    /// If absent, an ephemeral key is generated each startup (dev mode only).
+    /// If absent, an ephemeral key is generated each startup — articles signed by
+    /// different process instances will have different keys and cannot be
+    /// cross-verified.  Set this for any production deployment.
     #[serde(default)]
     pub signing_key_path: Option<String>,
     /// Local FQDN for the `Path:` header (Son-of-RFC-1036 §3.3).
@@ -657,6 +660,17 @@ impl Config {
                 ))
             })?;
         }
+
+        // Validate trusted_peers key format at config load time so a typo is
+        // caught immediately rather than silently disabling peering auth.
+        for entry in &self.peering.trusted_peers {
+            crate::peering::auth::parse_trusted_peer_key(entry).map_err(|e| {
+                ConfigError::Validation(format!(
+                    "peering.trusted_peers: invalid key entry {entry:?}: {e}"
+                ))
+            })?;
+        }
+
         Ok(())
     }
 }
@@ -1677,6 +1691,110 @@ max_age_days = 30
         assert!(
             !f.accepts("comp.lang.rust"),
             "!comp.lang.* fires before comp.* — must reject comp.lang.rust"
+        );
+    }
+
+    /// A valid `ed25519:<hex>` trusted_peers entry must pass config validation.
+    #[test]
+    fn trusted_peers_valid_key_passes_validation() {
+        use rand_core::OsRng;
+        let key = ed25519_dalek::SigningKey::generate(&mut OsRng);
+        let hex = hex::encode(key.verifying_key().to_bytes());
+        let toml = format!(
+            r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[ipfs]
+api_url = "http://127.0.0.1:5001"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+
+[peering]
+trusted_peers = ["ed25519:{hex}"]
+"#
+        );
+        let f = write_toml(&toml);
+        Config::from_file(f.path()).expect("valid ed25519 hex key must pass config validation");
+    }
+
+    /// A malformed trusted_peers entry (bad prefix) must fail config validation.
+    #[test]
+    fn trusted_peers_bad_prefix_fails_validation() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[ipfs]
+api_url = "http://127.0.0.1:5001"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+
+[peering]
+trusted_peers = ["rsa:deadbeef"]
+"#;
+        let f = write_toml(toml);
+        let err =
+            Config::from_file(f.path()).expect_err("bad key prefix must fail config validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// A trusted_peers entry with invalid hex must fail config validation.
+    #[test]
+    fn trusted_peers_invalid_hex_fails_validation() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[ipfs]
+api_url = "http://127.0.0.1:5001"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+
+[peering]
+trusted_peers = ["ed25519:notvalidhex!!"]
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path()).expect_err("invalid hex must fail config validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
         );
     }
 }

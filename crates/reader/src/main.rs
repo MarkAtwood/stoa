@@ -280,43 +280,26 @@ async fn main() {
         std::process::exit(1);
     }
 
+    // Warn loudly when auth dev-mode is active on a non-loopback address.
+    // Dev-mode (required=false, no users, no credential_file) accepts any password,
+    // making the server an open relay if bound to a reachable interface.
+    if config.auth.is_dev_mode() && !stoa_reader::config::is_loopback_addr(&config.listen.addr) {
+        warn!(
+            listen_addr = %config.listen.addr,
+            "SECURITY WARNING: auth is in dev-mode (required=false, no users configured) \
+             but the server is listening on a non-loopback address — \
+             any password will be accepted; do not expose this to untrusted networks"
+        );
+    }
+
     info!(
         listen_addr = %config.listen.addr,
         max_connections = config.limits.max_connections,
         "stoa-reader starting"
     );
 
-    let listener = match TcpListener::bind(&config.listen.addr).await {
-        Ok(l) => l,
-        Err(e) => {
-            error!("failed to bind to {}: {}", config.listen.addr, e);
-            std::process::exit(1);
-        }
-    };
-
-    let semaphore = Arc::new(Semaphore::new(config.limits.max_connections));
-    let stores = Arc::new(match ServerStores::new_with_ipfs(&config).await {
-        Ok(s) => s,
-        Err(e) => {
-            error!("failed to initialise stores: {e}");
-            std::process::exit(1);
-        }
-    });
-
-    let backfilled = backfill_overview(
-        &stores.article_numbers,
-        &stores.overview_store,
-        stores.ipfs_store.as_ref(),
-    )
-    .await;
-    if backfilled > 0 {
-        info!(count = backfilled, "overview index backfill complete");
-    }
-
-    let config = Arc::new(config);
-
-    // Load TLS acceptor once at startup. Cert load errors are fatal; they
-    // are not discovered per-connection.
+    // Load TLS acceptor before binding the socket so that cert/key errors are
+    // caught at startup rather than on the first client connection.
     let tls_acceptor: Option<Arc<TlsAcceptor>> = match (
         config.tls.cert_path.as_deref(),
         config.tls.key_path.as_deref(),
@@ -354,6 +337,35 @@ async fn main() {
         }
         _ => None,
     };
+
+    let listener = match TcpListener::bind(&config.listen.addr).await {
+        Ok(l) => l,
+        Err(e) => {
+            error!("failed to bind to {}: {}", config.listen.addr, e);
+            std::process::exit(1);
+        }
+    };
+
+    let semaphore = Arc::new(Semaphore::new(config.limits.max_connections));
+    let stores = Arc::new(match ServerStores::new_with_ipfs(&config).await {
+        Ok(s) => s,
+        Err(e) => {
+            error!("failed to initialise stores: {e}");
+            std::process::exit(1);
+        }
+    });
+
+    let backfilled = backfill_overview(
+        &stores.article_numbers,
+        &stores.overview_store,
+        stores.ipfs_store.as_ref(),
+    )
+    .await;
+    if backfilled > 0 {
+        info!(count = backfilled, "overview index backfill complete");
+    }
+
+    let config = Arc::new(config);
 
     // Optional admin HTTP server.
     if config.admin.enabled {

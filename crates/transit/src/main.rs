@@ -29,7 +29,7 @@ use stoa_transit::{
 };
 use stoa_verify::VerificationStore;
 use tokio::{net::TcpListener, sync::Mutex};
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 fn parse_args() -> (PathBuf, bool) {
     let args: Vec<String> = std::env::args().collect();
@@ -505,8 +505,11 @@ async fn main() {
     // ── Trusted peer keys ─────────────────────────────────────────────────────
 
     let trusted_keys = parse_trusted_peer_keys(&config.peering.trusted_peers).unwrap_or_else(|e| {
-        warn!("invalid trusted_peers key in config: {e} — peering auth disabled");
-        Vec::new()
+        error!(
+            "invalid trusted_peers key in config: {e} — \
+             peering auth is a security control; startup aborted"
+        );
+        std::process::exit(1);
     });
 
     // ── HLC clock and ingestion queue ─────────────────────────────────────────

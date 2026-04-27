@@ -317,11 +317,9 @@ async fn transit_reader_shared_store() {
         ipfs: Arc::clone(&shared_ipfs) as Arc<dyn IpfsStore>,
         msgid_map: Arc::clone(&msgid_map),
         log_storage: Arc::clone(&transit_log_storage),
-        gossip_tx: None,
         signing_key: Arc::clone(&transit_signing_key),
         hlc: Arc::clone(&transit_hlc),
         ingestion_sender: Arc::clone(&ingestion_sender),
-        local_peer_id: "integ-test-peer".to_string(),
         local_hostname: "integ-test.local".to_string(),
         peer_rate_limiter: Arc::new(std::sync::Mutex::new(PeerRateLimiter::new(
             100.0,
@@ -357,12 +355,11 @@ async fn transit_reader_shared_store() {
                 let ctx = PipelineCtx {
                     timestamp: ts,
                     operator_signing_key: Arc::clone(&key_drain),
-                    gossip_tx: None,
-                    sender_peer_id: "integ-test-peer",
                     local_hostname: "integ-test.local",
                     verify_store: None,
                     trusted_keys: &[],
                     dkim_auth: None,
+                    group_filter: None,
                 };
                 let _ = run_pipeline(
                     &article.bytes,

@@ -172,6 +172,7 @@ fn is_valid_message_id(id: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use stoa_core::util::epoch_to_rfc2822;
 
     /// Build a CRLF-terminated header block from `(name, value)` pairs.
     /// The block ends with a blank line (`\r\n`).
@@ -205,48 +206,6 @@ mod tests {
             ("Newsgroups", "comp.lang.rust".to_string()),
             ("Subject", "Test subject".to_string()),
         ]
-    }
-
-    /// Format a Unix timestamp as an RFC 2822 date string.
-    fn epoch_to_rfc2822(secs: i64) -> String {
-        // Days of week and months for manual formatting.
-        const DAYS: [&str; 7] = ["Thu", "Fri", "Sat", "Sun", "Mon", "Tue", "Wed"];
-        const MONTHS: [&str; 12] = [
-            "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-        ];
-
-        // Use the Gregorian calendar algorithm to convert epoch seconds to
-        // (year, month, day, weekday, hour, minute, second).
-        let s = secs;
-        let sec = (s % 60) as u32;
-        let min = ((s / 60) % 60) as u32;
-        let hour = ((s / 3600) % 24) as u32;
-        let days_since_epoch = s / 86400;
-        // Jan 1, 1970 was a Thursday (weekday index 0 in our table).
-        let wday = ((days_since_epoch % 7 + 7) % 7) as usize;
-
-        // Civil date from days since epoch (Rata Die algorithm).
-        let z = days_since_epoch + 719_468;
-        let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
-        let doe = z - era * 146_097;
-        let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146_096) / 365;
-        let y = yoe + era * 400;
-        let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-        let mp = (5 * doy + 2) / 153;
-        let d = doy - (153 * mp + 2) / 5 + 1;
-        let m = if mp < 10 { mp + 3 } else { mp - 9 };
-        let y = if m <= 2 { y + 1 } else { y };
-
-        format!(
-            "{}, {:02} {} {} {:02}:{:02}:{:02} +0000",
-            DAYS[wday],
-            d,
-            MONTHS[(m - 1) as usize],
-            y,
-            hour,
-            min,
-            sec
-        )
     }
 
     // ── 1. Valid headers ──────────────────────────────────────────────────────
