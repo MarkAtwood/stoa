@@ -49,6 +49,12 @@ struct TrustedIssuer {
     /// trying every configured CA against every leaf (flat-namespace attack
     /// and unnecessary work).
     subject_der: Vec<u8>,
+    /// Unix timestamp (seconds) of the CA certificate's `NotAfter` field.
+    ///
+    /// Checked on every `verify_and_extract_cn` call.  A CA cert that expires
+    /// after daemon startup is rejected from that point forward; the daemon
+    /// must be restarted with a renewed CA cert to restore issuer-based auth.
+    not_after_secs: i64,
 }
 
 /// Store of parsed CA public keys for issuer-based client cert auth.
@@ -161,7 +167,17 @@ impl TrustedIssuerStore {
         // this is the standard X.509 issuer-matching rule and prevents a
         // cert issued by CA-A from being accepted as if issued by CA-B
         // (flat-namespace confusion).
+        //
+        // Also skip any CA whose NotAfter has passed.  The CA cert is checked
+        // once at startup (`issuer_from_pem`), but it may expire while the
+        // daemon is running.  Checking here ensures the CA stops being used as
+        // soon as it expires — the daemon must be restarted with a renewed CA
+        // to restore issuer-based auth.
+        let now_secs = x509_parser::time::ASN1Time::now().timestamp();
         for issuer in &self.issuers {
+            if now_secs > issuer.not_after_secs {
+                continue; // CA cert has expired since daemon startup
+            }
             if issuer.subject_der != leaf_issuer_raw {
                 continue;
             }
@@ -200,10 +216,12 @@ fn issuer_from_pem(pem_bytes: &[u8], path: &str) -> Result<TrustedIssuer, String
 
     let spki_der = ca_cert.tbs_certificate.subject_pki.raw.to_vec();
     let subject_der = ca_cert.tbs_certificate.subject.as_raw().to_vec();
+    let not_after_secs = ca_cert.validity().not_after.timestamp();
 
     Ok(TrustedIssuer {
         spki_der,
         subject_der,
+        not_after_secs,
     })
 }
 
@@ -309,5 +327,97 @@ mod tests {
         let result = store.verify_and_extract_cn(b"\xff\xfe garbage bytes");
         assert!(result.is_ok(), "parse failure must not propagate as Err");
         assert_eq!(result.unwrap(), None);
+    }
+
+    /// Write a PEM string to a tempfile and return the `NamedTempFile`.
+    fn write_pem_temp(pem: &str) -> tempfile::NamedTempFile {
+        let f = tempfile::NamedTempFile::new().expect("tempfile");
+        std::fs::write(f.path(), pem.as_bytes()).expect("write pem");
+        f
+    }
+
+    /// Build a self-signed Ed25519 CA cert with the given validity window.
+    ///
+    /// `not_before` and `not_after` are offsets in seconds from now.
+    /// A negative `not_after` produces an already-expired cert.
+    fn make_ca_pem(not_before_offset_secs: i64, not_after_offset_secs: i64) -> String {
+        use rcgen::{CertificateParams, DistinguishedName, DnType, KeyPair, PKCS_ED25519};
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time")
+            .as_secs() as i64;
+
+        let not_before = now + not_before_offset_secs;
+        let not_after = now + not_after_offset_secs;
+
+        let key = KeyPair::generate_for(&PKCS_ED25519).expect("Ed25519 keygen");
+
+        let mut params = CertificateParams::default();
+        params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
+        let mut dn = DistinguishedName::new();
+        dn.push(DnType::CommonName, "Test CA");
+        params.distinguished_name = dn;
+
+        // rcgen uses time::OffsetDateTime for validity.
+        params.not_before = ::time::OffsetDateTime::from_unix_timestamp(not_before)
+            .expect("not_before timestamp");
+        params.not_after = ::time::OffsetDateTime::from_unix_timestamp(not_after)
+            .expect("not_after timestamp");
+
+        let cert = params.self_signed(&key).expect("self_signed");
+        cert.pem()
+    }
+
+    #[test]
+    fn from_config_rejects_expired_ca_at_startup() {
+        // CA cert expired 100 seconds ago.
+        let pem = make_ca_pem(-200, -100);
+        let tmp = write_pem_temp(&pem);
+        let entry = TrustedIssuerEntry {
+            cert_path: tmp.path().to_str().unwrap().to_string(),
+        };
+        let result = TrustedIssuerStore::from_config(&[entry]);
+        assert!(
+            result.is_err(),
+            "from_config must reject a CA cert that has already expired"
+        );
+        let msg = result.err().unwrap();
+        assert!(
+            msg.contains("expired") || msg.contains("not yet valid"),
+            "error must mention expiry, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn from_config_rejects_not_yet_valid_ca_at_startup() {
+        // CA cert not valid for another 10 minutes.
+        let pem = make_ca_pem(600, 7200);
+        let tmp = write_pem_temp(&pem);
+        let entry = TrustedIssuerEntry {
+            cert_path: tmp.path().to_str().unwrap().to_string(),
+        };
+        let result = TrustedIssuerStore::from_config(&[entry]);
+        assert!(
+            result.is_err(),
+            "from_config must reject a CA cert that is not yet valid"
+        );
+    }
+
+    #[test]
+    fn from_config_accepts_currently_valid_ca() {
+        // CA cert valid now, expires in 1 hour.
+        let pem = make_ca_pem(-60, 3600);
+        let tmp = write_pem_temp(&pem);
+        let entry = TrustedIssuerEntry {
+            cert_path: tmp.path().to_str().unwrap().to_string(),
+        };
+        let result = TrustedIssuerStore::from_config(&[entry]);
+        assert!(
+            result.is_ok(),
+            "from_config must accept a currently-valid CA cert: {:?}",
+            result.err()
+        );
     }
 }

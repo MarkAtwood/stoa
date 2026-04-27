@@ -20,7 +20,13 @@ fn parse_bcrypt_cost(hash: &str) -> Option<u32> {
     if !matches!(version, "2a" | "2b" | "2x" | "2y") {
         return None;
     }
-    parts.next()?.parse().ok()
+    let cost: u32 = parts.next()?.parse().ok()?;
+    // bcrypt cost must be in range 4–31; reject out-of-range values early so
+    // make_dummy_hash() never calls bcrypt::hash with an invalid cost.
+    if !(4..=31).contains(&cost) {
+        return None;
+    }
+    Some(cost)
 }
 
 /// Compute a dummy bcrypt hash at the same cost as the configured hashes.
@@ -58,7 +64,25 @@ impl CredentialStore {
     /// The `password` field in each `UserCredential` must already be a valid
     /// bcrypt hash (not a plaintext password). Usernames are normalised to
     /// ASCII-lowercase.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any `password` is not a recognised bcrypt hash (i.e. does not
+    /// start with `$2a$`, `$2b$`, `$2x$`, or `$2y$` with a cost of 4–31).
+    /// This is a fatal configuration error: a plaintext password would cause
+    /// `bcrypt::verify` to always return `false`, making authentication silently
+    /// fail for that user with no error at request time.
     pub fn from_credentials(users: &[UserCredential]) -> Self {
+        for u in users {
+            if parse_bcrypt_cost(&u.password).is_none() {
+                panic!(
+                    "stoa-auth: password for user '{}' is not a valid bcrypt hash \
+                     (must start with $2a$, $2b$, $2x$, or $2y$ with a cost of 4–31); \
+                     use `htpasswd -B -n {}` or `bcrypt::hash()` to generate a valid hash",
+                    u.username, u.username,
+                );
+            }
+        }
         let entries: HashMap<String, String> = users
             .iter()
             .map(|u| (u.username.to_ascii_lowercase(), u.password.clone()))
@@ -105,6 +129,13 @@ impl CredentialStore {
             let hash = hash.trim().to_string();
             if user.is_empty() {
                 return Err(format!("{label}:{}: empty username", lineno + 1));
+            }
+            if parse_bcrypt_cost(&hash).is_none() {
+                return Err(format!(
+                    "{label}:{}: password for user '{user}' is not a valid bcrypt hash \
+                     (must start with $2a$, $2b$, $2x$, or $2y$ with a cost of 4–31)",
+                    lineno + 1
+                ));
             }
             entries.insert(user, hash);
         }
@@ -238,9 +269,29 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "not a valid bcrypt hash")]
+    fn from_credentials_panics_on_plaintext_password() {
+        CredentialStore::from_credentials(&[UserCredential {
+            username: "alice".to_string(),
+            password: "plaintextpassword".to_string(),
+        }]);
+    }
+
+    #[test]
+    fn from_credentials_accepts_valid_bcrypt_hash() {
+        let hash = bcrypt::hash("valid-password", 4).expect("bcrypt::hash");
+        let store = CredentialStore::from_credentials(&[UserCredential {
+            username: "alice".to_string(),
+            password: hash,
+        }]);
+        assert!(store.entries.contains_key("alice"));
+    }
+
+    #[test]
     fn from_file_loads_valid_credentials() {
-        let hash = bcrypt::hash("filepass", 4).expect("bcrypt::hash must not fail");
-        let contents = format!("# comment\nbob:{hash}\n\nalice:dummyhash\n");
+        let hash_bob = bcrypt::hash("filepass", 4).expect("bcrypt::hash must not fail");
+        let hash_alice = bcrypt::hash("alicepass", 4).expect("bcrypt::hash must not fail");
+        let contents = format!("# comment\nbob:{hash_bob}\n\nalice:{hash_alice}\n");
         let tmp = tempfile::NamedTempFile::new().unwrap();
         std::fs::write(tmp.path(), &contents).unwrap();
 
@@ -248,6 +299,16 @@ mod tests {
             .expect("from_file must succeed");
         assert!(store.entries.contains_key("bob"), "bob must be loaded");
         assert!(store.entries.contains_key("alice"), "alice must be loaded");
+    }
+
+    #[test]
+    fn from_file_returns_err_for_plaintext_password() {
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(tmp.path(), "alice:plaintextpassword\n").unwrap();
+        let result = CredentialStore::from_file(tmp.path().to_str().unwrap());
+        assert!(result.is_err(), "from_file must return Err for plaintext password");
+        let msg = result.err().unwrap();
+        assert!(msg.contains("not a valid bcrypt hash"), "got: {msg}");
     }
 
     #[test]

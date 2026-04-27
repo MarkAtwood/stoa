@@ -183,10 +183,18 @@ pub fn validate_article_ingress(
 
     // 6. Header field values ≤ 998 bytes (RFC 5322 §2.1.1); no bare CR/LF or NUL.
     //
-    // After NNTP header parsing and unfolding, no CR or LF should remain in a
-    // header value. A remaining bare CR or LF indicates either a malformed
-    // article or an injection attempt. Bare CR/LF can corrupt canonical
-    // serialisation and downstream parsers that use line-oriented protocols.
+    // PRECONDITION: callers MUST unfold RFC 5322 obs-fold (CRLF followed by
+    // whitespace) before calling this function.  The NNTP parser in
+    // `reader/session/command.rs` performs unfolding before constructing an
+    // `Article`, so this precondition is satisfied on all production paths.
+    // If a caller forgets to unfold, a folded header (containing CRLF+WSP)
+    // will be REJECTED here by the bare-CR/LF check — this is intentional.
+    // Folded headers in the `Article` struct would corrupt canonical
+    // serialisation and break downstream line-oriented parsers.
+    //
+    // NUL (\x00) is forbidden in all header values. The canonical serialiser
+    // uses "\x00\n" as the header/body separator; a NUL byte in a header value
+    // would corrupt the canonical stream and produce an incorrect CID.
     const MAX_HEADER_VALUE: usize = 998;
 
     let mandatory_fields = [
@@ -205,10 +213,10 @@ pub fn validate_article_ingress(
             }
             .into());
         }
-        if value.contains('\r') || value.contains('\n') {
+        if value.contains('\x00') || value.contains('\r') || value.contains('\n') {
             return Err(ValidationError::InvalidHeaderValue {
                 field: name.into(),
-                reason: "bare CR or LF forbidden in header values (RFC 5322 §2.2)".into(),
+                reason: "NUL byte or bare CR/LF forbidden in header values (RFC 5322 §2.2)".into(),
             }
             .into());
         }
@@ -576,6 +584,44 @@ mod tests {
     }
 
     // ── bare CR/LF in header values ───────────────────────────────────────────
+
+    #[test]
+    fn test_obs_fold_in_mandatory_header_rejected() {
+        // RFC 5322 obs-fold: CRLF followed by whitespace. Callers must unfold
+        // before calling validate_article_ingress; if they do not, the folded
+        // header is rejected by the bare-CR/LF check. This test documents that
+        // behavior so a future change cannot accidentally accept folded headers.
+        let mut article = make_valid_article();
+        article.header.subject = "long subject\r\n that wraps".into();
+        let err = validate_article_ingress(&article, &ValidationConfig::default()).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                ProtocolError::ValidationFailed(ValidationError::InvalidHeaderValue {
+                    ref field,
+                    ..
+                }) if field == "Subject"
+            ),
+            "obs-fold (unfolded) header must be rejected: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_nul_byte_in_mandatory_header_rejected() {
+        let mut article = make_valid_article();
+        article.header.from = "user\x00@example.com".into();
+        let err = validate_article_ingress(&article, &ValidationConfig::default()).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                ProtocolError::ValidationFailed(ValidationError::InvalidHeaderValue {
+                    ref field,
+                    ..
+                }) if field == "From"
+            ),
+            "unexpected error: {err:?}"
+        );
+    }
 
     #[test]
     fn test_bare_cr_in_mandatory_header_rejected() {

@@ -166,9 +166,16 @@ pub async fn handle_authenticate_data(
             }
         }
 
-        // Unexpected state.
+        // Unexpected state — send a tagged NO to exit the AUTHENTICATE
+        // sub-state.  Without authenticate_finish(), imap-next keeps the
+        // server in the authenticating state and routes all subsequent
+        // client input as AuthenticateData events, permanently blocking the
+        // session until the client disconnects.
         (state, _) => {
             warn!("unexpected AuthenticateDataReceived in state {state:?}");
+            let no = Status::no(None, None, "Internal authentication error")
+                .expect("static no is valid");
+            server.authenticate_finish(no).ok();
             None
         }
     }

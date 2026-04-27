@@ -50,7 +50,7 @@ fn test_config() -> Arc<stoa_imap::config::Config> {
             mechanisms: vec!["PLAIN".into(), "LOGIN".into()],
             users: vec![UserCredential {
                 username: "testuser".into(),
-                password: "testpass".into(),
+                password: bcrypt::hash("testpass", 4).expect("bcrypt hash"),
             }],
         },
         tls: TlsConfig {

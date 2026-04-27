@@ -158,22 +158,20 @@ async fn from_credentials_accepts_multiple_users() {
 
 #[test]
 fn from_file_loads_valid_credentials() {
-    let hash = bcrypt::hash("filepass", 4).expect("bcrypt::hash");
+    let hash_bob = bcrypt::hash("filepass", 4).expect("bcrypt::hash");
+    let hash_alice = bcrypt::hash("alicepass", 4).expect("bcrypt::hash");
     // Independently confirm hash validity.
     assert!(
-        bcrypt::verify("filepass", &hash).unwrap_or(false),
-        "oracle check"
+        bcrypt::verify("filepass", &hash_bob).unwrap_or(false),
+        "oracle check for bob"
     );
 
-    let contents = format!("# comment line\nbob:{hash}\n\nalice:dummyhash\n");
+    let contents = format!("# comment line\nbob:{hash_bob}\n\nalice:{hash_alice}\n");
     let tmp = tempfile::NamedTempFile::new().expect("tempfile");
     std::fs::write(tmp.path(), &contents).expect("write");
 
     let store =
         CredentialStore::from_file(tmp.path().to_str().unwrap()).expect("from_file must succeed");
-    // We cannot call check() in a sync test, but we can verify the store was
-    // built by attempting to call from_file again — here we just confirm the
-    // Result is Ok and the store was constructed without panic.
     drop(store);
 }
 
