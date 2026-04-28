@@ -6,6 +6,15 @@
 //! This layer intentionally does *not* perform semantic analysis — it simply
 //! groups tokens into nested forms.  A higher layer (the evaluator) is
 //! responsible for interpreting the forms.
+//!
+//! ## Source location in [`ParseError`]
+//!
+//! [`ParseError`] has `line` and `col` fields, but this module always sets
+//! them to `0`.  [`Token`] carries no source position — the lexer discards
+//! location data after categorising each token.  Fixing this would require
+//! changing `Token` to a `(Token, line, col)` tuple throughout the lexer and
+//! all parser functions.  Until that refactor happens, structural parse errors
+//! report location `(0, 0)`.
 
 use crate::lexer::Token;
 use crate::parse_error::ParseError;
@@ -75,6 +84,7 @@ fn read_stmt(tokens: &[Token], start: usize) -> Result<(Stmt, usize), ParseError
             }
             return Err(ParseError {
                 message: "unexpected end of input in statement (missing ';'?)".to_string(),
+                // line/col unavailable: Token carries no source position; see module doc.
                 line: 0,
                 col: 0,
             });
@@ -397,5 +407,24 @@ fn token_char(t: &Token) -> char {
         Token::Semicolon => ';',
         Token::Comma => ',',
         _ => '?',
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lexer::tokenize;
+
+    /// Structural parse errors must report location (0, 0) because `Token`
+    /// carries no source position.  This test pins that contract so that if
+    /// the lexer is ever extended to carry positions, the authors know to
+    /// plumb them through the form parser too.
+    #[test]
+    fn structural_parse_error_location_is_zero() {
+        // An unclosed block triggers a structural error deep in read_block.
+        let tokens = tokenize("if true {").expect("tokenize");
+        let err = read_script(&tokens).expect_err("unclosed block should fail");
+        assert_eq!(err.line, 0, "line must be 0 — Token carries no source position");
+        assert_eq!(err.col, 0, "col must be 0 — Token carries no source position");
     }
 }

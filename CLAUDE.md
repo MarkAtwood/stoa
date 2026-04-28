@@ -92,6 +92,31 @@ stoa/
 
 If any test fails after an upgrade, bisect with the fancy-regex changelog before merging.
 
+## Sieve-rs Oracle Divergence Protocol
+
+The native Sieve evaluator (`stoa-sieve-native`) is cross-validated against the
+`stoa-sieve` crate (which wraps `sieve-rs` 0.7, AGPL-3.0-only).  When
+`cargo test -p stoa-sieve` or the cross-validation tests diverge:
+
+1. **Check the RFC first.** Consult RFC 5228 (base Sieve) and the relevant
+   extension RFC (e.g. RFC 5173 for `body`, RFC 5231 for `relational`).
+   If the RFC is unambiguous and `stoa-sieve-native` matches it, the
+   `sieve-rs` oracle may be wrong — do not blindly follow it.
+
+2. **Check sieve-rs issues/changelog.** The divergence may be a known bug
+   fixed in a newer version.  Current pin: `sieve-rs = "0.7"`.
+
+3. **Check Dovecot behaviour.** Dovecot's Sieve implementation (Pigeonhole)
+   is the de-facto reference.  Source at `https://github.com/dovecot/pigeonhole`.
+
+4. **Document the divergence.** If `stoa-sieve-native` intentionally differs
+   from `sieve-rs`, add a comment in `evaluator.rs` naming the RFC section and
+   explaining the deviation.  Do not silently suppress a failing cross-check.
+
+5. **Never weaken a cross-validation test** to make it pass.  If `sieve-rs`
+   is wrong, update the test to skip that case with a comment, not to accept
+   the wrong answer.
+
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
 ## Beads Issue Tracker
 
