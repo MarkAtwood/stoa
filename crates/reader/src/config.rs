@@ -46,6 +46,9 @@ pub struct Config {
     pub database: DatabaseConfig,
     #[serde(default)]
     pub audit: stoa_core::audit::AuditConfig,
+    /// OpenTelemetry observability configuration.  Omit for Prometheus-only mode.
+    #[serde(default)]
+    pub telemetry: stoa_core::telemetry::TelemetryConfig,
 }
 
 /// Database URL configuration for the reader daemon.

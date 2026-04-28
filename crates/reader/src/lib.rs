@@ -9,4 +9,5 @@ pub mod post;
 pub mod search;
 pub mod session;
 pub mod store;
+pub mod telemetry;
 pub mod tls;

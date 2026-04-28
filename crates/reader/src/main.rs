@@ -335,6 +335,8 @@ async fn main() {
         tracing_subscriber::fmt().with_env_filter(filter).init();
     }
 
+    let _otel_guard = stoa_reader::telemetry::init_telemetry(&config.telemetry);
+
     let check_errors = run_startup_checks(&config).await;
     if !check_errors.is_empty() {
         for msg in &check_errors {

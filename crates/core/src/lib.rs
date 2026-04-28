@@ -17,6 +17,7 @@ pub mod msgid_map;
 pub mod rate_limiter;
 pub mod secret;
 pub mod signing;
+pub mod telemetry;
 pub mod util;
 pub mod validation;
 pub mod wildmat;

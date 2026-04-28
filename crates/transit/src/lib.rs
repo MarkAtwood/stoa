@@ -14,3 +14,4 @@ pub mod migrations;
 pub mod peering;
 pub mod retention;
 pub mod staging;
+pub mod telemetry;

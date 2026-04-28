@@ -63,6 +63,9 @@ pub struct Config {
     /// Ingestion queue limits.  Controls backpressure applied to IHAVE/TAKETHIS senders.
     #[serde(default)]
     pub ingest: IngestConfig,
+    /// OpenTelemetry observability configuration.  Omit for Prometheus-only mode.
+    #[serde(default)]
+    pub telemetry: stoa_core::telemetry::TelemetryConfig,
 }
 
 /// Configuration for SQLite online backup.
