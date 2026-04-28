@@ -13,9 +13,8 @@
 
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
-    Json,
 };
 use serde_json::Value;
 use std::sync::Arc;
@@ -26,8 +25,9 @@ use crate::server::AppState;
 /// POST `/ap/groups/{group_name}/inbox`
 pub async fn inbox_handler(
     State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
     Path(group_name): Path<String>,
-    Json(activity): Json<Value>,
+    body: axum::body::Bytes,
 ) -> Response {
     if !state.activitypub_config.enabled {
         return StatusCode::NOT_FOUND.into_response();
@@ -36,7 +36,37 @@ pub async fn inbox_handler(
         Some(s) => Arc::clone(s),
         None => return StatusCode::SERVICE_UNAVAILABLE.into_response(),
     };
+
+    // Parse JSON body.
+    let activity: Value = match serde_json::from_slice(&body) {
+        Ok(v) => v,
+        Err(_) => return StatusCode::BAD_REQUEST.into_response(),
+    };
+
     let activity_type = activity["type"].as_str().unwrap_or("");
+
+    // HTTP Signature verification for Create activities.
+    if activity_type == "Create" && state.activitypub_config.verify_http_signatures {
+        // Use the route path as the request path.
+        let path = format!("/ap/groups/{}/inbox", group_name);
+        match crate::activitypub::inbound::verify_http_signature(
+            "post",
+            &path,
+            &headers,
+            &body,
+        )
+        .await
+        {
+            Ok(actor) => {
+                info!(group = %group_name, actor = %actor, "HTTP Signature verified");
+            }
+            Err(e) => {
+                warn!(group = %group_name, error = %e, "HTTP Signature verification failed");
+                return StatusCode::UNAUTHORIZED.into_response();
+            }
+        }
+    }
+
     match activity_type {
         "Follow" => handle_follow(&ap_state, &state.base_url, &group_name, &activity).await,
         "Undo" => {
@@ -46,6 +76,15 @@ pub async fn inbox_handler(
             } else {
                 StatusCode::ACCEPTED.into_response()
             }
+        }
+        "Create" => {
+            handle_create(
+                &ap_state,
+                &state,
+                &group_name,
+                &activity,
+            )
+            .await
         }
         other => {
             info!(
@@ -188,4 +227,79 @@ async fn deliver_accept(
             warn!(inbox = %remote_inbox_url, error = %e, "Accept delivery failed");
         }
     }
+}
+
+async fn handle_create(
+    ap_state: &Arc<crate::activitypub::ActivityPubState>,
+    state: &Arc<crate::server::AppState>,
+    group_name: &str,
+    activity: &Value,
+) -> Response {
+    let activity_id = activity["id"].as_str().unwrap_or("");
+
+    // Deduplication: if we've seen this activity before, silently accept.
+    if !activity_id.is_empty() {
+        match ap_state.received_store.record_if_new(activity_id).await {
+            Ok(false) => {
+                return StatusCode::ACCEPTED.into_response();
+            }
+            Ok(true) => {}
+            Err(e) => {
+                warn!(activity_id = %activity_id, error = %e, "dedup store error; continuing");
+            }
+        }
+    }
+
+    let note = &activity["object"];
+    let (message_id, newsgroups, article_bytes) =
+        match crate::activitypub::inbound::note_to_article(note, group_name, &state.base_url) {
+            Ok(t) => t,
+            Err(e) => {
+                warn!(group = %group_name, error = %e, "failed to translate Create{{Note}} to article");
+                return StatusCode::ACCEPTED.into_response();
+            }
+        };
+
+    let jmap = match &state.jmap {
+        Some(j) => Arc::clone(j),
+        None => {
+            warn!(group = %group_name, "ActivityPub Create received but JMAP stores unavailable");
+            return StatusCode::SERVICE_UNAVAILABLE.into_response();
+        }
+    };
+
+    let hlc_timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+
+    match stoa_reader::post::ipfs_write::write_ipld_article_to_ipfs(
+        jmap.ipfs.as_ref(),
+        &jmap.msgid_map,
+        &article_bytes,
+        &message_id,
+        newsgroups,
+        hlc_timestamp,
+    )
+    .await
+    {
+        Ok(cid) => {
+            info!(
+                group = %group_name,
+                cid = %cid,
+                message_id = %message_id,
+                "ActivityPub: injected inbound Note as article"
+            );
+        }
+        Err(e) => {
+            warn!(
+                group = %group_name,
+                message_id = %message_id,
+                error = %e.text,
+                "ActivityPub: failed to write Note to IPFS"
+            );
+        }
+    }
+
+    StatusCode::ACCEPTED.into_response()
 }
