@@ -24,6 +24,14 @@ impl WebDavBlockStore {
         use object_store::http::HttpBuilder;
         use reqwest::header::{AUTHORIZATION, HeaderMap, HeaderValue};
 
+        if cfg.url.starts_with("http://") && !cfg.allow_http.unwrap_or(false) {
+            return Err(
+                "WebDAV backend: http:// URL requires allow_http = true; \
+                 use https:// or set allow_http = true only for loopback/LAN servers"
+                    .to_string(),
+            );
+        }
+
         let password =
             resolve_secret_uri(cfg.password.clone(), "backend.webdav.password").await?;
 
@@ -105,6 +113,21 @@ mod tests {
         let data = b"webdav reader round trip";
         let cid = store.put_raw(data).await.expect("put");
         assert_eq!(store.get_raw(&cid).await.expect("get"), data.to_vec());
+    }
+
+    #[tokio::test]
+    async fn http_url_without_allow_http_is_rejected() {
+        let cfg = stoa_core::ipfs_backend::WebDavBackendConfig {
+            url: "http://192.168.1.10/dav".to_string(),
+            username: None,
+            password: None,
+            allow_http: None,
+        };
+        let err = WebDavBlockStore::new(&cfg).await.expect_err("must fail");
+        assert!(
+            err.contains("allow_http"),
+            "error must mention allow_http; got: {err}"
+        );
     }
 
     #[tokio::test]
