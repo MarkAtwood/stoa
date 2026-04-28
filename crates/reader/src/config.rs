@@ -372,6 +372,18 @@ pub struct AuthConfig {
     /// that validates against any configured provider.
     #[serde(default)]
     pub oidc_providers: Vec<stoa_auth::OidcProviderConfig>,
+    /// Username of the SMTP queue drain service account.
+    ///
+    /// When set and a session authenticates with this username (via AUTHINFO
+    /// USER/PASS), the session is marked as a trusted drain session.  Only
+    /// drain sessions are allowed to set the article's `InjectionSource` via
+    /// the `X-Stoa-Injection-Source` header — all other sessions have the
+    /// header stripped and are always classified as `NntpPost`.
+    ///
+    /// The drain user's bcrypt hash must appear in `users` or `credential_file`
+    /// alongside regular user credentials.  Case-insensitive match.
+    #[serde(default)]
+    pub drain_username: Option<String>,
 }
 
 impl AuthConfig {

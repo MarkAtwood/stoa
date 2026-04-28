@@ -594,6 +594,9 @@ where
                         tracker.record_success(peer_ip);
                     }
                     ctx.state = SessionState::Active;
+                    ctx.is_drain_session = config.auth.drain_username.as_deref()
+                        .map(|dn| dn.eq_ignore_ascii_case(&username))
+                        .unwrap_or(false);
                     ctx.authenticated_user = Some(username);
                     ctx.auth_failure_count = 0;
                     send!(Response::authentication_accepted());
@@ -831,7 +834,13 @@ where
             };
 
             let (final_resp, post_meta) =
-                run_post_pipeline(&article_bytes, stores, config.limits.max_article_bytes).await;
+                run_post_pipeline(
+                    &article_bytes,
+                    stores,
+                    config.limits.max_article_bytes,
+                    ctx.is_drain_session,
+                )
+                .await;
             if let Some(ref logger) = stores.audit_logger {
                 match post_meta {
                     Some(ref meta) => logger.log(AuditEvent::ArticlePosted {
@@ -950,6 +959,7 @@ async fn run_post_pipeline(
     article_bytes: &[u8],
     stores: &ServerStores,
     max_article_bytes: usize,
+    is_drain_session: bool,
 ) -> (Response, Option<PostAuditMeta>) {
     // Step 1: Strip the X-Stoa-Injection-Source header so it is never stored
     // in IPFS or forwarded to peers.  Classification is always NntpPost in
@@ -958,12 +968,25 @@ async fn run_post_pipeline(
     // arriving via the SMTP drain are posted through a separate authenticated
     // path that sets its own peerability context.
     let mut article_bytes = article_bytes.to_vec();
-    // Call for side-effect only (header removal). Return value is intentionally
-    // discarded: NNTP POST clients can forge any X-Stoa-Injection-Source value,
-    // so the header value MUST NOT change peerability. NntpPost is always used.
-    // See closed bead usenet-ipfs-07rs.3 for full analysis.
-    let _ = extract_injection_source(&mut article_bytes);
-    let injection_source = stoa_core::InjectionSource::NntpPost;
+    // Step 1: Extract and remove the X-Stoa-Injection-Source header.
+    //
+    // The header is always removed so it is never stored in IPFS or forwarded
+    // to peers.  Whether its *value* is trusted depends on the session type:
+    //
+    // - Drain sessions (is_drain_session=true): trust the value so the SMTP
+    //   queue drain can route SmtpListId articles as local-only (non-peerable).
+    //   See usenet-ipfs-8ipr.
+    //
+    // - All other sessions (is_drain_session=false): discard the value and
+    //   classify as NntpPost.  An NNTP client can forge any header value, so
+    //   the header value MUST NOT change peerability for untrusted sessions.
+    //   See closed bead usenet-ipfs-07rs.3 for full analysis.
+    let injection_source = if is_drain_session {
+        extract_injection_source(&mut article_bytes)
+    } else {
+        let _ = extract_injection_source(&mut article_bytes);
+        stoa_core::InjectionSource::NntpPost
+    };
     // Strip server-synthesized X-Stoa-* headers that must never be stored in
     // IPFS.  If a client includes these in a POST, they would be returned
     // verbatim before the server's own injected value, allowing the client to
@@ -2040,7 +2063,7 @@ mod tests {
         let article = minimal_article("comp.test", "Too Large", "<toolarge@test.example>");
 
         // Limit of 1 byte — any real article will exceed it.
-        let (resp, _) = run_post_pipeline(&article, &stores,1).await;
+        let (resp, _) = run_post_pipeline(&article, &stores, 1, false).await;
         assert_eq!(
             resp.code, 441,
             "POST pipeline must return 441 when article exceeds operator limit; got: {}",
@@ -2070,7 +2093,7 @@ mod tests {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Signature Verify", "<sigverify@test.example>");
 
-        let (resp, _) = run_post_pipeline(&article, &stores,DEFAULT_MAX_ARTICLE_BYTES).await;
+        let (resp, _) = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
         assert_eq!(
             resp.code, 240,
             "POST pipeline must succeed; got: {}",
@@ -2115,7 +2138,7 @@ mod tests {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Integration Test", "<integ@test.example>");
 
-        let (resp, _) = run_post_pipeline(&article, &stores,DEFAULT_MAX_ARTICLE_BYTES).await;
+        let (resp, _) = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
         assert_eq!(
             resp.code, 240,
             "POST pipeline must return 240; got: {}",
@@ -2143,7 +2166,7 @@ mod tests {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Path Test", "<pathtest@test.example>");
 
-        let (resp, _) = run_post_pipeline(&article, &stores,DEFAULT_MAX_ARTICLE_BYTES).await;
+        let (resp, _) = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
         assert_eq!(resp.code, 240, "POST must succeed; got: {}", resp.text);
 
         let cid = stores
@@ -2174,7 +2197,7 @@ mod tests {
     async fn article_by_number_returns_220() {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "By Number Test", "<bynumber@test.example>");
-        let (post_resp, _) = run_post_pipeline(&article, &stores,DEFAULT_MAX_ARTICLE_BYTES).await;
+        let (post_resp, _) = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
         assert_eq!(post_resp.code, 240, "POST must succeed");
 
         let mut ctx = crate::session::context::SessionContext::new(
@@ -2202,7 +2225,7 @@ mod tests {
     async fn head_by_msgid_returns_221() {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Head By Msgid", "<headmsgid@test.example>");
-        let (post_resp, _) = run_post_pipeline(&article, &stores,DEFAULT_MAX_ARTICLE_BYTES).await;
+        let (post_resp, _) = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
         assert_eq!(post_resp.code, 240, "POST must succeed");
 
         let resp = lookup_head_by_msgid(&stores, "<headmsgid@test.example>").await;
@@ -2226,7 +2249,7 @@ mod tests {
     async fn body_by_msgid_returns_222() {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Body By Msgid", "<bodymsgid@test.example>");
-        let (post_resp, _) = run_post_pipeline(&article, &stores,DEFAULT_MAX_ARTICLE_BYTES).await;
+        let (post_resp, _) = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
         assert_eq!(post_resp.code, 240, "POST must succeed");
 
         let resp = lookup_body_by_msgid(&stores, "<bodymsgid@test.example>").await;
@@ -2254,7 +2277,7 @@ mod tests {
     async fn stat_by_msgid_known_returns_223() {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Stat Test", "<stattest@test.example>");
-        let (post_resp, _) = run_post_pipeline(&article, &stores,DEFAULT_MAX_ARTICLE_BYTES).await;
+        let (post_resp, _) = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
         assert_eq!(post_resp.code, 240, "POST must succeed");
 
         let resp = stat_by_msgid(&stores, "<stattest@test.example>").await;

@@ -71,6 +71,13 @@ pub struct SessionContext {
     /// When it reaches `MAX_AUTH_FAILURES` the session is closed with 400
     /// before any further response is sent.
     pub auth_failure_count: u32,
+    /// Whether this session authenticated as the configured SMTP drain user.
+    ///
+    /// When `true`, the POST pipeline trusts the `X-Stoa-Injection-Source`
+    /// header and uses its value to set article peerability.  When `false`
+    /// (all normal user sessions), the header is stripped and the source is
+    /// always `NntpPost` to prevent forgery.
+    pub is_drain_session: bool,
     /// Whether a STARTTLS upgrade is available on this connection.
     ///
     /// Set to `true` when TLS cert/key are configured and the connection is
@@ -109,6 +116,7 @@ impl SessionContext {
             posting_allowed,
             known_groups: vec![],
             auth_failure_count: 0,
+            is_drain_session: false,
             starttls_available: false,
         }
     }

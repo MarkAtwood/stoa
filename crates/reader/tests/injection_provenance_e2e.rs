@@ -1,15 +1,15 @@
 //! End-to-end injection-provenance tests for the reader POST pipeline.
 //!
-//! The reader strips all `X-Stoa-Injection-Source` headers from NNTP POST
-//! articles and always classifies them as `NntpPost` (peerable) to prevent
-//! clients from forging the injection source.  Authenticated drain sessions
-//! (usenet-ipfs-8ipr) will restore SmtpListId local-only routing once implemented.
+//! **Unauthenticated sessions:** the reader strips all `X-Stoa-Injection-Source`
+//! headers and always classifies articles as `NntpPost` (peerable), preventing
+//! clients from forging the injection source.
 //!
-//! In all three cases below, the article is classified as `NntpPost` (peerable)
-//! because the client-supplied injection-source header is stripped.
-//! **`SmtpListId` itself is non-peerable** (`is_peerable() == false`); it is only
-//! peerable here because it was re-classified to `NntpPost` before storage.
+//! **Authenticated drain sessions:** when a session authenticates as the
+//! configured drain user (`auth.drain_username`), the `X-Stoa-Injection-Source`
+//! header is trusted.  `SmtpListId` articles are then classified correctly as
+//! local-only (non-peerable) — no group log entry is written.
 //!
+//! Unauthenticated cases (all classified as NntpPost / peerable):
 //! - `SmtpListId` header stripped → re-classified as NntpPost → group log entry written.
 //! - `SmtpSieve` header stripped → re-classified as NntpPost → group log entry written.
 //! - `SmtpNewsgroups` header stripped → re-classified as NntpPost → group log entry written.
@@ -20,7 +20,11 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 
 use stoa_core::{article::GroupName, group_log::LogStorage, util::epoch_to_rfc2822};
-use stoa_reader::{session::lifecycle::run_session, store::server_stores::ServerStores};
+use stoa_reader::{
+    config::UserCredential,
+    session::lifecycle::run_session,
+    store::{credentials::CredentialStore, server_stores::ServerStores},
+};
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -234,5 +238,93 @@ async fn newsgroups_header_peers() {
     assert!(
         !tips.is_empty(),
         "SmtpNewsgroups article must write a group log entry (peerable); tips were empty"
+    );
+}
+
+/// An authenticated drain session trusts the `X-Stoa-Injection-Source` header.
+/// A `SmtpListId` article posted by the drain is classified as local-only
+/// (non-peerable): no group log entry is written.
+#[tokio::test]
+async fn authenticated_drain_smtp_list_id_is_local_only() {
+    const DRAIN_USER: &str = "drain";
+    const DRAIN_PASS: &str = "drain-test-secret";
+    let drain_hash = bcrypt::hash(DRAIN_PASS, 4).expect("bcrypt::hash must not fail");
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+
+    // Config with drain_username set and the drain user in the credential list.
+    let toml = format!(
+        "[listen]\naddr = \"{addr}\"\n\
+         [limits]\nmax_connections = 10\ncommand_timeout_secs = 30\n\
+         [auth]\nrequired = false\ndrain_username = \"{DRAIN_USER}\"\n\
+         [[auth.users]]\nusername = \"{DRAIN_USER}\"\npassword = \"{drain_hash}\"\n\
+         [tls]\n"
+    );
+    let config: stoa_reader::config::Config =
+        toml::from_str(&toml).expect("drain config must parse");
+    let config = Arc::new(config);
+
+    // Build stores and wire in the drain's credential store.
+    let mut stores = ServerStores::new_mem().await;
+    stores.credential_store = Arc::new(
+        CredentialStore::from_credentials(&[UserCredential {
+            username: DRAIN_USER.into(),
+            password: drain_hash.clone(),
+        }]),
+    );
+    let stores = Arc::new(stores);
+
+    let newsgroup = "comp.test.drain-local";
+    let msgid = "<drain-local-only@provenance-test.example>";
+
+    let config2 = config.clone();
+    let stores2 = stores.clone();
+    tokio::spawn(async move {
+        let (stream, _) = listener.accept().await.unwrap();
+        run_session(stream, false, &config2, stores2, None).await;
+    });
+
+    let stream = TcpStream::connect(addr).await.unwrap();
+    let (read_half, mut write_half) = tokio::io::split(stream);
+    let mut reader = BufReader::new(read_half);
+
+    let mut greeting = String::new();
+    reader.read_line(&mut greeting).await.unwrap();
+    assert!(greeting.starts_with("200"), "expected 200 greeting: {greeting}");
+
+    // Authenticate as drain user.
+    let authinfo_user = send_cmd(&mut write_half, &mut reader, &format!("AUTHINFO USER {DRAIN_USER}")).await;
+    assert!(authinfo_user.starts_with("381"), "expected 381: {authinfo_user}");
+    let authinfo_pass = send_cmd(&mut write_half, &mut reader, &format!("AUTHINFO PASS {DRAIN_PASS}")).await;
+    assert!(authinfo_pass.starts_with("281"), "expected 281 after AUTHINFO PASS: {authinfo_pass}");
+
+    // POST with SmtpListId injection source.
+    let post_start = send_cmd(&mut write_half, &mut reader, "POST").await;
+    assert!(post_start.starts_with("340"), "expected 340 after POST: {post_start}");
+
+    let body = make_article(Some("SmtpListId"), newsgroup, msgid);
+    write_half.write_all(body.as_bytes()).await.unwrap();
+    write_half.write_all(b".\r\n").await.unwrap();
+
+    let mut post_result = String::new();
+    reader.read_line(&mut post_result).await.unwrap();
+    assert!(post_result.starts_with("240"), "expected 240: {post_result}");
+
+    let quit_resp = send_cmd(&mut write_half, &mut reader, "QUIT").await;
+    assert!(quit_resp.starts_with("205"), "expected 205: {quit_resp}");
+
+    // SmtpListId is non-peerable — the group log must be empty.
+    let group_name = GroupName::new(newsgroup).expect("group name must be valid");
+    let tips = stores
+        .log_storage
+        .list_tips(&group_name)
+        .await
+        .expect("list_tips must not fail");
+
+    assert!(
+        tips.is_empty(),
+        "drain-posted SmtpListId article must NOT write a group log entry (local-only); \
+         tips were non-empty: {tips:?}"
     );
 }

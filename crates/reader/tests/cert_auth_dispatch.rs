@@ -69,6 +69,7 @@ fn open_auth() -> AuthConfig {
         client_certs: vec![],
         trusted_issuers: vec![],
         oidc_providers: vec![],
+        drain_username: None,
     }
 }
 
@@ -377,6 +378,7 @@ fn cert_bypass_does_not_apply_on_plain_connection_with_required_auth() {
         client_certs: vec![],
         trusted_issuers: vec![],
         oidc_providers: vec![],
+        drain_username: None,
     };
 
     let resp = dispatch(

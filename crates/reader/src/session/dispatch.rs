@@ -251,6 +251,7 @@ mod tests {
             client_certs: vec![],
             trusted_issuers: vec![],
             oidc_providers: vec![],
+            drain_username: None,
         }
     }
 
@@ -531,6 +532,7 @@ mod tests {
             client_certs: vec![],
             trusted_issuers: vec![],
             oidc_providers: vec![],
+            drain_username: None,
         };
         let mut ctx = SessionContext::new(test_addr(), false, true, false);
         let resp = dispatch(
