@@ -566,6 +566,109 @@ curl -s http://127.0.0.1:8080/jmap/session | python3 -m json.tool
 
 ---
 
+## OIDC / SSO authentication
+
+`stoa-mail` (JMAP) and `stoa-reader` (NNTP `AUTHINFO SASL OAUTHBEARER`) both
+support JWT Bearer token authentication via OpenID Connect (OIDC).  Configure
+one `[[auth.oidc_providers]]` entry per identity provider.  Multiple providers
+are tried in order; the first that accepts the JWT wins.
+
+The provider is discovered via its `/.well-known/openid-configuration` endpoint.
+JWKS keys are fetched lazily on first use and cached for one hour.  On key
+rotation (unknown `kid`), the cache is force-refreshed once.
+
+Only RSA algorithms (RS256, RS384, RS512, PS256, PS384, PS512) are accepted.
+The `none` algorithm is always rejected.
+
+### AWS Cognito
+
+1. Create a User Pool and an App Client with the grant type `client_credentials`
+   (for machine-to-machine) or `authorization_code` (for user-facing flows).
+2. Note the **User Pool ID** and **AWS region** — the issuer URL is:
+   `https://cognito-idp.<region>.amazonaws.com/<user-pool-id>`
+3. The **audience** (`aud` claim) is the App Client ID.
+4. Default token signing: RS256.
+
+```toml
+[[auth.oidc_providers]]
+issuer   = "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_XXXXXXXXX"
+audience = "your-cognito-app-client-id"
+# username_claim defaults to "email"; change to "cognito:username" if preferred:
+username_claim = "cognito:username"
+```
+
+> If your Cognito pool enforces a custom domain, use that as the issuer URL
+> (e.g. `https://auth.example.com/`).
+
+### Microsoft Entra ID (Azure AD)
+
+1. Register an application in the Azure portal.
+2. Note the **Tenant ID** and **Client ID** (Application ID).
+3. Issuer URL: `https://login.microsoftonline.com/<tenant-id>/v2.0`
+4. Audience is the Client ID.
+5. Default token signing: RS256.
+
+```toml
+[[auth.oidc_providers]]
+issuer   = "https://login.microsoftonline.com/your-tenant-id/v2.0"
+audience = "your-application-client-id"
+username_claim = "preferred_username"
+```
+
+> For multi-tenant apps, replace the tenant ID with `common` or `organizations`.
+
+### Okta
+
+1. Create an Authorization Server (or use the default `https://<domain>/oauth2/default`).
+2. Create an Application (Web or Service) and note the **Client ID**.
+3. Issuer URL: `https://<okta-domain>/oauth2/default` (or your custom AS URL).
+4. Audience is the `aud` value from the authorization server settings (often `api://default`).
+
+```toml
+[[auth.oidc_providers]]
+issuer   = "https://dev-XXXXXXXX.okta.com/oauth2/default"
+audience = "api://default"
+username_claim = "sub"
+```
+
+### Multiple providers
+
+Stacking multiple `[[auth.oidc_providers]]` entries is supported — each request
+is tried against each provider in order until one succeeds:
+
+```toml
+[[auth.oidc_providers]]
+issuer   = "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_AAAAAAAAA"
+audience = "client-id-for-internal-apps"
+username_claim = "cognito:username"
+
+[[auth.oidc_providers]]
+issuer   = "https://login.microsoftonline.com/tenant-id/v2.0"
+audience = "azure-app-client-id"
+username_claim = "preferred_username"
+```
+
+### NNTP SASL OAUTHBEARER
+
+When `[[auth.oidc_providers]]` is configured, `stoa-reader` advertises
+`SASL OAUTHBEARER` in `CAPABILITIES`.  NNTP clients send:
+
+```
+AUTHINFO SASL OAUTHBEARER <base64(n,,\x01auth=Bearer <jwt>\x01\x01)>
+```
+
+Only NNTPS (implicit TLS, port 563) connections are required when
+`[auth] required = true`; plaintext connections receive `483 Encryption
+required` for any `AUTHINFO` command.
+
+### Coexistence with password auth
+
+OIDC and bcrypt password auth coexist.  For JMAP Bearer tokens that look like
+JWTs (exactly two dots), OIDC validation is attempted first.  Self-issued tokens
+(opaque strings from `/jmap/session`) always fall through to the token store.
+
+---
+
 ## Migrating to `[backend]` block store configuration
 
 The `[ipfs]` config section is still supported and is not being removed, but
