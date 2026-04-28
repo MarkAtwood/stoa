@@ -136,6 +136,7 @@ mod tests {
             cors: crate::config::CorsConfig::default(),
             slow_jmap_threshold_ms: 0,
             activitypub_config: Default::default(),
+            activitypub: None,
         });
         (state, tmp)
     }

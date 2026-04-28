@@ -58,6 +58,7 @@ pub struct AppState {
     /// Milliseconds threshold for slow JMAP WARN log.  0 = disabled.
     pub slow_jmap_threshold_ms: u64,
     pub activitypub_config: crate::config::ActivityPubConfig,
+    pub activitypub: Option<Arc<crate::activitypub::ActivityPubState>>,
 }
 
 /// Authenticated user identity extracted from HTTP Basic Auth.
@@ -262,6 +263,10 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route(
             "/ap/groups/{group_name}/followers",
             get(crate::activitypub::followers_handler),
+        )
+        .route(
+            "/ap/groups/{group_name}/inbox",
+            post(crate::activitypub::inbox::inbox_handler),
         )
         .route("/feed/{*path}", get(crate::feed::feed_handler))
         .merge(protected)
@@ -1138,6 +1143,7 @@ mod tests {
             cors: crate::config::CorsConfig::default(),
             slow_jmap_threshold_ms: 0,
             activitypub_config: Default::default(),
+            activitypub: None,
         });
         (state, tmp)
     }
@@ -1156,6 +1162,7 @@ mod tests {
             cors: crate::config::CorsConfig::default(),
             slow_jmap_threshold_ms: 0,
             activitypub_config: Default::default(),
+            activitypub: None,
         });
         (state, tmp)
     }
@@ -1186,6 +1193,7 @@ mod tests {
             cors: crate::config::CorsConfig::default(),
             slow_jmap_threshold_ms: 0,
             activitypub_config: Default::default(),
+            activitypub: None,
         });
         (state, tmp)
     }
@@ -1263,6 +1271,7 @@ mod tests {
             cors: crate::config::CorsConfig::default(),
             slow_jmap_threshold_ms: 0,
             activitypub_config: Default::default(),
+            activitypub: None,
         });
         (state, ipfs, tmps)
     }
@@ -1779,6 +1788,7 @@ mod tests {
             },
             slow_jmap_threshold_ms: 0,
             activitypub_config: Default::default(),
+            activitypub: None,
         });
         let addr = spawn_server(state).await;
         let resp = reqwest::Client::new()
@@ -1821,6 +1831,7 @@ mod tests {
             },
             slow_jmap_threshold_ms: 0,
             activitypub_config: Default::default(),
+            activitypub: None,
         });
         let addr = spawn_server(state).await;
         let resp = reqwest::Client::new()
@@ -2242,6 +2253,7 @@ mod tests {
             cors: crate::config::CorsConfig::default(),
             slow_jmap_threshold_ms: 0,
             activitypub_config: Default::default(),
+            activitypub: None,
         });
         (state, tmp)
     }
@@ -2300,6 +2312,7 @@ mod tests {
         (
             Arc::new(AppState {
                 activitypub_config: crate::config::ActivityPubConfig { enabled: true },
+                activitypub: None,
                 ..inner
             }),
             tmp,
@@ -2370,13 +2383,19 @@ mod tests {
             .to_str()
             .unwrap()
             .to_string();
-        assert!(ct.contains("application/activity+json"), "content-type: {ct}");
+        assert!(
+            ct.contains("application/activity+json"),
+            "content-type: {ct}"
+        );
         let body: serde_json::Value = resp.json().await.unwrap();
         assert_eq!(body["type"], "Group");
         assert_eq!(body["name"], "comp.lang.rust");
         assert_eq!(body["preferredUsername"], "comp.lang.rust");
         assert!(
-            body["id"].as_str().unwrap().ends_with("/ap/groups/comp.lang.rust"),
+            body["id"]
+                .as_str()
+                .unwrap()
+                .ends_with("/ap/groups/comp.lang.rust"),
             "id: {}",
             body["id"]
         );

@@ -148,6 +148,7 @@ async fn spawn_dev_server(tag: &str) -> (String, Vec<tempfile::TempPath>) {
         cors: stoa_mail::config::CorsConfig::default(),
         slow_jmap_threshold_ms: 0,
         activitypub_config: Default::default(),
+        activitypub: None,
     });
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();

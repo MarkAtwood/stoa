@@ -84,6 +84,7 @@ async fn state_no_jmap() -> Arc<AppState> {
         cors: stoa_mail::config::CorsConfig::default(),
         slow_jmap_threshold_ms: 0,
         activitypub_config: Default::default(),
+        activitypub: None,
     })
 }
 
@@ -135,6 +136,7 @@ async fn state_with_jmap() -> (
         cors: stoa_mail::config::CorsConfig::default(),
         slow_jmap_threshold_ms: 0,
         activitypub_config: Default::default(),
+        activitypub: None,
     });
 
     (

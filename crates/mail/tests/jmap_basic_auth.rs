@@ -57,6 +57,7 @@ async fn auth_state_alice() -> Arc<AppState> {
         cors: stoa_mail::config::CorsConfig::default(),
         slow_jmap_threshold_ms: 0,
         activitypub_config: Default::default(),
+        activitypub: None,
     })
 }
 
@@ -74,6 +75,7 @@ async fn dev_state() -> Arc<AppState> {
         cors: stoa_mail::config::CorsConfig::default(),
         slow_jmap_threshold_ms: 0,
         activitypub_config: Default::default(),
+        activitypub: None,
     })
 }
 
