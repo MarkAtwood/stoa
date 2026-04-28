@@ -19,6 +19,8 @@ pub enum TlsError {
     KeyLoad(String, std::io::Error),
     /// Failed to build the rustls `ServerConfig`.
     Config(rustls::Error),
+    /// Failed to parse certificate contents (e.g. DER decode, x509 parse).
+    CertParse(String),
 }
 
 impl std::fmt::Display for TlsError {
@@ -31,6 +33,7 @@ impl std::fmt::Display for TlsError {
                 write!(f, "failed to load TLS private key from '{path}': {e}")
             }
             TlsError::Config(e) => write!(f, "TLS server config error: {e}"),
+            TlsError::CertParse(e) => write!(f, "certificate parse error: {e}"),
         }
     }
 }
@@ -40,6 +43,7 @@ impl std::error::Error for TlsError {
         match self {
             TlsError::CertLoad(_, e) | TlsError::KeyLoad(_, e) => Some(e),
             TlsError::Config(e) => Some(e),
+            TlsError::CertParse(_) => None,
         }
     }
 }
@@ -157,14 +161,15 @@ pub fn load_tls_server_config_with_key_bytes(
 /// Used at startup to emit expiry warnings and populate the
 /// `tls_cert_expiry_seconds` Prometheus gauge.  Returns an error if the file
 /// cannot be read, contains no certificates, or cannot be parsed as DER.
-pub fn cert_not_after(cert_path: &str) -> Result<i64, String> {
-    let certs = load_cert_chain(cert_path).map_err(|e| e.to_string())?;
+pub fn cert_not_after(cert_path: &str) -> Result<i64, TlsError> {
+    let certs = load_cert_chain(cert_path)?;
     let first = certs
         .into_iter()
         .next()
-        .ok_or_else(|| format!("no certificates found in '{cert_path}'"))?;
-    let (_, parsed) = x509_parser::parse_x509_certificate(&first)
-        .map_err(|e| format!("failed to parse certificate '{cert_path}': {e}"))?;
+        .ok_or_else(|| TlsError::CertParse(format!("no certificates found in '{cert_path}'")))?;
+    let (_, parsed) = x509_parser::parse_x509_certificate(&first).map_err(|e| {
+        TlsError::CertParse(format!("failed to parse certificate '{cert_path}': {e}"))
+    })?;
     Ok(parsed.validity().not_after.timestamp())
 }
 

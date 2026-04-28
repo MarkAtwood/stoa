@@ -103,13 +103,18 @@ impl IpfsStore for MemIpfsStore {
         let cid = Cid::new_v1(0x55, digest);
         self.blocks
             .write()
-            .unwrap()
+            .unwrap_or_else(|e| e.into_inner())
             .insert(cid.to_string(), data.to_vec());
         Ok(cid)
     }
 
     async fn get_raw(&self, cid: &Cid) -> Result<Option<Vec<u8>>, IpfsError> {
-        Ok(self.blocks.read().unwrap().get(&cid.to_string()).cloned())
+        Ok(self
+            .blocks
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&cid.to_string())
+            .cloned())
     }
 }
 

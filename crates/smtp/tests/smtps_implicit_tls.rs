@@ -57,8 +57,8 @@ fn install_crypto_provider() {
 
 use stoa_smtp::{
     config::{
-        AuthConfig, Config, DatabaseConfig, DeliveryConfig, LimitsConfig, ListenConfig, LogConfig,
-        ReaderConfig, SieveAdminConfig, TlsConfig,
+        AuthConfig, Config, DatabaseConfig, DeliveryConfig, DnsResolver, LimitsConfig,
+        ListenConfig, LogConfig, LogFormat, ReaderConfig, SieveAdminConfig, TlsConfig,
     },
     queue::NntpQueue,
     server::run_server,
@@ -195,14 +195,14 @@ fn base_config() -> Arc<Config> {
         },
         log: LogConfig {
             level: "error".to_string(),
-            format: "text".to_string(),
+            format: LogFormat::Text,
         },
         reader: ReaderConfig::default(),
         delivery: DeliveryConfig::default(),
         users: vec![],
         database: DatabaseConfig::default(),
         sieve_admin: SieveAdminConfig::default(),
-        dns_resolver: "system".to_string(),
+        dns_resolver: DnsResolver::System,
         auth: AuthConfig::default(),
     })
 }

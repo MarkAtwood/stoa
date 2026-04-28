@@ -36,6 +36,51 @@ use stoa_core::audit::{AuditEvent, AuditLogger};
 use stoa_core::rate_limiter::RateLimiter;
 use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 
+#[derive(Debug)]
+pub(crate) enum AdminError {
+    Io(std::io::Error),
+    Serde(serde_json::Error),
+    Sqlx(sqlx::Error),
+    Other(String),
+}
+
+impl std::fmt::Display for AdminError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AdminError::Io(e) => write!(f, "I/O error: {e}"),
+            AdminError::Serde(e) => write!(f, "JSON error: {e}"),
+            AdminError::Sqlx(e) => write!(f, "database error: {e}"),
+            AdminError::Other(e) => write!(f, "{e}"),
+        }
+    }
+}
+
+impl std::error::Error for AdminError {}
+
+impl From<std::io::Error> for AdminError {
+    fn from(e: std::io::Error) -> Self {
+        AdminError::Io(e)
+    }
+}
+
+impl From<serde_json::Error> for AdminError {
+    fn from(e: serde_json::Error) -> Self {
+        AdminError::Serde(e)
+    }
+}
+
+impl From<sqlx::Error> for AdminError {
+    fn from(e: sqlx::Error) -> Self {
+        AdminError::Sqlx(e)
+    }
+}
+
+impl From<String> for AdminError {
+    fn from(e: String) -> Self {
+        AdminError::Other(e)
+    }
+}
+
 use crate::peering::pipeline::IpfsStore;
 
 /// SQLite pool pair for the admin server.
@@ -173,7 +218,7 @@ async fn handle_admin_connection(
     last_gc_report: Option<
         &Arc<tokio::sync::RwLock<Option<crate::retention::gc_report::GcReport>>>,
     >,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<(), AdminError> {
     let (pool, core_pool) = pools;
     let peer_ip = stream.peer_addr()?.ip();
     let mut reader = BufReader::new(stream);
@@ -531,7 +576,7 @@ async fn handle_admin_connection(
                         tracing::warn!(path = %path, "TLS cert expiry check failed: {e}");
                         cert_results.push(serde_json::json!({
                             "path": path,
-                            "error": e,
+                            "error": e.to_string(),
                         }));
                     }
                 }
@@ -612,7 +657,7 @@ pub(crate) async fn backup_databases(
     transit_pool: &AnyPool,
     core_pool: &AnyPool,
     dest_dir: &str,
-) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<Vec<String>, AdminError> {
     let timestamp = chrono::Utc::now().format("%Y%m%dT%H%M%SZ").to_string();
     tokio::fs::create_dir_all(dest_dir).await?;
 

@@ -368,7 +368,7 @@ mod tests {
             users,
             database: DatabaseConfig::default(),
             sieve_admin: crate::config::SieveAdminConfig::default(),
-            dns_resolver: "system".to_string(),
+            dns_resolver: crate::config::DnsResolver::System,
             auth: AuthConfig::default(),
         })
     }
@@ -649,7 +649,7 @@ mod tests {
                 bearer_token: Some(token.to_string()),
                 ..Default::default()
             },
-            dns_resolver: "system".to_string(),
+            dns_resolver: crate::config::DnsResolver::System,
             auth: AuthConfig::default(),
         })
     }
@@ -823,7 +823,7 @@ mod tests {
                 bearer_token: bearer_token.map(str::to_string),
                 max_script_bytes: 65_536,
             },
-            dns_resolver: "system".to_string(),
+            dns_resolver: crate::config::DnsResolver::System,
             auth: AuthConfig::default(),
         })
     }

@@ -61,6 +61,17 @@ impl Default for DatabaseConfig {
     }
 }
 
+/// Log output format.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum LogFormat {
+    /// Human-readable text output.
+    #[default]
+    Text,
+    /// Structured JSON output.
+    Json,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct LogConfig {
     /// Log level filter (e.g. "info", "debug", "stoa_mail=debug").
@@ -68,8 +79,8 @@ pub struct LogConfig {
     #[serde(default = "default_log_level")]
     pub level: String,
     /// Output format: "text" (human-readable) or "json" (structured).
-    #[serde(default = "default_log_format")]
-    pub format: String,
+    #[serde(default)]
+    pub format: LogFormat,
     /// Emit a WARN log for JMAP method calls slower than this many milliseconds.
     /// 0 disables slow-request WARN events; the histogram is always recorded.
     /// Default: 1000 ms.
@@ -81,10 +92,6 @@ fn default_log_level() -> String {
     "info".to_string()
 }
 
-fn default_log_format() -> String {
-    "json".to_string()
-}
-
 fn default_slow_jmap_threshold_ms() -> u64 {
     1000
 }
@@ -93,7 +100,7 @@ impl Default for LogConfig {
     fn default() -> Self {
         Self {
             level: default_log_level(),
-            format: default_log_format(),
+            format: LogFormat::default(),
             slow_jmap_threshold_ms: default_slow_jmap_threshold_ms(),
         }
     }
@@ -243,7 +250,7 @@ required = false
         assert!(cfg.tls.cert_path.is_none());
         assert!(cfg.tls.key_path.is_none());
         assert_eq!(cfg.log.level, "info");
-        assert_eq!(cfg.log.format, "json");
+        assert_eq!(cfg.log.format, LogFormat::Text);
         assert_eq!(cfg.listen.base_url, "http://localhost");
     }
 

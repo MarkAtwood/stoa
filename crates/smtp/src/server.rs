@@ -28,11 +28,11 @@ pub async fn run_server(
     sieve_cache: Option<SieveCache>,
 ) {
     let auth: Option<Arc<MessageAuthenticator>> = {
-        let result = match config.dns_resolver.as_str() {
-            "cloudflare" => MessageAuthenticator::new_cloudflare(),
-            "google" => MessageAuthenticator::new_google(),
-            "quad9" => MessageAuthenticator::new_quad9(),
-            _ => MessageAuthenticator::new_system_conf(),
+        let result = match config.dns_resolver {
+            crate::config::DnsResolver::Cloudflare => MessageAuthenticator::new_cloudflare(),
+            crate::config::DnsResolver::Google => MessageAuthenticator::new_google(),
+            crate::config::DnsResolver::Quad9 => MessageAuthenticator::new_quad9(),
+            crate::config::DnsResolver::System => MessageAuthenticator::new_system_conf(),
         };
         match result {
             Ok(a) => {
@@ -242,14 +242,14 @@ mod tests {
             },
             log: LogConfig {
                 level: "info".to_string(),
-                format: "text".to_string(),
+                format: crate::config::LogFormat::Text,
             },
             reader: ReaderConfig::default(),
             delivery: DeliveryConfig::default(),
             users: vec![],
             database: DatabaseConfig::default(),
             sieve_admin: SieveAdminConfig::default(),
-            dns_resolver: "system".to_string(),
+            dns_resolver: crate::config::DnsResolver::System,
             auth: AuthConfig::default(),
         })
     }

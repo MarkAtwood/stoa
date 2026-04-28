@@ -53,6 +53,10 @@ enum Command {
 struct AdminClient {
     base_url: String,
     token: Option<String>,
+    // DECISION: stoa-ctl is a command-line tool with no concurrency needs. Using
+    // reqwest::blocking avoids the overhead of spinning up a tokio runtime for a
+    // single HTTP request. Project convention (CLAUDE.md) is async throughout for
+    // daemons; CLIs are exempt when they make a single synchronous request.
     client: reqwest::blocking::Client,
 }
 

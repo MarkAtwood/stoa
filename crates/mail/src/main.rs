@@ -1,7 +1,11 @@
 use std::{path::PathBuf, sync::Arc, time::Instant};
 
 use stoa_auth::CredentialStore;
-use stoa_mail::{config::Config, server::AppState, token_store::TokenStore};
+use stoa_mail::{
+    config::{Config, LogFormat},
+    server::AppState,
+    token_store::TokenStore,
+};
 use tracing::info;
 
 fn parse_args() -> PathBuf {
@@ -42,7 +46,7 @@ async fn main() {
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(&config.log.level));
 
-    if config.log.format == "json" {
+    if config.log.format == LogFormat::Json {
         tracing_subscriber::fmt()
             .json()
             .with_env_filter(filter)

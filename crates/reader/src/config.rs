@@ -450,6 +450,17 @@ impl Default for AdminConfig {
     }
 }
 
+/// Log output format.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum LogFormat {
+    /// Human-readable text output.
+    #[default]
+    Text,
+    /// Structured JSON output.
+    Json,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct LogConfig {
     /// Log level filter (e.g. "info", "debug", "stoa_reader=debug").
@@ -457,23 +468,19 @@ pub struct LogConfig {
     #[serde(default = "default_log_level")]
     pub level: String,
     /// Output format: "text" (human-readable) or "json" (structured).
-    #[serde(default = "default_log_format")]
-    pub format: String,
+    #[serde(default)]
+    pub format: LogFormat,
 }
 
 fn default_log_level() -> String {
     "info".to_string()
 }
 
-fn default_log_format() -> String {
-    "json".to_string()
-}
-
 impl Default for LogConfig {
     fn default() -> Self {
         Self {
             level: default_log_level(),
-            format: default_log_format(),
+            format: LogFormat::default(),
         }
     }
 }

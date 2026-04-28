@@ -30,16 +30,12 @@ pub struct Config {
     /// Valid values: `"system"` (reads `/etc/resolv.conf`), `"cloudflare"`,
     /// `"google"`, `"quad9"`.  Defaults to `"system"` so that split-horizon
     /// DNS and air-gapped deployments work correctly out of the box.
-    #[serde(default = "default_dns_resolver")]
-    pub dns_resolver: String,
+    #[serde(default)]
+    pub dns_resolver: DnsResolver,
     /// SMTP AUTH PLAIN credentials.  Optional; when absent AUTH is not
     /// advertised and no credentials are accepted.
     #[serde(default)]
     pub auth: AuthConfig,
-}
-
-fn default_dns_resolver() -> String {
-    "system".to_string()
 }
 
 /// A local mailbox user.  `email` is matched against RCPT TO addresses.
@@ -353,8 +349,15 @@ fn default_log_level() -> String {
     "info".to_string()
 }
 
-fn default_log_format() -> String {
-    "json".to_string()
+/// Log output format.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum LogFormat {
+    /// Human-readable text output.
+    #[default]
+    Text,
+    /// Structured JSON output.
+    Json,
 }
 
 #[derive(Debug, Deserialize)]
@@ -364,15 +367,41 @@ pub struct LogConfig {
     #[serde(default = "default_log_level")]
     pub level: String,
     /// Output format: "text" (human-readable) or "json" (structured).
-    #[serde(default = "default_log_format")]
-    pub format: String,
+    #[serde(default)]
+    pub format: LogFormat,
 }
 
 impl Default for LogConfig {
     fn default() -> Self {
         Self {
             level: default_log_level(),
-            format: default_log_format(),
+            format: LogFormat::default(),
+        }
+    }
+}
+
+/// DNS resolver backend.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum DnsResolver {
+    /// System resolver.
+    #[default]
+    System,
+    /// Cloudflare public DNS (1.1.1.1).
+    Cloudflare,
+    /// Google public DNS (8.8.8.8).
+    Google,
+    /// Quad9 public DNS (9.9.9.9).
+    Quad9,
+}
+
+impl std::fmt::Display for DnsResolver {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DnsResolver::System => write!(f, "system"),
+            DnsResolver::Cloudflare => write!(f, "cloudflare"),
+            DnsResolver::Google => write!(f, "google"),
+            DnsResolver::Quad9 => write!(f, "quad9"),
         }
     }
 }
@@ -437,14 +466,6 @@ impl Config {
             return Err(ConfigError::Validation(
                 "listen.smtps_addr requires tls.cert_path and tls.key_path to be set".into(),
             ));
-        }
-        match self.dns_resolver.as_str() {
-            "system" | "cloudflare" | "google" | "quad9" => {}
-            other => {
-                return Err(ConfigError::Validation(format!(
-                    "unknown dns_resolver '{other}'; valid values: system, cloudflare, google, quad9"
-                )));
-            }
         }
         for peer in &self.delivery.smtp_relay_peers {
             if peer.host.is_empty() {
@@ -523,7 +544,7 @@ port_587 = "0.0.0.0:587"
         assert_eq!(cfg.limits.command_timeout_secs, 300);
         assert_eq!(cfg.limits.max_connections, 100);
         assert_eq!(cfg.log.level, "info");
-        assert_eq!(cfg.log.format, "json");
+        assert_eq!(cfg.log.format, LogFormat::Text);
     }
 
     #[test]

@@ -7,7 +7,7 @@ use tracing::{error, info, warn};
 
 use stoa_reader::{
     admin::start_admin_server,
-    config::Config,
+    config::{Config, LogFormat},
     session::lifecycle::{run_session, ListenerKind},
     store::{backfill::backfill_overview, server_stores::ServerStores},
     tls::TlsAcceptor,
@@ -342,7 +342,7 @@ async fn main() {
         .map(opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge::new);
 
     use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-    let (json_fmt, text_fmt) = if config.log.format == "json" {
+    let (json_fmt, text_fmt) = if config.log.format == LogFormat::Json {
         (Some(tracing_subscriber::fmt::layer().json()), None)
     } else {
         (None, Some(tracing_subscriber::fmt::layer()))

@@ -5,7 +5,7 @@ use tokio_rustls::TlsAcceptor;
 use tracing::{error, info};
 
 use stoa_imap::{
-    config::Config,
+    config::{Config, LogFormat},
     listener::{run_plain_listener, run_tls_listener},
 };
 
@@ -45,7 +45,7 @@ async fn main() {
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(&config.log.level));
 
-    if config.log.format == "json" {
+    if config.log.format == LogFormat::Json {
         tracing_subscriber::fmt()
             .json()
             .with_env_filter(filter)

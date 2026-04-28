@@ -1134,14 +1134,14 @@ mod tests {
             },
             log: LogConfig {
                 level: "info".to_string(),
-                format: "json".to_string(),
+                format: crate::config::LogFormat::Json,
             },
             reader: ReaderConfig::default(),
             delivery: crate::config::DeliveryConfig::default(),
             users: vec![],
             database: DatabaseConfig::default(),
             sieve_admin: SieveAdminConfig::default(),
-            dns_resolver: "system".to_string(),
+            dns_resolver: crate::config::DnsResolver::System,
             auth: AuthConfig::default(),
         })
     }
@@ -1167,14 +1167,14 @@ mod tests {
             },
             log: LogConfig {
                 level: "info".to_string(),
-                format: "json".to_string(),
+                format: crate::config::LogFormat::Json,
             },
             reader: ReaderConfig::default(),
             delivery: crate::config::DeliveryConfig::default(),
             users,
             database: DatabaseConfig::default(),
             sieve_admin: SieveAdminConfig::default(),
-            dns_resolver: "system".to_string(),
+            dns_resolver: crate::config::DnsResolver::System,
             auth: AuthConfig::default(),
         })
     }
@@ -1826,14 +1826,14 @@ mod tests {
             },
             log: LogConfig {
                 level: "info".to_string(),
-                format: "json".to_string(),
+                format: crate::config::LogFormat::Json,
             },
             reader: ReaderConfig::default(),
             delivery: crate::config::DeliveryConfig::default(),
             users: vec![],
             database: DatabaseConfig::default(),
             sieve_admin: SieveAdminConfig::default(),
-            dns_resolver: "system".to_string(),
+            dns_resolver: crate::config::DnsResolver::System,
             auth: AuthConfig::default(),
         });
 
@@ -1905,14 +1905,14 @@ mod tests {
             },
             log: LogConfig {
                 level: "info".to_string(),
-                format: "json".to_string(),
+                format: crate::config::LogFormat::Json,
             },
             reader: ReaderConfig::default(),
             delivery: crate::config::DeliveryConfig::default(),
             users: vec![],
             database: DatabaseConfig::default(),
             sieve_admin: SieveAdminConfig::default(),
-            dns_resolver: "system".to_string(),
+            dns_resolver: crate::config::DnsResolver::System,
             auth: AuthConfig::default(),
         });
 

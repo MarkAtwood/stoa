@@ -24,8 +24,8 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use stoa_auth::{AuthConfig, CredentialStore};
 use stoa_smtp::{
     config::{
-        Config, DatabaseConfig, LimitsConfig, ListenConfig, LogConfig, ReaderConfig,
-        SieveAdminConfig, TlsConfig, UserConfig,
+        Config, DatabaseConfig, DnsResolver, LimitsConfig, ListenConfig, LogConfig, LogFormat,
+        ReaderConfig, SieveAdminConfig, TlsConfig, UserConfig,
     },
     queue::NntpQueue,
     session::run_session,
@@ -56,7 +56,7 @@ fn test_config() -> Arc<Config> {
         },
         log: LogConfig {
             level: "error".to_string(),
-            format: "text".to_string(),
+            format: LogFormat::Text,
         },
         reader: ReaderConfig::default(),
         delivery: stoa_smtp::config::DeliveryConfig::default(),
@@ -66,7 +66,7 @@ fn test_config() -> Arc<Config> {
         }],
         database: DatabaseConfig::default(),
         sieve_admin: SieveAdminConfig::default(),
-        dns_resolver: "system".to_string(),
+        dns_resolver: DnsResolver::System,
         auth: AuthConfig::default(),
     })
 }

@@ -15,7 +15,7 @@ use stoa_core::{
 };
 use stoa_transit::{
     admin::{start_admin_server, AdminPools},
-    config::{check_admin_addr, Config},
+    config::{check_admin_addr, Config, LogFormat},
     hlc_persist::{load_hlc_checkpoint, save_hlc_checkpoint},
     instance_id::ensure_instance_node_id,
     peering::{
@@ -505,7 +505,7 @@ async fn main() {
         .map(opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge::new);
 
     use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-    let (json_fmt, text_fmt) = if config.log.format == "json" {
+    let (json_fmt, text_fmt) = if config.log.format == LogFormat::Json {
         (Some(tracing_subscriber::fmt::layer().json()), None)
     } else {
         (None, Some(tracing_subscriber::fmt::layer()))

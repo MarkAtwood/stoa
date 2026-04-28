@@ -4,8 +4,13 @@ use tokio::net::TcpListener;
 use tracing::{error, info};
 
 use stoa_smtp::{
-    config::Config, nntp_client::NntpClientConfig, queue::NntpQueue, server::run_server,
-    session::new_sieve_cache, sieve_admin, store, tls::build_tls_acceptor,
+    config::{Config, LogFormat},
+    nntp_client::NntpClientConfig,
+    queue::NntpQueue,
+    server::run_server,
+    session::new_sieve_cache,
+    sieve_admin, store,
+    tls::build_tls_acceptor,
 };
 
 fn parse_args() -> PathBuf {
@@ -44,7 +49,7 @@ async fn main() {
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(&config.log.level));
 
-    if config.log.format == "json" {
+    if config.log.format == LogFormat::Json {
         tracing_subscriber::fmt()
             .json()
             .with_env_filter(filter)

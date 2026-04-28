@@ -287,7 +287,7 @@ async fn handle_admin_connection(
                         tracing::warn!(path = %path, "TLS cert expiry check failed: {e}");
                         cert_results.push(serde_json::json!({
                             "path": path,
-                            "error": e,
+                            "error": e.to_string(),
                         }));
                     }
                 }
