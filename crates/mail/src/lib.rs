@@ -1,5 +1,6 @@
 pub mod auth_token;
 pub mod blob;
+pub mod upload;
 pub mod config;
 pub mod email;
 pub mod feed;

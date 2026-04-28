@@ -223,6 +223,10 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             get(crate::blob::blob_download),
         )
         .route(
+            "/jmap/upload/{account_id}",
+            post(crate::upload::jmap_upload),
+        )
+        .route(
             "/jmap/auth/token",
             post(crate::auth_token::issue_token).get(crate::auth_token::list_tokens),
         )
@@ -1841,6 +1845,98 @@ mod tests {
             ids.is_empty(),
             "text filter with no search index must return empty ids, got: {ids:?}"
         );
+    }
+
+    /// POST /jmap/upload/{accountId}/ with a valid RFC 5322 article body must
+    /// return 201 with a blobId (CID) and correct size.
+    #[tokio::test]
+    async fn jmap_upload_valid_article_returns_201_with_blob_id() {
+        let (state, _ipfs, _tmps) = jmap_state().await;
+        let addr = spawn_server(state).await;
+
+        // Use the current time for the Date header so the ±24h window check passes.
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+        let date_str = stoa_core::util::epoch_to_rfc2822(now);
+
+        // Minimal valid RFC 5322 article.
+        let article = format!(
+            "Newsgroups: comp.test\r\n\
+             From: tester@example.com\r\n\
+             Subject: Upload test\r\n\
+             Date: {date_str}\r\n\
+             Message-ID: <upload-test-1@example.com>\r\n\
+             \r\n\
+             This is the article body.\r\n"
+        );
+
+        let resp = reqwest::Client::new()
+            .post(format!("http://{addr}/jmap/upload/acc1"))
+            .header("Content-Type", "message/rfc822")
+            .body(article.clone())
+            .send()
+            .await
+            .expect("request must succeed");
+
+        assert_eq!(resp.status(), 201, "valid article upload must return 201");
+        let body: serde_json::Value = resp.json().await.unwrap();
+        assert!(
+            body["blobId"].is_string(),
+            "response must contain blobId string; got: {body}"
+        );
+        assert_eq!(body["type"].as_str(), Some("message/rfc822"));
+        assert!(
+            body["size"].as_u64().is_some() && body["size"].as_u64().unwrap() > 0,
+            "size must be a positive integer"
+        );
+    }
+
+    /// Upload with no JMAP configured must return 503.
+    #[tokio::test]
+    async fn jmap_upload_no_jmap_returns_503() {
+        let addr = spawn_server(dev_state().await.0).await;
+
+        let article = concat!(
+            "Newsgroups: comp.test\r\n",
+            "From: tester@example.com\r\n",
+            "Subject: Test\r\n",
+            "Date: Mon, 01 Jan 2024 00:00:00 +0000\r\n",
+            "Message-ID: <no-jmap@example.com>\r\n",
+            "\r\n",
+            "body\r\n"
+        );
+
+        let resp = reqwest::Client::new()
+            .post(format!("http://{addr}/jmap/upload/acc1"))
+            .header("Content-Type", "message/rfc822")
+            .body(article)
+            .send()
+            .await
+            .expect("request must succeed");
+
+        assert_eq!(resp.status(), 503, "upload without JMAP must return 503");
+    }
+
+    /// Upload with missing required headers must return 400.
+    #[tokio::test]
+    async fn jmap_upload_missing_headers_returns_400() {
+        let (state, _ipfs, _tmps) = jmap_state().await;
+        let addr = spawn_server(state).await;
+
+        // Missing required Subject header.
+        let article = "Newsgroups: comp.test\r\nFrom: a@b.com\r\n\r\nbody\r\n";
+
+        let resp = reqwest::Client::new()
+            .post(format!("http://{addr}/jmap/upload/acc1"))
+            .header("Content-Type", "message/rfc822")
+            .body(article)
+            .send()
+            .await
+            .expect("request must succeed");
+
+        assert_eq!(resp.status(), 400, "missing headers must return 400");
     }
 
     /// SearchSnippet/get with no search index configured must return null subject
