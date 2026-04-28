@@ -65,7 +65,7 @@ pub struct PeeringShared {
     /// Non-empty → every inbound connection must complete the mutual handshake
     /// before any NNTP bytes are exchanged.  Empty → auth is skipped (port
     /// must be firewalled in that case).
-    pub trusted_keys: Vec<ed25519_dalek::VerifyingKey>,
+    pub trusted_keys: Arc<tokio::sync::RwLock<Vec<ed25519_dalek::VerifyingKey>>>,
     /// Optional rustls acceptor for TLS-wrapped inbound connections.
     ///
     /// `Some` → every accepted connection is TLS-upgraded before any NNTP
@@ -124,12 +124,13 @@ pub async fn run_peering_session<S>(
     // Mutual ed25519 challenge-response handshake before any NNTP bytes.
     // Runs only when the operator has configured trusted peer keys.
     // On failure the connection is dropped silently — do not leak the reason.
-    if !shared.trusted_keys.is_empty() {
+    let trusted_keys_snap = shared.trusted_keys.read().await.clone();
+    if !trusted_keys_snap.is_empty() {
         match run_auth_handshake(
             &mut reader_half,
             &mut writer,
             &shared.signing_key,
-            &shared.trusted_keys,
+            &trusted_keys_snap,
         )
         .await
         {

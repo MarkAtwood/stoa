@@ -300,7 +300,7 @@ async fn transit_reader_shared_store() {
         ))),
         transit_pool: Arc::clone(&transit_db_pool),
         blacklist_config: BlacklistConfig::default(),
-        trusted_keys: Vec::new(),
+        trusted_keys: Arc::new(tokio::sync::RwLock::new(Vec::new())),
         tls_acceptor: None,
         staging: None,
         verification_store: None,

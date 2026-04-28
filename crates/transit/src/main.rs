@@ -16,6 +16,7 @@ use stoa_core::{
 use stoa_transit::{
     admin::{start_admin_server, AdminPools},
     config::{check_admin_addr, Config},
+    reload::ReloadableState,
     hlc_persist::{load_hlc_checkpoint, save_hlc_checkpoint},
     instance_id::ensure_instance_node_id,
     peering::{
@@ -925,6 +926,17 @@ async fn main() {
         None
     };
 
+    // ── Live-reloadable state (group filter + trusted keys) ───────────────────
+
+    let reload_state = ReloadableState::new(
+        config_path.clone(),
+        group_filter.clone(),
+        trusted_keys.clone(),
+        config.groups.names.clone(),
+        config.peering.trusted_peers.clone(),
+        config.log.level.clone(),
+    );
+
     // ── Shared state for peering sessions ─────────────────────────────────────
 
     let shared = Arc::new(PeeringShared {
@@ -942,7 +954,7 @@ async fn main() {
         ))),
         transit_pool: Arc::clone(&transit_pool),
         blacklist_config: BlacklistConfig::default(),
-        trusted_keys,
+        trusted_keys: Arc::clone(&reload_state.trusted_keys),
         tls_acceptor,
         staging: staging_store.clone(),
         verification_store: Some(Arc::clone(&verification_store)),
@@ -976,10 +988,7 @@ async fn main() {
     let pin_service_filters_staging = pin_service_filters.clone();
     let verification_store_staging = Arc::clone(&verification_store);
     let dkim_authenticator_staging = Arc::clone(&dkim_authenticator);
-    let group_filter_staging = group_filter.clone();
-    // trusted_keys is moved into PeeringShared; clone for drain tasks before that.
-    let trusted_keys_drain = shared.trusted_keys.clone();
-    let trusted_keys_staging = shared.trusted_keys.clone();
+    let reload_state_staging = Arc::clone(&reload_state);
 
     // Clone the metrics Arc before moving the sender into PeeringShared, so we can
     // read queue depth from the drain timeout log without holding a Sender (which
@@ -998,13 +1007,14 @@ async fn main() {
         let ipns_tx_drain = ipns_tx;
         let verification_store_drain = Arc::clone(&verification_store);
         let dkim_authenticator_drain = Arc::clone(&dkim_authenticator);
-        let trusted_keys_for_drain = trusted_keys_drain;
-        let group_filter_drain = group_filter.clone();
+        let reload_drain = Arc::clone(&reload_state);
 
         tokio::spawn(async move {
             while let Some(article) = ingestion_receiver.recv().await {
                 stoa_transit::metrics::INGESTION_QUEUE_DEPTH
                     .set(ingestion_metrics_task.current_depth() as i64);
+                let trusted_keys_snap = reload_drain.trusted_keys.read().await.clone();
+                let group_filter_current = reload_drain.group_filter.read().await.clone();
                 run_pipeline_and_notify(
                     &article.bytes,
                     &article.message_id,
@@ -1013,9 +1023,9 @@ async fn main() {
                     Arc::clone(&signing_key_drain),
                     &local_hostname_drain,
                     Some(&verification_store_drain),
-                    &trusted_keys_for_drain,
+                    &trusted_keys_snap,
                     Some(&dkim_authenticator_drain),
-                    group_filter_drain.clone(),
+                    group_filter_current,
                     &*ipfs,
                     &msgid_map_drain,
                     &*log_storage_drain,
@@ -1067,8 +1077,7 @@ async fn main() {
         let pin_service_filters = pin_service_filters_staging;
         let verification_store_drain = verification_store_staging;
         let dkim_authenticator_drain = dkim_authenticator_staging;
-        let trusted_keys_for_drain = trusted_keys_staging;
-        let group_filter_drain = group_filter_staging;
+        let reload_staging = reload_state_staging;
 
         staging_drain_opt = Some(tokio::spawn(async move {
             loop {
@@ -1080,6 +1089,10 @@ async fn main() {
                         }
                     }
                     Ok(Some(article)) => {
+                        let trusted_keys_snap =
+                            reload_staging.trusted_keys.read().await.clone();
+                        let group_filter_current =
+                            reload_staging.group_filter.read().await.clone();
                         let success = run_pipeline_and_notify(
                             &article.bytes,
                             &article.message_id,
@@ -1088,9 +1101,9 @@ async fn main() {
                             Arc::clone(&signing_key_drain),
                             &local_hostname_drain,
                             Some(&verification_store_drain),
-                            &trusted_keys_for_drain,
+                            &trusted_keys_snap,
                             Some(&dkim_authenticator_drain),
-                            group_filter_drain.clone(),
+                            group_filter_current,
                             &*ipfs,
                             &msgid_map_drain,
                             &*log_storage_drain,
@@ -1161,6 +1174,7 @@ async fn main() {
                     core_pool: Arc::clone(&core_pool),
                     audit_logger: Some(admin_audit_logger),
                     backup_dest_dir: config.backup.dest_dir.clone(),
+                    reload_state: Some(Arc::clone(&reload_state)),
                 },
                 start_time,
                 admin_bearer_token,
@@ -1272,6 +1286,27 @@ async fn main() {
             .await;
             info!(interval_secs = 3600, "GC scheduler started");
         }
+    }
+
+    // ── SIGHUP config reload ──────────────────────────────────────────────────
+
+    {
+        let reload_for_sighup = Arc::clone(&reload_state);
+        tokio::spawn(async move {
+            use tokio::signal::unix::{signal, SignalKind};
+            let mut sighup =
+                signal(SignalKind::hangup()).expect("failed to install SIGHUP handler");
+            loop {
+                sighup.recv().await;
+                info!("received SIGHUP, reloading config");
+                let result = reload_for_sighup.do_reload().await;
+                info!(
+                    changed = ?result.changed,
+                    errors = ?result.errors,
+                    "config reload complete"
+                );
+            }
+        });
     }
 
     // ── Shutdown ──────────────────────────────────────────────────────────────

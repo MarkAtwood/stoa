@@ -12,6 +12,7 @@ pub mod instance_id;
 pub mod metrics;
 pub mod migrations;
 pub mod peering;
+pub mod reload;
 pub mod retention;
 pub mod staging;
 pub mod telemetry;

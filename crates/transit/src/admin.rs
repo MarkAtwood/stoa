@@ -46,6 +46,9 @@ pub struct AdminPools {
     pub audit_logger: Option<Arc<dyn AuditLogger>>,
     /// Directory for SQLite backups.  `None` disables `POST /admin/backup`.
     pub backup_dest_dir: Option<String>,
+    /// Shared live-reloadable config state.  `None` disables `POST /admin/reload`
+    /// (returns 200 with `{"reloaded":false}` stub instead).
+    pub reload_state: Option<Arc<crate::reload::ReloadableState>>,
 }
 
 /// Start the admin HTTP server on the given address.
@@ -86,6 +89,7 @@ pub fn start_admin_server(
     let core_pool = pools.core_pool;
     let audit_logger = pools.audit_logger;
     let backup_dest_dir = Arc::new(pools.backup_dest_dir);
+    let reload_state: Option<Arc<crate::reload::ReloadableState>> = pools.reload_state;
     tokio::spawn(async move {
         let listener = match tokio::net::TcpListener::bind(addr).await {
             Ok(l) => l,
@@ -107,6 +111,7 @@ pub fn start_admin_server(
                     let audit_logger = audit_logger.clone();
                     let backup_dest_dir = Arc::clone(&backup_dest_dir);
                     let cert_paths = Arc::clone(&cert_paths);
+                    let reload_state = reload_state.clone();
                     tokio::spawn(async move {
                         if let Err(e) = handle_admin_connection(
                             stream,
@@ -119,6 +124,7 @@ pub fn start_admin_server(
                             audit_logger.as_deref(),
                             backup_dest_dir.as_deref(),
                             &cert_paths,
+                            reload_state.as_deref(),
                         )
                         .await
                         {
@@ -146,6 +152,7 @@ async fn handle_admin_connection(
     audit_logger: Option<&dyn AuditLogger>,
     backup_dest_dir: Option<&str>,
     cert_paths: &[String],
+    reload_state: Option<&crate::reload::ReloadableState>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let (pool, core_pool) = pools;
     let peer_ip = stream.peer_addr()?.ip();
@@ -450,10 +457,10 @@ async fn handle_admin_connection(
             }
         }
         "/reload" => {
-            // Full config reload is not yet implemented; restart the daemon to
-            // apply config changes.  However, we do re-check TLS certificate
-            // expiry on every reload request so operators can confirm cert
-            // rotation succeeded without restarting.
+            // Live config reload: re-read the config file and apply reloadable
+            // fields (groups.names, peering.trusted_peers).  Also re-checks
+            // TLS certificate expiry so operators can confirm cert rotation
+            // succeeded without restarting.
             let now_secs = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
@@ -504,9 +511,20 @@ async fn handle_admin_connection(
                     }
                 }
             }
+            // Apply live reload (if available) and collect the diff.
+            let (reload_changed, reload_errors, did_reload) = if let Some(rs) = reload_state {
+                let result = rs.do_reload().await;
+                let changed = result.changed.clone();
+                let errors = result.errors.clone();
+                (changed, errors, true)
+            } else {
+                (vec![], vec![], false)
+            };
+
             let body = serde_json::json!({
-                "reloaded": false,
-                "note": "full config reload not yet implemented — restart to apply config changes",
+                "reloaded": did_reload,
+                "changed": reload_changed,
+                "errors": reload_errors,
                 "tls_certs_checked": cert_results.len(),
                 "tls_certs": cert_results,
             })
