@@ -54,7 +54,10 @@ pub struct AccountInfo {
 }
 
 /// Build a SessionResource for the given username.
-pub fn build_session(username: &str, base_url: &str) -> SessionResource {
+///
+/// When `is_operator` is true, the `urn:ietf:params:jmap:usenet-ipfs-admin`
+/// capability is added so the client can discover and call admin methods.
+pub fn build_session(username: &str, base_url: &str, is_operator: bool) -> SessionResource {
     let mut capabilities: HashMap<String, Value> = HashMap::new();
     capabilities.insert(
         "urn:ietf:params:jmap:core".to_string(),
@@ -82,6 +85,14 @@ pub fn build_session(username: &str, base_url: &str) -> SessionResource {
         "urn:ietf:params:jmap:blob".to_string(),
         serde_json::json!({}),
     );
+    // Operator-role admin capability: advertised only for users in operator_usernames.
+    // Enables ServerStatus/get, Peer/get, GroupLog/get admin JMAP methods.
+    if is_operator {
+        capabilities.insert(
+            "urn:ietf:params:jmap:usenet-ipfs-admin".to_string(),
+            serde_json::json!({}),
+        );
+    }
 
     let account_id = format!("u_{username}");
     let mut account_capabilities: HashMap<String, Value> = HashMap::new();
@@ -123,7 +134,7 @@ mod tests {
 
     #[test]
     fn session_has_required_capabilities() {
-        let s = build_session("alice", "https://example.com");
+        let s = build_session("alice", "https://example.com", false);
         assert!(s.capabilities.contains_key("urn:ietf:params:jmap:core"));
         assert!(s.capabilities.contains_key("urn:ietf:params:jmap:mail"));
         assert_eq!(s.username, "alice");
@@ -131,7 +142,7 @@ mod tests {
 
     #[test]
     fn session_has_stoa_cid_capability() {
-        let s = build_session("alice", "https://example.com");
+        let s = build_session("alice", "https://example.com", false);
         assert!(
             s.capabilities.contains_key("urn:stoa:jmap:cid"),
             "session must advertise urn:stoa:jmap:cid capability"
@@ -140,15 +151,33 @@ mod tests {
 
     #[test]
     fn session_api_url_correct() {
-        let s = build_session("alice", "https://example.com");
+        let s = build_session("alice", "https://example.com", false);
         assert_eq!(s.api_url, "https://example.com/jmap/api");
     }
 
     #[test]
     fn session_serializes_to_json() {
-        let s = build_session("bob", "http://localhost:8080");
+        let s = build_session("bob", "http://localhost:8080", false);
         let json = serde_json::to_string(&s).unwrap();
         assert!(json.contains("urn:ietf:params:jmap:core"));
         assert!(json.contains("apiUrl"));
+    }
+
+    #[test]
+    fn non_operator_session_lacks_admin_capability() {
+        let s = build_session("alice", "https://example.com", false);
+        assert!(
+            !s.capabilities.contains_key("urn:ietf:params:jmap:usenet-ipfs-admin"),
+            "non-operator session must not have admin capability"
+        );
+    }
+
+    #[test]
+    fn operator_session_has_admin_capability() {
+        let s = build_session("alice", "https://example.com", true);
+        assert!(
+            s.capabilities.contains_key("urn:ietf:params:jmap:usenet-ipfs-admin"),
+            "operator session must have admin capability"
+        );
     }
 }

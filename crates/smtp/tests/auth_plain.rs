@@ -79,6 +79,7 @@ fn test_config(tim_credential: Option<UserCredential>) -> Arc<Config> {
             client_certs: vec![],
             trusted_issuers: vec![],
             oidc_providers: vec![],
+            operator_usernames: vec![],
         },
         None => AuthConfig::default(),
     };

@@ -283,7 +283,8 @@ async fn jmap_session_handler(
     let username = user
         .map(|Extension(u)| u.0)
         .unwrap_or_else(|| "anonymous".to_string());
-    let session = crate::jmap::session::build_session(&username, &state.base_url);
+    let is_operator = state.auth_config.is_operator(&username);
+    let session = crate::jmap::session::build_session(&username, &state.base_url, is_operator);
     Json(serde_json::to_value(session).unwrap())
 }
 
@@ -310,12 +311,14 @@ async fn jmap_api_handler(
         .map(|Extension(u)| u.0)
         .unwrap_or_else(|| "anonymous".to_string());
     let canonical_account_id = format!("u_{username}");
+    let is_operator = state.auth_config.is_operator(&username);
+    let server_start = state.start_time;
 
     let mut method_responses = Vec::new();
 
     for crate::jmap::types::Invocation(method, args, call_id) in request.method_calls {
         let t0 = std::time::Instant::now();
-        let result = route_method(&method, args, jmap, &canonical_account_id).await;
+        let result = route_method(&method, args, jmap, &canonical_account_id, server_start, is_operator).await;
         let elapsed = t0.elapsed().as_secs_f64();
         crate::metrics::JMAP_REQUESTS_TOTAL
             .with_label_values(&[&method])
@@ -382,6 +385,8 @@ async fn route_method(
     args: Value,
     jmap: &JmapStores,
     canonical_account_id: &str,
+    server_start: std::time::Instant,
+    is_operator: bool,
 ) -> Value {
     // RFC 8621 §2: every method call carries an accountId.  If it is present
     // and does not match the authenticated principal's account, return
@@ -960,6 +965,65 @@ async fn route_method(
                 "filter": filter.unwrap_or(json!(null)),
                 "list": list,
                 "notFound": not_found,
+            })
+        }
+
+        // ── Admin methods (urn:ietf:params:jmap:usenet-ipfs-admin) ───────────────
+        // These methods are only accessible to users with the operator role.
+        // Non-operators receive a `forbidden` error.
+
+        "ServerStatus/get" => {
+            if !is_operator {
+                return serde_json::to_value(crate::jmap::types::MethodError::forbidden())
+                    .unwrap_or(json!({}));
+            }
+            let uptime_secs = server_start.elapsed().as_secs();
+            json!({
+                "accountId": canonical_account_id,
+                "status": {
+                    "uptime_secs": uptime_secs
+                }
+            })
+        }
+
+        "Peer/get" => {
+            if !is_operator {
+                return serde_json::to_value(crate::jmap::types::MethodError::forbidden())
+                    .unwrap_or(json!({}));
+            }
+            // Peer state is owned by stoa-transit; the JMAP server returns an
+            // empty list.  A future epic can wire transit admin state here.
+            json!({
+                "accountId": canonical_account_id,
+                "list": [],
+                "notFound": []
+            })
+        }
+
+        "GroupLog/get" => {
+            if !is_operator {
+                return serde_json::to_value(crate::jmap::types::MethodError::forbidden())
+                    .unwrap_or(json!({}));
+            }
+            let groups = match jmap.article_numbers.list_groups().await {
+                Ok(g) => g,
+                Err(e) => return json!({"error": e.to_string()}),
+            };
+            let list: Vec<Value> = groups
+                .iter()
+                .map(|(name, lo, hi)| {
+                    let count = if *hi < *lo { 0u64 } else { hi - lo + 1 };
+                    json!({
+                        "id": name,
+                        "name": name,
+                        "articleCount": count
+                    })
+                })
+                .collect();
+            json!({
+                "accountId": canonical_account_id,
+                "list": list,
+                "notFound": []
             })
         }
 
@@ -2066,6 +2130,77 @@ mod tests {
             list.len() + not_found.len(),
             1,
             "total entries must equal emailIds count"
+        );
+    }
+
+    // ── Operator role / admin JMAP method tests ───────────────────────────────
+
+    /// Build an AppState where `operator` is in the operator_usernames list.
+    async fn operator_state(username: &str, password: &str) -> (Arc<AppState>, tempfile::TempPath) {
+        let hash = bcrypt::hash(password, 4).expect("bcrypt::hash");
+        let users = vec![UserCredential {
+            username: username.to_string(),
+            password: hash,
+        }];
+        let (ts, tmp) = make_token_store().await;
+        let state = Arc::new(AppState {
+            start_time: Instant::now(),
+            jmap: None,
+            credential_store: Arc::new(CredentialStore::from_credentials(&users)),
+            auth_config: Arc::new(AuthConfig {
+                required: true,
+                users,
+                operator_usernames: vec![username.to_string()],
+                ..Default::default()
+            }),
+            token_store: ts,
+            oidc_store: None,
+            base_url: "http://localhost".to_string(),
+            cors: crate::config::CorsConfig::default(),
+            slow_jmap_threshold_ms: 0,
+        });
+        (state, tmp)
+    }
+
+    #[tokio::test]
+    async fn operator_session_has_admin_capability() {
+        let (state, _tmp) = operator_state("ops", "secret").await;
+        let addr = spawn_server(state).await;
+
+        let body: serde_json::Value = reqwest::Client::new()
+            .get(format!("http://{addr}/jmap/session"))
+            .basic_auth("ops", Some("secret"))
+            .send()
+            .await
+            .expect("request must succeed")
+            .json()
+            .await
+            .unwrap();
+
+        assert!(
+            body["capabilities"]["urn:ietf:params:jmap:usenet-ipfs-admin"].is_object(),
+            "operator session must advertise admin capability; got: {body}"
+        );
+    }
+
+    #[tokio::test]
+    async fn non_operator_session_lacks_admin_capability() {
+        let (state, _tmp) = auth_state("alice", "pass").await;
+        let addr = spawn_server(state).await;
+
+        let body: serde_json::Value = reqwest::Client::new()
+            .get(format!("http://{addr}/jmap/session"))
+            .basic_auth("alice", Some("pass"))
+            .send()
+            .await
+            .expect("request must succeed")
+            .json()
+            .await
+            .unwrap();
+
+        assert!(
+            body["capabilities"]["urn:ietf:params:jmap:usenet-ipfs-admin"].is_null(),
+            "non-operator session must not have admin capability; got: {body}"
         );
     }
 }

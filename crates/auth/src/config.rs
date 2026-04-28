@@ -104,9 +104,22 @@ pub struct AuthConfig {
     /// Multiple providers are tried in order; the first match wins.
     #[serde(default)]
     pub oidc_providers: Vec<OidcProviderConfig>,
+    /// Usernames that receive the operator-role admin capability in JMAP sessions.
+    ///
+    /// Users in this list see the `urn:ietf:params:jmap:usenet-ipfs-admin`
+    /// capability in their session document and may call admin JMAP methods
+    /// (`ServerStatus/get`, `Peer/get`, `GroupLog/get`).  Regular users do not
+    /// see this capability and receive `forbidden` if they call admin methods.
+    #[serde(default)]
+    pub operator_usernames: Vec<String>,
 }
 
 impl AuthConfig {
+    /// Returns `true` when `username` is in the operator list.
+    pub fn is_operator(&self, username: &str) -> bool {
+        self.operator_usernames.iter().any(|u| u == username)
+    }
+
     /// Returns `true` when no credentials are configured and auth is not
     /// required — the development / open-access mode.
     pub fn is_dev_mode(&self) -> bool {
@@ -170,5 +183,21 @@ mod tests {
             cert_path: "/etc/stoa/ca.pem".into(),
         });
         assert!(!cfg.is_dev_mode());
+    }
+
+    #[test]
+    fn is_operator_returns_true_for_listed_username() {
+        let mut cfg = AuthConfig::default();
+        cfg.operator_usernames = vec!["admin".to_string(), "ops".to_string()];
+        assert!(cfg.is_operator("admin"));
+        assert!(cfg.is_operator("ops"));
+        assert!(!cfg.is_operator("alice"));
+        assert!(!cfg.is_operator(""));
+    }
+
+    #[test]
+    fn is_operator_returns_false_when_list_empty() {
+        let cfg = AuthConfig::default();
+        assert!(!cfg.is_operator("admin"));
     }
 }
