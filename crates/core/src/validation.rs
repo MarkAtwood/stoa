@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use crate::article::Article;
 use crate::error::{ProtocolError, ValidationError};
-use crate::wildmat::GroupFilter;
+use crate::wildmat::{GroupFilter, GroupPolicy};
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -41,7 +41,7 @@ pub struct ValidationConfig {
     /// `Newsgroups` entries matches the filter.  Wildmat patterns are
     /// supported (e.g. `comp.*`, `!alt.*`).  If `None`, all valid group
     /// names are accepted.
-    pub allowed_groups: Option<Arc<GroupFilter>>,
+    pub allowed_groups: GroupPolicy,
 }
 
 impl Default for ValidationConfig {
@@ -325,7 +325,7 @@ pub fn check_duplicate(message_id: &str, storage: &dyn MsgIdStorage) -> Result<(
 mod tests {
     use super::*;
     use crate::article::{Article, ArticleHeader, GroupName};
-    use crate::wildmat::GroupFilter;
+    use crate::wildmat::{GroupFilter, GroupPolicy};
     use std::collections::HashSet;
     use std::sync::Arc;
 

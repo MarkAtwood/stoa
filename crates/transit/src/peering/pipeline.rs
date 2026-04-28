@@ -22,7 +22,7 @@ use stoa_core::{
     hlc::HlcTimestamp,
     msgid_map::MsgIdMap,
     signing::{sign, SigningKey},
-    wildmat::GroupFilter,
+    wildmat::{GroupFilter, GroupPolicy},
 };
 use stoa_verify::VerificationStore;
 
@@ -387,7 +387,7 @@ pub struct PipelineCtx<'a> {
     /// DKIM authenticator. `None` disables DKIM checks.
     pub dkim_auth: Option<&'a MessageAuthenticator>,
     /// Group filter. `None` accepts all groups (default-permit).
-    pub group_filter: Option<Arc<GroupFilter>>,
+    pub group_filter: GroupPolicy,
 }
 
 /// Result of running the store-and-forward pipeline.
@@ -1153,7 +1153,7 @@ mod tests {
     fn make_ctx_with_filter(
         key: Arc<SigningKey>,
         ts: HlcTimestamp,
-        filter: Option<Arc<GroupFilter>>,
+        filter: GroupPolicy,
     ) -> PipelineCtx<'static> {
         PipelineCtx {
             timestamp: ts,

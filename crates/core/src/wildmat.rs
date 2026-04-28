@@ -232,6 +232,14 @@ impl GroupFilter {
     }
 }
 
+/// Group filter policy: `None` means accept all groups, `Some(f)` applies `f`.
+///
+/// This convention appears wherever group-level routing decisions are made:
+/// `ValidationConfig.allowed_groups`, `PipelineCtx.group_filter`, and the
+/// per-pin-service group filter in transit main.  Using the alias keeps the
+/// None-means-accept-all semantics visible and searchable.
+pub type GroupPolicy = Option<std::sync::Arc<GroupFilter>>;
+
 #[cfg(test)]
 mod tests {
     use super::*;

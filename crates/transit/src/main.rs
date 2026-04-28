@@ -11,7 +11,7 @@ use stoa_core::{
     group_log::SqliteLogStorage,
     hlc::HlcClock,
     msgid_map::MsgIdMap,
-    wildmat::GroupFilter,
+    wildmat::{GroupFilter, GroupPolicy},
 };
 use stoa_transit::{
     admin::{start_admin_server, AdminPools},
@@ -369,7 +369,7 @@ fn publish_ipns_tip(
 /// successful `run_pipeline` to avoid duplicating the SQL insert loop.
 async fn enqueue_pin_jobs(
     result: &stoa_transit::peering::pipeline::PipelineResult,
-    pin_service_filters: &[(String, Option<Arc<GroupFilter>>)],
+    pin_service_filters: &[(String, GroupPolicy)],
     pool: &sqlx::AnyPool,
 ) {
     if pin_service_filters.is_empty() {
@@ -417,13 +417,13 @@ async fn run_pipeline_and_notify(
     verify_store: Option<&VerificationStore>,
     trusted_keys: &[ed25519_dalek::VerifyingKey],
     dkim_auth: Option<&MessageAuthenticator>,
-    group_filter: Option<Arc<GroupFilter>>,
+    group_filter: GroupPolicy,
     ipfs: &dyn IpfsStore,
     msgid_map: &MsgIdMap,
     log_storage: &SqliteLogStorage,
     transit_pool: &sqlx::AnyPool,
     ipns_tx: &Option<tokio::sync::mpsc::Sender<IpnsEvent>>,
-    pin_service_filters: &[(String, Option<Arc<GroupFilter>>)],
+    pin_service_filters: &[(String, GroupPolicy)],
 ) -> bool {
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -517,7 +517,7 @@ async fn main() {
     }
 
     // Build group filter from config. Empty names list means accept all groups.
-    let group_filter: Option<Arc<GroupFilter>> = if config.groups.names.is_empty() {
+    let group_filter: GroupPolicy = if config.groups.names.is_empty() {
         None
     } else {
         Some(Arc::new(
@@ -966,7 +966,7 @@ async fn main() {
     // Extract (service_name, filter) pairs for the pipeline hook.
     // Avoids moving the full config (with PinningApiKey) into the async closure.
     // GroupFilter patterns were validated in Config::validate(), so expect() cannot fail.
-    let pin_service_filters: Vec<(String, Option<Arc<GroupFilter>>)> = config
+    let pin_service_filters: Vec<(String, GroupPolicy)> = config
         .pinning
         .external_services
         .iter()

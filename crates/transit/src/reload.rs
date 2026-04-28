@@ -17,7 +17,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use stoa_core::wildmat::GroupFilter;
+use stoa_core::wildmat::{GroupFilter, GroupPolicy};
 
 use crate::config::Config;
 use crate::peering::auth::parse_trusted_peer_keys;
@@ -27,7 +27,7 @@ pub struct ReloadableState {
     /// Path to the config file (set once at startup; never changes).
     pub config_path: PathBuf,
     /// Live group filter.  `None` means "accept all groups".
-    pub group_filter: Arc<RwLock<Option<Arc<GroupFilter>>>>,
+    pub group_filter: Arc<RwLock<GroupPolicy>>,
     /// Live set of trusted peer public keys for mutual auth.
     pub trusted_keys: Arc<RwLock<Vec<ed25519_dalek::VerifyingKey>>>,
     /// Previous raw group-name patterns (for change detection).
@@ -51,7 +51,7 @@ impl ReloadableState {
     /// Create a new `ReloadableState` from the initial config.
     pub fn new(
         config_path: PathBuf,
-        group_filter: Option<Arc<GroupFilter>>,
+        group_filter: GroupPolicy,
         trusted_keys: Vec<ed25519_dalek::VerifyingKey>,
         group_names: Vec<String>,
         trusted_peer_hexes: Vec<String>,
