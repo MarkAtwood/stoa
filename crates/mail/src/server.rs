@@ -395,6 +395,37 @@ async fn route_method(
             crate::mailbox::get::handle_mailbox_get(&group_infos, ids_filter.as_deref(), &state)
         }
 
+        "Mailbox/query" => {
+            let groups = match jmap.article_numbers.list_groups().await {
+                Ok(g) => g,
+                Err(e) => return json!({"error": e.to_string()}),
+            };
+            let group_infos: Vec<crate::mailbox::get::GroupInfo> = groups
+                .into_iter()
+                .map(|(name, lo, hi)| {
+                    let total_emails = if hi < lo {
+                        0u32
+                    } else {
+                        (hi - lo + 1).min(u32::MAX as u64) as u32
+                    };
+                    crate::mailbox::get::GroupInfo {
+                        name,
+                        total_emails,
+                        unread_emails: 0,
+                        is_subscribed: false,
+                    }
+                })
+                .collect();
+            let filter = args.get("filter");
+            let sort = args.get("sort");
+            let state = jmap
+                .state_store
+                .get_state("Mailbox")
+                .await
+                .unwrap_or_else(|_| "0".to_string());
+            crate::mailbox::query::handle_mailbox_query(&group_infos, filter, sort, &state)
+        }
+
         "Email/query" => {
             let mailbox_id = args
                 .get("filter")
@@ -589,6 +620,55 @@ async fn route_method(
             result["newState"] = Value::String(new_state);
 
             result
+        }
+
+        "Thread/get" => {
+            let requested_ids: Vec<String> = args
+                .get("ids")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(str::to_string))
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            // Collect all overview records from all groups so we can compute
+            // thread memberships across the full article corpus.
+            let groups = match jmap.article_numbers.list_groups().await {
+                Ok(g) => g,
+                Err(e) => return json!({"error": e.to_string()}),
+            };
+
+            let mut entries: Vec<crate::thread::get::ThreadEntry> = Vec::new();
+            for (group_name, lo, hi) in &groups {
+                let records = match jmap.overview_store.query_range(group_name, *lo, *hi).await {
+                    Ok(r) => r,
+                    Err(_) => continue,
+                };
+                for rec in &records {
+                    if let Ok(Some(cid)) = jmap
+                        .article_numbers
+                        .lookup_cid(group_name, rec.article_number)
+                        .await
+                    {
+                        entries.push(crate::thread::get::ThreadEntry {
+                            email_id: cid.to_string(),
+                            references: rec.references.clone(),
+                            message_id: rec.message_id.clone(),
+                        });
+                    }
+                }
+            }
+
+            let thread_state = jmap
+                .state_store
+                .get_state("Thread")
+                .await
+                .unwrap_or_else(|_| "0".to_string());
+
+            let id_refs: Vec<&str> = requested_ids.iter().map(|s| s.as_str()).collect();
+            crate::thread::get::handle_thread_get(&entries, &id_refs, &thread_state)
         }
 
         _ => serde_json::to_value(crate::jmap::types::MethodError::unknown_method())

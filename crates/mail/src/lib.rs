@@ -10,5 +10,6 @@ pub mod metrics;
 pub mod migrations;
 pub mod server;
 pub mod state;
+pub mod thread;
 pub mod tls;
 pub mod token_store;
