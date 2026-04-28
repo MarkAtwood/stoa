@@ -415,45 +415,61 @@ async fn enqueue_pin_jobs(
     }
 }
 
+/// Stable per-server fields passed to [`run_pipeline_and_notify`].
+///
+/// Groups the parameters that are constant across all articles in a drain loop,
+/// keeping `run_pipeline_and_notify` under the clippy argument-count limit.
+struct PipelineArgs<'a> {
+    hlc: &'a tokio::sync::Mutex<HlcClock>,
+    signing_key: Arc<ed25519_dalek::SigningKey>,
+    local_hostname: &'a str,
+    verify_store: Option<&'a VerificationStore>,
+    trusted_keys: Arc<[ed25519_dalek::VerifyingKey]>,
+    dkim_auth: Option<&'a MessageAuthenticator>,
+    group_filter: GroupPolicy,
+    ipfs: &'a dyn IpfsStore,
+    msgid_map: &'a MsgIdMap,
+    log_storage: &'a SqliteLogStorage,
+    transit_pool: &'a sqlx::AnyPool,
+    ipns_tx: &'a Option<tokio::sync::mpsc::Sender<IpnsEvent>>,
+    pin_service_filters: &'a [(String, GroupPolicy)],
+}
+
 /// Run `run_pipeline`, emit structured telemetry, and drive post-success hooks
 /// (IPNS publish + remote pin enqueue).  Common to the ingestion drain and the
 /// staging drain; the only difference is the success log message.
 ///
 /// Returns `true` on success, `false` on pipeline error (already logged).
-#[allow(clippy::too_many_arguments)]
 async fn run_pipeline_and_notify(
     bytes: &[u8],
     message_id: &str,
     success_label: &'static str,
-    hlc: &tokio::sync::Mutex<HlcClock>,
-    signing_key: Arc<ed25519_dalek::SigningKey>,
-    local_hostname: &str,
-    verify_store: Option<&VerificationStore>,
-    trusted_keys: &[ed25519_dalek::VerifyingKey],
-    dkim_auth: Option<&MessageAuthenticator>,
-    group_filter: GroupPolicy,
-    ipfs: &dyn IpfsStore,
-    msgid_map: &MsgIdMap,
-    log_storage: &SqliteLogStorage,
-    transit_pool: &sqlx::AnyPool,
-    ipns_tx: &Option<tokio::sync::mpsc::Sender<IpnsEvent>>,
-    pin_service_filters: &[(String, GroupPolicy)],
+    args: &PipelineArgs<'_>,
 ) -> bool {
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as u64;
-    let timestamp = hlc.lock().await.send(now_ms);
+    let timestamp = args.hlc.lock().await.send(now_ms);
     let ctx = PipelineCtx {
         timestamp,
-        operator_signing_key: signing_key,
-        local_hostname,
-        verify_store,
-        trusted_keys,
-        dkim_auth,
-        group_filter,
+        operator_signing_key: Arc::clone(&args.signing_key),
+        local_hostname: args.local_hostname,
+        verify_store: args.verify_store,
+        trusted_keys: Arc::clone(&args.trusted_keys),
+        dkim_auth: args.dkim_auth,
+        group_filter: args.group_filter.clone(),
     };
-    match run_pipeline(bytes, ipfs, msgid_map, log_storage, transit_pool, ctx).await {
+    match run_pipeline(
+        bytes,
+        args.ipfs,
+        args.msgid_map,
+        args.log_storage,
+        args.transit_pool,
+        ctx,
+    )
+    .await
+    {
         Ok((result, _metrics)) => {
             info!(
                 cid = %result.cid,
@@ -461,8 +477,8 @@ async fn run_pipeline_and_notify(
                 msgid = %message_id,
                 "{success_label}",
             );
-            publish_ipns_tip(&result, ipns_tx);
-            enqueue_pin_jobs(&result, pin_service_filters, transit_pool).await;
+            publish_ipns_tip(&result, args.ipns_tx);
+            enqueue_pin_jobs(&result, args.pin_service_filters, args.transit_pool).await;
             true
         }
         Err(e) => {
@@ -1047,25 +1063,28 @@ async fn main() {
             while let Some(article) = ingestion_receiver.recv().await {
                 stoa_transit::metrics::INGESTION_QUEUE_DEPTH
                     .set(ingestion_metrics_task.current_depth() as i64);
-                let trusted_keys_snap = reload_drain.trusted_keys.read().await.clone();
+                let trusted_keys_snap = Arc::from(reload_drain.trusted_keys.read().await.clone());
                 let group_filter_current = reload_drain.group_filter.read().await.clone();
+                let pipeline_args = PipelineArgs {
+                    hlc: &hlc_drain,
+                    signing_key: Arc::clone(&signing_key_drain),
+                    local_hostname: &local_hostname_drain,
+                    verify_store: Some(&verification_store_drain),
+                    trusted_keys: trusted_keys_snap,
+                    dkim_auth: Some(&dkim_authenticator_drain),
+                    group_filter: group_filter_current,
+                    ipfs: &*ipfs,
+                    msgid_map: &msgid_map_drain,
+                    log_storage: log_storage_drain.as_ref(),
+                    transit_pool: &transit_pool_drain,
+                    ipns_tx: &ipns_tx_drain,
+                    pin_service_filters: &pin_service_filters,
+                };
                 run_pipeline_and_notify(
                     &article.bytes,
                     &article.message_id,
                     "article ingested",
-                    &hlc_drain,
-                    Arc::clone(&signing_key_drain),
-                    &local_hostname_drain,
-                    Some(&verification_store_drain),
-                    &trusted_keys_snap,
-                    Some(&dkim_authenticator_drain),
-                    group_filter_current,
-                    &*ipfs,
-                    &msgid_map_drain,
-                    log_storage_drain.as_ref(),
-                    &transit_pool_drain,
-                    &ipns_tx_drain,
-                    &pin_service_filters,
+                    &pipeline_args,
                 )
                 .await;
             }
@@ -1126,25 +1145,29 @@ async fn main() {
                         }
                     }
                     Ok(Some(article)) => {
-                        let trusted_keys_snap = reload_staging.trusted_keys.read().await.clone();
+                        let trusted_keys_snap =
+                            Arc::from(reload_staging.trusted_keys.read().await.clone());
                         let group_filter_current = reload_staging.group_filter.read().await.clone();
+                        let pipeline_args = PipelineArgs {
+                            hlc: &hlc_drain,
+                            signing_key: Arc::clone(&signing_key_drain),
+                            local_hostname: &local_hostname_drain,
+                            verify_store: Some(&verification_store_drain),
+                            trusted_keys: trusted_keys_snap,
+                            dkim_auth: Some(&dkim_authenticator_drain),
+                            group_filter: group_filter_current,
+                            ipfs: &*ipfs,
+                            msgid_map: &msgid_map_drain,
+                            log_storage: log_storage_drain.as_ref(),
+                            transit_pool: &transit_pool_drain,
+                            ipns_tx: &ipns_tx_drain,
+                            pin_service_filters: &pin_service_filters,
+                        };
                         let success = run_pipeline_and_notify(
                             &article.bytes,
                             &article.message_id,
                             "staged article ingested",
-                            &hlc_drain,
-                            Arc::clone(&signing_key_drain),
-                            &local_hostname_drain,
-                            Some(&verification_store_drain),
-                            &trusted_keys_snap,
-                            Some(&dkim_authenticator_drain),
-                            group_filter_current,
-                            &*ipfs,
-                            &msgid_map_drain,
-                            log_storage_drain.as_ref(),
-                            &transit_pool_drain,
-                            &ipns_tx_drain,
-                            &pin_service_filters,
+                            &pipeline_args,
                         )
                         .await;
                         if success {

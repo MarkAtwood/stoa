@@ -35,7 +35,7 @@ fn cid_from_bytes(bytes: &[u8]) -> Result<Cid, StorageError> {
 
 impl LogStorage for SqliteLogStorage {
     async fn insert_entry(&self, id: LogEntryId, entry: LogEntry) -> Result<(), StorageError> {
-        let id_bytes = id.as_bytes().as_slice().to_vec();
+        let id_bytes = id.as_bytes().to_vec();
         let article_cid_bytes = cid_to_bytes(&entry.article_cid);
         // HLC timestamps are u64 wall-ms since UNIX epoch.  Both SQLite and
         // PostgreSQL store integers as i64.  A timestamp > i64::MAX (year
@@ -92,7 +92,7 @@ impl LogStorage for SqliteLogStorage {
     }
 
     async fn get_entry(&self, id: &LogEntryId) -> Result<Option<LogEntry>, StorageError> {
-        let id_bytes = id.as_bytes().as_slice().to_vec();
+        let id_bytes = id.as_bytes().to_vec();
 
         let row: Option<(i64, Vec<u8>, Vec<u8>)> = sqlx::query_as(
             "SELECT hlc_timestamp, article_cid, operator_signature
@@ -141,7 +141,7 @@ impl LogStorage for SqliteLogStorage {
     }
 
     async fn has_entry(&self, id: &LogEntryId) -> Result<bool, StorageError> {
-        let id_bytes = id.as_bytes().as_slice().to_vec();
+        let id_bytes = id.as_bytes().to_vec();
         let row: Option<(Vec<u8>,)> = sqlx::query_as("SELECT id FROM log_entries WHERE id = ?")
             .bind(&id_bytes)
             .fetch_optional(&self.pool)
@@ -187,10 +187,8 @@ impl LogStorage for SqliteLogStorage {
             // Both SQLite and PostgreSQL support multi-row VALUES.
             let placeholders = tips.iter().map(|_| "(?, ?)").collect::<Vec<_>>().join(", ");
             let sql = format!("INSERT INTO group_tips (group_name, tip_id) VALUES {placeholders}");
-            let tip_byte_vecs: Vec<Vec<u8>> = tips
-                .iter()
-                .map(|tip| tip.as_bytes().as_slice().to_vec())
-                .collect();
+            let tip_byte_vecs: Vec<Vec<u8>> =
+                tips.iter().map(|tip| tip.as_bytes().to_vec()).collect();
             let mut q = sqlx::query(&sql);
             for tip_bytes in &tip_byte_vecs {
                 q = q.bind(group.as_str()).bind(tip_bytes.as_slice());
@@ -223,7 +221,7 @@ impl LogStorage for SqliteLogStorage {
             );
             let parent_byte_vecs: Vec<Vec<u8>> = parents_to_remove
                 .iter()
-                .map(|p| p.as_bytes().as_slice().to_vec())
+                .map(|p| p.as_bytes().to_vec())
                 .collect();
             let mut q = sqlx::query(&sql).bind(group_name);
             for parent_bytes in &parent_byte_vecs {
@@ -232,7 +230,7 @@ impl LogStorage for SqliteLogStorage {
             q.execute(&mut *tx).await.map_err(db_err)?;
         }
 
-        let new_tip_bytes = new_tip.as_bytes().as_slice().to_vec();
+        let new_tip_bytes = new_tip.as_bytes().to_vec();
         sqlx::query(
             "INSERT INTO group_tips (group_name, tip_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
         )

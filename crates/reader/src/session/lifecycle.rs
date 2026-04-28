@@ -127,6 +127,8 @@ async fn load_known_groups(stores: &ServerStores, ctx: &mut SessionContext) {
                     description: String::new(),
                 })
                 .collect();
+            ctx.known_groups
+                .sort_unstable_by(|a, b| a.name.cmp(&b.name));
         }
         Err(e) => {
             warn!("load_known_groups: article_numbers.list_groups failed: {e}");

@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use cid::Cid;
 use data_encoding::BASE64URL_NOPAD;
@@ -40,10 +41,10 @@ pub struct EmailAddress {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Email {
     /// JMAP id (= CID string).
-    pub id: String,
+    pub id: Arc<str>,
     /// Blob id for downloading raw content (= CID string).
     #[serde(rename = "blobId")]
-    pub blob_id: String,
+    pub blob_id: Arc<str>,
     /// Map of mailbox-id → true.
     #[serde(rename = "mailboxIds")]
     pub mailbox_ids: HashMap<String, bool>,
@@ -74,7 +75,7 @@ pub struct Email {
     /// `urn:stoa:jmap:cid` session capability.  Clients that do not
     /// recognise this property may ignore it per RFC 8620 §3.3.
     #[serde(rename = "x-stoa-cid")]
-    pub ipfs_cid: String,
+    pub ipfs_cid: Arc<str>,
     /// Custom property: base64url-no-pad encoded operator Ed25519 signature.
     ///
     /// Present only when the article carries an `X-Stoa-Sig` operator
@@ -109,7 +110,7 @@ impl Email {
         keywords: HashMap<String, bool>,
         preview: Option<String>,
     ) -> Self {
-        let cid_str = cid.to_string();
+        let cid_str: Arc<str> = cid.to_string().into();
 
         // Build mailboxIds from newsgroups.
         let mailbox_ids: HashMap<String, bool> = root
@@ -143,8 +144,8 @@ impl Email {
         };
 
         Email {
-            id: cid_str.clone(),
-            blob_id: cid_str.clone(),
+            id: Arc::clone(&cid_str),
+            blob_id: Arc::clone(&cid_str),
             mailbox_ids,
             keywords,
             received_at,
@@ -257,8 +258,8 @@ mod tests {
         let cid = dummy_cid(b"article");
         let root = dummy_root(vec!["comp.lang.rust".to_string()], 1_000_000_000_000, 512);
         let email = Email::from_root_node(&cid, &root, None, HashMap::new(), None);
-        assert_eq!(email.id, cid.to_string());
-        assert_eq!(email.blob_id, cid.to_string());
+        assert_eq!(&*email.id, cid.to_string().as_str());
+        assert_eq!(&*email.blob_id, cid.to_string().as_str());
         assert_eq!(email.size, 512);
         assert!(email.mailbox_ids.values().all(|v| *v));
         assert_eq!(email.mailbox_ids.len(), 1);
@@ -270,8 +271,8 @@ mod tests {
         let root = dummy_root(vec!["comp.test".to_string()], 1_000_000_000_000, 128);
         let email = Email::from_root_node(&cid, &root, None, HashMap::new(), None);
         assert_eq!(
-            email.ipfs_cid,
-            cid.to_string(),
+            &*email.ipfs_cid,
+            cid.to_string().as_str(),
             "x-stoa-cid must equal the email id (root CID)"
         );
     }

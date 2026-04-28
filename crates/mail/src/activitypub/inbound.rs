@@ -66,7 +66,7 @@ pub fn note_to_article(
     note: &Value,
     group_name: &str,
     base_url: &str,
-) -> Result<(String, Vec<String>, Vec<u8>), String> {
+) -> (String, Vec<String>, Vec<u8>) {
     let content = note["content"]
         .as_str()
         .or_else(|| {
@@ -129,11 +129,11 @@ pub fn note_to_article(
     article.push_str("\r\n");
     article.push_str(&body);
 
-    Ok((
+    (
         message_id,
         vec![group_name.to_string()],
         article.into_bytes(),
-    ))
+    )
 }
 
 /// Attempt to reconstruct a Message-ID from a Note URL.
@@ -401,7 +401,7 @@ mod tests {
             "published": "2026-04-27T12:00:00Z"
         });
         let (msgid, newsgroups, bytes) =
-            note_to_article(&note, "comp.lang.rust", "https://news.example.com").unwrap();
+            note_to_article(&note, "comp.lang.rust", "https://news.example.com");
         let article = String::from_utf8(bytes).unwrap();
         assert!(article.contains("From: alice@mastodon.social"));
         assert!(article.contains("Newsgroups: comp.lang.rust"));
@@ -419,8 +419,7 @@ mod tests {
             "attributedTo": "https://mastodon.social/users/alice",
             "content": "<p>Hello <strong>world</strong>!</p>"
         });
-        let (_, _, bytes) =
-            note_to_article(&note, "comp.test", "https://news.example.com").unwrap();
+        let (_, _, bytes) = note_to_article(&note, "comp.test", "https://news.example.com");
         let article = String::from_utf8(bytes).unwrap();
         assert!(article.contains("Hello"));
         assert!(article.contains("world"));
@@ -442,8 +441,7 @@ mod tests {
             "attributedTo": "https://mastodon.social/users/bob",
             "content": "No timestamp here"
         });
-        let (_, _, bytes) =
-            note_to_article(&note, "comp.test", "https://news.example.com").unwrap();
+        let (_, _, bytes) = note_to_article(&note, "comp.test", "https://news.example.com");
         let article = String::from_utf8(bytes).unwrap();
         assert!(
             article.contains("Date: "),

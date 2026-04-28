@@ -330,7 +330,7 @@ async fn transit_reader_shared_store() {
                     operator_signing_key: Arc::clone(&key_drain),
                     local_hostname: "integ-test.local",
                     verify_store: None,
-                    trusted_keys: &[],
+                    trusted_keys: std::sync::Arc::from(vec![]),
                     dkim_auth: None,
                     group_filter: None,
                 };

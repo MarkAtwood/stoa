@@ -33,7 +33,7 @@ use tracing::warn;
 /// Write-ahead staging configuration (`[staging]` in transit.toml).
 ///
 /// Omit the entire section to use the in-memory ingestion queue only.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct StagingConfig {
     /// Directory for staging files.  Created at startup if it does not exist.
     pub path: String,

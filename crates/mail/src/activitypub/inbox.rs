@@ -255,17 +255,8 @@ async fn handle_create(
     }
 
     let note = &activity["object"];
-    let (message_id, newsgroups, article_bytes) = match crate::activitypub::inbound::note_to_article(
-        note,
-        group_name,
-        &state.base_url,
-    ) {
-        Ok(t) => t,
-        Err(e) => {
-            warn!(group = %group_name, error = %e, "failed to translate Create{{Note}} to article");
-            return StatusCode::ACCEPTED.into_response();
-        }
-    };
+    let (message_id, newsgroups, article_bytes) =
+        crate::activitypub::inbound::note_to_article(note, group_name, &state.base_url);
 
     let jmap = match &state.jmap {
         Some(j) => Arc::clone(j),

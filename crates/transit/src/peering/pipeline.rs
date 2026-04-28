@@ -397,7 +397,7 @@ pub struct PipelineCtx<'a> {
     /// Verification store. `None` disables signature recording.
     pub verify_store: Option<&'a VerificationStore>,
     /// Trusted verifying keys for `X-Stoa-Sig` checks.
-    pub trusted_keys: &'a [ed25519_dalek::VerifyingKey],
+    pub trusted_keys: Arc<[ed25519_dalek::VerifyingKey]>,
     /// DKIM authenticator. `None` disables DKIM checks.
     pub dkim_auth: Option<&'a MessageAuthenticator>,
     /// Group filter. `None` accepts all groups (default-permit).
@@ -532,7 +532,14 @@ where
     // serves purely as a stable database key for the pre-computed result;
     // no code path re-derives verification status by re-fetching from IPFS.
     if let Some(store) = ctx.verify_store {
-        verify_article(original_bytes, &cid, store, ctx.trusted_keys, ctx.dkim_auth).await;
+        verify_article(
+            original_bytes,
+            &cid,
+            store,
+            &ctx.trusted_keys,
+            ctx.dkim_auth,
+        )
+        .await;
     }
 
     // 2+3. Parse Message-ID and Newsgroups in a single header scan.
@@ -818,7 +825,7 @@ mod tests {
             operator_signing_key: key,
             local_hostname: "local.test.example.com",
             verify_store: None,
-            trusted_keys: &[],
+            trusted_keys: Arc::from(vec![]),
             dkim_auth: None,
             group_filter: None,
         }
@@ -1131,7 +1138,7 @@ mod tests {
             operator_signing_key: Arc::new(signing_key),
             local_hostname: "local.test.example.com",
             verify_store: Some(&verify_store),
-            trusted_keys: &[verifying_key],
+            trusted_keys: Arc::from(vec![verifying_key]),
             dkim_auth: None,
             group_filter: None,
         };
@@ -1173,7 +1180,7 @@ mod tests {
             operator_signing_key: key,
             local_hostname: "local.test.example.com",
             verify_store: None,
-            trusted_keys: &[],
+            trusted_keys: Arc::from(vec![]),
             dkim_auth: None,
             group_filter: filter,
         }

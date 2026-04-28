@@ -70,7 +70,9 @@ pub fn next_article(ctx: &mut SessionContext, group_data: Option<&GroupData>) ->
         .as_ref()
         .and_then(|sg| sg.article_number)
         .unwrap_or(0);
-    let next = gd.article_numbers.iter().find(|&&n| n > current).copied();
+    // article_numbers is sorted ascending; partition_point is O(log n).
+    let idx = gd.article_numbers.partition_point(|&n| n <= current);
+    let next = gd.article_numbers.get(idx).copied();
     match next {
         Some(n) => {
             if let Some(sg) = ctx.selected_group.as_mut() {
@@ -100,11 +102,11 @@ pub fn last_article(ctx: &mut SessionContext, group_data: Option<&GroupData>) ->
         .as_ref()
         .and_then(|sg| sg.article_number)
         .unwrap_or(0);
-    let prev = gd
-        .article_numbers
-        .iter()
-        .rev()
-        .find(|&&n| n < current)
+    // article_numbers is sorted ascending; partition_point is O(log n).
+    let idx = gd.article_numbers.partition_point(|&n| n < current);
+    let prev = idx
+        .checked_sub(1)
+        .and_then(|i| gd.article_numbers.get(i))
         .copied();
     match prev {
         Some(n) => {

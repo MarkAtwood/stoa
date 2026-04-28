@@ -87,7 +87,7 @@ async fn main() {
             operator_signing_key: Arc::new(signing_key.clone()),
             local_hostname: "bench.local",
             verify_store: None,
-            trusted_keys: &[],
+            trusted_keys: std::sync::Arc::from(vec![]),
             dkim_auth: None,
             group_filter: None,
         };
@@ -131,7 +131,7 @@ async fn main() {
             operator_signing_key: Arc::new(signing_key.clone()),
             local_hostname: "bench.local",
             verify_store: None,
-            trusted_keys: &[],
+            trusted_keys: std::sync::Arc::from(vec![]),
             dkim_auth: None,
             group_filter: None,
         };

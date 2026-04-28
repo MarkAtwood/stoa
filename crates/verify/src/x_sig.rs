@@ -14,7 +14,9 @@ use sha2::{Digest, Sha256};
 
 use crate::types::{ArticleVerification, SigType, VerifResult};
 
+#[cfg(test)]
 const SIG_HEADER: &str = "X-Stoa-Sig";
+const SIG_HEADER_PREFIX: &str = "X-Stoa-Sig:";
 
 /// Try to verify `X-Stoa-Sig` in `article_bytes` against each key in
 /// `trusted_keys` in order.
@@ -131,8 +133,6 @@ fn extract_sig_header(article_bytes: &[u8]) -> Result<Extracted, ExtractError> {
     let header_section = &article_bytes[..body_start.unwrap_or(article_bytes.len())];
     let header_str = std::str::from_utf8(header_section).map_err(|_| ExtractError::NonUtf8)?;
 
-    let prefix = format!("{SIG_HEADER}:");
-
     let mut sig_value_buf = String::new();
     let mut sig_line_start: Option<usize> = None;
     let mut sig_line_end: Option<usize> = None;
@@ -158,13 +158,13 @@ fn extract_sig_header(article_bytes: &[u8]) -> Result<Extracted, ExtractError> {
                 in_sig = false;
             }
         }
-        if line.starts_with(&prefix) {
+        if let Some(sig_rest) = line.strip_prefix(SIG_HEADER_PREFIX) {
             sig_count += 1;
             if sig_count > 1 {
                 // Duplicate X-Stoa-Sig header — reject the article.
                 return Err(ExtractError::Duplicate);
             }
-            sig_value_buf.push_str(line[prefix.len()..].trim());
+            sig_value_buf.push_str(sig_rest.trim());
             sig_line_start = Some(cursor);
             sig_line_end = Some(cursor + raw_line.len());
             in_sig = true;

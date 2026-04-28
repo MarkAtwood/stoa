@@ -94,7 +94,11 @@ pub fn dispatch(
         }
         Command::Quit => Response::closing_connection(),
         Command::Group(name) => {
-            if !ctx.known_groups.iter().any(|g| g.name == name) {
+            if ctx
+                .known_groups
+                .binary_search_by(|g| g.name.as_str().cmp(name.as_str()))
+                .is_err()
+            {
                 return Response::no_such_newsgroup();
             }
             match stoa_core::article::GroupName::new(name) {

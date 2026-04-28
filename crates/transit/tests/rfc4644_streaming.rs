@@ -67,7 +67,7 @@ fn make_pipeline_ctx(key: &SigningKey, ts: HlcTimestamp) -> PipelineCtx<'static>
         operator_signing_key: Arc::new(key.clone()),
         local_hostname: "test.local",
         verify_store: None,
-        trusted_keys: &[],
+        trusted_keys: std::sync::Arc::from(vec![]),
         dkim_auth: None,
         group_filter: None,
     }
