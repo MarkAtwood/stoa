@@ -15,7 +15,7 @@ use serde::Deserialize;
 /// compatibility; when both are present `[backend]` takes precedence.
 #[derive(Debug, Deserialize, Clone)]
 pub struct BackendConfig {
-    /// Backend discriminator.  Supported values: `"kubo"`, `"lmdb"`, `"filesystem"`.
+    /// Backend discriminator.  Supported values: `"kubo"`, `"lmdb"`, `"filesystem"`, `"sqlite"`.
     #[serde(rename = "type")]
     pub backend_type: BackendType,
     /// Kubo-specific settings.  Required when `type = "kubo"`.
@@ -30,6 +30,9 @@ pub struct BackendConfig {
     /// LMDB-specific settings.  Required when `type = "lmdb"`.
     #[serde(default)]
     pub lmdb: Option<LmdbBackendConfig>,
+    /// SQLite-specific settings.  Required when `type = "sqlite"`.
+    #[serde(default)]
+    pub sqlite: Option<SqliteBackendConfig>,
 }
 
 /// Backend type discriminator.
@@ -40,6 +43,7 @@ pub enum BackendType {
     S3,
     Filesystem,
     Lmdb,
+    Sqlite,
 }
 
 /// Configuration for the Kubo HTTP RPC backend.
@@ -107,4 +111,35 @@ pub struct LmdbBackendConfig {
 
 fn default_lmdb_map_size_gb() -> u64 {
     1024
+}
+
+/// Configuration for the SQLite BLOB block store backend.
+///
+/// ## Schema
+///
+/// A `blocks` table is created (or verified) at startup:
+/// ```sql
+/// CREATE TABLE IF NOT EXISTS blocks (
+///     cid       TEXT    NOT NULL PRIMARY KEY,
+///     codec     INTEGER NOT NULL,
+///     data      BLOB    NOT NULL,
+///     byte_size INTEGER NOT NULL,
+///     stored_at INTEGER NOT NULL  -- unix milliseconds
+/// );
+/// ```
+///
+/// ## Sizing
+///
+/// SQLite performs well up to ~50–100 GB.  For larger deployments, use the
+/// LMDB backend.  WAL mode is enabled by default for concurrent reads.
+///
+/// ## GC
+///
+/// The transit daemon's `gc.max_age_days` issues `DELETE FROM blocks WHERE
+/// cid = ?` for each expired article.  Reclaim space with `VACUUM` or
+/// `PRAGMA incremental_vacuum` after large GC runs.
+#[derive(Debug, Deserialize, Clone)]
+pub struct SqliteBackendConfig {
+    /// Path to the SQLite database file.  Created at startup if absent.
+    pub path: String,
 }

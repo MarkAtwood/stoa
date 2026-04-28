@@ -226,7 +226,7 @@ impl IpfsBlockStore for KuboBlockStore {
 /// section for backward compatibility.
 ///
 /// Returns `Err` for backends that are not yet implemented.
-pub fn build_block_store(
+pub async fn build_block_store(
     config: &crate::config::Config,
 ) -> Result<std::sync::Arc<dyn IpfsBlockStore>, String> {
     use std::sync::Arc;
@@ -254,6 +254,21 @@ pub fn build_block_store(
                 Ok(Arc::new(store))
             }
             BackendType::S3 => Err("S3 backend is not yet implemented".to_string()),
+            BackendType::Sqlite => {
+                let sqlite_cfg = backend
+                    .sqlite
+                    .as_ref()
+                    .ok_or("backend.type = 'sqlite' requires a [backend.sqlite] section")?;
+                let store = super::sqlite_store::SqliteBlockStore::open(
+                    std::path::Path::new(&sqlite_cfg.path),
+                )
+                .await
+                .map_err(|e| format!("sqlite store init failed: {e}"))?;
+                tracing::info!(
+                    "sqlite backend active — IPNS unavailable with this backend"
+                );
+                Ok(Arc::new(store))
+            }
             BackendType::Filesystem => {
                 let fs_cfg = backend
                     .filesystem

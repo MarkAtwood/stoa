@@ -583,7 +583,7 @@ async fn main() {
 
     // ── IPFS block store ──────────────────────────────────────────────────────
 
-    let build_result = match stoa_transit::peering::pipeline::build_store(&config) {
+    let build_result = match stoa_transit::peering::pipeline::build_store(&config).await {
         Ok(r) => r,
         Err(e) => {
             eprintln!("error: failed to build IPFS store: {e}");

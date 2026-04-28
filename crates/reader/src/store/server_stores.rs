@@ -94,7 +94,7 @@ impl ServerStores {
                 .await
                 .map_err(|e| format!("failed to create IPFS cache dir '{dir}': {e}"))?;
         }
-        let ipfs_store = crate::post::ipfs_write::build_block_store(config)?;
+        let ipfs_store = crate::post::ipfs_write::build_block_store(config).await?;
 
         // Ensure database parent directories exist before opening pools.
         for path_str in [

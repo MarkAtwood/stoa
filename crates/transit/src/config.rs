@@ -12,7 +12,7 @@ use stoa_core::wildmat::GroupFilter;
 // transit config validation code can use them without a long path prefix.
 pub use stoa_core::ipfs_backend::{
     BackendConfig, BackendType, FsBackendConfig, KuboBackendConfig, LmdbBackendConfig,
-    S3BackendConfig,
+    S3BackendConfig, SqliteBackendConfig,
 };
 
 #[derive(Debug, Deserialize)]
@@ -584,9 +584,16 @@ impl Config {
                         ));
                     }
                 }
+                BackendType::Sqlite => {
+                    if backend.sqlite.is_none() {
+                        return Err(ConfigError::Validation(
+                            "backend.type = 'sqlite' requires a [backend.sqlite] section".into(),
+                        ));
+                    }
+                }
                 BackendType::S3 => {
                     return Err(ConfigError::Validation(
-                        "backend.type 's3' is not yet implemented; use 'kubo', 'lmdb', or 'filesystem'".into(),
+                        "backend.type 's3' is not yet implemented; use 'kubo', 'lmdb', 'filesystem', or 'sqlite'".into(),
                     ));
                 }
             },
@@ -1761,6 +1768,75 @@ max_age_days = 30
         let f = write_toml(toml);
         let err = Config::from_file(f.path())
             .expect_err("filesystem without subsection must fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+
+    /// [backend] with type = "sqlite" and a [backend.sqlite] section parses.
+    #[test]
+    fn backend_sqlite_section_parses() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[backend]
+type = "sqlite"
+
+[backend.sqlite]
+path = "/tmp/stoa-blocks.db"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("sqlite backend config must parse");
+        let backend = cfg.backend.as_ref().expect("backend must be set");
+        assert!(matches!(backend.backend_type, BackendType::Sqlite));
+        assert_eq!(
+            backend.sqlite.as_ref().map(|s| s.path.as_str()),
+            Some("/tmp/stoa-blocks.db")
+        );
+    }
+
+    /// [backend] with type = "sqlite" but no [backend.sqlite] section is rejected.
+    #[test]
+    fn backend_sqlite_without_subsection_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[backend]
+type = "sqlite"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("sqlite without subsection must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
