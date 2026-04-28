@@ -134,6 +134,7 @@ mod tests {
             oidc_store: None,
             base_url: "http://localhost".to_string(),
             cors: crate::config::CorsConfig::default(),
+            slow_jmap_threshold_ms: 0,
         });
         (state, tmp)
     }

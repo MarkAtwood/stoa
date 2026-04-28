@@ -130,6 +130,7 @@ async fn main() {
         oidc_store,
         base_url: config.listen.base_url.clone(),
         cors: config.cors.clone(),
+        slow_jmap_threshold_ms: config.log.slow_jmap_threshold_ms,
     });
 
     let shutdown = async {

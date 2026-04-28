@@ -82,6 +82,7 @@ async fn state_no_jmap() -> Arc<AppState> {
         oidc_store: None,
         base_url: "http://localhost".to_string(),
         cors: stoa_mail::config::CorsConfig::default(),
+        slow_jmap_threshold_ms: 0,
     })
 }
 
@@ -128,6 +129,7 @@ async fn state_with_jmap() -> (
         oidc_store: None,
         base_url: "http://localhost".to_string(),
         cors: stoa_mail::config::CorsConfig::default(),
+        slow_jmap_threshold_ms: 0,
     });
 
     (

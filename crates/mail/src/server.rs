@@ -54,6 +54,8 @@ pub struct AppState {
     /// External base URL used in JMAP session responses (e.g. `https://mail.example.com`).
     pub base_url: String,
     pub cors: CorsConfig,
+    /// Milliseconds threshold for slow JMAP WARN log.  0 = disabled.
+    pub slow_jmap_threshold_ms: u64,
 }
 
 /// Authenticated user identity extracted from HTTP Basic Auth.
@@ -317,6 +319,16 @@ async fn jmap_api_handler(
         crate::metrics::JMAP_REQUEST_DURATION_SECONDS
             .with_label_values(&[&method])
             .observe(elapsed);
+        let threshold_ms = state.slow_jmap_threshold_ms;
+        if threshold_ms > 0 && (elapsed * 1000.0) as u64 >= threshold_ms {
+            tracing::warn!(
+                event = "slow_jmap",
+                method = %method,
+                elapsed_ms = (elapsed * 1000.0) as u64,
+                username = %username,
+                "slow JMAP method",
+            );
+        }
         if method == "Email/query" {
             let count = result
                 .get("ids")
@@ -812,6 +824,7 @@ mod tests {
             oidc_store: None,
             base_url: "http://localhost".to_string(),
             cors: crate::config::CorsConfig::default(),
+            slow_jmap_threshold_ms: 0,
         });
         (state, tmp)
     }
@@ -828,6 +841,7 @@ mod tests {
             oidc_store: None,
             base_url: base_url.to_string(),
             cors: crate::config::CorsConfig::default(),
+            slow_jmap_threshold_ms: 0,
         });
         (state, tmp)
     }
@@ -853,6 +867,7 @@ mod tests {
             oidc_store: None,
             base_url: "http://localhost".to_string(),
             cors: crate::config::CorsConfig::default(),
+            slow_jmap_threshold_ms: 0,
         });
         (state, tmp)
     }
@@ -925,6 +940,7 @@ mod tests {
             oidc_store: None,
             base_url: "http://localhost".to_string(),
             cors: crate::config::CorsConfig::default(),
+            slow_jmap_threshold_ms: 0,
         });
         (state, ipfs, tmps)
     }
@@ -1290,6 +1306,7 @@ mod tests {
                 enabled: true,
                 allowed_origins: vec!["*".to_string()],
             },
+            slow_jmap_threshold_ms: 0,
         });
         let addr = spawn_server(state).await;
         let resp = reqwest::Client::new()
@@ -1330,6 +1347,7 @@ mod tests {
                 enabled: true,
                 allowed_origins: vec!["https://client.example.com".to_string()],
             },
+            slow_jmap_threshold_ms: 0,
         });
         let addr = spawn_server(state).await;
         let resp = reqwest::Client::new()

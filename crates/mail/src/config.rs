@@ -68,6 +68,11 @@ pub struct LogConfig {
     /// Output format: "text" (human-readable) or "json" (structured).
     #[serde(default = "default_log_format")]
     pub format: String,
+    /// Emit a WARN log for JMAP method calls slower than this many milliseconds.
+    /// 0 disables slow-request WARN events; the histogram is always recorded.
+    /// Default: 1000 ms.
+    #[serde(default = "default_slow_jmap_threshold_ms")]
+    pub slow_jmap_threshold_ms: u64,
 }
 
 fn default_log_level() -> String {
@@ -78,11 +83,16 @@ fn default_log_format() -> String {
     "json".to_string()
 }
 
+fn default_slow_jmap_threshold_ms() -> u64 {
+    1000
+}
+
 impl Default for LogConfig {
     fn default() -> Self {
         Self {
             level: default_log_level(),
             format: default_log_format(),
+            slow_jmap_threshold_ms: default_slow_jmap_threshold_ms(),
         }
     }
 }

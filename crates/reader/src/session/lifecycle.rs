@@ -770,9 +770,20 @@ where
                 &stores.trusted_issuer_store,
             )
         };
+        let elapsed = cmd_start.elapsed();
         crate::metrics::NNTP_COMMAND_DURATION_SECONDS
             .with_label_values(&[cmd_label.as_str()])
-            .observe(cmd_start.elapsed().as_secs_f64());
+            .observe(elapsed.as_secs_f64());
+        let threshold = config.limits.slow_command_threshold_ms;
+        if threshold > 0 && elapsed.as_millis() as u64 >= threshold {
+            warn!(
+                event = "slow_command",
+                command = %cmd_label,
+                elapsed_ms = elapsed.as_millis() as u64,
+                remote_ip = %peer_addr,
+                "slow NNTP command",
+            );
+        }
         let resp_code = resp.code;
 
         if writer.write_all(resp.to_bytes().as_slice()).await.is_err() {

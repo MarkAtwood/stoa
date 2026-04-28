@@ -249,6 +249,15 @@ pub struct LimitsConfig {
     /// signal before forcing exit.  Default: 30.  Set to 0 to exit immediately.
     #[serde(default)]
     pub drain_timeout_secs: Option<u64>,
+    /// Emit a WARN log for NNTP commands slower than this many milliseconds.
+    /// 0 disables slow-command WARN events; the histogram is always recorded.
+    /// Default: 1000 ms.
+    #[serde(default = "default_slow_command_threshold_ms")]
+    pub slow_command_threshold_ms: u64,
+}
+
+fn default_slow_command_threshold_ms() -> u64 {
+    1000
 }
 
 fn default_max_connections() -> usize {
