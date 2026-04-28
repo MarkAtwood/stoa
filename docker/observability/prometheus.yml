@@ -1,0 +1,31 @@
+# Prometheus scrape configuration for local stoa development.
+#
+# The OTel Collector exposes a Prometheus scrape endpoint on :8889.
+# stoa-reader and stoa-transit expose /metrics on their admin ports.
+# Adjust the host.docker.internal targets for your OS:
+#   macOS/Windows: host.docker.internal resolves to the host
+#   Linux: add --add-host=host.docker.internal:host-gateway to the prometheus service
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # OTel Collector Prometheus exporter — all OTLP-pushed metrics land here.
+  - job_name: otelcol
+    static_configs:
+      - targets: ['otelcol:8889']
+
+  # stoa-reader admin/metrics endpoint (default port 9090).
+  # Change to match [admin] addr in your stoa-reader config.
+  - job_name: stoa-reader
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['host.docker.internal:9090']
+
+  # stoa-transit admin/metrics endpoint (default port 9090).
+  # Run on a different port if both daemons run on the same host.
+  - job_name: stoa-transit
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['host.docker.internal:9091']

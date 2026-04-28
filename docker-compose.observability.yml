@@ -1,0 +1,93 @@
+# Local observability stack for stoa development and smoke-testing.
+#
+# Starts OTel Collector, Prometheus, Grafana Tempo, Grafana Loki, and Grafana.
+# Configure stoa daemons to send telemetry to localhost:4318 (OTLP/HTTP).
+#
+# Usage:
+#   docker compose -f docker-compose.observability.yml up -d
+#   # Open Grafana at http://localhost:3000  (admin / admin)
+#   # Run stoa with:
+#   #   [telemetry]
+#   #   otlp_endpoint = "http://localhost:4318"
+#   #   logs_endpoint = "http://localhost:4318"
+#   docker compose -f docker-compose.observability.yml down -v
+
+services:
+
+  # ── OTel Collector ────────────────────────────────────────────────────────
+  otelcol:
+    image: otel/opentelemetry-collector-contrib:0.122.0
+    container_name: stoa_otelcol
+    command: ["--config=/etc/otelcol/config.yml"]
+    volumes:
+      - ./docker/observability/otelcol-config.yml:/etc/otelcol/config.yml:ro
+    ports:
+      - "4317:4317"    # OTLP gRPC
+      - "4318:4318"    # OTLP HTTP  ← stoa daemons send here
+    depends_on:
+      - tempo
+      - loki
+    restart: unless-stopped
+
+  # ── Prometheus ────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    container_name: stoa_prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+    volumes:
+      - ./docker/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9080:9090"    # host:9080 → container:9090 (avoids collision with stoa admin)
+    restart: unless-stopped
+
+  # ── Grafana Tempo (traces) ────────────────────────────────────────────────
+  tempo:
+    image: grafana/tempo:2.7.2
+    container_name: stoa_tempo
+    command: ["-config.file=/etc/tempo/config.yml"]
+    volumes:
+      - ./docker/observability/tempo-config.yml:/etc/tempo/config.yml:ro
+      - tempo_data:/var/tempo
+    ports:
+      - "3200:3200"    # Tempo HTTP API (for Grafana datasource)
+    restart: unless-stopped
+
+  # ── Grafana Loki (logs) ───────────────────────────────────────────────────
+  loki:
+    image: grafana/loki:3.4.2
+    container_name: stoa_loki
+    command: ["-config.file=/etc/loki/config.yml"]
+    volumes:
+      - ./docker/observability/loki-config.yml:/etc/loki/config.yml:ro
+      - loki_data:/loki
+    ports:
+      - "3100:3100"    # Loki push/query API (for Grafana datasource)
+    restart: unless-stopped
+
+  # ── Grafana ───────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:11.5.2
+    container_name: stoa_grafana
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      GF_AUTH_DISABLE_LOGIN_FORM: "false"
+    volumes:
+      - ./docker/observability/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"    # Grafana UI
+    depends_on:
+      - prometheus
+      - tempo
+      - loki
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+  tempo_data:
+  loki_data:
+  grafana_data:

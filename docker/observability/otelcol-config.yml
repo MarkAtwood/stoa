@@ -1,0 +1,52 @@
+# OpenTelemetry Collector configuration for local stoa development.
+#
+# Receives OTLP (HTTP :4318, gRPC :4317) from stoa daemons.
+# Routes metrics  → Prometheus exposition endpoint (:8889)
+# Routes traces   → Grafana Tempo (:4317 gRPC)
+# Routes logs     → Grafana Loki (:3100 HTTP)
+
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+
+exporters:
+  # Expose Prometheus scrape endpoint; Prometheus container scrapes :8889.
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: stoa
+
+  # Forward traces to Tempo via OTLP gRPC.
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+
+  # Forward logs to Loki.
+  otlplogs/loki:
+    endpoint: http://loki:3100/otlp
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus]
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp/tempo]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlplogs/loki]

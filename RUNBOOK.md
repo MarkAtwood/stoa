@@ -541,3 +541,210 @@ sqlx migrate run --source crates/verify/migrations_pg   --database-url "$DATABAS
 Normal daemon startup also runs migrations (idempotently), so the explicit
 migration step is only needed for zero-downtime upgrades where you want
 migrations applied before the new binary is rolled out.
+
+---
+
+## Observability (OpenTelemetry)
+
+stoa-reader and stoa-transit export metrics, traces, and logs via
+OpenTelemetry Protocol (OTLP/HTTP).  The `[telemetry]` section in the config
+file controls all export behaviour.
+
+```toml
+[telemetry]
+# OTLP collector base URL — daemons append /v1/metrics and /v1/traces.
+otlp_endpoint = "http://localhost:4318"
+
+# HTTP headers added to every OTLP request (e.g. Grafana Cloud auth).
+# otlp_headers = ["Authorization=Bearer glc_xxx"]
+
+# Prometheus push interval in seconds (default 60).
+# metrics_push_interval_secs = 60
+
+# Trace sampling fraction 0.0–1.0 (default 1.0 = all traces).
+# trace_sample_rate = 0.1
+
+# OTLP endpoint for log export; set to same value as otlp_endpoint to
+# co-locate log, trace, and metric export on one collector.
+logs_endpoint = "http://localhost:4318"
+```
+
+When `otlp_endpoint` / `logs_endpoint` are absent, OTLP export is disabled.
+The Prometheus `/metrics` scrape endpoint on the admin port continues to work
+regardless.
+
+### Local development stack (docker compose)
+
+A pre-configured stack with OTel Collector, Prometheus, Grafana Tempo, Loki,
+and Grafana is included:
+
+```bash
+docker compose -f docker-compose.observability.yml up -d
+```
+
+| Service    | Host port | Purpose                          |
+|------------|-----------|----------------------------------|
+| OTel Collector | 4318 | OTLP/HTTP receiver (stoa sends here) |
+| OTel Collector | 4317 | OTLP/gRPC receiver               |
+| Prometheus | 9080      | Metrics query UI                 |
+| Tempo      | 3200      | Trace storage / query API        |
+| Loki       | 3100      | Log storage / query API          |
+| Grafana    | 3000      | Unified UI (admin/admin)         |
+
+Add to your stoa config:
+
+```toml
+[telemetry]
+otlp_endpoint = "http://localhost:4318"
+logs_endpoint = "http://localhost:4318"
+```
+
+stoa-reader and stoa-transit also expose a Prometheus scrape endpoint at
+`http://<admin_addr>/metrics`.  Update `docker/observability/prometheus.yml`
+with the correct host and ports if you run both daemons on the same machine.
+
+To tear down and remove all data:
+
+```bash
+docker compose -f docker-compose.observability.yml down -v
+```
+
+### AWS: ADOT sidecar (ECS Fargate)
+
+For production on AWS, use the AWS Distro for OpenTelemetry (ADOT) collector
+as a sidecar container in the same ECS task definition.  stoa sends OTLP to
+`http://localhost:4318` (loopback within the task); ADOT forwards to
+CloudWatch, X-Ray, and/or Managed Prometheus.
+
+**Minimal ECS task definition fragment (CloudFormation):**
+
+```yaml
+TaskDefinition:
+  Type: AWS::ECS::TaskDefinition
+  Properties:
+    Family: stoa-reader
+    NetworkMode: awsvpc
+    RequiresCompatibilities: [FARGATE]
+    Cpu: "512"
+    Memory: "1024"
+    ExecutionRoleArn: !GetAtt EcsExecutionRole.Arn
+    TaskRoleArn: !GetAtt EcsTaskRole.Arn
+    ContainerDefinitions:
+
+      # ── stoa-reader ──────────────────────────────────────────────────────
+      - Name: stoa-reader
+        Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/stoa-reader:latest"
+        Essential: true
+        PortMappings:
+          - ContainerPort: 119    # NNTP plain
+          - ContainerPort: 563    # NNTPS
+        Environment:
+          - Name: STOA_CONFIG
+            Value: /etc/stoa/reader.toml
+        Secrets:
+          - Name: STOA_SIGNING_KEY
+            ValueFrom: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:stoa/signing-key"
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-group: /ecs/stoa-reader
+            awslogs-region: !Ref AWS::Region
+            awslogs-stream-prefix: ecs
+        DependsOn:
+          - ContainerName: adot-collector
+            Condition: START
+
+      # ── ADOT sidecar ─────────────────────────────────────────────────────
+      - Name: adot-collector
+        Image: public.ecr.aws/aws-observability/aws-otel-collector:v0.43.1
+        Essential: false
+        Command: ["--config=/etc/adot/config.yml"]
+        MountPoints:
+          - SourceVolume: adot-config
+            ContainerPath: /etc/adot
+        PortMappings:
+          - ContainerPort: 4318    # OTLP/HTTP (loopback from stoa)
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-group: /ecs/stoa-adot
+            awslogs-region: !Ref AWS::Region
+            awslogs-stream-prefix: ecs
+
+    Volumes:
+      - Name: adot-config
+        # Mount an SSM Parameter or EFS volume containing the ADOT config file.
+        # See AWS docs: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-exec.html
+```
+
+**Minimal ADOT collector config (`/etc/adot/config.yml`):**
+
+```yaml
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 5s
+
+exporters:
+  awsxray:
+    region: us-east-1
+  awsemf:
+    region: us-east-1
+    namespace: Stoa
+    log_group_name: /stoa/metrics
+  awscloudwatchlogs:
+    region: us-east-1
+    log_group_name: /stoa/logs
+    log_stream_name: stoa
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [awsxray]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [awsemf]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [awscloudwatchlogs]
+```
+
+**IAM permissions required on the ECS task role:**
+
+```json
+{
+  "Effect": "Allow",
+  "Action": [
+    "xray:PutTraceSegments",
+    "xray:PutTelemetryRecords",
+    "cloudwatch:PutMetricData",
+    "logs:CreateLogGroup",
+    "logs:CreateLogStream",
+    "logs:PutLogEvents",
+    "logs:DescribeLogStreams"
+  ],
+  "Resource": "*"
+}
+```
+
+**stoa config for ADOT sidecar:**
+
+```toml
+[telemetry]
+otlp_endpoint = "http://localhost:4318"
+logs_endpoint = "http://localhost:4318"
+trace_sample_rate = 0.1    # reduce for high-volume production
+```
+
+The Prometheus `/metrics` scrape endpoint on the admin port is available
+regardless of OTLP config; wire it to Amazon Managed Prometheus (AMP) using
+the Prometheus remote-write sidecar or the ADOT Prometheus receiver if needed.
