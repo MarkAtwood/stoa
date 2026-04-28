@@ -4,6 +4,7 @@ pub mod article;
 pub mod audit;
 pub mod db_pool;
 pub mod canonical;
+pub mod circuit_breaker;
 pub mod error;
 pub mod group_log;
 pub mod hlc;

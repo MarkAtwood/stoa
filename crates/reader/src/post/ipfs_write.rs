@@ -132,8 +132,12 @@ impl IpfsBlockStore for MemIpfsStore {
 /// cache hits and written through to both disk and Kubo on puts. The cache
 /// directory holds one file per CID (named by the CID's string representation).
 /// No LRU eviction is performed; disk management is the operator's responsibility.
+///
+/// The Kubo client is wrapped in a circuit breaker with default thresholds
+/// (5 failures in 10 s → open; probe after 30 s).  When the circuit is open,
+/// `block_put` / `block_get` return errors immediately without an HTTP call.
 pub struct KuboBlockStore {
-    client: stoa_core::ipfs::KuboHttpClient,
+    client: stoa_core::ipfs::CircuitBreakerKuboClient,
     cache_dir: Option<std::path::PathBuf>,
 }
 
@@ -144,7 +148,10 @@ impl KuboBlockStore {
     /// The directory must already exist.
     pub fn new(api_url: &str, cache_dir: Option<std::path::PathBuf>) -> Self {
         Self {
-            client: stoa_core::ipfs::KuboHttpClient::new(api_url),
+            client: stoa_core::ipfs::CircuitBreakerKuboClient::new(
+                api_url,
+                stoa_core::circuit_breaker::CircuitBreakerConfig::default(),
+            ),
             cache_dir,
         }
     }

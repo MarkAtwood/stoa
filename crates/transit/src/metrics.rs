@@ -173,6 +173,29 @@ lazy_static::lazy_static! {
             &["path"]
         )
         .expect("failed to register tls_cert_expiry_seconds");
+
+    // ── Kubo circuit breaker ───────────────────────────────────────────────────
+
+    /// Current circuit breaker state for the Kubo IPFS backend.
+    ///
+    /// Encoding: 0 = closed (normal), 1 = half-open (probing), 2 = open (failing fast).
+    /// Absent from `/metrics` output until the first state transition occurs.
+    pub static ref KUBO_CIRCUIT_BREAKER_STATE: prometheus::IntGauge =
+        register_int_gauge!(
+            "kubo_circuit_breaker_state",
+            "Current Kubo circuit breaker state: 0=closed, 1=half-open, 2=open"
+        )
+        .expect("failed to register kubo_circuit_breaker_state");
+
+    /// Total number of Kubo circuit breaker state transitions, labeled by
+    /// `from_state` and `to_state` (values: `closed`, `open`, `half-open`).
+    pub static ref KUBO_CIRCUIT_BREAKER_TRANSITIONS_TOTAL: prometheus::CounterVec =
+        register_counter_vec!(
+            "kubo_circuit_breaker_transitions_total",
+            "Total Kubo circuit breaker state transitions, labeled by from_state and to_state",
+            &["from_state", "to_state"]
+        )
+        .expect("failed to register kubo_circuit_breaker_transitions_total");
 }
 
 /// Returns all metrics in Prometheus text format.
@@ -197,6 +220,8 @@ pub fn gather_metrics() -> String {
     lazy_static::initialize(&GROUP_LOG_ENTRIES_TOTAL);
     lazy_static::initialize(&GROUP_STORAGE_BYTES);
     lazy_static::initialize(&GROUP_LAST_ACTIVITY_TIMESTAMP);
+    lazy_static::initialize(&KUBO_CIRCUIT_BREAKER_STATE);
+    lazy_static::initialize(&KUBO_CIRCUIT_BREAKER_TRANSITIONS_TOTAL);
 
     use prometheus::Encoder;
     let encoder = prometheus::TextEncoder::new();
@@ -325,6 +350,10 @@ mod tests {
         assert!(
             output.contains("ingestion_queue_depth"),
             "missing ingestion_queue_depth in:\n{output}"
+        );
+        assert!(
+            output.contains("kubo_circuit_breaker_state"),
+            "missing kubo_circuit_breaker_state in:\n{output}"
         );
     }
 

@@ -118,27 +118,47 @@ impl IpfsStore for MemIpfsStore {
 /// IPFS block store backed by a Kubo daemon via its HTTP RPC API.
 ///
 /// Requires a running Kubo node reachable at the configured `api_url`.
-/// `KuboStore` is cheaply cloneable — the underlying `KuboHttpClient` holds
-/// only a `reqwest::Client` (connection-pooled) and the API URL string.
+/// `KuboStore` is cheaply cloneable — the underlying `CircuitBreakerKuboClient`
+/// holds only a `reqwest::Client` (connection-pooled), the API URL string, and
+/// a shared circuit-breaker state.
 pub struct KuboStore {
-    client: stoa_core::ipfs::KuboHttpClient,
+    client: stoa_core::ipfs::CircuitBreakerKuboClient,
 }
 
 impl KuboStore {
     /// Create a store targeting the Kubo daemon at `api_url`
     /// (e.g. `"http://127.0.0.1:5001"`).
+    ///
+    /// The Kubo client is wrapped in a circuit breaker with default thresholds
+    /// (5 failures in 10 s → open; probe after 30 s).  State transitions are
+    /// reported to the `kubo_circuit_breaker_*` Prometheus metrics.
     pub fn new(api_url: &str) -> Self {
-        Self {
-            client: stoa_core::ipfs::KuboHttpClient::new(api_url),
-        }
+        let client = stoa_core::ipfs::CircuitBreakerKuboClient::new(
+            api_url,
+            stoa_core::circuit_breaker::CircuitBreakerConfig::default(),
+        )
+        .with_state_change_callback(|old, new| {
+            use stoa_core::circuit_breaker::CbState;
+            let state_int: i64 = match new {
+                CbState::Closed => 0,
+                CbState::HalfOpen => 1,
+                CbState::Open => 2,
+            };
+            crate::metrics::KUBO_CIRCUIT_BREAKER_STATE.set(state_int);
+            let old_s = old.to_string();
+            let new_s = new.to_string();
+            crate::metrics::KUBO_CIRCUIT_BREAKER_TRANSITIONS_TOTAL
+                .with_label_values(&[&old_s, &new_s])
+                .inc();
+        });
+        Self { client }
     }
 
-    /// Return a clone of the underlying Kubo HTTP client.
-    ///
-    /// Used by the IPNS publisher to call `name_publish` without going through
-    /// the `IpfsStore` trait.
+    /// Return a clone of the underlying Kubo HTTP client (bypasses the circuit
+    /// breaker).  Used by the IPNS publisher, which has its own rate limiter
+    /// and advisory-lock guard.
     pub fn kubo_client(&self) -> stoa_core::ipfs::KuboHttpClient {
-        self.client.clone()
+        self.client.inner().clone()
     }
 }
 
