@@ -29,6 +29,12 @@ impl WebDavBlockStore {
 
         let mut client_options = ClientOptions::new();
         if cfg.allow_http.unwrap_or(false) {
+            if password.is_some() {
+                tracing::warn!(
+                    "WebDAV backend: allow_http = true with credentials configured; \
+                     password will be transmitted in plaintext"
+                );
+            }
             client_options = client_options.with_allow_http(true);
         }
         if let (Some(username), Some(pwd)) = (&cfg.username, &password) {
@@ -50,6 +56,9 @@ impl WebDavBlockStore {
         ) as Arc<dyn ObjectStore>;
 
         let context = format!("WebDAV url '{}'", cfg.url);
+        // The WebDAV URL is the collection root; no subdirectory prefix is used.
+        // Passing Some("") to new_with_store results in blocks stored at
+        // <url>/<cid> and the startup probe at <url>/_stoa_write_probe.
         super::object_store_backend::startup_probe(&store, "", &context).await?;
 
         Ok(Self(ObjectStoreBlockBackend::new_with_store(store, Some(""))))

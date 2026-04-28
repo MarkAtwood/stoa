@@ -661,11 +661,22 @@ impl Config {
                             "backend.webdav.url must not be empty".into(),
                         ));
                     }
+                    if webdav.url.ends_with('/') {
+                        return Err(ConfigError::Validation(
+                            "backend.webdav.url must not end with a trailing slash".into(),
+                        ));
+                    }
                     if !webdav.allow_http.unwrap_or(false) && webdav.url.starts_with("http://") {
                         return Err(ConfigError::Validation(
                             "backend.webdav.url uses plain HTTP; set allow_http = true to \
                              permit (not recommended when credentials are configured)"
                                 .into(),
+                        ));
+                    }
+                    if webdav.username.is_some() != webdav.password.is_some() {
+                        return Err(ConfigError::Validation(
+                            "backend.webdav: username and password must both be set or both \
+                             be absent; partial credentials are not supported".into(),
                         ));
                     }
                     if let Some(v) = webdav.password.as_deref() {
@@ -1596,6 +1607,69 @@ allow_http = true
         let cfg = Config::from_file(f.path()).expect("webdav with allow_http must parse");
         let backend = cfg.backend.as_ref().expect("backend must be set");
         assert!(matches!(backend.backend_type, BackendType::WebDav));
+    }
+
+    /// [backend.webdav] with a trailing slash in url is rejected.
+    #[test]
+    fn backend_webdav_trailing_slash_rejected() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "web_dav"
+
+[backend.webdav]
+url = "https://dav.example.com/stoa/blocks/"
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("trailing slash must fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend.webdav] with username but no password is rejected.
+    #[test]
+    fn backend_webdav_username_without_password_rejected() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "web_dav"
+
+[backend.webdav]
+url = "https://dav.example.com/stoa/blocks"
+username = "alice"
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("username without password must fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
     }
 
     /// [backend] with type = "filesystem" and a [backend.filesystem] section parses and validates.
