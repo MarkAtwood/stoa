@@ -243,8 +243,28 @@ pub struct DeliveryConfig {
     /// Seconds between retry scans when SMTP relay delivery fails. Defaults to 60.
     #[serde(default = "default_smtp_relay_retry_secs")]
     pub smtp_relay_retry_secs: u64,
-    /// Seconds a peer is kept in the "down" state after a delivery failure before
-    /// being retried. Defaults to 300.
+    /// How long (in seconds) a relay peer stays in the "down" state after a
+    /// delivery failure before it is retried.  Defaults to 300 (5 minutes).
+    ///
+    /// **Semantics**: after any failed delivery attempt to a peer, that peer is
+    /// marked *down* for this duration.  During the down period it is skipped by
+    /// the round-robin selector, preventing repeated hammering of an unavailable
+    /// host.  Once the backoff window expires the peer is eligible again on the
+    /// next retry scan.  A successful delivery resets the peer to *up*
+    /// immediately regardless of the remaining backoff.
+    ///
+    /// **Tuning guidance**:
+    /// - *Intra-datacenter or local relay* (very reliable): 30–60 s.  Low
+    ///   latency means short backoff still avoids tight retry loops.
+    /// - *Default (cloud or internet peer)*: 300 s (5 min).  Enough time for
+    ///   a remote MTA to recover from a transient outage without long queue backlog.
+    /// - *Unreliable or geographically distant peer*: 600–1800 s.  Reduces
+    ///   noise in logs and queue churn during extended outages.
+    ///
+    /// Setting this too low causes rapid retry loops that waste connections and
+    /// generate noisy logs.  Setting it too high delays delivery after a peer
+    /// recovers.  The metrics counter  transitions are a good
+    /// signal for tuning: frequent up↔down oscillation suggests too-low a value.
     #[serde(default = "default_peer_down_secs")]
     pub smtp_peer_down_secs: u64,
 }

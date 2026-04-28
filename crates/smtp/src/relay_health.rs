@@ -1,5 +1,7 @@
 use std::time::{Duration, Instant};
 
+use tracing::{info, warn};
+
 use crate::config::SmtpRelayPeerConfig;
 
 /// Per-peer state for one configured SMTP relay.
@@ -53,19 +55,27 @@ impl PeerHealthState {
 
     /// Mark a peer as up after successful delivery.
     pub fn mark_up(&mut self, idx: usize) {
-        if let Some((_, status)) = self.peers.get_mut(idx) {
+        if let Some((cfg, status)) = self.peers.get_mut(idx) {
+            let was_down = !status.is_up;
             status.is_up = true;
             status.last_success = Some(Instant::now());
             status.success_count += 1;
+            if was_down {
+                info!(peer = %cfg.host_port(), "relay peer recovered: down → up");
+            }
         }
     }
 
     /// Mark a peer as down after a failed delivery.
     pub fn mark_down(&mut self, idx: usize) {
-        if let Some((_, status)) = self.peers.get_mut(idx) {
+        if let Some((cfg, status)) = self.peers.get_mut(idx) {
+            let was_up = status.is_up;
             status.is_up = false;
             status.last_failure = Some(Instant::now());
             status.failure_count += 1;
+            if was_up {
+                warn!(peer = %cfg.host_port(), "relay peer marked down: up → down");
+            }
         }
     }
 
