@@ -213,6 +213,32 @@ pub async fn build_store(config: &crate::config::Config) -> Result<StoreBuildRes
                     kubo_client: None,
                 })
             }
+            BackendType::Azure => {
+                let azure_cfg = backend
+                    .azure
+                    .as_ref()
+                    .ok_or("backend.type = 'azure' requires a [backend.azure] section")?;
+                let store = super::azure_store::AzureStore::new(azure_cfg)
+                    .await
+                    .map_err(|e| format!("Azure store init failed: {e}"))?;
+                Ok(StoreBuildResult {
+                    store: Arc::new(store),
+                    kubo_client: None,
+                })
+            }
+            BackendType::Gcs => {
+                let gcs_cfg = backend
+                    .gcs
+                    .as_ref()
+                    .ok_or("backend.type = 'gcs' requires a [backend.gcs] section")?;
+                let store = super::gcs_store::GcsStore::new(gcs_cfg)
+                    .await
+                    .map_err(|e| format!("GCS store init failed: {e}"))?;
+                Ok(StoreBuildResult {
+                    store: Arc::new(store),
+                    kubo_client: None,
+                })
+            }
             BackendType::Sqlite => {
                 let sqlite_cfg = backend
                     .sqlite

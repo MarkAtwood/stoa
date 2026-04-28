@@ -263,6 +263,26 @@ pub async fn build_block_store(
                     .map_err(|e| format!("S3 store init failed: {e}"))?;
                 Ok(Arc::new(store))
             }
+            BackendType::Azure => {
+                let azure_cfg = backend
+                    .azure
+                    .as_ref()
+                    .ok_or("backend.type = 'azure' requires a [backend.azure] section")?;
+                let store = super::azure_store::AzureBlockStore::new(azure_cfg)
+                    .await
+                    .map_err(|e| format!("Azure store init failed: {e}"))?;
+                Ok(Arc::new(store))
+            }
+            BackendType::Gcs => {
+                let gcs_cfg = backend
+                    .gcs
+                    .as_ref()
+                    .ok_or("backend.type = 'gcs' requires a [backend.gcs] section")?;
+                let store = super::gcs_store::GcsBlockStore::new(gcs_cfg)
+                    .await
+                    .map_err(|e| format!("GCS store init failed: {e}"))?;
+                Ok(Arc::new(store))
+            }
             BackendType::Sqlite => {
                 let sqlite_cfg = backend
                     .sqlite

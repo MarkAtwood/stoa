@@ -15,7 +15,8 @@ use serde::Deserialize;
 /// compatibility; when both are present `[backend]` takes precedence.
 #[derive(Debug, Deserialize, Clone)]
 pub struct BackendConfig {
-    /// Backend discriminator.  Supported values: `"kubo"`, `"lmdb"`, `"filesystem"`, `"sqlite"`.
+    /// Backend discriminator.  Supported values: `"kubo"`, `"lmdb"`, `"filesystem"`, `"sqlite"`,
+    /// `"s3"`, `"azure"`, `"gcs"`.
     #[serde(rename = "type")]
     pub backend_type: BackendType,
     /// Kubo-specific settings.  Required when `type = "kubo"`.
@@ -24,6 +25,12 @@ pub struct BackendConfig {
     /// S3-specific settings.  Required when `type = "s3"`.
     #[serde(default)]
     pub s3: Option<S3BackendConfig>,
+    /// Azure Blob Storage settings.  Required when `type = "azure"`.
+    #[serde(default)]
+    pub azure: Option<AzureBackendConfig>,
+    /// Google Cloud Storage settings.  Required when `type = "gcs"`.
+    #[serde(default)]
+    pub gcs: Option<GcsBackendConfig>,
     /// Filesystem-specific settings.  Required when `type = "filesystem"`.
     #[serde(default)]
     pub filesystem: Option<FsBackendConfig>,
@@ -41,6 +48,8 @@ pub struct BackendConfig {
 pub enum BackendType {
     Kubo,
     S3,
+    Azure,
+    Gcs,
     Filesystem,
     Lmdb,
     Sqlite,
@@ -160,6 +169,80 @@ pub struct LmdbBackendConfig {
 
 fn default_lmdb_map_size_gb() -> u64 {
     1024
+}
+
+/// Configuration for the Azure Blob Storage backend.
+///
+/// ## Object layout
+///
+/// Blocks are stored as `<prefix>/<cid-base32-lowercase>` objects in the
+/// configured container.  The default prefix is `blocks`.
+///
+/// ## Credentials
+///
+/// `access_key` accepts a literal value or a `secretx://` URI.
+/// Omit to use managed identity or a SAS token configured in the environment.
+///
+/// ## Azurite local emulator
+///
+/// Set `use_emulator = true` and `allow_http = true` for testing against the
+/// Azurite local emulator.  Do not set both `use_emulator` and `endpoint` —
+/// Azurite's well-known URL is implied by `use_emulator = true`.
+#[derive(Debug, Deserialize, Clone)]
+pub struct AzureBackendConfig {
+    /// Storage account name.
+    pub account: String,
+    /// Container name.
+    pub container: String,
+    /// Storage account access key.  Literal value or `secretx://` URI.
+    /// Omit to use managed identity or environment credentials.
+    #[serde(default)]
+    pub access_key: Option<String>,
+    /// Custom endpoint URL.  Required for non-standard deployments; leave
+    /// unset for standard Azure Blob Storage.
+    #[serde(default)]
+    pub endpoint: Option<String>,
+    /// Object key prefix.  Defaults to `"blocks"`.
+    #[serde(default)]
+    pub prefix: Option<String>,
+    /// Use the Azurite local storage emulator.  Defaults to `false`.
+    #[serde(default)]
+    pub use_emulator: Option<bool>,
+    /// Allow plain HTTP connections.  Defaults to `false`.
+    /// Set `true` for Azurite without TLS.
+    #[serde(default)]
+    pub allow_http: Option<bool>,
+}
+
+/// Configuration for the Google Cloud Storage backend.
+///
+/// ## Object layout
+///
+/// Blocks are stored as `<prefix>/<cid-base32-lowercase>` objects.
+/// The default prefix is `blocks`.
+///
+/// ## Credentials
+///
+/// Exactly one credential source should be configured:
+/// - `service_account_path`: path to a service account JSON key file on disk.
+/// - `service_account_key`: inline JSON key string; accepts `secretx://` URIs.
+/// - Neither: uses Application Default Credentials (ADC / Workload Identity).
+#[derive(Debug, Deserialize, Clone)]
+pub struct GcsBackendConfig {
+    /// GCS bucket name.
+    pub bucket: String,
+    /// Path to a service account JSON key file.
+    /// Omit to use `service_account_key` or ADC.
+    #[serde(default)]
+    pub service_account_path: Option<String>,
+    /// Inline service account JSON key string.  Literal value or
+    /// `secretx://` URI (e.g. `secretx://env/GCS_SA_KEY`).
+    /// Omit to use `service_account_path` or ADC.
+    #[serde(default)]
+    pub service_account_key: Option<String>,
+    /// Object key prefix.  Defaults to `"blocks"`.
+    #[serde(default)]
+    pub prefix: Option<String>,
 }
 
 /// Configuration for the SQLite BLOB block store backend.

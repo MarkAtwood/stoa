@@ -5,8 +5,8 @@ use std::path::Path;
 // Types are defined in stoa_core::ipfs_backend and re-exported here so that
 // reader config validation code can use them without a long path prefix.
 pub use stoa_core::ipfs_backend::{
-    BackendConfig, BackendType, FsBackendConfig, KuboBackendConfig, LmdbBackendConfig,
-    S3BackendConfig, SqliteBackendConfig,
+    AzureBackendConfig, BackendConfig, BackendType, FsBackendConfig, GcsBackendConfig,
+    KuboBackendConfig, LmdbBackendConfig, S3BackendConfig, SqliteBackendConfig,
 };
 
 /// Default hostname for the NNTP Path: header injected on POST.
@@ -589,6 +589,55 @@ impl Config {
                         }
                     }
                 }
+                BackendType::Azure => {
+                    if backend.azure.is_none() {
+                        return Err(ConfigError::Validation(
+                            "backend.type = 'azure' requires a [backend.azure] section".into(),
+                        ));
+                    }
+                    let azure = backend.azure.as_ref().unwrap();
+                    if azure.account.is_empty() {
+                        return Err(ConfigError::Validation(
+                            "backend.azure.account must not be empty".into(),
+                        ));
+                    }
+                    if azure.container.is_empty() {
+                        return Err(ConfigError::Validation(
+                            "backend.azure.container must not be empty".into(),
+                        ));
+                    }
+                    if let Some(v) = azure.access_key.as_deref() {
+                        if v.starts_with("secretx:") {
+                            if let Err(e) = secretx::from_uri(v) {
+                                return Err(ConfigError::Validation(format!(
+                                    "backend.azure.access_key: invalid secretx URI: {e}"
+                                )));
+                            }
+                        }
+                    }
+                }
+                BackendType::Gcs => {
+                    if backend.gcs.is_none() {
+                        return Err(ConfigError::Validation(
+                            "backend.type = 'gcs' requires a [backend.gcs] section".into(),
+                        ));
+                    }
+                    let gcs = backend.gcs.as_ref().unwrap();
+                    if gcs.bucket.is_empty() {
+                        return Err(ConfigError::Validation(
+                            "backend.gcs.bucket must not be empty".into(),
+                        ));
+                    }
+                    if let Some(v) = gcs.service_account_key.as_deref() {
+                        if v.starts_with("secretx:") {
+                            if let Err(e) = secretx::from_uri(v) {
+                                return Err(ConfigError::Validation(format!(
+                                    "backend.gcs.service_account_key: invalid secretx URI: {e}"
+                                )));
+                            }
+                        }
+                    }
+                }
             }
         } else if self.ipfs.api_url.is_empty() {
             return Err(ConfigError::Validation(
@@ -1128,6 +1177,163 @@ region = "us-east-1"
         let f = write_toml(toml);
         let err = Config::from_file(f.path())
             .expect_err("empty bucket must fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend] with type = "azure" and a [backend.azure] section parses and validates.
+    #[test]
+    fn backend_azure_section_parses() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "azure"
+
+[backend.azure]
+account = "myaccount"
+container = "stoa-articles"
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("azure backend config must parse");
+        let backend = cfg.backend.as_ref().expect("backend must be set");
+        assert!(matches!(backend.backend_type, BackendType::Azure));
+        assert_eq!(
+            backend.azure.as_ref().map(|a| a.account.as_str()),
+            Some("myaccount")
+        );
+        assert_eq!(
+            backend.azure.as_ref().map(|a| a.container.as_str()),
+            Some("stoa-articles")
+        );
+    }
+
+    /// [backend] with type = "azure" but no [backend.azure] section is rejected.
+    #[test]
+    fn backend_azure_without_subsection_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "azure"
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("azure without subsection must fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend.azure] with empty account is rejected.
+    #[test]
+    fn backend_azure_empty_account_rejected() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "azure"
+
+[backend.azure]
+account = ""
+container = "stoa-articles"
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("empty account must fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend] with type = "gcs" and a [backend.gcs] section parses and validates.
+    #[test]
+    fn backend_gcs_section_parses() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "gcs"
+
+[backend.gcs]
+bucket = "stoa-articles"
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("gcs backend config must parse");
+        let backend = cfg.backend.as_ref().expect("backend must be set");
+        assert!(matches!(backend.backend_type, BackendType::Gcs));
+        assert_eq!(
+            backend.gcs.as_ref().map(|g| g.bucket.as_str()),
+            Some("stoa-articles")
+        );
+    }
+
+    /// [backend] with type = "gcs" but no [backend.gcs] section is rejected.
+    #[test]
+    fn backend_gcs_without_subsection_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "gcs"
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("gcs without subsection must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
