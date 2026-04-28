@@ -1,18 +1,18 @@
 use cid::Cid;
-use sqlx::SqlitePool;
+use sqlx::AnyPool;
 
 use crate::article::GroupName;
 use crate::error::StorageError;
 use crate::group_log::storage::LogStorage;
 use crate::group_log::types::{LogEntry, LogEntryId};
 
-/// SQLite-backed `LogStorage` implementation.
+/// Multi-backend `LogStorage` implementation (SQLite or PostgreSQL).
 pub struct SqliteLogStorage {
-    pool: SqlitePool,
+    pool: AnyPool,
 }
 
 impl SqliteLogStorage {
-    pub fn new(pool: SqlitePool) -> Self {
+    pub fn new(pool: AnyPool) -> Self {
         Self { pool }
     }
 }
@@ -37,13 +37,12 @@ impl LogStorage for SqliteLogStorage {
     async fn insert_entry(&self, id: LogEntryId, entry: LogEntry) -> Result<(), StorageError> {
         let id_bytes = id.as_bytes().as_slice().to_vec();
         let article_cid_bytes = cid_to_bytes(&entry.article_cid);
-        // HLC timestamps are u64 wall-ms since UNIX epoch.  SQLite stores
-        // integers as i64.  A timestamp > i64::MAX (year ~292 million CE) cannot
-        // be stored without truncation, so we return a hard error rather than
-        // silently corrupting the ordering invariant.
+        // HLC timestamps are u64 wall-ms since UNIX epoch.  Both SQLite and
+        // PostgreSQL store integers as i64.  A timestamp > i64::MAX (year
+        // ~292 million CE) cannot be stored without truncation.
         let ts = i64::try_from(entry.hlc_timestamp).map_err(|_| {
             StorageError::Database(format!(
-                "HLC timestamp {} exceeds i64::MAX — cannot store in SQLite",
+                "HLC timestamp {} exceeds i64::MAX — cannot store",
                 entry.hlc_timestamp
             ))
         })?;
@@ -78,7 +77,8 @@ impl LogStorage for SqliteLogStorage {
         for parent_cid in &entry.parent_cids {
             let parent_bytes = cid_to_bytes(parent_cid);
             sqlx::query(
-                "INSERT OR IGNORE INTO log_entry_parents (entry_id, parent_id) VALUES (?, ?)",
+                "INSERT INTO log_entry_parents (entry_id, parent_id) VALUES (?, ?)
+                 ON CONFLICT DO NOTHING",
             )
             .bind(&id_bytes)
             .bind(&parent_bytes)
@@ -184,9 +184,7 @@ impl LogStorage for SqliteLogStorage {
 
         if !tips.is_empty() {
             // Single bulk INSERT avoids O(T) round-trips for T tips.
-            // SQLite supports multi-row VALUES: INSERT INTO t (a,b) VALUES (?,?),(?,?),...
-            // Each tip uses 2 bind slots; SQLite default variable limit is 999 (3.32+: 32766),
-            // well above any realistic tip count for an NNTP group.
+            // Both SQLite and PostgreSQL support multi-row VALUES.
             let placeholders = tips.iter().map(|_| "(?, ?)").collect::<Vec<_>>().join(", ");
             let sql = format!(
                 "INSERT INTO group_tips (group_name, tip_id) VALUES {placeholders}"
@@ -216,8 +214,7 @@ impl LogStorage for SqliteLogStorage {
         let group_name = group.as_str();
 
         if !parents_to_remove.is_empty() {
-            // Single bulk DELETE: WHERE tip_id IN (?, ?, ...) avoids O(P) round-trips
-            // for P parents.  SQLite supports multi-value IN with bound parameters.
+            // Single bulk DELETE: WHERE tip_id IN (?, ?, ...) avoids O(P) round-trips.
             let placeholders = parents_to_remove.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
             let sql = format!(
                 "DELETE FROM group_tips WHERE group_name = ? AND tip_id IN ({placeholders})"
@@ -234,12 +231,14 @@ impl LogStorage for SqliteLogStorage {
         }
 
         let new_tip_bytes = new_tip.as_bytes().as_slice().to_vec();
-        sqlx::query("INSERT OR IGNORE INTO group_tips (group_name, tip_id) VALUES (?, ?)")
-            .bind(group_name)
-            .bind(&new_tip_bytes)
-            .execute(&mut *tx)
-            .await
-            .map_err(db_err)?;
+        sqlx::query(
+            "INSERT INTO group_tips (group_name, tip_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
+        )
+        .bind(group_name)
+        .bind(&new_tip_bytes)
+        .execute(&mut *tx)
+        .await
+        .map_err(db_err)?;
 
         tx.commit().await.map_err(db_err)?;
         Ok(())
@@ -266,78 +265,76 @@ impl LogStorage for SqliteLogStorage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db_pool::try_open_any_pool;
     use crate::group_log::storage_tests;
-    use crate::migrations::run_migrations;
-    use sqlx::sqlite::SqlitePoolOptions;
 
-    async fn make_pool() -> SqlitePool {
-        let pool = SqlitePoolOptions::new()
-            .connect("sqlite::memory:")
-            .await
-            .expect("in-memory pool");
-        run_migrations(&pool).await.expect("migrations");
-        pool
+    async fn make_pool() -> (AnyPool, tempfile::TempPath) {
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        crate::migrations::run_migrations(&url).await.expect("migrations");
+        let pool = try_open_any_pool(&url, 1).await.expect("pool");
+        (pool, tmp)
     }
 
     #[tokio::test]
     async fn sqlite_insert_and_get() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let s = SqliteLogStorage::new(pool);
         storage_tests::test_insert_and_get(&s).await;
     }
 
     #[tokio::test]
     async fn sqlite_get_missing_returns_none() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let s = SqliteLogStorage::new(pool);
         storage_tests::test_get_missing_returns_none(&s).await;
     }
 
     #[tokio::test]
     async fn sqlite_has_entry() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let s = SqliteLogStorage::new(pool);
         storage_tests::test_has_entry(&s).await;
     }
 
     #[tokio::test]
     async fn sqlite_set_and_list_tips() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let s = SqliteLogStorage::new(pool);
         storage_tests::test_set_and_list_tips(&s).await;
     }
 
     #[tokio::test]
     async fn sqlite_tip_count() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let s = SqliteLogStorage::new(pool);
         storage_tests::test_tip_count(&s).await;
     }
 
     #[tokio::test]
     async fn sqlite_duplicate_insert_rejected() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let s = SqliteLogStorage::new(pool);
         storage_tests::test_duplicate_insert_rejected(&s).await;
     }
 
     #[tokio::test]
     async fn sqlite_tips_are_group_scoped() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let s = SqliteLogStorage::new(pool);
         storage_tests::test_tips_are_group_scoped(&s).await;
     }
 
     #[tokio::test]
     async fn sqlite_advance_tips_basic() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let s = SqliteLogStorage::new(pool);
         storage_tests::test_advance_tips_basic(&s).await;
     }
 
     #[tokio::test]
     async fn sqlite_advance_tips_concurrent() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let s = SqliteLogStorage::new(pool);
         storage_tests::test_advance_tips_concurrent(&s).await;
     }

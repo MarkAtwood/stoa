@@ -10,14 +10,11 @@
 //! Store seeding uses the same public `insert` / `assign_number` APIs as
 //! production code; no implementation internals are reached.
 
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 
 use cid::Cid;
 use multihash_codetable::{Code, MultihashDigest};
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-use std::str::FromStr as _;
 use stoa_auth::{AuthConfig, CredentialStore};
 use stoa_mail::{
     server::{build_router, AppState, JmapStores},
@@ -32,68 +29,50 @@ use stoa_reader::{
 };
 use tokio::net::TcpListener;
 
-// ── Counter for unique in-memory DB names ────────────────────────────────────
-
-static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
-
 // ── Pool helpers ──────────────────────────────────────────────────────────────
 
-async fn make_reader_pool() -> sqlx::SqlitePool {
-    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
-    let url = format!("file:feed_reader_{n}?mode=memory&cache=shared");
-    let opts = SqliteConnectOptions::from_str(&url)
-        .expect("valid url")
-        .create_if_missing(true);
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
-        .await
-        .expect("reader pool");
-    stoa_reader::migrations::run_migrations(&pool)
+async fn make_reader_pool() -> (sqlx::AnyPool, tempfile::TempPath) {
+    let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+    let url = format!("sqlite://{}", tmp.to_str().unwrap());
+    stoa_reader::migrations::run_migrations(&url)
         .await
         .expect("reader migrations");
-    pool
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+        .await
+        .expect("reader pool");
+    (pool, tmp)
 }
 
-async fn make_mail_pool() -> sqlx::SqlitePool {
-    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
-    let url = format!("file:feed_mail_{n}?mode=memory&cache=shared");
-    let opts = SqliteConnectOptions::from_str(&url)
-        .expect("valid url")
-        .create_if_missing(true);
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
-        .await
-        .expect("mail pool");
-    stoa_mail::migrations::run_migrations(&pool)
+async fn make_mail_pool() -> (sqlx::AnyPool, tempfile::TempPath) {
+    let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+    let url = format!("sqlite://{}", tmp.to_str().unwrap());
+    stoa_mail::migrations::run_migrations(&url)
         .await
         .expect("mail migrations");
-    pool
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+        .await
+        .expect("mail pool");
+    (pool, tmp)
 }
 
-async fn make_core_pool() -> sqlx::SqlitePool {
-    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
-    let url = format!("file:feed_core_{n}?mode=memory&cache=shared");
-    let opts = SqliteConnectOptions::from_str(&url)
-        .expect("valid url")
-        .create_if_missing(true);
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
-        .await
-        .expect("core pool");
-    stoa_core::migrations::run_migrations(&pool)
+async fn make_core_pool() -> (sqlx::AnyPool, tempfile::TempPath) {
+    let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+    let url = format!("sqlite://{}", tmp.to_str().unwrap());
+    stoa_core::migrations::run_migrations(&url)
         .await
         .expect("core migrations");
-    pool
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+        .await
+        .expect("core pool");
+    (pool, tmp)
 }
 
 // ── AppState builders ─────────────────────────────────────────────────────────
 
 /// Build an AppState with `jmap: None` (for tests that don't need store data).
 async fn state_no_jmap() -> Arc<AppState> {
-    let mail_pool = make_mail_pool().await;
+    let (mail_pool, _mail_tmp) = make_mail_pool().await;
+    // _mail_tmp dropped here; pool holds open fd so SQLite file remains accessible.
     Arc::new(AppState {
         start_time: Instant::now(),
         jmap: None,
@@ -105,15 +84,15 @@ async fn state_no_jmap() -> Arc<AppState> {
     })
 }
 
-/// Build an AppState with real JMAP stores backed by in-memory SQLite.
+/// Build an AppState with real JMAP stores backed by tempfile SQLite.
 ///
 /// Returns the state and the bare stores so the caller can seed test data
 /// before spawning the server.
 async fn state_with_jmap() -> (Arc<AppState>, Arc<ArticleNumberStore>, Arc<OverviewStore>) {
-    let reader_pool = make_reader_pool().await;
-    let mail_pool = make_mail_pool().await;
+    let (reader_pool, _reader_tmp) = make_reader_pool().await;
+    let (mail_pool, _mail_tmp) = make_mail_pool().await;
     let mail_pool_arc = Arc::new(mail_pool);
-    let core_pool = make_core_pool().await;
+    let (core_pool, _core_tmp) = make_core_pool().await;
 
     let article_numbers = Arc::new(ArticleNumberStore::new(reader_pool.clone()));
     let overview_store = Arc::new(OverviewStore::new(reader_pool));

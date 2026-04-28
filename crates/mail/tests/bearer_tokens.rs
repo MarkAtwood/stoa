@@ -36,23 +36,18 @@ use tokio::net::TcpListener;
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-/// Build an in-process mail SQLite pool with migrations applied.
-/// Each call gets a unique in-memory DB so parallel tests don't share state.
-async fn make_mail_pool(tag: &str) -> sqlx::SqlitePool {
-    use std::str::FromStr as _;
-    let url = format!("file:bearer_test_{tag}?mode=memory&cache=shared");
-    let opts = sqlx::sqlite::SqliteConnectOptions::from_str(&url)
-        .expect("valid url")
-        .create_if_missing(true);
-    let pool = sqlx::sqlite::SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
-        .await
-        .expect("pool");
-    stoa_mail::migrations::run_migrations(&pool)
+/// Build an in-process mail pool with migrations applied.
+/// Returns a `(pool, TempPath)` tuple; the caller must keep `TempPath` alive.
+async fn make_mail_pool(_tag: &str) -> (sqlx::AnyPool, tempfile::TempPath) {
+    let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+    let url = format!("sqlite://{}", tmp.to_str().unwrap());
+    stoa_mail::migrations::run_migrations(&url)
         .await
         .expect("migrations");
-    pool
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+        .await
+        .expect("pool");
+    (pool, tmp)
 }
 
 /// Build an `AppState` in dev mode (auth not required, no users).
@@ -176,7 +171,7 @@ fn is_uuid_v4(s: &str) -> bool {
 /// UUID v4 spec: the "id" field must be a UUID v4.
 #[tokio::test]
 async fn post_token_valid_basic_auth_returns_201_with_token_id_expires_at() {
-    let pool = make_mail_pool("t01").await;
+    let (pool, _tmp) = make_mail_pool("t01").await;
     let token_store = Arc::new(TokenStore::new(Arc::new(pool)));
     let base = spawn_server(auth_app_state_alice(token_store)).await;
 
@@ -232,7 +227,7 @@ async fn post_token_valid_basic_auth_returns_201_with_token_id_expires_at() {
 /// The server MUST NOT return 401 for a valid, non-expired token.
 #[tokio::test]
 async fn bearer_token_grants_access_to_protected_endpoint() {
-    let pool = make_mail_pool("t02").await;
+    let (pool, _tmp) = make_mail_pool("t02").await;
     let token_store = Arc::new(TokenStore::new(Arc::new(pool)));
     let base = spawn_server(auth_app_state_alice(Arc::clone(&token_store))).await;
 
@@ -279,7 +274,7 @@ async fn bearer_token_grants_access_to_protected_endpoint() {
 /// RFC 6750 §3.1: when a Bearer token is invalid, the server MUST respond 401.
 #[tokio::test]
 async fn invalid_bearer_token_returns_401() {
-    let pool = make_mail_pool("t03").await;
+    let (pool, _tmp) = make_mail_pool("t03").await;
     let token_store = Arc::new(TokenStore::new(Arc::new(pool)));
     let base = spawn_server(auth_app_state_alice(token_store)).await;
 
@@ -313,7 +308,8 @@ async fn invalid_bearer_token_returns_401() {
 /// therefore fails the check.
 #[tokio::test]
 async fn expired_token_is_rejected_with_401() {
-    let pool = Arc::new(make_mail_pool("t04").await);
+    let (pool_inner, _tmp) = make_mail_pool("t04").await;
+    let pool = Arc::new(pool_inner);
     let token_store = Arc::new(TokenStore::new(Arc::clone(&pool)));
 
     // Issue an expired token directly (expires_in_days = -1 → expired yesterday).
@@ -355,7 +351,7 @@ async fn expired_token_is_rejected_with_401() {
 /// After deletion, any Bearer request using that token must return 401.
 #[tokio::test]
 async fn delete_token_revokes_access() {
-    let pool = make_mail_pool("t05").await;
+    let (pool, _tmp) = make_mail_pool("t05").await;
     let token_store = Arc::new(TokenStore::new(Arc::new(pool)));
     let base = spawn_server(auth_app_state_alice(Arc::clone(&token_store))).await;
 
@@ -431,7 +427,7 @@ async fn delete_token_revokes_access() {
 /// an attacker with read-only list access to impersonate other sessions.
 #[tokio::test]
 async fn list_tokens_returns_id_label_not_raw_token_or_hash() {
-    let pool = make_mail_pool("t06").await;
+    let (pool, _tmp) = make_mail_pool("t06").await;
     let token_store = Arc::new(TokenStore::new(Arc::new(pool)));
     let base = spawn_server(auth_app_state_alice(Arc::clone(&token_store))).await;
 
@@ -519,7 +515,7 @@ async fn list_tokens_returns_id_label_not_raw_token_or_hash() {
 /// any authenticated user to revoke any other user's sessions.
 #[tokio::test]
 async fn user_b_cannot_revoke_user_a_token() {
-    let pool = make_mail_pool("t07").await;
+    let (pool, _tmp) = make_mail_pool("t07").await;
     let token_store = Arc::new(TokenStore::new(Arc::new(pool)));
     let base = spawn_server(auth_app_state_two_users(Arc::clone(&token_store))).await;
 
@@ -580,7 +576,7 @@ async fn user_b_cannot_revoke_user_a_token() {
 /// Oracle: bead stoa-1c8.7 spec — dev mode bootstrap case.
 #[tokio::test]
 async fn dev_mode_post_token_issues_token_without_credentials() {
-    let pool = make_mail_pool("t08").await;
+    let (pool, _tmp) = make_mail_pool("t08").await;
     let token_store = Arc::new(TokenStore::new(Arc::new(pool)));
     let base = spawn_server(dev_app_state(token_store)).await;
 
@@ -615,7 +611,7 @@ async fn dev_mode_post_token_issues_token_without_credentials() {
 /// A wrong password must return 401 — no token is issued.
 #[tokio::test]
 async fn post_token_wrong_password_returns_401() {
-    let pool = make_mail_pool("t09").await;
+    let (pool, _tmp) = make_mail_pool("t09").await;
     let token_store = Arc::new(TokenStore::new(Arc::new(pool)));
     let base = spawn_server(auth_app_state_alice(token_store)).await;
 
@@ -641,7 +637,7 @@ async fn post_token_wrong_password_returns_401() {
 /// endpoint must return 401 — no token is issued.
 #[tokio::test]
 async fn post_token_no_credentials_returns_401() {
-    let pool = make_mail_pool("t10").await;
+    let (pool, _tmp) = make_mail_pool("t10").await;
     let token_store = Arc::new(TokenStore::new(Arc::new(pool)));
     let base = spawn_server(auth_app_state_alice(token_store)).await;
 
@@ -669,7 +665,7 @@ async fn post_token_no_credentials_returns_401() {
 /// to build the session object — not some default or arbitrary value.
 #[tokio::test]
 async fn bearer_token_session_identity_matches_issuing_user() {
-    let pool = make_mail_pool("t11").await;
+    let (pool, _tmp) = make_mail_pool("t11").await;
     let token_store = Arc::new(TokenStore::new(Arc::new(pool)));
     let base = spawn_server(auth_app_state_alice(Arc::clone(&token_store))).await;
 
@@ -715,7 +711,7 @@ async fn bearer_token_session_identity_matches_issuing_user() {
 /// Unauthenticated requests must return 401, not leak token metadata.
 #[tokio::test]
 async fn list_tokens_without_auth_returns_401() {
-    let pool = make_mail_pool("t12").await;
+    let (pool, _tmp) = make_mail_pool("t12").await;
     let token_store = Arc::new(TokenStore::new(Arc::new(pool)));
     let base = spawn_server(auth_app_state_alice(token_store)).await;
 
@@ -738,7 +734,7 @@ async fn list_tokens_without_auth_returns_401() {
 /// Unauthenticated DELETE must return 401 without deleting anything.
 #[tokio::test]
 async fn delete_token_without_auth_returns_401() {
-    let pool = make_mail_pool("t13").await;
+    let (pool, _tmp) = make_mail_pool("t13").await;
     let token_store = Arc::new(TokenStore::new(Arc::new(pool)));
     let base = spawn_server(auth_app_state_alice(token_store)).await;
 
@@ -765,7 +761,7 @@ async fn delete_token_without_auth_returns_401() {
 /// Alice's tokens must not appear in Bob's list and vice versa.
 #[tokio::test]
 async fn list_tokens_returns_only_own_tokens() {
-    let pool = make_mail_pool("t14").await;
+    let (pool, _tmp) = make_mail_pool("t14").await;
     let token_store = Arc::new(TokenStore::new(Arc::new(pool)));
     let base = spawn_server(auth_app_state_two_users(Arc::clone(&token_store))).await;
 
@@ -924,7 +920,7 @@ fn uuid_v4_helper_correctly_validates_format() {
 /// an independent oracle.
 #[tokio::test]
 async fn dev_mode_token_username_is_dev_not_empty() {
-    let pool = make_mail_pool("t15").await;
+    let (pool, _tmp) = make_mail_pool("t15").await;
     let token_store = Arc::new(TokenStore::new(Arc::new(pool)));
     let base = spawn_server(dev_app_state(Arc::clone(&token_store))).await;
 

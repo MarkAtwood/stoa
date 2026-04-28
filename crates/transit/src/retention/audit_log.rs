@@ -8,7 +8,7 @@
 //!                        gc_at_ms INTEGER NOT NULL,
 //!                        reason TEXT NOT NULL)
 
-use sqlx::SqlitePool;
+use sqlx::AnyPool;
 use stoa_core::error::StorageError;
 
 /// A single GC audit record.
@@ -23,12 +23,12 @@ pub struct GcAuditRecord {
 
 /// Append a GC audit record. Never updates existing records.
 pub async fn append_audit_record(
-    pool: &SqlitePool,
+    pool: &AnyPool,
     record: &GcAuditRecord,
 ) -> Result<(), StorageError> {
     sqlx::query(
         "INSERT INTO gc_audit_log (cid, group_name, ingested_at_ms, gc_at_ms, reason) \
-         VALUES (?1, ?2, ?3, ?4, ?5)",
+         VALUES (?, ?, ?, ?, ?)",
     )
     .bind(&record.cid)
     .bind(&record.group_name)
@@ -42,7 +42,7 @@ pub async fn append_audit_record(
 }
 
 /// Count audit records (for tests).
-pub async fn count_audit_records(pool: &SqlitePool) -> Result<i64, StorageError> {
+pub async fn count_audit_records(pool: &AnyPool) -> Result<i64, StorageError> {
     let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM gc_audit_log")
         .fetch_one(pool)
         .await

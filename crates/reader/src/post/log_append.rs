@@ -127,8 +127,6 @@ pub async fn append_to_groups<S: LogStorage>(
 mod tests {
     use super::*;
     use multihash_codetable::{Code, MultihashDigest};
-    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-    use std::str::FromStr as _;
     use stoa_core::group_log::MemLogStorage;
     use stoa_core::hlc::HlcClock;
     use stoa_core::signing::SigningKey;
@@ -151,15 +149,10 @@ mod tests {
     async fn make_article_numbers() -> (ArticleNumberStore, tempfile::TempPath) {
         let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
         let url = format!("sqlite://{}", tmp.to_str().unwrap());
-        let opts = SqliteConnectOptions::from_str(&url)
-            .unwrap()
-            .create_if_missing(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
+        crate::migrations::run_migrations(&url).await.unwrap();
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
             .await
-            .unwrap();
-        crate::migrations::run_migrations(&pool).await.unwrap();
+            .expect("pool");
         (ArticleNumberStore::new(pool), tmp)
     }
 

@@ -12,8 +12,6 @@
 use async_trait::async_trait;
 use cid::Cid;
 use ed25519_dalek::SigningKey;
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-use std::str::FromStr as _;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use stoa_core::{
@@ -81,31 +79,17 @@ impl IpfsStore for FailingIpfsStore {
 async fn make_msgid_map() -> (MsgIdMap, tempfile::TempPath) {
     let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
     let url = format!("sqlite://{}", tmp.to_str().unwrap());
-    let opts = SqliteConnectOptions::from_str(&url)
-        .unwrap()
-        .create_if_missing(true);
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
-        .await
-        .unwrap();
-    stoa_core::migrations::run_migrations(&pool).await.unwrap();
+    stoa_core::migrations::run_migrations(&url).await.unwrap();
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1).await.unwrap();
     (MsgIdMap::new(pool), tmp)
 }
 
-async fn make_transit_pool() -> sqlx::SqlitePool {
-    let opts = SqliteConnectOptions::from_str("sqlite::memory:")
-        .unwrap()
-        .create_if_missing(true);
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
-        .await
-        .unwrap();
-    stoa_transit::migrations::run_migrations(&pool)
-        .await
-        .unwrap();
-    pool
+async fn make_transit_pool() -> (sqlx::AnyPool, tempfile::TempPath) {
+    let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+    let url = format!("sqlite://{}", tmp.to_str().unwrap());
+    stoa_transit::migrations::run_migrations(&url).await.unwrap();
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1).await.unwrap();
+    (pool, tmp)
 }
 
 fn make_signing_key() -> SigningKey {
@@ -159,7 +143,7 @@ async fn ipfs_unavailable_returns_error() {
 
     let article = make_article("<ipfs-fail@test.com>", "comp.test");
 
-    let transit_pool = make_transit_pool().await;
+    let (transit_pool, _tmp_transit) = make_transit_pool().await;
     let result = run_pipeline(
         &article,
         &ipfs,
@@ -194,7 +178,7 @@ async fn ipfs_unavailable_leaves_no_state() {
     let msgid = "<no-state@test.com>";
     let article = make_article(msgid, "comp.test");
 
-    let transit_pool = make_transit_pool().await;
+    let (transit_pool, _tmp_transit) = make_transit_pool().await;
     let _ = run_pipeline(
         &article,
         &ipfs,
@@ -237,7 +221,7 @@ async fn ipfs_restored_succeeds() {
     let msgid = "<restored@test.com>";
     let article = make_article(msgid, "comp.test");
 
-    let transit_pool = make_transit_pool().await;
+    let (transit_pool, _tmp_transit) = make_transit_pool().await;
 
     // First attempt: IPFS unavailable, must fail.
     let first = run_pipeline(

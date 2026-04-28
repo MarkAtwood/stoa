@@ -1,7 +1,7 @@
 //! GC executor: runs GC on a set of candidates and writes audit records.
 
 use cid::Cid;
-use sqlx::SqlitePool;
+use sqlx::AnyPool;
 use stoa_core::error::StorageError;
 use stoa_core::msgid_map::MsgIdMap;
 
@@ -38,8 +38,8 @@ pub struct GcExecutorResult {
 pub async fn run_gc_executor<P: PinClient>(
     candidates: &[GcExecutorCandidate],
     pin_client: &P,
-    transit_pool: &SqlitePool,
-    core_pool: &SqlitePool,
+    transit_pool: &AnyPool,
+    core_pool: &AnyPool,
     now_ms: u64,
 ) -> Result<GcExecutorResult, StorageError> {
     let msgid_map = MsgIdMap::new(core_pool.clone());
@@ -91,49 +91,31 @@ mod tests {
     use crate::retention::pin_client::MemPinClient;
     use cid::Cid;
     use multihash_codetable::{Code, MultihashDigest};
-    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-    use std::sync::atomic::AtomicUsize;
-
-    static DB_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
     fn make_cid(data: &[u8]) -> Cid {
         Cid::new_v1(0x71, Code::Sha2_256.digest(data))
     }
 
-    async fn make_transit_pool() -> sqlx::SqlitePool {
-        let n = DB_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let url = format!("file:gc_exec_transit_{n}?mode=memory&cache=shared");
-        let opts = SqliteConnectOptions::new()
-            .filename(&url)
-            .create_if_missing(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
-            .await
-            .unwrap();
-        crate::migrations::run_migrations(&pool).await.unwrap();
-        pool
+    async fn make_transit_pool() -> (AnyPool, tempfile::TempPath) {
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        crate::migrations::run_migrations(&url).await.unwrap();
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1).await.unwrap();
+        (pool, tmp)
     }
 
-    async fn make_core_pool() -> sqlx::SqlitePool {
-        let n = DB_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let url = format!("file:gc_exec_core_{n}?mode=memory&cache=shared");
-        let opts = SqliteConnectOptions::new()
-            .filename(&url)
-            .create_if_missing(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
-            .await
-            .unwrap();
-        stoa_core::migrations::run_migrations(&pool).await.unwrap();
-        pool
+    async fn make_core_pool() -> (AnyPool, tempfile::TempPath) {
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        stoa_core::migrations::run_migrations(&url).await.unwrap();
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1).await.unwrap();
+        (pool, tmp)
     }
 
     #[tokio::test]
     async fn gc_executor_unpins_and_writes_audit_records() {
-        let transit_pool = make_transit_pool().await;
-        let core_pool = make_core_pool().await;
+        let (transit_pool, _tmp1) = make_transit_pool().await;
+        let (core_pool, _tmp2) = make_core_pool().await;
         let pin_client = MemPinClient::new();
         let now_ms = 1_700_000_000_000u64;
 
@@ -185,8 +167,8 @@ mod tests {
 
     #[tokio::test]
     async fn gc_executor_failed_unpin_not_audited() {
-        let transit_pool = make_transit_pool().await;
-        let core_pool = make_core_pool().await;
+        let (transit_pool, _tmp1) = make_transit_pool().await;
+        let (core_pool, _tmp2) = make_core_pool().await;
         let pin_client = MemPinClient::new();
         // Force error on all operations
         *pin_client.force_error.write().unwrap() = Some("injected".to_string());
@@ -211,8 +193,8 @@ mod tests {
 
     #[tokio::test]
     async fn gc_executor_empty_candidates_returns_zero() {
-        let transit_pool = make_transit_pool().await;
-        let core_pool = make_core_pool().await;
+        let (transit_pool, _tmp1) = make_transit_pool().await;
+        let (core_pool, _tmp2) = make_core_pool().await;
         let pin_client = MemPinClient::new();
         let result = run_gc_executor(&[], &pin_client, &transit_pool, &core_pool, 0)
             .await

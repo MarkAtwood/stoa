@@ -4,7 +4,7 @@
 //! No running daemon is required; they are suitable for use from a
 //! maintenance shell or init script.
 
-use sqlx::SqlitePool;
+use sqlx::AnyPool;
 use stoa_core::error::StorageError;
 
 use crate::cli::peers::OutputFormat;
@@ -18,7 +18,7 @@ type PinnedCidRow = (String, Option<String>, Option<i64>, Option<i64>);
 ///
 /// All counts are read directly from SQLite. If a table does not exist
 /// (first run before migrations), the count is reported as 0.
-pub async fn cmd_status(pool: &SqlitePool, format: OutputFormat) -> Result<String, StorageError> {
+pub async fn cmd_status(pool: &AnyPool, format: OutputFormat) -> Result<String, StorageError> {
     let article_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM msgid_map")
         .fetch_one(pool)
         .await
@@ -59,7 +59,7 @@ pub async fn cmd_status(pool: &SqlitePool, format: OutputFormat) -> Result<Strin
 ///
 /// The CID string must be valid (base32/base58 multibase CIDv0 or CIDv1).
 /// Returns `"pinned: {cid}"` on success.
-pub async fn cmd_pin(pool: &SqlitePool, cid_str: &str) -> Result<String, StorageError> {
+pub async fn cmd_pin(pool: &AnyPool, cid_str: &str) -> Result<String, StorageError> {
     cid_str
         .parse::<cid::Cid>()
         .map_err(|e| StorageError::Database(format!("invalid CID '{cid_str}': {e}")))?;
@@ -67,7 +67,10 @@ pub async fn cmd_pin(pool: &SqlitePool, cid_str: &str) -> Result<String, Storage
     ensure_pinned_cids_table(pool).await?;
 
     let now_ms = now_ms();
-    sqlx::query("INSERT OR IGNORE INTO pinned_cids (cid, pinned_at_ms) VALUES (?1, ?2)")
+    sqlx::query(
+        "INSERT INTO pinned_cids (cid, pinned_at_ms) VALUES (?, ?) \
+         ON CONFLICT (cid) DO NOTHING",
+    )
         .bind(cid_str)
         .bind(now_ms)
         .execute(pool)
@@ -80,10 +83,10 @@ pub async fn cmd_pin(pool: &SqlitePool, cid_str: &str) -> Result<String, Storage
 /// Remove a CID from the operator-pinned table.
 ///
 /// Returns `"unpinned: {cid}"` if found and removed, or `"not pinned: {cid}"` if absent.
-pub async fn cmd_unpin(pool: &SqlitePool, cid_str: &str) -> Result<String, StorageError> {
+pub async fn cmd_unpin(pool: &AnyPool, cid_str: &str) -> Result<String, StorageError> {
     ensure_pinned_cids_table(pool).await?;
 
-    let result = sqlx::query("DELETE FROM pinned_cids WHERE cid = ?1")
+    let result = sqlx::query("DELETE FROM pinned_cids WHERE cid = ?")
         .bind(cid_str)
         .execute(pool)
         .await
@@ -105,7 +108,7 @@ pub async fn cmd_unpin(pool: &SqlitePool, cid_str: &str) -> Result<String, Stora
 /// size=0, age=0 and a warning is emitted once.
 ///
 /// Returns a summary string of the form `"gc-run: {scanned} scanned, {unpinned} unpinned\n"`.
-pub async fn cmd_gc_run(pool: &SqlitePool, policy: &PinPolicy) -> Result<String, StorageError> {
+pub async fn cmd_gc_run(pool: &AnyPool, policy: &PinPolicy) -> Result<String, StorageError> {
     ensure_pinned_cids_table(pool).await?;
 
     // Each row: (cid, group_name?, ingested_at_ms?, byte_count?)
@@ -154,7 +157,7 @@ pub async fn cmd_gc_run(pool: &SqlitePool, policy: &PinPolicy) -> Result<String,
         };
 
         if !policy.should_pin(&meta) {
-            sqlx::query("DELETE FROM pinned_cids WHERE cid = ?1")
+            sqlx::query("DELETE FROM pinned_cids WHERE cid = ?")
                 .bind(cid_str)
                 .execute(pool)
                 .await
@@ -176,7 +179,7 @@ pub use crate::cli::peers::cmd_peer_list;
 // ---------------------------------------------------------------------------
 
 /// Create the pinned_cids table if it does not exist.
-async fn ensure_pinned_cids_table(pool: &SqlitePool) -> Result<(), StorageError> {
+async fn ensure_pinned_cids_table(pool: &AnyPool) -> Result<(), StorageError> {
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS pinned_cids (\
             cid TEXT PRIMARY KEY NOT NULL, \
@@ -205,29 +208,26 @@ fn now_ms() -> i64 {
 mod tests {
     use super::*;
     use crate::retention::policy::PinRule;
-    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+    use sqlx::AnyPool;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     static DB_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
-    async fn make_pool() -> SqlitePool {
+    async fn make_pool() -> (AnyPool, tempfile::TempPath) {
         let n = DB_COUNTER.fetch_add(1, Ordering::Relaxed);
-        let url = format!("file:cli_ops_{n}?mode=memory&cache=shared");
-        let opts = SqliteConnectOptions::new()
-            .filename(&url)
-            .create_if_missing(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
+        let _ = n;
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        crate::migrations::run_migrations(&url).await.unwrap();
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
             .await
             .unwrap();
-        crate::migrations::run_migrations(&pool).await.unwrap();
-        pool
+        (pool, tmp)
     }
 
     #[tokio::test]
     async fn status_on_empty_db_table() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let result = cmd_status(&pool, OutputFormat::Table).await.unwrap();
         assert!(
             result.contains("peers") || result.contains("articles"),
@@ -237,7 +237,7 @@ mod tests {
 
     #[tokio::test]
     async fn status_on_empty_db_json() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let result = cmd_status(&pool, OutputFormat::Json).await.unwrap();
         let v: serde_json::Value = serde_json::from_str(&result).unwrap();
         assert_eq!(v["peers_active"], 0);
@@ -247,7 +247,7 @@ mod tests {
 
     #[tokio::test]
     async fn pin_unpin_roundtrip() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let cid_str = "bafyreigdmqpykrgxyaxtlafqpqhzrfegdmqivsfeq7clzqya3oqpjzxnkm";
 
         let pin_result = cmd_pin(&pool, cid_str).await.unwrap();
@@ -262,7 +262,7 @@ mod tests {
 
     #[tokio::test]
     async fn unpin_not_pinned() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let cid_str = "bafyreigdmqpykrgxyaxtlafqpqhzrfegdmqivsfeq7clzqya3oqpjzxnkm";
         let result = cmd_unpin(&pool, cid_str).await.unwrap();
         assert!(
@@ -273,7 +273,7 @@ mod tests {
 
     #[tokio::test]
     async fn pin_is_idempotent() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let cid_str = "bafyreigdmqpykrgxyaxtlafqpqhzrfegdmqivsfeq7clzqya3oqpjzxnkm";
         cmd_pin(&pool, cid_str).await.unwrap();
         let second = cmd_pin(&pool, cid_str).await.unwrap();
@@ -282,7 +282,7 @@ mod tests {
 
     #[tokio::test]
     async fn gc_run_empty() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let policy = PinPolicy::new(vec![]);
         let result = cmd_gc_run(&pool, &policy).await.unwrap();
         assert!(result.contains("gc-run"), "gc result: {result}");
@@ -294,7 +294,7 @@ mod tests {
 
     #[tokio::test]
     async fn gc_run_unpins_when_policy_rejects_all() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let cid_str = "bafyreigdmqpykrgxyaxtlafqpqhzrfegdmqivsfeq7clzqya3oqpjzxnkm";
         cmd_pin(&pool, cid_str).await.unwrap();
 
@@ -312,7 +312,7 @@ mod tests {
 
     #[tokio::test]
     async fn gc_run_preserves_when_policy_accepts_all() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let cid_str = "bafyreigdmqpykrgxyaxtlafqpqhzrfegdmqivsfeq7clzqya3oqpjzxnkm";
         cmd_pin(&pool, cid_str).await.unwrap();
 
@@ -335,7 +335,7 @@ mod tests {
 
     #[tokio::test]
     async fn invalid_cid_rejected() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let result = cmd_pin(&pool, "not-a-valid-cid").await;
         assert!(result.is_err(), "invalid CID should fail");
     }

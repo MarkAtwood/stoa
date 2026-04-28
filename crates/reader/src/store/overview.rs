@@ -3,8 +3,6 @@
 //! Stores the 7 RFC 3977 required overview fields per article, keyed by
 //! `(group_name, article_number)`.
 
-use sqlx::SqlitePool;
-
 /// Maximum number of records returned by a single `query_range` call.
 ///
 /// Prevents unbounded memory allocation when a client requests a very wide
@@ -46,13 +44,13 @@ pub struct OverviewRecord {
     pub did_sig_valid: Option<bool>,
 }
 
-/// Stores and retrieves overview records from SQLite.
+/// Stores and retrieves overview records from a database (SQLite or PostgreSQL).
 pub struct OverviewStore {
-    pool: SqlitePool,
+    pool: sqlx::AnyPool,
 }
 
 impl OverviewStore {
-    pub fn new(pool: SqlitePool) -> Self {
+    pub fn new(pool: sqlx::AnyPool) -> Self {
         Self { pool }
     }
 
@@ -66,10 +64,11 @@ impl OverviewStore {
         let did_sig_valid: Option<i64> = record.did_sig_valid.map(|v| v as i64);
 
         sqlx::query(
-            "INSERT OR IGNORE INTO overview \
+            "INSERT INTO overview \
              (group_name, article_number, subject, from_header, date_header, \
               message_id, references_header, byte_count, line_count, did_sig_valid) \
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
+             ON CONFLICT DO NOTHING",
         )
         .bind(group)
         .bind(article_number)
@@ -321,21 +320,14 @@ fn strip_header_name<'a>(line: &'a str, name: &str) -> Option<&'a str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-    use std::str::FromStr as _;
 
     async fn make_store() -> (OverviewStore, tempfile::TempPath) {
         let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
         let url = format!("sqlite://{}", tmp.to_str().unwrap());
-        let opts = SqliteConnectOptions::from_str(&url)
-            .unwrap()
-            .create_if_missing(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
+        crate::migrations::run_migrations(&url).await.unwrap();
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
             .await
             .unwrap();
-        crate::migrations::run_migrations(&pool).await.unwrap();
         (OverviewStore::new(pool), tmp)
     }
 

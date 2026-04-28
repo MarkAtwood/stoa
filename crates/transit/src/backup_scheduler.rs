@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use cron::Schedule;
-use sqlx::SqlitePool;
+use sqlx::AnyPool;
 use std::str::FromStr;
 use tracing::{error, info, warn};
 
@@ -71,8 +71,8 @@ async fn s3_upload_backup(bucket: &str, prefix: &str, paths: &[String]) {
 /// [`crate::admin::backup_databases`], and (if `s3_bucket` is set) uploads each
 /// backup file to S3.  The loop repeats until the process exits.
 pub async fn run_backup_scheduler(
-    transit_pool: Arc<SqlitePool>,
-    core_pool: Arc<SqlitePool>,
+    transit_pool: Arc<AnyPool>,
+    core_pool: Arc<AnyPool>,
     dest_dir: String,
     s3_bucket: Option<String>,
     s3_prefix: Option<String>,

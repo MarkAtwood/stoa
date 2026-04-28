@@ -14,10 +14,11 @@ mail-auth = "0.8"
 serde = { version = "1", features = ["derive"] }
 hex = "0.4"
 sha2 = "0.10"
-sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio-rustls", "macros", "migrate"] }
+sqlx = { version = "0.8", features = ["sqlite", "postgres", "any", "runtime-tokio-rustls", "macros", "migrate"] }
 tokio = { version = "1", features = ["sync"] }
 tracing = "0.1"
 
 [dev-dependencies]
 hickory-resolver = "=0.26.0-alpha.1"
+tempfile = "3"
 tokio = { version = "1", features = ["full", "macros", "rt-multi-thread"] }

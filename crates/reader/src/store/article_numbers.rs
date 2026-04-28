@@ -5,17 +5,16 @@
 //! identifiers (see design invariant #5).
 
 use cid::Cid;
-use sqlx::SqlitePool;
 
 /// Assigns and records local sequential article numbers per group.
 ///
 /// CIDs are stored as raw bytes (`cid.to_bytes()`).
 pub struct ArticleNumberStore {
-    pool: SqlitePool,
+    pool: sqlx::AnyPool,
 }
 
 impl ArticleNumberStore {
-    pub fn new(pool: SqlitePool) -> Self {
+    pub fn new(pool: sqlx::AnyPool) -> Self {
         Self { pool }
     }
 
@@ -44,13 +43,14 @@ impl ArticleNumberStore {
         let mut tx = self.pool.begin().await?;
 
         // Attempt to insert, computing the next sequential number via subquery.
-        // OR IGNORE suppresses the insert (and the subquery) when (group, cid)
+        // ON CONFLICT DO NOTHING suppresses the insert when (group_name, cid)
         // already has a row — the UNIQUE index on article_numbers_cid_idx
         // enforces uniqueness on (group_name, cid).
         sqlx::query(
-            "INSERT OR IGNORE INTO article_numbers (group_name, article_number, cid)
-             VALUES (?, (SELECT COALESCE(MAX(article_number), 0) + 1
-                         FROM article_numbers WHERE group_name = ?), ?)",
+            "INSERT INTO article_numbers (group_name, article_number, cid) \
+             VALUES (?, (SELECT COALESCE(MAX(article_number), 0) + 1 \
+                         FROM article_numbers WHERE group_name = ?), ?) \
+             ON CONFLICT DO NOTHING",
         )
         .bind(group)
         .bind(group)
@@ -174,21 +174,14 @@ impl ArticleNumberStore {
 mod tests {
     use super::*;
     use multihash_codetable::{Code, MultihashDigest};
-    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-    use std::str::FromStr as _;
 
     async fn make_store() -> (ArticleNumberStore, tempfile::TempPath) {
         let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
         let url = format!("sqlite://{}", tmp.to_str().unwrap());
-        let opts = SqliteConnectOptions::from_str(&url)
-            .unwrap()
-            .create_if_missing(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
+        crate::migrations::run_migrations(&url).await.unwrap();
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
             .await
             .unwrap();
-        crate::migrations::run_migrations(&pool).await.unwrap();
         (ArticleNumberStore::new(pool), tmp)
     }
 

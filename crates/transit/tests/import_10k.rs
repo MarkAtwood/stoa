@@ -11,31 +11,21 @@
 
 use cid::Cid;
 use multihash_codetable::{Code, MultihashDigest};
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use stoa_transit::import::{
     mbox::parse_mbox_file,
     reindex::{run_reindex, ReindexConfig},
 };
 use tempfile::TempDir;
 
-static DB_COUNTER: AtomicUsize = AtomicUsize::new(0);
-
 fn make_cid(data: &[u8]) -> Cid {
     Cid::new_v1(0x71, Code::Sha2_256.digest(data))
 }
 
-async fn make_pool() -> sqlx::SqlitePool {
-    let n = DB_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let url = format!("file:import_10k_{n}?mode=memory&cache=shared");
-    let opts = SqliteConnectOptions::new()
-        .filename(&url)
-        .create_if_missing(true);
-    SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
-        .await
-        .unwrap()
+async fn make_pool() -> (sqlx::AnyPool, tempfile::TempPath) {
+    let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+    let url = format!("sqlite://{}", tmp.to_str().unwrap());
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1).await.unwrap();
+    (pool, tmp)
 }
 
 /// Write a synthetic mbox file with `count` articles to `dir`.
@@ -89,7 +79,7 @@ async fn import_10k_all_message_ids_indexed() {
         .collect();
 
     // Phase 3: run reindex to populate msgid_map.
-    let pool = make_pool().await;
+    let (pool, _tmp) = make_pool().await;
     let config = ReindexConfig {
         dry_run: false,
         progress_interval: 1000,

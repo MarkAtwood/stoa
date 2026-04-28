@@ -1,7 +1,7 @@
 //! CAR file export: fetch article blocks from IPFS and write as CARv1.
 
 use cid::Cid;
-use sqlx::{Row, SqlitePool};
+use sqlx::{AnyPool, Row};
 use std::str::FromStr as _;
 use tracing::warn;
 
@@ -19,16 +19,16 @@ use crate::peering::pipeline::IpfsStore;
 /// Returns an empty-roots CAR (`{"version":1,"roots":[]}` + zero blocks)
 /// when no blocks are found.
 pub async fn build_export_car(
-    pool: &SqlitePool,
+    pool: &AnyPool,
     ipfs: &(impl IpfsStore + ?Sized),
     group: &str,
     limit: i64,
 ) -> Result<Vec<u8>, String> {
     let rows = sqlx::query(
         "SELECT cid FROM articles \
-         WHERE group_name = ?1 \
+         WHERE group_name = ? \
          ORDER BY ingested_at_ms DESC \
-         LIMIT ?2",
+         LIMIT ?",
     )
     .bind(group)
     .bind(limit)
@@ -74,24 +74,16 @@ pub async fn build_export_car(
 mod tests {
     use super::*;
     use crate::peering::pipeline::MemIpfsStore;
-    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use sqlx::AnyPool;
 
-    static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
-
-    async fn make_pool() -> SqlitePool {
-        let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
-        let url = format!("file:export_car_{n}?mode=memory&cache=shared");
-        let opts = SqliteConnectOptions::new()
-            .filename(&url)
-            .create_if_missing(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
+    async fn make_pool() -> (AnyPool, tempfile::TempPath) {
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        crate::migrations::run_migrations(&url).await.unwrap();
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
             .await
             .unwrap();
-        crate::migrations::run_migrations(&pool).await.unwrap();
-        pool
+        (pool, tmp)
     }
 
     fn make_cid_for(data: &[u8]) -> Cid {
@@ -100,10 +92,10 @@ mod tests {
         Cid::new_v1(0x55, digest)
     }
 
-    async fn insert_article(pool: &SqlitePool, cid: &Cid, group: &str, ingested_at_ms: i64) {
+    async fn insert_article(pool: &AnyPool, cid: &Cid, group: &str, ingested_at_ms: i64) {
         sqlx::query(
             "INSERT INTO articles (cid, group_name, ingested_at_ms, byte_count) \
-             VALUES (?1, ?2, ?3, ?4)",
+             VALUES (?, ?, ?, ?)",
         )
         .bind(cid.to_string())
         .bind(group)
@@ -120,7 +112,7 @@ mod tests {
     /// fixed byte sequence (verified in car_writer tests).
     #[tokio::test]
     async fn no_articles_returns_empty_car() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let ipfs = MemIpfsStore::new();
         let car = build_export_car(&pool, &ipfs, "comp.test", 100)
             .await
@@ -155,7 +147,7 @@ mod tests {
     /// (see car_writer tests for frame structure).
     #[tokio::test]
     async fn single_article_exported() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let ipfs = MemIpfsStore::new();
 
         let data = b"article block data";
@@ -218,7 +210,7 @@ mod tests {
     /// Articles from a different group are excluded from the export.
     #[tokio::test]
     async fn cross_group_isolation() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let ipfs = MemIpfsStore::new();
 
         let d1 = b"comp article";
@@ -269,7 +261,7 @@ mod tests {
     /// Missing IPFS block is skipped without aborting the export.
     #[tokio::test]
     async fn missing_block_skipped_gracefully() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let ipfs = MemIpfsStore::new();
 
         // Insert a CID into the articles table but do NOT store the block in IPFS.
@@ -307,7 +299,7 @@ mod tests {
     /// `limit` parameter caps the number of articles returned.
     #[tokio::test]
     async fn limit_caps_block_count() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let ipfs = MemIpfsStore::new();
 
         for i in 0..5i64 {

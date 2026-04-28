@@ -184,40 +184,43 @@ impl Default for IpnsConfig {
     }
 }
 
-/// SQLite database configuration.
+/// Database configuration.
 ///
-/// Three separate SQLite files are required because `sqlx` validates that every
+/// Three separate databases are required because `sqlx` validates that every
 /// previously-applied migration is still present in the migrator; mixing schemas
 /// in a single pool would cause `VersionMissing` errors.
+///
+/// URLs may point to SQLite files (`sqlite:///path/to/file.db`) or a PostgreSQL
+/// server (`postgres://user:pass@host/db`).
 #[derive(Debug, Deserialize)]
 pub struct DatabaseConfig {
-    /// Path for the core-schema database (msgid_map, group_log).
-    /// Created if it does not exist. Default: `transit_core.db`.
-    #[serde(default = "default_core_db_path")]
-    pub core_path: String,
-    /// Path for the transit-schema database (peers, peer_groups, articles).
-    /// Created if it does not exist. Default: `transit.db`.
-    #[serde(default = "default_db_path")]
-    pub path: String,
-    /// Path for the verify-schema database (article_verifications, seen_keys).
-    /// Created if it does not exist. Default: `transit_verify.db`.
-    #[serde(default = "default_verify_db_path")]
-    pub verify_path: String,
-    /// SQLite connection pool size for the transit database. Default: 8.
+    /// Database URL for the core-schema database (msgid_map, group_log).
+    /// Default: `sqlite:///transit_core.db`.
+    #[serde(default = "default_core_db_url")]
+    pub core_url: String,
+    /// Database URL for the transit-schema database (peers, peer_groups, articles).
+    /// Default: `sqlite:///transit.db`.
+    #[serde(default = "default_db_url")]
+    pub url: String,
+    /// Database URL for the verify-schema database (article_verifications, seen_keys).
+    /// Default: `sqlite:///transit_verify.db`.
+    #[serde(default = "default_verify_db_url")]
+    pub verify_url: String,
+    /// Connection pool size. Default: 8.
     #[serde(default = "default_db_pool_size")]
     pub pool_size: u32,
 }
 
-fn default_core_db_path() -> String {
-    "transit_core.db".to_string()
+fn default_core_db_url() -> String {
+    "sqlite:///transit_core.db".to_string()
 }
 
-fn default_db_path() -> String {
-    "transit.db".to_string()
+fn default_db_url() -> String {
+    "sqlite:///transit.db".to_string()
 }
 
-fn default_verify_db_path() -> String {
-    "transit_verify.db".to_string()
+fn default_verify_db_url() -> String {
+    "sqlite:///transit_verify.db".to_string()
 }
 
 fn default_db_pool_size() -> u32 {
@@ -227,9 +230,9 @@ fn default_db_pool_size() -> u32 {
 impl Default for DatabaseConfig {
     fn default() -> Self {
         Self {
-            core_path: default_core_db_path(),
-            path: default_db_path(),
-            verify_path: default_verify_db_path(),
+            core_url: default_core_db_url(),
+            url: default_db_url(),
+            verify_url: default_verify_db_url(),
             pool_size: default_db_pool_size(),
         }
     }

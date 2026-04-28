@@ -4,7 +4,7 @@
 //! This module stores and queries that per-peer group data so that
 //! IHAVE/TAKETHIS is only forwarded to peers that serve the group.
 
-use sqlx::SqlitePool;
+use sqlx::AnyPool;
 use stoa_core::error::StorageError;
 
 /// Record the full group list served by a peer (replaces previous entry).
@@ -12,7 +12,7 @@ use stoa_core::error::StorageError;
 /// Deletes all previous `peer_groups` rows for `peer_id`, then inserts
 /// the new list. Wrapped in a transaction for atomicity.
 pub async fn update_peer_groups(
-    pool: &SqlitePool,
+    pool: &AnyPool,
     peer_id: &str,
     groups: &[&str],
     now_ms: i64,
@@ -22,7 +22,7 @@ pub async fn update_peer_groups(
         .await
         .map_err(|e| StorageError::Database(e.to_string()))?;
 
-    sqlx::query("DELETE FROM peer_groups WHERE peer_id = ?1")
+    sqlx::query("DELETE FROM peer_groups WHERE peer_id = ?")
         .bind(peer_id)
         .execute(&mut *tx)
         .await
@@ -30,7 +30,7 @@ pub async fn update_peer_groups(
 
     for group in groups {
         sqlx::query(
-            "INSERT INTO peer_groups (peer_id, group_name, updated_at) VALUES (?1, ?2, ?3)",
+            "INSERT INTO peer_groups (peer_id, group_name, updated_at) VALUES (?, ?, ?)",
         )
         .bind(peer_id)
         .bind(*group)
@@ -48,11 +48,11 @@ pub async fn update_peer_groups(
 
 /// Return all groups served by a specific peer.
 pub async fn groups_for_peer(
-    pool: &SqlitePool,
+    pool: &AnyPool,
     peer_id: &str,
 ) -> Result<Vec<String>, StorageError> {
     let rows: Vec<(String,)> =
-        sqlx::query_as("SELECT group_name FROM peer_groups WHERE peer_id = ?1 ORDER BY group_name")
+        sqlx::query_as("SELECT group_name FROM peer_groups WHERE peer_id = ? ORDER BY group_name")
             .bind(peer_id)
             .fetch_all(pool)
             .await
@@ -65,11 +65,11 @@ pub async fn groups_for_peer(
 /// Use this to route IHAVE: only forward articles in `group_name` to
 /// peers returned by this function.
 pub async fn peers_serving_group(
-    pool: &SqlitePool,
+    pool: &AnyPool,
     group_name: &str,
 ) -> Result<Vec<String>, StorageError> {
     let rows: Vec<(String,)> =
-        sqlx::query_as("SELECT peer_id FROM peer_groups WHERE group_name = ?1 ORDER BY peer_id")
+        sqlx::query_as("SELECT peer_id FROM peer_groups WHERE group_name = ? ORDER BY peer_id")
             .bind(group_name)
             .fetch_all(pool)
             .await
@@ -79,12 +79,12 @@ pub async fn peers_serving_group(
 
 /// Check if a specific peer serves a specific group.
 pub async fn peer_serves_group(
-    pool: &SqlitePool,
+    pool: &AnyPool,
     peer_id: &str,
     group_name: &str,
 ) -> Result<bool, StorageError> {
     let row: Option<(i64,)> =
-        sqlx::query_as("SELECT 1 FROM peer_groups WHERE peer_id = ?1 AND group_name = ?2")
+        sqlx::query_as("SELECT 1 FROM peer_groups WHERE peer_id = ? AND group_name = ?")
             .bind(peer_id)
             .bind(group_name)
             .fetch_optional(pool)
@@ -94,8 +94,8 @@ pub async fn peer_serves_group(
 }
 
 /// Remove all group associations for a peer (on disconnect or peer removal).
-pub async fn clear_peer_groups(pool: &SqlitePool, peer_id: &str) -> Result<(), StorageError> {
-    sqlx::query("DELETE FROM peer_groups WHERE peer_id = ?1")
+pub async fn clear_peer_groups(pool: &AnyPool, peer_id: &str) -> Result<(), StorageError> {
+    sqlx::query("DELETE FROM peer_groups WHERE peer_id = ?")
         .bind(peer_id)
         .execute(pool)
         .await
@@ -106,29 +106,18 @@ pub async fn clear_peer_groups(pool: &SqlitePool, peer_id: &str) -> Result<(), S
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-    use std::str::FromStr;
-
-    async fn make_pool() -> SqlitePool {
-        // Use a unique named in-memory database per test to prevent cross-test
-        // migration conflicts when tests run in parallel.
-        use rand_core::{OsRng, RngCore};
-        let db_name = format!(
-            "file:feed_neg_{}?mode=memory&cache=shared",
-            OsRng.next_u64()
-        );
-        let opts = SqliteConnectOptions::from_str(&db_name).unwrap();
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
+    async fn make_pool() -> (AnyPool, tempfile::TempPath) {
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        crate::migrations::run_migrations(&url).await.unwrap();
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
             .await
             .unwrap();
-        crate::migrations::run_migrations(&pool).await.unwrap();
-        pool
+        (pool, tmp)
     }
 
-    async fn insert_peer(pool: &SqlitePool, peer_id: &str) {
-        sqlx::query("INSERT INTO peers (peer_id, address) VALUES (?1, '127.0.0.1:119')")
+    async fn insert_peer(pool: &AnyPool, peer_id: &str) {
+        sqlx::query("INSERT INTO peers (peer_id, address) VALUES (?, '127.0.0.1:119')")
             .bind(peer_id)
             .execute(pool)
             .await
@@ -139,7 +128,7 @@ mod tests {
 
     #[tokio::test]
     async fn update_and_query_groups() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         insert_peer(&pool, "peer1").await;
         let groups = &["comp.lang.rust", "sci.math", "alt.test"];
         update_peer_groups(&pool, "peer1", groups, NOW)
@@ -155,7 +144,7 @@ mod tests {
 
     #[tokio::test]
     async fn update_replaces_previous_groups() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         insert_peer(&pool, "peer1").await;
         update_peer_groups(&pool, "peer1", &["comp.lang.rust", "sci.math"], NOW)
             .await
@@ -170,7 +159,7 @@ mod tests {
 
     #[tokio::test]
     async fn peers_serving_group_returns_correct_peers() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         insert_peer(&pool, "peer1").await;
         insert_peer(&pool, "peer2").await;
         insert_peer(&pool, "peer3").await;
@@ -194,7 +183,7 @@ mod tests {
 
     #[tokio::test]
     async fn peer_serves_group_true_and_false() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         insert_peer(&pool, "peer1").await;
         update_peer_groups(&pool, "peer1", &["comp.lang.rust"], NOW)
             .await
@@ -208,7 +197,7 @@ mod tests {
 
     #[tokio::test]
     async fn clear_peer_groups_removes_all() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         insert_peer(&pool, "peer1").await;
         update_peer_groups(&pool, "peer1", &["comp.lang.rust", "alt.test"], NOW)
             .await
@@ -219,7 +208,7 @@ mod tests {
 
     #[tokio::test]
     async fn unknown_peer_returns_empty_groups() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let result = groups_for_peer(&pool, "unknown").await.unwrap();
         assert!(result.is_empty());
     }

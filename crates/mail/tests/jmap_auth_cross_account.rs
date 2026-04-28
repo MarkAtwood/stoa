@@ -12,8 +12,6 @@
 //!   "If the `accountId` does not correspond to a valid account, the method
 //!   MUST return an `accountNotFound` error."
 
-use std::str::FromStr as _;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -29,8 +27,6 @@ use stoa_reader::{
     store::{article_numbers::ArticleNumberStore, overview::OverviewStore},
 };
 use tokio::net::TcpListener;
-
-static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
 
 // ── Minimal in-memory IPFS store ──────────────────────────────────────────────
 
@@ -75,65 +71,50 @@ impl IpfsBlockStore for MemIpfs {
 
 // ── Pool helpers ───────────────────────────────────────────────────────────────
 
-async fn make_reader_pool(tag: &str) -> sqlx::SqlitePool {
-    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
-    let url = format!("file:auth_reader_{tag}_{n}?mode=memory&cache=shared");
-    let opts = sqlx::sqlite::SqliteConnectOptions::from_str(&url)
-        .expect("valid url")
-        .create_if_missing(true);
-    let pool = sqlx::sqlite::SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
-        .await
-        .expect("reader pool");
-    stoa_reader::migrations::run_migrations(&pool)
+async fn make_reader_pool(_tag: &str) -> (sqlx::AnyPool, tempfile::TempPath) {
+    let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+    let url = format!("sqlite://{}", tmp.to_str().unwrap());
+    stoa_reader::migrations::run_migrations(&url)
         .await
         .expect("reader migrations");
-    pool
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+        .await
+        .expect("reader pool");
+    (pool, tmp)
 }
 
-async fn make_mail_pool(tag: &str) -> sqlx::SqlitePool {
-    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
-    let url = format!("file:auth_mail_{tag}_{n}?mode=memory&cache=shared");
-    let opts = sqlx::sqlite::SqliteConnectOptions::from_str(&url)
-        .expect("valid url")
-        .create_if_missing(true);
-    let pool = sqlx::sqlite::SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
-        .await
-        .expect("mail pool");
-    stoa_mail::migrations::run_migrations(&pool)
+async fn make_mail_pool(_tag: &str) -> (sqlx::AnyPool, tempfile::TempPath) {
+    let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+    let url = format!("sqlite://{}", tmp.to_str().unwrap());
+    stoa_mail::migrations::run_migrations(&url)
         .await
         .expect("mail migrations");
-    pool
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+        .await
+        .expect("mail pool");
+    (pool, tmp)
 }
 
-async fn make_core_pool(tag: &str) -> sqlx::SqlitePool {
-    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
-    let url = format!("file:auth_core_{tag}_{n}?mode=memory&cache=shared");
-    let opts = sqlx::sqlite::SqliteConnectOptions::from_str(&url)
-        .expect("valid url")
-        .create_if_missing(true);
-    let pool = sqlx::sqlite::SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
-        .await
-        .expect("core pool");
-    stoa_core::migrations::run_migrations(&pool)
+async fn make_core_pool(_tag: &str) -> (sqlx::AnyPool, tempfile::TempPath) {
+    let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+    let url = format!("sqlite://{}", tmp.to_str().unwrap());
+    stoa_core::migrations::run_migrations(&url)
         .await
         .expect("core migrations");
-    pool
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+        .await
+        .expect("core pool");
+    (pool, tmp)
 }
 
 /// Spin up a dev-mode JMAP server and return its base URL.
 ///
 /// Dev mode: no HTTP authentication required, canonical accountId = `u_anonymous`.
 async fn spawn_dev_server(tag: &str) -> String {
-    let reader_pool = make_reader_pool(tag).await;
-    let mail_pool = make_mail_pool(tag).await;
+    let (reader_pool, _reader_tmp) = make_reader_pool(tag).await;
+    let (mail_pool, _mail_tmp) = make_mail_pool(tag).await;
     let mail_pool_arc = Arc::new(mail_pool);
-    let core_pool = make_core_pool(tag).await;
+    let (core_pool, _core_tmp) = make_core_pool(tag).await;
 
     let ipfs = Arc::new(MemIpfs::new());
     let jmap_stores = Arc::new(JmapStores {

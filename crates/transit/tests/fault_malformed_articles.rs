@@ -8,8 +8,6 @@
 //! (reject codes), and the mandatory-header list in RFC 1036 §2.1.
 
 use proptest::prelude::*;
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-use std::str::FromStr as _;
 use stoa_core::msgid_map::MsgIdMap;
 use stoa_transit::peering::ingestion::{check_ingest, ihave_response, IngestResult};
 
@@ -21,15 +19,8 @@ use stoa_transit::peering::ingestion::{check_ingest, ihave_response, IngestResul
 async fn make_msgid_map() -> (MsgIdMap, tempfile::TempPath) {
     let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
     let url = format!("sqlite://{}", tmp.to_str().unwrap());
-    let opts = SqliteConnectOptions::from_str(&url)
-        .unwrap()
-        .create_if_missing(true);
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
-        .await
-        .unwrap();
-    stoa_core::migrations::run_migrations(&pool).await.unwrap();
+    stoa_core::migrations::run_migrations(&url).await.unwrap();
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1).await.unwrap();
     (MsgIdMap::new(pool), tmp)
 }
 

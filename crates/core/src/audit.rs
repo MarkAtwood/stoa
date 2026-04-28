@@ -6,7 +6,7 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde::{Deserialize, Serialize};
-use sqlx::SqlitePool;
+use sqlx::AnyPool;
 
 use crate::error::StorageError;
 
@@ -108,7 +108,7 @@ impl AuditEvent {
 
 /// Append an audit event to the `audit_log` table.
 pub async fn append_audit_event(
-    pool: &SqlitePool,
+    pool: &AnyPool,
     timestamp_ms: i64,
     event: &AuditEvent,
 ) -> Result<(), StorageError> {
@@ -126,7 +126,7 @@ pub async fn append_audit_event(
 
 /// Read the N most recent audit events (all types).
 pub async fn recent_audit_events(
-    pool: &SqlitePool,
+    pool: &AnyPool,
     limit: i64,
 ) -> Result<Vec<(i64, AuditEvent)>, StorageError> {
     let rows = sqlx::query_as::<_, (i64, String)>(
@@ -290,7 +290,7 @@ pub enum AuditBackend {
 /// file cannot be opened.
 pub fn build_audit_logger(
     config: &AuditConfig,
-    pool: &sqlx::SqlitePool,
+    pool: &AnyPool,
 ) -> Result<std::sync::Arc<dyn AuditLogger>, String> {
     match config.backend {
         AuditBackend::Sqlite => {
@@ -317,7 +317,7 @@ pub fn build_audit_logger(
 /// remaining events and exit; call `handle.shutdown().await` to wait for
 /// completion.
 pub fn start_audit_logger(
-    pool: sqlx::SqlitePool,
+    pool: AnyPool,
     batch_size: usize,
     flush_interval: std::time::Duration,
 ) -> AuditLoggerHandle {
@@ -327,7 +327,7 @@ pub fn start_audit_logger(
 }
 
 async fn audit_logger_task(
-    pool: sqlx::SqlitePool,
+    pool: AnyPool,
     mut rx: tokio::sync::mpsc::Receiver<AuditEvent>,
     batch_size: usize,
     flush_interval: std::time::Duration,
@@ -363,7 +363,7 @@ async fn audit_logger_task(
     }
 }
 
-async fn flush_buffer(pool: &sqlx::SqlitePool, buffer: &mut Vec<AuditEvent>) {
+async fn flush_buffer(pool: &AnyPool, buffer: &mut Vec<AuditEvent>) {
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
@@ -429,21 +429,13 @@ async fn flush_buffer(pool: &sqlx::SqlitePool, buffer: &mut Vec<AuditEvent>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-    use std::str::FromStr as _;
+    use crate::db_pool::try_open_any_pool;
 
-    async fn make_pool() -> (SqlitePool, tempfile::TempPath) {
+    async fn make_pool() -> (AnyPool, tempfile::TempPath) {
         let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
         let url = format!("sqlite://{}", tmp.to_str().unwrap());
-        let opts = SqliteConnectOptions::from_str(&url)
-            .unwrap()
-            .create_if_missing(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
-            .await
-            .unwrap();
-        crate::migrations::run_migrations(&pool).await.unwrap();
+        crate::migrations::run_migrations(&url).await.unwrap();
+        let pool = try_open_any_pool(&url, 1).await.unwrap();
         (pool, tmp)
     }
 

@@ -6,13 +6,13 @@
 //!
 //! A background task calls `save_hlc_checkpoint` every 30 seconds.
 
-use sqlx::SqlitePool;
+use sqlx::AnyPool;
 use stoa_core::hlc::HlcTimestamp;
 
 /// Load the persisted HLC checkpoint.
 ///
 /// Returns `Ok(None)` on first run (table row does not exist yet).
-pub async fn load_hlc_checkpoint(pool: &SqlitePool) -> Result<Option<HlcTimestamp>, sqlx::Error> {
+pub async fn load_hlc_checkpoint(pool: &AnyPool) -> Result<Option<HlcTimestamp>, sqlx::Error> {
     let row: Option<(i64, i64)> =
         sqlx::query_as("SELECT wall_ms, logical FROM hlc_checkpoint WHERE id = 1")
             .fetch_optional(pool)
@@ -30,7 +30,7 @@ pub async fn load_hlc_checkpoint(pool: &SqlitePool) -> Result<Option<HlcTimestam
 ///
 /// Best-effort: errors are logged but not propagated to the caller.
 pub async fn save_hlc_checkpoint(
-    pool: &SqlitePool,
+    pool: &AnyPool,
     ts: HlcTimestamp,
     now_ms: u64,
 ) -> Result<(), sqlx::Error> {

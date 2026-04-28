@@ -81,58 +81,37 @@ impl IpfsBlockStore for MemIpfs {
 // Tests use on-disk SQLite backed by a tempdir so they exercise the same
 // code path as production deployments (disk + WAL mode).
 
-async fn make_core_pool(dir: &tempfile::TempDir) -> sqlx::SqlitePool {
+async fn make_core_pool(dir: &tempfile::TempDir) -> sqlx::AnyPool {
     let path = dir.path().join("core.db");
     let url = format!("sqlite://{}", path.display());
-    let opts = <sqlx::sqlite::SqliteConnectOptions as std::str::FromStr>::from_str(&url)
-        .unwrap()
-        .create_if_missing(true)
-        .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal);
-    let pool = sqlx::sqlite::SqlitePoolOptions::new()
-        .max_connections(4)
-        .connect_with(opts)
-        .await
-        .expect("core pool");
-    stoa_core::migrations::run_migrations(&pool)
+    stoa_core::migrations::run_migrations(&url)
         .await
         .expect("core migrations");
-    pool
+    stoa_core::db_pool::try_open_any_pool(&url, 4)
+        .await
+        .expect("core pool")
 }
 
-async fn make_reader_pool(dir: &tempfile::TempDir) -> sqlx::SqlitePool {
+async fn make_reader_pool(dir: &tempfile::TempDir) -> sqlx::AnyPool {
     let path = dir.path().join("reader.db");
     let url = format!("sqlite://{}", path.display());
-    let opts = <sqlx::sqlite::SqliteConnectOptions as std::str::FromStr>::from_str(&url)
-        .unwrap()
-        .create_if_missing(true)
-        .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal);
-    let pool = sqlx::sqlite::SqlitePoolOptions::new()
-        .max_connections(4)
-        .connect_with(opts)
-        .await
-        .expect("reader pool");
-    stoa_reader::migrations::run_migrations(&pool)
+    stoa_reader::migrations::run_migrations(&url)
         .await
         .expect("reader migrations");
-    pool
+    stoa_core::db_pool::try_open_any_pool(&url, 4)
+        .await
+        .expect("reader pool")
 }
 
-async fn make_verify_pool(dir: &tempfile::TempDir) -> sqlx::SqlitePool {
+async fn make_verify_pool(dir: &tempfile::TempDir) -> sqlx::AnyPool {
     let path = dir.path().join("verify.db");
     let url = format!("sqlite://{}", path.display());
-    let opts = <sqlx::sqlite::SqliteConnectOptions as std::str::FromStr>::from_str(&url)
-        .unwrap()
-        .create_if_missing(true)
-        .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal);
-    let pool = sqlx::sqlite::SqlitePoolOptions::new()
-        .max_connections(4)
-        .connect_with(opts)
-        .await
-        .expect("verify pool");
-    stoa_verify::run_migrations(&pool)
+    stoa_verify::run_migrations(&url)
         .await
         .expect("verify migrations");
-    pool
+    stoa_core::db_pool::try_open_any_pool(&url, 4)
+        .await
+        .expect("verify pool")
 }
 
 // ── Config helper ─────────────────────────────────────────────────────────────

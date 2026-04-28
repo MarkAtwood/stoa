@@ -5,7 +5,7 @@
 //! content is still available (e.g., from IPFS block store walk).
 
 use cid::Cid;
-use sqlx::SqlitePool;
+use sqlx::AnyPool;
 use stoa_core::error::StorageError;
 use stoa_core::validation::validate_message_id;
 
@@ -59,7 +59,7 @@ impl Default for ReindexConfig {
 /// Logs progress every `config.progress_interval` items.
 pub async fn run_reindex<I>(
     articles: I,
-    pool: &SqlitePool,
+    pool: &AnyPool,
     config: &ReindexConfig,
 ) -> Result<ReindexSummary, StorageError>
 where
@@ -102,13 +102,15 @@ where
 
         // Insert, skipping if already present
         let cid_str = cid.to_string();
-        let result =
-            sqlx::query("INSERT OR IGNORE INTO msgid_map (message_id, cid) VALUES (?1, ?2)")
-                .bind(&msg_id)
-                .bind(&cid_str)
-                .execute(pool)
-                .await
-                .map_err(|e| StorageError::Database(e.to_string()))?;
+        let result = sqlx::query(
+            "INSERT INTO msgid_map (message_id, cid) VALUES (?, ?) \
+             ON CONFLICT (message_id) DO NOTHING",
+        )
+        .bind(&msg_id)
+        .bind(&cid_str)
+        .execute(pool)
+        .await
+        .map_err(|e| StorageError::Database(e.to_string()))?;
 
         if result.rows_affected() == 0 {
             summary.skipped_duplicate += 1;
@@ -126,7 +128,7 @@ where
 }
 
 /// Ensure the msgid_map table exists (idempotent).
-async fn ensure_msgid_map(pool: &SqlitePool) -> Result<(), StorageError> {
+async fn ensure_msgid_map(pool: &AnyPool) -> Result<(), StorageError> {
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS msgid_map (\
             message_id TEXT PRIMARY KEY NOT NULL,\
@@ -165,26 +167,16 @@ mod tests {
     use super::*;
     use cid::Cid;
     use multihash_codetable::{Code, MultihashDigest};
-    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-    use std::sync::atomic::{AtomicUsize, Ordering};
-
-    static COUNTER: AtomicUsize = AtomicUsize::new(0);
 
     fn make_cid(data: &[u8]) -> Cid {
         Cid::new_v1(0x71, Code::Sha2_256.digest(data))
     }
 
-    async fn make_pool() -> sqlx::SqlitePool {
-        let n = COUNTER.fetch_add(1, Ordering::Relaxed);
-        let url = format!("file:reindex_{n}?mode=memory&cache=shared");
-        let opts = SqliteConnectOptions::new()
-            .filename(&url)
-            .create_if_missing(true);
-        SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
-            .await
-            .unwrap()
+    async fn make_pool() -> (AnyPool, tempfile::TempPath) {
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1).await.unwrap();
+        (pool, tmp)
     }
 
     fn make_article(n: u8, msgid: &str) -> (Cid, Vec<u8>) {
@@ -196,7 +188,7 @@ mod tests {
 
     #[tokio::test]
     async fn reindex_20_articles_all_indexed() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let articles: Vec<(Cid, Vec<u8>)> = (0u8..20)
             .map(|i| make_article(i, &format!("<msg{i}@test.com>")))
             .collect();
@@ -210,7 +202,7 @@ mod tests {
 
     #[tokio::test]
     async fn reindex_skips_non_articles() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let raw = b"Content-Type: application/octet-stream\r\n\r\nBinary data".to_vec();
         let articles = vec![(make_cid(b"binary"), raw)];
         let config = ReindexConfig::default();
@@ -221,7 +213,7 @@ mod tests {
 
     #[tokio::test]
     async fn reindex_skips_duplicates() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let article = make_article(0, "<dup@test.com>");
         let config = ReindexConfig::default();
         run_reindex(vec![article.clone()], &pool, &config)
@@ -234,7 +226,7 @@ mod tests {
 
     #[tokio::test]
     async fn reindex_dry_run_does_not_write() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let articles: Vec<(Cid, Vec<u8>)> = (0u8..5)
             .map(|i| make_article(i, &format!("<dry{i}@test.com>")))
             .collect();

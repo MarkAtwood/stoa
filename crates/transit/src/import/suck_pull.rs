@@ -1,6 +1,6 @@
 //! Pull-style import: fetch new articles from a remote NNTP server via NEWNEWS.
 
-use sqlx::SqlitePool;
+use sqlx::AnyPool;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use stoa_core::{error::StorageError, msgid_map::MsgIdMap};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -49,7 +49,7 @@ impl std::fmt::Display for SuckPullSummary {
 ///
 /// [`check_ingest`]: crate::peering::ingestion::check_ingest
 pub async fn run_suck_pull(
-    pool: &SqlitePool,
+    pool: &AnyPool,
     config: &SuckPullConfig,
     ingestion_sender: &crate::peering::ingestion_queue::IngestionSender,
     msgid_map: &MsgIdMap,
@@ -230,7 +230,7 @@ pub async fn run_suck_pull(
 
 // ── Cursor helpers ─────────────────────────────────────────────────────────────
 
-async fn ensure_cursor_table(pool: &SqlitePool) -> Result<(), StorageError> {
+async fn ensure_cursor_table(pool: &AnyPool) -> Result<(), StorageError> {
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS suck_pull_cursor (\
             group_name TEXT PRIMARY KEY NOT NULL,\
@@ -243,7 +243,7 @@ async fn ensure_cursor_table(pool: &SqlitePool) -> Result<(), StorageError> {
     Ok(())
 }
 
-async fn read_cursor(pool: &SqlitePool, group: &str) -> Result<Option<u64>, StorageError> {
+async fn read_cursor(pool: &AnyPool, group: &str) -> Result<Option<u64>, StorageError> {
     let row: Option<(i64,)> =
         sqlx::query_as("SELECT last_fetched_unix FROM suck_pull_cursor WHERE group_name = ?")
             .bind(group)
@@ -253,9 +253,10 @@ async fn read_cursor(pool: &SqlitePool, group: &str) -> Result<Option<u64>, Stor
     Ok(row.map(|(ts,)| ts as u64))
 }
 
-async fn update_cursor(pool: &SqlitePool, group: &str, unix_secs: u64) -> Result<(), StorageError> {
+async fn update_cursor(pool: &AnyPool, group: &str, unix_secs: u64) -> Result<(), StorageError> {
     sqlx::query(
-        "INSERT OR REPLACE INTO suck_pull_cursor (group_name, last_fetched_unix) VALUES (?, ?)",
+        "INSERT INTO suck_pull_cursor (group_name, last_fetched_unix) VALUES (?, ?) \
+         ON CONFLICT (group_name) DO UPDATE SET last_fetched_unix = EXCLUDED.last_fetched_unix",
     )
     .bind(group)
     .bind(unix_secs as i64)
@@ -475,31 +476,20 @@ mod tests {
 
     #[tokio::test]
     async fn run_suck_pull_connection_refused_fails_gracefully() {
-        use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-        use std::str::FromStr as _;
         use stoa_core::msgid_map::MsgIdMap;
 
         // Use a port that nothing is listening on
-        let pool_url = "file:suck_test?mode=memory&cache=shared";
-        let opts = sqlx::sqlite::SqliteConnectOptions::new()
-            .filename(pool_url)
-            .create_if_missing(true);
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
+        let tmp_transit = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let transit_url = format!("sqlite://{}", tmp_transit.to_str().unwrap());
+        let pool = stoa_core::db_pool::try_open_any_pool(&transit_url, 1)
             .await
             .unwrap();
 
-        // Build a MsgIdMap backed by a temp in-memory pool.
-        let core_opts = SqliteConnectOptions::from_str("sqlite::memory:")
-            .unwrap()
-            .create_if_missing(true);
-        let core_pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(core_opts)
-            .await
-            .unwrap();
-        stoa_core::migrations::run_migrations(&core_pool)
+        // Build a MsgIdMap backed by a temp file pool.
+        let tmp_core = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let core_url = format!("sqlite://{}", tmp_core.to_str().unwrap());
+        stoa_core::migrations::run_migrations(&core_url).await.unwrap();
+        let core_pool = stoa_core::db_pool::try_open_any_pool(&core_url, 1)
             .await
             .unwrap();
         let msgid_map = MsgIdMap::new(core_pool);

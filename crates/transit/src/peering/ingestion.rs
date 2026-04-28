@@ -331,22 +331,15 @@ fn has_header(article_bytes: &[u8], name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-    use std::str::FromStr as _;
 
     async fn make_msgid_map() -> (MsgIdMap, tempfile::TempPath) {
         // Use a unique temp file per test to avoid shared-memory migration races.
         let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
         let url = format!("sqlite://{}", tmp.to_str().unwrap());
-        let opts = SqliteConnectOptions::from_str(&url)
-            .unwrap()
-            .create_if_missing(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
+        stoa_core::migrations::run_migrations(&url).await.unwrap();
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
             .await
             .unwrap();
-        stoa_core::migrations::run_migrations(&pool).await.unwrap();
         (MsgIdMap::new(pool), tmp)
     }
 

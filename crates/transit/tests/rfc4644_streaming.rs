@@ -9,8 +9,6 @@
 use cid::Cid;
 use ed25519_dalek::SigningKey;
 use multihash_codetable::{Code, MultihashDigest};
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-use std::str::FromStr as _;
 use std::sync::Arc;
 use stoa_core::{group_log::MemLogStorage, hlc::HlcTimestamp, msgid_map::MsgIdMap};
 use stoa_transit::peering::{
@@ -24,19 +22,12 @@ use stoa_transit::peering::{
 
 // ── Test helpers ──────────────────────────────────────────────────────────────
 
-async fn make_transit_pool() -> sqlx::SqlitePool {
-    let opts = SqliteConnectOptions::from_str("sqlite::memory:")
-        .unwrap()
-        .create_if_missing(true);
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
-        .await
-        .unwrap();
-    stoa_transit::migrations::run_migrations(&pool)
-        .await
-        .unwrap();
-    pool
+async fn make_transit_pool() -> (sqlx::AnyPool, tempfile::TempPath) {
+    let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+    let url = format!("sqlite://{}", tmp.to_str().unwrap());
+    stoa_transit::migrations::run_migrations(&url).await.unwrap();
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1).await.unwrap();
+    (pool, tmp)
 }
 
 /// Create an isolated MsgIdMap backed by a temporary SQLite file.
@@ -46,15 +37,8 @@ async fn make_transit_pool() -> sqlx::SqlitePool {
 async fn make_msgid_map() -> (MsgIdMap, tempfile::TempPath) {
     let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
     let url = format!("sqlite://{}", tmp.to_str().unwrap());
-    let opts = SqliteConnectOptions::from_str(&url)
-        .unwrap()
-        .create_if_missing(true);
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
-        .await
-        .unwrap();
-    stoa_core::migrations::run_migrations(&pool).await.unwrap();
+    stoa_core::migrations::run_migrations(&url).await.unwrap();
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1).await.unwrap();
     (MsgIdMap::new(pool), tmp)
 }
 
@@ -198,7 +182,7 @@ async fn streaming_check_takethis_100_articles() {
     let ipfs = MemIpfsStore::new();
     let log_storage = MemLogStorage::new();
     let key = make_signing_key();
-    let transit_pool = make_transit_pool().await;
+    let (transit_pool, _tmp_transit) = make_transit_pool().await;
 
     let mut accepted = 0u32;
 

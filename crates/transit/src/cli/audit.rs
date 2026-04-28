@@ -1,6 +1,6 @@
 //! CLI subcommand: audit-export — query and export the audit log.
 
-use sqlx::SqlitePool;
+use sqlx::AnyPool;
 use stoa_core::StorageError;
 
 /// Filters for the audit export command.
@@ -27,7 +27,7 @@ impl AuditExportFilter {
 ///
 /// Each line is one JSON object. Empty result produces an empty string.
 pub async fn cmd_audit_export(
-    pool: &SqlitePool,
+    pool: &AnyPool,
     filter: &AuditExportFilter,
 ) -> Result<String, StorageError> {
     let rows = sqlx::query_as::<_, (i64, String, String)>(
@@ -66,22 +66,16 @@ pub async fn cmd_audit_export(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-    use std::str::FromStr as _;
+    use sqlx::AnyPool;
     use stoa_core::audit::{append_audit_event, AuditEvent};
 
-    async fn make_pool() -> (SqlitePool, tempfile::TempPath) {
+    async fn make_pool() -> (AnyPool, tempfile::TempPath) {
         let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
         let url = format!("sqlite://{}", tmp.to_str().unwrap());
-        let opts = SqliteConnectOptions::from_str(&url)
-            .unwrap()
-            .create_if_missing(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
+        stoa_core::migrations::run_migrations(&url).await.unwrap();
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
             .await
             .unwrap();
-        stoa_core::migrations::run_migrations(&pool).await.unwrap();
         (pool, tmp)
     }
 

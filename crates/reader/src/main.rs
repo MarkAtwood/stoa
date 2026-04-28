@@ -69,9 +69,9 @@ fn parse_args() -> (PathBuf, bool, Vec<PathBuf>) {
 ///
 /// Each `backup_file` must be a valid SQLite file (verified by magic header).
 /// The destination path is determined by the filename prefix:
-/// - `reader-*.db` → `db.reader_path` (reader schema)
-/// - `core-*.db`   → `db.core_path` (core schema)
-/// - `verify-*.db` → `db.verify_path` (verify schema)
+/// - `reader-*.db` → `db.reader_url` (reader schema)
+/// - `core-*.db`   → `db.core_url` (core schema)
+/// - `verify-*.db` → `db.verify_url` (verify schema)
 ///
 /// Files with unrecognised prefixes are skipped with a warning.
 /// Exits 0 after all files are restored.
@@ -98,12 +98,12 @@ fn cmd_restore(backup_files: &[PathBuf], db: &stoa_reader::config::DatabaseConfi
             std::process::exit(1);
         }
 
-        let dest = if stem.starts_with("reader-") {
-            &db.reader_path
+        let dest_url = if stem.starts_with("reader-") {
+            &db.reader_url
         } else if stem.starts_with("core-") {
-            &db.core_path
+            &db.core_url
         } else if stem.starts_with("verify-") {
-            &db.verify_path
+            &db.verify_url
         } else {
             eprintln!(
                 "warning: skipping {}: unrecognised prefix (expected reader-, core-, or verify-)",
@@ -111,6 +111,11 @@ fn cmd_restore(backup_files: &[PathBuf], db: &stoa_reader::config::DatabaseConfi
             );
             continue;
         };
+
+        // Strip sqlite:// prefix to get the filesystem path.
+        let dest = dest_url
+            .strip_prefix("sqlite://")
+            .unwrap_or(dest_url.as_str());
 
         if let Some(parent) = std::path::Path::new(dest).parent() {
             if !parent.as_os_str().is_empty() {
@@ -299,6 +304,7 @@ fn cmd_keygen(args: &[String]) -> ! {
 
 #[tokio::main]
 async fn main() {
+    sqlx::any::install_default_drivers();
     let (config_path, check_only, restore_files) = parse_args();
 
     let config = match Config::from_file(&config_path) {

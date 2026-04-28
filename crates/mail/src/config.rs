@@ -41,20 +41,20 @@ pub struct TlsConfig {
     pub key_path: Option<String>,
 }
 
-fn default_database_path() -> String {
-    "/var/lib/stoa/mail/mail.db".to_string()
+fn default_database_url() -> String {
+    "sqlite:///var/lib/stoa/mail/mail.db".to_string()
 }
 
 #[derive(Debug, Deserialize)]
 pub struct DatabaseConfig {
-    #[serde(default = "default_database_path")]
-    pub path: String,
+    #[serde(default = "default_database_url")]
+    pub url: String,
 }
 
 impl Default for DatabaseConfig {
     fn default() -> Self {
         Self {
-            path: default_database_path(),
+            url: default_database_url(),
         }
     }
 }
@@ -167,9 +167,9 @@ impl Config {
             }
             _ => {}
         }
-        if self.database.path.is_empty() {
+        if self.database.url.is_empty() {
             return Err(ConfigError::Validation(
-                "database.path must not be empty".into(),
+                "database.url must not be empty".into(),
             ));
         }
         Ok(())
@@ -195,7 +195,7 @@ mod tests {
 addr = "127.0.0.1:8080"
 
 [database]
-path = "/var/lib/stoa/mail/mail.db"
+url = "sqlite:///var/lib/stoa/mail/mail.db"
 
 [auth]
 required = false
@@ -205,7 +205,7 @@ required = false
         let f = write_toml(toml);
         let cfg = Config::from_file(f.path()).expect("should parse");
         assert_eq!(cfg.listen.addr, "127.0.0.1:8080");
-        assert_eq!(cfg.database.path, "/var/lib/stoa/mail/mail.db");
+        assert_eq!(cfg.database.url, "sqlite:///var/lib/stoa/mail/mail.db");
         assert!(!cfg.auth.required);
         assert!(cfg.tls.cert_path.is_none());
         assert!(cfg.tls.key_path.is_none());
@@ -222,7 +222,7 @@ addr = "0.0.0.0:443"
 base_url = "https://mail.example.com"
 
 [database]
-path = "/var/lib/stoa/mail/mail.db"
+url = "sqlite:///var/lib/stoa/mail/mail.db"
 
 [auth]
 required = false
@@ -241,7 +241,7 @@ required = false
 addr = "127.0.0.1:8080"
 
 [database]
-path = "/var/lib/stoa/mail/mail.db"
+url = "sqlite:///var/lib/stoa/mail/mail.db"
 
 [auth]
 required = false
@@ -258,7 +258,7 @@ cert_path = "/etc/ssl/certs/jmap.pem"
     fn missing_listen_is_parse_error() {
         let toml = r#"
 [database]
-path = "/var/lib/stoa/mail/mail.db"
+url = "sqlite:///var/lib/stoa/mail/mail.db"
 
 [auth]
 required = false
@@ -277,7 +277,7 @@ required = false
 addr = ""
 
 [database]
-path = "/var/lib/stoa/mail/mail.db"
+url = "sqlite:///var/lib/stoa/mail/mail.db"
 
 [auth]
 required = false
@@ -296,7 +296,7 @@ required = false
 addr = "127.0.0.1:8080"
 
 [database]
-path = ""
+url = ""
 
 [auth]
 required = false
@@ -315,7 +315,7 @@ required = false
 addr = "127.0.0.1:8080"
 
 [database]
-path = "/var/lib/stoa/mail/mail.db"
+url = "sqlite:///var/lib/stoa/mail/mail.db"
 
 [auth]
 required = false
@@ -358,6 +358,6 @@ required = false
 "#;
         let f = write_toml(toml);
         let cfg = Config::from_file(f.path()).expect("should parse");
-        assert_eq!(cfg.database.path, "/var/lib/stoa/mail/mail.db");
+        assert_eq!(cfg.database.url, "sqlite:///var/lib/stoa/mail/mail.db");
     }
 }

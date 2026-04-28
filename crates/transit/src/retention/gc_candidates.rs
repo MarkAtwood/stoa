@@ -2,7 +2,7 @@
 //! eligible for unpinning.
 
 use cid::Cid;
-use sqlx::SqlitePool;
+use sqlx::AnyPool;
 use stoa_core::error::StorageError;
 
 use crate::retention::policy::{ArticleMeta, PinPolicy};
@@ -44,7 +44,7 @@ pub struct GcArticleRecord {
 /// Do NOT inline the policy into a SQL WHERE clause; the semantics would
 /// be incorrect for cross-posted articles and multi-rule policies.
 pub async fn select_gc_candidates(
-    pool: &SqlitePool,
+    pool: &AnyPool,
     policy: &PinPolicy,
     now_ms: u64,
     grace_period_ms: u64,
@@ -54,7 +54,7 @@ pub async fn select_gc_candidates(
     let rows: Vec<(String, String, i64, i64)> = sqlx::query_as(
         "SELECT cid, group_name, ingested_at_ms, byte_count
          FROM articles
-         WHERE ingested_at_ms < ?1",
+         WHERE ingested_at_ms < ?",
     )
     .bind(cutoff_ms)
     .fetch_all(pool)
@@ -104,14 +104,15 @@ mod tests {
     use crate::retention::policy::PinRule;
     use cid::Cid;
     use multihash_codetable::{Code, MultihashDigest};
-    use sqlx::SqlitePool;
 
-    async fn make_pool() -> SqlitePool {
-        let pool = SqlitePool::connect("sqlite::memory:")
+    async fn make_pool() -> (AnyPool, tempfile::TempPath) {
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        run_migrations(&url).await.expect("migrations");
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
             .await
-            .expect("in-memory pool");
-        run_migrations(&pool).await.expect("migrations");
-        pool
+            .expect("pool");
+        (pool, tmp)
     }
 
     fn make_cid(data: &[u8]) -> Cid {
@@ -119,7 +120,7 @@ mod tests {
     }
 
     async fn insert_article(
-        pool: &SqlitePool,
+        pool: &AnyPool,
         cid: &Cid,
         group: &str,
         ingested_at_ms: i64,
@@ -127,7 +128,7 @@ mod tests {
     ) {
         let cid_str = cid.to_string();
         sqlx::query(
-            "INSERT INTO articles (cid, group_name, ingested_at_ms, byte_count) VALUES (?1, ?2, ?3, ?4)",
+            "INSERT INTO articles (cid, group_name, ingested_at_ms, byte_count) VALUES (?, ?, ?, ?)",
         )
         .bind(cid_str)
         .bind(group)
@@ -143,7 +144,7 @@ mod tests {
 
     #[tokio::test]
     async fn gc_candidates_empty_db_returns_empty() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let policy = PinPolicy::new(vec![]);
         let result = select_gc_candidates(&pool, &policy, NOW_MS, GRACE_MS)
             .await
@@ -153,7 +154,7 @@ mod tests {
 
     #[tokio::test]
     async fn gc_candidates_within_grace_excluded() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let cid = make_cid(b"within-grace");
         // Article ingested right at now_ms — well within the grace period
         insert_article(&pool, &cid, "comp.lang.rust", NOW_MS as i64, 512).await;
@@ -171,7 +172,7 @@ mod tests {
 
     #[tokio::test]
     async fn gc_candidates_pinned_excluded() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let old_ms = NOW_MS - GRACE_MS * 2;
         for i in 0u8..2 {
             let cid = make_cid(&[i]);
@@ -192,7 +193,7 @@ mod tests {
 
     #[tokio::test]
     async fn gc_candidates_unpinned_returned() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let old_ms = NOW_MS - GRACE_MS * 2;
         for i in 0u8..3 {
             let cid = make_cid(&[i]);

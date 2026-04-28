@@ -1,5 +1,4 @@
 use cid::Cid;
-use sqlx::SqlitePool;
 
 /// Per-user article flags: \Seen and \Flagged (JMAP keywords).
 pub struct Flags {
@@ -8,11 +7,11 @@ pub struct Flags {
 }
 
 pub struct UserFlagsStore {
-    pool: SqlitePool,
+    pool: sqlx::AnyPool,
 }
 
 impl UserFlagsStore {
-    pub fn new(pool: SqlitePool) -> Self {
+    pub fn new(pool: sqlx::AnyPool) -> Self {
         Self { pool }
     }
 
@@ -108,40 +107,30 @@ mod tests {
     use super::*;
     use cid::Cid;
     use multihash_codetable::{Code, MultihashDigest};
-    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-    use std::str::FromStr as _;
-    use std::sync::atomic::{AtomicUsize, Ordering};
-
-    static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
 
     fn test_cid(data: &[u8]) -> Cid {
         Cid::new_v1(0x71, Code::Sha2_256.digest(data))
     }
 
-    async fn make_store() -> UserFlagsStore {
-        let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
-        let url = format!("file:flags_test_{n}?mode=memory&cache=shared");
-        let opts = SqliteConnectOptions::from_str(&url)
-            .unwrap()
-            .create_if_missing(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
-            .await
-            .expect("pool");
-        crate::migrations::run_migrations(&pool)
+    async fn make_store() -> (UserFlagsStore, tempfile::TempPath) {
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        crate::migrations::run_migrations(&url)
             .await
             .expect("migrations");
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+            .await
+            .expect("pool");
         sqlx::query("INSERT INTO users (id, username, password_hash) VALUES (1, 'alice', 'x')")
             .execute(&pool)
             .await
             .expect("insert user");
-        UserFlagsStore::new(pool)
+        (UserFlagsStore::new(pool), tmp)
     }
 
     #[tokio::test]
     async fn get_flags_returns_none_for_unset() {
-        let store = make_store().await;
+        let (store, _tmp) = make_store().await;
         let cid = test_cid(b"article-1");
         let flags = store.get_flags(1, &cid).await.unwrap();
         assert!(flags.is_none());
@@ -149,7 +138,7 @@ mod tests {
 
     #[tokio::test]
     async fn set_and_get_flags() {
-        let store = make_store().await;
+        let (store, _tmp) = make_store().await;
         let cid = test_cid(b"article-2");
         store.set_flags(1, &cid, true, false).await.unwrap();
         let flags = store.get_flags(1, &cid).await.unwrap().expect("must exist");
@@ -159,7 +148,7 @@ mod tests {
 
     #[tokio::test]
     async fn toggle_seen_does_not_affect_flagged() {
-        let store = make_store().await;
+        let (store, _tmp) = make_store().await;
         let cid = test_cid(b"article-3");
         store.set_flags(1, &cid, false, true).await.unwrap();
         store.set_flags(1, &cid, true, true).await.unwrap();
@@ -170,7 +159,7 @@ mod tests {
 
     #[tokio::test]
     async fn list_cids_with_seen_flag() {
-        let store = make_store().await;
+        let (store, _tmp) = make_store().await;
         let c1 = test_cid(b"seen-article");
         let c2 = test_cid(b"unseen-article");
         store.set_flags(1, &c1, true, false).await.unwrap();

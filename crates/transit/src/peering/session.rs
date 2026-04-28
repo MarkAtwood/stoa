@@ -52,7 +52,7 @@ pub struct PeeringShared {
     /// multiplication.
     pub peer_rate_limiter: Arc<std::sync::Mutex<PeerRateLimiter>>,
     /// Transit SQLite pool for peer registry and blacklist lookups.
-    pub transit_pool: Arc<sqlx::SqlitePool>,
+    pub transit_pool: Arc<sqlx::AnyPool>,
     /// Blacklist policy configuration.
     pub blacklist_config: BlacklistConfig,
     /// Write-ahead staging store.  When `Some`, accepted articles are written

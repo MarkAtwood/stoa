@@ -321,27 +321,19 @@ mod tests {
     async fn keyword_update_sets_seen_flag() {
         use crate::state::flags::UserFlagsStore;
         use multihash_codetable::{Code, MultihashDigest};
-        use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-        use std::str::FromStr as _;
-        use std::sync::atomic::{AtomicUsize, Ordering};
 
-        static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
-        let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
-        let url = format!("file:kw_update_test_{n}?mode=memory&cache=shared");
-        let opts = SqliteConnectOptions::from_str(&url)
-            .unwrap()
-            .create_if_missing(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        crate::migrations::run_migrations(&url).await.unwrap();
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
             .await
-            .unwrap();
-        crate::migrations::run_migrations(&pool).await.unwrap();
+            .expect("pool");
         sqlx::query("INSERT INTO users (id, username, password_hash) VALUES (1, 'alice', 'x')")
             .execute(&pool)
             .await
             .unwrap();
         let flags_store = UserFlagsStore::new(pool);
+        let _tmp = tmp;
 
         let cid = cid::Cid::new_v1(0x71, Code::Sha2_256.digest(b"test-article"));
         let cid_str = cid.to_string();
@@ -371,12 +363,14 @@ mod tests {
     async fn email_create_produces_cid() {
         use stoa_reader::post::ipfs_write::MemIpfsStore;
 
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .connect("sqlite::memory:")
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        stoa_core::migrations::run_migrations(&url).await.unwrap();
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
             .await
-            .unwrap();
-        stoa_core::migrations::run_migrations(&pool).await.unwrap();
+            .expect("pool");
         let msgid_map = stoa_core::msgid_map::MsgIdMap::new(pool);
+        let _tmp = tmp;
         let ipfs = MemIpfsStore::new();
 
         let mut create_map = serde_json::Map::new();
@@ -397,15 +391,15 @@ mod tests {
         assert!(created["c1"]["id"].as_str().is_some());
     }
 
-    /// Helper: build a MsgIdMap on an in-memory SQLite pool with core migrations.
-    async fn make_msgid_map() -> stoa_core::msgid_map::MsgIdMap {
-        use sqlx::sqlite::SqlitePoolOptions;
-        let pool = SqlitePoolOptions::new()
-            .connect("sqlite::memory:")
+    /// Helper: build a MsgIdMap on a tempfile-backed AnyPool with core migrations.
+    async fn make_msgid_map() -> (stoa_core::msgid_map::MsgIdMap, tempfile::TempPath) {
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        stoa_core::migrations::run_migrations(&url).await.unwrap();
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
             .await
-            .unwrap();
-        stoa_core::migrations::run_migrations(&pool).await.unwrap();
-        stoa_core::msgid_map::MsgIdMap::new(pool)
+            .expect("pool");
+        (stoa_core::msgid_map::MsgIdMap::new(pool), tmp)
     }
 
     /// smtp_queue=None: no .env files written even when To: is present.
@@ -414,7 +408,7 @@ mod tests {
         use stoa_reader::post::ipfs_write::MemIpfsStore;
 
         let dir = tempfile::tempdir().expect("tempdir");
-        let msgid_map = make_msgid_map().await;
+        let (msgid_map, _tmp_msgid) = make_msgid_map().await;
         let ipfs = MemIpfsStore::new();
 
         let mut create_map = serde_json::Map::new();
@@ -463,7 +457,7 @@ mod tests {
             stoa_smtp::SmtpRelayQueue::new(dir.path(), vec![peer], Duration::from_secs(300))
                 .expect("queue");
 
-        let msgid_map = make_msgid_map().await;
+        let (msgid_map, _tmp_msgid) = make_msgid_map().await;
         let ipfs = MemIpfsStore::new();
 
         let mut create_map = serde_json::Map::new();
@@ -511,7 +505,7 @@ mod tests {
             stoa_smtp::SmtpRelayQueue::new(dir.path(), vec![peer], Duration::from_secs(300))
                 .expect("queue");
 
-        let msgid_map = make_msgid_map().await;
+        let (msgid_map, _tmp_msgid) = make_msgid_map().await;
         let ipfs = MemIpfsStore::new();
 
         let mut create_map = serde_json::Map::new();
@@ -561,7 +555,7 @@ mod tests {
         // Remove the queue directory so enqueue will fail with an I/O error.
         std::fs::remove_dir_all(dir.path()).expect("remove queue dir");
 
-        let msgid_map = make_msgid_map().await;
+        let (msgid_map, _tmp_msgid) = make_msgid_map().await;
         let ipfs = MemIpfsStore::new();
 
         let mut create_map = serde_json::Map::new();

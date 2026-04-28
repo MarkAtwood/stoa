@@ -4,8 +4,6 @@
 //! mail server in-process, then verifies Mailbox/get → Email/query →
 //! Email/get works end-to-end.
 
-use std::str::FromStr as _;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -25,8 +23,6 @@ use stoa_reader::{
     },
 };
 use tokio::net::TcpListener;
-
-static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
 
 // ── In-memory IPFS store using DAG-CBOR codec (0x71) ─────────────────────────
 
@@ -71,55 +67,40 @@ impl IpfsBlockStore for MemIpfs {
 
 // ── Pool helpers ───────────────────────────────────────────────────────────────
 
-async fn make_reader_pool() -> sqlx::SqlitePool {
-    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
-    let url = format!("file:e2e_reader_{n}?mode=memory&cache=shared");
-    let opts = sqlx::sqlite::SqliteConnectOptions::from_str(&url)
-        .expect("valid url")
-        .create_if_missing(true);
-    let pool = sqlx::sqlite::SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
-        .await
-        .expect("reader pool");
-    stoa_reader::migrations::run_migrations(&pool)
+async fn make_reader_pool() -> (sqlx::AnyPool, tempfile::TempPath) {
+    let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+    let url = format!("sqlite://{}", tmp.to_str().unwrap());
+    stoa_reader::migrations::run_migrations(&url)
         .await
         .expect("reader migrations");
-    pool
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+        .await
+        .expect("reader pool");
+    (pool, tmp)
 }
 
-async fn make_mail_pool() -> sqlx::SqlitePool {
-    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
-    let url = format!("file:e2e_mail_{n}?mode=memory&cache=shared");
-    let opts = sqlx::sqlite::SqliteConnectOptions::from_str(&url)
-        .expect("valid url")
-        .create_if_missing(true);
-    let pool = sqlx::sqlite::SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
-        .await
-        .expect("mail pool");
-    stoa_mail::migrations::run_migrations(&pool)
+async fn make_mail_pool() -> (sqlx::AnyPool, tempfile::TempPath) {
+    let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+    let url = format!("sqlite://{}", tmp.to_str().unwrap());
+    stoa_mail::migrations::run_migrations(&url)
         .await
         .expect("mail migrations");
-    pool
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+        .await
+        .expect("mail pool");
+    (pool, tmp)
 }
 
-async fn make_core_pool() -> sqlx::SqlitePool {
-    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
-    let url = format!("file:e2e_core_{n}?mode=memory&cache=shared");
-    let opts = sqlx::sqlite::SqliteConnectOptions::from_str(&url)
-        .expect("valid url")
-        .create_if_missing(true);
-    let pool = sqlx::sqlite::SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
-        .await
-        .expect("core pool");
-    stoa_core::migrations::run_migrations(&pool)
+async fn make_core_pool() -> (sqlx::AnyPool, tempfile::TempPath) {
+    let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+    let url = format!("sqlite://{}", tmp.to_str().unwrap());
+    stoa_core::migrations::run_migrations(&url)
         .await
         .expect("core migrations");
-    pool
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+        .await
+        .expect("core pool");
+    (pool, tmp)
 }
 
 // ── Test ───────────────────────────────────────────────────────────────────────
@@ -134,9 +115,9 @@ async fn jmap_session_e2e() {
 
     // Build stores.
     let ipfs = Arc::new(MemIpfs::new());
-    let reader_pool = make_reader_pool().await;
-    let mail_pool = make_mail_pool().await;
-    let core_pool = make_core_pool().await;
+    let (reader_pool, _reader_tmp) = make_reader_pool().await;
+    let (mail_pool, _mail_tmp) = make_mail_pool().await;
+    let (core_pool, _core_tmp) = make_core_pool().await;
 
     let article_numbers = Arc::new(ArticleNumberStore::new(reader_pool.clone()));
     let overview_store = Arc::new(OverviewStore::new(reader_pool));

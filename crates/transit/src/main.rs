@@ -91,9 +91,9 @@ fn parse_args() -> (PathBuf, bool, Vec<PathBuf>) {
 ///
 /// Each `backup_file` must be a valid SQLite file (verified by magic header).
 /// The destination path is determined by the filename prefix:
-/// - `transit-*.db` → `db.path` (transit schema)
-/// - `core-*.db`    → `db.core_path` (core schema)
-/// - `verify-*.db`  → `db.verify_path` (verify schema)
+/// - `transit-*.db` → `db.url` (transit schema)
+/// - `core-*.db`    → `db.core_url` (core schema)
+/// - `verify-*.db`  → `db.verify_url` (verify schema)
 ///
 /// Files with unrecognised prefixes are skipped with a warning.
 /// Exits 0 after all files are restored.
@@ -120,12 +120,19 @@ fn cmd_restore(backup_files: &[PathBuf], db: &stoa_transit::config::DatabaseConf
             std::process::exit(1);
         }
 
+        // Strip "sqlite://" prefix if present to get the file path.
+        fn url_to_path(url: &str) -> &str {
+            url.strip_prefix("sqlite://")
+                .unwrap_or(url)
+                .trim_start_matches('/')
+        }
+
         let dest = if stem.starts_with("transit-") {
-            &db.path
+            url_to_path(&db.url)
         } else if stem.starts_with("core-") {
-            &db.core_path
+            url_to_path(&db.core_url)
         } else if stem.starts_with("verify-") {
-            &db.verify_path
+            url_to_path(&db.verify_url)
         } else {
             eprintln!(
                 "warning: skipping {}: unrecognised prefix (expected transit-, core-, or verify-)",
@@ -357,7 +364,7 @@ fn publish_ipns_tip(
 async fn enqueue_pin_jobs(
     result: &stoa_transit::peering::pipeline::PipelineResult,
     pin_service_filters: &[(String, Option<Arc<GroupFilter>>)],
-    pool: &sqlx::SqlitePool,
+    pool: &sqlx::AnyPool,
 ) {
     if pin_service_filters.is_empty() {
         return;
@@ -370,8 +377,8 @@ async fn enqueue_pin_jobs(
         };
         if should_pin {
             if let Err(e) = sqlx::query(
-                "INSERT OR IGNORE INTO remote_pin_jobs \
-                 (cid, service_name) VALUES (?1, ?2)",
+                "INSERT INTO remote_pin_jobs \
+                 (cid, service_name) VALUES (?, ?) ON CONFLICT DO NOTHING",
             )
             .bind(&cid_str)
             .bind(svc_name)
@@ -408,7 +415,7 @@ async fn run_pipeline_and_notify(
     ipfs: &dyn IpfsStore,
     msgid_map: &MsgIdMap,
     log_storage: &SqliteLogStorage,
-    transit_pool: &sqlx::SqlitePool,
+    transit_pool: &sqlx::AnyPool,
     ipns_tx: &Option<tokio::sync::mpsc::Sender<IpnsEvent>>,
     pin_service_filters: &[(String, Option<Arc<GroupFilter>>)],
 ) -> bool {
@@ -447,6 +454,7 @@ async fn run_pipeline_and_notify(
 
 #[tokio::main]
 async fn main() {
+    sqlx::any::install_default_drivers();
     let start_time = Instant::now();
     let (config_path, check_only, restore_files) = parse_args();
 
@@ -520,30 +528,36 @@ async fn main() {
         std::process::exit(1);
     }
 
-    // ── SQLite databases (two separate pools: core schema + transit schema) ───
+    // ── Databases (two separate pools: core schema + transit schema) ─────────
 
-    let core_pool =
-        Arc::new(open_pool(&config.database.core_path, config.database.pool_size).await);
-    if let Err(e) = stoa_core::migrations::run_migrations(&core_pool).await {
+    if let Err(e) = stoa_core::migrations::run_migrations(&config.database.core_url).await {
         eprintln!("error: core database migration failed: {e}");
         std::process::exit(1);
     }
+    let core_pool = Arc::new(
+        stoa_core::db_pool::open_any_pool(&config.database.core_url, config.database.pool_size)
+            .await,
+    );
     let msgid_map = Arc::new(MsgIdMap::new((*core_pool).clone()));
     let log_storage = Arc::new(SqliteLogStorage::new((*core_pool).clone()));
 
-    let transit_pool = Arc::new(open_pool(&config.database.path, config.database.pool_size).await);
-    if let Err(e) = stoa_transit::migrations::run_migrations(&transit_pool).await {
+    if let Err(e) = stoa_transit::migrations::run_migrations(&config.database.url).await {
         eprintln!("error: transit database migration failed: {e}");
         std::process::exit(1);
     }
+    let transit_pool = Arc::new(
+        stoa_core::db_pool::open_any_pool(&config.database.url, config.database.pool_size).await,
+    );
 
     // ── Verify pool (separate schema; no version conflicts with transit) ───────
 
-    let verify_pool = open_pool(&config.database.verify_path, config.database.pool_size).await;
-    if let Err(e) = stoa_verify::run_migrations(&verify_pool).await {
+    if let Err(e) = stoa_verify::run_migrations(&config.database.verify_url).await {
         eprintln!("error: verify database migration failed: {e}");
         std::process::exit(1);
     }
+    let verify_pool =
+        stoa_core::db_pool::open_any_pool(&config.database.verify_url, config.database.pool_size)
+            .await;
     let verification_store = Arc::new(VerificationStore::new(verify_pool));
 
     let dkim_authenticator = match MessageAuthenticator::new_cloudflare_tls() {
@@ -1241,30 +1255,6 @@ async fn accept_loop(listener: TcpListener, shared: Arc<PeeringShared>) -> std::
                 run_peering_session(stream, peer_addr, peer_ip, shared).await;
             }
         });
-    }
-}
-
-async fn open_pool(path: &str, pool_size: u32) -> sqlx::SqlitePool {
-    let url = format!("sqlite://{path}");
-    let opts = match <sqlx::sqlite::SqliteConnectOptions as std::str::FromStr>::from_str(&url) {
-        Ok(o) => o
-            .create_if_missing(true)
-            .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal),
-        Err(e) => {
-            eprintln!("error: invalid database path '{path}': {e}");
-            std::process::exit(1);
-        }
-    };
-    match sqlx::sqlite::SqlitePoolOptions::new()
-        .max_connections(pool_size)
-        .connect_with(opts)
-        .await
-    {
-        Ok(p) => p,
-        Err(e) => {
-            eprintln!("error: failed to open database '{path}': {e}");
-            std::process::exit(1);
-        }
     }
 }
 

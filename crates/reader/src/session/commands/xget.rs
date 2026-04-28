@@ -84,7 +84,6 @@ mod tests {
     use super::*;
     use crate::post::ipfs_write::MemIpfsStore;
     use multihash_codetable::{Code, MultihashDigest};
-    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
     use stoa_core::msgid_map::MsgIdMap;
 
     /// Compute a CIDv1 SHA-256 raw-leaf CID for the given bytes,
@@ -95,23 +94,18 @@ mod tests {
         Cid::new_v1(0x55, mh)
     }
 
-    /// Create an in-memory MsgIdMap with core migrations applied.
+    /// Create a MsgIdMap backed by a temporary on-disk SQLite DB.
     async fn make_msgid_map() -> MsgIdMap {
-        use std::sync::atomic::{AtomicU64, Ordering};
-        static SEQ: AtomicU64 = AtomicU64::new(0);
-        let n = SEQ.fetch_add(1, Ordering::Relaxed);
-        let url = format!("file:xget_test_{n}?mode=memory&cache=shared");
-        let opts = SqliteConnectOptions::new()
-            .filename(&url)
-            .create_if_missing(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
-            .await
-            .expect("in-memory pool");
-        stoa_core::migrations::run_migrations(&pool)
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        stoa_core::migrations::run_migrations(&url)
             .await
             .expect("core migrations");
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+            .await
+            .expect("pool");
+        // Unlink the file; pool holds the fd open (POSIX semantics).
+        std::mem::forget(tmp);
         MsgIdMap::new(pool)
     }
 

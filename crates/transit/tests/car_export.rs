@@ -15,30 +15,17 @@
 //!   - LEB128 varint decoding is the independent inverse of `car_writer::write_varint`
 //!     (no round-trip through the same encoder function)
 
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use stoa_transit::{
     export::build_export_car,
     peering::pipeline::{IpfsStore as _, MemIpfsStore},
 };
 
-static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
-
-async fn make_pool() -> sqlx::SqlitePool {
-    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
-    let url = format!("file:car_export_integ_{n}?mode=memory&cache=shared");
-    let opts = SqliteConnectOptions::new()
-        .filename(&url)
-        .create_if_missing(true);
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
-        .await
-        .unwrap();
-    stoa_transit::migrations::run_migrations(&pool)
-        .await
-        .unwrap();
-    pool
+async fn make_pool() -> (sqlx::AnyPool, tempfile::TempPath) {
+    let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+    let url = format!("sqlite://{}", tmp.to_str().unwrap());
+    stoa_transit::migrations::run_migrations(&url).await.unwrap();
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1).await.unwrap();
+    (pool, tmp)
 }
 
 /// Decode one LEB128 varint from the start of `buf`.
@@ -85,7 +72,7 @@ fn parse_blocks(body: &[u8]) -> Vec<(Vec<u8>, Vec<u8>)> {
 /// End-to-end: 3 articles → build_export_car → verify block count, CIDs, data.
 #[tokio::test]
 async fn three_articles_all_appear_as_blocks() {
-    let pool = make_pool().await;
+    let (pool, _tmp) = make_pool().await;
     let ipfs = MemIpfsStore::new();
 
     let articles: &[(&[u8], &str, i64)] = &[
@@ -99,7 +86,7 @@ async fn three_articles_all_appear_as_blocks() {
         let cid = ipfs.put_raw(data).await.unwrap();
         sqlx::query(
             "INSERT INTO articles (cid, group_name, ingested_at_ms, byte_count) \
-             VALUES (?1, ?2, ?3, ?4)",
+             VALUES (?, ?, ?, ?)",
         )
         .bind(cid.to_string())
         .bind(*group)
@@ -174,7 +161,7 @@ async fn three_articles_all_appear_as_blocks() {
 /// root position is encoded as tag(42) + bytes(0x00 || cid_bytes).
 #[tokio::test]
 async fn root_is_most_recent_article() {
-    let pool = make_pool().await;
+    let (pool, _tmp) = make_pool().await;
     let ipfs = MemIpfsStore::new();
 
     let d_old = b"older article";
@@ -185,7 +172,7 @@ async fn root_is_most_recent_article() {
     for (cid, data, ts) in [(&cid_old, d_old, 1_000i64), (&cid_new, d_new, 2_000i64)] {
         sqlx::query(
             "INSERT INTO articles (cid, group_name, ingested_at_ms, byte_count) \
-             VALUES (?1, 'comp.test', ?2, ?3)",
+             VALUES (?, 'comp.test', ?, ?)",
         )
         .bind(cid.to_string())
         .bind(ts)
@@ -231,7 +218,7 @@ async fn root_is_most_recent_article() {
 /// Articles from another group must not appear in the export.
 #[tokio::test]
 async fn group_isolation_excludes_other_groups() {
-    let pool = make_pool().await;
+    let (pool, _tmp) = make_pool().await;
     let ipfs = MemIpfsStore::new();
 
     let d_comp = b"comp article data";
@@ -241,7 +228,7 @@ async fn group_isolation_excludes_other_groups() {
 
     sqlx::query(
         "INSERT INTO articles (cid, group_name, ingested_at_ms, byte_count) \
-         VALUES (?1, 'comp.test', 1000, ?2)",
+         VALUES (?, 'comp.test', 1000, ?)",
     )
     .bind(cid_comp.to_string())
     .bind(d_comp.len() as i64)
@@ -251,7 +238,7 @@ async fn group_isolation_excludes_other_groups() {
 
     sqlx::query(
         "INSERT INTO articles (cid, group_name, ingested_at_ms, byte_count) \
-         VALUES (?1, 'alt.test', 2000, ?2)",
+         VALUES (?, 'alt.test', 2000, ?)",
     )
     .bind(cid_alt.to_string())
     .bind(d_alt.len() as i64)

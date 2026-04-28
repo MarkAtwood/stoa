@@ -5,7 +5,7 @@
 //! Blacklist entries expire automatically; `is_blacklisted` returns false
 //! once the timestamp passes.
 
-use sqlx::SqlitePool;
+use sqlx::AnyPool;
 use stoa_core::error::StorageError;
 
 /// Configuration for the blacklist policy.
@@ -34,13 +34,13 @@ impl Default for BlacklistConfig {
 /// Returns `true` if the peer was newly blacklisted, `false` otherwise.
 /// Logs at `warn` level when blacklisting occurs.
 pub async fn check_and_blacklist(
-    pool: &SqlitePool,
+    pool: &AnyPool,
     peer_id: &str,
     now_ms: i64,
     config: &BlacklistConfig,
 ) -> Result<bool, StorageError> {
     let row: Option<(i64,)> =
-        sqlx::query_as("SELECT consecutive_failures FROM peers WHERE peer_id = ?1")
+        sqlx::query_as("SELECT consecutive_failures FROM peers WHERE peer_id = ?")
             .bind(peer_id)
             .fetch_optional(pool)
             .await
@@ -53,7 +53,7 @@ pub async fn check_and_blacklist(
 
     if failures >= config.failure_threshold {
         let blacklisted_until = now_ms + config.duration_secs * 1000;
-        sqlx::query("UPDATE peers SET blacklisted_until = ?1 WHERE peer_id = ?2")
+        sqlx::query("UPDATE peers SET blacklisted_until = ? WHERE peer_id = ?")
             .bind(blacklisted_until)
             .bind(peer_id)
             .execute(pool)
@@ -77,12 +77,12 @@ pub async fn check_and_blacklist(
 /// Returns `true` if `blacklisted_until > now_ms`.
 /// Expired blacklist entries (where `blacklisted_until <= now_ms`) return `false`.
 pub async fn is_blacklisted(
-    pool: &SqlitePool,
+    pool: &AnyPool,
     peer_id: &str,
     now_ms: i64,
 ) -> Result<bool, StorageError> {
     let row: Option<(Option<i64>,)> =
-        sqlx::query_as("SELECT blacklisted_until FROM peers WHERE peer_id = ?1")
+        sqlx::query_as("SELECT blacklisted_until FROM peers WHERE peer_id = ?")
             .bind(peer_id)
             .fetch_optional(pool)
             .await
@@ -98,9 +98,9 @@ pub async fn is_blacklisted(
 ///
 /// Sets `blacklisted_until = NULL` for the given peer_id.
 /// Logs at `info` level. No-op if peer is not blacklisted.
-pub async fn unblacklist(pool: &SqlitePool, peer_id: &str) -> Result<(), StorageError> {
+pub async fn unblacklist(pool: &AnyPool, peer_id: &str) -> Result<(), StorageError> {
     sqlx::query(
-        "UPDATE peers SET blacklisted_until = NULL, consecutive_failures = 0 WHERE peer_id = ?1",
+        "UPDATE peers SET blacklisted_until = NULL, consecutive_failures = 0 WHERE peer_id = ?",
     )
     .bind(peer_id)
     .execute(pool)
@@ -114,28 +114,19 @@ pub async fn unblacklist(pool: &SqlitePool, peer_id: &str) -> Result<(), Storage
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-    use std::str::FromStr;
-    use std::sync::atomic::{AtomicU64, Ordering};
-
-    static TEST_DB_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-    async fn make_pool() -> SqlitePool {
-        let n = TEST_DB_COUNTER.fetch_add(1, Ordering::SeqCst);
-        let url = format!("file:blacklist_test_{n}?mode=memory&cache=shared");
-        let opts = SqliteConnectOptions::from_str(&url).unwrap();
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
+    async fn make_pool() -> (AnyPool, tempfile::TempPath) {
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        crate::migrations::run_migrations(&url).await.unwrap();
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
             .await
             .unwrap();
-        crate::migrations::run_migrations(&pool).await.unwrap();
-        pool
+        (pool, tmp)
     }
 
-    async fn insert_peer(pool: &SqlitePool, peer_id: &str, failures: i64) {
+    async fn insert_peer(pool: &AnyPool, peer_id: &str, failures: i64) {
         sqlx::query(
-            "INSERT INTO peers (peer_id, address, consecutive_failures) VALUES (?1, '127.0.0.1:119', ?2)",
+            "INSERT INTO peers (peer_id, address, consecutive_failures) VALUES (?, '127.0.0.1:119', ?)",
         )
         .bind(peer_id)
         .bind(failures)
@@ -148,7 +139,7 @@ mod tests {
 
     #[tokio::test]
     async fn not_blacklisted_below_threshold() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         insert_peer(&pool, "peer1", 5).await;
         let config = BlacklistConfig {
             failure_threshold: 10,
@@ -163,7 +154,7 @@ mod tests {
 
     #[tokio::test]
     async fn blacklisted_at_threshold() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         insert_peer(&pool, "peer1", 10).await;
         let config = BlacklistConfig {
             failure_threshold: 10,
@@ -178,7 +169,7 @@ mod tests {
 
     #[tokio::test]
     async fn blacklist_expires_after_duration() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         insert_peer(&pool, "peer1", 20).await;
         let config = BlacklistConfig {
             failure_threshold: 10,
@@ -197,7 +188,7 @@ mod tests {
 
     #[tokio::test]
     async fn manual_unblacklist_clears_entry() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         insert_peer(&pool, "peer1", 20).await;
         let config = BlacklistConfig::default();
         check_and_blacklist(&pool, "peer1", NOW, &config)
@@ -211,7 +202,7 @@ mod tests {
 
     #[tokio::test]
     async fn unknown_peer_not_blacklisted() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let result = check_and_blacklist(&pool, "unknown", NOW, &BlacklistConfig::default())
             .await
             .unwrap();

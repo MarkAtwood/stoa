@@ -1,7 +1,7 @@
-//! SQLite-backed bidirectional Message-ID ↔ CID mapping store.
+//! Multi-backend bidirectional Message-ID ↔ CID mapping store.
 
 use cid::Cid;
-use sqlx::SqlitePool;
+use sqlx::AnyPool;
 
 use crate::error::StorageError;
 
@@ -9,11 +9,11 @@ use crate::error::StorageError;
 ///
 /// CIDs are stored as raw bytes (`cid.to_bytes()`).
 pub struct MsgIdMap {
-    pool: SqlitePool,
+    pool: AnyPool,
 }
 
 impl MsgIdMap {
-    pub fn new(pool: SqlitePool) -> Self {
+    pub fn new(pool: AnyPool) -> Self {
         Self { pool }
     }
 
@@ -23,7 +23,7 @@ impl MsgIdMap {
     /// - If it exists with the same CID: return `Ok(())` (idempotent).
     /// - If it exists with a different CID: return `Err(StorageError::Database(...))`.
     ///
-    /// Uses `INSERT OR IGNORE` so concurrent callers with the same
+    /// Uses `ON CONFLICT DO NOTHING` so concurrent callers with the same
     /// `(message_id, cid)` pair (e.g. two IHAVE sessions for the same article)
     /// are both handled without a UNIQUE constraint error.
     pub async fn insert(&self, message_id: &str, cid: &Cid) -> Result<(), StorageError> {
@@ -33,12 +33,14 @@ impl MsgIdMap {
         // and rows_affected() returns 0.  This avoids the SELECT→INSERT TOCTOU
         // where two concurrent callers both see no row, then one fails with a
         // UNIQUE constraint violation.
-        let result = sqlx::query("INSERT OR IGNORE INTO msgid_map (message_id, cid) VALUES (?, ?)")
-            .bind(message_id)
-            .bind(&cid_bytes)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| StorageError::Database(e.to_string()))?;
+        let result = sqlx::query(
+            "INSERT INTO msgid_map (message_id, cid) VALUES (?, ?) ON CONFLICT DO NOTHING",
+        )
+        .bind(message_id)
+        .bind(&cid_bytes)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| StorageError::Database(e.to_string()))?;
 
         if result.rows_affected() == 1 {
             // We inserted the row — no collision possible.
@@ -124,30 +126,16 @@ impl MsgIdMap {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db_pool::try_open_any_pool;
     use multihash_codetable::{Code, MultihashDigest};
-    use sqlx::sqlite::SqlitePoolOptions;
 
-    async fn make_pool() -> (SqlitePool, tempfile::TempPath) {
-        use sqlx::sqlite::SqliteConnectOptions;
-        use std::str::FromStr as _;
-        // Each test needs an isolated SQLite database.  `sqlite::memory:`
-        // connections within a single process share the same database, which
-        // causes `_sqlx_migrations` UNIQUE constraint failures when multiple
-        // tests call `run_migrations` concurrently.  Using a unique temp file
-        // per test gives true isolation.
+    async fn make_pool() -> (AnyPool, tempfile::TempPath) {
+        // Each test needs an isolated database.  Using a unique temp file
+        // per test gives true isolation across concurrent test runs.
         let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
         let url = format!("sqlite://{}", tmp.to_str().unwrap());
-        let opts = SqliteConnectOptions::from_str(&url)
-            .unwrap()
-            .create_if_missing(true);
-        // max_connections(1) prevents concurrent pool connections from racing
-        // to apply the same migration when SQLite locking is a no-op.
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
-            .await
-            .unwrap();
-        crate::migrations::run_migrations(&pool).await.unwrap();
+        crate::migrations::run_migrations(&url).await.unwrap();
+        let pool = try_open_any_pool(&url, 1).await.unwrap();
         (pool, tmp)
     }
 

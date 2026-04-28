@@ -1,13 +1,13 @@
 //! Peer management CLI subcommand implementations.
 //!
 //! These functions contain the logic for the `transit peer-*` subcommands.
-//! They accept a `SqlitePool` and return formatted output strings.
+//! They accept an `AnyPool` and return formatted output strings.
 //! Actual argument parsing (clap) is wired in the binary; these functions
 //! are pure business logic, testable without a CLI framework.
 
 use crate::peering::blacklist::unblacklist;
 use crate::peering::peer_registry::{peer_score, PeerRecord, PeerRegistry};
-use sqlx::SqlitePool;
+use sqlx::AnyPool;
 use stoa_core::error::StorageError;
 
 /// Output format for CLI commands.
@@ -29,7 +29,7 @@ fn peer_status(record: &PeerRecord, now_ms: i64) -> &'static str {
 ///
 /// Returns a formatted string (table or JSON) for display.
 pub async fn cmd_peer_list(
-    pool: &SqlitePool,
+    pool: &AnyPool,
     now_ms: i64,
     format: OutputFormat,
 ) -> Result<String, StorageError> {
@@ -102,7 +102,7 @@ pub async fn cmd_peer_list(
 
 /// `transit peer-score <peer_id>`: show detailed metrics for one peer.
 pub async fn cmd_peer_score(
-    pool: &SqlitePool,
+    pool: &AnyPool,
     peer_id: &str,
     now_ms: i64,
 ) -> Result<String, StorageError> {
@@ -140,14 +140,14 @@ pub async fn cmd_peer_score(
 ///
 /// Returns a human-readable result string.
 pub async fn cmd_peer_blacklist(
-    pool: &SqlitePool,
+    pool: &AnyPool,
     peer_id: &str,
     now_ms: i64,
     duration_secs: i64,
 ) -> Result<String, StorageError> {
     let blacklisted_until = now_ms + duration_secs * 1000;
     sqlx::query(
-        "UPDATE peers SET blacklisted_until = ?1, consecutive_failures = 20 WHERE peer_id = ?2",
+        "UPDATE peers SET blacklisted_until = ?, consecutive_failures = 20 WHERE peer_id = ?",
     )
     .bind(blacklisted_until)
     .bind(peer_id)
@@ -161,7 +161,7 @@ pub async fn cmd_peer_blacklist(
 
 /// `transit peer-unblacklist <peer_id>`: clear blacklist for a peer.
 pub async fn cmd_peer_unblacklist(
-    pool: &SqlitePool,
+    pool: &AnyPool,
     peer_id: &str,
 ) -> Result<String, StorageError> {
     unblacklist(pool, peer_id).await?;
@@ -171,30 +171,27 @@ pub async fn cmd_peer_unblacklist(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+    use sqlx::AnyPool;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     static DB_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
-    async fn make_pool() -> SqlitePool {
+    async fn make_pool() -> (AnyPool, tempfile::TempPath) {
         let n = DB_COUNTER.fetch_add(1, Ordering::Relaxed);
-        let url = format!("file:cli_peers_{n}?mode=memory&cache=shared");
-        let opts = SqliteConnectOptions::new()
-            .filename(&url)
-            .create_if_missing(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
+        let _ = n;
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        crate::migrations::run_migrations(&url).await.unwrap();
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
             .await
             .unwrap();
-        crate::migrations::run_migrations(&pool).await.unwrap();
-        pool
+        (pool, tmp)
     }
 
-    async fn insert_peer(pool: &SqlitePool, peer_id: &str, accepted: i64, rejected: i64) {
+    async fn insert_peer(pool: &AnyPool, peer_id: &str, accepted: i64, rejected: i64) {
         sqlx::query(
             "INSERT INTO peers (peer_id, address, articles_accepted, articles_rejected, last_seen) \
-             VALUES (?1, '127.0.0.1:119', ?2, ?3, 0)",
+             VALUES (?, '127.0.0.1:119', ?, ?, 0)",
         )
         .bind(peer_id)
         .bind(accepted)
@@ -208,7 +205,7 @@ mod tests {
 
     #[tokio::test]
     async fn peer_list_empty() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let output = cmd_peer_list(&pool, NOW, OutputFormat::Table)
             .await
             .unwrap();
@@ -217,7 +214,7 @@ mod tests {
 
     #[tokio::test]
     async fn peer_list_table_contains_peer() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         insert_peer(&pool, "12D3KooWExample", 100, 5).await;
         let output = cmd_peer_list(&pool, NOW, OutputFormat::Table)
             .await
@@ -228,7 +225,7 @@ mod tests {
 
     #[tokio::test]
     async fn peer_list_json_is_valid() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         insert_peer(&pool, "12D3KooWExample", 10, 0).await;
         let output = cmd_peer_list(&pool, NOW, OutputFormat::Json).await.unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
@@ -239,14 +236,14 @@ mod tests {
 
     #[tokio::test]
     async fn peer_score_unknown() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let output = cmd_peer_score(&pool, "nonexistent", NOW).await.unwrap();
         assert!(output.contains("not found"));
     }
 
     #[tokio::test]
     async fn peer_score_known() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         insert_peer(&pool, "peer1", 100, 0).await;
         let output = cmd_peer_score(&pool, "peer1", NOW).await.unwrap();
         assert!(output.contains("peer1"));
@@ -255,7 +252,7 @@ mod tests {
 
     #[tokio::test]
     async fn peer_blacklist_and_unblacklist() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         insert_peer(&pool, "peer1", 0, 0).await;
         let result = cmd_peer_blacklist(&pool, "peer1", NOW, 3600).await.unwrap();
         assert!(result.contains("blacklisted"));

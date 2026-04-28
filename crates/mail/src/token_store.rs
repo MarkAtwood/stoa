@@ -1,6 +1,5 @@
 use rand_core::{OsRng, RngCore as _};
 use sha2::{Digest, Sha256};
-use sqlx::SqlitePool;
 use std::sync::Arc;
 
 /// Metadata returned when listing tokens for a user.
@@ -18,11 +17,11 @@ pub struct TokenInfo {
 /// random token is written to the database.  The raw token (base64url
 /// encoded) is returned only at issuance time and can never be recovered.
 pub struct TokenStore {
-    pool: Arc<SqlitePool>,
+    pool: Arc<sqlx::AnyPool>,
 }
 
 impl TokenStore {
-    pub fn new(pool: Arc<SqlitePool>) -> Self {
+    pub fn new(pool: Arc<sqlx::AnyPool>) -> Self {
         Self { pool }
     }
 
@@ -144,32 +143,22 @@ impl TokenStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-    use std::str::FromStr as _;
-    use std::sync::atomic::{AtomicUsize, Ordering};
 
-    static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
-
-    async fn make_store() -> TokenStore {
-        let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
-        let url = format!("file:token_store_test_{n}?mode=memory&cache=shared");
-        let opts = SqliteConnectOptions::from_str(&url)
-            .unwrap()
-            .create_if_missing(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
-            .await
-            .expect("pool");
-        crate::migrations::run_migrations(&pool)
+    async fn make_store() -> (TokenStore, tempfile::TempPath) {
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        crate::migrations::run_migrations(&url)
             .await
             .expect("migrations");
-        TokenStore::new(Arc::new(pool))
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+            .await
+            .expect("pool");
+        (TokenStore::new(Arc::new(pool)), tmp)
     }
 
     #[tokio::test]
     async fn issue_and_verify_token() {
-        let store = make_store().await;
+        let (store, _tmp) = make_store().await;
         let (raw, _id, _expires) = store.issue("alice", None, None).await.unwrap();
         let username = store.verify(&raw).await.unwrap();
         assert_eq!(username, Some("alice".to_string()));
@@ -177,7 +166,7 @@ mod tests {
 
     #[tokio::test]
     async fn verify_unknown_token_returns_none() {
-        let store = make_store().await;
+        let (store, _tmp) = make_store().await;
         // Issue one token so the table is non-empty, then verify a different one.
         store.issue("alice", None, None).await.unwrap();
         // Generate a fresh random token that was never issued.
@@ -190,14 +179,14 @@ mod tests {
 
     #[tokio::test]
     async fn verify_invalid_base64_returns_none() {
-        let store = make_store().await;
+        let (store, _tmp) = make_store().await;
         let result = store.verify("not!!valid base64url").await.unwrap();
         assert_eq!(result, None);
     }
 
     #[tokio::test]
     async fn expired_token_returns_none() {
-        let store = make_store().await;
+        let (store, _tmp) = make_store().await;
         let (raw, _id, _expires) = store.issue("alice", None, Some(-1)).await.unwrap();
         let result = store.verify(&raw).await.unwrap();
         assert_eq!(result, None, "expired token must not authenticate");
@@ -205,7 +194,7 @@ mod tests {
 
     #[tokio::test]
     async fn list_tokens_excludes_hash() {
-        let store = make_store().await;
+        let (store, _tmp) = make_store().await;
         let (_raw1, id1, _) = store
             .issue("alice", Some("cli".to_string()), None)
             .await
@@ -222,7 +211,7 @@ mod tests {
 
     #[tokio::test]
     async fn revoke_own_token() {
-        let store = make_store().await;
+        let (store, _tmp) = make_store().await;
         let (raw, id, _) = store.issue("alice", None, None).await.unwrap();
         let deleted = store.revoke("alice", &id).await.unwrap();
         assert!(deleted);
@@ -232,7 +221,7 @@ mod tests {
 
     #[tokio::test]
     async fn revoke_other_users_token_returns_false() {
-        let store = make_store().await;
+        let (store, _tmp) = make_store().await;
         let (_raw, id, _) = store.issue("alice", None, None).await.unwrap();
         let deleted = store.revoke("bob", &id).await.unwrap();
         assert!(!deleted, "bob must not revoke alice's token");
@@ -240,14 +229,14 @@ mod tests {
 
     #[tokio::test]
     async fn revoke_nonexistent_token_returns_false() {
-        let store = make_store().await;
+        let (store, _tmp) = make_store().await;
         let deleted = store.revoke("alice", "no-such-id").await.unwrap();
         assert!(!deleted);
     }
 
     #[tokio::test]
     async fn list_returns_only_own_tokens() {
-        let store = make_store().await;
+        let (store, _tmp) = make_store().await;
         store.issue("alice", None, None).await.unwrap();
         store.issue("bob", None, None).await.unwrap();
         let alice_tokens = store.list("alice").await.unwrap();

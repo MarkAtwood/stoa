@@ -24,7 +24,7 @@ use std::sync::Arc;
 
 use rand_core::{OsRng, RngCore};
 use serde::Deserialize;
-use sqlx::SqlitePool;
+use sqlx::AnyPool;
 use tokio::fs;
 use tracing::warn;
 
@@ -119,13 +119,13 @@ pub struct StagedArticle {
 /// Handle to the staging area, shared across sessions and the drain task.
 pub struct StagingStore {
     pub config: StagingConfig,
-    pool: Arc<SqlitePool>,
+    pool: Arc<AnyPool>,
 }
 
 impl StagingStore {
     /// Create a new handle.  Does NOT create the staging directory — the caller
     /// must call [`tokio::fs::create_dir_all`] on `config.path` first.
-    pub fn new(config: StagingConfig, pool: Arc<SqlitePool>) -> Self {
+    pub fn new(config: StagingConfig, pool: Arc<AnyPool>) -> Self {
         Self { config, pool }
     }
 
@@ -409,23 +409,18 @@ fn new_staging_id() -> String {
 mod tests {
     use super::*;
 
-    /// In-memory SQLite pool with the staging schema applied.
-    async fn make_pool() -> Arc<SqlitePool> {
-        let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
-        sqlx::query(
-            "CREATE TABLE transit_staging (
-                id          TEXT    NOT NULL PRIMARY KEY,
-                message_id  TEXT    NOT NULL UNIQUE,
-                file_path   TEXT    NOT NULL,
-                received_at INTEGER NOT NULL,
-                byte_size   INTEGER NOT NULL,
-                claimed_at  INTEGER
-            )",
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
-        Arc::new(pool)
+    /// Temp-file SQLite pool with the staging schema applied via migrations.
+    ///
+    /// Returns `(pool, tmp)` — keep `tmp` alive for the test duration so the
+    /// temp file is not deleted before the pool is dropped.
+    async fn make_pool() -> (Arc<AnyPool>, tempfile::TempPath) {
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        crate::migrations::run_migrations(&url).await.unwrap();
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+            .await
+            .unwrap();
+        (Arc::new(pool), tmp)
     }
 
     fn staging_config(dir: &str) -> StagingConfig {
@@ -440,7 +435,7 @@ mod tests {
     #[tokio::test]
     async fn try_stage_writes_file_and_row() {
         let dir = tempfile::tempdir().unwrap();
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let store = StagingStore::new(staging_config(dir.path().to_str().unwrap()), pool.clone());
 
         let bytes = b"From: test@example.com\r\nSubject: test\r\n\r\nbody\r\n";
@@ -468,7 +463,7 @@ mod tests {
     #[tokio::test]
     async fn drain_one_returns_correct_bytes() {
         let dir = tempfile::tempdir().unwrap();
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let store = StagingStore::new(staging_config(dir.path().to_str().unwrap()), pool.clone());
 
         let body = b"From: x@y\r\n\r\nhello\r\n";
@@ -486,7 +481,7 @@ mod tests {
     #[tokio::test]
     async fn drain_one_empty_returns_none() {
         let dir = tempfile::tempdir().unwrap();
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let store = StagingStore::new(staging_config(dir.path().to_str().unwrap()), pool);
 
         assert!(store.drain_one().await.unwrap().is_none());
@@ -495,7 +490,7 @@ mod tests {
     #[tokio::test]
     async fn complete_removes_file_and_row() {
         let dir = tempfile::tempdir().unwrap();
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let store = StagingStore::new(staging_config(dir.path().to_str().unwrap()), pool.clone());
 
         store.try_stage("<del@test>", b"bytes").await.unwrap();
@@ -518,7 +513,7 @@ mod tests {
     #[tokio::test]
     async fn try_stage_rejects_when_max_entries_exceeded() {
         let dir = tempfile::tempdir().unwrap();
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let config = StagingConfig {
             path: dir.path().to_str().unwrap().to_owned(),
             max_bytes: 100 * 1024 * 1024,
@@ -538,7 +533,7 @@ mod tests {
     #[tokio::test]
     async fn try_stage_rejects_when_max_bytes_exceeded() {
         let dir = tempfile::tempdir().unwrap();
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let config = StagingConfig {
             path: dir.path().to_str().unwrap().to_owned(),
             max_bytes: 5,
@@ -557,7 +552,7 @@ mod tests {
     #[tokio::test]
     async fn drain_one_claims_exclusively() {
         let dir = tempfile::tempdir().unwrap();
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let store = StagingStore::new(staging_config(dir.path().to_str().unwrap()), pool.clone());
 
         let body = b"From: x@y\r\n\r\nclaim test\r\n";
@@ -577,7 +572,7 @@ mod tests {
     #[tokio::test]
     async fn reset_claims_allows_redrain() {
         let dir = tempfile::tempdir().unwrap();
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let store = StagingStore::new(staging_config(dir.path().to_str().unwrap()), pool.clone());
 
         store.try_stage("<reset@test>", b"bytes").await.unwrap();
@@ -595,7 +590,7 @@ mod tests {
     #[tokio::test]
     async fn pending_count_reflects_staged_articles() {
         let dir = tempfile::tempdir().unwrap();
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let store = StagingStore::new(staging_config(dir.path().to_str().unwrap()), pool);
 
         assert_eq!(store.pending_count().await.unwrap(), 0);
@@ -609,7 +604,7 @@ mod tests {
     #[tokio::test]
     async fn cleanup_orphaned_files_removes_orphans() {
         let dir = tempfile::tempdir().unwrap();
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let store = StagingStore::new(staging_config(dir.path().to_str().unwrap()), pool.clone());
 
         // Stage a legitimate article so there is a known ID in the DB.
@@ -637,7 +632,7 @@ mod tests {
     /// cleanup_orphaned_files on a non-existent directory returns Ok(0).
     #[tokio::test]
     async fn cleanup_orphaned_files_missing_dir_returns_zero() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let store = StagingStore::new(
             staging_config("/tmp/stoa-staging-does-not-exist-xyzzy"),
             pool,

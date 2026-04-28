@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use cid::Cid;
 use mail_auth::MessageAuthenticator;
 use multihash_codetable::{Code, MultihashDigest};
-use sqlx::SqlitePool;
+use sqlx::AnyPool;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
@@ -450,7 +450,7 @@ pub async fn run_pipeline<I, S>(
     ipfs: &I,
     msgid_map: &MsgIdMap,
     log_storage: &S,
-    pool: &SqlitePool,
+    pool: &AnyPool,
     ctx: PipelineCtx<'_>,
 ) -> Result<(PipelineResult, PipelineMetrics), String>
 where
@@ -617,8 +617,8 @@ where
             .as_millis() as i64;
         let byte_count = article_bytes.len() as i64;
         sqlx::query(
-            "INSERT OR IGNORE INTO articles (cid, group_name, ingested_at_ms, byte_count) \
-             VALUES (?1, ?2, ?3, ?4)",
+            "INSERT INTO articles (cid, group_name, ingested_at_ms, byte_count) \
+             VALUES (?, ?, ?, ?) ON CONFLICT (cid) DO NOTHING",
         )
         .bind(&cid_str)
         .bind(primary_group)
@@ -746,34 +746,24 @@ fn extract_message_id(article_bytes: &[u8]) -> Option<String> {
 mod tests {
     use super::*;
     use ed25519_dalek::SigningKey;
-    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-    use std::str::FromStr as _;
 
-    async fn make_transit_pool() -> SqlitePool {
-        let opts = SqliteConnectOptions::from_str("sqlite::memory:")
-            .unwrap()
-            .create_if_missing(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
+    async fn make_transit_pool() -> (AnyPool, tempfile::TempPath) {
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        crate::migrations::run_migrations(&url).await.unwrap();
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
             .await
             .unwrap();
-        crate::migrations::run_migrations(&pool).await.unwrap();
-        pool
+        (pool, tmp)
     }
 
     async fn make_msgid_map() -> (MsgIdMap, tempfile::TempPath) {
         let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
         let url = format!("sqlite://{}", tmp.to_str().unwrap());
-        let opts = SqliteConnectOptions::from_str(&url)
-            .unwrap()
-            .create_if_missing(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
+        stoa_core::migrations::run_migrations(&url).await.unwrap();
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
             .await
             .unwrap();
-        stoa_core::migrations::run_migrations(&pool).await.unwrap();
         (MsgIdMap::new(pool), tmp)
     }
 
@@ -821,7 +811,7 @@ mod tests {
         let storage = stoa_core::group_log::MemLogStorage::new();
         let key = make_signing_key();
         let article = make_article("<test@example.com>", "comp.lang.rust");
-        let transit_pool = make_transit_pool().await;
+        let (transit_pool, _transit_tmp) = make_transit_pool().await;
 
         let result = run_pipeline(
             &article,
@@ -853,7 +843,7 @@ mod tests {
         let storage = stoa_core::group_log::MemLogStorage::new();
         let key = make_signing_key();
         let article = make_article("<articles-table@example.com>", "alt.test");
-        let transit_pool = make_transit_pool().await;
+        let (transit_pool, _transit_tmp) = make_transit_pool().await;
 
         let before_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -877,7 +867,7 @@ mod tests {
             .as_millis() as i64;
 
         let row: Option<(String, String, i64, i64)> = sqlx::query_as(
-            "SELECT cid, group_name, ingested_at_ms, byte_count FROM articles WHERE cid = ?1",
+            "SELECT cid, group_name, ingested_at_ms, byte_count FROM articles WHERE cid = ?",
         )
         .bind(pr.cid.to_string())
         .fetch_optional(&transit_pool)
@@ -932,7 +922,7 @@ mod tests {
         let (msgid_map, _tmp) = make_msgid_map().await;
         let storage = stoa_core::group_log::MemLogStorage::new();
         let key = make_signing_key();
-        let transit_pool = make_transit_pool().await;
+        let (transit_pool, _transit_tmp) = make_transit_pool().await;
         // Article with no Message-ID header.
         let article = b"From: x@example.com\r\nNewsgroups: alt.test\r\n\r\nBody.\r\n";
 
@@ -956,7 +946,7 @@ mod tests {
         let storage = stoa_core::group_log::MemLogStorage::new();
         let key = make_signing_key();
         let article = make_article("<metrics@example.com>", "alt.test");
-        let transit_pool = make_transit_pool().await;
+        let (transit_pool, _transit_tmp) = make_transit_pool().await;
 
         let (_pr, metrics) = run_pipeline(
             &article,
@@ -984,7 +974,7 @@ mod tests {
         let (msgid_map, _tmp) = make_msgid_map().await;
         let storage = stoa_core::group_log::MemLogStorage::new();
         let key = make_signing_key();
-        let transit_pool = make_transit_pool().await;
+        let (transit_pool, _transit_tmp) = make_transit_pool().await;
 
         // Article with an existing Path: from a peer.
         let article = format!(
@@ -1030,24 +1020,17 @@ mod tests {
         );
     }
 
-    /// Create an in-memory SQLite pool with verify-crate migrations applied.
-    async fn make_verify_pool() -> SqlitePool {
-        use std::sync::atomic::{AtomicUsize, Ordering};
-        static SEQ: AtomicUsize = AtomicUsize::new(0);
-        let n = SEQ.fetch_add(1, Ordering::Relaxed);
-        let url = format!("file:pipeline_verify_{n}?mode=memory&cache=shared");
-        let opts = SqliteConnectOptions::new()
-            .filename(&url)
-            .create_if_missing(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
-            .await
-            .expect("verify pool must open");
-        stoa_verify::run_migrations(&pool)
+    /// Create a temp-file SQLite AnyPool with verify-crate migrations applied.
+    async fn make_verify_pool() -> (AnyPool, tempfile::TempPath) {
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        stoa_verify::run_migrations(&url)
             .await
             .expect("verify migrations must succeed");
-        pool
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+            .await
+            .expect("verify pool must open");
+        (pool, tmp)
     }
 
     /// Append `X-Stoa-Sig` to article headers, signed with `key`.
@@ -1098,8 +1081,8 @@ mod tests {
         let ipfs = MemIpfsStore::new();
         let (msgid_map, _tmp) = make_msgid_map().await;
         let storage = stoa_core::group_log::MemLogStorage::new();
-        let transit_pool = make_transit_pool().await;
-        let verify_pool = make_verify_pool().await;
+        let (transit_pool, _transit_tmp) = make_transit_pool().await;
+        let (verify_pool, _verify_tmp) = make_verify_pool().await;
 
         let signing_key = make_signing_key();
         let verifying_key = signing_key.verifying_key();
@@ -1168,7 +1151,7 @@ mod tests {
         let ipfs = MemIpfsStore::new();
         let (msgid_map, _tmp) = make_msgid_map().await;
         let storage = stoa_core::group_log::MemLogStorage::new();
-        let transit_pool = make_transit_pool().await;
+        let (transit_pool, _transit_tmp) = make_transit_pool().await;
         let key = Arc::new(make_signing_key());
         let article = make_article("<gf-accept@example.com>", "comp.lang.rust");
         let filter = Arc::new(GroupFilter::new(&["comp.*"]).expect("valid filter"));
@@ -1197,7 +1180,7 @@ mod tests {
         let ipfs = MemIpfsStore::new();
         let (msgid_map, _tmp) = make_msgid_map().await;
         let storage = stoa_core::group_log::MemLogStorage::new();
-        let transit_pool = make_transit_pool().await;
+        let (transit_pool, _transit_tmp) = make_transit_pool().await;
         let key = Arc::new(make_signing_key());
         let article = make_article("<gf-reject@example.com>", "alt.test");
         let filter = Arc::new(GroupFilter::new(&["comp.*"]).expect("valid filter"));
@@ -1230,7 +1213,7 @@ mod tests {
         let ipfs = MemIpfsStore::new();
         let (msgid_map, _tmp) = make_msgid_map().await;
         let storage = stoa_core::group_log::MemLogStorage::new();
-        let transit_pool = make_transit_pool().await;
+        let (transit_pool, _transit_tmp) = make_transit_pool().await;
         let key = Arc::new(make_signing_key());
         let article = make_article("<gf-neg-excl@example.com>", "alt.binaries.pictures");
         let filter = Arc::new(
@@ -1262,7 +1245,7 @@ mod tests {
         let ipfs = MemIpfsStore::new();
         let (msgid_map, _tmp) = make_msgid_map().await;
         let storage = stoa_core::group_log::MemLogStorage::new();
-        let transit_pool = make_transit_pool().await;
+        let (transit_pool, _transit_tmp) = make_transit_pool().await;
         let key = Arc::new(make_signing_key());
         let article = make_article("<gf-neg-accept@example.com>", "alt.test");
         let filter = Arc::new(
@@ -1294,7 +1277,7 @@ mod tests {
         let ipfs = MemIpfsStore::new();
         let (msgid_map, _tmp) = make_msgid_map().await;
         let storage = stoa_core::group_log::MemLogStorage::new();
-        let transit_pool = make_transit_pool().await;
+        let (transit_pool, _transit_tmp) = make_transit_pool().await;
         let key = Arc::new(make_signing_key());
         let article = make_article("<gf-no-filter@example.com>", "alt.test");
 
@@ -1325,7 +1308,7 @@ mod tests {
         let ipfs = MemIpfsStore::new();
         let (msgid_map, _tmp) = make_msgid_map().await;
         let storage = stoa_core::group_log::MemLogStorage::new();
-        let transit_pool = make_transit_pool().await;
+        let (transit_pool, _transit_tmp) = make_transit_pool().await;
         let key = Arc::new(make_signing_key());
         let article = make_article("<gf-crosspost@example.com>", "comp.lang.rust,alt.test");
         let filter = Arc::new(GroupFilter::new(&["comp.*"]).expect("valid filter"));
@@ -1399,7 +1382,7 @@ mod tests {
             allowed_groups: Some(Arc::clone(&filter)),
         };
 
-        let transit_pool = make_transit_pool().await;
+        let (transit_pool, _transit_tmp) = make_transit_pool().await;
         let (msgid_map, _tmp) = make_msgid_map().await;
         let storage = stoa_core::group_log::MemLogStorage::new();
         let key = Arc::new(make_signing_key());

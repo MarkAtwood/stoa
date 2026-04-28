@@ -1,6 +1,6 @@
 //! Peer registry: persistent store for known peers and their health metrics.
 
-use sqlx::SqlitePool;
+use sqlx::AnyPool;
 use stoa_core::error::StorageError;
 
 /// A record in the peer registry.
@@ -17,11 +17,11 @@ pub struct PeerRecord {
 }
 
 pub struct PeerRegistry {
-    pool: SqlitePool,
+    pool: AnyPool,
 }
 
 impl PeerRegistry {
-    pub fn new(pool: SqlitePool) -> Self {
+    pub fn new(pool: AnyPool) -> Self {
         Self { pool }
     }
 
@@ -30,7 +30,7 @@ impl PeerRegistry {
         sqlx::query(
             "INSERT INTO peers (peer_id, address, last_seen, articles_accepted, \
              articles_rejected, consecutive_failures, blacklisted_until, configured) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?) \
              ON CONFLICT(peer_id) DO UPDATE SET \
              address=excluded.address, \
              last_seen=excluded.last_seen, \
@@ -58,7 +58,7 @@ impl PeerRegistry {
     pub async fn get(&self, peer_id: &str) -> Result<Option<PeerRecord>, StorageError> {
         let row = sqlx::query(
             "SELECT peer_id, address, last_seen, articles_accepted, articles_rejected, \
-             consecutive_failures, blacklisted_until, configured FROM peers WHERE peer_id = ?1",
+             consecutive_failures, blacklisted_until, configured FROM peers WHERE peer_id = ?",
         )
         .bind(peer_id)
         .fetch_optional(&self.pool)
@@ -94,7 +94,8 @@ impl PeerRegistry {
         now_ms: i64,
     ) -> Result<(), StorageError> {
         sqlx::query(
-            "INSERT OR IGNORE INTO peers (peer_id, address, last_seen) VALUES (?1, ?2, ?3)",
+            "INSERT INTO peers (peer_id, address, last_seen) VALUES (?, ?, ?) \
+             ON CONFLICT (peer_id) DO NOTHING",
         )
         .bind(peer_id)
         .bind(address)
@@ -109,7 +110,7 @@ impl PeerRegistry {
     pub async fn record_accepted(&self, peer_id: &str, now_ms: i64) -> Result<(), StorageError> {
         sqlx::query(
             "UPDATE peers SET articles_accepted = articles_accepted + 1, \
-             consecutive_failures = 0, last_seen = ?1 WHERE peer_id = ?2",
+             consecutive_failures = 0, last_seen = ? WHERE peer_id = ?",
         )
         .bind(now_ms)
         .bind(peer_id)
@@ -123,7 +124,7 @@ impl PeerRegistry {
     pub async fn record_rejected(&self, peer_id: &str, now_ms: i64) -> Result<(), StorageError> {
         sqlx::query(
             "UPDATE peers SET articles_rejected = articles_rejected + 1, \
-             consecutive_failures = MIN(consecutive_failures + 1, 20), last_seen = ?1 WHERE peer_id = ?2",
+             consecutive_failures = MIN(consecutive_failures + 1, 20), last_seen = ? WHERE peer_id = ?",
         )
         .bind(now_ms)
         .bind(peer_id)
@@ -138,7 +139,7 @@ impl PeerRegistry {
         let rows = sqlx::query(
             "SELECT peer_id, address, last_seen, articles_accepted, articles_rejected, \
              consecutive_failures, blacklisted_until, configured FROM peers \
-             WHERE blacklisted_until IS NULL OR blacklisted_until <= ?1 \
+             WHERE blacklisted_until IS NULL OR blacklisted_until <= ? \
              ORDER BY last_seen DESC",
         )
         .bind(now_ms)
@@ -198,20 +199,14 @@ pub fn peer_score(record: &PeerRecord) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-    use std::str::FromStr;
-
-    async fn make_registry() -> PeerRegistry {
-        let opts = SqliteConnectOptions::from_str("sqlite::memory:")
-            .unwrap()
-            .create_if_missing(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
+    async fn make_registry() -> (PeerRegistry, tempfile::TempPath) {
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        crate::migrations::run_migrations(&url).await.unwrap();
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
             .await
             .unwrap();
-        crate::migrations::run_migrations(&pool).await.unwrap();
-        PeerRegistry::new(pool)
+        (PeerRegistry::new(pool), tmp)
     }
 
     fn make_record(peer_id: &str) -> PeerRecord {
@@ -229,7 +224,7 @@ mod tests {
 
     #[tokio::test]
     async fn upsert_and_get_roundtrip() {
-        let reg = make_registry().await;
+        let (reg, _tmp) = make_registry().await;
         let record = make_record("12D3KooWExample");
         reg.upsert(&record).await.unwrap();
         let got = reg
@@ -244,13 +239,13 @@ mod tests {
 
     #[tokio::test]
     async fn get_nonexistent_returns_none() {
-        let reg = make_registry().await;
+        let (reg, _tmp) = make_registry().await;
         assert!(reg.get("nonexistent").await.unwrap().is_none());
     }
 
     #[tokio::test]
     async fn record_accepted_increments_counter() {
-        let reg = make_registry().await;
+        let (reg, _tmp) = make_registry().await;
         reg.upsert(&make_record("peer1")).await.unwrap();
         reg.record_accepted("peer1", 1700000001000).await.unwrap();
         let got = reg.get("peer1").await.unwrap().unwrap();
@@ -260,7 +255,7 @@ mod tests {
 
     #[tokio::test]
     async fn record_rejected_increments_consecutive_failures() {
-        let reg = make_registry().await;
+        let (reg, _tmp) = make_registry().await;
         reg.upsert(&make_record("peer1")).await.unwrap();
         reg.record_rejected("peer1", 1700000001000).await.unwrap();
         reg.record_rejected("peer1", 1700000002000).await.unwrap();
@@ -271,7 +266,7 @@ mod tests {
 
     #[tokio::test]
     async fn list_active_excludes_blacklisted() {
-        let reg = make_registry().await;
+        let (reg, _tmp) = make_registry().await;
         let now_ms = 1700000000000i64;
 
         let active = make_record("active_peer");
@@ -288,7 +283,7 @@ mod tests {
 
     #[tokio::test]
     async fn upsert_is_idempotent() {
-        let reg = make_registry().await;
+        let (reg, _tmp) = make_registry().await;
         let mut record = make_record("peer1");
         reg.upsert(&record).await.unwrap();
         record.articles_accepted = 99;

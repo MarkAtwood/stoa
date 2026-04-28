@@ -1,7 +1,5 @@
 use std::{path::PathBuf, sync::Arc, time::Instant};
 
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-use std::str::FromStr as _;
 use stoa_auth::CredentialStore;
 use stoa_mail::{config::Config, server::AppState, token_store::TokenStore};
 use tracing::info;
@@ -25,6 +23,7 @@ fn parse_args() -> PathBuf {
 
 #[tokio::main]
 async fn main() {
+    sqlx::any::install_default_drivers();
     let start_time = Instant::now();
     let config_path = parse_args();
 
@@ -96,36 +95,21 @@ async fn main() {
         }
     }
 
-    let db_url = format!("sqlite:{}", config.database.path);
-    let db_opts = match SqliteConnectOptions::from_str(&db_url) {
-        Ok(o) => o.create_if_missing(true),
-        Err(e) => {
-            eprintln!(
-                "error: invalid database path '{}': {}",
-                config.database.path, e
-            );
-            std::process::exit(1);
-        }
-    };
-    let pool = match SqlitePoolOptions::new()
-        .max_connections(5)
-        .connect_with(db_opts)
-        .await
-    {
+    if let Err(e) = stoa_mail::migrations::run_migrations(&config.database.url).await {
+        eprintln!("error: database migration failed: {}", e);
+        std::process::exit(1);
+    }
+
+    let pool = match stoa_core::db_pool::try_open_any_pool(&config.database.url, 5).await {
         Ok(p) => Arc::new(p),
         Err(e) => {
             eprintln!(
                 "error: failed to open database '{}': {}",
-                config.database.path, e
+                config.database.url, e
             );
             std::process::exit(1);
         }
     };
-
-    if let Err(e) = stoa_mail::migrations::run_migrations(&pool).await {
-        eprintln!("error: database migration failed: {}", e);
-        std::process::exit(1);
-    }
 
     let token_store = Arc::new(TokenStore::new(pool));
 

@@ -5,7 +5,7 @@
 //! 2. Poll `queued` and `pinning` jobs for status updates.
 //! 3. Mark jobs as `pinned` or `failed` based on service responses.
 
-use sqlx::{Row, SqlitePool};
+use sqlx::{Row, AnyPool};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tracing::{debug, warn};
 
@@ -20,13 +20,13 @@ pub struct ServiceSlot {
 
 /// Background worker that submits and polls remote pinning jobs.
 pub struct RemotePinWorker {
-    pool: SqlitePool,
+    pool: AnyPool,
     services: Vec<ServiceSlot>,
     poll_interval: Duration,
 }
 
 impl RemotePinWorker {
-    pub fn new(pool: SqlitePool, services: Vec<ServiceSlot>, poll_interval: Duration) -> Self {
+    pub fn new(pool: AnyPool, services: Vec<ServiceSlot>, poll_interval: Duration) -> Self {
         Self {
             pool,
             services,
@@ -36,7 +36,7 @@ impl RemotePinWorker {
 
     /// Build a worker from config entries.
     pub fn from_config(
-        pool: SqlitePool,
+        pool: AnyPool,
         cfgs: &[crate::config::ExternalPinServiceConfig],
     ) -> Result<Self, RemotePinError> {
         let mut services = Vec::with_capacity(cfgs.len());
@@ -82,7 +82,7 @@ impl RemotePinWorker {
         let max_att = slot.max_attempts as i64;
         let rows = sqlx::query(
             "SELECT id, cid FROM remote_pin_jobs \
-             WHERE service_name = ?1 AND status = 'pending' AND attempt_count < ?2 \
+             WHERE service_name = ? AND status = 'pending' AND attempt_count < ? \
              LIMIT 20",
         )
         .bind(&slot.name)
@@ -110,13 +110,14 @@ impl RemotePinWorker {
                     let new_status = resp.status.to_string();
                     if let Err(e) = sqlx::query(
                         "UPDATE remote_pin_jobs \
-                         SET status = ?1, request_id = ?2, submitted_at_ms = ?3, \
-                             last_attempt_ms = ?3, attempt_count = attempt_count + 1, error = NULL \
-                         WHERE id = ?4",
+                         SET status = ?, request_id = ?, submitted_at_ms = ?, \
+                             last_attempt_ms = ?, attempt_count = attempt_count + 1, error = NULL \
+                         WHERE id = ?",
                     )
                     .bind(&new_status)
                     .bind(&request_id)
-                    .bind(now_ms)
+                    .bind(now_ms)   // submitted_at_ms
+                    .bind(now_ms)   // last_attempt_ms
                     .bind(id)
                     .execute(&self.pool)
                     .await
@@ -137,13 +138,13 @@ impl RemotePinWorker {
                     let _ = sqlx::query(
                         "UPDATE remote_pin_jobs \
                          SET attempt_count = attempt_count + 1, \
-                             last_attempt_ms = ?1, \
-                             error = ?2, \
+                             last_attempt_ms = ?, \
+                             error = ?, \
                              status = CASE \
-                               WHEN attempt_count + 1 >= ?3 OR ?4 THEN 'failed' \
+                               WHEN attempt_count + 1 >= ? OR ? THEN 'failed' \
                                ELSE status \
                              END \
-                         WHERE id = ?5",
+                         WHERE id = ?",
                     )
                     .bind(now_ms)
                     .bind(&err_str)
@@ -162,7 +163,7 @@ impl RemotePinWorker {
     async fn poll_inflight(&self, slot: &ServiceSlot) {
         let rows = sqlx::query(
             "SELECT id, cid, request_id FROM remote_pin_jobs \
-             WHERE service_name = ?1 AND (status = 'queued' OR status = 'pinning') \
+             WHERE service_name = ? AND (status = 'queued' OR status = 'pinning') \
              LIMIT 50",
         )
         .bind(&slot.name)
@@ -199,7 +200,7 @@ impl RemotePinWorker {
                         RemotePinStatus::Pinning => "pinning",
                     };
                     if let Err(e) = sqlx::query(
-                        "UPDATE remote_pin_jobs SET status = ?1, last_attempt_ms = ?2 WHERE id = ?3",
+                        "UPDATE remote_pin_jobs SET status = ?, last_attempt_ms = ? WHERE id = ?",
                     )
                     .bind(new_status)
                     .bind(now_ms)
@@ -215,7 +216,7 @@ impl RemotePinWorker {
                 Err(RemotePinError::Http { status: 404, .. }) => {
                     // Service lost the request; reset to pending for re-submission.
                     let _ = sqlx::query(
-                        "UPDATE remote_pin_jobs SET status = 'pending', request_id = NULL WHERE id = ?1",
+                        "UPDATE remote_pin_jobs SET status = 'pending', request_id = NULL WHERE id = ?",
                     )
                     .bind(id)
                     .execute(&self.pool)

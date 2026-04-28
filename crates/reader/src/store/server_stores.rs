@@ -6,16 +6,9 @@
 //! message-id map, the group log, the article number store, the HLC clock,
 //! and the operator signing key.
 
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
-use std::str::FromStr;
-
-use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
-use sqlx::SqlitePool;
 use tokio::sync::Mutex;
-
-static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
 
 use stoa_core::audit::{build_audit_logger, AuditLogger};
 use stoa_core::group_log::MemLogStorage;
@@ -96,26 +89,28 @@ impl ServerStores {
         }
         let ipfs_store = crate::post::ipfs_write::build_block_store(config).await?;
 
-        // Ensure database parent directories exist before opening pools.
-        for path_str in [
-            &config.database.reader_path,
-            &config.database.core_path,
-            &config.database.verify_path,
+        // Ensure database parent directories exist for SQLite URLs before opening pools.
+        for url in [
+            &config.database.reader_url,
+            &config.database.core_url,
+            &config.database.verify_url,
         ] {
-            let p = std::path::Path::new(path_str.as_str());
-            if let Some(parent) = p.parent().filter(|d| !d.as_os_str().is_empty()) {
-                std::fs::create_dir_all(parent).map_err(|e| {
-                    format!(
-                        "cannot create database directory '{}': {e}",
-                        parent.display()
-                    )
-                })?;
+            if let Some(path_str) = url.strip_prefix("sqlite://") {
+                let p = std::path::Path::new(path_str);
+                if let Some(parent) = p.parent().filter(|d| !d.as_os_str().is_empty()) {
+                    std::fs::create_dir_all(parent).map_err(|e| {
+                        format!(
+                            "cannot create database directory '{}': {e}",
+                            parent.display()
+                        )
+                    })?;
+                }
             }
         }
 
         let reader_pool =
-            make_disk_pool_with_reader_migrations(&config.database.reader_path).await?;
-        let core_pool = make_disk_pool_with_core_migrations(&config.database.core_path).await?;
+            make_disk_pool_with_reader_migrations(&config.database.reader_url).await?;
+        let core_pool = make_disk_pool_with_core_migrations(&config.database.core_url).await?;
         let audit_logger = build_audit_logger(&config.audit, &core_pool)
             .map_err(|e| format!("audit logger init failed: {e}"))?;
 
@@ -133,7 +128,7 @@ impl ServerStores {
             .map_err(|e| format!("smtp relay queue init failed: {e}"))?;
 
         let verify_pool =
-            make_disk_pool_with_verify_migrations(&config.database.verify_path).await?;
+            make_disk_pool_with_verify_migrations(&config.database.verify_url).await?;
         let dkim_authenticator = MessageAuthenticator::new_cloudflare_tls()
             .map_err(|e| format!("DKIM authenticator init failed: {e}"))?;
 
@@ -263,116 +258,85 @@ impl ServerStores {
     }
 }
 
-/// Create a named shared in-memory SQLite pool with reader-crate migrations.
+/// Create a named in-memory AnyPool with reader-crate migrations.
 ///
-/// Uses `file:reader_stores_N?mode=memory&cache=shared` so all connections in
-/// the pool share the same in-memory database (`:memory:` gives each connection
-/// its own empty database, which loses the migrated schema on the next query).
-async fn make_pool_with_reader_migrations() -> SqlitePool {
-    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
-    let url = format!("file:reader_stores_{n}?mode=memory&cache=shared");
-    let opts = SqliteConnectOptions::new()
-        .filename(&url)
-        .create_if_missing(true);
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
+/// Uses SQLite shared-cache named in-memory databases so that the migration
+/// pool and the app pool share the same database.  The app pool is opened
+/// first so the named database stays alive across the migration step.
+///
+/// A per-call sequence number ensures each invocation gets a distinct
+/// in-memory database even when `new_mem()` is called concurrently.
+async fn make_pool_with_reader_migrations() -> sqlx::AnyPool {
+    static DB_SEQ: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let n = DB_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    // `sqlite:file:...` (single colon, no `//`) is the correct URI form for
+    // named shared-cache in-memory databases understood by the AnyPool driver.
+    let url = format!("sqlite:file:reader_stores_{n}?mode=memory&cache=shared");
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
         .await
-        .expect("failed to create reader in-memory SQLite pool");
-    crate::migrations::run_migrations(&pool)
+        .expect("reader pool");
+    crate::migrations::run_migrations(&url)
         .await
-        .expect("reader migrations failed on in-memory pool");
+        .expect("reader migrations");
     pool
 }
 
-/// Create a named shared in-memory SQLite pool with verify-crate migrations.
-async fn make_pool_with_verify_migrations() -> SqlitePool {
-    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
-    let url = format!("file:verify_stores_{n}?mode=memory&cache=shared");
-    let opts = SqliteConnectOptions::new()
-        .filename(&url)
-        .create_if_missing(true);
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
+/// Create a named in-memory AnyPool with verify-crate migrations.
+async fn make_pool_with_verify_migrations() -> sqlx::AnyPool {
+    static DB_SEQ: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let n = DB_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let url = format!("sqlite:file:verify_stores_{n}?mode=memory&cache=shared");
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
         .await
-        .expect("failed to create verify in-memory SQLite pool");
-    stoa_verify::run_migrations(&pool)
+        .expect("verify pool");
+    stoa_verify::run_migrations(&url)
         .await
-        .expect("verify migrations failed on in-memory pool");
+        .expect("verify migrations");
     pool
 }
 
-/// Create a named shared in-memory SQLite pool with core-crate migrations.
-async fn make_pool_with_core_migrations() -> SqlitePool {
-    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
-    let url = format!("file:core_stores_{n}?mode=memory&cache=shared");
-    let opts = SqliteConnectOptions::new()
-        .filename(&url)
-        .create_if_missing(true);
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
+/// Create a named in-memory AnyPool with core-crate migrations.
+async fn make_pool_with_core_migrations() -> sqlx::AnyPool {
+    static DB_SEQ: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let n = DB_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let url = format!("sqlite:file:core_stores_{n}?mode=memory&cache=shared");
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
         .await
-        .expect("failed to create core in-memory SQLite pool");
-    stoa_core::migrations::run_migrations(&pool)
+        .expect("core pool");
+    stoa_core::migrations::run_migrations(&url)
         .await
-        .expect("core migrations failed on in-memory pool");
+        .expect("core migrations");
     pool
 }
 
-/// Open an on-disk SQLite pool with WAL mode and reader-crate migrations.
-async fn make_disk_pool_with_reader_migrations(path: &str) -> Result<SqlitePool, String> {
-    let url = format!("sqlite://{path}");
-    let opts = SqliteConnectOptions::from_str(&url)
-        .map_err(|e| format!("invalid reader database path '{path}': {e}"))?
-        .create_if_missing(true)
-        .journal_mode(SqliteJournalMode::Wal);
-    let pool = SqlitePoolOptions::new()
-        .max_connections(8)
-        .connect_with(opts)
-        .await
-        .map_err(|e| format!("failed to open reader database '{path}': {e}"))?;
-    crate::migrations::run_migrations(&pool)
+/// Open an AnyPool backed by the given URL with reader-crate migrations.
+async fn make_disk_pool_with_reader_migrations(url: &str) -> Result<sqlx::AnyPool, String> {
+    crate::migrations::run_migrations(url)
         .await
         .map_err(|e| format!("reader database migration failed: {e}"))?;
-    Ok(pool)
+    stoa_core::db_pool::try_open_any_pool(url, 8)
+        .await
+        .map_err(|e| format!("failed to open reader database '{url}': {e}"))
 }
 
-/// Open an on-disk SQLite pool with WAL mode and core-crate migrations.
-async fn make_disk_pool_with_core_migrations(path: &str) -> Result<SqlitePool, String> {
-    let url = format!("sqlite://{path}");
-    let opts = SqliteConnectOptions::from_str(&url)
-        .map_err(|e| format!("invalid core database path '{path}': {e}"))?
-        .create_if_missing(true)
-        .journal_mode(SqliteJournalMode::Wal);
-    let pool = SqlitePoolOptions::new()
-        .max_connections(8)
-        .connect_with(opts)
-        .await
-        .map_err(|e| format!("failed to open core database '{path}': {e}"))?;
-    stoa_core::migrations::run_migrations(&pool)
+/// Open an AnyPool backed by the given URL with core-crate migrations.
+async fn make_disk_pool_with_core_migrations(url: &str) -> Result<sqlx::AnyPool, String> {
+    stoa_core::migrations::run_migrations(url)
         .await
         .map_err(|e| format!("core database migration failed: {e}"))?;
-    Ok(pool)
+    stoa_core::db_pool::try_open_any_pool(url, 8)
+        .await
+        .map_err(|e| format!("failed to open core database '{url}': {e}"))
 }
 
-/// Open an on-disk SQLite pool with WAL mode and verify-crate migrations.
-async fn make_disk_pool_with_verify_migrations(path: &str) -> Result<SqlitePool, String> {
-    let url = format!("sqlite://{path}");
-    let opts = SqliteConnectOptions::from_str(&url)
-        .map_err(|e| format!("invalid verify database path '{path}': {e}"))?
-        .create_if_missing(true)
-        .journal_mode(SqliteJournalMode::Wal);
-    let pool = SqlitePoolOptions::new()
-        .max_connections(8)
-        .connect_with(opts)
-        .await
-        .map_err(|e| format!("failed to open verify database '{path}': {e}"))?;
-    stoa_verify::run_migrations(&pool)
+/// Open an AnyPool backed by the given URL with verify-crate migrations.
+async fn make_disk_pool_with_verify_migrations(url: &str) -> Result<sqlx::AnyPool, String> {
+    stoa_verify::run_migrations(url)
         .await
         .map_err(|e| format!("verify database migration failed: {e}"))?;
-    Ok(pool)
+    stoa_core::db_pool::try_open_any_pool(url, 8)
+        .await
+        .map_err(|e| format!("failed to open verify database '{url}': {e}"))
 }
 
 /// Build a `TrustedIssuerStore` from the reader's `[auth]` trusted_issuers list.

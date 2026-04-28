@@ -112,30 +112,20 @@ mod tests {
     use super::*;
     use axum::extract::State;
     use axum::http::StatusCode;
-    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-    use std::str::FromStr as _;
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
     use std::time::Instant;
     use stoa_auth::{AuthConfig, CredentialStore};
 
-    static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
-
-    async fn make_dev_state() -> Arc<AppState> {
-        let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
-        let url = format!("file:blob_test_{n}?mode=memory&cache=shared");
-        let opts = SqliteConnectOptions::from_str(&url)
-            .unwrap()
-            .create_if_missing(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
-            .await
-            .expect("pool");
-        crate::migrations::run_migrations(&pool)
+    async fn make_dev_state() -> (Arc<AppState>, tempfile::TempPath) {
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        crate::migrations::run_migrations(&url)
             .await
             .expect("migrations");
-        Arc::new(AppState {
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+            .await
+            .expect("pool");
+        let state = Arc::new(AppState {
             start_time: Instant::now(),
             jmap: None,
             credential_store: Arc::new(CredentialStore::empty()),
@@ -143,13 +133,14 @@ mod tests {
             token_store: Arc::new(crate::token_store::TokenStore::new(Arc::new(pool))),
             base_url: "http://localhost".to_string(),
             cors: crate::config::CorsConfig::default(),
-        })
+        });
+        (state, tmp)
     }
 
     #[tokio::test]
     async fn invalid_blob_id_returns_400() {
         let resp = blob_download(
-            State(make_dev_state().await),
+            State(make_dev_state().await.0),
             None,
             Path((
                 "acc1".to_string(),
@@ -165,7 +156,7 @@ mod tests {
     async fn valid_cid_jmap_not_configured_returns_503() {
         let valid_cid = "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi";
         let resp = blob_download(
-            State(make_dev_state().await),
+            State(make_dev_state().await.0),
             None,
             Path((
                 "acc1".to_string(),
@@ -182,7 +173,7 @@ mod tests {
         let user = Some(Extension(AuthenticatedUser("alice".to_string())));
         let valid_cid = "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi";
         let resp = blob_download(
-            State(make_dev_state().await),
+            State(make_dev_state().await.0),
             user,
             Path((
                 "u_bob".to_string(),
@@ -199,7 +190,7 @@ mod tests {
         let user = Some(Extension(AuthenticatedUser("alice".to_string())));
         let valid_cid = "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi";
         let resp = blob_download(
-            State(make_dev_state().await),
+            State(make_dev_state().await.0),
             user,
             Path((
                 "u_alice".to_string(),

@@ -2,6 +2,7 @@
 
 pub mod article;
 pub mod audit;
+pub mod db_pool;
 pub mod canonical;
 pub mod error;
 pub mod group_log;

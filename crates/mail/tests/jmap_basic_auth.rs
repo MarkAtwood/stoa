@@ -6,13 +6,10 @@
 //! These tests verify observable HTTP behaviour derived from the RFCs alone,
 //! exercising the auth middleware from the outside via real HTTP requests.
 
-use std::str::FromStr as _;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 
 use data_encoding::BASE64;
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use stoa_auth::{AuthConfig, CredentialStore, UserCredential};
 use stoa_mail::{
     server::{build_router, AppState},
@@ -20,22 +17,18 @@ use stoa_mail::{
 };
 use tokio::net::TcpListener;
 
-static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
-
 async fn make_token_store() -> Arc<TokenStore> {
-    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
-    let url = format!("file:jmap_auth_test_{n}?mode=memory&cache=shared");
-    let opts = SqliteConnectOptions::from_str(&url)
-        .expect("valid url")
-        .create_if_missing(true);
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
-        .await
-        .expect("pool");
-    stoa_mail::migrations::run_migrations(&pool)
+    let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+    let url = format!("sqlite://{}", tmp.to_str().unwrap());
+    stoa_mail::migrations::run_migrations(&url)
         .await
         .expect("migrations");
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+        .await
+        .expect("pool");
+    // Keep the file alive via the open pool fd (POSIX: unlink after fd open
+    // leaves the inode readable until the last fd closes).
+    std::mem::forget(tmp);
     Arc::new(TokenStore::new(Arc::new(pool)))
 }
 

@@ -1,9 +1,6 @@
 use cid::Cid;
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use multihash_codetable::{Code, MultihashDigest};
-use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::SqlitePool;
-use std::str::FromStr;
 use stoa_core::group_log::sqlite_storage::SqliteLogStorage;
 use stoa_core::group_log::storage::LogStorage;
 use stoa_core::group_log::types::{LogEntry, LogEntryId};
@@ -33,14 +30,17 @@ fn make_log_entry(n: u64) -> (LogEntryId, LogEntry) {
     (id, entry)
 }
 
-/// Create an in-memory `SqliteLogStorage` for a fresh-DB iteration.
+/// Create a fresh `SqliteLogStorage` for a benchmark iteration.
 async fn setup_memory_storage() -> SqliteLogStorage {
-    let pool = SqlitePool::connect("sqlite::memory:")
-        .await
-        .expect("in-memory pool");
-    stoa_core::migrations::run_migrations(&pool)
+    let tmp = NamedTempFile::new().expect("temp file").into_temp_path();
+    let url = format!("sqlite://{}", tmp.to_str().expect("utf-8 path"));
+    stoa_core::migrations::run_migrations(&url)
         .await
         .expect("migrations");
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+        .await
+        .expect("pool");
+    std::mem::forget(tmp);
     SqliteLogStorage::new(pool)
 }
 
@@ -49,13 +49,12 @@ async fn setup_memory_storage() -> SqliteLogStorage {
 async fn setup_storage() -> (SqliteLogStorage, tempfile::TempPath) {
     let tmp = NamedTempFile::new().expect("temp file").into_temp_path();
     let url = format!("sqlite://{}", tmp.to_str().expect("utf-8 path"));
-    let opts = SqliteConnectOptions::from_str(&url)
-        .expect("parse url")
-        .create_if_missing(true);
-    let pool = SqlitePool::connect_with(opts).await.expect("file pool");
-    stoa_core::migrations::run_migrations(&pool)
+    stoa_core::migrations::run_migrations(&url)
         .await
         .expect("migrations");
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 4)
+        .await
+        .expect("file pool");
     (SqliteLogStorage::new(pool), tmp)
 }
 

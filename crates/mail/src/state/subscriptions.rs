@@ -1,12 +1,10 @@
-use sqlx::SqlitePool;
-
 /// Manages per-user newsgroup subscriptions.
 pub struct SubscriptionStore {
-    pool: SqlitePool,
+    pool: sqlx::AnyPool,
 }
 
 impl SubscriptionStore {
-    pub fn new(pool: SqlitePool) -> Self {
+    pub fn new(pool: sqlx::AnyPool) -> Self {
         Self { pool }
     }
 
@@ -64,36 +62,26 @@ impl SubscriptionStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-    use std::str::FromStr as _;
-    use std::sync::atomic::{AtomicUsize, Ordering};
 
-    static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
-
-    async fn make_store() -> SubscriptionStore {
-        let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
-        let url = format!("file:sub_test_{n}?mode=memory&cache=shared");
-        let opts = SqliteConnectOptions::from_str(&url)
-            .unwrap()
-            .create_if_missing(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
-            .await
-            .expect("pool");
-        crate::migrations::run_migrations(&pool)
+    async fn make_store() -> (SubscriptionStore, tempfile::TempPath) {
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        crate::migrations::run_migrations(&url)
             .await
             .expect("migrations");
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+            .await
+            .expect("pool");
         sqlx::query("INSERT INTO users (id, username, password_hash) VALUES (1, 'alice', 'x')")
             .execute(&pool)
             .await
             .expect("insert user");
-        SubscriptionStore::new(pool)
+        (SubscriptionStore::new(pool), tmp)
     }
 
     #[tokio::test]
     async fn subscribe_and_list() {
-        let store = make_store().await;
+        let (store, _tmp) = make_store().await;
         store.subscribe(1, "comp.lang.rust").await.unwrap();
         store.subscribe(1, "alt.test").await.unwrap();
         let subs = store.list_subscribed(1).await.unwrap();
@@ -104,7 +92,7 @@ mod tests {
 
     #[tokio::test]
     async fn subscribe_idempotent() {
-        let store = make_store().await;
+        let (store, _tmp) = make_store().await;
         store.subscribe(1, "comp.lang.rust").await.unwrap();
         store.subscribe(1, "comp.lang.rust").await.unwrap(); // must not error
         let subs = store.list_subscribed(1).await.unwrap();
@@ -113,7 +101,7 @@ mod tests {
 
     #[tokio::test]
     async fn unsubscribe_removes() {
-        let store = make_store().await;
+        let (store, _tmp) = make_store().await;
         store.subscribe(1, "comp.lang.rust").await.unwrap();
         store.unsubscribe(1, "comp.lang.rust").await.unwrap();
         let subs = store.list_subscribed(1).await.unwrap();
@@ -122,7 +110,7 @@ mod tests {
 
     #[tokio::test]
     async fn is_subscribed_check() {
-        let store = make_store().await;
+        let (store, _tmp) = make_store().await;
         assert!(!store.is_subscribed(1, "comp.lang.rust").await.unwrap());
         store.subscribe(1, "comp.lang.rust").await.unwrap();
         assert!(store.is_subscribed(1, "comp.lang.rust").await.unwrap());

@@ -1,17 +1,16 @@
 //! SQLite-backed store for article verification results and seen signing keys.
 
 use cid::Cid;
-use sqlx::SqlitePool;
 
 use crate::types::{ArticleVerification, SigType, VerifResult};
 
-/// Stores and retrieves verification results from SQLite.
+/// Stores and retrieves verification results from a database (SQLite or PostgreSQL).
 pub struct VerificationStore {
-    pool: SqlitePool,
+    pool: sqlx::AnyPool,
 }
 
 impl VerificationStore {
-    pub fn new(pool: SqlitePool) -> Self {
+    pub fn new(pool: sqlx::AnyPool) -> Self {
         Self { pool }
     }
 
@@ -45,9 +44,13 @@ impl VerificationStore {
             // string identity is the schema-documented sentinel for "unknown".
             let identity: &str = v.identity.as_deref().unwrap_or("");
             sqlx::query(
-                "INSERT OR REPLACE INTO article_verifications \
+                "INSERT INTO article_verifications \
                  (cid, sig_type, result, identity, reason, verified_at) \
-                 VALUES (?, ?, ?, ?, ?, ?)",
+                 VALUES (?, ?, ?, ?, ?, ?) \
+                 ON CONFLICT (cid, sig_type, identity) DO UPDATE SET \
+                 result = EXCLUDED.result, \
+                 reason = EXCLUDED.reason, \
+                 verified_at = EXCLUDED.verified_at",
             )
             .bind(&cid_bytes)
             .bind(sig_type)
@@ -109,9 +112,10 @@ impl VerificationStore {
     ) -> Result<(), sqlx::Error> {
         let cid_bytes = first_seen_cid.to_bytes();
         sqlx::query(
-            "INSERT OR IGNORE INTO seen_keys \
+            "INSERT INTO seen_keys \
              (key_type, key_id, key_data, first_seen_cid, first_seen_at) \
-             VALUES ('ed25519', ?, ?, ?, ?)",
+             VALUES ('ed25519', ?, ?, ?, ?) \
+             ON CONFLICT (key_type, key_id) DO NOTHING",
         )
         .bind(key_id)
         .bind(key_data.as_slice())
@@ -164,12 +168,14 @@ fn parse_result(result: &str, reason: Option<&str>, _sig_type: &SigType) -> Veri
 mod tests {
     use super::*;
 
-    async fn make_store() -> VerificationStore {
-        let pool = sqlx::SqlitePool::connect("sqlite::memory:")
+    async fn make_store() -> (VerificationStore, tempfile::TempPath) {
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        crate::run_migrations(&url).await.expect("migrations");
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
             .await
-            .expect("in-memory pool");
-        crate::run_migrations(&pool).await.expect("migrations");
-        VerificationStore::new(pool)
+            .expect("pool");
+        (VerificationStore::new(pool), tmp)
     }
 
     fn dummy_cid() -> Cid {
@@ -188,7 +194,7 @@ mod tests {
     /// violates the NOT NULL constraint on the identity column.
     #[tokio::test]
     async fn fail_result_with_no_identity_round_trips() {
-        let store = make_store().await;
+        let (store, _tmp) = make_store().await;
         let cid = dummy_cid();
         let verifications = vec![ArticleVerification {
             sig_type: SigType::XUsenetIpfsSig,
@@ -214,7 +220,7 @@ mod tests {
     /// NoKey result (identity=None) must also persist correctly.
     #[tokio::test]
     async fn no_key_result_round_trips() {
-        let store = make_store().await;
+        let (store, _tmp) = make_store().await;
         let cid = dummy_cid();
         let verifications = vec![ArticleVerification {
             sig_type: SigType::XUsenetIpfsSig,
@@ -235,7 +241,7 @@ mod tests {
     /// Pass result with a known identity round-trips correctly.
     #[tokio::test]
     async fn pass_result_with_identity_round_trips() {
-        let store = make_store().await;
+        let (store, _tmp) = make_store().await;
         let cid = dummy_cid();
         let key_id = "abcdef1234567890".to_owned();
         let verifications = vec![ArticleVerification {

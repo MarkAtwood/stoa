@@ -15,7 +15,7 @@
 //! groups are active, the gauges are not updated and a warning is emitted.
 //! This prevents unbounded Prometheus label explosion.
 
-use sqlx::SqlitePool;
+use sqlx::AnyPool;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -23,7 +23,7 @@ use std::time::Duration;
 pub const HIGH_CARDINALITY_LIMIT: usize = 500;
 
 /// Spawn-and-forget background task: samples per-group metrics every `interval`.
-pub async fn run_group_metrics_sampler(pool: Arc<SqlitePool>, interval: Duration) {
+pub async fn run_group_metrics_sampler(pool: Arc<AnyPool>, interval: Duration) {
     let mut ticker = tokio::time::interval(interval);
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     loop {
@@ -35,7 +35,7 @@ pub async fn run_group_metrics_sampler(pool: Arc<SqlitePool>, interval: Duration
 }
 
 /// Run one sampling pass.  Exported for testing.
-pub async fn sample_group_metrics(pool: &SqlitePool) -> Result<usize, String> {
+pub async fn sample_group_metrics(pool: &AnyPool) -> Result<usize, String> {
     // Single query for all three metrics; GROUP BY is O(articles) either way.
     let rows: Vec<(String, i64, i64, i64)> = sqlx::query_as(
         "SELECT group_name,
@@ -82,24 +82,18 @@ pub async fn sample_group_metrics(pool: &SqlitePool) -> Result<usize, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-    use std::str::FromStr as _;
-
-    async fn make_pool() -> SqlitePool {
-        let opts = SqliteConnectOptions::from_str("sqlite::memory:")
-            .unwrap()
-            .create_if_missing(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
+    async fn make_pool() -> (AnyPool, tempfile::TempPath) {
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        crate::migrations::run_migrations(&url).await.unwrap();
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
             .await
             .unwrap();
-        crate::migrations::run_migrations(&pool).await.unwrap();
-        pool
+        (pool, tmp)
     }
 
     async fn insert_article(
-        pool: &SqlitePool,
+        pool: &AnyPool,
         cid: &str,
         group: &str,
         ingested_at_ms: i64,
@@ -107,7 +101,7 @@ mod tests {
     ) {
         sqlx::query(
             "INSERT INTO articles (cid, group_name, ingested_at_ms, byte_count) \
-             VALUES (?1, ?2, ?3, ?4)",
+             VALUES (?, ?, ?, ?)",
         )
         .bind(cid)
         .bind(group)
@@ -120,14 +114,14 @@ mod tests {
 
     #[tokio::test]
     async fn sample_empty_db_returns_zero_groups() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let n = sample_group_metrics(&pool).await.unwrap();
         assert_eq!(n, 0, "empty articles table should return 0 groups");
     }
 
     #[tokio::test]
     async fn sample_single_group_sets_gauges() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         insert_article(&pool, "<a@t>", "comp.lang.rust", 1_700_000_000_000, 1024).await;
         insert_article(&pool, "<b@t>", "comp.lang.rust", 1_700_000_001_000, 2048).await;
 
@@ -155,7 +149,7 @@ mod tests {
 
     #[tokio::test]
     async fn sample_multiple_groups() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         insert_article(&pool, "<c1@t>", "alt.test", 1_000_000_000_000, 512).await;
         insert_article(&pool, "<c2@t>", "sci.math", 1_000_000_002_000, 256).await;
         insert_article(&pool, "<c3@t>", "sci.math", 1_000_000_004_000, 256).await;
@@ -176,7 +170,7 @@ mod tests {
 
     #[tokio::test]
     async fn high_cardinality_guard_suppresses_updates() {
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
 
         // Insert articles in more than HIGH_CARDINALITY_LIMIT distinct groups.
         // Each group gets one article; group names are "g.0", "g.1", ..., "g.N".

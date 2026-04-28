@@ -26,7 +26,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use async_trait::async_trait;
 use cid::Cid;
 use serde::Deserialize;
-use sqlx::SqlitePool;
+use sqlx::AnyPool;
 use tokio::fs;
 use tracing::{debug, warn};
 
@@ -101,7 +101,7 @@ impl From<std::io::Error> for CacheError {
 /// underlying store is used.
 pub struct BlockCache {
     config: CacheConfig,
-    pool: Arc<SqlitePool>,
+    pool: Arc<AnyPool>,
     inner: Arc<dyn IpfsStore>,
 }
 
@@ -110,7 +110,7 @@ impl BlockCache {
     ///
     /// Caller must ensure the cache directory exists before calling; use
     /// [`tokio::fs::create_dir_all`] at startup.
-    pub fn new(config: CacheConfig, pool: Arc<SqlitePool>, inner: Arc<dyn IpfsStore>) -> Self {
+    pub fn new(config: CacheConfig, pool: Arc<AnyPool>, inner: Arc<dyn IpfsStore>) -> Self {
         Self {
             config,
             pool,
@@ -186,8 +186,9 @@ impl BlockCache {
 
         let now = unix_millis();
         sqlx::query(
-            "INSERT OR IGNORE INTO transit_block_cache \
-             (cid, file_path, byte_size, last_access) VALUES (?, ?, ?, ?)",
+            "INSERT INTO transit_block_cache \
+             (cid, file_path, byte_size, last_access) VALUES (?, ?, ?, ?) \
+             ON CONFLICT (cid) DO NOTHING",
         )
         .bind(&cid_str)
         .bind(file_path)
@@ -286,23 +287,18 @@ mod tests {
     use super::*;
     use crate::peering::pipeline::MemIpfsStore;
 
-    /// In-memory SQLite pool with the block cache schema.
-    async fn make_pool() -> Arc<SqlitePool> {
-        let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
-        sqlx::query(
-            "CREATE TABLE transit_block_cache (
-                cid         TEXT    NOT NULL PRIMARY KEY,
-                file_path   TEXT    NOT NULL,
-                byte_size   INTEGER NOT NULL,
-                last_access INTEGER NOT NULL
-            );
-            CREATE INDEX IF NOT EXISTS idx_block_cache_lru
-                ON transit_block_cache (last_access ASC);",
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
-        Arc::new(pool)
+    /// Temp-file SQLite AnyPool with the transit block cache schema via migrations.
+    ///
+    /// Returns `(pool, tmp)` — keep `tmp` alive for the duration of the test so
+    /// the file is not deleted before the pool is dropped.
+    async fn make_pool() -> (Arc<AnyPool>, tempfile::TempPath) {
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        crate::migrations::run_migrations(&url).await.unwrap();
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+            .await
+            .unwrap();
+        (Arc::new(pool), tmp)
     }
 
     fn cache_config(dir: &str, max_entries: u64, max_bytes: u64) -> CacheConfig {
@@ -315,7 +311,7 @@ mod tests {
 
     fn make_cache(
         dir: &str,
-        pool: Arc<SqlitePool>,
+        pool: Arc<AnyPool>,
         max_entries: u64,
         max_bytes: u64,
     ) -> BlockCache {
@@ -329,7 +325,7 @@ mod tests {
     #[tokio::test]
     async fn put_raw_then_get_raw_serves_from_cache() {
         let dir = tempfile::tempdir().unwrap();
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let cache = make_cache(
             dir.path().to_str().unwrap(),
             pool.clone(),
@@ -355,7 +351,7 @@ mod tests {
     #[tokio::test]
     async fn get_raw_miss_fetches_from_inner_and_caches() {
         let dir = tempfile::tempdir().unwrap();
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let inner = Arc::new(MemIpfsStore::new());
 
         // Pre-seed the inner store directly (bypassing the cache).
@@ -389,7 +385,7 @@ mod tests {
     #[tokio::test]
     async fn eviction_removes_lru_entry() {
         let dir = tempfile::tempdir().unwrap();
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         // max_entries = 2 so the 3rd put triggers eviction.
         let cache = make_cache(dir.path().to_str().unwrap(), pool.clone(), 2, u64::MAX);
 
@@ -421,7 +417,7 @@ mod tests {
     #[tokio::test]
     async fn get_raw_returns_none_for_unknown_cid() {
         let dir = tempfile::tempdir().unwrap();
-        let pool = make_pool().await;
+        let (pool, _tmp) = make_pool().await;
         let cache = make_cache(dir.path().to_str().unwrap(), pool, 100, 10 * 1024 * 1024);
 
         // Use a CID that was never stored.

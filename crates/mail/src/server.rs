@@ -614,9 +614,6 @@ pub async fn run_server(
 mod tests {
     use super::*;
     use crate::token_store::TokenStore;
-    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-    use std::str::FromStr as _;
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use stoa_auth::{AuthConfig, CredentialStore, UserCredential};
     use stoa_reader::{
         post::ipfs_write::MemIpfsStore,
@@ -626,59 +623,57 @@ mod tests {
 
     use crate::state::{flags::UserFlagsStore, version::StateStore};
 
-    static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
-
-    async fn make_token_store() -> Arc<TokenStore> {
-        let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
-        let url = format!("file:server_test_{n}?mode=memory&cache=shared");
-        let opts = SqliteConnectOptions::from_str(&url)
-            .unwrap()
-            .create_if_missing(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
-            .await
-            .expect("pool");
-        crate::migrations::run_migrations(&pool)
+    async fn make_token_store() -> (Arc<TokenStore>, tempfile::TempPath) {
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        crate::migrations::run_migrations(&url)
             .await
             .expect("migrations");
-        Arc::new(TokenStore::new(Arc::new(pool)))
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+            .await
+            .expect("pool");
+        (Arc::new(TokenStore::new(Arc::new(pool))), tmp)
     }
 
     /// Build an AppState in dev mode: `required = false`, no users, no credential file.
-    async fn dev_state() -> Arc<AppState> {
-        Arc::new(AppState {
+    async fn dev_state() -> (Arc<AppState>, tempfile::TempPath) {
+        let (ts, tmp) = make_token_store().await;
+        let state = Arc::new(AppState {
             start_time: Instant::now(),
             jmap: None,
             credential_store: Arc::new(CredentialStore::empty()),
             auth_config: Arc::new(AuthConfig::default()),
-            token_store: make_token_store().await,
+            token_store: ts,
             base_url: "http://localhost".to_string(),
             cors: crate::config::CorsConfig::default(),
-        })
+        });
+        (state, tmp)
     }
 
     /// Build an AppState in dev mode with a custom base URL.
-    async fn dev_state_with_base_url(base_url: &str) -> Arc<AppState> {
-        Arc::new(AppState {
+    async fn dev_state_with_base_url(base_url: &str) -> (Arc<AppState>, tempfile::TempPath) {
+        let (ts, tmp) = make_token_store().await;
+        let state = Arc::new(AppState {
             start_time: Instant::now(),
             jmap: None,
             credential_store: Arc::new(CredentialStore::empty()),
             auth_config: Arc::new(AuthConfig::default()),
-            token_store: make_token_store().await,
+            token_store: ts,
             base_url: base_url.to_string(),
             cors: crate::config::CorsConfig::default(),
-        })
+        });
+        (state, tmp)
     }
 
     /// Build an AppState with a single user (bcrypt cost 4 for test speed).
-    async fn auth_state(username: &str, plaintext_password: &str) -> Arc<AppState> {
+    async fn auth_state(username: &str, plaintext_password: &str) -> (Arc<AppState>, tempfile::TempPath) {
         let hash = bcrypt::hash(plaintext_password, 4).expect("bcrypt::hash must not fail");
         let users = vec![UserCredential {
             username: username.to_string(),
             password: hash,
         }];
-        Arc::new(AppState {
+        let (ts, tmp) = make_token_store().await;
+        let state = Arc::new(AppState {
             start_time: Instant::now(),
             jmap: None,
             credential_store: Arc::new(CredentialStore::from_credentials(&users)),
@@ -687,65 +682,57 @@ mod tests {
                 users,
                 ..Default::default()
             }),
-            token_store: make_token_store().await,
+            token_store: ts,
             base_url: "http://localhost".to_string(),
             cors: crate::config::CorsConfig::default(),
-        })
+        });
+        (state, tmp)
     }
 
-    /// Create a named shared in-memory SQLite pool with reader-crate migrations applied.
-    async fn make_reader_pool(name: &str) -> sqlx::SqlitePool {
-        let url = format!("file:{name}?mode=memory&cache=shared");
-        let opts = SqliteConnectOptions::from_str(&url)
-            .unwrap()
-            .create_if_missing(true);
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(opts)
-            .await
-            .expect("reader pool");
-        stoa_reader::migrations::run_migrations(&pool)
+    /// Create a tempfile-backed AnyPool with reader-crate migrations applied.
+    async fn make_reader_pool() -> (sqlx::AnyPool, tempfile::TempPath) {
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        stoa_reader::migrations::run_migrations(&url)
             .await
             .expect("reader migrations");
-        pool
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+            .await
+            .expect("reader pool");
+        (pool, tmp)
     }
 
     /// Build an AppState with JMAP stores wired to a MemIpfsStore.
     ///
-    /// Returns `(state, ipfs)` so the caller can seed blocks before the test.
-    async fn jmap_state() -> (Arc<AppState>, Arc<MemIpfsStore>) {
-        let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
+    /// Returns `(state, ipfs, _tmps)` so the caller can seed blocks before the test.
+    async fn jmap_state() -> (Arc<AppState>, Arc<MemIpfsStore>, Vec<tempfile::TempPath>) {
+        let mut tmps = Vec::new();
 
         // Pool for mail-crate stores (UserFlagsStore, StateStore, TokenStore).
-        let mail_url = format!("file:jmap_mail_{n}?mode=memory&cache=shared");
-        let mail_opts = SqliteConnectOptions::from_str(&mail_url)
-            .unwrap()
-            .create_if_missing(true);
-        let mail_pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(mail_opts)
-            .await
-            .expect("mail pool");
-        crate::migrations::run_migrations(&mail_pool)
+        let mail_tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let mail_url = format!("sqlite://{}", mail_tmp.to_str().unwrap());
+        crate::migrations::run_migrations(&mail_url)
             .await
             .expect("mail migrations");
+        let mail_pool = stoa_core::db_pool::try_open_any_pool(&mail_url, 1)
+            .await
+            .expect("mail pool");
+        tmps.push(mail_tmp);
 
         // Pool for reader-crate stores (ArticleNumberStore, OverviewStore).
-        let reader_pool = make_reader_pool(&format!("jmap_reader_{n}")).await;
+        let (reader_pool, reader_tmp) = make_reader_pool().await;
+        tmps.push(reader_tmp);
 
         // Pool for core-crate stores (MsgIdMap).
-        let core_url = format!("file:jmap_core_{n}?mode=memory&cache=shared");
-        let core_opts = SqliteConnectOptions::from_str(&core_url)
-            .unwrap()
-            .create_if_missing(true);
-        let core_pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(core_opts)
-            .await
-            .expect("core pool");
-        stoa_core::migrations::run_migrations(&core_pool)
+        let core_tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let core_url = format!("sqlite://{}", core_tmp.to_str().unwrap());
+        stoa_core::migrations::run_migrations(&core_url)
             .await
             .expect("core migrations");
+        let core_pool = stoa_core::db_pool::try_open_any_pool(&core_url, 1)
+            .await
+            .expect("core pool");
+        tmps.push(core_tmp);
 
         let ipfs = Arc::new(MemIpfsStore::new());
         let stores = Arc::new(JmapStores {
@@ -767,7 +754,7 @@ mod tests {
             base_url: "http://localhost".to_string(),
             cors: crate::config::CorsConfig::default(),
         });
-        (state, ipfs)
+        (state, ipfs, tmps)
     }
 
     async fn spawn_server(state: Arc<AppState>) -> std::net::SocketAddr {
@@ -806,7 +793,7 @@ mod tests {
 
     #[tokio::test]
     async fn health_returns_200_with_ok() {
-        let addr = spawn_server(dev_state().await).await;
+        let addr = spawn_server(dev_state().await.0).await;
 
         let resp = reqwest::Client::new()
             .get(format!("http://{addr}/health"))
@@ -822,7 +809,7 @@ mod tests {
 
     #[tokio::test]
     async fn well_known_jmap_redirects_to_session() {
-        let addr = spawn_server(dev_state().await).await;
+        let addr = spawn_server(dev_state().await.0).await;
 
         let resp = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
@@ -840,7 +827,7 @@ mod tests {
 
     #[tokio::test]
     async fn jmap_session_dev_mode_returns_200_with_capabilities() {
-        let addr = spawn_server(dev_state().await).await;
+        let addr = spawn_server(dev_state().await.0).await;
 
         let resp = reqwest::Client::new()
             .get(format!("http://{addr}/jmap/session"))
@@ -856,7 +843,7 @@ mod tests {
 
     #[tokio::test]
     async fn jmap_session_no_credentials_returns_401() {
-        let addr = spawn_server(auth_state("alice", "correct-horse").await).await;
+        let addr = spawn_server(auth_state("alice", "correct-horse").await.0).await;
 
         let resp = reqwest::Client::new()
             .get(format!("http://{addr}/jmap/session"))
@@ -880,7 +867,7 @@ mod tests {
 
     #[tokio::test]
     async fn jmap_session_wrong_password_returns_401() {
-        let addr = spawn_server(auth_state("alice", "correct-horse").await).await;
+        let addr = spawn_server(auth_state("alice", "correct-horse").await.0).await;
 
         let resp = reqwest::Client::new()
             .get(format!("http://{addr}/jmap/session"))
@@ -894,7 +881,7 @@ mod tests {
 
     #[tokio::test]
     async fn jmap_session_correct_credentials_returns_200_with_username() {
-        let addr = spawn_server(auth_state("alice", "correct-horse").await).await;
+        let addr = spawn_server(auth_state("alice", "correct-horse").await.0).await;
 
         let resp = reqwest::Client::new()
             .get(format!("http://{addr}/jmap/session"))
@@ -915,7 +902,7 @@ mod tests {
 
     #[tokio::test]
     async fn health_endpoint_is_public() {
-        let addr = spawn_server(auth_state("alice", "correct-horse").await).await;
+        let addr = spawn_server(auth_state("alice", "correct-horse").await.0).await;
 
         let resp = reqwest::Client::new()
             .get(format!("http://{addr}/health"))
@@ -928,7 +915,7 @@ mod tests {
 
     #[tokio::test]
     async fn blob_download_invalid_cid_returns_400() {
-        let addr = spawn_server(dev_state().await).await;
+        let addr = spawn_server(dev_state().await.0).await;
 
         let resp = reqwest::Client::new()
             .get(format!(
@@ -943,7 +930,7 @@ mod tests {
 
     #[tokio::test]
     async fn blob_download_no_credentials_returns_401() {
-        let addr = spawn_server(auth_state("alice", "correct-horse").await).await;
+        let addr = spawn_server(auth_state("alice", "correct-horse").await.0).await;
         let valid_cid = "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi";
 
         let resp = reqwest::Client::new()
@@ -960,7 +947,7 @@ mod tests {
     #[tokio::test]
     async fn jmap_session_reflects_configured_base_url() {
         let configured_base = "https://mail.example.com";
-        let addr = spawn_server(dev_state_with_base_url(configured_base).await).await;
+        let addr = spawn_server(dev_state_with_base_url(configured_base).await.0).await;
 
         let resp = reqwest::Client::new()
             .get(format!("http://{addr}/jmap/session"))
@@ -985,7 +972,7 @@ mod tests {
 
     #[tokio::test]
     async fn jmap_session_username_reflects_authenticated_user() {
-        let addr = spawn_server(auth_state("bob", "hunter2").await).await;
+        let addr = spawn_server(auth_state("bob", "hunter2").await.0).await;
 
         let resp = reqwest::Client::new()
             .get(format!("http://{addr}/jmap/session"))
@@ -1010,7 +997,7 @@ mod tests {
     /// 200 with Content-Type: message/rfc822 and base64-encoded body.
     #[tokio::test]
     async fn blob_download_with_ipfs_returns_200_with_rfc822() {
-        let (state, ipfs) = jmap_state().await;
+        let (state, ipfs, _tmps) = jmap_state().await;
 
         // Seed a known block.
         let block_data = b"hello from IPFS block";
@@ -1056,7 +1043,7 @@ mod tests {
     /// A CID not present in IPFS must return 404.
     #[tokio::test]
     async fn blob_download_unknown_cid_returns_404() {
-        let (state, _ipfs) = jmap_state().await;
+        let (state, _ipfs, _tmps) = jmap_state().await;
         let addr = spawn_server(state).await;
 
         // Valid CID that was never seeded.
@@ -1075,7 +1062,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_root_returns_html() {
-        let addr = spawn_server(dev_state().await).await;
+        let addr = spawn_server(dev_state().await.0).await;
         let resp = reqwest::Client::new()
             .get(format!("http://{addr}/"))
             .send()
@@ -1102,7 +1089,7 @@ mod tests {
     #[tokio::test]
     async fn cors_disabled_no_headers_on_response() {
         // Default CorsConfig has enabled=false; no CORS headers should appear.
-        let addr = spawn_server(dev_state().await).await;
+        let addr = spawn_server(dev_state().await.0).await;
         let resp = reqwest::Client::new()
             .get(format!("http://{addr}/health"))
             .header("Origin", "https://evil.example.com")
@@ -1124,7 +1111,7 @@ mod tests {
             jmap: None,
             credential_store: Arc::new(CredentialStore::empty()),
             auth_config: Arc::new(AuthConfig::default()),
-            token_store: make_token_store().await,
+            token_store: make_token_store().await.0,
             base_url: "http://localhost".to_string(),
             cors: crate::config::CorsConfig {
                 enabled: true,
@@ -1163,7 +1150,7 @@ mod tests {
             jmap: None,
             credential_store: Arc::new(CredentialStore::empty()),
             auth_config: Arc::new(AuthConfig::default()),
-            token_store: make_token_store().await,
+            token_store: make_token_store().await.0,
             base_url: "http://localhost".to_string(),
             cors: crate::config::CorsConfig {
                 enabled: true,
@@ -1196,7 +1183,7 @@ mod tests {
     /// POST body larger than 10 MiB must be rejected at the transport layer.
     #[tokio::test]
     async fn jmap_api_oversized_body_rejected() {
-        let addr = spawn_server(dev_state().await).await;
+        let addr = spawn_server(dev_state().await.0).await;
 
         // 11 MiB of zeros — exceeds the 10 MiB DefaultBodyLimit.
         let big_body = vec![0u8; 11 * 1024 * 1024];
@@ -1220,7 +1207,7 @@ mod tests {
     /// Email/get with more than 500 ids must return requestTooLarge.
     #[tokio::test]
     async fn email_get_too_many_ids_returns_request_too_large() {
-        let (state, _ipfs) = jmap_state().await;
+        let (state, _ipfs, _tmps) = jmap_state().await;
         let addr = spawn_server(state).await;
 
         // 501 dummy CID strings — exceeds maxObjectsInGet: 500.
@@ -1255,7 +1242,7 @@ mod tests {
     /// Email/get with exactly 500 ids must be accepted (boundary check).
     #[tokio::test]
     async fn email_get_exactly_500_ids_accepted() {
-        let (state, _ipfs) = jmap_state().await;
+        let (state, _ipfs, _tmps) = jmap_state().await;
         let addr = spawn_server(state).await;
 
         let ids: Vec<serde_json::Value> = (0..500)
@@ -1290,7 +1277,7 @@ mod tests {
     /// field, Email/query must return an empty result set — not all articles.
     #[tokio::test]
     async fn email_query_text_filter_with_no_search_index_returns_empty() {
-        let (state, _ipfs) = jmap_state().await;
+        let (state, _ipfs, _tmps) = jmap_state().await;
         let addr = spawn_server(state).await;
 
         // No mailbox exists, so the filter hits the "no target group" early-return

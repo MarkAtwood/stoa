@@ -12,8 +12,6 @@
 //! article and checks that no 239/235 response is returned.
 
 use ed25519_dalek::SigningKey;
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-use std::str::FromStr as _;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use stoa_core::{hlc::HlcClock, msgid_map::MsgIdMap};
@@ -33,31 +31,17 @@ use tokio::sync::Mutex;
 async fn make_core_pool() -> (MsgIdMap, tempfile::TempPath) {
     let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
     let url = format!("sqlite://{}", tmp.to_str().unwrap());
-    let opts = SqliteConnectOptions::from_str(&url)
-        .unwrap()
-        .create_if_missing(true);
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
-        .await
-        .unwrap();
-    stoa_core::migrations::run_migrations(&pool).await.unwrap();
+    stoa_core::migrations::run_migrations(&url).await.unwrap();
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1).await.unwrap();
     (MsgIdMap::new(pool), tmp)
 }
 
-async fn make_transit_pool() -> sqlx::SqlitePool {
-    let opts = SqliteConnectOptions::from_str("sqlite::memory:")
-        .unwrap()
-        .create_if_missing(true);
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
-        .await
-        .unwrap();
-    stoa_transit::migrations::run_migrations(&pool)
-        .await
-        .unwrap();
-    pool
+async fn make_transit_pool() -> (sqlx::AnyPool, tempfile::TempPath) {
+    let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+    let url = format!("sqlite://{}", tmp.to_str().unwrap());
+    stoa_transit::migrations::run_migrations(&url).await.unwrap();
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1).await.unwrap();
+    (pool, tmp)
 }
 
 
@@ -107,7 +91,7 @@ async fn bind_listener() -> (TcpListener, std::net::SocketAddr) {
 #[tokio::test]
 async fn takethis_queue_full_returns_436_not_239() {
     let (msgid_map, _tmp) = make_core_pool().await;
-    let transit_pool = make_transit_pool().await;
+    let (transit_pool, _tmp_transit) = make_transit_pool().await;
 
     // Queue depth = 1; we fill it before the session starts.
     let (sender, _rx) = ingestion_queue(1, u64::MAX);
@@ -225,7 +209,7 @@ async fn takethis_queue_full_returns_436_not_239() {
 #[tokio::test]
 async fn ihave_queue_full_returns_436_not_235() {
     let (msgid_map, _tmp) = make_core_pool().await;
-    let transit_pool = make_transit_pool().await;
+    let (transit_pool, _tmp_transit) = make_transit_pool().await;
 
     // Queue depth = 1; fill it before the session starts.
     let (sender, _rx) = ingestion_queue(1, u64::MAX);
@@ -342,7 +326,7 @@ async fn ihave_queue_full_returns_436_not_235() {
 #[tokio::test]
 async fn takethis_queue_not_full_returns_239() {
     let (msgid_map, _tmp) = make_core_pool().await;
-    let transit_pool = make_transit_pool().await;
+    let (transit_pool, _tmp_transit) = make_transit_pool().await;
 
     // Queue has plenty of space.
     let (sender, _rx) = ingestion_queue(100, u64::MAX);

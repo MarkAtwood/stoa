@@ -25,7 +25,7 @@
 //! access controls (firewall, loopback binding) to restrict `/export/car`
 //! access until per-endpoint authorization is implemented in a future release.
 
-use sqlx::SqlitePool;
+use sqlx::AnyPool;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use stoa_core::audit::{AuditEvent, AuditLogger};
@@ -40,8 +40,8 @@ use crate::peering::pipeline::IpfsStore;
 /// schema (transit_core.db).  Grouped here to keep `start_admin_server` under
 /// clippy's 7-argument limit.
 pub struct AdminPools {
-    pub transit_pool: Arc<SqlitePool>,
-    pub core_pool: Arc<SqlitePool>,
+    pub transit_pool: Arc<AnyPool>,
+    pub core_pool: Arc<AnyPool>,
     pub audit_logger: Option<Arc<dyn AuditLogger>>,
     /// Directory for SQLite backups.  `None` disables `POST /admin/backup`.
     pub backup_dest_dir: Option<String>,
@@ -49,7 +49,7 @@ pub struct AdminPools {
 
 /// Start the admin HTTP server on the given address.
 ///
-/// Accepts `SqlitePool` for live stats queries, an optional bearer token for
+/// Accepts `AnyPool` for live stats queries, an optional bearer token for
 /// authentication, and a per-IP rate limit in requests per minute (0 = unlimited).
 /// Spawns a background tokio task. Returns immediately.
 ///
@@ -133,7 +133,7 @@ pub fn start_admin_server(
 
 async fn handle_admin_connection(
     stream: tokio::net::TcpStream,
-    pools: (&SqlitePool, &SqlitePool),
+    pools: (&AnyPool, &AnyPool),
     start_time: Instant,
     bearer_token: Option<&str>,
     rate_limiter: &RateLimiter,
@@ -465,8 +465,8 @@ async fn handle_admin_connection(
 ///
 /// Returns the list of backup file paths on success.
 pub(crate) async fn backup_databases(
-    transit_pool: &SqlitePool,
-    core_pool: &SqlitePool,
+    transit_pool: &AnyPool,
+    core_pool: &AnyPool,
     dest_dir: &str,
 ) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
     let timestamp = chrono::Utc::now().format("%Y%m%dT%H%M%SZ").to_string();
@@ -609,8 +609,8 @@ pub(crate) fn build_health_json(start_time: Instant) -> String {
 }
 
 pub(crate) async fn build_stats_json(
-    pool: &SqlitePool,
-    core_pool: &SqlitePool,
+    pool: &AnyPool,
+    core_pool: &AnyPool,
 ) -> Result<String, sqlx::Error> {
     // msgid_map lives in the core schema (transit_core.db), not the transit
     // schema (transit.db) — use core_pool here (rbe3.12).
@@ -645,7 +645,7 @@ pub(crate) async fn build_stats_json(
     .to_string())
 }
 
-pub(crate) async fn build_log_tip_json(pool: &SqlitePool, group: &str) -> Option<String> {
+pub(crate) async fn build_log_tip_json(pool: &AnyPool, group: &str) -> Option<String> {
     let row: Option<(Option<i64>, Option<String>)> =
         sqlx::query_as("SELECT MAX(sequence_number), cid FROM group_log WHERE group_name = ?")
             .bind(group)
@@ -676,7 +676,7 @@ pub(crate) async fn build_log_tip_json(pool: &SqlitePool, group: &str) -> Option
 /// ```json
 /// [{"service":"pinata","pending":2,"queued":1,"pinning":0,"pinned":10,"failed":0}]
 /// ```
-pub async fn build_pinning_remote_json(pool: &SqlitePool) -> Result<String, sqlx::Error> {
+pub async fn build_pinning_remote_json(pool: &AnyPool) -> Result<String, sqlx::Error> {
     // Aggregate counts per (service_name, status) in one query.
     let rows: Vec<(String, String, i64)> = sqlx::query_as(
         "SELECT service_name, status, COUNT(*) as cnt \
@@ -712,7 +712,7 @@ pub async fn build_pinning_remote_json(pool: &SqlitePool) -> Result<String, sqlx
     Ok(serde_json::to_string(&result).unwrap_or_else(|_| "[]".to_string()))
 }
 
-pub(crate) async fn build_peers_json(pool: &SqlitePool) -> Result<String, sqlx::Error> {
+pub(crate) async fn build_peers_json(pool: &AnyPool) -> Result<String, sqlx::Error> {
     let rows: Vec<(String, String)> = sqlx::query_as(
         "SELECT peer_id, address FROM peers WHERE blacklisted_until IS NULL OR blacklisted_until = 0",
     )
@@ -745,7 +745,7 @@ pub(crate) async fn build_peers_json(pool: &SqlitePool) -> Result<String, sqlx::
 ///
 /// `ipns_path` is `null` when IPNS is disabled.
 pub(crate) async fn build_ipns_json(
-    pool: &SqlitePool,
+    pool: &AnyPool,
     ipns_path: Option<&str>,
 ) -> Result<String, sqlx::Error> {
     // One row per group: the CID with the highest ingested_at_ms.
@@ -784,7 +784,7 @@ pub(crate) fn build_version_json() -> String {
     .to_string()
 }
 
-pub(crate) async fn build_groups_json(pool: &SqlitePool) -> Result<String, sqlx::Error> {
+pub(crate) async fn build_groups_json(pool: &AnyPool) -> Result<String, sqlx::Error> {
     let rows: Vec<(String,)> =
         sqlx::query_as("SELECT DISTINCT group_name FROM articles ORDER BY group_name")
             .fetch_all(pool)
@@ -798,48 +798,40 @@ pub(crate) async fn build_groups_json(pool: &SqlitePool) -> Result<String, sqlx:
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
     use std::sync::atomic::AtomicUsize;
 
     static DB_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
-    /// Returns `(transit_pool, core_pool)` — each backed by a distinct in-memory SQLite
+    /// Returns `(transit_pool, core_pool)` — each backed by a distinct temp-file SQLite
     /// database with the appropriate schema migrations applied.
-    async fn make_pools() -> (Arc<SqlitePool>, Arc<SqlitePool>) {
+    async fn make_pools() -> (Arc<AnyPool>, Arc<AnyPool>) {
         let n = DB_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
-        let transit_url = format!("file:admin_transit_{n}?mode=memory&cache=shared");
-        let transit_opts = SqliteConnectOptions::new()
-            .filename(&transit_url)
-            .create_if_missing(true);
-        let transit_pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(transit_opts)
-            .await
-            .unwrap();
-        crate::migrations::run_migrations(&transit_pool)
+        let transit_tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let _ = n; // silence unused warning; tempfile provides uniqueness
+        let transit_url = format!("sqlite://{}", transit_tmp.to_str().unwrap());
+        crate::migrations::run_migrations(&transit_url).await.unwrap();
+        let transit_pool = stoa_core::db_pool::try_open_any_pool(&transit_url, 1)
             .await
             .unwrap();
 
-        let core_url = format!("file:admin_core_{n}?mode=memory&cache=shared");
-        let core_opts = SqliteConnectOptions::new()
-            .filename(&core_url)
-            .create_if_missing(true);
-        let core_pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(core_opts)
+        let core_tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let core_url = format!("sqlite://{}", core_tmp.to_str().unwrap());
+        stoa_core::migrations::run_migrations(&core_url).await.unwrap();
+        let core_pool = stoa_core::db_pool::try_open_any_pool(&core_url, 1)
             .await
             .unwrap();
-        stoa_core::migrations::run_migrations(&core_pool)
-            .await
-            .unwrap();
+
+        // Keep temp paths alive for test duration by leaking into a Box.
+        std::mem::forget(transit_tmp);
+        std::mem::forget(core_tmp);
 
         (Arc::new(transit_pool), Arc::new(core_pool))
     }
 
     /// Convenience wrapper: returns only the transit pool for tests that don't
     /// exercise `build_stats_json` and don't need the core pool.
-    async fn make_pool() -> Arc<SqlitePool> {
+    async fn make_pool() -> Arc<AnyPool> {
         make_pools().await.0
     }
 

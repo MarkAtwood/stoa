@@ -9,37 +9,24 @@
 //!   - JSON structure verified by serde_json deserialization
 //!   - Status counts verified by direct SELECT after INSERT
 
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::Row;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use stoa_transit::admin::build_pinning_remote_json;
 
-static DB_SEQ: AtomicUsize = AtomicUsize::new(0);
-
-async fn make_pool() -> Arc<sqlx::SqlitePool> {
-    let n = DB_SEQ.fetch_add(1, Ordering::Relaxed);
-    let url = format!("file:remote_pin_{n}?mode=memory&cache=shared");
-    let opts = SqliteConnectOptions::new()
-        .filename(&url)
-        .create_if_missing(true);
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
-        .await
-        .unwrap();
-    stoa_transit::migrations::run_migrations(&pool)
-        .await
-        .unwrap();
-    Arc::new(pool)
+async fn make_pool() -> (Arc<sqlx::AnyPool>, tempfile::TempPath) {
+    let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+    let url = format!("sqlite://{}", tmp.to_str().unwrap());
+    stoa_transit::migrations::run_migrations(&url).await.unwrap();
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1).await.unwrap();
+    (Arc::new(pool), tmp)
 }
 
-/// INSERT OR IGNORE enqueues a job with default `pending` status.
+/// Insert with ON CONFLICT DO NOTHING enqueues a job with default `pending` status.
 #[tokio::test]
 async fn insert_or_ignore_enqueues_job_as_pending() {
-    let pool = make_pool().await;
+    let (pool, _tmp) = make_pool().await;
 
-    sqlx::query("INSERT OR IGNORE INTO remote_pin_jobs (cid, service_name) VALUES (?1, ?2)")
+    sqlx::query("INSERT INTO remote_pin_jobs (cid, service_name) VALUES (?, ?) ON CONFLICT (cid, service_name) DO NOTHING")
         .bind("QmTest1")
         .bind("pinata")
         .execute(&*pool)
@@ -47,7 +34,7 @@ async fn insert_or_ignore_enqueues_job_as_pending() {
         .unwrap();
 
     let row = sqlx::query(
-        "SELECT status, attempt_count FROM remote_pin_jobs WHERE cid = ?1 AND service_name = ?2",
+        "SELECT status, attempt_count FROM remote_pin_jobs WHERE cid = ? AND service_name = ?",
     )
     .bind("QmTest1")
     .bind("pinata")
@@ -62,13 +49,13 @@ async fn insert_or_ignore_enqueues_job_as_pending() {
 }
 
 /// UNIQUE constraint on (cid, service_name) prevents duplicate entries.
-/// INSERT OR IGNORE must silently skip the second insert.
+/// ON CONFLICT DO NOTHING must silently skip the second insert.
 #[tokio::test]
 async fn unique_constraint_prevents_duplicate_per_service() {
-    let pool = make_pool().await;
+    let (pool, _tmp) = make_pool().await;
 
     // First insert succeeds.
-    sqlx::query("INSERT OR IGNORE INTO remote_pin_jobs (cid, service_name) VALUES (?1, ?2)")
+    sqlx::query("INSERT INTO remote_pin_jobs (cid, service_name) VALUES (?, ?) ON CONFLICT (cid, service_name) DO NOTHING")
         .bind("QmDup1")
         .bind("web3")
         .execute(&*pool)
@@ -77,14 +64,14 @@ async fn unique_constraint_prevents_duplicate_per_service() {
 
     // Second insert for same (cid, service_name) must be silently ignored.
     let result =
-        sqlx::query("INSERT OR IGNORE INTO remote_pin_jobs (cid, service_name) VALUES (?1, ?2)")
+        sqlx::query("INSERT INTO remote_pin_jobs (cid, service_name) VALUES (?, ?) ON CONFLICT (cid, service_name) DO NOTHING")
             .bind("QmDup1")
             .bind("web3")
             .execute(&*pool)
             .await;
     assert!(
         result.is_ok(),
-        "INSERT OR IGNORE must not error on duplicate"
+        "ON CONFLICT DO NOTHING must not error on duplicate"
     );
 
     // Only one row must exist.
@@ -100,16 +87,16 @@ async fn unique_constraint_prevents_duplicate_per_service() {
 /// Same CID can be submitted to different services (different rows).
 #[tokio::test]
 async fn same_cid_different_services_creates_two_rows() {
-    let pool = make_pool().await;
+    let (pool, _tmp) = make_pool().await;
 
-    sqlx::query("INSERT OR IGNORE INTO remote_pin_jobs (cid, service_name) VALUES (?1, ?2)")
+    sqlx::query("INSERT INTO remote_pin_jobs (cid, service_name) VALUES (?, ?) ON CONFLICT (cid, service_name) DO NOTHING")
         .bind("QmShared")
         .bind("pinata")
         .execute(&*pool)
         .await
         .unwrap();
 
-    sqlx::query("INSERT OR IGNORE INTO remote_pin_jobs (cid, service_name) VALUES (?1, ?2)")
+    sqlx::query("INSERT INTO remote_pin_jobs (cid, service_name) VALUES (?, ?) ON CONFLICT (cid, service_name) DO NOTHING")
         .bind("QmShared")
         .bind("filebase")
         .execute(&*pool)
@@ -131,7 +118,7 @@ async fn same_cid_different_services_creates_two_rows() {
 async fn group_filter_empty_means_pin_all_groups() {
     // A service with empty groups list should pin articles from any group.
     // We simulate the pipeline logic: if svc_groups.is_empty(), always insert.
-    let pool = make_pool().await;
+    let (pool, _tmp) = make_pool().await;
     let svc_name = "all-groups-svc";
 
     let article_groups = ["comp.lang.rust", "alt.test", "sci.math"];
@@ -144,7 +131,7 @@ async fn group_filter_empty_means_pin_all_groups() {
                 .any(|g| svc_groups.iter().any(|p| group_matches_pattern(g, p)));
         if should_pin {
             sqlx::query(
-                "INSERT OR IGNORE INTO remote_pin_jobs (cid, service_name) VALUES (?1, ?2)",
+                "INSERT INTO remote_pin_jobs (cid, service_name) VALUES (?, ?) ON CONFLICT (cid, service_name) DO NOTHING",
             )
             .bind(format!("Qm{group}"))
             .bind(svc_name)
@@ -155,7 +142,7 @@ async fn group_filter_empty_means_pin_all_groups() {
     }
 
     let count: i64 =
-        sqlx::query_scalar("SELECT COUNT(*) FROM remote_pin_jobs WHERE service_name = ?1")
+        sqlx::query_scalar("SELECT COUNT(*) FROM remote_pin_jobs WHERE service_name = ?")
             .bind(svc_name)
             .fetch_one(&*pool)
             .await
@@ -169,7 +156,7 @@ async fn group_filter_empty_means_pin_all_groups() {
 /// Group filter matching: pattern `comp.*` matches comp groups but not alt.
 #[tokio::test]
 async fn group_filter_pattern_matches_prefix() {
-    let pool = make_pool().await;
+    let (pool, _tmp) = make_pool().await;
     let svc_name = "comp-only";
 
     let all_groups = ["comp.lang.rust", "comp.os.linux", "alt.test", "sci.math"];
@@ -180,7 +167,7 @@ async fn group_filter_pattern_matches_prefix() {
             svc_groups.is_empty() || svc_groups.iter().any(|p| group_matches_pattern(group, p));
         if should_pin {
             sqlx::query(
-                "INSERT OR IGNORE INTO remote_pin_jobs (cid, service_name) VALUES (?1, ?2)",
+                "INSERT INTO remote_pin_jobs (cid, service_name) VALUES (?, ?) ON CONFLICT (cid, service_name) DO NOTHING",
             )
             .bind(format!("Qm{group}"))
             .bind(svc_name)
@@ -191,7 +178,7 @@ async fn group_filter_pattern_matches_prefix() {
     }
 
     let count: i64 =
-        sqlx::query_scalar("SELECT COUNT(*) FROM remote_pin_jobs WHERE service_name = ?1")
+        sqlx::query_scalar("SELECT COUNT(*) FROM remote_pin_jobs WHERE service_name = ?")
             .bind(svc_name)
             .fetch_one(&*pool)
             .await
@@ -202,7 +189,7 @@ async fn group_filter_pattern_matches_prefix() {
 /// /pinning/remote admin endpoint returns correct per-service JSON stats.
 #[tokio::test]
 async fn admin_pinning_remote_endpoint_returns_stats() {
-    let pool = make_pool().await;
+    let (pool, _tmp) = make_pool().await;
 
     // Seed mixed statuses for two services.
     let inserts = [
@@ -213,7 +200,7 @@ async fn admin_pinning_remote_endpoint_returns_stats() {
         ("Qm5", "web3", "failed"),
     ];
     for (cid, svc, status) in inserts {
-        sqlx::query("INSERT INTO remote_pin_jobs (cid, service_name, status) VALUES (?1, ?2, ?3)")
+        sqlx::query("INSERT INTO remote_pin_jobs (cid, service_name, status) VALUES (?, ?, ?)")
             .bind(cid)
             .bind(svc)
             .bind(status)
