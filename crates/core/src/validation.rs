@@ -4,11 +4,9 @@
 //! - [`validate_article_ingress`] — all structural checks for POST/IHAVE
 //! - [`check_duplicate`] — Message-ID deduplication against storage
 
-use std::sync::Arc;
-
 use crate::article::Article;
 use crate::error::{ProtocolError, ValidationError};
-use crate::wildmat::{GroupFilter, GroupPolicy};
+use crate::wildmat::GroupPolicy;
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 

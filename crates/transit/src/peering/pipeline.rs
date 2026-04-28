@@ -22,7 +22,7 @@ use stoa_core::{
     hlc::HlcTimestamp,
     msgid_map::MsgIdMap,
     signing::{sign, SigningKey},
-    wildmat::{GroupFilter, GroupPolicy},
+    wildmat::GroupPolicy,
 };
 use stoa_verify::VerificationStore;
 
@@ -766,6 +766,7 @@ fn extract_message_id(article_bytes: &[u8]) -> Option<String> {
 mod tests {
     use super::*;
     use ed25519_dalek::SigningKey;
+    use stoa_core::wildmat::GroupFilter;
 
     async fn make_transit_pool() -> (AnyPool, tempfile::TempPath) {
         let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();

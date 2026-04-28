@@ -39,6 +39,18 @@ pub struct RadosStore {
 // which IS `Send + Sync`. Sending `RadosStore` between threads is safe because
 // the internal `rados_t` handle and its `IoCtx` are guarded by librados's own
 // internal locking.
+//
+// DO NOT remove this impl: without it `RadosStore` cannot be moved into a
+// `spawn_blocking` closure.
+//
+// DO NOT wrap `_rados` in `Mutex<Rados>`: `Mutex<T>: Send` requires `T: Send`,
+// which `Rados` is not, so this would not compile.
+//
+// DO NOT use `mem::forget(_rados)`: that would skip `rados_shutdown`, leaking
+// the handle and leaving the IoCtx in use-after-shutdown territory.
+//
+// The correct long-term fix is an upstream `unsafe impl Send for Rados {}` PR
+// to the ceph crate.  Until then this impl is the only safe option.
 unsafe impl Send for RadosStore {}
 unsafe impl Sync for RadosStore {}
 

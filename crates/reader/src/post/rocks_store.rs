@@ -14,6 +14,15 @@ use stoa_core::ipfs::DeletionOutcome;
 use crate::post::ipfs_write::{IpfsBlockStore, IpfsWriteError};
 
 /// IPFS block store backed by RocksDB.
+///
+/// ## Key format
+///
+/// Keys are raw CID bytes (`cid.to_bytes()`, 36 bytes for CIDv1 SHA-256).
+/// The binary representation is preferred over the base32 string form:
+/// - It is 36 bytes vs ~59 bytes for the string, reducing index size.
+/// - It avoids codec round-trips on every lookup.
+/// - It is the canonical form used by IPFS/IPLD tooling.
+/// All IPFS tools can decode the binary CID, so debuggability is not lost.
 pub struct RocksBlockStore {
     db: Arc<rocksdb::DB>,
 }
@@ -22,7 +31,9 @@ impl RocksBlockStore {
     /// Open or create the RocksDB database at `path`.
     ///
     /// `cache_size_mb` sets the LRU block cache size (default: 64 MiB).
-    /// A Bloom filter is always enabled on the default column family.
+    /// A Bloom filter is always enabled on the default column family so that
+    /// negative lookups (checking whether a block is already stored) are
+    /// cheap without a disk read.
     pub fn open(path: &Path, cache_size_mb: Option<u64>) -> Result<Self, String> {
         let mut block_opts = rocksdb::BlockBasedOptions::default();
         block_opts.set_bloom_filter(10.0, false);
