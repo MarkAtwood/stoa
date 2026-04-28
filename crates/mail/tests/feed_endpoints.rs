@@ -86,13 +86,19 @@ async fn state_no_jmap() -> Arc<AppState> {
 
 /// Build an AppState with real JMAP stores backed by tempfile SQLite.
 ///
-/// Returns the state and the bare stores so the caller can seed test data
-/// before spawning the server.
-async fn state_with_jmap() -> (Arc<AppState>, Arc<ArticleNumberStore>, Arc<OverviewStore>) {
-    let (reader_pool, _reader_tmp) = make_reader_pool().await;
-    let (mail_pool, _mail_tmp) = make_mail_pool().await;
+/// Returns the state, the bare stores so the caller can seed test data
+/// before spawning the server, and the temp-file handles that must remain
+/// alive for the duration of the test (dropping them deletes the SQLite files).
+async fn state_with_jmap() -> (
+    Arc<AppState>,
+    Arc<ArticleNumberStore>,
+    Arc<OverviewStore>,
+    Vec<tempfile::TempPath>,
+) {
+    let (reader_pool, reader_tmp) = make_reader_pool().await;
+    let (mail_pool, mail_tmp) = make_mail_pool().await;
     let mail_pool_arc = Arc::new(mail_pool);
-    let (core_pool, _core_tmp) = make_core_pool().await;
+    let (core_pool, core_tmp) = make_core_pool().await;
 
     let article_numbers = Arc::new(ArticleNumberStore::new(reader_pool.clone()));
     let overview_store = Arc::new(OverviewStore::new(reader_pool));
@@ -105,6 +111,9 @@ async fn state_with_jmap() -> (Arc<AppState>, Arc<ArticleNumberStore>, Arc<Overv
         overview_store: Arc::clone(&overview_store),
         user_flags: Arc::new(UserFlagsStore::new((*mail_pool_arc).clone())),
         state_store: Arc::new(StateStore::new((*mail_pool_arc).clone())),
+        change_log: Arc::new(stoa_mail::state::change_log::ChangeLogStore::new(
+            (*mail_pool_arc).clone(),
+        )),
         search_index: None,
         smtp_relay_queue: None,
     });
@@ -119,7 +128,12 @@ async fn state_with_jmap() -> (Arc<AppState>, Arc<ArticleNumberStore>, Arc<Overv
         cors: stoa_mail::config::CorsConfig::default(),
     });
 
-    (state, article_numbers, overview_store)
+    (
+        state,
+        article_numbers,
+        overview_store,
+        vec![reader_tmp, mail_tmp, core_tmp],
+    )
 }
 
 /// Spawn the server on an ephemeral port and return the bound address.
@@ -160,7 +174,7 @@ fn make_record(n: u64, subject: &str, message_id: &str) -> OverviewRecord {
 /// and a body that starts with an RSS envelope containing the group name.
 #[tokio::test]
 async fn feed_rss_returns_xml() {
-    let (state, article_numbers, overview_store) = state_with_jmap().await;
+    let (state, article_numbers, overview_store, _handles) = state_with_jmap().await;
 
     // Seed one article so the group exists and returns a non-empty feed.
     article_numbers
@@ -207,7 +221,7 @@ async fn feed_rss_returns_xml() {
 /// and a body that starts with an Atom feed envelope.
 #[tokio::test]
 async fn feed_atom_returns_xml() {
-    let (state, article_numbers, overview_store) = state_with_jmap().await;
+    let (state, article_numbers, overview_store, _handles) = state_with_jmap().await;
 
     article_numbers
         .assign_number("comp.test", &dummy_cid(b"atom-art-1"))
@@ -281,7 +295,7 @@ async fn feed_invalid_group_name_returns_400() {
 async fn feed_nonexistent_group_returns_empty_feed() {
     // Need jmap: Some so the handler reaches the group_range check.
     // Stores are empty — group_range returns (1, 0) which signals empty group.
-    let (state, _article_numbers, _overview_store) = state_with_jmap().await;
+    let (state, _article_numbers, _overview_store, _handles) = state_with_jmap().await;
     let addr = spawn_server(state).await;
 
     let resp = reqwest::Client::new()
@@ -344,7 +358,7 @@ async fn feed_path_without_extension_returns_404() {
 /// in XML character data. The literal bytes `<XSS>` must not appear in the output.
 #[tokio::test]
 async fn feed_xml_special_chars_escaped() {
-    let (state, article_numbers, overview_store) = state_with_jmap().await;
+    let (state, article_numbers, overview_store, _handles) = state_with_jmap().await;
 
     article_numbers
         .assign_number("comp.test", &dummy_cid(b"xss-art-1"))

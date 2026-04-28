@@ -34,6 +34,7 @@ pub struct JmapStores {
     pub overview_store: Arc<OverviewStore>,
     pub user_flags: Arc<UserFlagsStore>,
     pub state_store: Arc<StateStore>,
+    pub change_log: Arc<crate::state::change_log::ChangeLogStore>,
     /// Full-text search index for Email/query `text` filter.
     /// `None` means search is disabled; text filters return empty results.
     pub search_index: Option<Arc<TantivySearchIndex>>,
@@ -617,7 +618,27 @@ async fn route_method(
                 old_state.clone()
             };
             result["oldState"] = Value::String(old_state);
-            result["newState"] = Value::String(new_state);
+            result["newState"] = Value::String(new_state.clone());
+
+            // Record newly created CIDs in the change log for Email/changes.
+            if let Some(created_obj) = result["created"].as_object() {
+                let new_cid_ids: Vec<String> = created_obj
+                    .values()
+                    .filter_map(|v| v.get("id"))
+                    .filter_map(|v| v.as_str())
+                    .map(str::to_string)
+                    .collect();
+                if !new_cid_ids.is_empty() {
+                    let new_seq: i64 = new_state.parse().unwrap_or(0);
+                    if let Err(e) = jmap
+                        .change_log
+                        .record_created("Email", &new_cid_ids, new_seq)
+                        .await
+                    {
+                        tracing::warn!("change_log.record_created failed: {e}");
+                    }
+                }
+            }
 
             result
         }
@@ -669,6 +690,50 @@ async fn route_method(
 
             let id_refs: Vec<&str> = requested_ids.iter().map(|s| s.as_str()).collect();
             crate::thread::get::handle_thread_get(&entries, &id_refs, &thread_state)
+        }
+
+        // RFC 8620 §5.2 — /changes methods for incremental sync.
+        "Email/changes" => {
+            let since_state_str = args
+                .get("sinceState")
+                .and_then(|v| v.as_str())
+                .unwrap_or("0");
+            let since_seq: i64 = since_state_str.parse().unwrap_or(0);
+
+            let new_state = jmap
+                .state_store
+                .get_state("Email")
+                .await
+                .unwrap_or_else(|_| "0".to_string());
+
+            let created = match jmap.change_log.query_since("Email", since_seq).await {
+                Ok(ids) => ids,
+                Err(e) => return json!({"error": e.to_string()}),
+            };
+
+            json!({
+                "accountId": canonical_account_id,
+                "oldState": since_state_str,
+                "newState": new_state,
+                "created": created,
+                "updated": [],
+                "destroyed": [],
+                "hasMoreChanges": false
+            })
+        }
+
+        "Mailbox/changes" => {
+            let new_state = jmap
+                .state_store
+                .get_state("Mailbox")
+                .await
+                .unwrap_or_else(|_| "0".to_string());
+            // Mailboxes are NNTP groups; membership changes are not tracked in
+            // the change log.  RFC 8620 §5.2 permits returning cannotCalculateChanges.
+            json!({
+                "type": "cannotCalculateChanges",
+                "newState": new_state
+            })
         }
 
         _ => serde_json::to_value(crate::jmap::types::MethodError::unknown_method())
@@ -822,6 +887,9 @@ mod tests {
             overview_store: Arc::new(OverviewStore::new(reader_pool)),
             user_flags: Arc::new(UserFlagsStore::new(mail_pool.clone())),
             state_store: Arc::new(StateStore::new(mail_pool.clone())),
+            change_log: Arc::new(crate::state::change_log::ChangeLogStore::new(
+                mail_pool.clone(),
+            )),
             search_index: None,
             smtp_relay_queue: None,
         });

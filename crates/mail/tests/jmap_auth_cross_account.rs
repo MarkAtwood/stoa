@@ -107,14 +107,17 @@ async fn make_core_pool(_tag: &str) -> (sqlx::AnyPool, tempfile::TempPath) {
     (pool, tmp)
 }
 
-/// Spin up a dev-mode JMAP server and return its base URL.
+/// Spin up a dev-mode JMAP server and return its base URL and temp-file handles.
+///
+/// The caller MUST hold the returned handles alive for the duration of the test;
+/// dropping them deletes the SQLite files backing the stores.
 ///
 /// Dev mode: no HTTP authentication required, canonical accountId = `u_anonymous`.
-async fn spawn_dev_server(tag: &str) -> String {
-    let (reader_pool, _reader_tmp) = make_reader_pool(tag).await;
-    let (mail_pool, _mail_tmp) = make_mail_pool(tag).await;
+async fn spawn_dev_server(tag: &str) -> (String, Vec<tempfile::TempPath>) {
+    let (reader_pool, reader_tmp) = make_reader_pool(tag).await;
+    let (mail_pool, mail_tmp) = make_mail_pool(tag).await;
     let mail_pool_arc = Arc::new(mail_pool);
-    let (core_pool, _core_tmp) = make_core_pool(tag).await;
+    let (core_pool, core_tmp) = make_core_pool(tag).await;
 
     let ipfs = Arc::new(MemIpfs::new());
     let jmap_stores = Arc::new(JmapStores {
@@ -124,6 +127,9 @@ async fn spawn_dev_server(tag: &str) -> String {
         overview_store: Arc::new(OverviewStore::new(reader_pool)),
         user_flags: Arc::new(UserFlagsStore::new((*mail_pool_arc).clone())),
         state_store: Arc::new(StateStore::new((*mail_pool_arc).clone())),
+        change_log: Arc::new(stoa_mail::state::change_log::ChangeLogStore::new(
+            (*mail_pool_arc).clone(),
+        )),
         search_index: None,
         smtp_relay_queue: None,
     });
@@ -146,7 +152,10 @@ async fn spawn_dev_server(tag: &str) -> String {
     });
     tokio::time::sleep(std::time::Duration::from_millis(20)).await;
 
-    format!("http://127.0.0.1:{port}")
+    (
+        format!("http://127.0.0.1:{port}"),
+        vec![reader_tmp, mail_tmp, core_tmp],
+    )
 }
 
 // ── Helper: post a single JMAP method call, return methodResponses[0] ─────────
@@ -180,7 +189,7 @@ async fn jmap_call(
 /// the authenticated principal.
 #[tokio::test]
 async fn email_get_wrong_account_id_returns_account_not_found() {
-    let base = spawn_dev_server("eg_wrong").await;
+    let (base, _handles) = spawn_dev_server("eg_wrong").await;
     let client = reqwest::Client::new();
 
     // Confirm the canonical accountId so we know what "wrong" means.
@@ -229,7 +238,7 @@ async fn email_get_wrong_account_id_returns_account_not_found() {
 /// Mailbox/get with a foreign accountId must return accountNotFound, not data.
 #[tokio::test]
 async fn mailbox_get_wrong_account_id_returns_account_not_found() {
-    let base = spawn_dev_server("mg_wrong").await;
+    let (base, _handles) = spawn_dev_server("mg_wrong").await;
     let client = reqwest::Client::new();
 
     let invocation = jmap_call(
@@ -258,7 +267,7 @@ async fn mailbox_get_wrong_account_id_returns_account_not_found() {
 /// Email/query with a foreign accountId must return accountNotFound.
 #[tokio::test]
 async fn email_query_wrong_account_id_returns_account_not_found() {
-    let base = spawn_dev_server("eq_wrong").await;
+    let (base, _handles) = spawn_dev_server("eq_wrong").await;
     let client = reqwest::Client::new();
 
     let invocation = jmap_call(
@@ -289,7 +298,7 @@ async fn email_query_wrong_account_id_returns_account_not_found() {
 /// An empty string is not a valid accountId and does not match `u_anonymous`.
 #[tokio::test]
 async fn email_get_empty_account_id_returns_account_not_found() {
-    let base = spawn_dev_server("eg_empty").await;
+    let (base, _handles) = spawn_dev_server("eg_empty").await;
     let client = reqwest::Client::new();
 
     let invocation = jmap_call(
@@ -320,7 +329,7 @@ async fn email_get_empty_account_id_returns_account_not_found() {
 /// This confirms the validation does not break the happy path.
 #[tokio::test]
 async fn mailbox_get_correct_account_id_succeeds() {
-    let base = spawn_dev_server("mg_correct").await;
+    let (base, _handles) = spawn_dev_server("mg_correct").await;
     let client = reqwest::Client::new();
 
     // Get the canonical accountId from the session.

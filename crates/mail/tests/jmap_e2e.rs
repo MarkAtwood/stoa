@@ -183,6 +183,9 @@ async fn jmap_session_e2e() {
         overview_store: Arc::clone(&overview_store),
         user_flags: Arc::clone(&user_flags),
         state_store: Arc::clone(&state_store),
+        change_log: Arc::new(stoa_mail::state::change_log::ChangeLogStore::new(
+            (*mail_pool_arc).clone(),
+        )),
         search_index: None,
         smtp_relay_queue: None,
     });
