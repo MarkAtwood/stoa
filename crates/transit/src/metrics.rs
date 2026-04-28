@@ -124,6 +124,43 @@ lazy_static::lazy_static! {
         )
         .expect("failed to register articles_rejected_group_total");
 
+    // ── Per-group sampled gauges (updated by group_metrics::run_group_metrics_sampler) ──
+
+    /// Current number of articles stored for each newsgroup.
+    ///
+    /// Sampled periodically from the `articles` table.
+    /// Absent until the first sample completes.
+    /// Not emitted when >500 distinct groups are active (high-cardinality guard).
+    pub static ref GROUP_LOG_ENTRIES_TOTAL: prometheus::GaugeVec =
+        register_gauge_vec!(
+            "group_log_entries_total",
+            "Number of articles stored for this newsgroup (sampled)",
+            &["group"]
+        )
+        .expect("failed to register group_log_entries_total");
+
+    /// Total stored bytes for each newsgroup.
+    ///
+    /// Sampled periodically from the `articles` table.
+    pub static ref GROUP_STORAGE_BYTES: prometheus::GaugeVec =
+        register_gauge_vec!(
+            "group_storage_bytes",
+            "Total stored bytes for this newsgroup (sampled)",
+            &["group"]
+        )
+        .expect("failed to register group_storage_bytes");
+
+    /// Unix timestamp (seconds) of the most recently ingested article per group.
+    ///
+    /// Sampled periodically from the `articles` table.
+    pub static ref GROUP_LAST_ACTIVITY_TIMESTAMP: prometheus::GaugeVec =
+        register_gauge_vec!(
+            "group_last_activity_timestamp",
+            "Unix timestamp of the most recently ingested article for this group (sampled)",
+            &["group"]
+        )
+        .expect("failed to register group_last_activity_timestamp");
+
     /// Unix timestamp of each configured TLS certificate's NotAfter date.
     ///
     /// Labels: `path` — the filesystem path of the certificate file.
@@ -157,6 +194,9 @@ pub fn gather_metrics() -> String {
     lazy_static::initialize(&INGEST_BACKPRESSURE_TOTAL);
     lazy_static::initialize(&TLS_CERT_EXPIRY_SECONDS);
     lazy_static::initialize(&ARTICLES_REJECTED_GROUP_TOTAL);
+    lazy_static::initialize(&GROUP_LOG_ENTRIES_TOTAL);
+    lazy_static::initialize(&GROUP_STORAGE_BYTES);
+    lazy_static::initialize(&GROUP_LAST_ACTIVITY_TIMESTAMP);
 
     use prometheus::Encoder;
     let encoder = prometheus::TextEncoder::new();

@@ -1153,6 +1153,13 @@ async fn main() {
         ));
     }
 
+    // ── Per-group metrics sampler ─────────────────────────────────────────────
+
+    tokio::spawn(stoa_transit::group_metrics::run_group_metrics_sampler(
+        Arc::clone(&transit_pool),
+        std::time::Duration::from_secs(60),
+    ));
+
     // ── Shutdown ──────────────────────────────────────────────────────────────
 
     let drain_timeout_secs = config.peering.drain_timeout_secs.unwrap_or(30);
