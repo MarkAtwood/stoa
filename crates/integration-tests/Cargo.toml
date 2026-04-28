@@ -13,7 +13,7 @@ stoa-reader = { path = "../reader" }
 stoa-core = { path = "../core" }
 tokio = { version = "1", features = ["full", "macros", "rt-multi-thread"] }
 tempfile = "3"
-sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio-rustls"] }
+sqlx = { version = "0.8", features = ["sqlite", "postgres", "any", "runtime-tokio-rustls"] }
 async-trait = "0.1"
 cid = "0.11"
 multihash-codetable = { version = "0.2", features = ["sha2"] }

@@ -346,3 +346,198 @@ secretx = { version = "0.3.0", default-features = false, features = ["env", "fil
 ```
 
 This requires the `aws-config` crate chain and will increase binary size.  Only enable it on deployments that use AWS Secrets Manager.
+
+---
+
+## Aurora Serverless v2 Deployment (usenet-ipfs-ky62.7)
+
+This section documents running `stoa-transit` and `stoa-reader` with Amazon
+Aurora Serverless v2 (PostgreSQL-compatible) instead of the default SQLite
+backend.
+
+### 1. Create the Aurora Serverless v2 Cluster
+
+```bash
+aws rds create-db-cluster \
+  --db-cluster-identifier stoa-db \
+  --engine aurora-postgresql \
+  --engine-version 16.2 \
+  --serverless-v2-scaling-configuration MinCapacity=0.5,MaxCapacity=16 \
+  --db-subnet-group-name stoa-subnet-group \
+  --vpc-security-group-ids sg-XXXXXXXX \
+  --enable-iam-database-authentication \
+  --master-username stoaadmin \
+  --manage-master-user-password \
+  --no-deletion-protection
+```
+
+Then add a writer instance:
+
+```bash
+aws rds create-db-instance \
+  --db-instance-identifier stoa-db-writer \
+  --db-cluster-identifier stoa-db \
+  --db-instance-class db.serverless \
+  --engine aurora-postgresql
+```
+
+### 2. VPC and Security Group Configuration
+
+- Place the cluster in private subnets with no direct internet access.
+- Create a security group `sg-stoa-db` that allows TCP 5432 from the
+  transit/reader instance security groups only. No 0.0.0.0/0 ingress.
+- The transit and reader EC2 instances need an IAM role with the
+  `rds-db:connect` permission (see §3 below).
+- Outbound: allow TCP 443 from transit/reader to reach AWS secrets endpoints
+  (Secrets Manager, IAM) when using IAM authentication.
+
+Example security group ingress rule (CLI):
+
+```bash
+aws ec2 authorize-security-group-ingress \
+  --group-id sg-stoa-db \
+  --protocol tcp --port 5432 \
+  --source-group sg-stoa-transit
+```
+
+### 3. IAM Database Authentication (preferred)
+
+IAM auth eliminates long-lived passwords. The connection token is a
+short-lived (15-minute) pre-signed URL derived from the instance's IAM role.
+
+**Enable on the cluster** (already included in the `create-db-cluster` command
+above via `--enable-iam-database-authentication`).
+
+**Create a DB user mapped to IAM:**
+
+```sql
+CREATE USER stoa_transit WITH LOGIN;
+GRANT rds_iam TO stoa_transit;
+
+CREATE USER stoa_reader WITH LOGIN;
+GRANT rds_iam TO stoa_reader;
+```
+
+**IAM policy for the EC2 instance role:**
+
+```json
+{
+  "Effect": "Allow",
+  "Action": "rds-db:connect",
+  "Resource": "arn:aws:rds-db:REGION:ACCOUNT:dbuser:CLUSTER_RESOURCE_ID/stoa_transit"
+}
+```
+
+**Generate a connection token** (for debugging; the application does this
+automatically via the `aws-sdk-rds` crate when using the `iam-auth` driver):
+
+```bash
+aws rds generate-db-auth-token \
+  --hostname stoa-db.cluster-XXXXX.REGION.rds.amazonaws.com \
+  --port 5432 --region REGION --username stoa_transit
+```
+
+**Connection string format with IAM auth token** (token is the password):
+
+```
+postgres://stoa_transit:TOKEN@stoa-db.cluster-XXXXX.REGION.rds.amazonaws.com:5432/stoa?sslmode=verify-full&sslrootcert=/etc/ssl/certs/rds-combined-ca-bundle.pem
+```
+
+Set this in `database.url` (or a `secretx:` URI pointing to AWS Secrets
+Manager for the token rotation case):
+
+```toml
+[database]
+url = "secretx:aws-sm:///stoa/transit/db_url"
+```
+
+### 4. Password Authentication (simpler, less preferred)
+
+If IAM auth is not used, Aurora's master password is stored in AWS Secrets
+Manager by passing `--manage-master-user-password` to `create-db-cluster`.
+Retrieve it and set:
+
+```toml
+[database]
+url = "secretx:aws-sm:///stoa/transit/db_url"
+```
+
+Where the Secrets Manager secret value is the full connection string:
+
+```
+postgres://stoa_transit:PASSWORD@stoa-db.cluster-XXXXX.REGION.rds.amazonaws.com:5432/stoa?sslmode=verify-full
+```
+
+### 5. Connection Pool Sizing for Serverless v2
+
+Aurora Serverless v2 scales ACUs (Aurora Capacity Units) based on load.
+Each ACU provides approximately 2 GiB of RAM. The PostgreSQL `max_connections`
+parameter scales with ACUs:
+
+| ACUs | Approximate `max_connections` |
+|------|-------------------------------|
+| 0.5  | ~90                           |
+| 2    | ~350                          |
+| 8    | ~1400                         |
+| 16   | ~2800                         |
+
+The stoa config `database.pool_size` defaults to 4 connections per process.
+For a multi-instance deployment with N transit daemons, total connections ≈
+`N × pool_size`. Keep this well below Aurora's `max_connections` to leave
+headroom for administrative connections and autoscaling warm-up.
+
+Recommended starting values:
+
+```toml
+[database]
+pool_size = 4   # per transit/reader process; multiply by instance count
+```
+
+For Aurora Serverless v2, avoid setting `MinCapacity` below 0.5 ACU in
+production — the cold-start latency on the first connection after a scale-to-zero
+event can exceed 30 seconds and will timeout the connection pool.
+
+### 6. Multi-Instance Transit Deployment
+
+With Aurora as the shared metadata backend, multiple `stoa-transit` daemons
+can run simultaneously against the same database.  The following features
+coordinate across instances automatically:
+
+| Feature | Mechanism | Behaviour |
+|---------|-----------|-----------|
+| GC runs | `pg_try_advisory_lock(GC_ADVISORY_LOCK_ID)` | Only one instance runs GC per interval |
+| IPNS publishing | `pg_try_advisory_lock(IPNS_ADVISORY_LOCK_ID)` | Only one instance publishes IPNS records |
+| HLC node_id | `transit_instance_id` table | Each hostname gets a distinct, stable 8-byte ID |
+
+**Deployment checklist:**
+
+1. Run migrations once before starting any daemon (use `--check` mode or a
+   migration-only invocation; the normal startup path also runs them idempotently).
+2. All daemons must point at the same `database.url` (Aurora writer endpoint).
+3. Each daemon should use a distinct `operator.hostname` (or leave it unset so
+   the system hostname is used). This determines the HLC `node_id` and the
+   IPNS advisory lock winner.
+4. The GC schedule is per-instance; only the lock-holder runs GC. Ensure all
+   instances have the same `[gc]` configuration.
+5. Monitor `gc_articles_unpinned_total` and `gc_last_run_duration_ms` in the
+   admin Prometheus endpoint to confirm exactly one instance is performing GC.
+
+### 7. Running Migrations Against Aurora
+
+```bash
+# One-time setup (run from a host with network access to the Aurora endpoint):
+export DATABASE_URL="postgres://stoa_transit:TOKEN@stoa-db.cluster-XXXXX.REGION.rds.amazonaws.com:5432/stoa?sslmode=verify-full"
+
+# Core schema:
+cargo run -p stoa-transit -- --config /dev/null --check 2>/dev/null || true
+
+# Or use the migration runner directly (requires sqlx-cli):
+sqlx migrate run --source crates/core/migrations_pg     --database-url "$DATABASE_URL"
+sqlx migrate run --source crates/transit/migrations_pg  --database-url "$DATABASE_URL"
+sqlx migrate run --source crates/reader/migrations_pg   --database-url "$DATABASE_URL"
+sqlx migrate run --source crates/verify/migrations_pg   --database-url "$DATABASE_URL"
+```
+
+Normal daemon startup also runs migrations (idempotently), so the explicit
+migration step is only needed for zero-downtime upgrades where you want
+migrations applied before the new binary is rolled out.

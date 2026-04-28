@@ -1,0 +1,25 @@
+# Docker Compose file for local PostgreSQL integration testing (ky62.6).
+#
+# Usage:
+#   docker-compose -f docker-compose.postgres.yml up -d
+#   export STOA_TEST_PG_URL="postgres://stoa:stoa_test_pw@localhost:5433/stoa_test"
+#   cargo test -p stoa-integration-tests --test postgres_migrations
+#   docker-compose -f docker-compose.postgres.yml down -v
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: stoa_test_postgres
+    environment:
+      POSTGRES_USER: stoa
+      POSTGRES_PASSWORD: stoa_test_pw
+      POSTGRES_DB: stoa_test
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stoa -d stoa_test"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
