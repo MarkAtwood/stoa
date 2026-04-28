@@ -366,8 +366,22 @@ pub struct PeersConfig {
     pub peer: Vec<PeerEntry>,
 }
 
+/// Configuration for the set of newsgroups this transit node accepts.
 #[derive(Debug, Deserialize)]
 pub struct GroupsConfig {
+    /// Wildmat filter patterns for accepted newsgroup names.
+    ///
+    /// Each entry is a wildmat pattern (RFC 3977 §4.2) — NOT a literal group
+    /// name.  Patterns support `*` (any sequence of characters) and `?` (any
+    /// single character).  Negation patterns start with `!`:
+    ///
+    /// ```toml
+    /// names = ["comp.*", "sci.*", "!alt.binaries.*"]
+    /// ```
+    ///
+    /// Matching is first-match-wins in list order.  An empty list means
+    /// accept nothing.  See [`GroupFilter`](crate::config::GroupsConfig) for
+    /// full semantics.
     pub names: Vec<String>,
 }
 
