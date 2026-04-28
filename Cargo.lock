@@ -560,6 +560,7 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
+ "serde",
  "wasm-bindgen",
  "windows-link",
 ]
@@ -1681,6 +1682,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 
 [[package]]
+name = "humantime"
+version = "2.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "135b12329e5e3ce057a9f972339ea52bc954fe1e9358ef27f95e89716fbc5424"
+
+[[package]]
 name = "hybrid-array"
 version = "0.4.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1721,6 +1728,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "rustls",
+ "rustls-native-certs",
  "tokio",
  "tokio-rustls",
  "tower-service",
@@ -2060,6 +2068,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2230,7 +2247,7 @@ dependencies = [
  "hickory-resolver",
  "mail-builder",
  "mail-parser",
- "quick-xml",
+ "quick-xml 0.39.2",
  "rustls-pki-types",
  "serde",
  "serde_json",
@@ -2574,6 +2591,42 @@ checksum = "91df4bbde75afed763b708b7eee1e8e7651e02d97f6d5dd763e89367e957b23b"
 dependencies = [
  "hermit-abi",
  "libc",
+]
+
+[[package]]
+name = "object_store"
+version = "0.12.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fbfbfff40aeccab00ec8a910b57ca8ecf4319b335c542f2edcd19dd25a1e2a00"
+dependencies = [
+ "async-trait",
+ "base64",
+ "bytes",
+ "chrono",
+ "form_urlencoded",
+ "futures",
+ "http",
+ "http-body-util",
+ "humantime",
+ "hyper",
+ "itertools 0.14.0",
+ "md-5",
+ "parking_lot",
+ "percent-encoding",
+ "quick-xml 0.38.4",
+ "rand 0.9.4",
+ "reqwest",
+ "ring",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "url",
+ "walkdir",
+ "wasm-bindgen-futures",
+ "web-time",
 ]
 
 [[package]]
@@ -2959,6 +3012,16 @@ checksum = "a1d01941d82fa2ab50be1e79e6714289dd7cde78eba4c074bc5a4374f650dfe0"
 
 [[package]]
 name = "quick-xml"
+version = "0.38.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b66c2058c55a409d601666cffe35f04333cf1013010882cec174a7467cd4e21c"
+dependencies = [
+ "memchr",
+ "serde",
+]
+
+[[package]]
+name = "quick-xml"
 version = "0.39.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "958f21e8e7ceb5a1aa7fa87fab28e7c75976e0bfe7e23ff069e0a260f894067d"
@@ -3235,6 +3298,7 @@ dependencies = [
  "pin-project-lite",
  "quinn",
  "rustls",
+ "rustls-native-certs",
  "rustls-pki-types",
  "serde",
  "serde_json",
@@ -3243,12 +3307,14 @@ dependencies = [
  "tokio",
  "tokio-native-tls",
  "tokio-rustls",
+ "tokio-util",
  "tower",
  "tower-http",
  "tower-service",
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wasm-streams",
  "web-sys",
  "webpki-roots 1.0.7",
 ]
@@ -3382,6 +3448,18 @@ dependencies = [
  "rustls-webpki",
  "subtle",
  "zeroize",
+]
+
+[[package]]
+name = "rustls-native-certs"
+version = "0.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "612460d5f7bea540c490b2b6395d8e34a953e52b491accd6c86c8164c5932a63"
+dependencies = [
+ "openssl-probe",
+ "rustls-pki-types",
+ "schannel",
+ "security-framework",
 ]
 
 [[package]]
@@ -4154,6 +4232,7 @@ dependencies = [
  "base64",
  "bcrypt",
  "bs58",
+ "bytes",
  "chrono",
  "cid",
  "ed25519-dalek",
@@ -4163,6 +4242,7 @@ dependencies = [
  "mailparse",
  "memchr",
  "multihash-codetable",
+ "object_store",
  "prometheus",
  "rcgen",
  "rustls",
@@ -4256,6 +4336,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "base64",
+ "bytes",
  "chrono",
  "cid",
  "cron",
@@ -4264,6 +4345,7 @@ dependencies = [
  "lazy_static",
  "mail-auth",
  "multihash-codetable",
+ "object_store",
  "prometheus",
  "proptest",
  "rand_core 0.6.4",
@@ -5202,6 +5284,19 @@ dependencies = [
  "indexmap",
  "wasm-encoder",
  "wasmparser",
+]
+
+[[package]]
+name = "wasm-streams"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15053d8d85c7eccdbefef60f06769760a563c7f0a9d6902a13d35c7800b0ad65"
+dependencies = [
+ "futures-util",
+ "js-sys",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]

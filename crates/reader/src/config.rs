@@ -557,9 +557,37 @@ impl Config {
                     }
                 }
                 BackendType::S3 => {
-                    return Err(ConfigError::Validation(
-                        "backend.type 's3' is not yet implemented; use 'kubo', 'lmdb', 'filesystem', or 'sqlite'".into(),
-                    ));
+                    if backend.s3.is_none() {
+                        return Err(ConfigError::Validation(
+                            "backend.type = 's3' requires a [backend.s3] section".into(),
+                        ));
+                    }
+                    let s3 = backend.s3.as_ref().unwrap();
+                    if s3.bucket.is_empty() {
+                        return Err(ConfigError::Validation(
+                            "backend.s3.bucket must not be empty".into(),
+                        ));
+                    }
+                    if s3.region.is_empty() {
+                        return Err(ConfigError::Validation(
+                            "backend.s3.region must not be empty".into(),
+                        ));
+                    }
+                    // Validate secretx URI syntax for credentials.
+                    for (field, val) in [
+                        ("backend.s3.access_key_id", s3.access_key_id.as_deref()),
+                        ("backend.s3.secret_access_key", s3.secret_access_key.as_deref()),
+                    ] {
+                        if let Some(v) = val {
+                            if v.starts_with("secretx:") {
+                                if let Err(e) = secretx::from_uri(v) {
+                                    return Err(ConfigError::Validation(format!(
+                                        "{field}: invalid secretx URI: {e}"
+                                    )));
+                                }
+                            }
+                        }
+                    }
                 }
             }
         } else if self.ipfs.api_url.is_empty() {
@@ -1003,6 +1031,103 @@ type = "s3"
         let f = write_toml(toml);
         let err = Config::from_file(f.path())
             .expect_err("s3 backend must fail with not-yet-implemented error");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend] with type = "s3" and a [backend.s3] section parses and validates.
+    #[test]
+    fn backend_s3_section_parses() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "s3"
+
+[backend.s3]
+bucket = "stoa-articles"
+region = "us-east-1"
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("s3 backend config must parse");
+        let backend = cfg.backend.as_ref().expect("backend must be set");
+        assert!(matches!(backend.backend_type, BackendType::S3));
+        assert_eq!(
+            backend.s3.as_ref().map(|s| s.bucket.as_str()),
+            Some("stoa-articles")
+        );
+        assert_eq!(
+            backend.s3.as_ref().map(|s| s.region.as_str()),
+            Some("us-east-1")
+        );
+    }
+
+    /// [backend] with type = "s3" but no [backend.s3] section is rejected.
+    #[test]
+    fn backend_s3_without_subsection_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "s3"
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("s3 without subsection must fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend.s3] with empty bucket is rejected.
+    #[test]
+    fn backend_s3_empty_bucket_rejected() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "s3"
+
+[backend.s3]
+bucket = ""
+region = "us-east-1"
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("empty bucket must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"

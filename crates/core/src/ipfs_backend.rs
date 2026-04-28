@@ -21,7 +21,7 @@ pub struct BackendConfig {
     /// Kubo-specific settings.  Required when `type = "kubo"`.
     #[serde(default)]
     pub kubo: Option<KuboBackendConfig>,
-    /// S3-specific settings (not yet implemented).
+    /// S3-specific settings.  Required when `type = "s3"`.
     #[serde(default)]
     pub s3: Option<S3BackendConfig>,
     /// Filesystem-specific settings.  Required when `type = "filesystem"`.
@@ -57,9 +57,58 @@ pub struct KuboBackendConfig {
     pub cache_path: Option<String>,
 }
 
-/// Placeholder — S3 backend not yet implemented.
-#[derive(Debug, Deserialize, Clone, Default)]
-pub struct S3BackendConfig {}
+/// Configuration for the S3-compatible object storage backend.
+///
+/// Supports AWS S3, MinIO, Backblaze B2, Wasabi, and any S3-compatible service.
+///
+/// ## Object layout
+///
+/// Blocks are stored as `<prefix>/<cid-base32-lowercase>` objects.
+/// The default prefix is `blocks`.  CID encoding matches the CIDv1 `Display`
+/// (multibase base32 lowercase), providing a stable key contract.
+///
+/// ## Credentials
+///
+/// `access_key_id` and `secret_access_key` accept literal values or
+/// `secretx://` URIs (e.g. `secretx://env/AWS_SECRET_ACCESS_KEY`).
+/// Omit both to use instance-profile / IRSA credentials on AWS.
+///
+/// ## MinIO / local S3
+///
+/// Set `endpoint` to your MinIO address and `allow_http = true` when TLS
+/// is not configured locally.
+///
+/// ## GC
+///
+/// Blocks are deleted by the transit GC via explicit `DELETE` requests.
+/// Reclaim storage with S3 lifecycle rules as a belt-and-suspenders fallback.
+#[derive(Debug, Deserialize, Clone)]
+pub struct S3BackendConfig {
+    /// S3 bucket name.
+    pub bucket: String,
+    /// AWS region (e.g. `"us-east-1"`).  Required for AWS; any string for MinIO.
+    pub region: String,
+    /// Custom endpoint URL.  Required for MinIO and other S3-compatible services.
+    /// Example: `"http://127.0.0.1:9000"`.
+    #[serde(default)]
+    pub endpoint: Option<String>,
+    /// Access key ID.  Literal value or `secretx://` URI.
+    /// Omit to use instance-profile credentials.
+    #[serde(default)]
+    pub access_key_id: Option<String>,
+    /// Secret access key.  Literal value or `secretx://` URI.
+    /// Omit to use instance-profile credentials.
+    #[serde(default)]
+    pub secret_access_key: Option<String>,
+    /// Object key prefix.  Defaults to `"blocks"`.
+    /// Use this to share a bucket between multiple stoa instances.
+    #[serde(default)]
+    pub prefix: Option<String>,
+    /// Allow plain HTTP connections.  Defaults to `false`.
+    /// Set `true` for MinIO without TLS.
+    #[serde(default)]
+    pub allow_http: Option<bool>,
+}
 
 /// Configuration for the filesystem block store backend.
 ///

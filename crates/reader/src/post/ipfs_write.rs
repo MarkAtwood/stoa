@@ -253,7 +253,16 @@ pub async fn build_block_store(
                 .map_err(|e| format!("LMDB store init failed: {e}"))?;
                 Ok(Arc::new(store))
             }
-            BackendType::S3 => Err("S3 backend is not yet implemented".to_string()),
+            BackendType::S3 => {
+                let s3_cfg = backend
+                    .s3
+                    .as_ref()
+                    .ok_or("backend.type = 's3' requires a [backend.s3] section")?;
+                let store = super::s3_store::S3BlockStore::new(s3_cfg)
+                    .await
+                    .map_err(|e| format!("S3 store init failed: {e}"))?;
+                Ok(Arc::new(store))
+            }
             BackendType::Sqlite => {
                 let sqlite_cfg = backend
                     .sqlite

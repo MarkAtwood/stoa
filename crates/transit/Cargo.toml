@@ -41,6 +41,8 @@ stoa-tls = { path = "../tls" }
 stoa-verify = { path = "../verify" }
 mail-auth = "0.8"
 stoa-lmdb = { path = "../lmdb" }
+object_store = { version = "0.12", features = ["aws"] }
+bytes = "1.11.1"
 
 [[bench]]
 name = "ihave_throughput"

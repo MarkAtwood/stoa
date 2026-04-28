@@ -6,6 +6,7 @@ pub mod ipfs_write;
 pub mod lmdb_store;
 pub mod log_append;
 pub mod sqlite_store;
+pub mod s3_store;
 pub mod pipeline;
 pub mod sign;
 pub mod smtp_relay;

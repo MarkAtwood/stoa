@@ -7,6 +7,7 @@ pub mod ingestion_queue;
 pub mod fs_store;
 pub mod lmdb_store;
 pub mod sqlite_store;
+pub mod s3_store;
 pub mod mode_stream;
 pub mod peer_registry;
 pub mod pipeline;
