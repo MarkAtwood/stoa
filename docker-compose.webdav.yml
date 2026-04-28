@@ -1,0 +1,26 @@
+# Docker Compose file for local WebDAV block store integration testing (ac92).
+#
+# Usage:
+#   docker-compose -f docker-compose.webdav.yml up -d
+#   export TEST_WEBDAV_URL=http://localhost:8181/
+#   cargo test -p stoa-reader --test webdav_integration
+#   docker-compose -f docker-compose.webdav.yml down -v
+#
+# The bytemark/webdav image runs Apache with mod_dav.  Without USERNAME/PASSWORD
+# env vars the server accepts unauthenticated requests — suitable for local tests
+# only.  The tmpfs mount keeps block data in RAM; data is discarded on container
+# stop.
+
+services:
+  webdav:
+    image: bytemark/webdav
+    container_name: stoa_test_webdav
+    ports:
+      - "8181:80"
+    tmpfs:
+      - /var/lib/dav/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost/ || exit 1"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
