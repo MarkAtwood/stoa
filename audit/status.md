@@ -162,3 +162,6 @@ Phase markers reset for new epic
 [00:38:08] REVIEW round 1: P0=0 P1=1 P2=6 P3=3 P4=3 opinion=4 decisions=21
 [00:56:47] COORDINATOR: phase 3 done; review converged in 1 round; proceeding to phase 4
 [00:56:55] COORDINATOR: epic usenet-ipfs-whss closed; phase 4 done
+[00:56:47] COORDINATOR: starting do-epic loop
+[00:57:11] COORDINATOR: claimed epic usenet-ipfs-lfdd (Filesystem block store)
+[00:57:20] COORDINATOR: phase0 done

@@ -62,11 +62,12 @@ impl IpfsBlockStore for LmdbBlockStore {
 
     async fn get_raw(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError> {
         let db = Arc::clone(&self.db);
+        let cid_string = cid.to_string();
         let cid_bytes = cid.to_bytes();
         task::spawn_blocking(move || {
             db.get(&cid_bytes)
                 .map_err(|e| IpfsWriteError::WriteFailed(e.to_string()))?
-                .ok_or_else(|| IpfsWriteError::NotFound(bs58::encode(&cid_bytes).into_string()))
+                .ok_or_else(|| IpfsWriteError::NotFound(cid_string))
         })
         .await
         .map_err(|e| IpfsWriteError::WriteFailed(e.to_string()))?

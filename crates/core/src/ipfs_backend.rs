@@ -16,7 +16,7 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize, Clone)]
 pub struct BackendConfig {
     /// Backend discriminator.  Supported values: `"kubo"`, `"lmdb"`, `"filesystem"`, `"sqlite"`,
-    /// `"s3"`, `"azure"`, `"gcs"`.
+    /// `"s3"`, `"azure"`, `"gcs"`, `"web_dav"`, `"rocks_db"`.
     #[serde(rename = "type")]
     pub backend_type: BackendType,
     /// Kubo-specific settings.  Required when `type = "kubo"`.
@@ -31,7 +31,7 @@ pub struct BackendConfig {
     /// Google Cloud Storage settings.  Required when `type = "gcs"`.
     #[serde(default)]
     pub gcs: Option<GcsBackendConfig>,
-    /// WebDAV settings.  Required when `type = "webdav"`.
+    /// WebDAV settings.  Required when `type = "web_dav"`.
     #[serde(default)]
     pub webdav: Option<WebDavBackendConfig>,
     /// Filesystem-specific settings.  Required when `type = "filesystem"`.
@@ -43,7 +43,7 @@ pub struct BackendConfig {
     /// SQLite-specific settings.  Required when `type = "sqlite"`.
     #[serde(default)]
     pub sqlite: Option<SqliteBackendConfig>,
-    /// RocksDB-specific settings.  Required when `type = "rocksdb"`.
+    /// RocksDB-specific settings.  Required when `type = "rocks_db"`.
     #[serde(default)]
     pub rocksdb: Option<RocksDbBackendConfig>,
 }
