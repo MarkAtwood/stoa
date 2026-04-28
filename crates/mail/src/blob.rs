@@ -131,6 +131,7 @@ mod tests {
             credential_store: Arc::new(CredentialStore::empty()),
             auth_config: Arc::new(AuthConfig::default()),
             token_store: Arc::new(crate::token_store::TokenStore::new(Arc::new(pool))),
+            oidc_store: None,
             base_url: "http://localhost".to_string(),
             cors: crate::config::CorsConfig::default(),
         });

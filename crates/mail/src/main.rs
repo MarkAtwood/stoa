@@ -113,12 +113,21 @@ async fn main() {
 
     let token_store = Arc::new(TokenStore::new(pool));
 
+    let oidc_store = if config.auth.oidc_providers.is_empty() {
+        None
+    } else {
+        Some(Arc::new(stoa_auth::OidcStore::new(
+            config.auth.oidc_providers.clone(),
+        )))
+    };
+
     let state = Arc::new(AppState {
         start_time,
         jmap: None,
         credential_store: Arc::new(credential_store),
         auth_config: Arc::new(config.auth),
         token_store,
+        oidc_store,
         base_url: config.listen.base_url.clone(),
         cors: config.cors.clone(),
     });

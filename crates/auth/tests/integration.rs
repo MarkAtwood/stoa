@@ -356,6 +356,7 @@ fn auth_config_struct_is_from_auth_crate() {
         credential_file: None,
         client_certs: vec![],
         trusted_issuers: vec![],
+        oidc_providers: vec![],
     };
     assert!(
         config.is_dev_mode(),
@@ -371,6 +372,7 @@ fn auth_config_required_is_not_dev_mode() {
         credential_file: None,
         client_certs: vec![],
         trusted_issuers: vec![],
+        oidc_providers: vec![],
     };
     assert!(!config.is_dev_mode(), "required=true must not be dev mode");
 }
@@ -386,6 +388,7 @@ fn auth_config_with_users_is_not_dev_mode() {
         credential_file: None,
         client_certs: vec![],
         trusted_issuers: vec![],
+        oidc_providers: vec![],
     };
     assert!(
         !config.is_dev_mode(),
@@ -401,6 +404,7 @@ fn auth_config_with_credential_file_is_not_dev_mode() {
         credential_file: Some("/etc/creds".to_string()),
         client_certs: vec![],
         trusted_issuers: vec![],
+        oidc_providers: vec![],
     };
     assert!(
         !config.is_dev_mode(),

@@ -58,6 +58,7 @@ fn dev_app_state(token_store: Arc<TokenStore>) -> Arc<AppState> {
         credential_store: Arc::new(CredentialStore::empty()),
         auth_config: Arc::new(AuthConfig::default()),
         token_store,
+        oidc_store: None,
         base_url: "http://localhost".to_string(),
         cors: stoa_mail::config::CorsConfig::default(),
     })
@@ -80,6 +81,7 @@ fn auth_app_state_alice(token_store: Arc<TokenStore>) -> Arc<AppState> {
             ..Default::default()
         }),
         token_store,
+        oidc_store: None,
         base_url: "http://localhost".to_string(),
         cors: stoa_mail::config::CorsConfig::default(),
     })
@@ -109,6 +111,7 @@ fn auth_app_state_two_users(token_store: Arc<TokenStore>) -> Arc<AppState> {
             ..Default::default()
         }),
         token_store,
+        oidc_store: None,
         base_url: "http://localhost".to_string(),
         cors: stoa_mail::config::CorsConfig::default(),
     })

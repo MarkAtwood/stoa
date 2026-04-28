@@ -195,6 +195,7 @@ async fn jmap_session_e2e() {
         credential_store: Arc::new(stoa_auth::CredentialStore::empty()),
         auth_config: Arc::new(stoa_auth::AuthConfig::default()),
         token_store,
+        oidc_store: None,
         base_url: "http://localhost".to_string(),
         cors: stoa_mail::config::CorsConfig::default(),
     });

@@ -52,6 +52,7 @@ async fn auth_state_alice() -> Arc<AppState> {
             ..Default::default()
         }),
         token_store: make_token_store().await,
+        oidc_store: None,
         base_url: "http://localhost".to_string(),
         cors: stoa_mail::config::CorsConfig::default(),
     })
@@ -66,6 +67,7 @@ async fn dev_state() -> Arc<AppState> {
         credential_store: Arc::new(CredentialStore::empty()),
         auth_config: Arc::new(AuthConfig::default()),
         token_store: make_token_store().await,
+        oidc_store: None,
         base_url: "http://localhost".to_string(),
         cors: stoa_mail::config::CorsConfig::default(),
     })

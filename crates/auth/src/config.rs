@@ -40,6 +40,32 @@ pub struct TrustedIssuerEntry {
     pub cert_path: String,
 }
 
+/// One OIDC identity provider entry from `[[auth.oidc_providers]]`.
+///
+/// JWTs issued by this provider are accepted as Bearer tokens in JMAP requests.
+/// JWKS keys are fetched lazily and cached for `jwks_ttl_secs` seconds (default 3600).
+#[derive(Debug, Deserialize, Clone)]
+pub struct OidcProviderConfig {
+    /// OIDC issuer URL, e.g. `https://cognito-idp.us-east-1.amazonaws.com/us-east-1_xxx`.
+    ///
+    /// Used both as the expected `iss` claim value and as the base URL for
+    /// `/.well-known/openid-configuration` discovery.
+    pub issuer: String,
+    /// OAuth2 `audience` — the client ID this server should accept tokens for.
+    ///
+    /// The JWT's `aud` claim must contain this value.
+    pub audience: String,
+    /// JWT claim name to use as the JMAP/IMAP username.
+    ///
+    /// Default: `"email"`. Falls back to `"sub"` if the configured claim is absent.
+    #[serde(default = "default_username_claim")]
+    pub username_claim: String,
+}
+
+fn default_username_claim() -> String {
+    "email".to_string()
+}
+
 /// Authentication configuration shared across NNTP, JMAP, and SMTP services.
 #[derive(Debug, Default, Deserialize)]
 pub struct AuthConfig {
@@ -71,6 +97,13 @@ pub struct AuthConfig {
     /// Takes effect only after fingerprint-based auth has been attempted first.
     #[serde(default)]
     pub trusted_issuers: Vec<TrustedIssuerEntry>,
+    /// OIDC identity providers for JWT Bearer authentication.
+    ///
+    /// When non-empty, JWT Bearer tokens are validated against these providers
+    /// before falling through to the bcrypt / self-issued token path.
+    /// Multiple providers are tried in order; the first match wins.
+    #[serde(default)]
+    pub oidc_providers: Vec<OidcProviderConfig>,
 }
 
 impl AuthConfig {
@@ -82,6 +115,7 @@ impl AuthConfig {
             && self.credential_file.is_none()
             && self.client_certs.is_empty()
             && self.trusted_issuers.is_empty()
+            && self.oidc_providers.is_empty()
     }
 }
 

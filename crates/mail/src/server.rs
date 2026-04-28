@@ -9,7 +9,7 @@ use axum::{
     Json, Router,
 };
 use serde_json::{json, Value};
-use stoa_auth::{AuthConfig, CredentialStore};
+use stoa_auth::{AuthConfig, CredentialStore, OidcStore};
 use stoa_core::msgid_map::MsgIdMap;
 use stoa_reader::{
     post::ipfs_write::IpfsBlockStore,
@@ -49,6 +49,8 @@ pub struct AppState {
     pub credential_store: Arc<CredentialStore>,
     pub auth_config: Arc<AuthConfig>,
     pub token_store: Arc<TokenStore>,
+    /// OIDC JWT validator.  `None` means no OIDC providers are configured.
+    pub oidc_store: Option<Arc<OidcStore>>,
     /// External base URL used in JMAP session responses (e.g. `https://mail.example.com`).
     pub base_url: String,
     pub cors: CorsConfig,
@@ -88,11 +90,29 @@ async fn basic_auth_middleware(
         .and_then(|v| v.to_str().ok())
         .map(str::to_owned);
 
-    // Try Bearer token first.
+    // Try Bearer token.
     if let Some(bearer_token) = auth_header
         .as_deref()
         .and_then(|h| h.strip_prefix("Bearer "))
     {
+        // If the token looks like a JWT (three base64url segments) and OIDC is
+        // configured, try OIDC validation first.  On failure, fall through to
+        // the self-issued token store so that non-JWT Bearer tokens still work.
+        if let Some(ref oidc) = state.oidc_store {
+            if bearer_token.bytes().filter(|&b| b == b'.').count() == 2 {
+                match oidc.validate_jwt(bearer_token).await {
+                    Ok(username) => {
+                        req.extensions_mut().insert(AuthenticatedUser(username));
+                        return next.run(req).await;
+                    }
+                    Err(e) => {
+                        tracing::debug!("OIDC JWT validation failed: {e}");
+                        // Fall through to self-issued token check.
+                    }
+                }
+            }
+        }
+
         match state.token_store.verify(bearer_token).await {
             Ok(Some(username)) => {
                 req.extensions_mut().insert(AuthenticatedUser(username));
@@ -789,6 +809,7 @@ mod tests {
             credential_store: Arc::new(CredentialStore::empty()),
             auth_config: Arc::new(AuthConfig::default()),
             token_store: ts,
+            oidc_store: None,
             base_url: "http://localhost".to_string(),
             cors: crate::config::CorsConfig::default(),
         });
@@ -804,6 +825,7 @@ mod tests {
             credential_store: Arc::new(CredentialStore::empty()),
             auth_config: Arc::new(AuthConfig::default()),
             token_store: ts,
+            oidc_store: None,
             base_url: base_url.to_string(),
             cors: crate::config::CorsConfig::default(),
         });
@@ -828,6 +850,7 @@ mod tests {
                 ..Default::default()
             }),
             token_store: ts,
+            oidc_store: None,
             base_url: "http://localhost".to_string(),
             cors: crate::config::CorsConfig::default(),
         });
@@ -899,6 +922,7 @@ mod tests {
             credential_store: Arc::new(CredentialStore::empty()),
             auth_config: Arc::new(AuthConfig::default()),
             token_store: Arc::new(TokenStore::new(Arc::new(mail_pool))),
+            oidc_store: None,
             base_url: "http://localhost".to_string(),
             cors: crate::config::CorsConfig::default(),
         });
@@ -1260,6 +1284,7 @@ mod tests {
             credential_store: Arc::new(CredentialStore::empty()),
             auth_config: Arc::new(AuthConfig::default()),
             token_store: make_token_store().await.0,
+            oidc_store: None,
             base_url: "http://localhost".to_string(),
             cors: crate::config::CorsConfig {
                 enabled: true,
@@ -1299,6 +1324,7 @@ mod tests {
             credential_store: Arc::new(CredentialStore::empty()),
             auth_config: Arc::new(AuthConfig::default()),
             token_store: make_token_store().await.0,
+            oidc_store: None,
             base_url: "http://localhost".to_string(),
             cors: crate::config::CorsConfig {
                 enabled: true,

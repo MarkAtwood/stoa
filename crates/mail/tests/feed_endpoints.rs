@@ -79,6 +79,7 @@ async fn state_no_jmap() -> Arc<AppState> {
         credential_store: Arc::new(CredentialStore::empty()),
         auth_config: Arc::new(AuthConfig::default()),
         token_store: Arc::new(TokenStore::new(Arc::new(mail_pool))),
+        oidc_store: None,
         base_url: "http://localhost".to_string(),
         cors: stoa_mail::config::CorsConfig::default(),
     })
@@ -124,6 +125,7 @@ async fn state_with_jmap() -> (
         credential_store: Arc::new(CredentialStore::empty()),
         auth_config: Arc::new(AuthConfig::default()),
         token_store: Arc::new(TokenStore::new(Arc::clone(&mail_pool_arc))),
+        oidc_store: None,
         base_url: "http://localhost".to_string(),
         cors: stoa_mail::config::CorsConfig::default(),
     });

@@ -140,6 +140,7 @@ async fn spawn_dev_server(tag: &str) -> (String, Vec<tempfile::TempPath>) {
         credential_store: Arc::new(stoa_auth::CredentialStore::empty()),
         auth_config: Arc::new(stoa_auth::AuthConfig::default()),
         token_store: Arc::new(TokenStore::new(Arc::clone(&mail_pool_arc))),
+        oidc_store: None,
         base_url: "http://localhost".to_string(),
         cors: stoa_mail::config::CorsConfig::default(),
     });
