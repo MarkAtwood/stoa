@@ -1,6 +1,29 @@
 // SPDX-License-Identifier: MIT
 
 //! Sieve script evaluator (RFC 5228 + RFC 5229 variables extension).
+//!
+//! ## RFC 5228 — base Sieve
+//!
+//! Defines commands (`if`, `fileinto`, `reject`, `discard`, `keep`, `stop`,
+//! `require`) and tests (`header`, `address`, `envelope`, `exists`, `size`,
+//! `allof`, `anyof`, `not`, `true`, `false`).  Key semantic rules:
+//!
+//! - **Fail-safe** (§2.9): unknown commands, tests, and comparators produce a
+//!   no-op (`Continue`) or `false` instead of an error.  This lets scripts
+//!   that use unsupported extensions degrade gracefully rather than rejecting
+//!   or losing mail because of an unrecognised keyword.
+//! - **Default keep** (§2.10.2): if a script completes with no explicit
+//!   disposition action, the message is implicitly kept.
+//! - **`require`** (§2.10.5): must appear before any command that uses the
+//!   declared extension.  Unknown extensions are rejected at compile time
+//!   (see `lib.rs::compile`).
+//!
+//! ## RFC 5229 — variables extension
+//!
+//! Adds the `set` command and `${varname}` substitution in string arguments.
+//! Substitution is only active when the script declares `require ["variables"]`.
+//! Variable names are case-insensitive; all names are normalised to lowercase.
+//! An undeclared (never `set`) variable expands to the empty string.
 
 use crate::form::{Form, Script, Stmt};
 use crate::message;
@@ -25,8 +48,13 @@ pub struct Ctx<'a> {
     pub envelope_from: &'a str,
     pub envelope_to: &'a str,
     pub variables: HashMap<String, String>,
-    /// Whether `require ["variables"]` was declared (RFC 5229).
-    /// `${name}` substitution is only active when this is true.
+    /// Whether `require ["variables"]` was declared (RFC 5229 §3).
+    ///
+    /// `${varname}` substitution is only active when this is `true`.  The flag
+    /// is determined once at the start of `eval_script` by scanning the script
+    /// for a `require` statement that includes `"variables"`.  Variable names
+    /// are case-insensitive; storage uses lowercased keys throughout (see
+    /// `expand_vars`).
     pub variables_enabled: bool,
 }
 
@@ -161,7 +189,10 @@ fn eval_stmt(stmt: &Stmt, ctx: &mut Ctx<'_>) -> StmtResult {
             StmtResult::Continue
         }
 
-        // Unknown command — ignore per RFC 5228 §2.9.
+        // Unknown command — silently continue per RFC 5228 §2.9 (fail-safe).
+        // §2.9 requires that unrecognised commands are treated as no-ops so
+        // that scripts using unsupported extensions degrade gracefully instead
+        // of causing message loss.
         _ => StmtResult::Continue,
     }
 }
@@ -231,7 +262,10 @@ fn eval_test(forms: &[Form], ctx: &mut Ctx<'_>) -> bool {
             "not" => !eval_test(rest, ctx),
             "true" => true,
             "false" => false,
-            _ => false, // unknown test — fail-safe
+            // Unknown test — fail-safe: return false per RFC 5228 §2.9.
+            // An unsupported test never matches, so surrounding actions are
+            // skipped rather than executed incorrectly.
+            _ => false,
         },
         _ => false,
     }
@@ -644,7 +678,10 @@ fn expand_vars(s: &str, ctx: &Ctx<'_>) -> String {
                 name.push(inner);
             }
             if closed {
-                // Variable names are case-insensitive (RFC 5229 §3).
+                // Variable names are case-insensitive (RFC 5229 §3): the spec
+                // requires that ${Foo}, ${FOO}, and ${foo} all refer to the
+                // same variable.  All lookups use the lowercased name; `set`
+                // stores under the lowercased name too (see eval_stmt).
                 let val = ctx
                     .variables
                     .get(&name.to_lowercase())
@@ -713,7 +750,8 @@ fn apply_set_modifiers(value: String, modifiers: &[&str]) -> String {
                     v
                 }
             }
-            // Unknown modifiers are ignored (fail-safe).
+            // Unknown modifiers are silently ignored (fail-safe per RFC 5229 §4).
+            // The spec does not require an error on unrecognised modifiers.
             _ => v,
         };
     }
