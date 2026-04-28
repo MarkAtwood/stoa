@@ -207,8 +207,11 @@ pub fn build_store(config: &crate::config::Config) -> Result<StoreBuildResult, S
                     .as_ref()
                     .ok_or("backend.type = 'filesystem' requires a [backend.filesystem] section")?;
                 let store =
-                    super::fs_store::FsStore::open(std::path::Path::new(&fs_cfg.path))
-                        .map_err(|e| format!("filesystem store init failed: {e}"))?;
+                    super::fs_store::FsStore::open(
+                        std::path::Path::new(&fs_cfg.path),
+                        fs_cfg.max_bytes,
+                    )
+                    .map_err(|e| format!("filesystem store init failed: {e}"))?;
                 tracing::info!(
                     "filesystem backend active — IPNS unavailable with this backend"
                 );

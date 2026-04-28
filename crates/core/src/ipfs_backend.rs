@@ -58,10 +58,40 @@ pub struct KuboBackendConfig {
 pub struct S3BackendConfig {}
 
 /// Configuration for the filesystem block store backend.
+///
+/// ## Directory layout
+///
+/// Block files are stored flat (no subdirectories) as
+/// `<path>/<cid-base32-lowercase>.block`.  This layout is a stable on-disk
+/// contract.  Stale `*.block.tmp` write-ahead files from crashed writes are
+/// harmless and can be removed with `find <path> -name "*.block.tmp" -delete`.
+///
+/// ## Disk sizing
+///
+/// A typical NNTP text article is 1–50 KiB.  Budget roughly 1 KiB overhead
+/// per block for filesystem metadata.  For 1 M articles at an average of
+/// 5 KiB each, expect ~6 GiB.
+///
+/// ## GC
+///
+/// The transit daemon's `gc.max_age_days` controls which articles are
+/// unpinned.  For the filesystem backend `delete()` is immediate (unlike
+/// Kubo's deferred unpin).  To also remove blocks from the filesystem
+/// on a cron schedule:
+/// ```text
+/// find <path> -name "*.block" -mtime +N -delete
+/// ```
+/// where `N` is your `max_age_days` value.
 #[derive(Debug, Deserialize, Clone)]
 pub struct FsBackendConfig {
     /// Root directory for block files.  Created at startup if absent.
     pub path: String,
+    /// Soft cap on total stored bytes.  When the total size of all `.block`
+    /// files in the directory exceeds this value, `put` operations return an
+    /// error so the pipeline can shed load rather than filling the disk
+    /// silently.  Omit to disable.
+    #[serde(default)]
+    pub max_bytes: Option<u64>,
 }
 
 /// Configuration for the LMDB block store backend.
