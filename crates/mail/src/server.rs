@@ -768,6 +768,89 @@ async fn route_method(
             })
         }
 
+        // RFC 9404 §4.1: Blob/get — return base64url-encoded raw block bytes
+        // for each requested blobId (CID).  Unknown CIDs go into notFound.
+        "Blob/get" => {
+            let ids: Vec<String> = args
+                .get("ids")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(str::to_string))
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            let mut list: Vec<Value> = Vec::new();
+            let mut not_found: Vec<String> = Vec::new();
+
+            for id in &ids {
+                let cid = match cid::Cid::try_from(id.as_str()) {
+                    Ok(c) => c,
+                    Err(_) => {
+                        not_found.push(id.clone());
+                        continue;
+                    }
+                };
+                match jmap.ipfs.get_raw(&cid).await {
+                    Ok(bytes) => {
+                        let encoded = data_encoding::BASE64.encode(&bytes);
+                        list.push(json!({
+                            "id": id,
+                            "data:asBase64": encoded,
+                            "type": "message/rfc822",
+                            "size": bytes.len()
+                        }));
+                    }
+                    Err(stoa_reader::post::ipfs_write::IpfsWriteError::NotFound(_)) => {
+                        not_found.push(id.clone());
+                    }
+                    Err(e) => {
+                        tracing::warn!(blob_id = %id, "Blob/get IPFS error: {e}");
+                        not_found.push(id.clone());
+                    }
+                }
+            }
+
+            json!({
+                "accountId": canonical_account_id,
+                "list": list,
+                "notFound": not_found
+            })
+        }
+
+        // RFC 9404 §4.2: Blob/copy — in stoa, CIDs are global content addresses
+        // shared across all accounts, so every copy request trivially succeeds.
+        "Blob/copy" => {
+            let from_account_id = args
+                .get("fromAccountId")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let blob_ids: Vec<String> = args
+                .get("blobIds")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(str::to_string))
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            // CIDs are global — every blob is already accessible from any account.
+            let copied: serde_json::Map<String, Value> = blob_ids
+                .iter()
+                .map(|id| (id.clone(), Value::String(id.clone())))
+                .collect();
+
+            json!({
+                "fromAccountId": from_account_id,
+                "accountId": canonical_account_id,
+                "copied": copied,
+                "notCopied": {}
+            })
+        }
+
         _ => serde_json::to_value(crate::jmap::types::MethodError::unknown_method())
             .unwrap_or(json!({})),
     }
@@ -1246,6 +1329,141 @@ mod tests {
             .expect("request must succeed");
 
         assert_eq!(resp.status(), 404, "absent CID must return 404");
+    }
+
+    /// RFC 9404: session must advertise `urn:ietf:params:jmap:blob` capability.
+    #[tokio::test]
+    async fn session_has_blob_capability() {
+        let addr = spawn_server(dev_state().await.0).await;
+        let resp = reqwest::Client::new()
+            .get(format!("http://{addr}/jmap/session"))
+            .send()
+            .await
+            .expect("request must succeed");
+        assert_eq!(resp.status(), 200);
+        let body: serde_json::Value = resp.json().await.unwrap();
+        assert!(
+            body["capabilities"]
+                .as_object()
+                .map(|c| c.contains_key("urn:ietf:params:jmap:blob"))
+                .unwrap_or(false),
+            "session must advertise urn:ietf:params:jmap:blob capability"
+        );
+    }
+
+    /// RFC 9404: Blob/get returns base64url data for a known CID.
+    #[tokio::test]
+    async fn blob_get_returns_data_for_known_cid() {
+        let (state, ipfs, _tmps) = jmap_state().await;
+
+        let block_data = b"blob-get-test-block";
+        let cid = ipfs.put_raw(block_data).await.expect("put_raw must succeed");
+        let addr = spawn_server(state).await;
+
+        let resp = reqwest::Client::new()
+            .post(format!("http://{addr}/jmap/api"))
+            .json(&serde_json::json!({
+                "using": ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:blob"],
+                "methodCalls": [[
+                    "Blob/get",
+                    {"accountId": null, "ids": [cid.to_string()]},
+                    "r1"
+                ]]
+            }))
+            .send()
+            .await
+            .expect("request must succeed");
+
+        assert_eq!(resp.status(), 200);
+        let body: serde_json::Value = resp.json().await.unwrap();
+        let result = &body["methodResponses"][0][1];
+
+        let list = result["list"].as_array().expect("list must be an array");
+        assert_eq!(list.len(), 1, "one blob must be returned");
+        assert_eq!(list[0]["id"].as_str(), Some(cid.to_string().as_str()));
+        let expected_b64 = data_encoding::BASE64.encode(block_data);
+        assert_eq!(
+            list[0]["data:asBase64"].as_str(),
+            Some(expected_b64.as_str()),
+            "data:asBase64 must match the raw block bytes"
+        );
+        assert_eq!(list[0]["size"].as_u64(), Some(block_data.len() as u64));
+
+        let not_found = result["notFound"].as_array().expect("notFound must be an array");
+        assert!(not_found.is_empty(), "notFound must be empty for a known CID");
+    }
+
+    /// RFC 9404: Blob/get puts unknown CIDs into notFound.
+    #[tokio::test]
+    async fn blob_get_unknown_cid_in_not_found() {
+        let (state, _ipfs, _tmps) = jmap_state().await;
+        let addr = spawn_server(state).await;
+
+        let absent = "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi";
+        let resp = reqwest::Client::new()
+            .post(format!("http://{addr}/jmap/api"))
+            .json(&serde_json::json!({
+                "using": ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:blob"],
+                "methodCalls": [[
+                    "Blob/get",
+                    {"accountId": null, "ids": [absent]},
+                    "r1"
+                ]]
+            }))
+            .send()
+            .await
+            .expect("request must succeed");
+
+        assert_eq!(resp.status(), 200);
+        let body: serde_json::Value = resp.json().await.unwrap();
+        let result = &body["methodResponses"][0][1];
+        let not_found = result["notFound"].as_array().expect("notFound must be an array");
+        assert_eq!(not_found.len(), 1, "absent CID must appear in notFound");
+        assert_eq!(not_found[0].as_str(), Some(absent));
+        let list = result["list"].as_array().expect("list must be an array");
+        assert!(list.is_empty(), "list must be empty when CID not found");
+    }
+
+    /// RFC 9404: Blob/copy is a no-op in stoa; all requested blobs appear in copied.
+    #[tokio::test]
+    async fn blob_copy_returns_all_blobs_as_copied() {
+        let (state, _ipfs, _tmps) = jmap_state().await;
+        let addr = spawn_server(state).await;
+
+        let blob_id = "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi";
+        let resp = reqwest::Client::new()
+            .post(format!("http://{addr}/jmap/api"))
+            .json(&serde_json::json!({
+                "using": ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:blob"],
+                "methodCalls": [[
+                    "Blob/copy",
+                    {
+                        "fromAccountId": "u_src",
+                        "accountId": null,
+                        "blobIds": [blob_id]
+                    },
+                    "r1"
+                ]]
+            }))
+            .send()
+            .await
+            .expect("request must succeed");
+
+        assert_eq!(resp.status(), 200);
+        let body: serde_json::Value = resp.json().await.unwrap();
+        let result = &body["methodResponses"][0][1];
+        let copied = result["copied"].as_object().expect("copied must be an object");
+        assert!(
+            copied.contains_key(blob_id),
+            "requested blobId must appear in copied"
+        );
+        assert_eq!(
+            copied[blob_id].as_str(),
+            Some(blob_id),
+            "Blob/copy must return same blobId (CIDs are global)"
+        );
+        let not_copied = result["notCopied"].as_object().expect("notCopied must be an object");
+        assert!(not_copied.is_empty(), "notCopied must be empty");
     }
 
     #[tokio::test]
