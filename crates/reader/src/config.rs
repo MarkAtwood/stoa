@@ -6,8 +6,8 @@ use std::path::Path;
 // reader config validation code can use them without a long path prefix.
 pub use stoa_core::ipfs_backend::{
     AzureBackendConfig, BackendConfig, BackendType, FsBackendConfig, GcsBackendConfig,
-    KuboBackendConfig, LmdbBackendConfig, PgBlobBackendConfig, RocksDbBackendConfig,
-    S3BackendConfig, SqliteBackendConfig, WebDavBackendConfig,
+    GitSha256BackendConfig, KuboBackendConfig, LmdbBackendConfig, PgBlobBackendConfig,
+    RocksDbBackendConfig, S3BackendConfig, SqliteBackendConfig, WebDavBackendConfig,
 };
 
 /// Default hostname for the NNTP Path: header injected on POST.
@@ -752,9 +752,29 @@ impl Config {
                         ));
                     }
                 }
+                BackendType::GitSha256 => {
+                    let git = backend.git_sha256.as_ref().ok_or_else(|| {
+                        ConfigError::Validation(
+                            "backend.type = 'git_sha256' requires a [backend.git_sha256] section"
+                                .into(),
+                        )
+                    })?;
+                    if git.repo_path.is_empty() {
+                        return Err(ConfigError::Validation(
+                            "backend.git_sha256.repo_path must not be empty".into(),
+                        ));
+                    }
+                    if git.index_db.is_empty() {
+                        return Err(ConfigError::Validation(
+                            "backend.git_sha256.index_db must not be empty".into(),
+                        ));
+                    }
+                }
                 BackendType::Rados => {
                     return Err(ConfigError::Validation(
-                        "backend.type = 'rados' is not supported in stoa-reader;                          use the S3 backend pointed at RADOS Gateway instead".into(),
+                        "backend.type = 'rados' is not supported in stoa-reader; \
+                         use the S3 backend pointed at RADOS Gateway instead"
+                            .into(),
                     ));
                 }
             }
@@ -2068,6 +2088,98 @@ database_url = ""
         let f = write_toml(toml);
         let err = Config::from_file(f.path())
             .expect_err("pg_blob with empty database_url must fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend] with type = "git_sha256" and a [backend.git_sha256] section parses and validates.
+    #[test]
+    fn backend_git_sha256_section_parses() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "git_sha256"
+
+[backend.git_sha256]
+repo_path = "/var/lib/stoa/articles.git"
+index_db = "/var/lib/stoa/git_index.db"
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("git_sha256 backend config must parse");
+        let backend = cfg.backend.as_ref().expect("backend must be set");
+        assert!(matches!(backend.backend_type, BackendType::GitSha256));
+        let git = backend.git_sha256.as_ref().expect("git_sha256 section must be set");
+        assert_eq!(git.repo_path, "/var/lib/stoa/articles.git");
+        assert_eq!(git.index_db, "/var/lib/stoa/git_index.db");
+    }
+
+    /// [backend] with type = "git_sha256" but no [backend.git_sha256] section is rejected.
+    #[test]
+    fn backend_git_sha256_without_subsection_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "git_sha256"
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("git_sha256 without subsection must fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend.git_sha256] with empty repo_path is rejected.
+    #[test]
+    fn backend_git_sha256_empty_repo_path_rejected() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "git_sha256"
+
+[backend.git_sha256]
+repo_path = ""
+index_db = "/var/lib/stoa/git_index.db"
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("git_sha256 with empty repo_path must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"

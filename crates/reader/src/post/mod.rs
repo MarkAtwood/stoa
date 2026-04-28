@@ -12,6 +12,7 @@ pub mod azure_store;
 pub mod gcs_store;
 pub mod webdav_store;
 pub mod pg_store;
+pub mod git_store;
 pub mod rocks_store;
 pub mod pipeline;
 pub mod sign;

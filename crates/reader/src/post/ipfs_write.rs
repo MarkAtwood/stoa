@@ -348,8 +348,20 @@ pub async fn build_block_store(
                     .map_err(|e| format!("pg block store init failed: {e}"))?;
                 Ok(Arc::new(store))
             }
+            BackendType::GitSha256 => {
+                let git_cfg = backend
+                    .git_sha256
+                    .as_ref()
+                    .ok_or("backend.type = 'git_sha256' requires a [backend.git_sha256] section")?;
+                let store = super::git_store::GitObjectBlockStore::new(git_cfg)
+                    .await
+                    .map_err(|e| format!("git block store init failed: {e}"))?;
+                Ok(Arc::new(store))
+            }
             BackendType::Rados => Err(
-                "backend.type = 'rados' is not supported in stoa-reader;                  use the S3 backend pointed at RADOS Gateway instead".into(),
+                "backend.type = 'rados' is not supported in stoa-reader; \
+                 use the S3 backend pointed at RADOS Gateway instead"
+                    .into(),
             ),
         }
     } else {

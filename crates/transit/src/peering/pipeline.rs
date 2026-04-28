@@ -338,6 +338,10 @@ pub async fn build_store(config: &crate::config::Config) -> Result<StoreBuildRes
                      use the SQLite or filesystem backend for embedded storage, \
                      or S3 for cloud storage".into())
             }
+            BackendType::GitSha256 => {
+                Err("backend.type = 'git_sha256' is not supported in stoa-transit; \
+                     git object store is a reader-only backend".into())
+            }
             BackendType::Rados => {
                 #[cfg(not(feature = "rados"))]
                 return Err(

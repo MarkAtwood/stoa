@@ -53,6 +53,9 @@ pub struct BackendConfig {
     /// PostgreSQL BYTEA block store settings.  Required when `type = "pg_blob"`.
     #[serde(default)]
     pub pg_blob: Option<PgBlobBackendConfig>,
+    /// Git object database block store settings.  Required when `type = "git_sha256"`.
+    #[serde(default)]
+    pub git_sha256: Option<GitSha256BackendConfig>,
 }
 
 /// Backend type discriminator.
@@ -74,6 +77,16 @@ pub enum BackendType {
     /// PostgreSQL BYTEA block store.  Stores blocks in a `blocks` table in the
     /// operator's existing PostgreSQL or Aurora instance.
     PgBlob,
+    /// Git object database block store.  Stores blocks as git blob objects in
+    /// a bare SHA-1 git repository.  A SQLite index maps each CID to its git
+    /// object ID (OID).  Reader only; not supported by transit.
+    ///
+    /// Note: libgit2 (and the `git2` crate) do not yet expose the SHA-256
+    /// object format in their public Rust API, so the backing repository uses
+    /// SHA-1 internally.  CIDs remain SHA-256 based; the git OID is an
+    /// implementation detail.  When upstream support matures this backend will
+    /// be upgraded to use `extensions.objectFormat = sha256`.
+    GitSha256,
 }
 
 /// Configuration for the Kubo HTTP RPC backend.
@@ -407,6 +420,34 @@ pub struct PgBlobBackendConfig {
     /// percent-encoding: `postgres://user:secretx%3A%2F%2Fenv%2FPGPASSWORD@host/db`).
     /// For operators already running Aurora, use the same URL as the metadata plane.
     pub database_url: String,
+}
+
+/// Configuration for the Git object database block store backend.
+///
+/// The backend stores blocks as git blob objects in a bare git repository at
+/// `repo_path`.  A separate SQLite database at `index_db` maps each CID to the
+/// git object ID (OID) so blocks can be retrieved by CID.
+///
+/// ## GC / Deletion
+///
+/// `delete()` removes the CID from the SQLite index but does NOT remove the
+/// git object.  The object becomes unreachable but stays in the git ODB until
+/// the operator runs `git gc --prune=<date>` in `repo_path`.  This provides a
+/// configurable grace period identical to a git push workflow.
+///
+/// ## Replication
+///
+/// Blocks can be replicated between stoa nodes with `git push`:
+/// ```sh
+/// git -C /var/lib/stoa/blocks push replica
+/// ```
+/// Standard git protocols (SSH, HTTPS, local path) are all supported.
+#[derive(Debug, Deserialize, Clone)]
+pub struct GitSha256BackendConfig {
+    /// Path to the bare git repository.  Created at startup if absent.
+    pub repo_path: String,
+    /// Path to the SQLite CID→OID index database.  Created at startup if absent.
+    pub index_db: String,
 }
 
 /// Configuration for the native Ceph RADOS block store backend.

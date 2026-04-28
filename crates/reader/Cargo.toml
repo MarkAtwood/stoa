@@ -47,6 +47,7 @@ subtle = "2"
 serde_ipld_dagcbor = "=0.6.4"
 stoa-lmdb = { path = "../lmdb" }
 rocksdb = "0.22"
+git2 = { version = "0.20", default-features = false }
 tantivy = "0.22"
 chrono = "0.4"
 object_store = { version = "0.12", features = ["aws", "azure", "gcp", "http"] }

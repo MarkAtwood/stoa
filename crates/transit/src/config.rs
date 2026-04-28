@@ -766,6 +766,13 @@ impl Config {
                         "backend.type = 'pg_blob' is not supported in stoa-transit".into(),
                     ));
                 }
+                BackendType::GitSha256 => {
+                    return Err(ConfigError::Validation(
+                        "backend.type = 'git_sha256' is not supported in stoa-transit; \
+                         git object store is a reader-only backend"
+                            .into(),
+                    ));
+                }
                 BackendType::Rados => {
                     let rados = backend.rados.as_ref().ok_or_else(|| {
                         ConfigError::Validation(
