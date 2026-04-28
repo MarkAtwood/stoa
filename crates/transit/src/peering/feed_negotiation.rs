@@ -29,15 +29,13 @@ pub async fn update_peer_groups(
         .map_err(|e| StorageError::Database(e.to_string()))?;
 
     for group in groups {
-        sqlx::query(
-            "INSERT INTO peer_groups (peer_id, group_name, updated_at) VALUES (?, ?, ?)",
-        )
-        .bind(peer_id)
-        .bind(*group)
-        .bind(now_ms)
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| StorageError::Database(e.to_string()))?;
+        sqlx::query("INSERT INTO peer_groups (peer_id, group_name, updated_at) VALUES (?, ?, ?)")
+            .bind(peer_id)
+            .bind(*group)
+            .bind(now_ms)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| StorageError::Database(e.to_string()))?;
     }
 
     tx.commit()
@@ -47,10 +45,7 @@ pub async fn update_peer_groups(
 }
 
 /// Return all groups served by a specific peer.
-pub async fn groups_for_peer(
-    pool: &AnyPool,
-    peer_id: &str,
-) -> Result<Vec<String>, StorageError> {
+pub async fn groups_for_peer(pool: &AnyPool, peer_id: &str) -> Result<Vec<String>, StorageError> {
     let rows: Vec<(String,)> =
         sqlx::query_as("SELECT group_name FROM peer_groups WHERE peer_id = ? ORDER BY group_name")
             .bind(peer_id)

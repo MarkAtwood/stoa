@@ -5,7 +5,7 @@
 //! 2. Poll `queued` and `pinning` jobs for status updates.
 //! 3. Mark jobs as `pinned` or `failed` based on service responses.
 
-use sqlx::{Row, AnyPool};
+use sqlx::{AnyPool, Row};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tracing::{debug, warn};
 
@@ -116,8 +116,8 @@ impl RemotePinWorker {
                     )
                     .bind(&new_status)
                     .bind(&request_id)
-                    .bind(now_ms)   // submitted_at_ms
-                    .bind(now_ms)   // last_attempt_ms
+                    .bind(now_ms) // submitted_at_ms
+                    .bind(now_ms) // last_attempt_ms
                     .bind(id)
                     .execute(&self.pool)
                     .await

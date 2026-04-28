@@ -13,7 +13,7 @@ pub async fn run_migrations(url: &str) -> Result<(), sqlx::migrate::MigrateError
             .max_connections(1)
             .connect(url)
             .await
-            .map_err(|e| sqlx::migrate::MigrateError::Execute(e))?;
+            .map_err(sqlx::migrate::MigrateError::Execute)?;
         let result = sqlx::migrate!("./migrations_pg").run(&pool).await;
         pool.close().await;
         result
@@ -30,7 +30,7 @@ pub async fn run_migrations(url: &str) -> Result<(), sqlx::migrate::MigrateError
             .max_connections(1)
             .connect_with(opts)
             .await
-            .map_err(|e| sqlx::migrate::MigrateError::Execute(e))?;
+            .map_err(sqlx::migrate::MigrateError::Execute)?;
         let result = sqlx::migrate!("./migrations").run(&pool).await;
         pool.close().await;
         result

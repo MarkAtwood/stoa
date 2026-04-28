@@ -119,8 +119,7 @@ impl FsBlockStore {
         }
         let seq = WRITE_SEQ.fetch_add(1, Ordering::Relaxed);
         let tmp_path = path.join(format!("{filename}.{seq}.block.tmp"));
-        std::fs::write(&tmp_path, data)
-            .map_err(|e| IpfsWriteError::WriteFailed(e.to_string()))?;
+        std::fs::write(&tmp_path, data).map_err(|e| IpfsWriteError::WriteFailed(e.to_string()))?;
         std::fs::rename(&tmp_path, &block_path)
             .map_err(|e| IpfsWriteError::WriteFailed(e.to_string()))?;
         Ok(())
@@ -298,7 +297,10 @@ mod tests {
         let cid = store.put_raw(data).await.expect("put");
         let filename = format!("{}.block", cid);
         let block_path = tmp.path().join(&filename);
-        assert!(block_path.exists(), "block file must exist on disk: {filename}");
+        assert!(
+            block_path.exists(),
+            "block file must exist on disk: {filename}"
+        );
     }
 
     #[tokio::test]
@@ -309,11 +311,7 @@ mod tests {
         let leftover: Vec<_> = std::fs::read_dir(tmp.path())
             .expect("readdir")
             .filter_map(|e| e.ok())
-            .filter(|e| {
-                e.file_name()
-                    .to_string_lossy()
-                    .ends_with(".block.tmp")
-            })
+            .filter(|e| e.file_name().to_string_lossy().ends_with(".block.tmp"))
             .collect();
         assert!(
             leftover.is_empty(),
@@ -357,7 +355,10 @@ mod tests {
         let store = FsBlockStore::open(tmp.path(), Some(10)).expect("open with cap");
         let data = b"0123456789";
         store.put_raw(data).await.expect("first put within cap");
-        store.put_raw(data).await.expect("idempotent re-put must succeed even at cap");
+        store
+            .put_raw(data)
+            .await
+            .expect("idempotent re-put must succeed even at cap");
     }
 
     #[tokio::test]

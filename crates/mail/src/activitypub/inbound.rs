@@ -66,7 +66,11 @@ pub fn note_to_article(
 ) -> Result<(String, Vec<String>, Vec<u8>), String> {
     let content = note["content"]
         .as_str()
-        .or_else(|| note["contentMap"].as_object().and_then(|m| m.values().next()?.as_str()))
+        .or_else(|| {
+            note["contentMap"]
+                .as_object()
+                .and_then(|m| m.values().next()?.as_str())
+        })
         .unwrap_or("")
         .to_string();
 
@@ -88,10 +92,7 @@ pub fn note_to_article(
         .map(|u| decode_msgid_from_url(u, base_url, group_name));
 
     // Generate a stable Message-ID from the Note id, or fabricate one.
-    let note_id = note["id"]
-        .as_str()
-        .unwrap_or("")
-        .to_string();
+    let note_id = note["id"].as_str().unwrap_or("").to_string();
     let message_id = if note_id.is_empty() {
         format!("<{}@activitypub.invalid>", Uuid::new_v4())
     } else {
@@ -122,7 +123,11 @@ pub fn note_to_article(
     article.push_str("\r\n");
     article.push_str(&body);
 
-    Ok((message_id, vec![group_name.to_string()], article.into_bytes()))
+    Ok((
+        message_id,
+        vec![group_name.to_string()],
+        article.into_bytes(),
+    ))
 }
 
 /// Attempt to reconstruct a Message-ID from a Note URL.
@@ -131,14 +136,13 @@ pub fn note_to_article(
 fn decode_msgid_from_url(url: &str, base_url: &str, group_name: &str) -> String {
     let prefix = format!("{base_url}/ap/groups/{group_name}/articles/");
     if let Some(encoded) = url.strip_prefix(&prefix) {
-        let decoded = encoded
+        encoded
             .replace("%3C", "<")
             .replace("%3c", "<")
             .replace("%3E", ">")
             .replace("%3e", ">")
             .replace("%40", "@")
-            .replace("%2F", "/");
-        decoded
+            .replace("%2F", "/")
     } else {
         // Unknown URL format — use as-is wrapped in angle brackets.
         format!("<{url}>")
@@ -167,8 +171,8 @@ pub async fn verify_http_signature(
     let key_id = parse_sig_param(sig_header, "keyId")
         .ok_or_else(|| "Signature header missing keyId".to_string())?;
 
-    let signed_headers_spec = parse_sig_param(sig_header, "headers")
-        .unwrap_or("(request-target) host date".to_string());
+    let signed_headers_spec =
+        parse_sig_param(sig_header, "headers").unwrap_or("(request-target) host date".to_string());
 
     let sig_b64 = parse_sig_param(sig_header, "signature")
         .ok_or_else(|| "Signature header missing signature".to_string())?;
@@ -177,8 +181,7 @@ pub async fn verify_http_signature(
     let pub_key_pem = fetch_public_key(&key_id).await?;
 
     // Reconstruct the signed string.
-    let signed_string =
-        build_signed_string(method, path, headers, body, &signed_headers_spec)?;
+    let signed_string = build_signed_string(method, path, headers, body, &signed_headers_spec)?;
 
     // Verify RSA-SHA256 signature.
     verify_rsa_sha256(&pub_key_pem, &signed_string, &sig_b64)?;
@@ -243,7 +246,11 @@ fn build_signed_string(
     for header_name in signed_headers_spec.split_whitespace() {
         match header_name {
             "(request-target)" => {
-                parts.push(format!("(request-target): {} {}", method.to_lowercase(), path));
+                parts.push(format!(
+                    "(request-target): {} {}",
+                    method.to_lowercase(),
+                    path
+                ));
             }
             "digest" => {
                 let hash = Sha256::digest(body);
@@ -286,8 +293,8 @@ fn verify_rsa_sha256(pub_key_pem: &str, signed_string: &str, sig_b64: &str) -> R
         .decode(sig_b64.as_bytes())
         .map_err(|e| format!("invalid base64 in signature: {e}"))?;
 
-    let pub_key =
-        RsaPublicKey::from_pkcs1_pem(pub_key_pem).map_err(|e| format!("invalid public key: {e}"))?;
+    let pub_key = RsaPublicKey::from_pkcs1_pem(pub_key_pem)
+        .map_err(|e| format!("invalid public key: {e}"))?;
 
     let verifying_key = VerifyingKey::<Sha256>::new(pub_key);
     let sig = Signature::try_from(sig_bytes.as_slice())
@@ -381,23 +388,17 @@ mod tests {
             .await
             .unwrap();
         let store = ReceivedActivityStore::new(pool);
-        assert!(
-            store
-                .record_if_new("https://mastodon.social/activities/abc")
-                .await
-                .unwrap()
-        );
-        assert!(
-            !store
-                .record_if_new("https://mastodon.social/activities/abc")
-                .await
-                .unwrap()
-        );
-        assert!(
-            store
-                .record_if_new("https://mastodon.social/activities/xyz")
-                .await
-                .unwrap()
-        );
+        assert!(store
+            .record_if_new("https://mastodon.social/activities/abc")
+            .await
+            .unwrap());
+        assert!(!store
+            .record_if_new("https://mastodon.social/activities/abc")
+            .await
+            .unwrap());
+        assert!(store
+            .record_if_new("https://mastodon.social/activities/xyz")
+            .await
+            .unwrap());
     }
 }

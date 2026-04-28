@@ -41,7 +41,14 @@ mod tests {
 
     #[test]
     fn auth_success_returns_281() {
-        let resp = authinfo_response("testuser", "127.0.0.1:50000", true, "nntp", "password", None);
+        let resp = authinfo_response(
+            "testuser",
+            "127.0.0.1:50000",
+            true,
+            "nntp",
+            "password",
+            None,
+        );
         assert!(resp.starts_with("281"), "success should give 281: {resp}");
     }
 

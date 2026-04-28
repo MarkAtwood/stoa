@@ -11,30 +11,30 @@
 macro_rules! impl_ipfs_block_store_via_inner {
     ($t:ty) => {
         #[async_trait::async_trait]
-        impl crate::post::ipfs_write::IpfsBlockStore for $t {
+        impl $crate::post::ipfs_write::IpfsBlockStore for $t {
             async fn put_raw(
                 &self,
                 data: &[u8],
-            ) -> Result<cid::Cid, crate::post::ipfs_write::IpfsWriteError> {
+            ) -> Result<cid::Cid, $crate::post::ipfs_write::IpfsWriteError> {
                 self.0.put_raw(data).await
             }
             async fn put_block(
                 &self,
                 cid: cid::Cid,
                 data: Vec<u8>,
-            ) -> Result<(), crate::post::ipfs_write::IpfsWriteError> {
+            ) -> Result<(), $crate::post::ipfs_write::IpfsWriteError> {
                 self.0.put_block(cid, data).await
             }
             async fn get_raw(
                 &self,
                 cid: &cid::Cid,
-            ) -> Result<Vec<u8>, crate::post::ipfs_write::IpfsWriteError> {
+            ) -> Result<Vec<u8>, $crate::post::ipfs_write::IpfsWriteError> {
                 self.0.get_raw(cid).await
             }
             async fn delete(
                 &self,
                 cid: &cid::Cid,
-            ) -> Result<stoa_core::ipfs::DeletionOutcome, crate::post::ipfs_write::IpfsWriteError>
+            ) -> Result<stoa_core::ipfs::DeletionOutcome, $crate::post::ipfs_write::IpfsWriteError>
             {
                 self.0.delete(cid).await
             }
@@ -46,7 +46,7 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use cid::Cid;
 use multihash_codetable::{Code, MultihashDigest};
-use object_store::{ObjectStore, PutPayload, path::Path as OPath};
+use object_store::{path::Path as OPath, ObjectStore, PutPayload};
 use std::sync::Arc;
 
 use stoa_core::ipfs::DeletionOutcome;
@@ -147,7 +147,7 @@ pub(crate) async fn startup_probe(
     prefix: &str,
     context: &str,
 ) -> Result<(), String> {
-    use object_store::{PutPayload, path::Path as OPath};
+    use object_store::{path::Path as OPath, PutPayload};
     let probe = OPath::from(format!("{prefix}/_stoa_write_probe"));
     store
         .put(&probe, PutPayload::from_static(b""))
@@ -187,7 +187,9 @@ mod tests {
         let data = b"dag-cbor block";
         let digest = Code::Sha2_256.digest(data);
         let cid = Cid::new_v1(0x71, digest);
-        b.put_block(cid.clone(), data.to_vec()).await.expect("put_block");
+        b.put_block(cid.clone(), data.to_vec())
+            .await
+            .expect("put_block");
         assert_eq!(b.get_raw(&cid).await.expect("get"), data.to_vec());
     }
 
@@ -216,8 +218,14 @@ mod tests {
         let data = b"to be deleted";
         let cid = b.put_raw(data).await.expect("put");
         b.get_raw(&cid).await.expect("get before must succeed");
-        assert_eq!(b.delete(&cid).await.expect("delete"), DeletionOutcome::Immediate);
-        assert!(matches!(b.get_raw(&cid).await, Err(IpfsWriteError::NotFound(_))));
+        assert_eq!(
+            b.delete(&cid).await.expect("delete"),
+            DeletionOutcome::Immediate
+        );
+        assert!(matches!(
+            b.get_raw(&cid).await,
+            Err(IpfsWriteError::NotFound(_))
+        ));
     }
 
     #[tokio::test]
@@ -234,7 +242,9 @@ mod tests {
         let b = make_backend();
         let digest = Code::Sha2_256.digest(b"never stored");
         let cid = Cid::new_v1(0x55, digest);
-        b.delete(&cid).await.expect("delete of missing CID must succeed");
+        b.delete(&cid)
+            .await
+            .expect("delete of missing CID must succeed");
     }
 
     #[tokio::test]

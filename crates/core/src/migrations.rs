@@ -51,7 +51,9 @@ mod tests {
 
     #[tokio::test]
     async fn migrations_run_on_fresh_db() {
-        run_migrations("sqlite::memory:").await.expect("migrations must succeed");
+        run_migrations("sqlite::memory:")
+            .await
+            .expect("migrations must succeed");
     }
 
     #[tokio::test]

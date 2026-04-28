@@ -57,10 +57,16 @@ impl AzureStore {
         ) as Arc<dyn ObjectStore>;
         let prefix = cfg.prefix.as_deref().unwrap_or("blocks").to_string();
 
-        let context = format!("Azure account '{}', container '{}', prefix '{}'", cfg.account, cfg.container, prefix);
+        let context = format!(
+            "Azure account '{}', container '{}', prefix '{}'",
+            cfg.account, cfg.container, prefix
+        );
         super::object_store_backend::startup_probe(&store, &prefix, &context).await?;
 
-        Ok(Self(ObjectStoreBackend::new_with_store(store, Some(&prefix))))
+        Ok(Self(ObjectStoreBackend::new_with_store(
+            store,
+            Some(&prefix),
+        )))
     }
 
     /// Construct with a caller-supplied `ObjectStore`.  Intended for unit tests.
@@ -70,4 +76,3 @@ impl AzureStore {
 }
 
 crate::impl_ipfs_store_via_inner!(AzureStore);
-

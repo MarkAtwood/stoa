@@ -137,6 +137,7 @@ pub fn log_entry_canonical_bytes(
 ///   would overwrite the other in the group log store.
 /// - If the signing input included the signature, it would be circular
 ///   (you cannot sign data that includes its own signature).
+///
 /// Do NOT add `operator_signature` to `log_entry_canonical_bytes` and do
 /// NOT remove it from `entry_id_bytes`.
 pub fn entry_id_bytes(

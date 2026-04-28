@@ -186,9 +186,7 @@ impl LogStorage for SqliteLogStorage {
             // Single bulk INSERT avoids O(T) round-trips for T tips.
             // Both SQLite and PostgreSQL support multi-row VALUES.
             let placeholders = tips.iter().map(|_| "(?, ?)").collect::<Vec<_>>().join(", ");
-            let sql = format!(
-                "INSERT INTO group_tips (group_name, tip_id) VALUES {placeholders}"
-            );
+            let sql = format!("INSERT INTO group_tips (group_name, tip_id) VALUES {placeholders}");
             let tip_byte_vecs: Vec<Vec<u8>> = tips
                 .iter()
                 .map(|tip| tip.as_bytes().as_slice().to_vec())
@@ -215,7 +213,11 @@ impl LogStorage for SqliteLogStorage {
 
         if !parents_to_remove.is_empty() {
             // Single bulk DELETE: WHERE tip_id IN (?, ?, ...) avoids O(P) round-trips.
-            let placeholders = parents_to_remove.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+            let placeholders = parents_to_remove
+                .iter()
+                .map(|_| "?")
+                .collect::<Vec<_>>()
+                .join(", ");
             let sql = format!(
                 "DELETE FROM group_tips WHERE group_name = ? AND tip_id IN ({placeholders})"
             );
@@ -271,7 +273,9 @@ mod tests {
     async fn make_pool() -> (AnyPool, tempfile::TempPath) {
         let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
         let url = format!("sqlite://{}", tmp.to_str().unwrap());
-        crate::migrations::run_migrations(&url).await.expect("migrations");
+        crate::migrations::run_migrations(&url)
+            .await
+            .expect("migrations");
         let pool = try_open_any_pool(&url, 1).await.expect("pool");
         (pool, tmp)
     }

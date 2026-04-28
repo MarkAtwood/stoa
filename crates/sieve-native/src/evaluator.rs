@@ -474,15 +474,13 @@ fn str_matches_regex_pat(value: &str, anchored: &str, casemap: bool) -> bool {
         let mut cache = cache.borrow_mut();
         let re = match cache.entry(pat.clone()) {
             std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
-            std::collections::hash_map::Entry::Vacant(e) => {
-                match fancy_regex::Regex::new(&pat) {
-                    Ok(re) => e.insert(re),
-                    Err(err) => {
-                        warn!(pattern = %pat, "Sieve :regex compile error: {err}");
-                        return false;
-                    }
+            std::collections::hash_map::Entry::Vacant(e) => match fancy_regex::Regex::new(&pat) {
+                Ok(re) => e.insert(re),
+                Err(err) => {
+                    warn!(pattern = %pat, "Sieve :regex compile error: {err}");
+                    return false;
                 }
-            }
+            },
         };
         re.is_match(value).unwrap_or_else(|e| {
             warn!(pattern = %pat, "Sieve :regex execution error (backtracking limit?): {e}");
@@ -819,9 +817,18 @@ mod tests {
     /// Oracle: RFC 5228 §2.7.1 "question mark … matches any single character".
     #[test]
     fn glob_question_matches_one_char() {
-        assert!(str_matches_glob("a", "?", false), "? must match single char");
-        assert!(!str_matches_glob("", "?", false), "? must not match empty string");
-        assert!(!str_matches_glob("ab", "?", false), "? must not match two chars");
+        assert!(
+            str_matches_glob("a", "?", false),
+            "? must match single char"
+        );
+        assert!(
+            !str_matches_glob("", "?", false),
+            "? must not match empty string"
+        );
+        assert!(
+            !str_matches_glob("ab", "?", false),
+            "? must not match two chars"
+        );
     }
 
     /// A literal dot in the pattern must match only a dot, not any character.
@@ -841,8 +848,14 @@ mod tests {
     /// A literal `+` in the pattern is not a regex quantifier.
     #[test]
     fn glob_literal_plus_is_not_quantifier() {
-        assert!(str_matches_glob("a+b", "a+b", false), "literal + must match +");
-        assert!(!str_matches_glob("ab", "a+b", false), "literal + must NOT be a quantifier");
+        assert!(
+            str_matches_glob("a+b", "a+b", false),
+            "literal + must match +"
+        );
+        assert!(
+            !str_matches_glob("ab", "a+b", false),
+            "literal + must NOT be a quantifier"
+        );
         assert!(!str_matches_glob("aab", "a+b", false));
     }
 

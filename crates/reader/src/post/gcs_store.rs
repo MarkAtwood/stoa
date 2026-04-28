@@ -20,9 +20,11 @@ impl GcsBlockStore {
     pub async fn new(cfg: &GcsBackendConfig) -> Result<Self, String> {
         use object_store::gcp::GoogleCloudStorageBuilder;
 
-        let sa_key =
-            resolve_secret_uri(cfg.service_account_key.clone(), "backend.gcs.service_account_key")
-                .await?;
+        let sa_key = resolve_secret_uri(
+            cfg.service_account_key.clone(),
+            "backend.gcs.service_account_key",
+        )
+        .await?;
 
         let mut builder = GoogleCloudStorageBuilder::new().with_bucket_name(&cfg.bucket);
         if let Some(path) = &cfg.service_account_path {
@@ -41,7 +43,10 @@ impl GcsBlockStore {
         let context = format!("GCS bucket '{}', prefix '{}'", cfg.bucket, prefix);
         super::object_store_backend::startup_probe(&store, &prefix, &context).await?;
 
-        Ok(Self(ObjectStoreBlockBackend::new_with_store(store, Some(&prefix))))
+        Ok(Self(ObjectStoreBlockBackend::new_with_store(
+            store,
+            Some(&prefix),
+        )))
     }
 
     /// Construct with a caller-supplied `ObjectStore`.  Intended for unit tests.
@@ -76,7 +81,13 @@ mod tests {
         let store = make_test_store();
         let data = b"to be deleted";
         let cid = store.put_raw(data).await.expect("put");
-        assert_eq!(store.delete(&cid).await.expect("delete"), DeletionOutcome::Immediate);
-        assert!(matches!(store.get_raw(&cid).await, Err(IpfsWriteError::NotFound(_))));
+        assert_eq!(
+            store.delete(&cid).await.expect("delete"),
+            DeletionOutcome::Immediate
+        );
+        assert!(matches!(
+            store.get_raw(&cid).await,
+            Err(IpfsWriteError::NotFound(_))
+        ));
     }
 }

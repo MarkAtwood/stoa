@@ -94,7 +94,10 @@ mod tests {
     fn new_run_id_produces_32_hex_chars() {
         let id = new_run_id();
         assert_eq!(id.len(), 32, "run_id must be 32 hex chars: {id}");
-        assert!(id.chars().all(|c| c.is_ascii_hexdigit()), "run_id must be hex: {id}");
+        assert!(
+            id.chars().all(|c| c.is_ascii_hexdigit()),
+            "run_id must be hex: {id}"
+        );
     }
 
     #[test]
@@ -147,7 +150,10 @@ mod tests {
         let mut entries = tokio::fs::read_dir(tmp.path()).await.expect("readdir");
         let entry = entries.next_entry().await.expect("ok").expect("entry");
         let name = entry.file_name().to_string_lossy().to_string();
-        assert!(name.ends_with(".json"), "report file must end with .json: {name}");
+        assert!(
+            name.ends_with(".json"),
+            "report file must end with .json: {name}"
+        );
         let content = tokio::fs::read_to_string(entry.path()).await.expect("read");
         assert!(content.contains("\"run_id\""));
     }

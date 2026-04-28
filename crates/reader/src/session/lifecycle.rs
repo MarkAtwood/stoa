@@ -14,7 +14,9 @@ use crate::{
     config::Config,
     post::{
         find_header_boundary,
-        injection::{extract_injection_source, prepend_path_header, strip_server_synthesized_headers},
+        injection::{
+            extract_injection_source, prepend_path_header, strip_server_synthesized_headers,
+        },
         ipfs_write::{write_ipld_article_to_ipfs, IpfsBlockStore},
         log_append::append_to_groups,
         pipeline::check_duplicate_msgid,
@@ -477,8 +479,7 @@ where
                 expected_cid,
                 verify_sig,
             } => {
-                let resp =
-                    handle_xverify(stores, message_id, expected_cid, *verify_sig).await;
+                let resp = handle_xverify(stores, message_id, expected_cid, *verify_sig).await;
                 send!(resp);
                 continue;
             }
@@ -511,8 +512,7 @@ where
                 field,
                 range_or_msgid,
             } => {
-                let resp =
-                    handle_hdr_live(stores, ctx, field, range_or_msgid.as_deref()).await;
+                let resp = handle_hdr_live(stores, ctx, field, range_or_msgid.as_deref()).await;
                 send!(resp);
                 continue;
             }
@@ -594,7 +594,10 @@ where
                         tracker.record_success(peer_ip);
                     }
                     ctx.state = SessionState::Active;
-                    ctx.is_drain_session = config.auth.drain_username.as_deref()
+                    ctx.is_drain_session = config
+                        .auth
+                        .drain_username
+                        .as_deref()
                         .map(|dn| dn.eq_ignore_ascii_case(&username))
                         .unwrap_or(false);
                     ctx.authenticated_user = Some(username);
@@ -833,14 +836,13 @@ where
                 }
             };
 
-            let (final_resp, post_meta) =
-                run_post_pipeline(
-                    &article_bytes,
-                    stores,
-                    config.limits.max_article_bytes,
-                    ctx.is_drain_session,
-                )
-                .await;
+            let (final_resp, post_meta) = run_post_pipeline(
+                &article_bytes,
+                stores,
+                config.limits.max_article_bytes,
+                ctx.is_drain_session,
+            )
+            .await;
             if let Some(ref logger) = stores.audit_logger {
                 match post_meta {
                     Some(ref meta) => logger.log(AuditEvent::ArticlePosted {
@@ -1432,7 +1434,10 @@ fn extract_oauthbearer_token(b64: &str) -> Option<String> {
     // Find "auth=Bearer " and extract the value up to the next \x01.
     let prefix = "auth=Bearer ";
     let start = text.find(prefix)? + prefix.len();
-    let end = text[start..].find('\x01').map(|i| start + i).unwrap_or(text.len());
+    let end = text[start..]
+        .find('\x01')
+        .map(|i| start + i)
+        .unwrap_or(text.len());
     if end <= start {
         return None;
     }
@@ -2093,7 +2098,8 @@ mod tests {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Signature Verify", "<sigverify@test.example>");
 
-        let (resp, _) = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
+        let (resp, _) =
+            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
         assert_eq!(
             resp.code, 240,
             "POST pipeline must succeed; got: {}",
@@ -2138,7 +2144,8 @@ mod tests {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Integration Test", "<integ@test.example>");
 
-        let (resp, _) = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
+        let (resp, _) =
+            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
         assert_eq!(
             resp.code, 240,
             "POST pipeline must return 240; got: {}",
@@ -2166,7 +2173,8 @@ mod tests {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Path Test", "<pathtest@test.example>");
 
-        let (resp, _) = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
+        let (resp, _) =
+            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
         assert_eq!(resp.code, 240, "POST must succeed; got: {}", resp.text);
 
         let cid = stores
@@ -2197,7 +2205,8 @@ mod tests {
     async fn article_by_number_returns_220() {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "By Number Test", "<bynumber@test.example>");
-        let (post_resp, _) = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
+        let (post_resp, _) =
+            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
         assert_eq!(post_resp.code, 240, "POST must succeed");
 
         let mut ctx = crate::session::context::SessionContext::new(
@@ -2217,7 +2226,10 @@ mod tests {
             .expect("article 1 must be found");
         assert_eq!(content.article_number, 1);
         assert_eq!(content.message_id, "<bynumber@test.example>");
-        assert_eq!(ctx.selected_group.as_ref().and_then(|sg| sg.article_number), Some(1));
+        assert_eq!(
+            ctx.selected_group.as_ref().and_then(|sg| sg.article_number),
+            Some(1)
+        );
     }
 
     /// After posting, HEAD <msgid> must return 221.
@@ -2225,7 +2237,8 @@ mod tests {
     async fn head_by_msgid_returns_221() {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Head By Msgid", "<headmsgid@test.example>");
-        let (post_resp, _) = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
+        let (post_resp, _) =
+            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
         assert_eq!(post_resp.code, 240, "POST must succeed");
 
         let resp = lookup_head_by_msgid(&stores, "<headmsgid@test.example>").await;
@@ -2249,7 +2262,8 @@ mod tests {
     async fn body_by_msgid_returns_222() {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Body By Msgid", "<bodymsgid@test.example>");
-        let (post_resp, _) = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
+        let (post_resp, _) =
+            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
         assert_eq!(post_resp.code, 240, "POST must succeed");
 
         let resp = lookup_body_by_msgid(&stores, "<bodymsgid@test.example>").await;
@@ -2277,7 +2291,8 @@ mod tests {
     async fn stat_by_msgid_known_returns_223() {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Stat Test", "<stattest@test.example>");
-        let (post_resp, _) = run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
+        let (post_resp, _) =
+            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
         assert_eq!(post_resp.code, 240, "POST must succeed");
 
         let resp = stat_by_msgid(&stores, "<stattest@test.example>").await;

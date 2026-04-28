@@ -11,7 +11,7 @@
 use async_trait::async_trait;
 use cid::Cid;
 use multihash_codetable::{Code, MultihashDigest};
-use sqlx::{Row, sqlite::SqliteConnectOptions};
+use sqlx::{sqlite::SqliteConnectOptions, Row};
 use std::path::Path;
 
 use stoa_core::ipfs::DeletionOutcome;
@@ -246,7 +246,9 @@ mod tests {
         let tmp = tempfile::TempDir::new().expect("tempdir");
         let db_path = tmp.path().join("blocks.db");
         assert!(!db_path.exists());
-        SqliteStore::open(&db_path).await.expect("open must create db file");
+        SqliteStore::open(&db_path)
+            .await
+            .expect("open must create db file");
         assert!(db_path.exists(), "database file must exist after open");
     }
 

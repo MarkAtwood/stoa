@@ -11,7 +11,7 @@
 use async_trait::async_trait;
 use cid::Cid;
 use multihash_codetable::{Code, MultihashDigest};
-use sqlx::{Row, sqlite::SqliteConnectOptions};
+use sqlx::{sqlite::SqliteConnectOptions, Row};
 use std::path::Path;
 
 use stoa_core::ipfs::DeletionOutcome;
@@ -136,7 +136,7 @@ impl IpfsBlockStore for SqliteBlockStore {
             .await
             .map_err(|e| IpfsWriteError::WriteFailed(e.to_string()))?;
         row.map(|r| r.get::<Vec<u8>, _>("data"))
-            .ok_or_else(|| IpfsWriteError::NotFound(cid_str))
+            .ok_or(IpfsWriteError::NotFound(cid_str))
     }
 
     /// Remove the row for `cid`.

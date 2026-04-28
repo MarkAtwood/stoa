@@ -22,6 +22,7 @@ use crate::post::ipfs_write::{IpfsBlockStore, IpfsWriteError};
 /// - It is 36 bytes vs ~59 bytes for the string, reducing index size.
 /// - It avoids codec round-trips on every lookup.
 /// - It is the canonical form used by IPFS/IPLD tooling.
+///
 /// All IPFS tools can decode the binary CID, so debuggability is not lost.
 pub struct RocksBlockStore {
     db: Arc<rocksdb::DB>,
@@ -91,7 +92,7 @@ impl IpfsBlockStore for RocksBlockStore {
         task::spawn_blocking(move || {
             db.get(&cid_bytes)
                 .map_err(|e| IpfsWriteError::WriteFailed(e.to_string()))?
-                .ok_or_else(|| IpfsWriteError::NotFound(cid_string))
+                .ok_or(IpfsWriteError::NotFound(cid_string))
         })
         .await
         .map_err(|e| IpfsWriteError::WriteFailed(e.to_string()))?

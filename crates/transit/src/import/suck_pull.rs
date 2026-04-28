@@ -199,9 +199,7 @@ pub async fn run_suck_pull(
                             summary.failed += 1;
                         }
                         IngestResult::TransientError(reason) => {
-                            tracing::warn!(
-                                "suck_pull: transient error checking {msgid}: {reason}"
-                            );
+                            tracing::warn!("suck_pull: transient error checking {msgid}: {reason}");
                             summary.failed += 1;
                         }
                     }
@@ -488,7 +486,9 @@ mod tests {
         // Build a MsgIdMap backed by a temp file pool.
         let tmp_core = tempfile::NamedTempFile::new().unwrap().into_temp_path();
         let core_url = format!("sqlite://{}", tmp_core.to_str().unwrap());
-        stoa_core::migrations::run_migrations(&core_url).await.unwrap();
+        stoa_core::migrations::run_migrations(&core_url)
+            .await
+            .unwrap();
         let core_pool = stoa_core::db_pool::try_open_any_pool(&core_url, 1)
             .await
             .unwrap();

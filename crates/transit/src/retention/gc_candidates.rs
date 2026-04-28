@@ -38,9 +38,11 @@ pub struct GcArticleRecord {
 ///   split on commas and match each independently against a rule set.
 /// - First-rule-wins semantics across an ordered rule list have no SQL
 ///   equivalent without a recursive CTE or application-side logic.
+///
 /// The result set is already bounded to `now - grace_period` rows, which
 /// is typically a small fraction of the total `articles` table, so the
 /// in-process evaluation adds negligible overhead.
+///
 /// Do NOT inline the policy into a SQL WHERE clause; the semantics would
 /// be incorrect for cross-posted articles and multi-rule policies.
 pub async fn select_gc_candidates(

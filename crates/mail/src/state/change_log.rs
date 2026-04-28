@@ -71,7 +71,9 @@ mod tests {
     async fn make_store() -> (ChangeLogStore, tempfile::TempPath) {
         let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
         let url = format!("sqlite://{}", tmp.to_str().unwrap());
-        crate::migrations::run_migrations(&url).await.expect("migrations");
+        crate::migrations::run_migrations(&url)
+            .await
+            .expect("migrations");
         let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
             .await
             .expect("pool");

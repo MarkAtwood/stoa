@@ -66,7 +66,7 @@ pub async fn issue_token(
                     id,
                     expires_at,
                 })
-                .unwrap(),
+                .expect("TokenIssueResponse is always JSON-serializable"),
             ),
         ),
         Err(_) => (
@@ -95,7 +95,13 @@ pub async fn list_tokens(
                     expires_at: t.expires_at,
                 })
                 .collect();
-            (StatusCode::OK, Json(serde_json::to_value(entries).unwrap()))
+            (
+                StatusCode::OK,
+                Json(
+                    serde_json::to_value(entries)
+                        .expect("Vec<TokenListEntry> is always JSON-serializable"),
+                ),
+            )
         }
         Err(_) => (
             StatusCode::INTERNAL_SERVER_ERROR,

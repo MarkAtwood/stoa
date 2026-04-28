@@ -10,7 +10,9 @@ pub mod store;
 pub mod trusted_issuer_store;
 
 pub use client_cert_store::ClientCertStore;
-pub use config::{AuthConfig, ClientCertEntry, OidcProviderConfig, TrustedIssuerEntry, UserCredential};
+pub use config::{
+    AuthConfig, ClientCertEntry, OidcProviderConfig, TrustedIssuerEntry, UserCredential,
+};
 pub use oidc::{OidcError, OidcStore};
 pub use store::CredentialStore;
 pub use trusted_issuer_store::TrustedIssuerStore;

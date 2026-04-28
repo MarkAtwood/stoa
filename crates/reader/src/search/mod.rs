@@ -24,8 +24,8 @@ pub mod error;
 pub use error::SearchError;
 
 use crate::config::SearchConfig;
-use std::sync::Arc;
 use std::collections::BTreeMap;
+use std::sync::Arc;
 use tantivy::{
     collector::TopDocs,
     doc,

@@ -4758,6 +4758,7 @@ dependencies = [
  "lazy_static",
  "mail-auth",
  "multihash-codetable",
+ "nix",
  "object_store",
  "opentelemetry",
  "opentelemetry-appender-tracing",

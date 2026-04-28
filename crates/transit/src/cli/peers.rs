@@ -160,10 +160,7 @@ pub async fn cmd_peer_blacklist(
 }
 
 /// `transit peer-unblacklist <peer_id>`: clear blacklist for a peer.
-pub async fn cmd_peer_unblacklist(
-    pool: &AnyPool,
-    peer_id: &str,
-) -> Result<String, StorageError> {
+pub async fn cmd_peer_unblacklist(pool: &AnyPool, peer_id: &str) -> Result<String, StorageError> {
     unblacklist(pool, peer_id).await?;
     Ok(format!("Peer '{peer_id}' unblacklisted.\n"))
 }

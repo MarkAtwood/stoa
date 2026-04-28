@@ -698,7 +698,9 @@ mod tests {
         );
         assert_eq!(resp.code, 411, "invalid group name must return 411");
         assert_eq!(
-            ctx.selected_group.as_ref().map(|sg| sg.name.as_str().to_owned()),
+            ctx.selected_group
+                .as_ref()
+                .map(|sg| sg.name.as_str().to_owned()),
             prior_group_name,
             "prior group selection must be preserved after 411"
         );

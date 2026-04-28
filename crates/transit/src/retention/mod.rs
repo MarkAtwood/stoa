@@ -1,8 +1,8 @@
 pub mod audit_log;
 pub mod gc;
-pub mod gc_report;
 pub mod gc_candidates;
 pub mod gc_executor;
+pub mod gc_report;
 pub mod ipns_publisher;
 pub mod pin_client;
 pub mod policy;

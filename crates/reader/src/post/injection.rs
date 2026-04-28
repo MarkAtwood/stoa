@@ -291,8 +291,7 @@ mod tests {
 
     #[test]
     fn strip_did_verified_removed() {
-        let mut article =
-            make_article(Some("X-Stoa-DID-Verified: true"), "body\r\n");
+        let mut article = make_article(Some("X-Stoa-DID-Verified: true"), "body\r\n");
         strip_server_synthesized_headers(&mut article);
         let s = String::from_utf8(article).unwrap();
         assert!(
@@ -318,7 +317,10 @@ mod tests {
         let mut article = make_article(Some("X-Stoa-CID: bafyreiabc"), "body\r\n");
         strip_server_synthesized_headers(&mut article);
         let s = String::from_utf8(article).unwrap();
-        assert!(!s.contains("X-Stoa-CID"), "X-Stoa-CID must be stripped: {s:?}");
+        assert!(
+            !s.contains("X-Stoa-CID"),
+            "X-Stoa-CID must be stripped: {s:?}"
+        );
     }
 
     #[test]
@@ -357,8 +359,7 @@ mod tests {
 
     #[test]
     fn strip_case_insensitive() {
-        let mut article =
-            make_article(Some("x-stoa-did-verified: true"), "body\r\n");
+        let mut article = make_article(Some("x-stoa-did-verified: true"), "body\r\n");
         strip_server_synthesized_headers(&mut article);
         let s = String::from_utf8(article).unwrap();
         assert!(

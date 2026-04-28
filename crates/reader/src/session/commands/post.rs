@@ -1,6 +1,5 @@
 use tokio::io::{AsyncBufRead, AsyncBufReadExt};
 
-
 use crate::post::{find_header_boundary, validate_headers::validate_post_headers};
 use crate::session::response::Response;
 
@@ -96,10 +95,7 @@ where
 /// - `240 Article received OK` on success
 /// - `441 Article too large` if the article exceeds `max_article_bytes`
 /// - `441` with RFC 5536 error detail if any mandatory header is missing or invalid
-pub fn complete_post(
-    article_bytes: &[u8],
-    max_article_bytes: usize,
-) -> Result<(), Response> {
+pub fn complete_post(article_bytes: &[u8], max_article_bytes: usize) -> Result<(), Response> {
     if article_bytes.len() > max_article_bytes {
         return Err(Response::new(441, "Article too large"));
     }

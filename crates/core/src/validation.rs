@@ -259,7 +259,8 @@ pub fn validate_article_ingress(
             }
             .into());
         }
-        if name.contains('\x00') || name.contains('\r') || name.contains('\n') || name.contains(':') {
+        if name.contains('\x00') || name.contains('\r') || name.contains('\n') || name.contains(':')
+        {
             return Err(ValidationError::InvalidHeaderValue {
                 field: name.clone(),
                 reason: "header field name contains NUL, CR, LF, or colon (RFC 5322 §2.2)".into(),
@@ -279,8 +280,7 @@ pub fn validate_article_ingress(
         if value.contains('\x00') || value.contains('\r') || value.contains('\n') {
             return Err(ValidationError::InvalidHeaderValue {
                 field: name.clone(),
-                reason: "NUL byte or bare CR/LF forbidden in header values (RFC 5322 §2.2)"
-                    .into(),
+                reason: "NUL byte or bare CR/LF forbidden in header values (RFC 5322 §2.2)".into(),
             }
             .into());
         }
@@ -724,8 +724,7 @@ mod tests {
     fn test_extra_header_name_with_crlf_rejected() {
         // A header name containing CRLF would corrupt canonical serialisation.
         let mut article = make_valid_article();
-        article.header.extra_headers =
-            vec![("X-Foo\r\nX-Injected: bar".into(), "value".into())];
+        article.header.extra_headers = vec![("X-Foo\r\nX-Injected: bar".into(), "value".into())];
         let err = validate_article_ingress(&article, &ValidationConfig::default()).unwrap_err();
         assert!(
             matches!(

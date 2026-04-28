@@ -134,8 +134,7 @@ impl IpfsStore for FsStore {
             // clobbering each other's temp files.
             let seq = WRITE_SEQ.fetch_add(1, Ordering::Relaxed);
             let tmp_path = path.join(format!("{filename}.{seq}.block.tmp"));
-            std::fs::write(&tmp_path, &data)
-                .map_err(|e| IpfsError::WriteFailed(e.to_string()))?;
+            std::fs::write(&tmp_path, &data).map_err(|e| IpfsError::WriteFailed(e.to_string()))?;
             // On Linux rename(2) atomically replaces the destination; if a
             // concurrent writer already placed the block, this is a harmless
             // overwrite with identical content.
@@ -269,7 +268,10 @@ mod tests {
         let cid = store.put_raw(data).await.expect("put");
         let filename = format!("{}.block", cid);
         let block_path = tmp.path().join(&filename);
-        assert!(block_path.exists(), "block file must exist on disk: {filename}");
+        assert!(
+            block_path.exists(),
+            "block file must exist on disk: {filename}"
+        );
     }
 
     #[tokio::test]
@@ -280,11 +282,7 @@ mod tests {
         let leftover: Vec<_> = std::fs::read_dir(tmp.path())
             .expect("readdir")
             .filter_map(|e| e.ok())
-            .filter(|e| {
-                e.file_name()
-                    .to_string_lossy()
-                    .ends_with(".block.tmp")
-            })
+            .filter(|e| e.file_name().to_string_lossy().ends_with(".block.tmp"))
             .collect();
         assert!(
             leftover.is_empty(),
@@ -331,7 +329,10 @@ mod tests {
         let data = b"0123456789"; // exactly 10 bytes
         store.put_raw(data).await.expect("first put within cap");
         // Re-putting the same block must succeed (idempotent, no new bytes stored).
-        store.put_raw(data).await.expect("idempotent re-put must succeed even at cap");
+        store
+            .put_raw(data)
+            .await
+            .expect("idempotent re-put must succeed even at cap");
     }
 
     #[tokio::test]

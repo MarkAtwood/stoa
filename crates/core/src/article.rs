@@ -193,7 +193,10 @@ mod tests {
     #[test]
     fn group_name_deserialize_invalid_rejected() {
         let result: Result<GroupName, _> = serde_json::from_str("\"comp..invalid\"");
-        assert!(result.is_err(), "invalid group name must be rejected by Deserialize");
+        assert!(
+            result.is_err(),
+            "invalid group name must be rejected by Deserialize"
+        );
     }
 
     // ── ArticleHeader & Article construction ─────────────────────────────────

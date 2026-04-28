@@ -424,7 +424,13 @@ mod tests {
         // An unclosed block triggers a structural error deep in read_block.
         let tokens = tokenize("if true {").expect("tokenize");
         let err = read_script(&tokens).expect_err("unclosed block should fail");
-        assert_eq!(err.line, 0, "line must be 0 — Token carries no source position");
-        assert_eq!(err.col, 0, "col must be 0 — Token carries no source position");
+        assert_eq!(
+            err.line, 0,
+            "line must be 0 — Token carries no source position"
+        );
+        assert_eq!(
+            err.col, 0,
+            "col must be 0 — Token carries no source position"
+        );
     }
 }

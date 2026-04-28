@@ -57,7 +57,7 @@ async fn main() {
     info!(addr = %config.listen.addr, "stoa-imap starting");
 
     // Open SQLite pool and run migrations.
-    let db_url = format!("sqlite:{}", config.database.path);
+    let db_url = format!("sqlite:{}?mode=rwc", config.database.path);
     let pool = match sqlx::sqlite::SqlitePoolOptions::new()
         .max_connections(10)
         .connect(&db_url)

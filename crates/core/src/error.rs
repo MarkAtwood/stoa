@@ -373,5 +373,4 @@ mod tests {
         // the invariant is that we do not format any binary blob as hex bytes.
         assert!(display.contains("invalid key material"));
     }
-
 }

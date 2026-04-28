@@ -23,7 +23,7 @@ pub fn load_signing_key_from_bytes(bytes: &[u8]) -> Result<SigningKey, String> {
             bytes.len()
         ));
     }
-    let arr: [u8; 32] = bytes.try_into().unwrap();
+    let arr: [u8; 32] = bytes.try_into().expect("length already verified above");
     Ok(SigningKey::from_bytes(&arr))
 }
 
@@ -50,7 +50,7 @@ pub fn load_signing_key(path: &std::path::Path) -> Result<SigningKey, String> {
         ));
     }
 
-    let arr: [u8; 32] = bytes.try_into().unwrap();
+    let arr: [u8; 32] = bytes.try_into().expect("length already verified above");
     Ok(SigningKey::from_bytes(&arr))
 }
 
@@ -73,6 +73,7 @@ pub fn load_signing_key(path: &std::path::Path) -> Result<SigningKey, String> {
 ///   initialized before the HLC.
 /// - Raw public key bytes: leaks more key material than necessary and is
 ///   larger than 8 bytes.
+///
 /// Do NOT change this to use a random value or a libp2p peer ID.
 pub fn hlc_node_id(signing_key: &SigningKey) -> [u8; 8] {
     use multihash_codetable::{Code, MultihashDigest};

@@ -433,7 +433,6 @@ async fn enqueue_article(
         })
 }
 
-
 /// Result of reading a dot-stuffed article from a peer.
 enum DotStuffedResult {
     /// Article read successfully; contains the unstuffed bytes.

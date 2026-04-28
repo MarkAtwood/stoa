@@ -51,10 +51,16 @@ impl AzureBlockStore {
         ) as Arc<dyn ObjectStore>;
         let prefix = cfg.prefix.as_deref().unwrap_or("blocks").to_string();
 
-        let context = format!("Azure account '{}', container '{}', prefix '{}'", cfg.account, cfg.container, prefix);
+        let context = format!(
+            "Azure account '{}', container '{}', prefix '{}'",
+            cfg.account, cfg.container, prefix
+        );
         super::object_store_backend::startup_probe(&store, &prefix, &context).await?;
 
-        Ok(Self(ObjectStoreBlockBackend::new_with_store(store, Some(&prefix))))
+        Ok(Self(ObjectStoreBlockBackend::new_with_store(
+            store,
+            Some(&prefix),
+        )))
     }
 
     /// Construct with a caller-supplied `ObjectStore`.  Intended for unit tests.
@@ -64,7 +70,6 @@ impl AzureBlockStore {
 }
 
 crate::impl_ipfs_block_store_via_inner!(AzureBlockStore);
-
 
 #[cfg(test)]
 mod tests {
@@ -90,7 +95,13 @@ mod tests {
         let store = make_test_store();
         let data = b"to be deleted";
         let cid = store.put_raw(data).await.expect("put");
-        assert_eq!(store.delete(&cid).await.expect("delete"), DeletionOutcome::Immediate);
-        assert!(matches!(store.get_raw(&cid).await, Err(IpfsWriteError::NotFound(_))));
+        assert_eq!(
+            store.delete(&cid).await.expect("delete"),
+            DeletionOutcome::Immediate
+        );
+        assert!(matches!(
+            store.get_raw(&cid).await,
+            Err(IpfsWriteError::NotFound(_))
+        ));
     }
 }

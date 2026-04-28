@@ -43,6 +43,7 @@ mail-auth = "0.8"
 stoa-lmdb = { path = "../lmdb" }
 rocksdb = "0.22"
 ceph = { version = "3.2.5", optional = true }
+nix = { version = "0.18", optional = true }
 object_store = { version = "0.12", features = ["aws", "azure", "gcp", "http"] }
 bytes = "1.11.1"
 opentelemetry = { version = "0.31", features = ["metrics", "trace", "logs"] }
@@ -54,7 +55,7 @@ opentelemetry-appender-tracing = "0.31"
 [features]
 # Enable native Ceph RADOS block store backend.
 # Requires librados-dev to be installed at build time.
-rados = ["dep:ceph"]
+rados = ["dep:ceph", "dep:nix"]
 
 [[bench]]
 name = "ihave_throughput"

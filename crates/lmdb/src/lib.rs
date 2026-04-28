@@ -235,7 +235,11 @@ impl LmdbBlockDb {
         // the path — LmdbBlockDb::drop is now responsible for cleanup.
         guard.defuse();
 
-        Ok(Self { env, db, canonical_path: canonical })
+        Ok(Self {
+            env,
+            db,
+            canonical_path: canonical,
+        })
     }
 
     /// Store `value` under `key`.  Idempotent: re-writing the same key with

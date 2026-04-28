@@ -316,7 +316,10 @@ mod tests {
         let tmp = tempfile::NamedTempFile::new().unwrap();
         std::fs::write(tmp.path(), "alice:plaintextpassword\n").unwrap();
         let result = CredentialStore::from_file(tmp.path().to_str().unwrap());
-        assert!(result.is_err(), "from_file must return Err for plaintext password");
+        assert!(
+            result.is_err(),
+            "from_file must return Err for plaintext password"
+        );
         let msg = result.err().unwrap();
         assert!(msg.contains("not a valid bcrypt hash"), "got: {msg}");
     }

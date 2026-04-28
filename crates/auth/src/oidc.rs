@@ -109,6 +109,7 @@ impl ProviderValidator {
 
     /// Return cached keys, refreshing if the cache is expired or `force` is set.
     async fn get_keys(&self, force: bool) -> Result<Vec<Jwk>, OidcError> {
+        // Fast path: check under read lock (avoids write-lock contention when hot).
         if !force {
             let cache = self.cache.read().await;
             if let Some((ref keys, fetched_at)) = *cache {
@@ -117,8 +118,19 @@ impl ProviderValidator {
                 }
             }
         }
+        // Slow path: acquire write lock and check again before fetching.
+        // This prevents a thunder-herd where multiple callers all see expiry,
+        // drop the read lock, and race to call fetch_fresh_keys().
+        let mut cache = self.cache.write().await;
+        if !force {
+            if let Some((ref keys, fetched_at)) = *cache {
+                if fetched_at.elapsed() < JWKS_TTL {
+                    return Ok(keys.clone());
+                }
+            }
+        }
         let keys = self.fetch_fresh_keys().await?;
-        *self.cache.write().await = Some((keys.clone(), Instant::now()));
+        *cache = Some((keys.clone(), Instant::now()));
         Ok(keys)
     }
 
@@ -178,9 +190,8 @@ impl ProviderValidator {
         validation.set_issuer(&[self.config.issuer.as_str()]);
         validation.validate_exp = true;
 
-        let data =
-            jsonwebtoken::decode::<serde_json::Value>(token, &decoding_key, &validation)
-                .map_err(|e| OidcError::InvalidToken(e.to_string()))?;
+        let data = jsonwebtoken::decode::<serde_json::Value>(token, &decoding_key, &validation)
+            .map_err(|e| OidcError::InvalidToken(e.to_string()))?;
 
         let claims = &data.claims;
         let username = claims
@@ -199,9 +210,7 @@ impl ProviderValidator {
 /// Build an RSA `DecodingKey` and select the matching `Algorithm` from a JWK.
 ///
 /// Returns `UnsupportedKeyType` for non-RSA keys (EC support is deferred).
-fn rsa_decoding_key_and_alg(
-    jwk: &Jwk,
-) -> Result<(DecodingKey, Algorithm), OidcError> {
+fn rsa_decoding_key_and_alg(jwk: &Jwk) -> Result<(DecodingKey, Algorithm), OidcError> {
     if jwk.kty != "RSA" {
         return Err(OidcError::UnsupportedKeyType(jwk.kty.clone()));
     }
@@ -213,8 +222,8 @@ fn rsa_decoding_key_and_alg(
         .rsa_e
         .as_deref()
         .ok_or_else(|| OidcError::InvalidKey("RSA JWK missing 'e'".into()))?;
-    let key = DecodingKey::from_rsa_components(n, e)
-        .map_err(|e| OidcError::InvalidKey(e.to_string()))?;
+    let key =
+        DecodingKey::from_rsa_components(n, e).map_err(|e| OidcError::InvalidKey(e.to_string()))?;
 
     let alg = match jwk.alg.as_deref() {
         Some("RS256") | None => Algorithm::RS256, // default for RSA
@@ -261,7 +270,10 @@ impl std::fmt::Display for OidcError {
             OidcError::KeyNotFound => write!(f, "OIDC key not found in JWKS"),
             OidcError::MissingClaim(s) => write!(f, "OIDC missing claim '{s}'"),
             OidcError::UnsupportedKeyType(s) => {
-                write!(f, "OIDC unsupported key type '{s}' (only RSA supported in v1)")
+                write!(
+                    f,
+                    "OIDC unsupported key type '{s}' (only RSA supported in v1)"
+                )
             }
             OidcError::UnsupportedAlgorithm(s) => {
                 write!(f, "OIDC unsupported algorithm '{s}'")

@@ -119,10 +119,7 @@ impl CircuitBreaker {
         match g.state {
             CbState::Closed => true,
             CbState::Open => {
-                let elapsed = g
-                    .opened_at
-                    .map(|t| t.elapsed())
-                    .unwrap_or(Duration::MAX);
+                let elapsed = g.opened_at.map(|t| t.elapsed()).unwrap_or(Duration::MAX);
                 if elapsed >= self.config.probe_interval {
                     let old = g.state;
                     g.state = CbState::HalfOpen;
@@ -247,10 +244,14 @@ mod tests {
         cb.record_failure();
         cb.record_failure();
         cb.record_success(); // resets count
-        // Two more failures — should not open (counter was reset to 0)
+                             // Two more failures — should not open (counter was reset to 0)
         cb.record_failure();
         cb.record_failure();
-        assert_eq!(cb.state(), CbState::Closed, "two failures after reset must not open");
+        assert_eq!(
+            cb.state(),
+            CbState::Closed,
+            "two failures after reset must not open"
+        );
     }
 
     #[test]
@@ -264,7 +265,10 @@ mod tests {
         assert_eq!(cb.state(), CbState::Open);
 
         std::thread::sleep(Duration::from_millis(5));
-        assert!(cb.allow_request(), "probe interval elapsed, must allow probe");
+        assert!(
+            cb.allow_request(),
+            "probe interval elapsed, must allow probe"
+        );
         assert_eq!(cb.state(), CbState::HalfOpen);
     }
 
@@ -315,7 +319,11 @@ mod tests {
         cb.record_failure();
         cb.record_failure(); // opens
 
-        assert_eq!(opens.load(Ordering::Relaxed), 1, "callback must fire on open");
+        assert_eq!(
+            opens.load(Ordering::Relaxed),
+            1,
+            "callback must fire on open"
+        );
     }
 
     #[test]
@@ -328,7 +336,7 @@ mod tests {
         cb.record_failure();
         cb.record_failure();
         std::thread::sleep(Duration::from_millis(20)); // window expires
-        // New window: counter reset; need 3 more to open
+                                                       // New window: counter reset; need 3 more to open
         cb.record_failure();
         cb.record_failure();
         assert_eq!(

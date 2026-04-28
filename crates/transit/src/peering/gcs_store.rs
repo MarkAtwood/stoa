@@ -26,9 +26,11 @@ impl GcsStore {
     pub async fn new(cfg: &GcsBackendConfig) -> Result<Self, String> {
         use object_store::gcp::GoogleCloudStorageBuilder;
 
-        let sa_key =
-            resolve_secret_uri(cfg.service_account_key.clone(), "backend.gcs.service_account_key")
-                .await?;
+        let sa_key = resolve_secret_uri(
+            cfg.service_account_key.clone(),
+            "backend.gcs.service_account_key",
+        )
+        .await?;
 
         let mut builder = GoogleCloudStorageBuilder::new().with_bucket_name(&cfg.bucket);
         if let Some(path) = &cfg.service_account_path {
@@ -47,7 +49,10 @@ impl GcsStore {
         let context = format!("GCS bucket '{}', prefix '{}'", cfg.bucket, prefix);
         super::object_store_backend::startup_probe(&store, &prefix, &context).await?;
 
-        Ok(Self(ObjectStoreBackend::new_with_store(store, Some(&prefix))))
+        Ok(Self(ObjectStoreBackend::new_with_store(
+            store,
+            Some(&prefix),
+        )))
     }
 
     /// Construct with a caller-supplied `ObjectStore`.  Intended for unit tests.
@@ -57,4 +62,3 @@ impl GcsStore {
 }
 
 crate::impl_ipfs_store_via_inner!(GcsStore);
-

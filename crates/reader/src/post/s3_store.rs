@@ -25,9 +25,11 @@ impl S3BlockStore {
 
         let access_key =
             resolve_secret_uri(cfg.access_key_id.clone(), "backend.s3.access_key_id").await?;
-        let secret_key =
-            resolve_secret_uri(cfg.secret_access_key.clone(), "backend.s3.secret_access_key")
-                .await?;
+        let secret_key = resolve_secret_uri(
+            cfg.secret_access_key.clone(),
+            "backend.s3.secret_access_key",
+        )
+        .await?;
 
         let mut builder = AmazonS3Builder::new()
             .with_bucket_name(&cfg.bucket)
@@ -51,10 +53,16 @@ impl S3BlockStore {
         ) as Arc<dyn ObjectStore>;
         let prefix = cfg.prefix.as_deref().unwrap_or("blocks").to_string();
 
-        let context = format!("S3 bucket '{}', prefix '{}', region '{}'", cfg.bucket, prefix, cfg.region);
+        let context = format!(
+            "S3 bucket '{}', prefix '{}', region '{}'",
+            cfg.bucket, prefix, cfg.region
+        );
         super::object_store_backend::startup_probe(&store, &prefix, &context).await?;
 
-        Ok(Self(ObjectStoreBlockBackend::new_with_store(store, Some(&prefix))))
+        Ok(Self(ObjectStoreBlockBackend::new_with_store(
+            store,
+            Some(&prefix),
+        )))
     }
 
     /// Construct with a caller-supplied `ObjectStore`.  Intended for unit tests.
@@ -64,7 +72,6 @@ impl S3BlockStore {
 }
 
 crate::impl_ipfs_block_store_via_inner!(S3BlockStore);
-
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 //
@@ -97,7 +104,13 @@ mod tests {
         let store = make_test_store();
         let data = b"to be deleted";
         let cid = store.put_raw(data).await.expect("put");
-        assert_eq!(store.delete(&cid).await.expect("delete"), DeletionOutcome::Immediate);
-        assert!(matches!(store.get_raw(&cid).await, Err(IpfsWriteError::NotFound(_))));
+        assert_eq!(
+            store.delete(&cid).await.expect("delete"),
+            DeletionOutcome::Immediate
+        );
+        assert!(matches!(
+            store.get_raw(&cid).await,
+            Err(IpfsWriteError::NotFound(_))
+        ));
     }
 }

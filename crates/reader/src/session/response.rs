@@ -224,7 +224,9 @@ impl Response {
 /// lines this is meaningfully faster than `to_string().into_bytes()`.
 impl Response {
     pub fn to_bytes(&self) -> Vec<u8> {
-        let capacity = 6 + self.text.len() + 2
+        let capacity = 6
+            + self.text.len()
+            + 2
             + self.body.iter().map(|l| l.len() + 2).sum::<usize>()
             + if self.multiline { 3 } else { 0 };
         let mut out = Vec::with_capacity(capacity);

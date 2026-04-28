@@ -151,7 +151,7 @@ impl<P: PinClient> GcRunner<P> {
     ///
     /// [`GcReport`]: crate::retention::gc_report::GcReport
     pub async fn run_once(&self, candidates: &[GcCandidate], now_ms: u64) -> u64 {
-        use crate::retention::gc_report::{GcReport, GcReportError, ms_to_iso8601, new_run_id};
+        use crate::retention::gc_report::{ms_to_iso8601, new_run_id, GcReport, GcReportError};
 
         let started_at = ms_to_iso8601(now_ms);
         let run_id = new_run_id();
@@ -300,9 +300,7 @@ pub async fn start_gc_scheduler<P, F, Fut>(
             ticker.tick().await;
 
             if !try_gc_lock(gc_lock.as_ref()).await {
-                tracing::debug!(
-                    "GC: advisory lock held by another instance, skipping this run"
-                );
+                tracing::debug!("GC: advisory lock held by another instance, skipping this run");
                 continue;
             }
 
@@ -473,9 +471,8 @@ mod tests {
     #[tokio::test]
     async fn gc_last_report_written_when_nothing_deleted() {
         let pin_client = MemPinClient::new();
-        let candidates: Vec<GcCandidate> = (0..2)
-            .map(|i| make_candidate(i, "sci.math", 0))
-            .collect();
+        let candidates: Vec<GcCandidate> =
+            (0..2).map(|i| make_candidate(i, "sci.math", 0)).collect();
         for c in &candidates {
             pin_client.pin(&c.cid).await.unwrap();
         }
@@ -488,7 +485,9 @@ mod tests {
         runner.run_once(&candidates, NOW_MS).await;
 
         let report = handle.read().await;
-        let report = report.as_ref().expect("report must be Some even with zero deletions");
+        let report = report
+            .as_ref()
+            .expect("report must be Some even with zero deletions");
         assert_eq!(
             report.articles_deleted, 0,
             "zero-delete run must record articles_deleted=0"
@@ -508,8 +507,8 @@ mod tests {
         let dir = tmp.path().to_str().unwrap().to_string();
 
         let metrics = GcMetrics::new();
-        let runner = GcRunner::new(pin_client, pin_sci_math(), metrics)
-            .with_report_dir(Some(dir.clone()));
+        let runner =
+            GcRunner::new(pin_client, pin_sci_math(), metrics).with_report_dir(Some(dir.clone()));
 
         runner.run_once(&candidates, NOW_MS).await;
 
@@ -520,7 +519,10 @@ mod tests {
             .expect("ok")
             .expect("report file must exist");
         let name = entry.file_name().to_string_lossy().to_string();
-        assert!(name.ends_with(".json"), "report file must have .json extension: {name}");
+        assert!(
+            name.ends_with(".json"),
+            "report file must have .json extension: {name}"
+        );
         let content = tokio::fs::read_to_string(entry.path())
             .await
             .expect("read report file");

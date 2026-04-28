@@ -120,10 +120,19 @@ mod tests {
             tracker.record_failure(ip("1.2.3.4"));
         }
         // 5th failure: at threshold
-        assert!(tracker.record_failure(ip("1.2.3.4")), "5th failure must return true");
+        assert!(
+            tracker.record_failure(ip("1.2.3.4")),
+            "5th failure must return true"
+        );
         // 6th and beyond: past threshold, must not re-trigger
-        assert!(!tracker.record_failure(ip("1.2.3.4")), "6th failure must return false");
-        assert!(!tracker.record_failure(ip("1.2.3.4")), "7th failure must return false");
+        assert!(
+            !tracker.record_failure(ip("1.2.3.4")),
+            "6th failure must return false"
+        );
+        assert!(
+            !tracker.record_failure(ip("1.2.3.4")),
+            "7th failure must return false"
+        );
     }
 
     #[test]

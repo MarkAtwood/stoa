@@ -61,8 +61,12 @@ impl RadosStore {
     /// exists and this client has write permission.  Fails fast if authentication
     /// or pool access is denied.
     pub fn open(cfg: &RadosBackendConfig) -> Result<Self, String> {
-        let rados = connect_to_ceph(&cfg.user, &cfg.conf_path)
-            .map_err(|e| format!("RADOS connect failed (user={}, conf={}): {e}", cfg.user, cfg.conf_path))?;
+        let rados = connect_to_ceph(&cfg.user, &cfg.conf_path).map_err(|e| {
+            format!(
+                "RADOS connect failed (user={}, conf={}): {e}",
+                cfg.user, cfg.conf_path
+            )
+        })?;
         let ioctx = rados
             .get_rados_ioctx(&cfg.pool)
             .map_err(|e| format!("RADOS ioctx_create for pool '{}' failed: {e}", cfg.pool))?;
@@ -123,9 +127,7 @@ impl IpfsStore for RadosStore {
             // Stat first to learn the exact byte size.
             let (size, _mtime) = match ioctx.rados_object_stat(&obj_name) {
                 Ok(s) => s,
-                Err(ceph::error::RadosError::ApiError(e))
-                    if e == nix::errno::Errno::ENOENT =>
-                {
+                Err(ceph::error::RadosError::ApiError(nix::errno::Errno::ENOENT)) => {
                     return Ok(None)
                 }
                 Err(e) => return Err(IpfsError::ReadFailed(e.to_string())),
@@ -134,9 +136,7 @@ impl IpfsStore for RadosStore {
             // Handle TOCTOU: object may be deleted between stat and read.
             match ioctx.rados_object_read(&obj_name, &mut buf, 0) {
                 Ok(_) => {}
-                Err(ceph::error::RadosError::ApiError(e))
-                    if e == nix::errno::Errno::ENOENT =>
-                {
+                Err(ceph::error::RadosError::ApiError(nix::errno::Errno::ENOENT)) => {
                     return Ok(None)
                 }
                 Err(e) => return Err(IpfsError::ReadFailed(e.to_string())),
@@ -157,9 +157,7 @@ impl IpfsStore for RadosStore {
         task::spawn_blocking(move || {
             match ioctx.rados_object_remove(&obj_name) {
                 Ok(()) => Ok(DeletionOutcome::Immediate),
-                Err(ceph::error::RadosError::ApiError(e))
-                    if e == nix::errno::Errno::ENOENT =>
-                {
+                Err(ceph::error::RadosError::ApiError(nix::errno::Errno::ENOENT)) => {
                     Ok(DeletionOutcome::Immediate) // idempotent
                 }
                 Err(e) => Err(IpfsError::WriteFailed(e.to_string())),

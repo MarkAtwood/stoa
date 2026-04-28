@@ -37,7 +37,10 @@ impl RateLimiter {
     pub fn new(rpm: u32) -> Self {
         Self {
             rpm,
-            state: Mutex::new(Inner { map: HashMap::new(), call_count: 0 }),
+            state: Mutex::new(Inner {
+                map: HashMap::new(),
+                call_count: 0,
+            }),
         }
     }
 

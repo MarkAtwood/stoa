@@ -65,26 +65,30 @@ impl UserFlagsStore {
         flagged: Option<bool>,
     ) -> Result<Vec<Cid>, sqlx::Error> {
         let rows: Vec<Vec<u8>> = match (seen, flagged) {
-            (None, None) => sqlx::query_scalar(
-                "SELECT article_cid FROM user_flags WHERE user_id = ?",
-            )
-            .bind(user_id)
-            .fetch_all(&self.pool)
-            .await?,
-            (Some(s), None) => sqlx::query_scalar(
-                "SELECT article_cid FROM user_flags WHERE user_id = ? AND seen = ?",
-            )
-            .bind(user_id)
-            .bind(s as i64)
-            .fetch_all(&self.pool)
-            .await?,
-            (None, Some(f)) => sqlx::query_scalar(
-                "SELECT article_cid FROM user_flags WHERE user_id = ? AND flagged = ?",
-            )
-            .bind(user_id)
-            .bind(f as i64)
-            .fetch_all(&self.pool)
-            .await?,
+            (None, None) => {
+                sqlx::query_scalar("SELECT article_cid FROM user_flags WHERE user_id = ?")
+                    .bind(user_id)
+                    .fetch_all(&self.pool)
+                    .await?
+            }
+            (Some(s), None) => {
+                sqlx::query_scalar(
+                    "SELECT article_cid FROM user_flags WHERE user_id = ? AND seen = ?",
+                )
+                .bind(user_id)
+                .bind(s as i64)
+                .fetch_all(&self.pool)
+                .await?
+            }
+            (None, Some(f)) => {
+                sqlx::query_scalar(
+                    "SELECT article_cid FROM user_flags WHERE user_id = ? AND flagged = ?",
+                )
+                .bind(user_id)
+                .bind(f as i64)
+                .fetch_all(&self.pool)
+                .await?
+            }
             (Some(s), Some(f)) => sqlx::query_scalar(
                 "SELECT article_cid FROM user_flags WHERE user_id = ? AND seen = ? AND flagged = ?",
             )

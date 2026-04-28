@@ -31,12 +31,10 @@ pub async fn ensure_instance_node_id(pool: &AnyPool, hostname: &str) -> [u8; 8] 
     .execute(pool)
     .await;
 
-    match sqlx::query_scalar::<_, String>(
-        "SELECT value FROM transit_instance_id WHERE key = ?",
-    )
-    .bind(hostname)
-    .fetch_optional(pool)
-    .await
+    match sqlx::query_scalar::<_, String>("SELECT value FROM transit_instance_id WHERE key = ?")
+        .bind(hostname)
+        .fetch_optional(pool)
+        .await
     {
         Ok(Some(stored)) => {
             if let Ok(b) = hex::decode(&stored) {
@@ -58,7 +56,9 @@ mod tests {
     async fn make_pool() -> (AnyPool, tempfile::TempPath) {
         let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
         let url = format!("sqlite://{}", tmp.to_str().unwrap());
-        crate::migrations::run_migrations(&url).await.expect("migrations");
+        crate::migrations::run_migrations(&url)
+            .await
+            .expect("migrations");
         let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
             .await
             .expect("pool");
@@ -70,7 +70,10 @@ mod tests {
         let (pool, _tmp) = make_pool().await;
         let id1 = ensure_instance_node_id(&pool, "host.example").await;
         let id2 = ensure_instance_node_id(&pool, "host.example").await;
-        assert_eq!(id1, id2, "same hostname must return same node_id on repeat calls");
+        assert_eq!(
+            id1, id2,
+            "same hostname must return same node_id on repeat calls"
+        );
     }
 
     #[tokio::test]
@@ -78,7 +81,10 @@ mod tests {
         let (pool, _tmp) = make_pool().await;
         let id_a = ensure_instance_node_id(&pool, "host-a.example").await;
         let id_b = ensure_instance_node_id(&pool, "host-b.example").await;
-        assert_ne!(id_a, id_b, "different hostnames must get different node_ids");
+        assert_ne!(
+            id_a, id_b,
+            "different hostnames must get different node_ids"
+        );
     }
 
     #[tokio::test]

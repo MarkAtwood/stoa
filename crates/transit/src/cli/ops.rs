@@ -71,11 +71,11 @@ pub async fn cmd_pin(pool: &AnyPool, cid_str: &str) -> Result<String, StorageErr
         "INSERT INTO pinned_cids (cid, pinned_at_ms) VALUES (?, ?) \
          ON CONFLICT (cid) DO NOTHING",
     )
-        .bind(cid_str)
-        .bind(now_ms)
-        .execute(pool)
-        .await
-        .map_err(|e| StorageError::Database(e.to_string()))?;
+    .bind(cid_str)
+    .bind(now_ms)
+    .execute(pool)
+    .await
+    .map_err(|e| StorageError::Database(e.to_string()))?;
 
     Ok(format!("pinned: {cid_str}\n"))
 }

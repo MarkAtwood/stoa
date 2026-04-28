@@ -160,7 +160,10 @@ async fn handle_admin_connection(
         tokio::time::timeout(REQUEST_TIMEOUT, reader.read_exact(&mut buf))
             .await
             .map_err(|_| {
-                std::io::Error::new(std::io::ErrorKind::TimedOut, "admin request body read timeout")
+                std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    "admin request body read timeout",
+                )
             })??;
         buf
     } else {
@@ -249,12 +252,11 @@ async fn handle_admin_connection(
                 match stoa_tls::cert_not_after(path) {
                     Ok(expiry_unix) => {
                         let days_remaining = (expiry_unix - now_secs) / 86400;
-                        let expires_at =
-                            chrono::DateTime::from_timestamp(expiry_unix, 0)
-                                .map(|t: chrono::DateTime<chrono::Utc>| {
-                                    t.format("%Y-%m-%dT%H:%M:%SZ").to_string()
-                                })
-                                .unwrap_or_else(|| expiry_unix.to_string());
+                        let expires_at = chrono::DateTime::from_timestamp(expiry_unix, 0)
+                            .map(|t: chrono::DateTime<chrono::Utc>| {
+                                t.format("%Y-%m-%dT%H:%M:%SZ").to_string()
+                            })
+                            .unwrap_or_else(|| expiry_unix.to_string());
                         crate::metrics::TLS_CERT_EXPIRY_SECONDS
                             .with_label_values(&[path])
                             .set(expiry_unix as f64);
@@ -445,8 +447,14 @@ mod tests {
         assert!(v["version"].is_string(), "version must be a string: {json}");
         assert!(v["binary"].is_string(), "binary must be a string: {json}");
         assert!(v["git_sha"].is_string(), "git_sha must be a string: {json}");
-        assert!(v["build_date"].is_string(), "build_date must be a string: {json}");
-        assert!(v["rust_version"].is_string(), "rust_version must be a string: {json}");
+        assert!(
+            v["build_date"].is_string(),
+            "build_date must be a string: {json}"
+        );
+        assert!(
+            v["rust_version"].is_string(),
+            "rust_version must be a string: {json}"
+        );
     }
 
     #[test]
@@ -456,8 +464,7 @@ mod tests {
             .unwrap();
         rt.block_on(async {
             let addr: std::net::SocketAddr = "0.0.0.0:0".parse().unwrap();
-            let result =
-                start_admin_server(addr, Instant::now(), None, 60, Arc::new(vec![]));
+            let result = start_admin_server(addr, Instant::now(), None, 60, Arc::new(vec![]));
             assert!(
                 result.is_err(),
                 "must refuse non-loopback without bearer token"
@@ -474,8 +481,7 @@ mod tests {
         rt.block_on(async {
             let addr: std::net::SocketAddr = "127.0.0.1:0".parse().unwrap();
             // Port 0 → OS assigns a free port; this just tests the guard logic.
-            let result =
-                start_admin_server(addr, Instant::now(), None, 60, Arc::new(vec![]));
+            let result = start_admin_server(addr, Instant::now(), None, 60, Arc::new(vec![]));
             assert!(result.is_ok(), "loopback without token must be allowed");
         });
     }

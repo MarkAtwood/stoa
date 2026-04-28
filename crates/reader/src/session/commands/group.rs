@@ -44,8 +44,10 @@ pub fn group_select(ctx: &mut SessionContext, group_data: Option<&GroupData>) ->
                     article_number: gd.article_numbers.first().copied(),
                 });
                 ctx.state = SessionState::GroupSelected;
+                Response::group_selected(&gd.name, gd.count, gd.low, gd.high)
+            } else {
+                Response::new(503, "program error: invalid group name in store")
             }
-            Response::group_selected(&gd.name, gd.count, gd.low, gd.high)
         }
     }
 }
@@ -63,7 +65,11 @@ pub fn next_article(ctx: &mut SessionContext, group_data: Option<&GroupData>) ->
         Some(gd) => gd,
         None => return Response::no_next_article(),
     };
-    let current = ctx.selected_group.as_ref().and_then(|sg| sg.article_number).unwrap_or(0);
+    let current = ctx
+        .selected_group
+        .as_ref()
+        .and_then(|sg| sg.article_number)
+        .unwrap_or(0);
     let next = gd.article_numbers.iter().find(|&&n| n > current).copied();
     match next {
         Some(n) => {
@@ -89,7 +95,11 @@ pub fn last_article(ctx: &mut SessionContext, group_data: Option<&GroupData>) ->
         Some(gd) => gd,
         None => return Response::no_previous_article(),
     };
-    let current = ctx.selected_group.as_ref().and_then(|sg| sg.article_number).unwrap_or(0);
+    let current = ctx
+        .selected_group
+        .as_ref()
+        .and_then(|sg| sg.article_number)
+        .unwrap_or(0);
     let prev = gd
         .article_numbers
         .iter()
@@ -227,7 +237,10 @@ mod tests {
         // cursor starts at 1 (first article)
         let resp = next_article(&mut ctx, Some(&gd));
         assert_eq!(resp.code, 223);
-        assert_eq!(ctx.selected_group.as_ref().and_then(|sg| sg.article_number), Some(2));
+        assert_eq!(
+            ctx.selected_group.as_ref().and_then(|sg| sg.article_number),
+            Some(2)
+        );
     }
 
     #[test]
@@ -249,7 +262,10 @@ mod tests {
         ctx.selected_group.as_mut().unwrap().article_number = Some(2);
         let resp = last_article(&mut ctx, Some(&gd));
         assert_eq!(resp.code, 223);
-        assert_eq!(ctx.selected_group.as_ref().and_then(|sg| sg.article_number), Some(1));
+        assert_eq!(
+            ctx.selected_group.as_ref().and_then(|sg| sg.article_number),
+            Some(1)
+        );
     }
 
     #[test]

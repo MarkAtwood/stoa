@@ -124,7 +124,7 @@ impl IpfsBlockStore for PgBlockStore {
             .await
             .map_err(|e| IpfsWriteError::ReadFailed(e.to_string()))?;
         row.map(|r| r.get::<Vec<u8>, _>("data"))
-            .ok_or_else(|| IpfsWriteError::NotFound(cid_str))
+            .ok_or(IpfsWriteError::NotFound(cid_str))
     }
 
     /// Remove the row for `cid`.
@@ -176,7 +176,10 @@ mod tests {
         .await
         .expect("create table");
         // Truncate to keep tests independent.
-        sqlx::query("TRUNCATE blocks").execute(&pool).await.expect("truncate");
+        sqlx::query("TRUNCATE blocks")
+            .execute(&pool)
+            .await
+            .expect("truncate");
         Some(PgBlockStore::new_with_pool(Arc::new(pool)))
     }
 
@@ -201,7 +204,10 @@ mod tests {
         let data = b"dag-cbor block";
         let digest = Code::Sha2_256.digest(data);
         let cid = Cid::new_v1(0x71, digest);
-        store.put_block(cid.clone(), data.to_vec()).await.expect("put_block");
+        store
+            .put_block(cid.clone(), data.to_vec())
+            .await
+            .expect("put_block");
         let retrieved = store.get_raw(&cid).await.expect("get");
         assert_eq!(retrieved, data.to_vec());
     }
@@ -231,12 +237,11 @@ mod tests {
         let cid1 = store.put_raw(data).await.expect("put 1");
         let cid2 = store.put_raw(data).await.expect("put 2 must not error");
         assert_eq!(cid1, cid2, "same content must produce same CID");
-        let count: i64 =
-            sqlx::query_scalar("SELECT COUNT(*) FROM blocks WHERE cid = $1")
-                .bind(cid1.to_string())
-                .fetch_one(store.pool.as_ref())
-                .await
-                .unwrap();
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM blocks WHERE cid = $1")
+            .bind(cid1.to_string())
+            .fetch_one(store.pool.as_ref())
+            .await
+            .unwrap();
         assert_eq!(count, 1, "idempotent put must not create duplicate rows");
     }
 
@@ -267,6 +272,9 @@ mod tests {
         };
         let digest = Code::Sha2_256.digest(b"never stored");
         let cid = Cid::new_v1(0x55, digest);
-        store.delete(&cid).await.expect("delete of missing CID must succeed");
+        store
+            .delete(&cid)
+            .await
+            .expect("delete of missing CID must succeed");
     }
 }

@@ -32,18 +32,23 @@ async fn make_core_pool() -> (MsgIdMap, tempfile::TempPath) {
     let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
     let url = format!("sqlite://{}", tmp.to_str().unwrap());
     stoa_core::migrations::run_migrations(&url).await.unwrap();
-    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1).await.unwrap();
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+        .await
+        .unwrap();
     (MsgIdMap::new(pool), tmp)
 }
 
 async fn make_transit_pool() -> (sqlx::AnyPool, tempfile::TempPath) {
     let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
     let url = format!("sqlite://{}", tmp.to_str().unwrap());
-    stoa_transit::migrations::run_migrations(&url).await.unwrap();
-    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1).await.unwrap();
+    stoa_transit::migrations::run_migrations(&url)
+        .await
+        .unwrap();
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+        .await
+        .unwrap();
     (pool, tmp)
 }
-
 
 fn make_article(msgid: &str) -> String {
     format!(

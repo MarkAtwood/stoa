@@ -83,9 +83,13 @@ pub enum VerifyError {
     /// ID was supplied.
     EntryIdMismatch,
     /// `entry.parent_cids` exceeds [`MAX_PARENT_CIDS`].
-    TooManyParents { count: usize },
+    TooManyParents {
+        count: usize,
+    },
     /// `entry.article_cid` uses a codec other than DAG-CBOR (0x71).
-    InvalidArticleCidCodec { codec: u64 },
+    InvalidArticleCidCodec {
+        codec: u64,
+    },
 }
 
 impl std::fmt::Display for VerifyError {
@@ -108,10 +112,7 @@ impl std::fmt::Display for VerifyError {
                 )
             }
             Self::InvalidArticleCidCodec { codec } => {
-                write!(
-                    f,
-                    "article_cid codec 0x{codec:x} is not DAG-CBOR (0x71)"
-                )
+                write!(f, "article_cid codec 0x{codec:x} is not DAG-CBOR (0x71)")
             }
         }
     }

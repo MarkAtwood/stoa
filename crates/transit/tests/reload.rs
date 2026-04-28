@@ -162,7 +162,10 @@ async fn reload_groups_names_applied() {
     let filter = filter_guard
         .as_deref()
         .expect("group_filter must be Some after reload");
-    assert!(filter.accepts("comp.lang.rust"), "filter must accept comp.lang.rust");
+    assert!(
+        filter.accepts("comp.lang.rust"),
+        "filter must accept comp.lang.rust"
+    );
     assert!(filter.accepts("alt.test"), "filter must accept alt.test");
     assert!(!filter.accepts("misc.test"), "filter must reject misc.test");
 }
@@ -185,14 +188,19 @@ async fn reload_trusted_peers_applied() {
         "info".to_string(),
     );
 
-    assert!(rs.trusted_keys.read().await.is_empty(), "trusted_keys must start empty");
+    assert!(
+        rs.trusted_keys.read().await.is_empty(),
+        "trusted_keys must start empty"
+    );
 
     rewrite_config(&f, &make_toml(&[], &[&key_hex], "info"));
 
     let result = rs.do_reload().await;
 
     assert!(
-        result.changed.contains(&"peering.trusted_peers".to_string()),
+        result
+            .changed
+            .contains(&"peering.trusted_peers".to_string()),
         "expected peering.trusted_peers in changed, got: {:?}",
         result.changed
     );

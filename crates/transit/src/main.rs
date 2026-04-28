@@ -16,7 +16,6 @@ use stoa_core::{
 use stoa_transit::{
     admin::{start_admin_server, AdminPools},
     config::{check_admin_addr, Config},
-    reload::ReloadableState,
     hlc_persist::{load_hlc_checkpoint, save_hlc_checkpoint},
     instance_id::ensure_instance_node_id,
     peering::{
@@ -27,6 +26,7 @@ use stoa_transit::{
         rate_limit::{ExhaustionAction, PeerRateLimiter},
         session::{run_peering_session, PeeringShared},
     },
+    reload::ReloadableState,
     retention::{
         gc::{start_gc_scheduler, GcMetrics, GcRunner},
         gc_candidates::select_gc_candidates,
@@ -115,10 +115,7 @@ fn parse_args() -> (PathBuf, bool, Vec<PathBuf>) {
 /// Exits 0 after all files are restored.
 fn cmd_restore(backup_files: &[PathBuf], db: &stoa_transit::config::DatabaseConfig) -> ! {
     for src in backup_files {
-        let stem = src
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or_default();
+        let stem = src.file_name().and_then(|n| n.to_str()).unwrap_or_default();
 
         // Verify SQLite magic header.
         let data = match std::fs::read(src) {
@@ -166,10 +163,7 @@ fn cmd_restore(backup_files: &[PathBuf], db: &stoa_transit::config::DatabaseConf
             }
         }
         if let Err(e) = std::fs::copy(src, dest) {
-            eprintln!(
-                "error: cannot restore {} → {dest}: {e}",
-                src.display()
-            );
+            eprintln!("error: cannot restore {} → {dest}: {e}", src.display());
             std::process::exit(1);
         }
         println!("restored {} → {dest}", src.display());
@@ -494,11 +488,11 @@ async fn main() {
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(&config.log.level));
 
     let (_otel_guard, log_provider) = stoa_transit::telemetry::init_telemetry(&config.telemetry);
-    let otel_trace_layer = tracing_opentelemetry::layer()
-        .with_tracer(opentelemetry::global::tracer("stoa-transit"));
-    let otel_log_layer = log_provider.as_ref().map(|p| {
-        opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge::new(p)
-    });
+    let otel_trace_layer =
+        tracing_opentelemetry::layer().with_tracer(opentelemetry::global::tracer("stoa-transit"));
+    let otel_log_layer = log_provider
+        .as_ref()
+        .map(opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge::new);
 
     use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
     let (json_fmt, text_fmt) = if config.log.format == "json" {
@@ -681,8 +675,7 @@ async fn main() {
         // When using PostgreSQL, elect a single IPNS publisher via advisory lock
         // (ky62.5): only the instance that holds IPNS_ADVISORY_LOCK_ID publishes.
         let publisher = if config.database.url.starts_with("postgres") {
-            IpnsPublisher::new(client, interval)
-                .with_pg_lock((*transit_pool).clone())
+            IpnsPublisher::new(client, interval).with_pg_lock((*transit_pool).clone())
         } else {
             IpnsPublisher::new(client, interval)
         };
@@ -1046,7 +1039,7 @@ async fn main() {
                     group_filter_current,
                     &*ipfs,
                     &msgid_map_drain,
-                    &*log_storage_drain,
+                    log_storage_drain.as_ref(),
                     &transit_pool_drain,
                     &ipns_tx_drain,
                     &pin_service_filters,
@@ -1077,7 +1070,10 @@ async fn main() {
         // committed to the DB (e.g. future cancelled on peer disconnect).
         match staging.cleanup_orphaned_files().await {
             Ok(0) => {}
-            Ok(n) => info!(count = n, "staging: removed orphaned files from previous run"),
+            Ok(n) => info!(
+                count = n,
+                "staging: removed orphaned files from previous run"
+            ),
             Err(e) => warn!("staging: cleanup_orphaned_files failed: {e}"),
         }
 
@@ -1107,10 +1103,8 @@ async fn main() {
                         }
                     }
                     Ok(Some(article)) => {
-                        let trusted_keys_snap =
-                            reload_staging.trusted_keys.read().await.clone();
-                        let group_filter_current =
-                            reload_staging.group_filter.read().await.clone();
+                        let trusted_keys_snap = reload_staging.trusted_keys.read().await.clone();
+                        let group_filter_current = reload_staging.group_filter.read().await.clone();
                         let success = run_pipeline_and_notify(
                             &article.bytes,
                             &article.message_id,
@@ -1124,7 +1118,7 @@ async fn main() {
                             group_filter_current,
                             &*ipfs,
                             &msgid_map_drain,
-                            &*log_storage_drain,
+                            log_storage_drain.as_ref(),
                             &transit_pool_drain,
                             &ipns_tx_drain,
                             &pin_service_filters,
@@ -1183,18 +1177,17 @@ async fn main() {
             }
         })
         .collect();
-    let (gc_runner_pre, gc_last_report) =
-        if gc_kubo_url.is_some() && !gc_pre_pin_rules.is_empty() {
-            let policy = PinPolicy::new(gc_pre_pin_rules.clone());
-            let pin_client = HttpPinClient::new(gc_kubo_url.as_deref().unwrap().to_string());
-            let gc_metrics = GcMetrics::new();
-            let runner = GcRunner::new(pin_client, policy, gc_metrics)
-                .with_report_dir(config.gc.report_dir.clone());
-            let handle = runner.last_report_handle();
-            (Some(runner), Some(handle))
-        } else {
-            (None, None)
-        };
+    let (gc_runner_pre, gc_last_report) = if gc_kubo_url.is_some() && !gc_pre_pin_rules.is_empty() {
+        let policy = PinPolicy::new(gc_pre_pin_rules.clone());
+        let pin_client = HttpPinClient::new(gc_kubo_url.as_deref().unwrap().to_string());
+        let gc_metrics = GcMetrics::new();
+        let runner = GcRunner::new(pin_client, policy, gc_metrics)
+            .with_report_dir(config.gc.report_dir.clone());
+        let handle = runner.last_report_handle();
+        (Some(runner), Some(handle))
+    } else {
+        (None, None)
+    };
 
     // ── Admin HTTP server (5vc) ───────────────────────────────────────────────
 
@@ -1215,7 +1208,12 @@ async fn main() {
                 Duration::from_secs(5),
             ));
             let admin_cert_paths: Arc<Vec<String>> = Arc::new(
-                config.tls.as_ref().map(|t| t.cert_path.clone()).into_iter().collect(),
+                config
+                    .tls
+                    .as_ref()
+                    .map(|t| t.cert_path.clone())
+                    .into_iter()
+                    .collect(),
             );
             if let Err(e) = start_admin_server(
                 admin_addr,
@@ -1247,9 +1245,10 @@ async fn main() {
 
     // ── Scheduled backup (optional) ───────────────────────────────────────────
 
-    if let (Some(schedule), Some(dest_dir)) =
-        (config.backup.schedule.clone(), config.backup.dest_dir.clone())
-    {
+    if let (Some(schedule), Some(dest_dir)) = (
+        config.backup.schedule.clone(),
+        config.backup.dest_dir.clone(),
+    ) {
         info!(schedule = %schedule, "backup scheduler starting");
         tokio::spawn(stoa_transit::backup_scheduler::run_backup_scheduler(
             Arc::clone(&transit_pool),

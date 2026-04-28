@@ -11,24 +11,23 @@
 macro_rules! impl_ipfs_store_via_inner {
     ($t:ty) => {
         #[async_trait::async_trait]
-        impl crate::peering::pipeline::IpfsStore for $t {
+        impl $crate::peering::pipeline::IpfsStore for $t {
             async fn put_raw(
                 &self,
                 data: &[u8],
-            ) -> Result<cid::Cid, crate::peering::pipeline::IpfsError> {
+            ) -> Result<cid::Cid, $crate::peering::pipeline::IpfsError> {
                 self.0.put_raw(data).await
             }
             async fn get_raw(
                 &self,
                 cid: &cid::Cid,
-            ) -> Result<Option<Vec<u8>>, crate::peering::pipeline::IpfsError> {
+            ) -> Result<Option<Vec<u8>>, $crate::peering::pipeline::IpfsError> {
                 self.0.get_raw(cid).await
             }
             async fn delete(
                 &self,
                 cid: &cid::Cid,
-            ) -> Result<stoa_core::ipfs::DeletionOutcome, crate::peering::pipeline::IpfsError>
-            {
+            ) -> Result<stoa_core::ipfs::DeletionOutcome, $crate::peering::pipeline::IpfsError> {
                 self.0.delete(cid).await
             }
         }
@@ -39,7 +38,7 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use cid::Cid;
 use multihash_codetable::{Code, MultihashDigest};
-use object_store::{ObjectStore, PutPayload, path::Path as OPath};
+use object_store::{path::Path as OPath, ObjectStore, PutPayload};
 use std::sync::Arc;
 
 use stoa_core::ipfs::DeletionOutcome;
@@ -128,7 +127,7 @@ pub(crate) async fn startup_probe(
     prefix: &str,
     context: &str,
 ) -> Result<(), String> {
-    use object_store::{PutPayload, path::Path as OPath};
+    use object_store::{path::Path as OPath, PutPayload};
     let probe = OPath::from(format!("{prefix}/_stoa_write_probe"));
     store
         .put(&probe, PutPayload::from_static(b""))
@@ -147,10 +146,7 @@ mod tests {
     use object_store::memory::InMemory;
 
     fn make_backend() -> ObjectStoreBackend {
-        ObjectStoreBackend::new_with_store(
-            Arc::new(InMemory::new()) as Arc<dyn ObjectStore>,
-            None,
-        )
+        ObjectStoreBackend::new_with_store(Arc::new(InMemory::new()) as Arc<dyn ObjectStore>, None)
     }
 
     #[tokio::test]
@@ -186,7 +182,10 @@ mod tests {
         let data = b"to be deleted";
         let cid = b.put_raw(data).await.expect("put");
         assert!(b.get_raw(&cid).await.expect("get before").is_some());
-        assert_eq!(b.delete(&cid).await.expect("delete"), DeletionOutcome::Immediate);
+        assert_eq!(
+            b.delete(&cid).await.expect("delete"),
+            DeletionOutcome::Immediate
+        );
         assert!(b.get_raw(&cid).await.expect("get after").is_none());
     }
 
@@ -204,7 +203,9 @@ mod tests {
         let b = make_backend();
         let digest = Code::Sha2_256.digest(b"never stored");
         let cid = Cid::new_v1(0x55, digest);
-        b.delete(&cid).await.expect("delete of missing CID must succeed");
+        b.delete(&cid)
+            .await
+            .expect("delete of missing CID must succeed");
     }
 
     #[tokio::test]

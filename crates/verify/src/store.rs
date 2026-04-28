@@ -159,7 +159,7 @@ fn parse_result(result: &str, reason: Option<&str>, _sig_type: &SigType) -> Veri
         }
         "no-key" => VerifResult::NoKey,
         _ => VerifResult::ParseError {
-            reason: reason.unwrap_or("unknown").to_owned(),
+            reason: format!("unknown result type '{}': {}", result, reason.unwrap_or("")),
         },
     }
 }
@@ -214,7 +214,10 @@ mod tests {
             matches!(retrieved[0].result, VerifResult::Fail { .. }),
             "result must be Fail"
         );
-        assert_eq!(retrieved[0].identity, None, "identity must round-trip as None");
+        assert_eq!(
+            retrieved[0].identity, None,
+            "identity must round-trip as None"
+        );
     }
 
     /// NoKey result (identity=None) must also persist correctly.

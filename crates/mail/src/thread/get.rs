@@ -35,7 +35,9 @@ pub struct ThreadEntry {
 ///
 /// Handles whitespace-separated and comma-separated formats.
 pub fn first_reference(references: &str) -> Option<&str> {
-    references.split_whitespace().find(|s| s.starts_with('<') && s.ends_with('>'))
+    references
+        .split_whitespace()
+        .find(|s| s.starts_with('<') && s.ends_with('>'))
 }
 
 /// Compute the thread ID for a single article.
@@ -60,18 +62,17 @@ pub fn thread_id_for(references: &str, message_id: &str) -> String {
 /// `state` is the current JMAP Thread state string.
 ///
 /// Returns a JMAP `GetResponse` value.
-pub fn handle_thread_get(
-    entries: &[ThreadEntry],
-    requested_ids: &[&str],
-    state: &str,
-) -> Value {
+pub fn handle_thread_get(entries: &[ThreadEntry], requested_ids: &[&str], state: &str) -> Value {
     use std::collections::HashMap;
 
     // Group email IDs by thread ID.
     let mut thread_map: HashMap<String, Vec<String>> = HashMap::new();
     for entry in entries {
         let tid = thread_id_for(&entry.references, &entry.message_id);
-        thread_map.entry(tid).or_default().push(entry.email_id.clone());
+        thread_map
+            .entry(tid)
+            .or_default()
+            .push(entry.email_id.clone());
     }
 
     let mut list = Vec::new();
@@ -176,7 +177,11 @@ mod tests {
         let list = resp["list"].as_array().unwrap();
         assert_eq!(list.len(), 1);
         let email_ids = list[0]["emailIds"].as_array().unwrap();
-        assert_eq!(email_ids.len(), 2, "both articles must be in the same thread");
+        assert_eq!(
+            email_ids.len(),
+            2,
+            "both articles must be in the same thread"
+        );
     }
 
     #[test]

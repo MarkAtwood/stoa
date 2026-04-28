@@ -24,7 +24,7 @@ pub async fn run_plain_listener(
         Ok(l) => l,
         Err(e) => {
             error!(addr = %config.listen.addr, "failed to bind IMAP listener: {e}");
-            panic!("fatal: could not bind IMAP plain listener");
+            std::process::exit(1);
         }
     };
     info!(addr = %config.listen.addr, "IMAP plain listener ready");
@@ -80,7 +80,7 @@ pub async fn run_tls_listener(
         Ok(l) => l,
         Err(e) => {
             error!(%addr, "failed to bind IMAPS listener: {e}");
-            panic!("fatal: could not bind IMAP TLS listener");
+            std::process::exit(1);
         }
     };
     info!(%addr, "IMAPS TLS listener ready");

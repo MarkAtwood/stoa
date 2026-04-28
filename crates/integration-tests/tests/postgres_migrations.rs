@@ -104,8 +104,7 @@ async fn core_msgid_map_roundtrip() {
     let test_msgid = "<pg-roundtrip@test.example>";
     let cid = cid::Cid::new_v1(
         0x71,
-        multihash_codetable::Code::Sha2_256
-            .digest(b"pg roundtrip test article"),
+        multihash_codetable::Code::Sha2_256.digest(b"pg roundtrip test article"),
     );
 
     // Insert.

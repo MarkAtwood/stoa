@@ -16,8 +16,12 @@ use stoa_transit::admin::build_pinning_remote_json;
 async fn make_pool() -> (Arc<sqlx::AnyPool>, tempfile::TempPath) {
     let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
     let url = format!("sqlite://{}", tmp.to_str().unwrap());
-    stoa_transit::migrations::run_migrations(&url).await.unwrap();
-    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1).await.unwrap();
+    stoa_transit::migrations::run_migrations(&url)
+        .await
+        .unwrap();
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+        .await
+        .unwrap();
     (Arc::new(pool), tmp)
 }
 

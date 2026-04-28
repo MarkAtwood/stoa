@@ -1,23 +1,23 @@
+pub mod azure_store;
 pub mod did_passthrough;
 pub mod did_verify;
-pub mod injection;
 pub mod fs_store;
+pub mod gcs_store;
+pub mod git_store;
+pub mod injection;
 pub mod ipfs_write;
 pub mod lmdb_store;
 pub mod log_append;
 pub mod object_store_backend;
-pub mod sqlite_store;
-pub mod s3_store;
-pub mod azure_store;
-pub mod gcs_store;
-pub mod webdav_store;
 pub mod pg_store;
-pub mod git_store;
-pub mod rocks_store;
 pub mod pipeline;
+pub mod rocks_store;
+pub mod s3_store;
 pub mod sign;
 pub mod smtp_relay;
+pub mod sqlite_store;
 pub mod validate_headers;
+pub mod webdav_store;
 
 /// Find the byte offset of the first byte of the body in an RFC 5322 article.
 ///

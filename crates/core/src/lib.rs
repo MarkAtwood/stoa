@@ -2,9 +2,9 @@
 
 pub mod article;
 pub mod audit;
-pub mod db_pool;
 pub mod canonical;
 pub mod circuit_breaker;
+pub mod db_pool;
 pub mod error;
 pub mod group_log;
 pub mod hlc;
@@ -23,9 +23,7 @@ pub mod validation;
 pub mod wildmat;
 
 pub use article::{Article, ArticleHeader, GroupName};
-pub use error::{
-    ProtocolError, SigningError, StorageError, UsenetIpfsError, ValidationError,
-};
+pub use error::{ProtocolError, SigningError, StorageError, UsenetIpfsError, ValidationError};
 pub use injection_source::{default_injection_source, InjectionSource};
 pub use ipld::{ArticleMetadata, ArticleRootNode, MimeNode};
 pub use validation::{check_duplicate, validate_article_ingress, MsgIdStorage, ValidationConfig};

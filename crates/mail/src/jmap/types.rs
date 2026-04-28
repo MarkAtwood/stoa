@@ -171,6 +171,9 @@ mod tests {
         let err = MethodError::request_too_large(500);
         let json = serde_json::to_string(&err).unwrap();
         assert!(json.contains("requestTooLarge"), "got: {json}");
-        assert!(json.contains("500"), "description must include limit, got: {json}");
+        assert!(
+            json.contains("500"),
+            "description must include limit, got: {json}"
+        );
     }
 }

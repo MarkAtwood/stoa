@@ -280,9 +280,6 @@ mod tests {
     #[test]
     fn cert_not_after_missing_file_returns_error() {
         let result = cert_not_after("/nonexistent/cert.pem");
-        assert!(
-            result.is_err(),
-            "must return Err for nonexistent cert path"
-        );
+        assert!(result.is_err(), "must return Err for nonexistent cert path");
     }
 }

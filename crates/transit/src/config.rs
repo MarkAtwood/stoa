@@ -637,7 +637,10 @@ impl Config {
                     // Validate secretx URI syntax for credentials.
                     for (field, val) in [
                         ("backend.s3.access_key_id", s3.access_key_id.as_deref()),
-                        ("backend.s3.secret_access_key", s3.secret_access_key.as_deref()),
+                        (
+                            "backend.s3.secret_access_key",
+                            s3.secret_access_key.as_deref(),
+                        ),
                     ] {
                         if let Some(v) = val {
                             if v.starts_with("secretx:") {
@@ -651,9 +654,11 @@ impl Config {
                     }
                 }
                 BackendType::Azure => {
-                    let azure = backend.azure.as_ref().ok_or_else(|| ConfigError::Validation(
-                        "backend.type = 'azure' requires a [backend.azure] section".into(),
-                    ))?;
+                    let azure = backend.azure.as_ref().ok_or_else(|| {
+                        ConfigError::Validation(
+                            "backend.type = 'azure' requires a [backend.azure] section".into(),
+                        )
+                    })?;
                     if azure.account.is_empty() {
                         return Err(ConfigError::Validation(
                             "backend.azure.account must not be empty".into(),
@@ -681,9 +686,11 @@ impl Config {
                     }
                 }
                 BackendType::Gcs => {
-                    let gcs = backend.gcs.as_ref().ok_or_else(|| ConfigError::Validation(
-                        "backend.type = 'gcs' requires a [backend.gcs] section".into(),
-                    ))?;
+                    let gcs = backend.gcs.as_ref().ok_or_else(|| {
+                        ConfigError::Validation(
+                            "backend.type = 'gcs' requires a [backend.gcs] section".into(),
+                        )
+                    })?;
                     if gcs.bucket.is_empty() {
                         return Err(ConfigError::Validation(
                             "backend.gcs.bucket must not be empty".into(),
@@ -692,7 +699,8 @@ impl Config {
                     if gcs.service_account_path.is_some() && gcs.service_account_key.is_some() {
                         return Err(ConfigError::Validation(
                             "backend.gcs: service_account_path and service_account_key are \
-                             mutually exclusive; set at most one".into(),
+                             mutually exclusive; set at most one"
+                                .into(),
                         ));
                     }
                     if let Some(v) = gcs.service_account_key.as_deref() {
@@ -705,7 +713,8 @@ impl Config {
                         } else if !v.starts_with('{') {
                             return Err(ConfigError::Validation(
                                 "backend.gcs.service_account_key must be a JSON object \
-                                 starting with '{' or a secretx:// URI".into(),
+                                 starting with '{' or a secretx:// URI"
+                                    .into(),
                             ));
                         }
                     }
@@ -736,7 +745,8 @@ impl Config {
                     if webdav.username.is_some() != webdav.password.is_some() {
                         return Err(ConfigError::Validation(
                             "backend.webdav: username and password must both be set or both \
-                             be absent; partial credentials are not supported".into(),
+                             be absent; partial credentials are not supported"
+                                .into(),
                         ));
                     }
                     if let Some(v) = webdav.password.as_deref() {
@@ -1159,7 +1169,8 @@ schedule = "0 3 * * *"
 max_age_days = 30
 "#;
         let f = write_toml(toml);
-        Config::from_file(f.path()).expect("uppercase group pattern must be accepted after normalisation");
+        Config::from_file(f.path())
+            .expect("uppercase group pattern must be accepted after normalisation");
     }
 
     #[test]
@@ -1932,8 +1943,8 @@ schedule = "0 3 * * *"
 max_age_days = 30
 "#;
         let f = write_toml(toml);
-        let err = Config::from_file(f.path())
-            .expect_err("s3 without subsection must fail validation");
+        let err =
+            Config::from_file(f.path()).expect_err("s3 without subsection must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
@@ -1968,8 +1979,7 @@ schedule = "0 3 * * *"
 max_age_days = 30
 "#;
         let f = write_toml(toml);
-        let err = Config::from_file(f.path())
-            .expect_err("empty bucket must fail validation");
+        let err = Config::from_file(f.path()).expect_err("empty bucket must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
@@ -2041,8 +2051,8 @@ schedule = "0 3 * * *"
 max_age_days = 30
 "#;
         let f = write_toml(toml);
-        let err = Config::from_file(f.path())
-            .expect_err("azure without subsection must fail validation");
+        let err =
+            Config::from_file(f.path()).expect_err("azure without subsection must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
@@ -2077,8 +2087,7 @@ schedule = "0 3 * * *"
 max_age_days = 30
 "#;
         let f = write_toml(toml);
-        let err = Config::from_file(f.path())
-            .expect_err("empty account must fail validation");
+        let err = Config::from_file(f.path()).expect_err("empty account must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
@@ -2145,8 +2154,8 @@ schedule = "0 3 * * *"
 max_age_days = 30
 "#;
         let f = write_toml(toml);
-        let err = Config::from_file(f.path())
-            .expect_err("gcs without subsection must fail validation");
+        let err =
+            Config::from_file(f.path()).expect_err("gcs without subsection must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
@@ -2183,8 +2192,8 @@ schedule = "0 3 * * *"
 max_age_days = 30
 "#;
         let f = write_toml(toml);
-        let err = Config::from_file(f.path())
-            .expect_err("use_emulator + endpoint must fail validation");
+        let err =
+            Config::from_file(f.path()).expect_err("use_emulator + endpoint must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
@@ -2220,8 +2229,8 @@ schedule = "0 3 * * *"
 max_age_days = 30
 "#;
         let f = write_toml(toml);
-        let err = Config::from_file(f.path())
-            .expect_err("dual GCS credentials must fail validation");
+        let err =
+            Config::from_file(f.path()).expect_err("dual GCS credentials must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
@@ -2323,8 +2332,7 @@ schedule = "0 3 * * *"
 max_age_days = 30
 "#;
         let f = write_toml(toml);
-        let err = Config::from_file(f.path())
-            .expect_err("empty url must fail validation");
+        let err = Config::from_file(f.path()).expect_err("empty url must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
@@ -2494,8 +2502,7 @@ schedule = "0 3 * * *"
 max_age_days = 30
 "#;
         let f = write_toml(toml);
-        let err = Config::from_file(f.path())
-            .expect_err("empty path must fail validation");
+        let err = Config::from_file(f.path()).expect_err("empty path must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
@@ -2631,8 +2638,7 @@ schedule = "0 3 * * *"
 max_age_days = 30
 "#;
         let f = write_toml(toml);
-        let err = Config::from_file(f.path())
-            .expect_err("trailing slash must fail validation");
+        let err = Config::from_file(f.path()).expect_err("trailing slash must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
@@ -2742,7 +2748,6 @@ max_age_days = 30
             "expected Validation error, got {err:?}"
         );
     }
-
 
     /// [backend] with type = "sqlite" and a [backend.sqlite] section parses.
     #[test]

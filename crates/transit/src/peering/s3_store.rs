@@ -28,9 +28,11 @@ impl S3Store {
 
         let access_key =
             resolve_secret_uri(cfg.access_key_id.clone(), "backend.s3.access_key_id").await?;
-        let secret_key =
-            resolve_secret_uri(cfg.secret_access_key.clone(), "backend.s3.secret_access_key")
-                .await?;
+        let secret_key = resolve_secret_uri(
+            cfg.secret_access_key.clone(),
+            "backend.s3.secret_access_key",
+        )
+        .await?;
 
         let mut builder = AmazonS3Builder::new()
             .with_bucket_name(&cfg.bucket)
@@ -54,10 +56,16 @@ impl S3Store {
         ) as Arc<dyn ObjectStore>;
         let prefix = cfg.prefix.as_deref().unwrap_or("blocks").to_string();
 
-        let context = format!("S3 bucket '{}', prefix '{}', region '{}'", cfg.bucket, prefix, cfg.region);
+        let context = format!(
+            "S3 bucket '{}', prefix '{}', region '{}'",
+            cfg.bucket, prefix, cfg.region
+        );
         super::object_store_backend::startup_probe(&store, &prefix, &context).await?;
 
-        Ok(Self(ObjectStoreBackend::new_with_store(store, Some(&prefix))))
+        Ok(Self(ObjectStoreBackend::new_with_store(
+            store,
+            Some(&prefix),
+        )))
     }
 
     /// Construct with a caller-supplied `ObjectStore`.  Intended for unit tests.
@@ -67,4 +75,3 @@ impl S3Store {
 }
 
 crate::impl_ipfs_store_via_inner!(S3Store);
-

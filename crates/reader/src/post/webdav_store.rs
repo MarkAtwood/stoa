@@ -20,20 +20,17 @@ impl WebDavBlockStore {
     /// Build from operator config, resolving any `secretx://` URIs.
     pub async fn new(cfg: &WebDavBackendConfig) -> Result<Self, String> {
         use base64::Engine as _;
-        use object_store::ClientOptions;
         use object_store::http::HttpBuilder;
-        use reqwest::header::{AUTHORIZATION, HeaderMap, HeaderValue};
+        use object_store::ClientOptions;
+        use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION};
 
         if cfg.url.starts_with("http://") && !cfg.allow_http.unwrap_or(false) {
-            return Err(
-                "WebDAV backend: http:// URL requires allow_http = true; \
+            return Err("WebDAV backend: http:// URL requires allow_http = true; \
                  use https:// or set allow_http = true only for loopback/LAN servers"
-                    .to_string(),
-            );
+                .to_string());
         }
 
-        let password =
-            resolve_secret_uri(cfg.password.clone(), "backend.webdav.password").await?;
+        let password = resolve_secret_uri(cfg.password.clone(), "backend.webdav.password").await?;
 
         let mut client_options = ClientOptions::new();
         if cfg.allow_http.unwrap_or(false) {
@@ -69,7 +66,10 @@ impl WebDavBlockStore {
         // <url>/<cid> and the startup probe at <url>/_stoa_write_probe.
         super::object_store_backend::startup_probe(&store, "", &context).await?;
 
-        Ok(Self(ObjectStoreBlockBackend::new_with_store(store, Some(""))))
+        Ok(Self(ObjectStoreBlockBackend::new_with_store(
+            store,
+            Some(""),
+        )))
     }
 
     /// Construct with a caller-supplied `ObjectStore`.  Intended for unit tests.
@@ -135,7 +135,13 @@ mod tests {
         let store = make_test_store();
         let data = b"to be deleted";
         let cid = store.put_raw(data).await.expect("put");
-        assert_eq!(store.delete(&cid).await.expect("delete"), DeletionOutcome::Immediate);
-        assert!(matches!(store.get_raw(&cid).await, Err(IpfsWriteError::NotFound(_))));
+        assert_eq!(
+            store.delete(&cid).await.expect("delete"),
+            DeletionOutcome::Immediate
+        );
+        assert!(matches!(
+            store.get_raw(&cid).await,
+            Err(IpfsWriteError::NotFound(_))
+        ));
     }
 }

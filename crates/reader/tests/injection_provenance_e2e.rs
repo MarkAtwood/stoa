@@ -267,12 +267,10 @@ async fn authenticated_drain_smtp_list_id_is_local_only() {
 
     // Build stores and wire in the drain's credential store.
     let mut stores = ServerStores::new_mem().await;
-    stores.credential_store = Arc::new(
-        CredentialStore::from_credentials(&[UserCredential {
-            username: DRAIN_USER.into(),
-            password: drain_hash.clone(),
-        }]),
-    );
+    stores.credential_store = Arc::new(CredentialStore::from_credentials(&[UserCredential {
+        username: DRAIN_USER.into(),
+        password: drain_hash.clone(),
+    }]));
     let stores = Arc::new(stores);
 
     let newsgroup = "comp.test.drain-local";
@@ -291,17 +289,39 @@ async fn authenticated_drain_smtp_list_id_is_local_only() {
 
     let mut greeting = String::new();
     reader.read_line(&mut greeting).await.unwrap();
-    assert!(greeting.starts_with("200"), "expected 200 greeting: {greeting}");
+    assert!(
+        greeting.starts_with("200"),
+        "expected 200 greeting: {greeting}"
+    );
 
     // Authenticate as drain user.
-    let authinfo_user = send_cmd(&mut write_half, &mut reader, &format!("AUTHINFO USER {DRAIN_USER}")).await;
-    assert!(authinfo_user.starts_with("381"), "expected 381: {authinfo_user}");
-    let authinfo_pass = send_cmd(&mut write_half, &mut reader, &format!("AUTHINFO PASS {DRAIN_PASS}")).await;
-    assert!(authinfo_pass.starts_with("281"), "expected 281 after AUTHINFO PASS: {authinfo_pass}");
+    let authinfo_user = send_cmd(
+        &mut write_half,
+        &mut reader,
+        &format!("AUTHINFO USER {DRAIN_USER}"),
+    )
+    .await;
+    assert!(
+        authinfo_user.starts_with("381"),
+        "expected 381: {authinfo_user}"
+    );
+    let authinfo_pass = send_cmd(
+        &mut write_half,
+        &mut reader,
+        &format!("AUTHINFO PASS {DRAIN_PASS}"),
+    )
+    .await;
+    assert!(
+        authinfo_pass.starts_with("281"),
+        "expected 281 after AUTHINFO PASS: {authinfo_pass}"
+    );
 
     // POST with SmtpListId injection source.
     let post_start = send_cmd(&mut write_half, &mut reader, "POST").await;
-    assert!(post_start.starts_with("340"), "expected 340 after POST: {post_start}");
+    assert!(
+        post_start.starts_with("340"),
+        "expected 340 after POST: {post_start}"
+    );
 
     let body = make_article(Some("SmtpListId"), newsgroup, msgid);
     write_half.write_all(body.as_bytes()).await.unwrap();
@@ -309,7 +329,10 @@ async fn authenticated_drain_smtp_list_id_is_local_only() {
 
     let mut post_result = String::new();
     reader.read_line(&mut post_result).await.unwrap();
-    assert!(post_result.starts_with("240"), "expected 240: {post_result}");
+    assert!(
+        post_result.starts_with("240"),
+        "expected 240: {post_result}"
+    );
 
     let quit_resp = send_cmd(&mut write_half, &mut reader, "QUIT").await;
     assert!(quit_resp.starts_with("205"), "expected 205: {quit_resp}");

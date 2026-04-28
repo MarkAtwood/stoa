@@ -175,7 +175,9 @@ mod tests {
     async fn make_pool() -> (AnyPool, tempfile::TempPath) {
         let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
         let url = format!("sqlite://{}", tmp.to_str().unwrap());
-        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1).await.unwrap();
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+            .await
+            .unwrap();
         (pool, tmp)
     }
 

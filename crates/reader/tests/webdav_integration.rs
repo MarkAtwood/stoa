@@ -78,8 +78,10 @@ async fn live_delete_missing_is_ok() {
     use multihash_codetable::{Code, MultihashDigest};
 
     // Fabricate a CID that was never written.
-    let phantom_cid =
-        Cid::new_v1(0x55, Code::Sha2_256.digest(b"phantom-block-that-was-never-written"));
+    let phantom_cid = Cid::new_v1(
+        0x55,
+        Code::Sha2_256.digest(b"phantom-block-that-was-never-written"),
+    );
 
     let outcome = store
         .delete(&phantom_cid)

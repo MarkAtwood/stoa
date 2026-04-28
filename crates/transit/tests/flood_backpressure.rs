@@ -56,7 +56,11 @@ async fn flood_concurrent_no_drain_depth_limit() {
         }
     }
 
-    assert_eq!(accepted + rejected, N_FLOOD, "all flood tasks must complete");
+    assert_eq!(
+        accepted + rejected,
+        N_FLOOD,
+        "all flood tasks must complete"
+    );
     assert!(
         accepted <= MAX_DEPTH,
         "accepted ({accepted}) must not exceed queue depth ({MAX_DEPTH})"
@@ -67,10 +71,7 @@ async fn flood_concurrent_no_drain_depth_limit() {
     );
     // Counter must match observed rejections exactly.
     assert_eq!(
-        sender
-            .metrics()
-            .rejected_full_total
-            .load(Ordering::Relaxed),
+        sender.metrics().rejected_full_total.load(Ordering::Relaxed),
         rejected as u64,
         "rejected_full_total must match observed rejection count"
     );
@@ -104,7 +105,10 @@ async fn flood_bytes_hwm_bounds_in_queue_memory() {
         match sender.try_enqueue(make_article(i, ARTICLE_SIZE)).await {
             Ok(()) => accepted += 1,
             Err(e) => {
-                assert!(e.starts_with("436"), "bytes rejection must be 436, got: {e:?}");
+                assert!(
+                    e.starts_with("436"),
+                    "bytes rejection must be 436, got: {e:?}"
+                );
                 rejected += 1;
             }
         }
@@ -157,8 +161,15 @@ async fn flood_drain_and_resume() {
         }
     }
 
-    assert_eq!(accepted, MAX_DEPTH, "exactly MAX_DEPTH articles must be accepted");
-    assert_eq!(rejected, N_FLOOD - MAX_DEPTH, "remainder must all be rejected");
+    assert_eq!(
+        accepted, MAX_DEPTH,
+        "exactly MAX_DEPTH articles must be accepted"
+    );
+    assert_eq!(
+        rejected,
+        N_FLOOD - MAX_DEPTH,
+        "remainder must all be rejected"
+    );
 
     // Queue is full; verify the next enqueue is also rejected.
     let result = sender.try_enqueue(make_article(9999, ARTICLE_SIZE)).await;
@@ -178,7 +189,11 @@ async fn flood_drain_and_resume() {
         "new article must be accepted after full drain, got: {:?}",
         result
     );
-    assert_eq!(sender.depth(), 1, "depth must be 1 after post-drain enqueue");
+    assert_eq!(
+        sender.depth(),
+        1,
+        "depth must be 1 after post-drain enqueue"
+    );
 }
 
 // ── Test 4: flood with concurrent slow drain ──────────────────────────────────
@@ -249,10 +264,7 @@ async fn flood_with_blocked_drain_then_resume() {
         "some articles must be rejected when queue is full and drain is blocked"
     );
     assert_eq!(
-        sender
-            .metrics()
-            .rejected_full_total
-            .load(Ordering::Relaxed),
+        sender.metrics().rejected_full_total.load(Ordering::Relaxed),
         rejected_flood as u64,
         "rejected_full_total must match observed rejections during flood"
     );
@@ -283,14 +295,8 @@ async fn flood_counter_totals_sum_to_attempts() {
         let _ = sender.try_enqueue(make_article(i, 64)).await;
     }
 
-    let accepted = sender
-        .metrics()
-        .accepted_total
-        .load(Ordering::Relaxed) as usize;
-    let rejected = sender
-        .metrics()
-        .rejected_full_total
-        .load(Ordering::Relaxed) as usize;
+    let accepted = sender.metrics().accepted_total.load(Ordering::Relaxed) as usize;
+    let rejected = sender.metrics().rejected_full_total.load(Ordering::Relaxed) as usize;
 
     assert_eq!(
         accepted + rejected,

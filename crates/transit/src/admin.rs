@@ -59,9 +59,8 @@ pub struct AdminPools {
     /// Last GC run report for `GET /gc/last-run`.  Obtain via
     /// `GcRunner::last_report_handle()` before starting the scheduler.
     /// `None` when GC is not configured (returns `{"report":null}`).
-    pub last_gc_report: Option<
-        Arc<tokio::sync::RwLock<Option<crate::retention::gc_report::GcReport>>>,
-    >,
+    pub last_gc_report:
+        Option<Arc<tokio::sync::RwLock<Option<crate::retention::gc_report::GcReport>>>>,
 }
 
 /// Start the admin HTTP server on the given address.
@@ -79,6 +78,7 @@ pub struct AdminPools {
 /// Returns `Err` if `addr` is non-loopback and `bearer_token` is `None`.
 /// An unauthenticated admin endpoint on a reachable interface is a security
 /// footgun in production; the server must not start in that configuration.
+#[allow(clippy::too_many_arguments)]
 pub fn start_admin_server(
     addr: std::net::SocketAddr,
     pools: AdminPools,
@@ -160,6 +160,7 @@ pub fn start_admin_server(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn handle_admin_connection(
     stream: tokio::net::TcpStream,
     pools: (&AnyPool, &AnyPool),
@@ -306,7 +307,11 @@ async fn handle_admin_connection(
         "/healthz/ready" | "/health" => {
             let (status, body) =
                 build_readiness_json(pool, core_pool, ipfs_api_url, start_time).await;
-            let reason = if status == 200 { "OK" } else { "Service Unavailable" };
+            let reason = if status == 200 {
+                "OK"
+            } else {
+                "Service Unavailable"
+            };
             write_json(&mut writer, status, reason, &body).await?;
         }
         "/stats" => match build_stats_json(pool, core_pool).await {
@@ -449,42 +454,38 @@ async fn handle_admin_connection(
                 .await?;
             }
         },
-        "/backup" => {
-            match backup_dest_dir {
-                None => {
+        "/backup" => match backup_dest_dir {
+            None => {
+                write_json(
+                    &mut writer,
+                    503,
+                    "Service Unavailable",
+                    r#"{"error":"backup.dest_dir is not configured"}"#,
+                )
+                .await?;
+            }
+            Some(dest_dir) => match backup_databases(pool, core_pool, dest_dir).await {
+                Ok(paths) => {
+                    let files_json = paths
+                        .iter()
+                        .map(|p| format!("\"{}\"", p.replace('\\', "\\\\").replace('"', "\\\"")))
+                        .collect::<Vec<_>>()
+                        .join(",");
+                    let body = format!("{{\"backups\":[{files_json}]}}");
+                    write_json(&mut writer, 200, "OK", &body).await?;
+                }
+                Err(e) => {
+                    tracing::warn!("admin /backup error: {e}");
                     write_json(
                         &mut writer,
-                        503,
-                        "Service Unavailable",
-                        r#"{"error":"backup.dest_dir is not configured"}"#,
+                        500,
+                        "Internal Server Error",
+                        r#"{"error":"backup failed"}"#,
                     )
                     .await?;
                 }
-                Some(dest_dir) => {
-                    match backup_databases(pool, core_pool, dest_dir).await {
-                        Ok(paths) => {
-                            let files_json = paths
-                                .iter()
-                                .map(|p| format!("\"{}\"", p.replace('\\', "\\\\").replace('"', "\\\"")))
-                                .collect::<Vec<_>>()
-                                .join(",");
-                            let body = format!("{{\"backups\":[{files_json}]}}");
-                            write_json(&mut writer, 200, "OK", &body).await?;
-                        }
-                        Err(e) => {
-                            tracing::warn!("admin /backup error: {e}");
-                            write_json(
-                                &mut writer,
-                                500,
-                                "Internal Server Error",
-                                r#"{"error":"backup failed"}"#,
-                            )
-                            .await?;
-                        }
-                    }
-                }
-            }
-        }
+            },
+        },
         "/reload" => {
             // Live config reload: re-read the config file and apply reloadable
             // fields (groups.names, peering.trusted_peers).  Also re-checks
@@ -499,12 +500,11 @@ async fn handle_admin_connection(
                 match stoa_tls::cert_not_after(path) {
                     Ok(expiry_unix) => {
                         let days_remaining = (expiry_unix - now_secs) / 86400;
-                        let expires_at =
-                            chrono::DateTime::from_timestamp(expiry_unix, 0)
-                                .map(|t: chrono::DateTime<chrono::Utc>| {
-                                    t.format("%Y-%m-%dT%H:%M:%SZ").to_string()
-                                })
-                                .unwrap_or_else(|| expiry_unix.to_string());
+                        let expires_at = chrono::DateTime::from_timestamp(expiry_unix, 0)
+                            .map(|t: chrono::DateTime<chrono::Utc>| {
+                                t.format("%Y-%m-%dT%H:%M:%SZ").to_string()
+                            })
+                            .unwrap_or_else(|| expiry_unix.to_string());
                         crate::metrics::TLS_CERT_EXPIRY_SECONDS
                             .with_label_values(&[path])
                             .set(expiry_unix as f64);
@@ -759,7 +759,6 @@ pub(crate) fn build_liveness_json(start_time: Instant) -> String {
     .to_string()
 }
 
-
 /// A single dependency check result.
 struct HealthCheck {
     name: &'static str,
@@ -793,7 +792,11 @@ pub(crate) async fn build_readiness_json(
         )
         .await
         {
-            Ok(Ok(_)) => HealthCheck { name: "sqlite_transit", ok: true, detail: String::new() },
+            Ok(Ok(_)) => HealthCheck {
+                name: "sqlite_transit",
+                ok: true,
+                detail: String::new(),
+            },
             Ok(Err(e)) => HealthCheck {
                 name: "sqlite_transit",
                 ok: false,
@@ -815,7 +818,11 @@ pub(crate) async fn build_readiness_json(
         )
         .await
         {
-            Ok(Ok(_)) => HealthCheck { name: "sqlite_core", ok: true, detail: String::new() },
+            Ok(Ok(_)) => HealthCheck {
+                name: "sqlite_core",
+                ok: true,
+                detail: String::new(),
+            },
             Ok(Err(e)) => HealthCheck {
                 name: "sqlite_core",
                 ok: false,
@@ -995,10 +1002,7 @@ pub async fn build_pinning_remote_json(pool: &AnyPool) -> Result<String, sqlx::E
 /// - `consecutive_failures` — current run of consecutive rejection events
 /// - `health_score` — composite score in [0.0, 1.0] (see `peer_score`)
 /// - `configured` — true when this peer appears in operator config
-pub(crate) async fn build_peers_json(
-    pool: &AnyPool,
-    now_ms: i64,
-) -> Result<String, sqlx::Error> {
+pub(crate) async fn build_peers_json(pool: &AnyPool, now_ms: i64) -> Result<String, sqlx::Error> {
     use crate::peering::peer_registry::{peer_score, PeerRegistry};
 
     let registry = PeerRegistry::new(pool.clone());
@@ -1130,14 +1134,18 @@ mod tests {
         let transit_tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
         let _ = n; // silence unused warning; tempfile provides uniqueness
         let transit_url = format!("sqlite://{}", transit_tmp.to_str().unwrap());
-        crate::migrations::run_migrations(&transit_url).await.unwrap();
+        crate::migrations::run_migrations(&transit_url)
+            .await
+            .unwrap();
         let transit_pool = stoa_core::db_pool::try_open_any_pool(&transit_url, 1)
             .await
             .unwrap();
 
         let core_tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
         let core_url = format!("sqlite://{}", core_tmp.to_str().unwrap());
-        stoa_core::migrations::run_migrations(&core_url).await.unwrap();
+        stoa_core::migrations::run_migrations(&core_url)
+            .await
+            .unwrap();
         let core_pool = stoa_core::db_pool::try_open_any_pool(&core_url, 1)
             .await
             .unwrap();
@@ -1269,7 +1277,10 @@ mod tests {
 
         let json = build_peers_json(&pool, now_ms).await.unwrap();
         let arr: serde_json::Value = serde_json::from_str(&json).unwrap();
-        assert_eq!(arr[0]["connected"], false, "stale peer must not be connected");
+        assert_eq!(
+            arr[0]["connected"], false,
+            "stale peer must not be connected"
+        );
     }
 
     #[test]
@@ -1284,7 +1295,10 @@ mod tests {
 
     #[test]
     fn percent_decode_mixed() {
-        assert_eq!(percent_decode("peer.example.com%3A119"), "peer.example.com:119");
+        assert_eq!(
+            percent_decode("peer.example.com%3A119"),
+            "peer.example.com:119"
+        );
     }
 
     #[tokio::test]
@@ -1301,8 +1315,7 @@ mod tests {
     #[tokio::test]
     async fn readiness_ok_when_sqlite_up_and_no_kubo_url() {
         let (pool, core_pool) = make_pools().await;
-        let (status, body) =
-            build_readiness_json(&pool, &core_pool, None, Instant::now()).await;
+        let (status, body) = build_readiness_json(&pool, &core_pool, None, Instant::now()).await;
         assert_eq!(status, 200, "status must be 200 when checks pass: {body}");
         let v: serde_json::Value = serde_json::from_str(&body).unwrap();
         assert_eq!(v["status"], "ok");
@@ -1324,11 +1337,17 @@ mod tests {
             Instant::now(),
         )
         .await;
-        assert_eq!(status, 503, "status must be 503 when Kubo unreachable: {body}");
+        assert_eq!(
+            status, 503,
+            "status must be 503 when Kubo unreachable: {body}"
+        );
         let v: serde_json::Value = serde_json::from_str(&body).unwrap();
         assert_eq!(v["status"], "degraded");
         let checks = v["checks"].as_array().expect("checks must be array");
-        let kubo = checks.iter().find(|c| c["name"] == "kubo_reachable").expect("kubo_reachable check must exist");
+        let kubo = checks
+            .iter()
+            .find(|c| c["name"] == "kubo_reachable")
+            .expect("kubo_reachable check must exist");
         assert_eq!(kubo["ok"], false, "kubo check must be false");
     }
 
@@ -1445,8 +1464,14 @@ mod tests {
         assert!(v["version"].is_string(), "version must be a string: {json}");
         assert!(v["binary"].is_string(), "binary must be a string: {json}");
         assert!(v["git_sha"].is_string(), "git_sha must be a string: {json}");
-        assert!(v["build_date"].is_string(), "build_date must be a string: {json}");
-        assert!(v["rust_version"].is_string(), "rust_version must be a string: {json}");
+        assert!(
+            v["build_date"].is_string(),
+            "build_date must be a string: {json}"
+        );
+        assert!(
+            v["rust_version"].is_string(),
+            "rust_version must be a string: {json}"
+        );
     }
 
     /// `build_groups_json` returns an empty array when the articles table is empty.
@@ -1631,8 +1656,7 @@ mod tests {
     #[tokio::test]
     async fn backup_rejects_path_with_single_quote() {
         let (transit_pool, core_pool) = make_pools().await;
-        let result = backup_databases(&transit_pool, &core_pool, "/tmp/bad'path")
-            .await;
+        let result = backup_databases(&transit_pool, &core_pool, "/tmp/bad'path").await;
         assert!(result.is_err(), "single-quote path must be rejected");
     }
 }

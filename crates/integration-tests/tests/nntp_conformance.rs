@@ -364,8 +364,7 @@ async fn nntp_conformance_via_nntplib() {
 
 /// bcrypt cost-4 hash for "correctpass" — generated offline via Python bcrypt.
 /// Any other password will fail verify() against this hash.
-const TEST_BCRYPT_HASH: &str =
-    "$2b$04$adzYx48lUkG/usYwif335e9dGHnScOgMjG6ahbmyKP5Vwcma3m.96";
+const TEST_BCRYPT_HASH: &str = "$2b$04$adzYx48lUkG/usYwif335e9dGHnScOgMjG6ahbmyKP5Vwcma3m.96";
 
 /// Five bad passwords from the same IP within 60 seconds must trigger the
 /// auth_lockout threshold.
@@ -389,18 +388,13 @@ async fn auth_lockout_triggered_after_threshold_failures() {
          [[auth.users]]\nusername = \"testuser\"\npassword = \"{TEST_BCRYPT_HASH}\"\n\
          [tls]\n"
     );
-    let config =
-        Arc::new(toml::from_str::<stoa_reader::config::Config>(&config_toml).unwrap());
+    let config = Arc::new(toml::from_str::<stoa_reader::config::Config>(&config_toml).unwrap());
 
     // Build stores: use new_mem() baseline, then replace credential_store
     // with a real one and lower the tracker threshold to 3 for test speed.
     let mut stores = ServerStores::new_mem().await;
     stores.credential_store = Arc::new(
-        CredentialStore::from_content(
-            "test",
-            &format!("testuser:{TEST_BCRYPT_HASH}\n"),
-        )
-        .unwrap(),
+        CredentialStore::from_content("test", &format!("testuser:{TEST_BCRYPT_HASH}\n")).unwrap(),
     );
     *stores.auth_failure_tracker.lock().unwrap() =
         AuthFailureTracker::new(3, Duration::from_secs(60), 100);
@@ -478,8 +472,11 @@ async fn article_posted_writes_audit_row() {
     let verify_pool = make_verify_pool(&db_dir).await;
 
     // SQLite audit logger: batch_size=1, flush_interval=1ms → flushes immediately.
-    let audit_logger: Arc<dyn AuditLogger> =
-        Arc::new(start_audit_logger(core_pool.clone(), 1, Duration::from_millis(1)));
+    let audit_logger: Arc<dyn AuditLogger> = Arc::new(start_audit_logger(
+        core_pool.clone(),
+        1,
+        Duration::from_millis(1),
+    ));
 
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -525,7 +522,10 @@ async fn article_posted_writes_audit_row() {
                 let stores = Arc::clone(&stores);
                 let config = Arc::clone(&config);
                 tokio::spawn(async move {
-                    stoa_reader::session::lifecycle::run_session(stream, false, &config, stores, None).await;
+                    stoa_reader::session::lifecycle::run_session(
+                        stream, false, &config, stores, None,
+                    )
+                    .await;
                 });
             }
         });
@@ -537,7 +537,10 @@ async fn article_posted_writes_audit_row() {
     let mut reader = BufReader::new(r_half);
 
     let greeting = read_line(&mut reader).await;
-    assert!(greeting.starts_with("200"), "expected 200 greeting: {greeting}");
+    assert!(
+        greeting.starts_with("200"),
+        "expected 200 greeting: {greeting}"
+    );
 
     let resp = cmd(&mut w_half, &mut reader, "POST").await;
     assert!(resp.starts_with("340"), "expected 340 send-article: {resp}");
@@ -583,7 +586,9 @@ async fn article_posted_writes_audit_row() {
     let event: stoa_core::audit::AuditEvent =
         stoa_core::audit::AuditEvent::from_json(event_json).expect("audit event must parse");
     match event {
-        stoa_core::audit::AuditEvent::ArticlePosted { cid, message_id, .. } => {
+        stoa_core::audit::AuditEvent::ArticlePosted {
+            cid, message_id, ..
+        } => {
             assert!(!cid.is_empty(), "CID in audit_log must be non-empty");
             assert_eq!(message_id, "<audit-test@test.example>");
         }

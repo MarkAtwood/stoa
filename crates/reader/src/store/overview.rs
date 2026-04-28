@@ -223,7 +223,13 @@ fn sanitize_overview_field(s: &str) -> String {
         return s.to_owned();
     }
     s.chars()
-        .map(|c| if c == '\t' || c == '\r' || c == '\n' { ' ' } else { c })
+        .map(|c| {
+            if c == '\t' || c == '\r' || c == '\n' {
+                ' '
+            } else {
+                c
+            }
+        })
         .collect()
 }
 
@@ -248,7 +254,14 @@ pub fn extract_overview(header_bytes: &[u8], body_bytes: &[u8]) -> OverviewRecor
     // Track which of the five target fields is being accumulated so that
     // continuation lines (starting with SP or HTAB) can be appended correctly.
     #[derive(Clone, Copy)]
-    enum CurField { None, Subject, From, Date, MessageId, References }
+    enum CurField {
+        None,
+        Subject,
+        From,
+        Date,
+        MessageId,
+        References,
+    }
     let mut cur = CurField::None;
 
     for raw in header_text.split('\n') {
@@ -260,11 +273,26 @@ pub fn extract_overview(header_bytes: &[u8], body_bytes: &[u8]) -> OverviewRecor
             // Continuation line: append trimmed content to current field.
             let cont = line.trim_start();
             match cur {
-                CurField::Subject => { subject.push(' '); subject.push_str(cont); }
-                CurField::From => { from.push(' '); from.push_str(cont); }
-                CurField::Date => { date.push(' '); date.push_str(cont); }
-                CurField::MessageId => { message_id.push(' '); message_id.push_str(cont); }
-                CurField::References => { references.push(' '); references.push_str(cont); }
+                CurField::Subject => {
+                    subject.push(' ');
+                    subject.push_str(cont);
+                }
+                CurField::From => {
+                    from.push(' ');
+                    from.push_str(cont);
+                }
+                CurField::Date => {
+                    date.push(' ');
+                    date.push_str(cont);
+                }
+                CurField::MessageId => {
+                    message_id.push(' ');
+                    message_id.push_str(cont);
+                }
+                CurField::References => {
+                    references.push(' ');
+                    references.push_str(cont);
+                }
                 CurField::None => {}
             }
             continue;

@@ -49,13 +49,8 @@ pub async fn inbox_handler(
     if activity_type == "Create" && state.activitypub_config.verify_http_signatures {
         // Use the route path as the request path.
         let path = format!("/ap/groups/{}/inbox", group_name);
-        match crate::activitypub::inbound::verify_http_signature(
-            "post",
-            &path,
-            &headers,
-            &body,
-        )
-        .await
+        match crate::activitypub::inbound::verify_http_signature("post", &path, &headers, &body)
+            .await
         {
             Ok(actor) => {
                 info!(group = %group_name, actor = %actor, "HTTP Signature verified");
@@ -77,15 +72,7 @@ pub async fn inbox_handler(
                 StatusCode::ACCEPTED.into_response()
             }
         }
-        "Create" => {
-            handle_create(
-                &ap_state,
-                &state,
-                &group_name,
-                &activity,
-            )
-            .await
-        }
+        "Create" => handle_create(&ap_state, &state, &group_name, &activity).await,
         other => {
             info!(
                 group = %group_name,
@@ -251,14 +238,17 @@ async fn handle_create(
     }
 
     let note = &activity["object"];
-    let (message_id, newsgroups, article_bytes) =
-        match crate::activitypub::inbound::note_to_article(note, group_name, &state.base_url) {
-            Ok(t) => t,
-            Err(e) => {
-                warn!(group = %group_name, error = %e, "failed to translate Create{{Note}} to article");
-                return StatusCode::ACCEPTED.into_response();
-            }
-        };
+    let (message_id, newsgroups, article_bytes) = match crate::activitypub::inbound::note_to_article(
+        note,
+        group_name,
+        &state.base_url,
+    ) {
+        Ok(t) => t,
+        Err(e) => {
+            warn!(group = %group_name, error = %e, "failed to translate Create{{Note}} to article");
+            return StatusCode::ACCEPTED.into_response();
+        }
+    };
 
     let jmap = match &state.jmap {
         Some(j) => Arc::clone(j),

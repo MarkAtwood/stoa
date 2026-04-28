@@ -72,7 +72,14 @@ pub async fn handle_authenticate_start(
 ) -> Option<String> {
     match mechanism {
         AuthMechanism::Plain => {
-            handle_plain_start(server, credential_store, auth_progress, tag, initial_response).await
+            handle_plain_start(
+                server,
+                credential_store,
+                auth_progress,
+                tag,
+                initial_response,
+            )
+            .await
         }
         AuthMechanism::Login => {
             handle_login_start(server, auth_progress, tag);

@@ -995,9 +995,7 @@ fn count_received_headers(msg: &[u8]) -> usize {
         let line = &headers[i..line_end];
         // Strip trailing CR.
         let line = line.strip_suffix(b"\r").unwrap_or(line);
-        if line.len() >= prefix.len()
-            && line[..prefix.len()].eq_ignore_ascii_case(prefix)
-        {
+        if line.len() >= prefix.len() && line[..prefix.len()].eq_ignore_ascii_case(prefix) {
             count += 1;
         }
         i = line_end + 1;

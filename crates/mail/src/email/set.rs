@@ -1,9 +1,11 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use cid::Cid;
 use serde_json::{json, Value};
 
 use crate::jmap::types::MethodError;
+use crate::mailbox::types::mailbox_id_for_group;
 use crate::state::flags::UserFlagsStore;
 use stoa_core::msgid_map::MsgIdMap;
 use stoa_reader::post::ipfs_write::{write_article_to_ipfs, IpfsBlockStore};
@@ -118,6 +120,12 @@ pub async fn handle_keyword_update(
 /// Accepts JMAP Email creation objects, constructs RFC 5322 article bytes,
 /// writes to IPFS via `write_article_to_ipfs`, returns created Email ids.
 ///
+/// `groups` is the list of known newsgroups as `(name, lo, hi)` tuples from
+/// the article-number store.  It is used to resolve opaque JMAP mailbox IDs
+/// (SHA-256/base32) back to human-readable newsgroup names before writing the
+/// `Newsgroups:` header.  Creation fails with `invalidArguments` if any
+/// mailbox ID in the request does not correspond to a known group.
+///
 /// If `smtp_queue` is `Some` and the created article has `to` or `cc`
 /// recipients, the article is enqueued for SMTP relay delivery.  Enqueue
 /// failure is non-fatal and does not fail the JMAP response.
@@ -126,15 +134,22 @@ pub async fn handle_email_create(
     ipfs: &dyn IpfsBlockStore,
     msgid_map: &MsgIdMap,
     smtp_queue: Option<&Arc<SmtpRelayQueue>>,
+    groups: &[(String, u64, u64)],
 ) -> (
     serde_json::Map<String, Value>,
     serde_json::Map<String, Value>,
 ) {
+    // Build a reverse map: mailbox_id (opaque SHA-256/base32) → group name.
+    let id_to_group: HashMap<String, String> = groups
+        .iter()
+        .map(|(name, _, _)| (mailbox_id_for_group(name), name.clone()))
+        .collect();
+
     let mut created: serde_json::Map<String, Value> = serde_json::Map::new();
     let mut not_created: serde_json::Map<String, Value> = serde_json::Map::new();
 
     for (creation_id, obj) in create_map {
-        match create_one_email(obj, ipfs, msgid_map, smtp_queue).await {
+        match create_one_email(obj, ipfs, msgid_map, smtp_queue, &id_to_group).await {
             Ok(cid) => {
                 created.insert(creation_id.clone(), json!({"id": cid.to_string()}));
             }
@@ -156,6 +171,7 @@ async fn create_one_email(
     ipfs: &dyn IpfsBlockStore,
     msgid_map: &MsgIdMap,
     smtp_queue: Option<&Arc<SmtpRelayQueue>>,
+    id_to_group: &HashMap<String, String>,
 ) -> Result<Cid, String> {
     let subject = strip_crlf(
         obj.get("subject")
@@ -172,24 +188,32 @@ async fn create_one_email(
             .unwrap_or("unknown@example.com"),
     );
 
-    let newsgroups: Vec<&str> = obj
+    // JMAP mailboxIds keys are opaque identifiers (SHA-256/base32), not
+    // newsgroup names.  Resolve each ID to its group name via the reverse map
+    // built from the article-number store.
+    let mailbox_id_keys: Vec<&str> = obj
         .get("mailboxIds")
         .and_then(|v| v.as_object())
         .map(|m| m.keys().map(String::as_str).collect())
         .unwrap_or_default();
 
-    if newsgroups.is_empty() {
+    if mailbox_id_keys.is_empty() {
         return Err("mailboxIds must not be empty".to_string());
     }
 
-    // Validate each mailbox key against RFC 3977 group name syntax.  This
-    // also prevents comma injection (commas would split into spurious groups
-    // in the Newsgroups: header) and CRLF injection (invalid group names).
-    for &name in &newsgroups {
-        if !crate::feed::validate_group_name(name) {
-            return Err(format!("mailboxId {name:?} is not a valid newsgroup name"));
+    let mut newsgroup_names: Vec<String> = Vec::with_capacity(mailbox_id_keys.len());
+    for &id in &mailbox_id_keys {
+        match id_to_group.get(id) {
+            Some(name) => newsgroup_names.push(name.clone()),
+            None => {
+                return Err(format!(
+                    "mailboxId {id:?} does not correspond to a known newsgroup"
+                ))
+            }
         }
     }
+
+    let newsgroups: Vec<&str> = newsgroup_names.iter().map(String::as_str).collect();
 
     let text_body_raw = obj
         .get("textBody")
@@ -361,6 +385,7 @@ mod tests {
 
     #[tokio::test]
     async fn email_create_produces_cid() {
+        use crate::mailbox::types::mailbox_id_for_group;
         use stoa_reader::post::ipfs_write::MemIpfsStore;
 
         let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
@@ -373,11 +398,13 @@ mod tests {
         let _tmp = tmp;
         let ipfs = MemIpfsStore::new();
 
+        let groups: Vec<(String, u64, u64)> = vec![("news.test".to_string(), 0, 0)];
+        let mb_id = mailbox_id_for_group("news.test");
         let mut create_map = serde_json::Map::new();
         create_map.insert(
             "c1".to_string(),
             json!({
-                "mailboxIds": {"somemailboxid": true},
+                "mailboxIds": {mb_id: true},
                 "from": [{"email": "alice@example.com"}],
                 "subject": "Test Create",
                 "textBody": [{"value": "Hello, world!"}]
@@ -385,7 +412,7 @@ mod tests {
         );
 
         let (created, not_created) =
-            handle_email_create(&create_map, &ipfs, &msgid_map, None).await;
+            handle_email_create(&create_map, &ipfs, &msgid_map, None, &groups).await;
         assert!(not_created.is_empty(), "should succeed: {:?}", not_created);
         assert!(created.contains_key("c1"));
         assert!(created["c1"]["id"].as_str().is_some());
@@ -405,17 +432,20 @@ mod tests {
     /// smtp_queue=None: no .env files written even when To: is present.
     #[tokio::test]
     async fn email_create_no_smtp_queue_no_enqueue() {
+        use crate::mailbox::types::mailbox_id_for_group;
         use stoa_reader::post::ipfs_write::MemIpfsStore;
 
         let dir = tempfile::tempdir().expect("tempdir");
         let (msgid_map, _tmp_msgid) = make_msgid_map().await;
         let ipfs = MemIpfsStore::new();
 
+        let groups: Vec<(String, u64, u64)> = vec![("news.test".to_string(), 0, 0)];
+        let mb_id = mailbox_id_for_group("news.test");
         let mut create_map = serde_json::Map::new();
         create_map.insert(
             "c1".to_string(),
             json!({
-                "mailboxIds": {"news.test": true},
+                "mailboxIds": {mb_id: true},
                 "from": [{"email": "alice@example.com"}],
                 "to": [{"email": "bob@example.com"}],
                 "subject": "No smtp queue test",
@@ -424,7 +454,7 @@ mod tests {
         );
 
         let (created, not_created) =
-            handle_email_create(&create_map, &ipfs, &msgid_map, None).await;
+            handle_email_create(&create_map, &ipfs, &msgid_map, None, &groups).await;
         assert!(not_created.is_empty());
         assert!(created.contains_key("c1"));
 
@@ -441,6 +471,7 @@ mod tests {
     /// smtp_queue=Some with To: field: .env file appears in queue_dir.
     #[tokio::test]
     async fn email_create_with_smtp_queue_and_to_enqueues() {
+        use crate::mailbox::types::mailbox_id_for_group;
         use std::time::Duration;
         use stoa_reader::post::ipfs_write::MemIpfsStore;
         use stoa_smtp::config::SmtpRelayPeerConfig;
@@ -460,11 +491,13 @@ mod tests {
         let (msgid_map, _tmp_msgid) = make_msgid_map().await;
         let ipfs = MemIpfsStore::new();
 
+        let groups: Vec<(String, u64, u64)> = vec![("news.test".to_string(), 0, 0)];
+        let mb_id = mailbox_id_for_group("news.test");
         let mut create_map = serde_json::Map::new();
         create_map.insert(
             "c1".to_string(),
             json!({
-                "mailboxIds": {"news.test": true},
+                "mailboxIds": {mb_id: true},
                 "from": [{"email": "alice@example.com"}],
                 "to": [{"email": "bob@example.com"}],
                 "subject": "Smtp relay test",
@@ -473,7 +506,7 @@ mod tests {
         );
 
         let (created, not_created) =
-            handle_email_create(&create_map, &ipfs, &msgid_map, Some(&queue)).await;
+            handle_email_create(&create_map, &ipfs, &msgid_map, Some(&queue), &groups).await;
         assert!(not_created.is_empty(), "should succeed: {:?}", not_created);
         assert!(created.contains_key("c1"));
 
@@ -489,6 +522,7 @@ mod tests {
     /// smtp_queue=Some but no To: or Cc:: no .env file written.
     #[tokio::test]
     async fn email_create_with_smtp_queue_no_recipients_no_enqueue() {
+        use crate::mailbox::types::mailbox_id_for_group;
         use std::time::Duration;
         use stoa_reader::post::ipfs_write::MemIpfsStore;
         use stoa_smtp::config::SmtpRelayPeerConfig;
@@ -508,11 +542,13 @@ mod tests {
         let (msgid_map, _tmp_msgid) = make_msgid_map().await;
         let ipfs = MemIpfsStore::new();
 
+        let groups: Vec<(String, u64, u64)> = vec![("news.test".to_string(), 0, 0)];
+        let mb_id = mailbox_id_for_group("news.test");
         let mut create_map = serde_json::Map::new();
         create_map.insert(
             "c1".to_string(),
             json!({
-                "mailboxIds": {"news.test": true},
+                "mailboxIds": {mb_id: true},
                 "from": [{"email": "alice@example.com"}],
                 "subject": "No recipients test",
                 "textBody": [{"value": "body"}]
@@ -520,7 +556,7 @@ mod tests {
         );
 
         let (created, not_created) =
-            handle_email_create(&create_map, &ipfs, &msgid_map, Some(&queue)).await;
+            handle_email_create(&create_map, &ipfs, &msgid_map, Some(&queue), &groups).await;
         assert!(not_created.is_empty(), "should succeed: {:?}", not_created);
         assert!(created.contains_key("c1"));
 
@@ -536,6 +572,7 @@ mod tests {
     /// SMTP enqueue failure (queue dir removed) must NOT cause handle_email_create to fail.
     #[tokio::test]
     async fn email_create_smtp_enqueue_failure_is_nonfatal() {
+        use crate::mailbox::types::mailbox_id_for_group;
         use std::time::Duration;
         use stoa_reader::post::ipfs_write::MemIpfsStore;
         use stoa_smtp::config::SmtpRelayPeerConfig;
@@ -558,11 +595,13 @@ mod tests {
         let (msgid_map, _tmp_msgid) = make_msgid_map().await;
         let ipfs = MemIpfsStore::new();
 
+        let groups: Vec<(String, u64, u64)> = vec![("news.test".to_string(), 0, 0)];
+        let mb_id = mailbox_id_for_group("news.test");
         let mut create_map = serde_json::Map::new();
         create_map.insert(
             "c1".to_string(),
             json!({
-                "mailboxIds": {"news.test": true},
+                "mailboxIds": {mb_id: true},
                 "from": [{"email": "alice@example.com"}],
                 "to": [{"email": "bob@example.com"}],
                 "subject": "Enqueue failure test",
@@ -572,7 +611,7 @@ mod tests {
 
         // Oracle: handle_email_create must succeed (not_created is empty).
         let (created, not_created) =
-            handle_email_create(&create_map, &ipfs, &msgid_map, Some(&queue)).await;
+            handle_email_create(&create_map, &ipfs, &msgid_map, Some(&queue), &groups).await;
         assert!(
             not_created.is_empty(),
             "smtp enqueue failure must be non-fatal: {:?}",

@@ -165,3 +165,5 @@ Phase markers reset for new epic
 [00:56:47] COORDINATOR: starting do-epic loop
 [00:57:11] COORDINATOR: claimed epic usenet-ipfs-lfdd (Filesystem block store)
 [00:57:20] COORDINATOR: phase0 done
+[16:51:27] COORDINATOR: epic usenet-ipfs-f235 already claimed; phase0 done
+[16:51:43] COORDINATOR: phase1 done (beads already expanded from review)

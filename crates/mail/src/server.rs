@@ -308,7 +308,7 @@ async fn jmap_session_handler(
         .unwrap_or_else(|| "anonymous".to_string());
     let is_operator = state.auth_config.is_operator(&username);
     let session = crate::jmap::session::build_session(&username, &state.base_url, is_operator);
-    Json(serde_json::to_value(session).unwrap())
+    Json(serde_json::to_value(session).expect("JmapSession is always JSON-serializable"))
 }
 
 async fn jmap_api_handler(
@@ -696,11 +696,13 @@ async fn route_method(
 
             // Handle creates.
             if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
+                let known_groups = jmap.article_numbers.list_groups().await.unwrap_or_default();
                 let (created, not_created) = crate::email::set::handle_email_create(
                     create_map,
                     jmap.ipfs.as_ref(),
                     &jmap.msgid_map,
                     jmap.smtp_relay_queue.as_ref(),
+                    &known_groups,
                 )
                 .await;
                 if !created.is_empty() {

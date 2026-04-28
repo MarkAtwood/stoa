@@ -30,13 +30,10 @@ pub async fn check_duplicate_msgid(msgid_map: &MsgIdMap, message_id: &str) -> Re
     match msgid_map.lookup_by_msgid(message_id).await {
         Ok(Some(_)) => Err(Response::new(
             441,
-            "441 Duplicate article: Message-ID already known",
+            "Duplicate article: Message-ID already known",
         )),
         Ok(None) => Ok(()),
-        Err(_) => Err(Response::new(
-            500,
-            "500 Internal error: storage lookup failed",
-        )),
+        Err(_) => Err(Response::new(500, "Internal error: storage lookup failed")),
     }
 }
 
@@ -94,5 +91,4 @@ mod tests {
         let err = result.unwrap_err();
         assert_eq!(err.code, 441);
     }
-
 }

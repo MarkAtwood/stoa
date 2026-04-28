@@ -461,7 +461,11 @@ mod tests {
     async fn listscripts_username_is_case_insensitive() {
         let (app, _) = app_with_alice().await;
         // alice() has username "alice"; try with different case.
-        for uri in &["/admin/sieve/Alice", "/admin/sieve/ALICE", "/admin/sieve/aLiCe"] {
+        for uri in &[
+            "/admin/sieve/Alice",
+            "/admin/sieve/ALICE",
+            "/admin/sieve/aLiCe",
+        ] {
             let req = Request::builder()
                 .method(Method::GET)
                 .uri(*uri)

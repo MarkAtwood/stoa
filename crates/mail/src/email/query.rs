@@ -101,9 +101,7 @@ pub fn handle_email_query(
     let total = with_ts.len() as u64;
 
     let start = position as usize;
-    let capped_limit = limit
-        .unwrap_or(MAX_FETCH_LIMIT)
-        .min(MAX_FETCH_LIMIT) as usize;
+    let capped_limit = limit.unwrap_or(MAX_FETCH_LIMIT).min(MAX_FETCH_LIMIT) as usize;
     let page: Vec<Value> = with_ts
         .iter()
         .skip(start)
@@ -419,7 +417,7 @@ mod tests {
     #[test]
     fn limit_u64_max_is_capped_to_max_fetch_limit() {
         let entries = make_entries(); // 3 entries
-        // Pass u64::MAX as the limit — this is the boundary case from the bug report.
+                                      // Pass u64::MAX as the limit — this is the boundary case from the bug report.
         let resp = handle_email_query(&entries, None, 0, Some(u64::MAX), "0", None);
         let ids = resp["ids"].as_array().unwrap();
         // 3 < MAX_FETCH_LIMIT, so all 3 entries are returned (cap does not truncate).

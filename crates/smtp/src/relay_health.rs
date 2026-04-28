@@ -276,6 +276,9 @@ mod tests {
         state.select_peer();
         state.select_peer();
         let status = state.all_statuses().next().unwrap();
-        assert_eq!(status.attempt_count, 2, "select_peer must increment attempt_count");
+        assert_eq!(
+            status.attempt_count, 2,
+            "select_peer must increment attempt_count"
+        );
     }
 }

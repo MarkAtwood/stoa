@@ -20,15 +20,19 @@
 #![cfg(feature = "rados")]
 
 use stoa_core::ipfs_backend::RadosBackendConfig;
-use stoa_transit::peering::rados_store::RadosStore;
 use stoa_transit::peering::pipeline::IpfsStore;
+use stoa_transit::peering::rados_store::RadosStore;
 
 /// Returns `Some(RadosBackendConfig)` when env vars are set, `None` to skip.
 fn live_config() -> Option<RadosBackendConfig> {
     let conf_path = std::env::var("TEST_RADOS_CONF").ok()?;
     let pool = std::env::var("TEST_RADOS_POOL").ok()?;
     let user = std::env::var("TEST_RADOS_USER").unwrap_or_else(|_| "admin".into());
-    Some(RadosBackendConfig { conf_path, pool, user })
+    Some(RadosBackendConfig {
+        conf_path,
+        pool,
+        user,
+    })
 }
 
 #[tokio::test]
@@ -40,7 +44,11 @@ async fn live_round_trip() {
     let store = RadosStore::open(&cfg).expect("RADOS connect must succeed");
     let data = b"stoa RADOS round-trip test payload";
     let cid = store.put_raw(data).await.expect("put_raw");
-    let got = store.get_raw(&cid).await.expect("get_raw").expect("must be Some");
+    let got = store
+        .get_raw(&cid)
+        .await
+        .expect("get_raw")
+        .expect("must be Some");
     assert_eq!(got, data.as_slice());
     store.delete(&cid).await.expect("delete");
 }
@@ -54,8 +62,15 @@ async fn live_idempotent_put() {
     let store = RadosStore::open(&cfg).expect("RADOS connect must succeed");
     let data = b"idempotent RADOS block";
     let cid = store.put_raw(data).await.expect("first put");
-    store.put_raw(data).await.expect("second put must succeed (rados_write_full is idempotent)");
-    let got = store.get_raw(&cid).await.expect("get_raw").expect("must be Some");
+    store
+        .put_raw(data)
+        .await
+        .expect("second put must succeed (rados_write_full is idempotent)");
+    let got = store
+        .get_raw(&cid)
+        .await
+        .expect("get_raw")
+        .expect("must be Some");
     assert_eq!(got, data.as_slice());
     store.delete(&cid).await.expect("cleanup");
 }
@@ -69,8 +84,14 @@ async fn live_get_missing_returns_none() {
     let store = RadosStore::open(&cfg).expect("RADOS connect must succeed");
     use cid::Cid;
     use multihash_codetable::{Code, MultihashDigest};
-    let phantom = Cid::new_v1(0x55, Code::Sha2_256.digest(b"phantom-rados-object-never-written"));
-    let result = store.get_raw(&phantom).await.expect("get_raw must not error");
+    let phantom = Cid::new_v1(
+        0x55,
+        Code::Sha2_256.digest(b"phantom-rados-object-never-written"),
+    );
+    let result = store
+        .get_raw(&phantom)
+        .await
+        .expect("get_raw must not error");
     assert!(result.is_none(), "get of missing object must return None");
 }
 
@@ -84,7 +105,10 @@ async fn live_delete_missing_is_ok() {
     use cid::Cid;
     use multihash_codetable::{Code, MultihashDigest};
     let phantom = Cid::new_v1(0x55, Code::Sha2_256.digest(b"phantom-rados-delete-missing"));
-    store.delete(&phantom).await.expect("delete of missing object must be Ok (idempotent)");
+    store
+        .delete(&phantom)
+        .await
+        .expect("delete of missing object must be Ok (idempotent)");
 }
 
 #[tokio::test]
@@ -97,6 +121,9 @@ async fn live_delete_makes_get_return_none() {
     let data = b"block to delete";
     let cid = store.put_raw(data).await.expect("put");
     store.delete(&cid).await.expect("delete");
-    let result = store.get_raw(&cid).await.expect("get after delete must not error");
+    let result = store
+        .get_raw(&cid)
+        .await
+        .expect("get after delete must not error");
     assert!(result.is_none(), "get after delete must return None");
 }

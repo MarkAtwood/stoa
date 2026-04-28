@@ -615,7 +615,10 @@ impl Config {
                     // Validate secretx URI syntax for credentials.
                     for (field, val) in [
                         ("backend.s3.access_key_id", s3.access_key_id.as_deref()),
-                        ("backend.s3.secret_access_key", s3.secret_access_key.as_deref()),
+                        (
+                            "backend.s3.secret_access_key",
+                            s3.secret_access_key.as_deref(),
+                        ),
                     ] {
                         if let Some(v) = val {
                             if v.starts_with("secretx:") {
@@ -629,9 +632,11 @@ impl Config {
                     }
                 }
                 BackendType::Azure => {
-                    let azure = backend.azure.as_ref().ok_or_else(|| ConfigError::Validation(
-                        "backend.type = 'azure' requires a [backend.azure] section".into(),
-                    ))?;
+                    let azure = backend.azure.as_ref().ok_or_else(|| {
+                        ConfigError::Validation(
+                            "backend.type = 'azure' requires a [backend.azure] section".into(),
+                        )
+                    })?;
                     if azure.account.is_empty() {
                         return Err(ConfigError::Validation(
                             "backend.azure.account must not be empty".into(),
@@ -659,9 +664,11 @@ impl Config {
                     }
                 }
                 BackendType::Gcs => {
-                    let gcs = backend.gcs.as_ref().ok_or_else(|| ConfigError::Validation(
-                        "backend.type = 'gcs' requires a [backend.gcs] section".into(),
-                    ))?;
+                    let gcs = backend.gcs.as_ref().ok_or_else(|| {
+                        ConfigError::Validation(
+                            "backend.type = 'gcs' requires a [backend.gcs] section".into(),
+                        )
+                    })?;
                     if gcs.bucket.is_empty() {
                         return Err(ConfigError::Validation(
                             "backend.gcs.bucket must not be empty".into(),
@@ -670,7 +677,8 @@ impl Config {
                     if gcs.service_account_path.is_some() && gcs.service_account_key.is_some() {
                         return Err(ConfigError::Validation(
                             "backend.gcs: service_account_path and service_account_key are \
-                             mutually exclusive; set at most one".into(),
+                             mutually exclusive; set at most one"
+                                .into(),
                         ));
                     }
                     if let Some(v) = gcs.service_account_key.as_deref() {
@@ -683,7 +691,8 @@ impl Config {
                         } else if !v.starts_with('{') {
                             return Err(ConfigError::Validation(
                                 "backend.gcs.service_account_key must be a JSON object \
-                                 starting with '{' or a secretx:// URI".into(),
+                                 starting with '{' or a secretx:// URI"
+                                    .into(),
                             ));
                         }
                     }
@@ -714,7 +723,8 @@ impl Config {
                     if webdav.username.is_some() != webdav.password.is_some() {
                         return Err(ConfigError::Validation(
                             "backend.webdav: username and password must both be set or both \
-                             be absent; partial credentials are not supported".into(),
+                             be absent; partial credentials are not supported"
+                                .into(),
                         ));
                     }
                     if let Some(v) = webdav.password.as_deref() {
@@ -730,8 +740,7 @@ impl Config {
                 BackendType::RocksDb => {
                     let rocksdb = backend.rocksdb.as_ref().ok_or_else(|| {
                         ConfigError::Validation(
-                            "backend.type = 'rocks_db' requires a [backend.rocksdb] section"
-                                .into(),
+                            "backend.type = 'rocks_db' requires a [backend.rocksdb] section".into(),
                         )
                     })?;
                     if rocksdb.path.is_empty() {
@@ -1282,8 +1291,8 @@ required = false
 type = "s3"
 "#;
         let f = write_toml(toml);
-        let err = Config::from_file(f.path())
-            .expect_err("s3 without subsection must fail validation");
+        let err =
+            Config::from_file(f.path()).expect_err("s3 without subsection must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
@@ -1314,8 +1323,7 @@ bucket = ""
 region = "us-east-1"
 "#;
         let f = write_toml(toml);
-        let err = Config::from_file(f.path())
-            .expect_err("empty bucket must fail validation");
+        let err = Config::from_file(f.path()).expect_err("empty bucket must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
@@ -1379,8 +1387,8 @@ required = false
 type = "azure"
 "#;
         let f = write_toml(toml);
-        let err = Config::from_file(f.path())
-            .expect_err("azure without subsection must fail validation");
+        let err =
+            Config::from_file(f.path()).expect_err("azure without subsection must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
@@ -1411,8 +1419,7 @@ account = ""
 container = "stoa-articles"
 "#;
         let f = write_toml(toml);
-        let err = Config::from_file(f.path())
-            .expect_err("empty account must fail validation");
+        let err = Config::from_file(f.path()).expect_err("empty account must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
@@ -1471,8 +1478,8 @@ required = false
 type = "gcs"
 "#;
         let f = write_toml(toml);
-        let err = Config::from_file(f.path())
-            .expect_err("gcs without subsection must fail validation");
+        let err =
+            Config::from_file(f.path()).expect_err("gcs without subsection must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
@@ -1505,8 +1512,8 @@ use_emulator = true
 endpoint = "http://127.0.0.1:10000"
 "#;
         let f = write_toml(toml);
-        let err = Config::from_file(f.path())
-            .expect_err("use_emulator + endpoint must fail validation");
+        let err =
+            Config::from_file(f.path()).expect_err("use_emulator + endpoint must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
@@ -1538,8 +1545,8 @@ service_account_path = "/etc/sa.json"
 service_account_key = "{}"
 "#;
         let f = write_toml(toml);
-        let err = Config::from_file(f.path())
-            .expect_err("dual GCS credentials must fail validation");
+        let err =
+            Config::from_file(f.path()).expect_err("dual GCS credentials must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
@@ -1629,8 +1636,7 @@ type = "web_dav"
 url = ""
 "#;
         let f = write_toml(toml);
-        let err = Config::from_file(f.path())
-            .expect_err("empty url must fail validation");
+        let err = Config::from_file(f.path()).expect_err("empty url must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
@@ -1780,8 +1786,7 @@ type = "rocks_db"
 path = ""
 "#;
         let f = write_toml(toml);
-        let err = Config::from_file(f.path())
-            .expect_err("empty path must fail validation");
+        let err = Config::from_file(f.path()).expect_err("empty path must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
@@ -1813,7 +1818,8 @@ user = "stoa"
 conf_path = "/etc/ceph/ceph.conf"
 "#;
         let f = write_toml(toml);
-        let err = Config::from_file(f.path()).expect_err("rados backend must be rejected in reader");
+        let err =
+            Config::from_file(f.path()).expect_err("rados backend must be rejected in reader");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
@@ -1843,8 +1849,7 @@ type = "web_dav"
 url = "https://dav.example.com/stoa/blocks/"
 "#;
         let f = write_toml(toml);
-        let err = Config::from_file(f.path())
-            .expect_err("trailing slash must fail validation");
+        let err = Config::from_file(f.path()).expect_err("trailing slash must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
@@ -2121,7 +2126,10 @@ index_db = "/var/lib/stoa/git_index.db"
         let cfg = Config::from_file(f.path()).expect("git_sha256 backend config must parse");
         let backend = cfg.backend.as_ref().expect("backend must be set");
         assert!(matches!(backend.backend_type, BackendType::GitSha256));
-        let git = backend.git_sha256.as_ref().expect("git_sha256 section must be set");
+        let git = backend
+            .git_sha256
+            .as_ref()
+            .expect("git_sha256 section must be set");
         assert_eq!(git.repo_path, "/var/lib/stoa/articles.git");
         assert_eq!(git.index_db, "/var/lib/stoa/git_index.db");
     }

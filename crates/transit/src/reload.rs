@@ -104,8 +104,7 @@ impl ReloadableState {
                             Some(Arc::new(filter))
                         };
                         *self.group_filter.write().await = new_filter;
-                        *self.prev_group_names.write().await =
-                            new_config.groups.names.clone();
+                        *self.prev_group_names.write().await = new_config.groups.names.clone();
                         changed.push("groups.names".to_string());
                     }
                     Err(e) => {

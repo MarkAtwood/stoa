@@ -375,10 +375,10 @@ mod tests {
         params.distinguished_name = dn;
 
         // rcgen uses time::OffsetDateTime for validity.
-        params.not_before = ::time::OffsetDateTime::from_unix_timestamp(not_before)
-            .expect("not_before timestamp");
-        params.not_after = ::time::OffsetDateTime::from_unix_timestamp(not_after)
-            .expect("not_after timestamp");
+        params.not_before =
+            ::time::OffsetDateTime::from_unix_timestamp(not_before).expect("not_before timestamp");
+        params.not_after =
+            ::time::OffsetDateTime::from_unix_timestamp(not_after).expect("not_after timestamp");
 
         let cert = params.self_signed(&key).expect("self_signed");
         cert.pem()

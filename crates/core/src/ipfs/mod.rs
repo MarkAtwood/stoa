@@ -463,7 +463,10 @@ mod tests {
         let result = client.block_get(&cid).await;
         let elapsed = start.elapsed();
 
-        assert!(result.is_err(), "open circuit must return Err for block_get");
+        assert!(
+            result.is_err(),
+            "open circuit must return Err for block_get"
+        );
         assert!(
             elapsed < Duration::from_millis(50),
             "block_get on open circuit must return immediately, took {elapsed:?}",
@@ -509,6 +512,10 @@ mod tests {
         });
 
         client.circuit_breaker().record_failure(); // triggers Open
-        assert_eq!(opens.load(Ordering::Relaxed), 1, "callback must fire on open");
+        assert_eq!(
+            opens.load(Ordering::Relaxed),
+            1,
+            "callback must fire on open"
+        );
     }
 }

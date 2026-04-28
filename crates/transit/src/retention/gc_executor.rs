@@ -100,7 +100,9 @@ mod tests {
         let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
         let url = format!("sqlite://{}", tmp.to_str().unwrap());
         crate::migrations::run_migrations(&url).await.unwrap();
-        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1).await.unwrap();
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+            .await
+            .unwrap();
         (pool, tmp)
     }
 
@@ -108,7 +110,9 @@ mod tests {
         let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
         let url = format!("sqlite://{}", tmp.to_str().unwrap());
         stoa_core::migrations::run_migrations(&url).await.unwrap();
-        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1).await.unwrap();
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+            .await
+            .unwrap();
         (pool, tmp)
     }
 

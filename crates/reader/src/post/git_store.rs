@@ -255,12 +255,12 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let store = make_store(&tmp).await;
         use multihash_codetable::{Code, MultihashDigest};
-        let phantom = Cid::new_v1(
-            0x55,
-            Code::Sha2_256.digest(b"phantom-block-never-written"),
-        );
+        let phantom = Cid::new_v1(0x55, Code::Sha2_256.digest(b"phantom-block-never-written"));
         // Deleting a CID not in the index must succeed (idempotent).
-        store.delete(&phantom).await.expect("delete missing must be Ok");
+        store
+            .delete(&phantom)
+            .await
+            .expect("delete missing must be Ok");
     }
 
     /// Verify the git OID stored in the index is the correct SHA-1 blob hash.

@@ -36,7 +36,7 @@ pub fn gather_metrics() -> String {
     encoder
         .encode(&metric_families, &mut buf)
         .unwrap_or_default();
-    String::from_utf8(buf).unwrap_or_default()
+    String::from_utf8_lossy(&buf).into_owned()
 }
 
 #[cfg(test)]

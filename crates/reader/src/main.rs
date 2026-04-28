@@ -87,10 +87,7 @@ fn parse_args() -> (PathBuf, bool, Vec<PathBuf>) {
 /// Exits 0 after all files are restored.
 fn cmd_restore(backup_files: &[PathBuf], db: &stoa_reader::config::DatabaseConfig) -> ! {
     for src in backup_files {
-        let stem = src
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or_default();
+        let stem = src.file_name().and_then(|n| n.to_str()).unwrap_or_default();
 
         // Verify SQLite magic header.
         let data = match std::fs::read(src) {
@@ -136,10 +133,7 @@ fn cmd_restore(backup_files: &[PathBuf], db: &stoa_reader::config::DatabaseConfi
             }
         }
         if let Err(e) = std::fs::copy(src, dest) {
-            eprintln!(
-                "error: cannot restore {} → {dest}: {e}",
-                src.display()
-            );
+            eprintln!("error: cannot restore {} → {dest}: {e}", src.display());
             std::process::exit(1);
         }
         println!("restored {} → {dest}", src.display());
@@ -262,19 +256,6 @@ async fn run_startup_checks(config: &Config) -> Vec<String> {
         }
     }
 
-    // Admin bind address check.
-    if config.admin.enabled {
-        match TcpListener::bind(&config.admin.addr).await {
-            Ok(_) => {}
-            Err(e) => {
-                errors.push(format!(
-                    "Admin address {} already in use or invalid: {e}",
-                    config.admin.addr
-                ));
-            }
-        }
-    }
-
     errors
 }
 
@@ -349,11 +330,11 @@ async fn main() {
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(&config.log.level));
 
     let (_otel_guard, log_provider) = stoa_reader::telemetry::init_telemetry(&config.telemetry);
-    let otel_trace_layer = tracing_opentelemetry::layer()
-        .with_tracer(opentelemetry::global::tracer("stoa-reader"));
-    let otel_log_layer = log_provider.as_ref().map(|p| {
-        opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge::new(p)
-    });
+    let otel_trace_layer =
+        tracing_opentelemetry::layer().with_tracer(opentelemetry::global::tracer("stoa-reader"));
+    let otel_log_layer = log_provider
+        .as_ref()
+        .map(opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge::new);
 
     use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
     let (json_fmt, text_fmt) = if config.log.format == "json" {
@@ -507,9 +488,8 @@ async fn main() {
             eprintln!("{msg}");
             std::process::exit(1);
         });
-        let cert_paths: std::sync::Arc<Vec<String>> = std::sync::Arc::new(
-            config.tls.cert_path.iter().cloned().collect(),
-        );
+        let cert_paths: std::sync::Arc<Vec<String>> =
+            std::sync::Arc::new(config.tls.cert_path.iter().cloned().collect());
         if let Err(e) = start_admin_server(
             admin_addr,
             std::time::Instant::now(),

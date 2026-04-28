@@ -308,7 +308,10 @@ mod tests {
         }
         // Next article (10 bytes) would push bytes to 60 — exceeds limit.
         let result = sender.try_enqueue(make_article_bytes(6, 10)).await;
-        assert!(result.is_err(), "should be rejected when bytes limit exceeded");
+        assert!(
+            result.is_err(),
+            "should be rejected when bytes limit exceeded"
+        );
         assert!(result.unwrap_err().contains("436"));
     }
 

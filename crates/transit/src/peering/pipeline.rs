@@ -266,11 +266,10 @@ pub async fn build_store(config: &crate::config::Config) -> Result<StoreBuildRes
                     .sqlite
                     .as_ref()
                     .ok_or("backend.type = 'sqlite' requires a [backend.sqlite] section")?;
-                let store = super::sqlite_store::SqliteStore::open(
-                    std::path::Path::new(&sqlite_cfg.path),
-                )
-                .await
-                .map_err(|e| format!("sqlite store init failed: {e}"))?;
+                let store =
+                    super::sqlite_store::SqliteStore::open(std::path::Path::new(&sqlite_cfg.path))
+                        .await
+                        .map_err(|e| format!("sqlite store init failed: {e}"))?;
                 Ok(StoreBuildResult {
                     store: Arc::new(store),
                     kubo_client: None,
@@ -281,12 +280,11 @@ pub async fn build_store(config: &crate::config::Config) -> Result<StoreBuildRes
                     .filesystem
                     .as_ref()
                     .ok_or("backend.type = 'filesystem' requires a [backend.filesystem] section")?;
-                let store =
-                    super::fs_store::FsStore::open(
-                        std::path::Path::new(&fs_cfg.path),
-                        fs_cfg.max_bytes,
-                    )
-                    .map_err(|e| format!("filesystem store init failed: {e}"))?;
+                let store = super::fs_store::FsStore::open(
+                    std::path::Path::new(&fs_cfg.path),
+                    fs_cfg.max_bytes,
+                )
+                .map_err(|e| format!("filesystem store init failed: {e}"))?;
                 Ok(StoreBuildResult {
                     store: Arc::new(store),
                     kubo_client: None,
@@ -333,15 +331,17 @@ pub async fn build_store(config: &crate::config::Config) -> Result<StoreBuildRes
                     kubo_client: None,
                 })
             }
-            BackendType::PgBlob => {
-                Err("backend.type = 'pg_blob' is not supported in stoa-transit; \
+            BackendType::PgBlob => Err(
+                "backend.type = 'pg_blob' is not supported in stoa-transit; \
                      use the SQLite or filesystem backend for embedded storage, \
-                     or S3 for cloud storage".into())
-            }
-            BackendType::GitSha256 => {
-                Err("backend.type = 'git_sha256' is not supported in stoa-transit; \
-                     git object store is a reader-only backend".into())
-            }
+                     or S3 for cloud storage"
+                    .into(),
+            ),
+            BackendType::GitSha256 => Err(
+                "backend.type = 'git_sha256' is not supported in stoa-transit; \
+                     git object store is a reader-only backend"
+                    .into(),
+            ),
             BackendType::Rados => {
                 #[cfg(not(feature = "rados"))]
                 return Err(
@@ -723,9 +723,7 @@ fn parse_message_id_and_newsgroups(article_bytes: &[u8]) -> Option<(String, Vec<
         };
         const MID: &str = "message-id:";
         const NG: &str = "newsgroups:";
-        if message_id.is_none()
-            && s.len() >= MID.len()
-            && s[..MID.len()].eq_ignore_ascii_case(MID)
+        if message_id.is_none() && s.len() >= MID.len() && s[..MID.len()].eq_ignore_ascii_case(MID)
         {
             message_id = Some(s[MID.len()..].trim().to_owned());
         } else if newsgroups_val.is_none()

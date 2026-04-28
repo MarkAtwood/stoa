@@ -67,7 +67,7 @@ impl IpfsBlockStore for LmdbBlockStore {
         task::spawn_blocking(move || {
             db.get(&cid_bytes)
                 .map_err(|e| IpfsWriteError::WriteFailed(e.to_string()))?
-                .ok_or_else(|| IpfsWriteError::NotFound(cid_string))
+                .ok_or(IpfsWriteError::NotFound(cid_string))
         })
         .await
         .map_err(|e| IpfsWriteError::WriteFailed(e.to_string()))?

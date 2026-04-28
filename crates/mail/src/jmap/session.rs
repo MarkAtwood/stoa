@@ -167,7 +167,8 @@ mod tests {
     fn non_operator_session_lacks_admin_capability() {
         let s = build_session("alice", "https://example.com", false);
         assert!(
-            !s.capabilities.contains_key("urn:ietf:params:jmap:usenet-ipfs-admin"),
+            !s.capabilities
+                .contains_key("urn:ietf:params:jmap:usenet-ipfs-admin"),
             "non-operator session must not have admin capability"
         );
     }
@@ -176,7 +177,8 @@ mod tests {
     fn operator_session_has_admin_capability() {
         let s = build_session("alice", "https://example.com", true);
         assert!(
-            s.capabilities.contains_key("urn:ietf:params:jmap:usenet-ipfs-admin"),
+            s.capabilities
+                .contains_key("urn:ietf:params:jmap:usenet-ipfs-admin"),
             "operator session must have admin capability"
         );
     }

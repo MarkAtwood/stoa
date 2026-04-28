@@ -22,6 +22,7 @@ use crate::peering::pipeline::{IpfsError, IpfsStore};
 /// - It is 36 bytes vs ~59 bytes for the string, reducing index size.
 /// - It avoids codec round-trips on every lookup.
 /// - It is the canonical form used by IPFS/IPLD tooling.
+///
 /// All IPFS tools can decode the binary CID, so debuggability is not lost.
 pub struct RocksStore {
     db: Arc<rocksdb::DB>,

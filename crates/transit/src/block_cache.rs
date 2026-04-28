@@ -309,12 +309,7 @@ mod tests {
         }
     }
 
-    fn make_cache(
-        dir: &str,
-        pool: Arc<AnyPool>,
-        max_entries: u64,
-        max_bytes: u64,
-    ) -> BlockCache {
+    fn make_cache(dir: &str, pool: Arc<AnyPool>, max_entries: u64, max_bytes: u64) -> BlockCache {
         BlockCache::new(
             cache_config(dir, max_entries, max_bytes),
             pool,

@@ -297,9 +297,9 @@ pub async fn build_block_store(
                     .sqlite
                     .as_ref()
                     .ok_or("backend.type = 'sqlite' requires a [backend.sqlite] section")?;
-                let store = super::sqlite_store::SqliteBlockStore::open(
-                    std::path::Path::new(&sqlite_cfg.path),
-                )
+                let store = super::sqlite_store::SqliteBlockStore::open(std::path::Path::new(
+                    &sqlite_cfg.path,
+                ))
                 .await
                 .map_err(|e| format!("sqlite store init failed: {e}"))?;
                 Ok(Arc::new(store))
@@ -358,11 +358,9 @@ pub async fn build_block_store(
                     .map_err(|e| format!("git block store init failed: {e}"))?;
                 Ok(Arc::new(store))
             }
-            BackendType::Rados => Err(
-                "backend.type = 'rados' is not supported in stoa-reader; \
+            BackendType::Rados => Err("backend.type = 'rados' is not supported in stoa-reader; \
                  use the S3 backend pointed at RADOS Gateway instead"
-                    .into(),
-            ),
+                .into()),
         }
     } else {
         // Backward-compat: use legacy [ipfs] section.
