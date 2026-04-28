@@ -261,6 +261,7 @@ async fn nntp_conformance_via_nntplib() {
             std::time::Duration::from_secs(60),
             DEFAULT_MAX_ENTRIES,
         ))),
+        oidc_store: None,
     });
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -509,6 +510,7 @@ async fn article_posted_writes_audit_row() {
             Duration::from_secs(60),
             DEFAULT_MAX_ENTRIES,
         ))),
+        oidc_store: None,
     });
 
     let config = Arc::new(reader_config("127.0.0.1:0"));

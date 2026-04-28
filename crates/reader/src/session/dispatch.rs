@@ -50,6 +50,7 @@ pub fn dispatch(
                 // it would attempt a second upgrade and get a confused server.
                 // Do NOT remove the `&& !ctx.tls_active` guard.
                 ctx.starttls_available && !ctx.tls_active,
+                !auth_config.oidc_providers.is_empty(),
             ),
             Command::Quit => Response::closing_connection(),
             Command::AuthinfoUser(username) => {
@@ -82,6 +83,7 @@ pub fn dispatch(
             // RFC 4642 §2.2: a server MUST NOT advertise STARTTLS on a
             // session that is already TLS-protected.
             ctx.starttls_available && !ctx.tls_active,
+            !auth_config.oidc_providers.is_empty(),
         ),
         Command::ModeReader => {
             if ctx.posting_allowed {
@@ -248,6 +250,7 @@ mod tests {
             credential_file: None,
             client_certs: vec![],
             trusted_issuers: vec![],
+            oidc_providers: vec![],
         }
     }
 
@@ -527,6 +530,7 @@ mod tests {
             credential_file: None,
             client_certs: vec![],
             trusted_issuers: vec![],
+            oidc_providers: vec![],
         };
         let mut ctx = SessionContext::new(test_addr(), false, true, false);
         let resp = dispatch(

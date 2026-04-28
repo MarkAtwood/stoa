@@ -19,7 +19,7 @@ use stoa_core::signing::{generate_signing_key, hlc_node_id, SigningKey};
 use crate::auth_limiter::{AuthFailureTracker, DEFAULT_MAX_ENTRIES};
 
 use mail_auth::MessageAuthenticator;
-use stoa_auth::TrustedIssuerStore;
+use stoa_auth::{OidcStore, TrustedIssuerStore};
 use stoa_smtp::SmtpRelayQueue;
 use stoa_verify::VerificationStore;
 
@@ -66,6 +66,9 @@ pub struct ServerStores {
     pub audit_logger: Option<Arc<dyn AuditLogger>>,
     /// Per-IP authentication failure tracker for fail2ban-compatible lockout events.
     pub auth_failure_tracker: Arc<std::sync::Mutex<AuthFailureTracker>>,
+    /// OIDC JWT validator for SASL OAUTHBEARER (RFC 7628).
+    /// `None` when no `[[auth.oidc_providers]]` entries are configured.
+    pub oidc_store: Option<Arc<OidcStore>>,
 }
 
 impl ServerStores {
@@ -132,6 +135,12 @@ impl ServerStores {
         let dkim_authenticator = MessageAuthenticator::new_cloudflare_tls()
             .map_err(|e| format!("DKIM authenticator init failed: {e}"))?;
 
+        let oidc_store = if config.auth.oidc_providers.is_empty() {
+            None
+        } else {
+            Some(Arc::new(OidcStore::new(config.auth.oidc_providers.clone())))
+        };
+
         Ok(Self {
             ipfs_store,
             msgid_map: Arc::new(MsgIdMap::new(core_pool)),
@@ -156,6 +165,7 @@ impl ServerStores {
                 std::time::Duration::from_secs(60),
                 DEFAULT_MAX_ENTRIES,
             ))),
+            oidc_store,
         })
     }
 
@@ -210,6 +220,7 @@ impl ServerStores {
                 std::time::Duration::from_secs(60),
                 DEFAULT_MAX_ENTRIES,
             ))),
+            oidc_store: None,
         }
     }
 
@@ -254,6 +265,7 @@ impl ServerStores {
                 std::time::Duration::from_secs(60),
                 DEFAULT_MAX_ENTRIES,
             ))),
+            oidc_store: None,
         }
     }
 }

@@ -270,6 +270,7 @@ async fn transit_reader_shared_store() {
             std::time::Duration::from_secs(60),
             DEFAULT_MAX_ENTRIES,
         ))),
+        oidc_store: None,
     });
 
     // ── Transit stores ────────────────────────────────────────────────────────

@@ -356,13 +356,23 @@ pub struct AuthConfig {
     /// Only valid on NNTPS (port 563) connections.
     #[serde(default)]
     pub trusted_issuers: Vec<TrustedIssuerEntry>,
+    /// OIDC provider configurations for SASL OAUTHBEARER (RFC 7628).
+    ///
+    /// When non-empty, `AUTHINFO SASL OAUTHBEARER` is advertised in
+    /// CAPABILITIES.  Clients may authenticate by presenting a Bearer JWT
+    /// that validates against any configured provider.
+    #[serde(default)]
+    pub oidc_providers: Vec<stoa_auth::OidcProviderConfig>,
 }
 
 impl AuthConfig {
     /// Returns `true` when no credentials are configured and auth is not
     /// required — the development / open-access mode.
     pub fn is_dev_mode(&self) -> bool {
-        !self.required && self.users.is_empty() && self.credential_file.is_none()
+        !self.required
+            && self.users.is_empty()
+            && self.credential_file.is_none()
+            && self.oidc_providers.is_empty()
     }
 }
 

@@ -85,6 +85,11 @@ pub enum Command {
     Ihave(String),
     AuthinfoUser(String),
     AuthinfoPass(String),
+    /// AUTHINFO SASL OAUTHBEARER <initial-response> — RFC 4643 §2.3 / RFC 7628.
+    ///
+    /// The initial response is the raw base64url string as received on the wire;
+    /// lifecycle.rs decodes it and extracts the Bearer token.
+    AuthinfoSaslOauthbearer(String),
     StartTls,
     /// XCID [<message-id>] — return the CID for the current or named article.
     /// Advertised as XCID in CAPABILITIES. Response: 290 <cid>.
@@ -304,6 +309,16 @@ pub fn parse_command(line: &str) -> Result<Command, ParseError> {
             match sub.as_str() {
                 "USER" => Ok(Command::AuthinfoUser(arg)),
                 "PASS" => Ok(Command::AuthinfoPass(arg)),
+                "SASL" => {
+                    // AUTHINFO SASL <mechanism> [<initial-response>]
+                    let mut sasl_toks = arg.splitn(2, char::is_whitespace);
+                    let mechanism = sasl_toks.next().unwrap_or("").to_ascii_uppercase();
+                    let initial_response = sasl_toks.next().unwrap_or("").trim().to_string();
+                    match mechanism.as_str() {
+                        "OAUTHBEARER" => Ok(Command::AuthinfoSaslOauthbearer(initial_response)),
+                        _ => Ok(Command::Unknown(line.to_string())),
+                    }
+                }
                 _ => Ok(Command::Unknown(line.to_string())),
             }
         }
@@ -665,6 +680,42 @@ mod tests {
         assert_eq!(
             parse_command("AUTHINFO PASS s3cr3t\r\n"),
             Ok(Command::AuthinfoPass("s3cr3t".into()))
+        );
+    }
+
+    // ---- AUTHINFO SASL OAUTHBEARER ----
+
+    #[test]
+    fn parse_authinfo_sasl_oauthbearer_with_initial_response() {
+        let b64 = "biwsAWF1dGg9QmVhcmVyIHRlc3R0b2tlbgEB";
+        assert_eq!(
+            parse_command(&format!("AUTHINFO SASL OAUTHBEARER {b64}\r\n")),
+            Ok(Command::AuthinfoSaslOauthbearer(b64.into()))
+        );
+    }
+
+    #[test]
+    fn parse_authinfo_sasl_oauthbearer_no_initial_response() {
+        assert_eq!(
+            parse_command("AUTHINFO SASL OAUTHBEARER\r\n"),
+            Ok(Command::AuthinfoSaslOauthbearer(String::new()))
+        );
+    }
+
+    #[test]
+    fn parse_authinfo_sasl_unknown_mechanism_is_unknown() {
+        assert!(matches!(
+            parse_command("AUTHINFO SASL GSSAPI ticket\r\n"),
+            Ok(Command::Unknown(_))
+        ));
+    }
+
+    #[test]
+    fn parse_authinfo_sasl_oauthbearer_case_insensitive() {
+        let b64 = "dGVzdA==";
+        assert_eq!(
+            parse_command(&format!("authinfo sasl oauthbearer {b64}\r\n")),
+            Ok(Command::AuthinfoSaslOauthbearer(b64.into()))
         );
     }
 

@@ -638,6 +638,112 @@ where
                 }
                 continue;
             }
+            // AUTHINFO SASL OAUTHBEARER — RFC 4643 §2.3 / RFC 7628.
+            // Requires TLS (same rule as AUTHINFO USER/PASS when auth.required).
+            // The initial response is a base64-encoded OAUTHBEARER client message;
+            // we extract the Bearer token and validate it via the OIDC store.
+            Command::AuthinfoSaslOauthbearer(initial_response) => {
+                if config.auth.required && !ctx.tls_active {
+                    send!(Response::new(483, "Encryption required for authentication"));
+                    continue;
+                }
+                let oidc = match stores.oidc_store.as_ref() {
+                    Some(o) => o,
+                    None => {
+                        send!(Response::new(
+                            503,
+                            "SASL OAUTHBEARER not configured on this server"
+                        ));
+                        continue;
+                    }
+                };
+                if initial_response.is_empty() {
+                    send!(Response::new(
+                        481,
+                        "Authentication failed: OAUTHBEARER initial response required"
+                    ));
+                    continue;
+                }
+                // Base64-decode and extract the Bearer token.
+                let token = match extract_oauthbearer_token(initial_response) {
+                    Some(t) => t,
+                    None => {
+                        send!(Response::new(
+                            481,
+                            "Authentication failed: malformed OAUTHBEARER initial response"
+                        ));
+                        continue;
+                    }
+                };
+                let result = oidc.validate_jwt(&token).await;
+                let peer_ip = peer_addr.ip();
+                match result {
+                    Ok(username) => {
+                        debug!(
+                            event = "auth_success",
+                            service = "nntp",
+                            remote_ip = %peer_ip,
+                            username = %username,
+                        );
+                        if let Ok(mut tracker) = stores.auth_failure_tracker.lock() {
+                            tracker.record_success(peer_ip);
+                        }
+                        if let Some(ref logger) = stores.audit_logger {
+                            logger.log(AuditEvent::AuthAttempt {
+                                peer_addr: peer_addr.to_string(),
+                                user: username.clone(),
+                                success: true,
+                                service: "nntp".to_string(),
+                                auth_method: "oauthbearer".to_string(),
+                            });
+                        }
+                        ctx.state = SessionState::Active;
+                        ctx.authenticated_user = Some(username);
+                        ctx.auth_failure_count = 0;
+                        send!(Response::authentication_accepted());
+                    }
+                    Err(e) => {
+                        warn!(
+                            event = "auth_failure",
+                            service = "nntp",
+                            remote_ip = %peer_ip,
+                            reason = "oauthbearer_jwt_invalid",
+                            "OAUTHBEARER: {e}",
+                        );
+                        let lockout = stores
+                            .auth_failure_tracker
+                            .lock()
+                            .map(|mut t| t.record_failure(peer_ip))
+                            .unwrap_or(false);
+                        if lockout {
+                            warn!(
+                                event = "auth_lockout",
+                                service = "nntp",
+                                remote_ip = %peer_ip,
+                                "auth_lockout: failure threshold reached for IP"
+                            );
+                        }
+                        if let Some(ref logger) = stores.audit_logger {
+                            logger.log(AuditEvent::AuthAttempt {
+                                peer_addr: peer_addr.to_string(),
+                                user: String::new(),
+                                success: false,
+                                service: "nntp".to_string(),
+                                auth_method: "oauthbearer".to_string(),
+                            });
+                        }
+                        ctx.auth_failure_count += 1;
+                        if ctx.auth_failure_count >= crate::session::context::MAX_AUTH_FAILURES {
+                            warn!(peer = %peer_addr, "AUTHINFO SASL: too many failures, closing");
+                            let resp = Response::new(400, "Too many authentication failures");
+                            let _ = writer.write_all(resp.to_bytes().as_slice()).await;
+                            return CommandLoopExit::Done;
+                        }
+                        send!(Response::authentication_failed());
+                    }
+                }
+                continue;
+            }
             _ => {} // fall through to dispatch
         }
 
@@ -1276,6 +1382,29 @@ async fn resolve_msgid_to_wire(
     Ok((cid, header_bytes, body_bytes))
 }
 
+/// Decode a SASL OAUTHBEARER initial response (RFC 7628 §3.1) and extract
+/// the Bearer token.
+///
+/// The initial response is a base64-encoded string of the form:
+/// `n,,[a=ruser,]\x01auth=Bearer <token>\x01[key=value\x01]*\x01`
+///
+/// Returns `Some(token)` on success, `None` on malformed input.
+fn extract_oauthbearer_token(b64: &str) -> Option<String> {
+    use base64::Engine as _;
+    let decoded = base64::engine::general_purpose::STANDARD
+        .decode(b64.trim())
+        .ok()?;
+    let text = std::str::from_utf8(&decoded).ok()?;
+    // Find "auth=Bearer " and extract the value up to the next \x01.
+    let prefix = "auth=Bearer ";
+    let start = text.find(prefix)? + prefix.len();
+    let end = text[start..].find('\x01').map(|i| start + i).unwrap_or(text.len());
+    if end <= start {
+        return None;
+    }
+    Some(text[start..end].to_string())
+}
+
 /// Split raw article bytes at the blank-line separator.
 ///
 /// Returns `(header_bytes, body_bytes)`. Both slices exclude the blank line
@@ -1798,6 +1927,61 @@ async fn handle_nntp_search(
             tracing::warn!(error = %e, "SEARCH failed");
             b"451 Program error\r\n".to_vec()
         }
+    }
+}
+
+#[cfg(test)]
+mod oauthbearer_tests {
+    use super::extract_oauthbearer_token;
+    use base64::Engine as _;
+
+    fn encode(s: &str) -> String {
+        base64::engine::general_purpose::STANDARD.encode(s.as_bytes())
+    }
+
+    #[test]
+    fn extracts_token_from_well_formed_response() {
+        // RFC 7628 §3.1: n,,\x01auth=Bearer <token>\x01\x01
+        let initial = encode("n,,\x01auth=Bearer mytoken123\x01\x01");
+        assert_eq!(
+            extract_oauthbearer_token(&initial),
+            Some("mytoken123".to_string())
+        );
+    }
+
+    #[test]
+    fn extracts_token_with_a_field() {
+        let initial = encode("n,a=user@example.com,\x01auth=Bearer tok.ens\x01\x01");
+        assert_eq!(
+            extract_oauthbearer_token(&initial),
+            Some("tok.ens".to_string())
+        );
+    }
+
+    #[test]
+    fn returns_none_for_empty_input() {
+        assert_eq!(extract_oauthbearer_token(""), None);
+    }
+
+    #[test]
+    fn returns_none_for_non_base64() {
+        assert_eq!(extract_oauthbearer_token("!!!not-b64!!!"), None);
+    }
+
+    #[test]
+    fn returns_none_when_auth_field_missing() {
+        let initial = encode("n,,\x01host=nntp.example.com\x01\x01");
+        assert_eq!(extract_oauthbearer_token(&initial), None);
+    }
+
+    #[test]
+    fn handles_token_without_trailing_ctrl_a() {
+        // Some clients may omit the trailing \x01.
+        let initial = encode("n,,\x01auth=Bearer onlytoken");
+        assert_eq!(
+            extract_oauthbearer_token(&initial),
+            Some("onlytoken".to_string())
+        );
     }
 }
 

@@ -58,6 +58,7 @@ impl Response {
     /// `posting_allowed`: include `POST` capability.
     /// `auth_required`: include `AUTHINFO USER` capability.
     /// `starttls_available`: include `STARTTLS` capability (RFC 4642).
+    /// `sasl_oauthbearer`: include `SASL OAUTHBEARER` capability (RFC 7628).
     ///
     /// When `starttls_available` is true the connection is plain-text and TLS
     /// cert/key are configured, so mid-session upgrade via STARTTLS is possible.
@@ -66,6 +67,7 @@ impl Response {
         posting_allowed: bool,
         auth_required: bool,
         starttls_available: bool,
+        sasl_oauthbearer: bool,
     ) -> Self {
         let mut caps = vec![
             "VERSION 2".to_string(),
@@ -90,6 +92,9 @@ impl Response {
         }
         if auth_required {
             caps.push("AUTHINFO USER".to_string());
+        }
+        if sasl_oauthbearer {
+            caps.push("SASL OAUTHBEARER".to_string());
         }
         Self::new_multiline(101, "Capability list follows", caps)
     }
@@ -272,18 +277,18 @@ mod tests {
     #[test]
     fn capabilities_with_ctx_code_is_101() {
         assert_eq!(
-            Response::capabilities_with_ctx(true, false, false).code,
+            Response::capabilities_with_ctx(true, false, false, false).code,
             101
         );
         assert_eq!(
-            Response::capabilities_with_ctx(false, true, false).code,
+            Response::capabilities_with_ctx(false, true, false, false).code,
             101
         );
     }
 
     #[test]
     fn capabilities_with_ctx_multiline_display() {
-        let r = Response::capabilities_with_ctx(false, false, false);
+        let r = Response::capabilities_with_ctx(false, false, false, false);
         let s = r.to_string();
         assert!(s.starts_with("101 Capability list follows\r\n"));
         assert!(s.contains("VERSION 2\r\n"));
@@ -293,7 +298,7 @@ mod tests {
     #[test]
     fn capabilities_omits_starttls_when_not_available() {
         // STARTTLS not advertised when starttls_available=false.
-        let r = Response::capabilities_with_ctx(false, false, false);
+        let r = Response::capabilities_with_ctx(false, false, false, false);
         assert!(
             !r.body.iter().any(|l| l == "STARTTLS"),
             "STARTTLS must not appear in CAPABILITIES when not available"
@@ -302,7 +307,7 @@ mod tests {
 
     #[test]
     fn capabilities_includes_starttls_when_available() {
-        let r = Response::capabilities_with_ctx(false, false, true);
+        let r = Response::capabilities_with_ctx(false, false, true, false);
         assert!(
             r.body.iter().any(|l| l == "STARTTLS"),
             "STARTTLS must appear in CAPABILITIES when available"
@@ -316,10 +321,28 @@ mod tests {
 
     #[test]
     fn capabilities_includes_did_verified_extension() {
-        let r = Response::capabilities_with_ctx(false, false, false);
+        let r = Response::capabilities_with_ctx(false, false, false, false);
         assert!(
             r.body.iter().any(|l| l == "X-USENET-IPFS-DID-VERIFIED"),
             "X-USENET-IPFS-DID-VERIFIED must appear in CAPABILITIES"
+        );
+    }
+
+    #[test]
+    fn capabilities_includes_sasl_oauthbearer_when_configured() {
+        let r = Response::capabilities_with_ctx(false, false, false, true);
+        assert!(
+            r.body.iter().any(|l| l == "SASL OAUTHBEARER"),
+            "SASL OAUTHBEARER must appear in CAPABILITIES when configured"
+        );
+    }
+
+    #[test]
+    fn capabilities_omits_sasl_oauthbearer_when_not_configured() {
+        let r = Response::capabilities_with_ctx(false, false, false, false);
+        assert!(
+            !r.body.iter().any(|l| l == "SASL OAUTHBEARER"),
+            "SASL OAUTHBEARER must not appear in CAPABILITIES when not configured"
         );
     }
 
