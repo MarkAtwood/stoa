@@ -183,6 +183,17 @@ impl NntpQueue {
         };
         while let Ok(Some(entry)) = dir.next_entry().await {
             let path = entry.path();
+            // Remove any .msg.tmp files left by a previous crash.  These
+            // represent incomplete writes; the corresponding .msg file was
+            // never created, so there is nothing to deliver.
+            if path.to_str().is_some_and(|s| s.ends_with(".msg.tmp")) {
+                if let Err(e) = tokio::fs::remove_file(&path).await {
+                    warn!(path = %path.display(), "nntp queue: failed to remove orphan .msg.tmp: {e}");
+                } else {
+                    warn!(path = %path.display(), "nntp queue: removed orphan .msg.tmp from previous crash");
+                }
+                continue;
+            }
             if path.extension().is_some_and(|e| e == "msg") {
                 let env_path = path.with_extension("env");
                 let injection_source = match tokio::fs::read(&env_path).await {

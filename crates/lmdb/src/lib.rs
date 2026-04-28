@@ -310,6 +310,11 @@ impl LmdbBlockDb {
 mod tests {
     use super::*;
 
+    // IMPORTANT: fields in this tuple must be declared (db, tmp) — NOT (tmp, db).
+    // Rust drops tuple fields in declaration order.  LmdbBlockDb must be dropped
+    // first (closing the LMDB env) before TempDir is dropped (deleting the
+    // directory).  Reversing the order would delete the directory while the env
+    // is still open, causing spurious errors under LMDB's mmap-backed I/O.
     fn open_test_db() -> (LmdbBlockDb, tempfile::TempDir) {
         let tmp = tempfile::TempDir::new().expect("tempdir");
         let db = LmdbBlockDb::open(tmp.path(), 1).expect("open");

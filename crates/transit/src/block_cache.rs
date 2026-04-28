@@ -390,9 +390,13 @@ mod tests {
         let cache = make_cache(dir.path().to_str().unwrap(), pool.clone(), 2, u64::MAX);
 
         let cid1 = cache.put_raw(b"block one").await.unwrap();
+        // Sleep 2 ms to guarantee cid2 gets a strictly larger last_access
+        // timestamp than cid1, preventing LRU tie-breaking non-determinism.
+        tokio::time::sleep(tokio::time::Duration::from_millis(2)).await;
         let cid2 = cache.put_raw(b"block two").await.unwrap();
 
         // Touch cid1 to make it more recently used than cid2.
+        tokio::time::sleep(tokio::time::Duration::from_millis(2)).await;
         let _ = cache.get_raw(&cid1).await.unwrap();
 
         // Adding a 3rd entry must evict cid2 (oldest last_access).
