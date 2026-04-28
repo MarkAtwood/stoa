@@ -25,12 +25,14 @@ pub use error::SearchError;
 
 use crate::config::SearchConfig;
 use std::sync::Arc;
+use std::collections::BTreeMap;
 use tantivy::{
     collector::TopDocs,
     doc,
     query::{BooleanQuery, Occur, QueryParser, TermQuery},
     schema::{Field, IndexRecordOption, Schema, Value, FAST, INDEXED, STORED, STRING, TEXT},
-    Index, IndexReader, IndexWriter, ReloadPolicy, TantivyDocument, Term,
+    Index, IndexReader, IndexWriter, ReloadPolicy, Score, Snippet, SnippetGenerator,
+    TantivyDocument, Term,
 };
 use tokio::sync::Mutex;
 
@@ -341,6 +343,80 @@ impl TantivySearchIndex {
         }
         Ok(ids)
     }
+
+    /// Generate JMAP-style `*highlighted*` snippets for a subject and body text.
+    ///
+    /// Uses the Tantivy index's tokenizer to find query-term occurrences in
+    /// `subject_text` and `body_text`.  Returns `(subject_snippet, preview)`
+    /// where each field is `None` when no query terms appear in that text.
+    ///
+    /// JMAP highlighting convention (RFC 8621 §5.4): matched spans are wrapped
+    /// with asterisks — e.g. `"The *rust* is back"`.
+    ///
+    /// This is a synchronous CPU operation; no index I/O is performed.
+    pub fn make_snippets(
+        &self,
+        query_str: &str,
+        subject_text: &str,
+        body_text: &str,
+    ) -> (Option<String>, Option<String>) {
+        let f = &self.inner.fields;
+        let parser = QueryParser::for_index(
+            &self.inner.index,
+            vec![f.subject, f.from_header, f.body_text],
+        );
+        let (query, _errors) = parser.parse_query_lenient(query_str);
+
+        // Collect query terms as a BTreeMap<term_text, score>.
+        let mut terms_text: BTreeMap<String, Score> = BTreeMap::new();
+        query.query_terms(&mut |term, _| {
+            if let Some(s) = term.value().as_str() {
+                terms_text.insert(s.to_string(), 1.0);
+            }
+        });
+
+        if terms_text.is_empty() {
+            return (None, None);
+        }
+
+        // Build a snippet for one field's text using the shared terms.
+        let make_snippet = |text: &str, field: Field| -> Option<String> {
+            let tokenizer = self.inner.index.tokenizer_for_field(field).ok()?;
+            let gen = SnippetGenerator::new(terms_text.clone(), tokenizer, field, 200);
+            let snippet = gen.snippet(text);
+            if snippet.is_empty() {
+                None
+            } else {
+                Some(jmap_highlight(&snippet))
+            }
+        };
+
+        let subject_snippet = make_snippet(subject_text, f.subject);
+        let preview_snippet = make_snippet(body_text, f.body_text);
+        (subject_snippet, preview_snippet)
+    }
+}
+
+/// Convert a Tantivy `Snippet` to JMAP's asterisk-highlighted format.
+///
+/// RFC 8621 §5.4 uses `*matched term*` rather than HTML tags.
+fn jmap_highlight(snippet: &Snippet) -> String {
+    let fragment = snippet.fragment();
+    let highlighted = snippet.highlighted();
+    if highlighted.is_empty() {
+        return fragment.to_string();
+    }
+    let mut out = String::with_capacity(fragment.len() + highlighted.len() * 2);
+    let mut last = 0usize;
+    for range in highlighted {
+        out.push_str(&fragment[last..range.start]);
+        out.push('*');
+        out.push_str(&fragment[range.clone()]);
+        out.push('*');
+        last = range.end;
+    }
+    out.push_str(&fragment[last..]);
+    out
 }
 
 #[cfg(test)]
@@ -801,6 +877,77 @@ mod tests {
         );
 
         idx.commit().await.expect("commit");
+    }
+
+    // ── make_snippets ────────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn make_snippets_highlights_subject_term() {
+        // Oracle: subject "Rust async patterns" with query "async".
+        // Tantivy tokenizes and lowercases; "async" must be highlighted
+        // in the subject snippet as "*async*".
+        let cfg = test_config();
+        let idx = TantivySearchIndex::open_in_memory(&cfg).expect("open");
+
+        let (subject_snip, _preview) = idx.make_snippets("async", "Rust async patterns", "");
+        let subject = subject_snip.expect("subject snippet must be Some when term present");
+        assert!(
+            subject.contains("*async*"),
+            "subject snippet must highlight 'async' with *...*; got: {subject}"
+        );
+    }
+
+    #[tokio::test]
+    async fn make_snippets_highlights_body_term() {
+        // Oracle: body "Tokio is great for async code" with query "tokio".
+        // "tokio" must appear highlighted in the preview.
+        let cfg = test_config();
+        let idx = TantivySearchIndex::open_in_memory(&cfg).expect("open");
+
+        let (_subject, preview_snip) =
+            idx.make_snippets("tokio", "", "Tokio is great for async code");
+        let preview = preview_snip.expect("preview snippet must be Some when term in body");
+        // Tantivy preserves original case in the fragment: "Tokio" in the input
+        // is highlighted as "*Tokio*" (case-insensitive match, original-case output).
+        assert!(
+            preview.contains("*Tokio*"),
+            "preview snippet must highlight 'Tokio' with *...*; got: {preview}"
+        );
+    }
+
+    #[test]
+    fn make_snippets_absent_term_returns_none() {
+        // Oracle: query term "python" does not appear in either text.
+        // Both fields must return None.
+        let cfg = test_config();
+        let idx = TantivySearchIndex::open_in_memory(&cfg).expect("open");
+
+        let (subject, preview) = idx.make_snippets("python", "Rust is fun", "Nothing here");
+        assert!(
+            subject.is_none(),
+            "subject must be None when query term absent"
+        );
+        assert!(
+            preview.is_none(),
+            "preview must be None when query term absent"
+        );
+    }
+
+    #[test]
+    fn jmap_highlight_wraps_ranges_with_asterisks() {
+        // Oracle: fragment "hello world", highlighted range [6..11] = "world".
+        // Result must be "hello *world*".
+        let snippet = tantivy::Snippet::empty();
+        // Build a real snippet by calling SnippetGenerator directly.
+        let cfg = test_config();
+        let idx = TantivySearchIndex::open_in_memory(&cfg).expect("open");
+        let (subject_snip, _) = idx.make_snippets("world", "hello world", "");
+        let s = subject_snip.expect("snippet must be Some");
+        assert!(
+            s.contains("*world*"),
+            "asterisk highlighting must wrap 'world'; got: {s}"
+        );
+        drop(snippet); // satisfy compiler: snippet is used above
     }
 
     #[tokio::test]
