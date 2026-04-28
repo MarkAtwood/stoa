@@ -4,6 +4,37 @@
 //! and exposes the `IpfsStore` trait.  All S3, Azure, and GCS backends share
 //! this implementation; each backend module provides only a constructor.
 
+/// Implement `IpfsStore` for a newtype wrapper `$t` whose first field (`self.0`)
+/// is an `ObjectStoreBackend`.  Eliminates the otherwise-identical 3-method
+/// delegation in every object-store backend module.
+#[macro_export]
+macro_rules! impl_ipfs_store_via_inner {
+    ($t:ty) => {
+        #[async_trait::async_trait]
+        impl crate::peering::pipeline::IpfsStore for $t {
+            async fn put_raw(
+                &self,
+                data: &[u8],
+            ) -> Result<cid::Cid, crate::peering::pipeline::IpfsError> {
+                self.0.put_raw(data).await
+            }
+            async fn get_raw(
+                &self,
+                cid: &cid::Cid,
+            ) -> Result<Option<Vec<u8>>, crate::peering::pipeline::IpfsError> {
+                self.0.get_raw(cid).await
+            }
+            async fn delete(
+                &self,
+                cid: &cid::Cid,
+            ) -> Result<stoa_core::ipfs::DeletionOutcome, crate::peering::pipeline::IpfsError>
+            {
+                self.0.delete(cid).await
+            }
+        }
+    };
+}
+
 use async_trait::async_trait;
 use bytes::Bytes;
 use cid::Cid;
@@ -30,7 +61,8 @@ impl ObjectStoreBackend {
     /// Construct with an already-built `ObjectStore`.
     ///
     /// `prefix` defaults to `"blocks"` if `None`.
-    /// Intended for unit tests; production constructors live in the backend modules.
+    /// This is the canonical construction path; backend modules (S3, Azure, GCS)
+    /// build their `ObjectStore` and then call this constructor.
     pub fn new_with_store(store: Arc<dyn ObjectStore>, prefix: Option<&str>) -> Self {
         let raw = prefix.unwrap_or("blocks");
         Self {

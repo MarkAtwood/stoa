@@ -4,6 +4,44 @@
 //! exposes the `IpfsBlockStore` trait.  S3, Azure, and GCS backends share
 //! this implementation; each provides only a constructor.
 
+/// Implement `IpfsBlockStore` for a newtype wrapper `$t` whose first field
+/// (`self.0`) is an `ObjectStoreBlockBackend`.  Eliminates the otherwise-identical
+/// 4-method delegation in every object-store backend module.
+#[macro_export]
+macro_rules! impl_ipfs_block_store_via_inner {
+    ($t:ty) => {
+        #[async_trait::async_trait]
+        impl crate::post::ipfs_write::IpfsBlockStore for $t {
+            async fn put_raw(
+                &self,
+                data: &[u8],
+            ) -> Result<cid::Cid, crate::post::ipfs_write::IpfsWriteError> {
+                self.0.put_raw(data).await
+            }
+            async fn put_block(
+                &self,
+                cid: cid::Cid,
+                data: Vec<u8>,
+            ) -> Result<(), crate::post::ipfs_write::IpfsWriteError> {
+                self.0.put_block(cid, data).await
+            }
+            async fn get_raw(
+                &self,
+                cid: &cid::Cid,
+            ) -> Result<Vec<u8>, crate::post::ipfs_write::IpfsWriteError> {
+                self.0.get_raw(cid).await
+            }
+            async fn delete(
+                &self,
+                cid: &cid::Cid,
+            ) -> Result<stoa_core::ipfs::DeletionOutcome, crate::post::ipfs_write::IpfsWriteError>
+            {
+                self.0.delete(cid).await
+            }
+        }
+    };
+}
+
 use async_trait::async_trait;
 use bytes::Bytes;
 use cid::Cid;

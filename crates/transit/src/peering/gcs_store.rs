@@ -13,7 +13,6 @@ use stoa_core::ipfs_backend::GcsBackendConfig;
 use stoa_core::secret::resolve_secret_uri;
 
 use crate::peering::object_store_backend::ObjectStoreBackend;
-use crate::peering::pipeline::IpfsStore;
 
 /// IPFS block store backed by Google Cloud Storage.
 ///
@@ -57,22 +56,5 @@ impl GcsStore {
     }
 }
 
-#[async_trait::async_trait]
-impl IpfsStore for GcsStore {
-    async fn put_raw(&self, data: &[u8]) -> Result<cid::Cid, crate::peering::pipeline::IpfsError> {
-        self.0.put_raw(data).await
-    }
-    async fn get_raw(
-        &self,
-        cid: &cid::Cid,
-    ) -> Result<Option<Vec<u8>>, crate::peering::pipeline::IpfsError> {
-        self.0.get_raw(cid).await
-    }
-    async fn delete(
-        &self,
-        cid: &cid::Cid,
-    ) -> Result<stoa_core::ipfs::DeletionOutcome, crate::peering::pipeline::IpfsError> {
-        self.0.delete(cid).await
-    }
-}
+crate::impl_ipfs_store_via_inner!(GcsStore);
 

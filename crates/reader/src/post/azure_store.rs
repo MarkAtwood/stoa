@@ -9,7 +9,6 @@ use std::sync::Arc;
 use stoa_core::ipfs_backend::AzureBackendConfig;
 use stoa_core::secret::resolve_secret_uri;
 
-use crate::post::ipfs_write::{IpfsBlockStore, IpfsWriteError};
 use crate::post::object_store_backend::ObjectStoreBlockBackend;
 
 /// IPFS block store backed by Azure Blob Storage.
@@ -64,29 +63,13 @@ impl AzureBlockStore {
     }
 }
 
-#[async_trait::async_trait]
-impl IpfsBlockStore for AzureBlockStore {
-    async fn put_raw(&self, data: &[u8]) -> Result<cid::Cid, IpfsWriteError> {
-        self.0.put_raw(data).await
-    }
-    async fn put_block(&self, cid: cid::Cid, data: Vec<u8>) -> Result<(), IpfsWriteError> {
-        self.0.put_block(cid, data).await
-    }
-    async fn get_raw(&self, cid: &cid::Cid) -> Result<Vec<u8>, IpfsWriteError> {
-        self.0.get_raw(cid).await
-    }
-    async fn delete(
-        &self,
-        cid: &cid::Cid,
-    ) -> Result<stoa_core::ipfs::DeletionOutcome, IpfsWriteError> {
-        self.0.delete(cid).await
-    }
-}
+crate::impl_ipfs_block_store_via_inner!(AzureBlockStore);
 
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::post::ipfs_write::{IpfsBlockStore, IpfsWriteError};
     use object_store::memory::InMemory;
     use stoa_core::ipfs::DeletionOutcome;
 
