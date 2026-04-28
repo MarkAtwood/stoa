@@ -38,10 +38,10 @@ impl ObjectStoreBlockBackend {
         OPath::from(format!("{}/{}", self.prefix, cid))
     }
 
-    pub(crate) async fn put_object(&self, cid: &Cid, data: &[u8]) -> Result<(), IpfsWriteError> {
+    pub(crate) async fn put_object(&self, cid: &Cid, data: Bytes) -> Result<(), IpfsWriteError> {
         let path = self.block_path(cid);
         self.store
-            .put(&path, PutPayload::from(Bytes::copy_from_slice(data)))
+            .put(&path, PutPayload::from(data))
             .await
             .map_err(|e| IpfsWriteError::WriteFailed(e.to_string()))?;
         Ok(())
@@ -53,7 +53,7 @@ impl IpfsBlockStore for ObjectStoreBlockBackend {
     async fn put_raw(&self, data: &[u8]) -> Result<Cid, IpfsWriteError> {
         let digest = Code::Sha2_256.digest(data);
         let cid = Cid::new_v1(0x55, digest);
-        self.put_object(&cid, data).await?;
+        self.put_object(&cid, Bytes::copy_from_slice(data)).await?;
         Ok(cid)
     }
 
@@ -71,7 +71,7 @@ impl IpfsBlockStore for ObjectStoreBlockBackend {
                 "put_block: CID digest does not match data (programming error in caller)"
             );
         }
-        self.put_object(&cid, &data).await
+        self.put_object(&cid, Bytes::from(data)).await
     }
 
     async fn get_raw(&self, cid: &Cid) -> Result<Vec<u8>, IpfsWriteError> {
