@@ -17,6 +17,7 @@
 //! - `GET /ipns`             — IPNS address and latest article CID per group
 //! - `GET /version`          — binary name and semver version
 //! - `GET /groups`           — distinct group names known to this node
+//! - `GET /gc/last-run`      — last GC run report as JSON (null if no run yet)
 //! - `POST /reload`          — re-reads config and applies live-reloadable fields; returns diff
 //!
 //! ## Authorization model (v1 limitation)
@@ -55,6 +56,12 @@ pub struct AdminPools {
     /// `/healthz/ready` will call `node_id` to verify Kubo reachability.
     /// When `None` (e.g. in tests using `MemIpfsStore`) the IPFS check is skipped.
     pub ipfs_api_url: Option<String>,
+    /// Last GC run report for `GET /gc/last-run`.  Obtain via
+    /// `GcRunner::last_report_handle()` before starting the scheduler.
+    /// `None` when GC is not configured (returns `{"report":null}`).
+    pub last_gc_report: Option<
+        Arc<tokio::sync::RwLock<Option<crate::retention::gc_report::GcReport>>>,
+    >,
 }
 
 /// Start the admin HTTP server on the given address.
@@ -97,6 +104,7 @@ pub fn start_admin_server(
     let backup_dest_dir = Arc::new(pools.backup_dest_dir);
     let reload_state: Option<Arc<crate::reload::ReloadableState>> = pools.reload_state;
     let ipfs_api_url = Arc::new(pools.ipfs_api_url);
+    let last_gc_report = pools.last_gc_report;
     tokio::spawn(async move {
         let listener = match tokio::net::TcpListener::bind(addr).await {
             Ok(l) => l,
@@ -120,6 +128,7 @@ pub fn start_admin_server(
                     let cert_paths = Arc::clone(&cert_paths);
                     let reload_state = reload_state.clone();
                     let ipfs_api_url = Arc::clone(&ipfs_api_url);
+                    let last_gc_report = last_gc_report.clone();
                     tokio::spawn(async move {
                         if let Err(e) = handle_admin_connection(
                             stream,
@@ -134,6 +143,7 @@ pub fn start_admin_server(
                             &cert_paths,
                             reload_state.as_deref(),
                             ipfs_api_url.as_deref(),
+                            last_gc_report.as_ref(),
                         )
                         .await
                         {
@@ -163,6 +173,9 @@ async fn handle_admin_connection(
     cert_paths: &[String],
     reload_state: Option<&crate::reload::ReloadableState>,
     ipfs_api_url: Option<&str>,
+    last_gc_report: Option<
+        &Arc<tokio::sync::RwLock<Option<crate::retention::gc_report::GcReport>>>,
+    >,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let (pool, core_pool) = pools;
     let peer_ip = stream.peer_addr()?.ip();
@@ -545,6 +558,21 @@ async fn handle_admin_connection(
                 "tls_certs": cert_results,
             })
             .to_string();
+            write_json(&mut writer, 200, "OK", &body).await?;
+        }
+        "/gc/last-run" => {
+            let body = match last_gc_report {
+                Some(report_lock) => {
+                    let guard = report_lock.read().await;
+                    match &*guard {
+                        Some(report) => serde_json::to_string(report)
+                            .map(|s| format!("{{\"report\":{s}}}"))
+                            .unwrap_or_else(|_| r#"{"error":"serialize error"}"#.to_string()),
+                        None => r#"{"report":null}"#.to_string(),
+                    }
+                }
+                None => r#"{"report":null}"#.to_string(),
+            };
             write_json(&mut writer, 200, "OK", &body).await?;
         }
         path if path.starts_with("/peers/") && path.ends_with("/ping") => {

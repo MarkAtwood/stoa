@@ -451,6 +451,11 @@ pub struct PinningConfig {
 pub struct GcConfig {
     pub schedule: String,
     pub max_age_days: u64,
+    /// Directory where per-run GC reports are written as JSON files.
+    /// Defaults to `None` (no files written).  The directory is created at
+    /// startup if it does not exist.
+    #[serde(default)]
+    pub report_dir: Option<String>,
 }
 
 /// Peering session tuning parameters.

@@ -1164,6 +1164,38 @@ async fn main() {
     };
     info!(addr = %config.listen.addr, "peering TCP listener bound");
 
+    // ── GC runner (pre-constructed for admin last_report handle) ─────────────
+    // Build the runner before the admin server so its last_report handle can
+    // be wired into `GET /gc/last-run`.  The runner is moved into
+    // start_gc_scheduler below.
+    let gc_pre_pin_rules: Vec<PinRule> = gc_pinning_rules
+        .iter()
+        .filter_map(|r| match r.as_str() {
+            "pin-all" => Some(PinRule {
+                groups: "all".to_string(),
+                max_age_days: Some(gc_max_age_days),
+                max_article_bytes: None,
+                action: "pin".to_string(),
+            }),
+            other => {
+                warn!(rule = other, "GC: unrecognised pinning rule, ignored");
+                None
+            }
+        })
+        .collect();
+    let (gc_runner_pre, gc_last_report) =
+        if gc_kubo_url.is_some() && !gc_pre_pin_rules.is_empty() {
+            let policy = PinPolicy::new(gc_pre_pin_rules.clone());
+            let pin_client = HttpPinClient::new(gc_kubo_url.as_deref().unwrap().to_string());
+            let gc_metrics = GcMetrics::new();
+            let runner = GcRunner::new(pin_client, policy, gc_metrics)
+                .with_report_dir(config.gc.report_dir.clone());
+            let handle = runner.last_report_handle();
+            (Some(runner), Some(handle))
+        } else {
+            (None, None)
+        };
+
     // ── Admin HTTP server (5vc) ───────────────────────────────────────────────
 
     match config.admin.addr.parse::<std::net::SocketAddr>() {
@@ -1194,6 +1226,7 @@ async fn main() {
                     backup_dest_dir: config.backup.dest_dir.clone(),
                     reload_state: Some(Arc::clone(&reload_state)),
                     ipfs_api_url: Some(config.ipfs.api_url.clone()),
+                    last_gc_report: gc_last_report,
                 },
                 start_time,
                 admin_bearer_token,
@@ -1244,67 +1277,36 @@ async fn main() {
     // PG deployments use pg_try_advisory_lock(GC_ADVISORY_LOCK_ID) so that
     // exactly one instance runs GC at a time.
 
-    if let Some(kubo_url) = gc_kubo_url {
-        // Build pin policy: each "pin-all" rule retains articles up to
-        // max_age_days; articles older than that become GC candidates.
-        let pin_rules: Vec<PinRule> = gc_pinning_rules
-            .iter()
-            .filter_map(|r| match r.as_str() {
-                "pin-all" => Some(PinRule {
-                    groups: "all".to_string(),
-                    max_age_days: Some(gc_max_age_days),
-                    max_article_bytes: None,
-                    action: "pin".to_string(),
-                }),
-                other => {
-                    warn!(rule = other, "GC: unrecognised pinning rule, ignored");
-                    None
-                }
-            })
-            .collect();
+    if let Some(runner) = gc_runner_pre {
+        let policy_for_candidates = PinPolicy::new(gc_pre_pin_rules);
+        let gc_transit = Arc::clone(&transit_pool);
+        let grace_ms = gc_max_age_days.saturating_mul(24 * 60 * 60 * 1000);
 
-        if !pin_rules.is_empty() {
-            let policy = PinPolicy::new(pin_rules);
-            let policy_for_candidates = policy.clone();
-            let pin_client = HttpPinClient::new(kubo_url);
-            let gc_metrics = GcMetrics::new();
-            let runner = GcRunner::new(pin_client, policy, Arc::clone(&gc_metrics));
+        let candidates_fn = move || {
+            let pool = Arc::clone(&gc_transit);
+            let pol = policy_for_candidates.clone();
+            async move {
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis() as u64;
+                select_gc_candidates(&pool, &pol, now, grace_ms)
+                    .await
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(Into::into)
+                    .collect()
+            }
+        };
 
-            let gc_transit = Arc::clone(&transit_pool);
-            let grace_ms = gc_max_age_days.saturating_mul(24 * 60 * 60 * 1000);
+        let gc_lock = if db_url_is_pg {
+            Some((*transit_pool).clone())
+        } else {
+            None
+        };
 
-            let candidates_fn = move || {
-                let pool = Arc::clone(&gc_transit);
-                let pol = policy_for_candidates.clone();
-                async move {
-                    let now = std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap_or_default()
-                        .as_millis() as u64;
-                    select_gc_candidates(&pool, &pol, now, grace_ms)
-                        .await
-                        .unwrap_or_default()
-                        .into_iter()
-                        .map(Into::into)
-                        .collect()
-                }
-            };
-
-            let gc_lock = if db_url_is_pg {
-                Some((*transit_pool).clone())
-            } else {
-                None
-            };
-
-            start_gc_scheduler(
-                runner,
-                Duration::from_secs(3600),
-                candidates_fn,
-                gc_lock,
-            )
-            .await;
-            info!(interval_secs = 3600, "GC scheduler started");
-        }
+        start_gc_scheduler(runner, Duration::from_secs(3600), candidates_fn, gc_lock).await;
+        info!(interval_secs = 3600, "GC scheduler started");
     }
 
     // ── SIGHUP config reload ──────────────────────────────────────────────────

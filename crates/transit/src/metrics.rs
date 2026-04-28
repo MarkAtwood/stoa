@@ -28,6 +28,27 @@ lazy_static::lazy_static! {
         )
         .expect("failed to register gc_articles_unpinned_total");
 
+    pub static ref GC_RUNS_TOTAL: prometheus::IntCounter =
+        register_int_counter!(
+            "gc_runs_total",
+            "Total number of GC runs completed (including no-op runs)"
+        )
+        .expect("failed to register gc_runs_total");
+
+    pub static ref GC_ARTICLES_DELETED_TOTAL: prometheus::IntCounter =
+        register_int_counter!(
+            "gc_articles_deleted_total",
+            "Total number of articles deleted (unpinned) by GC runs"
+        )
+        .expect("failed to register gc_articles_deleted_total");
+
+    pub static ref GC_BYTES_RECLAIMED_TOTAL: prometheus::IntCounter =
+        register_int_counter!(
+            "gc_bytes_reclaimed_total",
+            "Total bytes reclaimed by GC runs (sum of deleted article byte_count)"
+        )
+        .expect("failed to register gc_bytes_reclaimed_total");
+
     pub static ref GOSSIP_MESSAGES_PUBLISHED_TOTAL: prometheus::IntCounter =
         register_int_counter!(
             "gossip_messages_published_total",
@@ -204,6 +225,9 @@ pub fn gather_metrics() -> String {
     lazy_static::initialize(&ARTICLES_INGESTED_TOTAL);
     lazy_static::initialize(&IPFS_WRITE_LATENCY_SECONDS);
     lazy_static::initialize(&GC_ARTICLES_UNPINNED_TOTAL);
+    lazy_static::initialize(&GC_RUNS_TOTAL);
+    lazy_static::initialize(&GC_ARTICLES_DELETED_TOTAL);
+    lazy_static::initialize(&GC_BYTES_RECLAIMED_TOTAL);
     lazy_static::initialize(&GOSSIP_MESSAGES_PUBLISHED_TOTAL);
     lazy_static::initialize(&GOSSIP_MESSAGES_DROPPED_TOTAL);
     lazy_static::initialize(&PEER_CONNECTIONS_ACTIVE);

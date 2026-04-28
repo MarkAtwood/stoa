@@ -104,6 +104,10 @@ pub struct GcRunner<P: PinClient> {
     pin_client: P,
     policy: PinPolicy,
     metrics: Arc<GcMetrics>,
+    /// Directory for per-run JSON report files.  `None` disables file writing.
+    report_dir: Option<String>,
+    /// Last completed GC report.  Shared with the admin endpoint.
+    last_report: Arc<tokio::sync::RwLock<Option<crate::retention::gc_report::GcReport>>>,
 }
 
 impl<P: PinClient> GcRunner<P> {
@@ -112,7 +116,25 @@ impl<P: PinClient> GcRunner<P> {
             pin_client,
             policy,
             metrics,
+            report_dir: None,
+            last_report: Arc::new(tokio::sync::RwLock::new(None)),
         }
+    }
+
+    /// Configure the report directory and return `self` (builder pattern).
+    pub fn with_report_dir(mut self, dir: Option<String>) -> Self {
+        self.report_dir = dir;
+        self
+    }
+
+    /// Return a clone of the shared last-report handle.
+    ///
+    /// Pass this to `AdminPools.last_gc_report` so `GET /admin/gc/last-run`
+    /// can return the most recent report without reading a file.
+    pub fn last_report_handle(
+        &self,
+    ) -> Arc<tokio::sync::RwLock<Option<crate::retention::gc_report::GcReport>>> {
+        Arc::clone(&self.last_report)
     }
 
     /// Run one GC pass over `candidates`.
@@ -121,11 +143,32 @@ impl<P: PinClient> GcRunner<P> {
     /// article should NOT be pinned, calls `unpin()`. Errors from `unpin()`
     /// are logged as warnings and do not abort the GC run.
     ///
+    /// After the pass, builds a [`GcReport`], stores it as the last-run report,
+    /// optionally writes it to the configured report directory, and emits a
+    /// structured INFO log event (`event=gc_complete`).
+    ///
     /// Returns the count of articles unpinned in this run.
+    ///
+    /// [`GcReport`]: crate::retention::gc_report::GcReport
     pub async fn run_once(&self, candidates: &[GcCandidate], now_ms: u64) -> u64 {
+        use crate::retention::gc_report::{GcReport, GcReportError, ms_to_iso8601, new_run_id};
+
+        let started_at = ms_to_iso8601(now_ms);
+        let run_id = new_run_id();
         let start = std::time::Instant::now();
         let ms_per_day = 24u64 * 60 * 60 * 1000;
         let mut unpinned = 0u64;
+        let mut bytes_reclaimed = 0u64;
+        let mut errors: Vec<GcReportError> = Vec::new();
+
+        // Count distinct groups in the candidate set.
+        let groups_scanned = {
+            let mut seen = std::collections::HashSet::new();
+            for c in candidates {
+                seen.insert(c.group.as_str());
+            }
+            seen.len()
+        };
 
         for candidate in candidates {
             let age_days = now_ms
@@ -146,18 +189,26 @@ impl<P: PinClient> GcRunner<P> {
                             "GC: unpinned article"
                         );
                         unpinned += 1;
+                        bytes_reclaimed += candidate.byte_count as u64;
                     }
                     Err(e) => {
                         tracing::warn!(
                             cid = %candidate.cid,
                             "GC: unpin failed: {e}"
                         );
+                        errors.push(GcReportError {
+                            cid: candidate.cid.to_string(),
+                            reason: e.to_string(),
+                        });
                     }
                 }
             }
         }
 
         let elapsed_ms = start.elapsed().as_millis() as u64;
+        let completed_at_ms = now_ms + elapsed_ms;
+        let completed_at = ms_to_iso8601(completed_at_ms);
+
         self.metrics
             .gc_articles_unpinned_total
             .fetch_add(unpinned, Ordering::Relaxed);
@@ -165,7 +216,43 @@ impl<P: PinClient> GcRunner<P> {
             .last_run_duration_ms
             .store(elapsed_ms, Ordering::Relaxed);
 
-        tracing::info!(unpinned, elapsed_ms, "GC run complete");
+        // Update global Prometheus counters.
+        crate::metrics::GC_RUNS_TOTAL.inc();
+        crate::metrics::GC_ARTICLES_DELETED_TOTAL.inc_by(unpinned);
+        crate::metrics::GC_BYTES_RECLAIMED_TOTAL.inc_by(bytes_reclaimed);
+
+        let policy_desc = format!("{} pin rule(s)", self.policy.rule_count());
+        let report = GcReport {
+            run_id,
+            started_at,
+            completed_at,
+            policy: policy_desc,
+            groups_scanned,
+            articles_evaluated: candidates.len(),
+            articles_deleted: unpinned as usize,
+            bytes_reclaimed,
+            errors,
+        };
+
+        tracing::info!(
+            event = "gc_complete",
+            run_id = %report.run_id,
+            groups_scanned,
+            articles_evaluated = candidates.len(),
+            articles_deleted = unpinned,
+            bytes_reclaimed,
+            elapsed_ms,
+            "GC run complete"
+        );
+
+        // Write report to file (if configured).
+        if let Some(ref dir) = self.report_dir {
+            report.write_to_dir(dir).await;
+        }
+
+        // Update in-memory last-run report.
+        *self.last_report.write().await = Some(report);
+
         unpinned
     }
 
@@ -343,5 +430,104 @@ mod tests {
         let text = runner.prometheus_text();
         assert!(text.contains("gc_articles_unpinned_total"));
         assert!(text.contains("gc_last_run_duration_ms"));
+    }
+
+    // ── Retention reporting tests (usenet-ipfs-dlug) ──────────────────────────
+
+    /// After a GC run that deletes articles, `last_report_handle` holds a report
+    /// with `articles_deleted` equal to the unpin count.
+    #[tokio::test]
+    async fn gc_last_report_populated_after_delete_run() {
+        let pin_client = MemPinClient::new();
+        let candidates: Vec<GcCandidate> = (0..3)
+            .map(|i| make_candidate(i, "comp.lang.rust", 60))
+            .collect();
+        for c in &candidates {
+            pin_client.pin(&c.cid).await.unwrap();
+        }
+
+        let metrics = GcMetrics::new();
+        // Policy: pin sci.math only → all comp.lang.rust articles unpinned.
+        let runner = GcRunner::new(pin_client, pin_sci_math(), metrics);
+        let handle = runner.last_report_handle();
+
+        assert!(
+            handle.read().await.is_none(),
+            "report must be None before first run"
+        );
+
+        runner.run_once(&candidates, NOW_MS).await;
+
+        let report = handle.read().await;
+        let report = report.as_ref().expect("report must be Some after run");
+        assert_eq!(report.articles_deleted, 3, "must record 3 deletions");
+        assert_eq!(report.articles_evaluated, 3);
+        assert!(!report.run_id.is_empty(), "run_id must be populated");
+        assert!(
+            report.started_at.ends_with('Z'),
+            "started_at must be ISO 8601 UTC"
+        );
+    }
+
+    /// A GC run that deletes nothing still writes a report with `articles_deleted=0`.
+    #[tokio::test]
+    async fn gc_last_report_written_when_nothing_deleted() {
+        let pin_client = MemPinClient::new();
+        let candidates: Vec<GcCandidate> = (0..2)
+            .map(|i| make_candidate(i, "sci.math", 0))
+            .collect();
+        for c in &candidates {
+            pin_client.pin(&c.cid).await.unwrap();
+        }
+
+        let metrics = GcMetrics::new();
+        // Policy pins sci.math → nothing deleted.
+        let runner = GcRunner::new(pin_client, pin_sci_math(), metrics);
+        let handle = runner.last_report_handle();
+
+        runner.run_once(&candidates, NOW_MS).await;
+
+        let report = handle.read().await;
+        let report = report.as_ref().expect("report must be Some even with zero deletions");
+        assert_eq!(
+            report.articles_deleted, 0,
+            "zero-delete run must record articles_deleted=0"
+        );
+        assert_eq!(report.articles_evaluated, 2);
+        assert!(report.errors.is_empty(), "no errors expected");
+    }
+
+    /// `with_report_dir` causes a JSON file to be written to the configured directory.
+    #[tokio::test]
+    async fn gc_run_writes_report_file_to_dir() {
+        let pin_client = MemPinClient::new();
+        let candidates: Vec<GcCandidate> = vec![make_candidate(0, "comp.lang.rust", 60)];
+        pin_client.pin(&candidates[0].cid).await.unwrap();
+
+        let tmp = tempfile::TempDir::new().expect("tempdir");
+        let dir = tmp.path().to_str().unwrap().to_string();
+
+        let metrics = GcMetrics::new();
+        let runner = GcRunner::new(pin_client, pin_sci_math(), metrics)
+            .with_report_dir(Some(dir.clone()));
+
+        runner.run_once(&candidates, NOW_MS).await;
+
+        let mut entries = tokio::fs::read_dir(&dir).await.expect("readdir");
+        let entry = entries
+            .next_entry()
+            .await
+            .expect("ok")
+            .expect("report file must exist");
+        let name = entry.file_name().to_string_lossy().to_string();
+        assert!(name.ends_with(".json"), "report file must have .json extension: {name}");
+        let content = tokio::fs::read_to_string(entry.path())
+            .await
+            .expect("read report file");
+        let v: serde_json::Value = serde_json::from_str(&content).expect("valid JSON");
+        assert_eq!(
+            v["articles_deleted"], 1,
+            "report must record 1 deletion: {content}"
+        );
     }
 }

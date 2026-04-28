@@ -83,6 +83,11 @@ impl PinPolicy {
         Self { rules }
     }
 
+    /// Return the number of rules in this policy.
+    pub fn rule_count(&self) -> usize {
+        self.rules.len()
+    }
+
     /// Returns `true` if the article described by `meta` should be pinned.
     ///
     /// `meta.group` may be a comma-separated list of newsgroup names as it
