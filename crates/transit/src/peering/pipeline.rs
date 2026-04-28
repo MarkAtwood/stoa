@@ -285,6 +285,19 @@ pub async fn build_store(config: &crate::config::Config) -> Result<StoreBuildRes
                     kubo_client: None,
                 })
             }
+            BackendType::WebDav => {
+                let webdav_cfg = backend
+                    .webdav
+                    .as_ref()
+                    .ok_or("backend.type = 'web_dav' requires a [backend.webdav] section")?;
+                let store = super::webdav_store::WebDavStore::new(webdav_cfg)
+                    .await
+                    .map_err(|e| format!("WebDAV store init failed: {e}"))?;
+                Ok(StoreBuildResult {
+                    store: Arc::new(store),
+                    kubo_client: None,
+                })
+            }
         }
     } else {
         // Backward-compat: use legacy [ipfs] section.

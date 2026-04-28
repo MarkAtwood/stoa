@@ -10,6 +10,7 @@ pub mod sqlite_store;
 pub mod s3_store;
 pub mod azure_store;
 pub mod gcs_store;
+pub mod webdav_store;
 pub mod pipeline;
 pub mod sign;
 pub mod smtp_relay;

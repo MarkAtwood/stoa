@@ -7,6 +7,7 @@ use std::path::Path;
 pub use stoa_core::ipfs_backend::{
     AzureBackendConfig, BackendConfig, BackendType, FsBackendConfig, GcsBackendConfig,
     KuboBackendConfig, LmdbBackendConfig, S3BackendConfig, SqliteBackendConfig,
+    WebDavBackendConfig,
 };
 
 /// Default hostname for the NNTP Path: header injected on POST.
@@ -646,6 +647,34 @@ impl Config {
                                 "backend.gcs.service_account_key must be a JSON object \
                                  starting with '{' or a secretx:// URI".into(),
                             ));
+                        }
+                    }
+                }
+                BackendType::WebDav => {
+                    let webdav = backend.webdav.as_ref().ok_or_else(|| {
+                        ConfigError::Validation(
+                            "backend.type = 'web_dav' requires a [backend.webdav] section".into(),
+                        )
+                    })?;
+                    if webdav.url.is_empty() {
+                        return Err(ConfigError::Validation(
+                            "backend.webdav.url must not be empty".into(),
+                        ));
+                    }
+                    if !webdav.allow_http.unwrap_or(false) && webdav.url.starts_with("http://") {
+                        return Err(ConfigError::Validation(
+                            "backend.webdav.url uses plain HTTP; set allow_http = true to \
+                             permit (not recommended when credentials are configured)"
+                                .into(),
+                        ));
+                    }
+                    if let Some(v) = webdav.password.as_deref() {
+                        if v.starts_with("secretx:") {
+                            if let Err(e) = secretx::from_uri(v) {
+                                return Err(ConfigError::Validation(format!(
+                                    "backend.webdav.password: invalid secretx URI: {e}"
+                                )));
+                            }
                         }
                     }
                 }
@@ -1416,6 +1445,157 @@ service_account_key = "{}"
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
         );
+    }
+
+    /// [backend] with type = "web_dav" and a [backend.webdav] section parses and validates.
+    #[test]
+    fn backend_webdav_section_parses() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "web_dav"
+
+[backend.webdav]
+url = "https://dav.example.com/stoa/blocks"
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("webdav backend config must parse");
+        let backend = cfg.backend.as_ref().expect("backend must be set");
+        assert!(matches!(backend.backend_type, BackendType::WebDav));
+        assert_eq!(
+            backend.webdav.as_ref().map(|w| w.url.as_str()),
+            Some("https://dav.example.com/stoa/blocks")
+        );
+    }
+
+    /// [backend] with type = "web_dav" but no [backend.webdav] section is rejected.
+    #[test]
+    fn backend_webdav_without_subsection_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "web_dav"
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("web_dav without subsection must fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend.webdav] with empty url is rejected.
+    #[test]
+    fn backend_webdav_empty_url_rejected() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "web_dav"
+
+[backend.webdav]
+url = ""
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("empty url must fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend.webdav] with http:// url and no allow_http is rejected.
+    #[test]
+    fn backend_webdav_http_url_without_allow_http_rejected() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "web_dav"
+
+[backend.webdav]
+url = "http://dav.example.com/stoa/blocks"
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("http:// without allow_http must fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend.webdav] with http:// url and allow_http = true is accepted.
+    #[test]
+    fn backend_webdav_http_url_with_allow_http_accepted() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "web_dav"
+
+[backend.webdav]
+url = "http://127.0.0.1:8080/stoa/blocks"
+allow_http = true
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("webdav with allow_http must parse");
+        let backend = cfg.backend.as_ref().expect("backend must be set");
+        assert!(matches!(backend.backend_type, BackendType::WebDav));
     }
 
     /// [backend] with type = "filesystem" and a [backend.filesystem] section parses and validates.

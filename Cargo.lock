@@ -4247,6 +4247,7 @@ dependencies = [
  "object_store",
  "prometheus",
  "rcgen",
+ "reqwest",
  "rustls",
  "rustls-pemfile",
  "secretx",

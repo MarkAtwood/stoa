@@ -48,7 +48,8 @@ serde_ipld_dagcbor = "=0.6.4"
 stoa-lmdb = { path = "../lmdb" }
 tantivy = "0.22"
 chrono = "0.4"
-object_store = { version = "0.12", features = ["aws", "azure", "gcp"] }
+object_store = { version = "0.12", features = ["aws", "azure", "gcp", "http"] }
+reqwest = { version = "0.12", default-features = false }
 bytes = "1.11.1"
 
 [[bench]]

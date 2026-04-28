@@ -309,6 +309,16 @@ pub async fn build_block_store(
                 .map_err(|e| format!("filesystem store init failed: {e}"))?;
                 Ok(Arc::new(store))
             }
+            BackendType::WebDav => {
+                let webdav_cfg = backend
+                    .webdav
+                    .as_ref()
+                    .ok_or("backend.type = 'web_dav' requires a [backend.webdav] section")?;
+                let store = super::webdav_store::WebDavBlockStore::new(webdav_cfg)
+                    .await
+                    .map_err(|e| format!("WebDAV store init failed: {e}"))?;
+                Ok(Arc::new(store))
+            }
         }
     } else {
         // Backward-compat: use legacy [ipfs] section.

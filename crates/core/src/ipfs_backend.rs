@@ -31,6 +31,9 @@ pub struct BackendConfig {
     /// Google Cloud Storage settings.  Required when `type = "gcs"`.
     #[serde(default)]
     pub gcs: Option<GcsBackendConfig>,
+    /// WebDAV settings.  Required when `type = "webdav"`.
+    #[serde(default)]
+    pub webdav: Option<WebDavBackendConfig>,
     /// Filesystem-specific settings.  Required when `type = "filesystem"`.
     #[serde(default)]
     pub filesystem: Option<FsBackendConfig>,
@@ -50,6 +53,7 @@ pub enum BackendType {
     S3,
     Azure,
     Gcs,
+    WebDav,
     Filesystem,
     Lmdb,
     Sqlite,
@@ -243,6 +247,46 @@ pub struct GcsBackendConfig {
     /// Object key prefix.  Defaults to `"blocks"`.
     #[serde(default)]
     pub prefix: Option<String>,
+}
+
+/// Configuration for the WebDAV block storage backend.
+///
+/// ## Object layout
+///
+/// Blocks are stored at `<url>/<cid-base32-lowercase>`.  The server must
+/// support HTTP PUT, GET, and DELETE on the resource path.  Any WebDAV server
+/// (Nextcloud, Synology, Hetzner Storage Box, nginx with mod_dav, wsgidav)
+/// works; standard HTTP file servers that accept PUT/GET/DELETE also work.
+///
+/// ## Credentials
+///
+/// Set `username` and `password` for HTTP Basic Authentication.
+/// `password` accepts a literal value or a `secretx://` URI.
+/// Omit both to make unauthenticated requests (suitable for local or
+/// loopback-only servers).
+///
+/// ## TLS
+///
+/// TLS is used automatically when the URL begins with `https://`.
+/// Set `allow_http = true` to permit `http://` URLs; otherwise an `http://`
+/// URL is rejected at startup to prevent accidental credential exposure.
+#[derive(Debug, Deserialize, Clone)]
+pub struct WebDavBackendConfig {
+    /// Base URL of the WebDAV collection.  The CID is appended as a path
+    /// segment: `<url>/<cid>`.  Must end without a trailing slash.
+    /// Example: `"https://dav.example.com/stoa/blocks"`.
+    pub url: String,
+    /// HTTP Basic Auth username.
+    #[serde(default)]
+    pub username: Option<String>,
+    /// HTTP Basic Auth password.  Literal value or `secretx://` URI.
+    #[serde(default)]
+    pub password: Option<String>,
+    /// Allow plain HTTP connections.  Defaults to `false`.
+    /// Set `true` only for loopback/LAN servers; never use `true` in
+    /// production when credentials are configured.
+    #[serde(default)]
+    pub allow_http: Option<bool>,
 }
 
 /// Configuration for the SQLite BLOB block store backend.
