@@ -32,6 +32,8 @@ impl Dispatcher {
         let mut method_responses = Vec::new();
 
         for Invocation(method_name, args, call_id) in request.method_calls {
+            let _span =
+                tracing::info_span!("jmap.method", method = %method_name).entered();
             let response_invocation = match self.handlers.get(&method_name) {
                 Some(handler) => match handler(args) {
                     Ok(result) => Invocation(method_name, result, call_id),

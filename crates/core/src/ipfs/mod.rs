@@ -112,6 +112,7 @@ impl KuboHttpClient {
     /// - `0x71` — DAG-CBOR (IPLD article nodes from `build_article`)
     ///
     /// The local CID is computed and verified against Kubo's response.
+    #[tracing::instrument(skip(self, data), fields(codec, cid = tracing::field::Empty))]
     pub async fn block_put(&self, data: &[u8], codec: u64) -> Result<Cid, KuboError> {
         let codec_name = match codec {
             0x55 => "raw",
@@ -122,6 +123,7 @@ impl KuboHttpClient {
         // Compute the expected CID locally so we can verify the round-trip.
         let digest = Code::Sha2_256.digest(data);
         let expected_cid = Cid::new_v1(codec, digest);
+        tracing::Span::current().record("cid", expected_cid.to_string().as_str());
 
         let part = reqwest::multipart::Part::bytes(data.to_vec());
         let form = reqwest::multipart::Form::new().part("data", part);
@@ -161,6 +163,7 @@ impl KuboHttpClient {
     /// Returns `None` if the block is not available locally in the Kubo node
     /// (not pinned, not yet retrieved from the network). Returns `Err` on
     /// network or Kubo API errors.
+    #[tracing::instrument(skip(self), fields(cid = %cid))]
     pub async fn block_get(&self, cid: &Cid) -> Result<Option<Vec<u8>>, KuboError> {
         let resp = self
             .client
