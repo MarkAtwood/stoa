@@ -86,6 +86,10 @@ pub enum WildmatError {
     AllNegation,
     /// A pattern (or the bare pattern after stripping `!`) is empty.
     EmptyPattern,
+    /// The bare pattern contains a character outside `[a-z0-9+\-_.?*]`.
+    InvalidCharacter(char),
+    /// The bare pattern contains consecutive dots (`..`).
+    ConsecutiveDots,
 }
 
 impl fmt::Display for WildmatError {
@@ -97,6 +101,12 @@ impl fmt::Display for WildmatError {
                 "wildmat filter must contain at least one non-negated pattern"
             ),
             WildmatError::EmptyPattern => write!(f, "wildmat pattern must not be empty"),
+            WildmatError::InvalidCharacter(ch) => {
+                write!(f, "wildmat pattern contains invalid character '{ch}'")
+            }
+            WildmatError::ConsecutiveDots => {
+                write!(f, "wildmat pattern contains consecutive dots")
+            }
         }
     }
 }
@@ -128,6 +138,15 @@ impl WildmatPattern {
         };
         if bare_pattern.is_empty() {
             return Err(WildmatError::EmptyPattern);
+        }
+        // Character-set validation: [a-z0-9+\-_.?*] only (post-lowercasing).
+        for ch in bare_pattern.chars() {
+            if !matches!(ch, 'a'..='z' | '0'..='9' | '+' | '-' | '_' | '.' | '*' | '?') {
+                return Err(WildmatError::InvalidCharacter(ch));
+            }
+        }
+        if bare_pattern.contains("..") {
+            return Err(WildmatError::ConsecutiveDots);
         }
         Ok(WildmatPattern {
             is_negated,
@@ -387,6 +406,29 @@ mod tests {
             WildmatPattern::parse(""),
             Err(WildmatError::EmptyPattern)
         ));
+    }
+
+    #[test]
+    fn parse_invalid_character_rejected() {
+        assert!(matches!(
+            WildmatPattern::parse("comp.@invalid"),
+            Err(WildmatError::InvalidCharacter('@'))
+        ));
+    }
+
+    #[test]
+    fn parse_consecutive_dots_rejected() {
+        assert!(matches!(
+            WildmatPattern::parse("comp..lang"),
+            Err(WildmatError::ConsecutiveDots)
+        ));
+    }
+
+    #[test]
+    fn parse_uppercase_accepted_after_normalization() {
+        // Uppercase is lowercased before the charset check, so it is valid.
+        let p = WildmatPattern::parse("COMP.*").unwrap();
+        assert_eq!(p.bare_pattern, "comp.*");
     }
 
     /// Issue .9: WildmatPattern::parse must store bare_pattern pre-lowercased.

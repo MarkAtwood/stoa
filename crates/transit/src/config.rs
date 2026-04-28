@@ -778,9 +778,6 @@ impl Config {
                 "pinning.rules must not be empty; at least one pinning rule is required".into(),
             ));
         }
-        for name in &self.groups.names {
-            validate_group_pattern(name)?;
-        }
         if !self.groups.names.is_empty() {
             GroupFilter::new(&self.groups.names)
                 .map_err(|e| ConfigError::Validation(e.to_string()))?;
@@ -866,14 +863,6 @@ impl Config {
                     "pinning.external_services '{}': max_attempts must be ≥ 1",
                     svc.name
                 )));
-            }
-            for pattern in &svc.groups {
-                validate_group_pattern(pattern).map_err(|e| {
-                    ConfigError::Validation(format!(
-                        "external pin service '{}' groups: {}",
-                        svc.name, e
-                    ))
-                })?;
             }
             if !svc.groups.is_empty() {
                 GroupFilter::new(&svc.groups).map_err(|e| {
@@ -1016,35 +1005,6 @@ fn validate_cron_schedule(s: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Validates that a wildmat group pattern in `GroupsConfig::names` is syntactically
-/// valid.  Accepts an optional leading `!` (negation prefix) followed by a non-empty
-/// sequence of `[a-z0-9+\-_.?*]` characters with no consecutive dots.
-///
-/// This is intentionally more permissive than `validate_group_name`: wildcards
-/// (`*`, `?`) and the negation prefix are valid here because the value is a filter
-/// pattern rather than an article newsgroup name.
-fn validate_group_pattern(s: &str) -> Result<(), ConfigError> {
-    let bare = s.strip_prefix('!').unwrap_or(s);
-    if bare.is_empty() {
-        return Err(ConfigError::Validation(format!(
-            "group pattern '{s}' has an empty bare pattern after stripping '!'"
-        )));
-    }
-    for ch in bare.chars() {
-        if !matches!(ch, 'a'..='z' | '0'..='9' | '+' | '-' | '_' | '.' | '*' | '?') {
-            return Err(ConfigError::Validation(format!(
-                "group pattern '{s}' contains invalid character '{ch}'"
-            )));
-        }
-    }
-    if bare.contains("..") {
-        return Err(ConfigError::Validation(format!(
-            "group pattern '{s}' contains consecutive dots"
-        )));
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1142,8 +1102,11 @@ max_age_days = 30
         assert!(matches!(err, ConfigError::Validation(_)));
     }
 
+    /// Uppercase patterns in groups.names are accepted: WildmatPattern::parse
+    /// normalises to lowercase before the charset check, so "Comp.Lang.Rust"
+    /// is stored as "comp.lang.rust" and is equivalent.
     #[test]
-    fn invalid_group_name_uppercase() {
+    fn group_name_uppercase_accepted_after_normalisation() {
         let toml = r#"
 [listen]
 addr = "0.0.0.0:119"
@@ -1165,8 +1128,7 @@ schedule = "0 3 * * *"
 max_age_days = 30
 "#;
         let f = write_toml(toml);
-        let err = Config::from_file(f.path()).expect_err("should fail");
-        assert!(matches!(err, ConfigError::Validation(_)));
+        Config::from_file(f.path()).expect("uppercase group pattern must be accepted after normalisation");
     }
 
     #[test]
