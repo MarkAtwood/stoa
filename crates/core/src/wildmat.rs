@@ -80,6 +80,8 @@ fn matches_wildmat_prefolded(name: &str, pattern_bytes: &[u8]) -> bool {
 /// Error returned when a wildmat pattern or filter is invalid.
 #[derive(Debug, Clone, PartialEq)]
 pub enum WildmatError {
+    /// The pattern slice passed to [`GroupFilter::new`] was empty (no patterns at all).
+    EmptyFilter,
     /// Every pattern in the filter is a negation; at least one positive pattern is required.
     AllNegation,
     /// A pattern (or the bare pattern after stripping `!`) is empty.
@@ -89,6 +91,7 @@ pub enum WildmatError {
 impl fmt::Display for WildmatError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            WildmatError::EmptyFilter => write!(f, "wildmat filter must not be empty"),
             WildmatError::AllNegation => write!(
                 f,
                 "wildmat filter must contain at least one non-negated pattern"
@@ -140,6 +143,7 @@ impl WildmatPattern {
 /// matches the name, the name is rejected (default deny).  The filter must
 /// contain at least one non-negated pattern; a filter where every entry is
 /// negated would accept nothing and is rejected at construction time.
+#[derive(Debug, Clone)]
 pub struct GroupFilter {
     patterns: Vec<WildmatPattern>,
 }
@@ -147,8 +151,8 @@ pub struct GroupFilter {
 impl GroupFilter {
     /// Build a `GroupFilter` from a slice of raw pattern strings.
     ///
-    /// Returns `Err(AllNegation)` if the slice is empty or every parsed
-    /// pattern is negated.
+    /// Returns `Err(EmptyFilter)` if the slice is empty, or `Err(AllNegation)`
+    /// if every parsed pattern is negated.
     ///
     /// # DECISION (rbe3.10): all-negation filter rejected at construction
     ///
@@ -165,7 +169,10 @@ impl GroupFilter {
             .map(|s| WildmatPattern::parse(s.as_ref()))
             .collect();
         let patterns = patterns?;
-        if patterns.is_empty() || patterns.iter().all(|p| p.is_negated) {
+        if patterns.is_empty() {
+            return Err(WildmatError::EmptyFilter);
+        }
+        if patterns.iter().all(|p| p.is_negated) {
             return Err(WildmatError::AllNegation);
         }
         Ok(GroupFilter { patterns })
@@ -330,7 +337,7 @@ mod tests {
     fn groupfilter_empty_list_rejected() {
         assert!(matches!(
             GroupFilter::new(&[] as &[&str]),
-            Err(WildmatError::AllNegation)
+            Err(WildmatError::EmptyFilter)
         ));
     }
 
