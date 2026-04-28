@@ -52,10 +52,11 @@ chrono = "0.4"
 object_store = { version = "0.12", features = ["aws", "azure", "gcp", "http"] }
 reqwest = { version = "0.12", default-features = false }
 bytes = "1.11.1"
-opentelemetry = { version = "0.31", features = ["metrics", "trace"] }
-opentelemetry_sdk = { version = "0.31", features = ["metrics", "trace"] }
-opentelemetry-otlp = { version = "0.31", features = ["metrics", "trace", "http-proto", "reqwest-client"] }
+opentelemetry = { version = "0.31", features = ["metrics", "trace", "logs"] }
+opentelemetry_sdk = { version = "0.31", features = ["metrics", "trace", "logs"] }
+opentelemetry-otlp = { version = "0.31", features = ["metrics", "trace", "logs", "http-proto", "reqwest-client"] }
 tracing-opentelemetry = "0.32"
+opentelemetry-appender-tracing = "0.31"
 
 [[bench]]
 name = "nntp_latency"

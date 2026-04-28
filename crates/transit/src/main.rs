@@ -482,9 +482,12 @@ async fn main() {
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(&config.log.level));
 
-    let _otel_guard = stoa_transit::telemetry::init_telemetry(&config.telemetry);
+    let (_otel_guard, log_provider) = stoa_transit::telemetry::init_telemetry(&config.telemetry);
     let otel_trace_layer = tracing_opentelemetry::layer()
         .with_tracer(opentelemetry::global::tracer("stoa-transit"));
+    let otel_log_layer = log_provider.as_ref().map(|p| {
+        opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge::new(p)
+    });
 
     use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
     let (json_fmt, text_fmt) = if config.log.format == "json" {
@@ -497,6 +500,7 @@ async fn main() {
         .with(json_fmt)
         .with(text_fmt)
         .with(otel_trace_layer)
+        .with(otel_log_layer)
         .init();
 
     let check_errors = run_startup_checks(&config).await;

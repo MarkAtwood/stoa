@@ -54,6 +54,15 @@ pub struct TelemetryConfig {
     /// The Prometheus `/metrics` endpoint is unaffected by this value.
     #[serde(default = "default_trace_sample_rate")]
     pub trace_sample_rate: f64,
+
+    /// OTLP endpoint for log export (e.g. `"http://otel-collector:4318"`).
+    ///
+    /// The daemon appends `/v1/logs` to this base.  When absent, log records
+    /// are only written to stdout/stderr; they are not forwarded via OTLP.
+    /// Set to the same value as `otlp_endpoint` to co-locate log, trace, and
+    /// metric export on a single collector.
+    #[serde(default)]
+    pub logs_endpoint: Option<String>,
 }
 
 impl Default for TelemetryConfig {
@@ -63,6 +72,7 @@ impl Default for TelemetryConfig {
             otlp_headers: Vec::new(),
             metrics_push_interval_secs: default_metrics_push_interval(),
             trace_sample_rate: default_trace_sample_rate(),
+            logs_endpoint: None,
         }
     }
 }
