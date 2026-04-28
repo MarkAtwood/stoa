@@ -55,7 +55,8 @@ impl S3Store {
         ) as Arc<dyn ObjectStore>;
         let prefix = cfg.prefix.as_deref().unwrap_or("blocks").to_string();
 
-        startup_probe(&store, &prefix, &cfg.bucket, &cfg.region).await?;
+        let context = format!("S3 bucket '{}', prefix '{}', region '{}'", cfg.bucket, prefix, cfg.region);
+        super::object_store_backend::startup_probe(&store, &prefix, &context).await?;
 
         Ok(Self(ObjectStoreBackend::new_with_store(store, Some(&prefix))))
     }
@@ -85,29 +86,3 @@ impl IpfsStore for S3Store {
     }
 }
 
-/// PUT + DELETE a zero-byte probe object under the configured prefix to verify
-/// bucket access and IAM permissions before accepting articles.
-async fn startup_probe(
-    store: &Arc<dyn ObjectStore>,
-    prefix: &str,
-    bucket: &str,
-    region: &str,
-) -> Result<(), String> {
-    use object_store::{PutPayload, path::Path as OPath};
-    let probe = OPath::from(format!("{prefix}/_stoa_write_probe"));
-    store
-        .put(&probe, PutPayload::from_static(b""))
-        .await
-        .map_err(|e| {
-            format!(
-                "S3 backend startup probe failed (bucket '{bucket}', prefix '{prefix}', region '{region}'): {e}"
-            )
-        })?;
-    store.delete(&probe).await.map_err(|e| {
-        format!(
-            "S3 backend startup probe: DELETE failed (bucket '{bucket}', prefix '{prefix}', \
-             region '{region}'): {e} — verify the IAM policy grants s3:DeleteObject on this prefix"
-        )
-    })?;
-    Ok(())
-}

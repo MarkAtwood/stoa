@@ -58,7 +58,8 @@ impl AzureStore {
         ) as Arc<dyn ObjectStore>;
         let prefix = cfg.prefix.as_deref().unwrap_or("blocks").to_string();
 
-        startup_probe(&store, &prefix, &cfg.account, &cfg.container).await?;
+        let context = format!("Azure account '{}', container '{}', prefix '{}'", cfg.account, cfg.container, prefix);
+        super::object_store_backend::startup_probe(&store, &prefix, &context).await?;
 
         Ok(Self(ObjectStoreBackend::new_with_store(store, Some(&prefix))))
     }
@@ -88,28 +89,3 @@ impl IpfsStore for AzureStore {
     }
 }
 
-async fn startup_probe(
-    store: &Arc<dyn ObjectStore>,
-    prefix: &str,
-    account: &str,
-    container: &str,
-) -> Result<(), String> {
-    use object_store::{PutPayload, path::Path as OPath};
-    let probe = OPath::from(format!("{prefix}/_stoa_write_probe"));
-    store
-        .put(&probe, PutPayload::from_static(b""))
-        .await
-        .map_err(|e| {
-            format!(
-                "Azure backend startup probe failed (account '{account}', container '{container}', prefix '{prefix}'): {e}"
-            )
-        })?;
-    store.delete(&probe).await.map_err(|e| {
-        format!(
-            "Azure backend startup probe: DELETE failed (account '{account}', \
-             container '{container}', prefix '{prefix}'): {e} — \
-             verify the storage account allows delete operations on this container"
-        )
-    })?;
-    Ok(())
-}

@@ -39,7 +39,8 @@ impl GcsBlockStore {
         ) as Arc<dyn ObjectStore>;
         let prefix = cfg.prefix.as_deref().unwrap_or("blocks").to_string();
 
-        startup_probe(&store, &prefix, &cfg.bucket).await?;
+        let context = format!("GCS bucket '{}', prefix '{}'", cfg.bucket, prefix);
+        super::object_store_backend::startup_probe(&store, &prefix, &context).await?;
 
         Ok(Self(ObjectStoreBlockBackend::new_with_store(store, Some(&prefix))))
     }
@@ -67,30 +68,6 @@ impl IpfsBlockStore for GcsBlockStore {
     ) -> Result<stoa_core::ipfs::DeletionOutcome, IpfsWriteError> {
         self.0.delete(cid).await
     }
-}
-
-async fn startup_probe(
-    store: &Arc<dyn ObjectStore>,
-    prefix: &str,
-    bucket: &str,
-) -> Result<(), String> {
-    use object_store::{PutPayload, path::Path as OPath};
-    let probe = OPath::from(format!("{prefix}/_stoa_write_probe"));
-    store
-        .put(&probe, PutPayload::from_static(b""))
-        .await
-        .map_err(|e| {
-            format!(
-                "GCS backend startup probe failed (bucket '{bucket}', prefix '{prefix}'): {e}"
-            )
-        })?;
-    store.delete(&probe).await.map_err(|e| {
-        format!(
-            "GCS backend startup probe: DELETE failed (bucket '{bucket}', prefix '{prefix}'): \
-             {e} — verify the service account has storage.objects.delete on this bucket"
-        )
-    })?;
-    Ok(())
 }
 
 #[cfg(test)]

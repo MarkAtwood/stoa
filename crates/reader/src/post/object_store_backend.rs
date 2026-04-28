@@ -100,6 +100,28 @@ impl IpfsBlockStore for ObjectStoreBlockBackend {
     }
 }
 
+/// PUT + DELETE a zero-byte probe object under `{prefix}/_stoa_write_probe`.
+///
+/// `context` is a free-form string appended to error messages to identify the
+/// backend being probed (e.g. `"bucket 'my-bucket', region 'us-east-1'"`).
+pub(crate) async fn startup_probe(
+    store: &Arc<dyn ObjectStore>,
+    prefix: &str,
+    context: &str,
+) -> Result<(), String> {
+    use object_store::{PutPayload, path::Path as OPath};
+    let probe = OPath::from(format!("{prefix}/_stoa_write_probe"));
+    store
+        .put(&probe, PutPayload::from_static(b""))
+        .await
+        .map_err(|e| format!("backend startup probe: PUT failed ({context}): {e}"))?;
+    store
+        .delete(&probe)
+        .await
+        .map_err(|e| format!("backend startup probe: DELETE failed ({context}): {e} — verify write+delete permissions on this prefix"))?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
