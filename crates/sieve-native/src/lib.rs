@@ -96,6 +96,17 @@ pub fn compile(script: &[u8]) -> Result<CompiledScript, String> {
 ///   Known comparators: `"i;ascii-casemap"` and `"i;octet"`.
 /// - Regex extension: invalid regex patterns must fail the script so that
 ///   broken patterns are caught early rather than silently failing at eval time.
+///
+/// # ReDoS note
+///
+/// `fancy_regex::Regex::new` rejects syntactically invalid patterns but does
+/// **not** detect exponential-backtracking (ReDoS) patterns such as `(a+)+b`.
+/// Compile-time complexity analysis would require a heavy additional dependency
+/// that does not currently exist in Rust.  The runtime mitigation is
+/// `sieve_eval_timeout_ms` (set in the SMTP config): the evaluator is killed
+/// after the configured deadline, bounding worst-case CPU per untrusted script.
+/// Operators must set this to a reasonable value (e.g. 100 ms) when accepting
+/// scripts from untrusted sources.
 fn validate_script(script: &form::Script) -> Result<(), String> {
     for stmt in script {
         validate_stmt(stmt)?;
