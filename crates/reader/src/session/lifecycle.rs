@@ -5,7 +5,7 @@ use cid::Cid;
 use mailparse::parse_headers;
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
-use tracing::{debug, info, warn};
+use tracing::{debug, info, warn, Instrument};
 
 use stoa_core::audit::AuditEvent;
 use stoa_core::ArticleRootNode;
@@ -828,6 +828,7 @@ struct PostAuditMeta {
     cid: String,
 }
 
+#[tracing::instrument(skip_all, fields(message_id = tracing::field::Empty))]
 async fn run_post_pipeline(
     article_bytes: &[u8],
     stores: &ServerStores,
@@ -857,15 +858,17 @@ async fn run_post_pipeline(
     let article_bytes = article_bytes.as_slice();
 
     // Step 2: Validate headers.
-    if let Err(resp) = complete_post(article_bytes, max_article_bytes) {
-        return (resp, None);
-    }
-
-    // Extract Message-ID and Newsgroups from the article headers.
-    let (message_id, newsgroups) = match extract_post_metadata(article_bytes) {
-        Ok(meta) => meta,
-        Err(resp) => return (resp, None),
+    let (message_id, newsgroups) = {
+        let _span = tracing::info_span!("post.validate_headers").entered();
+        if let Err(resp) = complete_post(article_bytes, max_article_bytes) {
+            return (resp, None);
+        }
+        match extract_post_metadata(article_bytes) {
+            Ok(meta) => meta,
+            Err(resp) => return (resp, None),
+        }
     };
+    tracing::Span::current().record("message_id", message_id.as_str());
 
     // Step 3: Duplicate check.
     if let Err(resp) = check_duplicate_msgid(&stores.msgid_map, &message_id).await {
@@ -916,7 +919,10 @@ async fn run_post_pipeline(
     // Produces signed_bytes with the X-Stoa-Sig header inserted.
     // The group log entry signature is computed separately over log entry
     // canonical bytes inside append_to_groups, where parent CIDs are known.
-    let (signed_bytes, _) = sign_article(&stores.signing_key, article_bytes);
+    let (signed_bytes, _) = {
+        let _span = tracing::info_span!("post.sign_article").entered();
+        sign_article(&stores.signing_key, article_bytes)
+    };
 
     // Step 5: Generate HLC timestamps under the clock mutex, then release
     // before any async I/O so concurrent POSTs are not serialised by it.
@@ -945,6 +951,7 @@ async fn run_post_pipeline(
         newsgroups_str,
         primary_hlc,
     )
+    .instrument(tracing::info_span!("post.ipfs_block_put"))
     .await
     {
         Ok(cid) => cid,
@@ -980,6 +987,7 @@ async fn run_post_pipeline(
         &newsgroups,
         injection_source,
     )
+    .instrument(tracing::info_span!("post.group_log_append"))
     .await
     {
         Ok(r) => r,
