@@ -32,12 +32,14 @@ use stoa_verify::VerificationStore;
 #[derive(Debug)]
 pub enum IpfsError {
     WriteFailed(String),
+    ReadFailed(String),
 }
 
 impl std::fmt::Display for IpfsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             IpfsError::WriteFailed(m) => write!(f, "IPFS write failed: {m}"),
+            IpfsError::ReadFailed(m) => write!(f, "IPFS read failed: {m}"),
         }
     }
 }

@@ -84,7 +84,12 @@ async fn startup_probe(
                 "GCS backend startup probe failed (bucket '{bucket}', prefix '{prefix}'): {e}"
             )
         })?;
-    let _ = store.delete(&probe).await;
+    store.delete(&probe).await.map_err(|e| {
+        format!(
+            "GCS backend startup probe: DELETE failed (bucket '{bucket}', prefix '{prefix}'): \
+             {e} — verify the service account has storage.objects.delete on this bucket"
+        )
+    })?;
     Ok(())
 }
 

@@ -20,6 +20,7 @@ use stoa_core::{ipld::builder::build_article, msgid_map::MsgIdMap};
 pub enum IpfsWriteError {
     NotReachable(String),
     WriteFailed(String),
+    ReadFailed(String),
     NotFound(String),
 }
 
@@ -28,6 +29,7 @@ impl std::fmt::Display for IpfsWriteError {
         match self {
             IpfsWriteError::NotReachable(msg) => write!(f, "IPFS node not reachable: {msg}"),
             IpfsWriteError::WriteFailed(msg) => write!(f, "IPFS write failed: {msg}"),
+            IpfsWriteError::ReadFailed(msg) => write!(f, "IPFS read failed: {msg}"),
             IpfsWriteError::NotFound(msg) => write!(f, "IPFS block not found: {msg}"),
         }
     }

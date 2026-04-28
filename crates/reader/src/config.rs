@@ -606,6 +606,12 @@ impl Config {
                             "backend.azure.container must not be empty".into(),
                         ));
                     }
+                    if azure.use_emulator.unwrap_or(false) && azure.endpoint.is_some() {
+                        return Err(ConfigError::Validation(
+                            "backend.azure: use_emulator = true and endpoint are mutually exclusive; \
+                             use_emulator implies the Azurite well-known URL".into(),
+                        ));
+                    }
                     if let Some(v) = azure.access_key.as_deref() {
                         if v.starts_with("secretx:") {
                             if let Err(e) = secretx::from_uri(v) {
@@ -626,6 +632,12 @@ impl Config {
                     if gcs.bucket.is_empty() {
                         return Err(ConfigError::Validation(
                             "backend.gcs.bucket must not be empty".into(),
+                        ));
+                    }
+                    if gcs.service_account_path.is_some() && gcs.service_account_key.is_some() {
+                        return Err(ConfigError::Validation(
+                            "backend.gcs: service_account_path and service_account_key are \
+                             mutually exclusive; set at most one".into(),
                         ));
                     }
                     if let Some(v) = gcs.service_account_key.as_deref() {
@@ -1334,6 +1346,73 @@ type = "gcs"
         let f = write_toml(toml);
         let err = Config::from_file(f.path())
             .expect_err("gcs without subsection must fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend.azure] with use_emulator = true and endpoint set is rejected.
+    #[test]
+    fn backend_azure_emulator_and_endpoint_conflict() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "azure"
+
+[backend.azure]
+account = "devstoreaccount1"
+container = "stoa-articles"
+use_emulator = true
+endpoint = "http://127.0.0.1:10000"
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("use_emulator + endpoint must fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend.gcs] with both service_account_path and service_account_key is rejected.
+    #[test]
+    fn backend_gcs_dual_credentials_rejected() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "gcs"
+
+[backend.gcs]
+bucket = "stoa-articles"
+service_account_path = "/etc/sa.json"
+service_account_key = "{}"
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("dual GCS credentials must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"

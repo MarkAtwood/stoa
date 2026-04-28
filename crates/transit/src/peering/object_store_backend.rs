@@ -32,9 +32,10 @@ impl ObjectStoreBackend {
     /// `prefix` defaults to `"blocks"` if `None`.
     /// Intended for unit tests; production constructors live in the backend modules.
     pub fn new_with_store(store: Arc<dyn ObjectStore>, prefix: Option<&str>) -> Self {
+        let raw = prefix.unwrap_or("blocks");
         Self {
             store,
-            prefix: prefix.unwrap_or("blocks").to_string(),
+            prefix: raw.trim_matches('/').to_string(),
         }
     }
 
@@ -63,11 +64,11 @@ impl IpfsStore for ObjectStoreBackend {
                 let bytes = result
                     .bytes()
                     .await
-                    .map_err(|e| IpfsError::WriteFailed(e.to_string()))?;
+                    .map_err(|e| IpfsError::ReadFailed(e.to_string()))?;
                 Ok(Some(bytes.to_vec()))
             }
             Err(object_store::Error::NotFound { .. }) => Ok(None),
-            Err(e) => Err(IpfsError::WriteFailed(e.to_string())),
+            Err(e) => Err(IpfsError::ReadFailed(e.to_string())),
         }
     }
 

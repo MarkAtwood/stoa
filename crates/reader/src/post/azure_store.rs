@@ -92,7 +92,13 @@ async fn startup_probe(
                 "Azure backend startup probe failed (account '{account}', container '{container}', prefix '{prefix}'): {e}"
             )
         })?;
-    let _ = store.delete(&probe).await;
+    store.delete(&probe).await.map_err(|e| {
+        format!(
+            "Azure backend startup probe: DELETE failed (account '{account}', \
+             container '{container}', prefix '{prefix}'): {e} — \
+             verify the storage account allows delete operations on this container"
+        )
+    })?;
     Ok(())
 }
 

@@ -27,9 +27,10 @@ impl ObjectStoreBlockBackend {
     ///
     /// `prefix` defaults to `"blocks"` if `None`.
     pub fn new_with_store(store: Arc<dyn ObjectStore>, prefix: Option<&str>) -> Self {
+        let raw = prefix.unwrap_or("blocks");
         Self {
             store,
-            prefix: prefix.unwrap_or("blocks").to_string(),
+            prefix: raw.trim_matches('/').to_string(),
         }
     }
 
@@ -57,6 +58,19 @@ impl IpfsBlockStore for ObjectStoreBlockBackend {
     }
 
     async fn put_block(&self, cid: Cid, data: Vec<u8>) -> Result<(), IpfsWriteError> {
+        // In debug builds, verify that the CID's digest matches the data so
+        // programming errors in callers are caught early.  SHA2-256 (code 0x12)
+        // is the only hash used in this codebase; skip verification for other
+        // algorithms rather than failing on future extension.
+        #[cfg(debug_assertions)]
+        if cid.hash().code() == 0x12 {
+            let computed = Code::Sha2_256.digest(&data);
+            debug_assert_eq!(
+                cid.hash().digest(),
+                computed.digest(),
+                "put_block: CID digest does not match data (programming error in caller)"
+            );
+        }
         self.put_object(&cid, &data).await
     }
 
@@ -67,13 +81,13 @@ impl IpfsBlockStore for ObjectStoreBlockBackend {
                 let bytes = result
                     .bytes()
                     .await
-                    .map_err(|e| IpfsWriteError::WriteFailed(e.to_string()))?;
+                    .map_err(|e| IpfsWriteError::ReadFailed(e.to_string()))?;
                 Ok(bytes.to_vec())
             }
             Err(object_store::Error::NotFound { .. }) => {
                 Err(IpfsWriteError::NotFound(cid.to_string()))
             }
-            Err(e) => Err(IpfsWriteError::WriteFailed(e.to_string())),
+            Err(e) => Err(IpfsWriteError::ReadFailed(e.to_string())),
         }
     }
 

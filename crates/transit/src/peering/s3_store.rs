@@ -103,6 +103,11 @@ async fn startup_probe(
                 "S3 backend startup probe failed (bucket '{bucket}', prefix '{prefix}', region '{region}'): {e}"
             )
         })?;
-    let _ = store.delete(&probe).await;
+    store.delete(&probe).await.map_err(|e| {
+        format!(
+            "S3 backend startup probe: DELETE failed (bucket '{bucket}', prefix '{prefix}', \
+             region '{region}'): {e} — verify the IAM policy grants s3:DeleteObject on this prefix"
+        )
+    })?;
     Ok(())
 }
