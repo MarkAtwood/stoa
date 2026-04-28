@@ -131,6 +131,7 @@ async fn spawn_dev_server(tag: &str) -> (String, Vec<tempfile::TempPath>) {
             (*mail_pool_arc).clone(),
         )),
         search_index: None,
+        subscription_store: Arc::new(stoa_mail::state::subscriptions::SubscriptionStore::new((*mail_pool_arc).clone())),
         smtp_relay_queue: None,
     });
 

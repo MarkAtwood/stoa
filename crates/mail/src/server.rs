@@ -35,6 +35,7 @@ pub struct JmapStores {
     pub user_flags: Arc<UserFlagsStore>,
     pub state_store: Arc<StateStore>,
     pub change_log: Arc<crate::state::change_log::ChangeLogStore>,
+    pub subscription_store: Arc<crate::state::subscriptions::SubscriptionStore>,
     /// Full-text search index for Email/query `text` filter.
     /// `None` means search is disabled; text filters return empty results.
     pub search_index: Option<Arc<TantivySearchIndex>>,
@@ -403,6 +404,14 @@ async fn route_method(
 
     match method {
         "Mailbox/get" => {
+            let user_id: i64 = 1; // TODO(user-state): resolve from canonical_account_id
+            let subscribed: std::collections::HashSet<String> = jmap
+                .subscription_store
+                .list_subscribed(user_id)
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .collect();
             let groups = match jmap.article_numbers.list_groups().await {
                 Ok(g) => g,
                 Err(e) => return json!({"error": e.to_string()}),
@@ -415,11 +424,12 @@ async fn route_method(
                     } else {
                         (hi - lo + 1).min(u32::MAX as u64) as u32
                     };
+                    let is_subscribed = subscribed.contains(&name);
                     crate::mailbox::get::GroupInfo {
                         name,
                         total_emails,
                         unread_emails: 0,
-                        is_subscribed: false,
+                        is_subscribed,
                     }
                 })
                 .collect();
@@ -435,6 +445,29 @@ async fn route_method(
                 .await
                 .unwrap_or_else(|_| "0".to_string());
             crate::mailbox::get::handle_mailbox_get(&group_infos, ids_filter.as_deref(), &state)
+        }
+
+        "Mailbox/set" => {
+            let user_id: i64 = 1; // TODO(user-state): resolve from canonical_account_id
+            let old_state = jmap
+                .state_store
+                .get_state("Mailbox")
+                .await
+                .unwrap_or_else(|_| "0".to_string());
+            let new_state = jmap
+                .state_store
+                .bump_state("Mailbox")
+                .await
+                .unwrap_or_else(|_| old_state.clone());
+            crate::mailbox::set::handle_mailbox_set(
+                &args,
+                user_id,
+                &jmap.subscription_store,
+                &jmap.article_numbers,
+                &old_state,
+                &new_state,
+            )
+            .await
         }
 
         "Mailbox/query" => {
@@ -1187,6 +1220,9 @@ mod tests {
             change_log: Arc::new(crate::state::change_log::ChangeLogStore::new(
                 mail_pool.clone(),
             )),
+            subscription_store: Arc::new(
+                crate::state::subscriptions::SubscriptionStore::new(mail_pool.clone()),
+            ),
             search_index: None,
             smtp_relay_queue: None,
         });

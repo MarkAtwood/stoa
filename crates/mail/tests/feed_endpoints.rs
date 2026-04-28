@@ -117,6 +117,7 @@ async fn state_with_jmap() -> (
             (*mail_pool_arc).clone(),
         )),
         search_index: None,
+        subscription_store: Arc::new(stoa_mail::state::subscriptions::SubscriptionStore::new((*mail_pool_arc).clone())),
         smtp_relay_queue: None,
     });
 
