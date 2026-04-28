@@ -736,6 +736,28 @@ impl Config {
                         ));
                     }
                 }
+                BackendType::Rados => {
+                    let rados = backend.rados.as_ref().ok_or_else(|| {
+                        ConfigError::Validation(
+                            "backend.type = 'rados' requires a [backend.rados] section".into(),
+                        )
+                    })?;
+                    if rados.pool.is_empty() {
+                        return Err(ConfigError::Validation(
+                            "backend.rados.pool must not be empty".into(),
+                        ));
+                    }
+                    if rados.user.is_empty() {
+                        return Err(ConfigError::Validation(
+                            "backend.rados.user must not be empty".into(),
+                        ));
+                    }
+                    if rados.conf_path.is_empty() {
+                        return Err(ConfigError::Validation(
+                            "backend.rados.conf_path must not be empty".into(),
+                        ));
+                    }
+                }
             },
             None => {
                 if self.ipfs.api_url.is_empty() {
@@ -2479,6 +2501,108 @@ max_age_days = 30
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"
         );
+    }
+
+    /// [backend] with type = "rados" and a [backend.rados] section parses and validates.
+    #[test]
+    fn backend_rados_section_parses() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[backend]
+type = "rados"
+
+[backend.rados]
+pool = "stoa_blocks"
+user = "stoa"
+conf_path = "/etc/ceph/ceph.conf"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("valid rados config must parse");
+        let backend = cfg.backend.expect("backend must be present");
+        assert!(matches!(backend.backend_type, BackendType::Rados));
+        let rados = backend.rados.expect("rados section must be present");
+        assert_eq!(rados.pool, "stoa_blocks");
+        assert_eq!(rados.user, "stoa");
+        assert_eq!(rados.conf_path, "/etc/ceph/ceph.conf");
+    }
+
+    /// [backend] with type = "rados" but no [backend.rados] section is rejected.
+    #[test]
+    fn backend_rados_without_subsection_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[backend]
+type = "rados"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path()).expect_err("missing rados section must fail");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend.rados] with an empty pool is rejected.
+    #[test]
+    fn backend_rados_empty_pool_rejected() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[backend]
+type = "rados"
+
+[backend.rados]
+pool = ""
+user = "stoa"
+conf_path = "/etc/ceph/ceph.conf"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path()).expect_err("empty pool must fail validation");
+        assert!(matches!(err, ConfigError::Validation(_)));
     }
 
     /// [backend.webdav] with a trailing slash in url is rejected.

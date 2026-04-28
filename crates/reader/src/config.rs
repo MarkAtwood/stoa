@@ -702,6 +702,11 @@ impl Config {
                         ));
                     }
                 }
+                BackendType::Rados => {
+                    return Err(ConfigError::Validation(
+                        "backend.type = 'rados' is not supported in stoa-reader;                          use the S3 backend pointed at RADOS Gateway instead".into(),
+                    ));
+                }
             }
         } else if self.ipfs.api_url.is_empty() {
             return Err(ConfigError::Validation(
@@ -1707,6 +1712,38 @@ path = ""
         let f = write_toml(toml);
         let err = Config::from_file(f.path())
             .expect_err("empty path must fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend] with type = "rados" is rejected in reader (not supported).
+    #[test]
+    fn backend_rados_rejected_in_reader() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "rados"
+
+[backend.rados]
+pool = "stoa_blocks"
+user = "stoa"
+conf_path = "/etc/ceph/ceph.conf"
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path()).expect_err("rados backend must be rejected in reader");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"

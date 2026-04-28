@@ -42,8 +42,14 @@ stoa-verify = { path = "../verify" }
 mail-auth = "0.8"
 stoa-lmdb = { path = "../lmdb" }
 rocksdb = "0.22"
+ceph = { version = "3.2.5", optional = true }
 object_store = { version = "0.12", features = ["aws", "azure", "gcp", "http"] }
 bytes = "1.11.1"
+
+[features]
+# Enable native Ceph RADOS block store backend.
+# Requires librados-dev to be installed at build time.
+rados = ["dep:ceph"]
 
 [[bench]]
 name = "ihave_throughput"

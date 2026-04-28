@@ -331,6 +331,9 @@ pub async fn build_block_store(
                 .map_err(|e| format!("RocksDB store init failed: {e}"))?;
                 Ok(Arc::new(store))
             }
+            BackendType::Rados => Err(
+                "backend.type = 'rados' is not supported in stoa-reader;                  use the S3 backend pointed at RADOS Gateway instead".into(),
+            ),
         }
     } else {
         // Backward-compat: use legacy [ipfs] section.

@@ -313,6 +313,27 @@ pub async fn build_store(config: &crate::config::Config) -> Result<StoreBuildRes
                     kubo_client: None,
                 })
             }
+            BackendType::Rados => {
+                #[cfg(not(feature = "rados"))]
+                return Err(
+                    "backend.type = 'rados' requires the 'rados' Cargo feature; \
+                     rebuild stoa-transit with --features rados (requires librados-dev)"
+                        .into(),
+                );
+                #[cfg(feature = "rados")]
+                {
+                    let rados_cfg = backend
+                        .rados
+                        .as_ref()
+                        .ok_or("backend.type = 'rados' requires a [backend.rados] section")?;
+                    let store = super::rados_store::RadosStore::open(rados_cfg)
+                        .map_err(|e| format!("RADOS store init failed: {e}"))?;
+                    Ok(StoreBuildResult {
+                        store: Arc::new(store),
+                        kubo_client: None,
+                    })
+                }
+            }
         }
     } else {
         // Backward-compat: use legacy [ipfs] section.

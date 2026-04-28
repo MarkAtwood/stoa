@@ -16,7 +16,7 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize, Clone)]
 pub struct BackendConfig {
     /// Backend discriminator.  Supported values: `"kubo"`, `"lmdb"`, `"filesystem"`, `"sqlite"`,
-    /// `"s3"`, `"azure"`, `"gcs"`, `"web_dav"`, `"rocks_db"`.
+    /// `"s3"`, `"azure"`, `"gcs"`, `"web_dav"`, `"rocks_db"`, `"rados"`.
     #[serde(rename = "type")]
     pub backend_type: BackendType,
     /// Kubo-specific settings.  Required when `type = "kubo"`.
@@ -46,6 +46,10 @@ pub struct BackendConfig {
     /// RocksDB-specific settings.  Required when `type = "rocks_db"`.
     #[serde(default)]
     pub rocksdb: Option<RocksDbBackendConfig>,
+    /// Ceph RADOS-specific settings.  Required when `type = "rados"`.
+    /// Transit only; requires the `rados` Cargo feature and `librados-dev` at build time.
+    #[serde(default)]
+    pub rados: Option<RadosBackendConfig>,
 }
 
 /// Backend type discriminator.
@@ -61,6 +65,9 @@ pub enum BackendType {
     Lmdb,
     Sqlite,
     RocksDb,
+    /// Native Ceph RADOS backend.  Transit only; not available in reader.
+    /// Requires the `rados` Cargo feature and `librados-dev` at build time.
+    Rados,
 }
 
 /// Configuration for the Kubo HTTP RPC backend.
@@ -354,4 +361,49 @@ pub struct RocksDbBackendConfig {
     /// Increase for read-heavy workloads.
     #[serde(default)]
     pub cache_size_mb: Option<u64>,
+}
+
+/// Configuration for the native Ceph RADOS block store backend.
+///
+/// ## Scope
+///
+/// Transit only.  Reader does not support RADOS directly; use the S3 backend
+/// pointed at your RADOS Gateway (RGW) if reader storage on Ceph is required.
+///
+/// ## Build requirement
+///
+/// The `rados` Cargo feature must be enabled and `librados-dev` must be
+/// installed at build time.  On Ubuntu/Debian:
+/// ```text
+/// apt install librados-dev
+/// cargo build --features rados
+/// ```
+///
+/// ## Authentication
+///
+/// Authentication keys are read from the `keyring` entry in `conf_path`
+/// (standard Ceph configuration).  To use a non-default keyring location,
+/// set `keyring = /path/to/keyring.conf` in your `ceph.conf` under the
+/// relevant `[client.<user>]` section.
+///
+/// ## Object naming
+///
+/// Objects are named by the CIDv1 canonical string (base32 lowercase
+/// multibase, e.g. `bafkreixxxxxxxx`).  This is a stable on-wire contract.
+///
+/// ## Pool setup
+///
+/// Create a dedicated pool before starting stoa:
+/// ```text
+/// ceph osd pool create stoa_blocks <pg_num>
+/// ceph auth get-or-create client.stoa mon 'allow r' osd 'allow rwx pool=stoa_blocks'
+/// ```
+#[derive(Debug, Deserialize, Clone)]
+pub struct RadosBackendConfig {
+    /// Ceph pool name.  Must already exist; stoa will not create pools.
+    pub pool: String,
+    /// Ceph client user name, without the `client.` prefix (e.g. `"stoa"`).
+    pub user: String,
+    /// Path to the Ceph configuration file (e.g. `"/etc/ceph/ceph.conf"`).
+    pub conf_path: String,
 }
