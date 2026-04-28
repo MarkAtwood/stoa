@@ -127,21 +127,6 @@ async fn handle_undo_follow(
     StatusCode::ACCEPTED.into_response()
 }
 
-/// Extract (host, path) from a URL string without pulling in the `url` crate.
-fn extract_host_path(url: &str) -> (String, String) {
-    let without_scheme = url
-        .strip_prefix("https://")
-        .or_else(|| url.strip_prefix("http://"))
-        .unwrap_or(url);
-    match without_scheme.find('/') {
-        Some(i) => (
-            without_scheme[..i].to_string(),
-            without_scheme[i..].to_string(),
-        ),
-        None => (without_scheme.to_string(), "/".to_string()),
-    }
-}
-
 /// Deliver an Accept{Follow} activity to the remote actor's inbox.
 async fn deliver_accept(
     ap_state: &crate::activitypub::ActivityPubState,
@@ -170,7 +155,7 @@ async fn deliver_accept(
     };
 
     // Build HTTP Signature if a key is available.
-    let (host, path) = extract_host_path(remote_inbox_url);
+    let (host, path) = super::extract_host_path(remote_inbox_url);
     let date = chrono::Utc::now()
         .format("%a, %d %b %Y %H:%M:%S GMT")
         .to_string();

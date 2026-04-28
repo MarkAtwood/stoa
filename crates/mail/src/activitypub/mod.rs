@@ -12,6 +12,7 @@
 pub mod follower_store;
 pub mod http_sign;
 pub mod inbox;
+pub mod outbound;
 
 use axum::{
     extract::{Path, Query, State},
@@ -208,7 +209,53 @@ pub async fn followers_handler(
         .into_response()
 }
 
+/// `GET /ap/groups/{group_name}/outbox` — empty outbox OrderedCollection.
+///
+/// Activity history storage is not yet implemented; this endpoint advertises
+/// the outbox URL with `totalItems: 0`.  Remote servers can still Follow the
+/// group; they will receive new activities pushed to their inboxes.
+pub async fn outbox_handler(
+    State(state): State<Arc<AppState>>,
+    Path(group_name): Path<String>,
+) -> Response {
+    if !state.activitypub_config.enabled {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    if !is_valid_group_name(&group_name) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let outbox_url = format!("{}/ap/groups/{}/outbox", state.base_url, group_name);
+    let collection = serde_json::json!({
+        "@context": "https://www.w3.org/ns/activitystreams",
+        "type": "OrderedCollection",
+        "id": outbox_url,
+        "totalItems": 0,
+        "orderedItems": []
+    });
+    (
+        StatusCode::OK,
+        [(header::CONTENT_TYPE, "application/activity+json")],
+        Json(collection),
+    )
+        .into_response()
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
+
+/// Extract (host, path) from a URL string without the `url` crate.
+pub(super) fn extract_host_path(url: &str) -> (String, String) {
+    let without_scheme = url
+        .strip_prefix("https://")
+        .or_else(|| url.strip_prefix("http://"))
+        .unwrap_or(url);
+    match without_scheme.find('/') {
+        Some(i) => (
+            without_scheme[..i].to_string(),
+            without_scheme[i..].to_string(),
+        ),
+        None => (without_scheme.to_string(), "/".to_string()),
+    }
+}
 
 fn is_valid_group_name(name: &str) -> bool {
     !name.is_empty() && name.contains('.') && !name.chars().any(|c| c.is_whitespace())

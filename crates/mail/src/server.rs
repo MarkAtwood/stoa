@@ -265,6 +265,10 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             get(crate::activitypub::followers_handler),
         )
         .route(
+            "/ap/groups/{group_name}/outbox",
+            get(crate::activitypub::outbox_handler),
+        )
+        .route(
             "/ap/groups/{group_name}/inbox",
             post(crate::activitypub::inbox::inbox_handler),
         )
