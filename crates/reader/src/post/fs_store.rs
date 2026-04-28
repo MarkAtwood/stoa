@@ -45,6 +45,7 @@ use crate::post::ipfs_write::{IpfsBlockStore, IpfsWriteError};
 static WRITE_SEQ: AtomicU64 = AtomicU64::new(0);
 
 /// IPFS block store backed by a plain filesystem directory.
+#[derive(Debug)]
 pub struct FsBlockStore {
     path: Arc<std::path::PathBuf>,
     /// Optional soft cap on total stored bytes.  Checked before each write.

@@ -77,20 +77,9 @@ pub async fn backfill_overview(
 
 /// Split raw article bytes at the blank-line separator.
 ///
-/// Returns `(header_bytes, body_bytes)`. Recognises both `\r\n\r\n` and
-/// `\n\n`. If no separator is found, treats the whole input as headers.
 fn split_at_blank_line(bytes: &[u8]) -> (Vec<u8>, Vec<u8>) {
-    for i in 0..bytes.len().saturating_sub(3) {
-        if bytes[i..].starts_with(b"\r\n\r\n") {
-            return (bytes[..i].to_vec(), bytes[i + 4..].to_vec());
-        }
-    }
-    for i in 0..bytes.len().saturating_sub(1) {
-        if bytes[i..].starts_with(b"\n\n") {
-            return (bytes[..i].to_vec(), bytes[i + 2..].to_vec());
-        }
-    }
-    (bytes.to_vec(), vec![])
+    let (h, b) = crate::post::split_header_body(bytes);
+    (h.to_vec(), b.to_vec())
 }
 
 #[cfg(test)]

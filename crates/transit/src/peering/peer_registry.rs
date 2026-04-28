@@ -4,7 +4,7 @@ use sqlx::AnyPool;
 use stoa_core::error::StorageError;
 
 /// A record in the peer registry.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PeerRecord {
     pub peer_id: String,
     pub address: String,

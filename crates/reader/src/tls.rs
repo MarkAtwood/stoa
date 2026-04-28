@@ -182,6 +182,57 @@ pub fn load_tls_acceptor(cert_path: &str, key_path: &str) -> Result<TlsAcceptor,
     })
 }
 
+/// Check TLS certificate expiry, update the Prometheus gauge, log
+/// warnings/errors, and return a JSON summary for API responses.
+///
+/// - ≤ 30 days remaining: WARN log (`event=cert_expiry_warning`)
+/// - ≤  7 days remaining: ERROR log (`event=cert_expiry_critical`)
+///
+/// Parse failures are logged at WARN and return an object with an `"error"` key.
+pub fn check_cert_expiry(cert_path: &str) -> serde_json::Value {
+    let now_secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+    match stoa_tls::cert_not_after(cert_path) {
+        Ok(expiry_unix) => {
+            let days_remaining = (expiry_unix - now_secs) / 86400;
+            let expires_at = chrono::DateTime::from_timestamp(expiry_unix, 0)
+                .map(|t: chrono::DateTime<chrono::Utc>| t.format("%Y-%m-%dT%H:%M:%SZ").to_string())
+                .unwrap_or_else(|| expiry_unix.to_string());
+            crate::metrics::TLS_CERT_EXPIRY_SECONDS
+                .with_label_values(&[cert_path])
+                .set(expiry_unix as f64);
+            if days_remaining <= 7 {
+                tracing::error!(
+                    event = "cert_expiry_critical",
+                    path = cert_path,
+                    days_remaining,
+                    expires_at = %expires_at,
+                    "TLS certificate expires very soon"
+                );
+            } else if days_remaining <= 30 {
+                tracing::warn!(
+                    event = "cert_expiry_warning",
+                    path = cert_path,
+                    days_remaining,
+                    expires_at = %expires_at,
+                    "TLS certificate expiring soon"
+                );
+            }
+            serde_json::json!({
+                "path": cert_path,
+                "expires_at": expires_at,
+                "days_remaining": days_remaining,
+            })
+        }
+        Err(e) => {
+            tracing::warn!(path = cert_path, "TLS cert expiry check failed: {e}");
+            serde_json::json!({ "path": cert_path, "error": e.to_string() })
+        }
+    }
+}
+
 /// Perform the TLS handshake on an already-accepted TCP stream.
 ///
 /// Returns the wrapped TLS stream on success, or an `std::io::Error` on

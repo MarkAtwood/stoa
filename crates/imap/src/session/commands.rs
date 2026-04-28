@@ -31,8 +31,7 @@ pub fn capability_list(tls: bool) -> Vec1<Capability<'static>> {
     // These extensions are not TLS-dependent.
     caps.push(Capability::Enable);
     caps.push(Capability::Unselect);
-    // Safety: always at least one element (Imap4Rev1).
-    Vec1::unvalidated(caps)
+    Vec1::try_from(caps).expect("capability list always has at least one element")
 }
 
 /// Build the untagged `* CAPABILITY ...` response data item.

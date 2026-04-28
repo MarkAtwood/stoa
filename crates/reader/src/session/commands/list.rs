@@ -2,6 +2,7 @@ use crate::session::response::Response;
 use stoa_core::wildmat::matches_wildmat;
 
 /// Information about a single newsgroup, passed to LIST handlers.
+#[derive(Debug, Clone)]
 pub struct GroupInfo {
     pub name: String,
     pub high: u64,

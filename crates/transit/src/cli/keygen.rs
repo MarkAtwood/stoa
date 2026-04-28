@@ -56,13 +56,8 @@ pub fn generate_keypair(
     let signing_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
     let verifying_key = signing_key.verifying_key();
 
-    // SubjectPublicKeyInfo DER for ed25519 public key:
-    // Fixed 12-byte header + 32-byte public key
-    const SPKI_HEADER: [u8; 12] = [
-        0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00,
-    ];
     let mut public_der = Vec::with_capacity(44);
-    public_der.extend_from_slice(&SPKI_HEADER);
+    public_der.extend_from_slice(&crate::cli::key_support::SPKI_ED25519_HEADER);
     public_der.extend_from_slice(verifying_key.as_bytes());
 
     // Fingerprint: SHA-256 of the SPKI DER bytes, hex-encoded

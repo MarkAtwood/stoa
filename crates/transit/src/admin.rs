@@ -36,6 +36,57 @@ use stoa_core::audit::{AuditEvent, AuditLogger};
 use stoa_core::rate_limiter::RateLimiter;
 use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 
+/// Check TLS certificate expiry, update the Prometheus gauge, log
+/// warnings/errors, and return a JSON summary for API responses.
+///
+/// - ≤ 30 days remaining: WARN log (`event=cert_expiry_warning`)
+/// - ≤  7 days remaining: ERROR log (`event=cert_expiry_critical`)
+///
+/// Parse failures are logged at WARN and return an object with an `"error"` key.
+pub fn check_cert_expiry(cert_path: &str) -> serde_json::Value {
+    let now_secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+    match stoa_tls::cert_not_after(cert_path) {
+        Ok(expiry_unix) => {
+            let days_remaining = (expiry_unix - now_secs) / 86400;
+            let expires_at = chrono::DateTime::from_timestamp(expiry_unix, 0)
+                .map(|t: chrono::DateTime<chrono::Utc>| t.format("%Y-%m-%dT%H:%M:%SZ").to_string())
+                .unwrap_or_else(|| expiry_unix.to_string());
+            crate::metrics::TLS_CERT_EXPIRY_SECONDS
+                .with_label_values(&[cert_path])
+                .set(expiry_unix as f64);
+            if days_remaining <= 7 {
+                tracing::error!(
+                    event = "cert_expiry_critical",
+                    path = cert_path,
+                    days_remaining,
+                    expires_at = %expires_at,
+                    "TLS certificate expires very soon"
+                );
+            } else if days_remaining <= 30 {
+                tracing::warn!(
+                    event = "cert_expiry_warning",
+                    path = cert_path,
+                    days_remaining,
+                    expires_at = %expires_at,
+                    "TLS certificate expiring soon"
+                );
+            }
+            serde_json::json!({
+                "path": cert_path,
+                "expires_at": expires_at,
+                "days_remaining": days_remaining,
+            })
+        }
+        Err(e) => {
+            tracing::warn!(path = cert_path, "TLS cert expiry check failed: {e}");
+            serde_json::json!({ "path": cert_path, "error": e.to_string() })
+        }
+    }
+}
+
 #[derive(Debug)]
 pub(crate) enum AdminError {
     Io(std::io::Error),
@@ -532,54 +583,9 @@ async fn handle_admin_connection(
             // fields (groups.names, peering.trusted_peers).  Also re-checks
             // TLS certificate expiry so operators can confirm cert rotation
             // succeeded without restarting.
-            let now_secs = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs() as i64;
             let mut cert_results: Vec<serde_json::Value> = Vec::new();
             for path in cert_paths.iter() {
-                match stoa_tls::cert_not_after(path) {
-                    Ok(expiry_unix) => {
-                        let days_remaining = (expiry_unix - now_secs) / 86400;
-                        let expires_at = chrono::DateTime::from_timestamp(expiry_unix, 0)
-                            .map(|t: chrono::DateTime<chrono::Utc>| {
-                                t.format("%Y-%m-%dT%H:%M:%SZ").to_string()
-                            })
-                            .unwrap_or_else(|| expiry_unix.to_string());
-                        crate::metrics::TLS_CERT_EXPIRY_SECONDS
-                            .with_label_values(&[path])
-                            .set(expiry_unix as f64);
-                        if days_remaining <= 7 {
-                            tracing::error!(
-                                event = "cert_expiry_critical",
-                                path = %path,
-                                days_remaining,
-                                expires_at = %expires_at,
-                                "TLS certificate expires very soon"
-                            );
-                        } else if days_remaining <= 30 {
-                            tracing::warn!(
-                                event = "cert_expiry_warning",
-                                path = %path,
-                                days_remaining,
-                                expires_at = %expires_at,
-                                "TLS certificate expiring soon"
-                            );
-                        }
-                        cert_results.push(serde_json::json!({
-                            "path": path,
-                            "expires_at": expires_at,
-                            "days_remaining": days_remaining,
-                        }));
-                    }
-                    Err(e) => {
-                        tracing::warn!(path = %path, "TLS cert expiry check failed: {e}");
-                        cert_results.push(serde_json::json!({
-                            "path": path,
-                            "error": e.to_string(),
-                        }));
-                    }
-                }
+                cert_results.push(check_cert_expiry(path));
             }
             // Apply live reload (if available) and collect the diff.
             let (reload_changed, reload_errors, did_reload) = if let Some(rs) = reload_state {
@@ -801,6 +807,7 @@ pub(crate) fn build_liveness_json(start_time: Instant) -> String {
 }
 
 /// A single dependency check result.
+#[derive(Debug)]
 struct HealthCheck {
     name: &'static str,
     ok: bool,

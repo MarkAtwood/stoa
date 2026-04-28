@@ -170,7 +170,7 @@ pub fn validate_article_ingress(
     }
 
     // 2. Message-ID format.
-    if !is_valid_message_id(&h.message_id) {
+    if validate_message_id(&h.message_id).is_err() {
         return Err(ValidationError::InvalidMessageId(h.message_id.clone()).into());
     }
 

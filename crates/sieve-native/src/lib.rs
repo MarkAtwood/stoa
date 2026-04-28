@@ -118,19 +118,18 @@ fn validate_stmt(stmt: &form::Stmt) -> Result<(), String> {
     // Scan the flat form list for Tag("comparator") followed by Str(name).
     // Also detect Tag("regex") and validate all Str patterns in the stmt.
     let mut has_regex_tag = false;
-    let mut i = 0;
-    while i < stmt.len() {
-        match &stmt[i] {
+    let mut iter = stmt.iter().peekable();
+    while let Some(form) = iter.next() {
+        match form {
             form::Form::Tag(t) if t == "comparator" => {
                 // The next form must be the comparator name string.
-                if let Some(form::Form::Str(name)) = stmt.get(i + 1) {
+                if let Some(form::Form::Str(name)) = iter.peek() {
                     const KNOWN_COMPARATORS: &[&str] = &["i;ascii-casemap", "i;octet"];
                     if !KNOWN_COMPARATORS.contains(&name.as_str()) {
                         return Err(format!("unsupported comparator: {name}"));
                     }
                 }
-                i += 2; // consume tag + name
-                continue;
+                iter.next(); // consume the name (or whatever follows the tag)
             }
             form::Form::Tag(t) if t == "regex" => {
                 has_regex_tag = true;
@@ -149,7 +148,6 @@ fn validate_stmt(stmt: &form::Stmt) -> Result<(), String> {
             }
             _ => {}
         }
-        i += 1;
     }
 
     // If this statement uses :regex, validate only the key-list (pattern) strings.

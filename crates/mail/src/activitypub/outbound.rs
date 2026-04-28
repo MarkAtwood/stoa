@@ -228,7 +228,7 @@ async fn deliver_one(
 /// Percent-encode a Message-ID for use in a URL path segment.
 ///
 /// Replaces `<`, `>`, `@`, and space with percent-encoded equivalents.
-fn percent_encode_msgid(msgid: &str) -> String {
+pub(super) fn percent_encode_msgid(msgid: &str) -> String {
     msgid
         .chars()
         .flat_map(|c| match c {

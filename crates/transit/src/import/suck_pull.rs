@@ -93,7 +93,7 @@ pub async fn run_suck_pull(
             ..Default::default()
         });
     }
-    let code = parse_response_code(&line);
+    let code = crate::import::parse_nntp_response_code(&line);
     if code != 200 && code != 201 {
         tracing::warn!(
             "suck_pull: unexpected greeting from {}: {}",
@@ -130,7 +130,7 @@ pub async fn run_suck_pull(
             summary.failed += 1;
             continue;
         }
-        let code = parse_response_code(&line);
+        let code = crate::import::parse_nntp_response_code(&line);
         if code != 230 {
             tracing::info!(
                 "suck_pull: NEWNEWS {group} returned code {code}: {}",
@@ -324,7 +324,7 @@ async fn fetch_article(
         }
     }
 
-    let code = parse_response_code(&line);
+    let code = crate::import::parse_nntp_response_code(&line);
     match code {
         430 => return FetchResult::NotFound,
         220 => {}
@@ -378,17 +378,6 @@ pub(crate) fn format_nntp_date(unix_secs: u64) -> String {
     use chrono::DateTime;
     let dt = DateTime::from_timestamp(unix_secs as i64, 0).unwrap_or(DateTime::UNIX_EPOCH);
     dt.format("%Y%m%d %H%M%S").to_string()
-}
-
-// ── Protocol helper ───────────────────────────────────────────────────────────
-
-/// Parse the 3-digit NNTP response code from the start of a line.
-///
-/// Returns 0 if the line is too short or the first three characters are not digits.
-fn parse_response_code(line: &str) -> u16 {
-    line.get(..3)
-        .and_then(|s| s.parse::<u16>().ok())
-        .unwrap_or(0)
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────────

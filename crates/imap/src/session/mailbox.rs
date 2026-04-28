@@ -175,14 +175,8 @@ pub async fn handle_status(
 
     let (uidvalidity, next_uid) = match row {
         Some((v, n)) => (
-            u32::try_from(v).unwrap_or_else(|_| {
-                tracing::warn!(mailbox = %name, uidvalidity = v, "corrupt uidvalidity exceeds u32, clamping to 1");
-                1
-            }),
-            u32::try_from(n).unwrap_or_else(|_| {
-                tracing::warn!(mailbox = %name, next_uid = n, "corrupt next_uid exceeds u32, clamping to 1");
-                1
-            }),
+            clamp_u32(v, "uidvalidity", &name),
+            clamp_u32(n, "next_uid", &name),
         ),
         None => return None,
     };
@@ -217,6 +211,18 @@ pub async fn handle_status(
 /// Get or create the UIDVALIDITY and UIDNEXT for a mailbox.
 ///
 /// On first access, generates UIDVALIDITY from the current Unix timestamp
+/// Cast an `i64` DB value to `u32`, clamping to 1 and logging on overflow.
+///
+/// UIDVALIDITY and next_uid are stored as `i64` by SQLite but must fit in
+/// `u32` for IMAP.  Overflow indicates DB corruption; clamping to 1 keeps
+/// the server operational while the warning surfaces the issue to operators.
+fn clamp_u32(v: i64, field: &str, mailbox: &str) -> u32 {
+    u32::try_from(v).unwrap_or_else(|_| {
+        tracing::warn!(mailbox, field, value = v, "corrupt {field} exceeds u32, clamping to 1");
+        1
+    })
+}
+
 /// (seconds).  UIDVALIDITY must never decrease for a given mailbox, and
 /// persisting it in the DB satisfies that invariant across restarts.
 pub async fn get_or_create_uidvalidity(
@@ -231,22 +237,8 @@ pub async fn get_or_create_uidvalidity(
 
     if let Some((v, n)) = row {
         return Ok((
-            u32::try_from(v).unwrap_or_else(|_| {
-                tracing::warn!(
-                    mailbox,
-                    uidvalidity = v,
-                    "corrupt uidvalidity exceeds u32, clamping to 1"
-                );
-                1
-            }),
-            u32::try_from(n).unwrap_or_else(|_| {
-                tracing::warn!(
-                    mailbox,
-                    next_uid = n,
-                    "corrupt next_uid exceeds u32, clamping to 1"
-                );
-                1
-            }),
+            clamp_u32(v, "uidvalidity", mailbox),
+            clamp_u32(n, "next_uid", mailbox),
         ));
     }
 
@@ -273,24 +265,7 @@ pub async fn get_or_create_uidvalidity(
             .fetch_one(pool)
             .await?;
 
-    Ok((
-        u32::try_from(v).unwrap_or_else(|_| {
-            tracing::warn!(
-                mailbox,
-                uidvalidity = v,
-                "corrupt uidvalidity exceeds u32, clamping to 1"
-            );
-            1
-        }),
-        u32::try_from(n).unwrap_or_else(|_| {
-            tracing::warn!(
-                mailbox,
-                next_uid = n,
-                "corrupt next_uid exceeds u32, clamping to 1"
-            );
-            1
-        }),
-    ))
+    Ok((clamp_u32(v, "uidvalidity", mailbox), clamp_u32(n, "next_uid", mailbox)))
 }
 
 // ── Flag helpers ──────────────────────────────────────────────────────────────

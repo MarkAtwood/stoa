@@ -78,29 +78,10 @@ pub fn escape_xml(s: &str) -> String {
 
 /// Validate an RFC 3977 newsgroup name.
 ///
-/// Each dot-separated component must start with an ASCII letter and consist
-/// of ASCII alphanumeric characters, hyphens, plus signs, or underscores.
-/// Empty components (leading/trailing/double dots) are rejected.
+/// Delegates to [`stoa_core::article::GroupName::new`] so validation rules
+/// are defined in one place.
 pub fn validate_group_name(name: &str) -> bool {
-    if name.is_empty() {
-        return false;
-    }
-    for component in name.split('.') {
-        if component.is_empty() {
-            return false;
-        }
-        let mut chars = component.chars();
-        match chars.next() {
-            Some(c) if c.is_ascii_alphabetic() => {}
-            _ => return false,
-        }
-        for c in chars {
-            if !c.is_ascii_alphanumeric() && c != '-' && c != '+' && c != '_' {
-                return false;
-            }
-        }
-    }
-    true
+    stoa_core::article::GroupName::new(name).is_ok()
 }
 
 /// Strip angle brackets from a Message-ID: `<foo@bar>` → `foo@bar`.

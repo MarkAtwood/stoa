@@ -10,6 +10,7 @@ use crate::session::{commands::list::GroupInfo, state::SessionState};
 /// Keeping them together ensures they are set and cleared atomically — the
 /// type system makes it impossible to have a group without an article pointer
 /// or an article pointer without a group.
+#[derive(Debug)]
 pub struct SelectedGroup {
     /// Currently selected newsgroup.
     pub name: GroupName,
@@ -22,6 +23,7 @@ pub struct SelectedGroup {
 /// All per-connection state for one NNTP session.
 ///
 /// Passed by mutable reference to every command handler.
+#[derive(Debug)]
 pub struct SessionContext {
     /// Current session state (auth/group transitions).
     pub state: SessionState,

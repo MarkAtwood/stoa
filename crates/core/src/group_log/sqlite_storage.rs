@@ -23,10 +23,6 @@ fn db_err(e: sqlx::Error) -> StorageError {
     StorageError::Database(e.to_string())
 }
 
-fn cid_to_bytes(cid: &Cid) -> Vec<u8> {
-    cid.to_bytes()
-}
-
 fn cid_from_bytes(bytes: &[u8]) -> Result<Cid, StorageError> {
     Cid::try_from(bytes).map_err(|e| StorageError::Database(format!("invalid CID bytes: {e}")))
 }
@@ -36,7 +32,7 @@ fn cid_from_bytes(bytes: &[u8]) -> Result<Cid, StorageError> {
 impl LogStorage for SqliteLogStorage {
     async fn insert_entry(&self, id: LogEntryId, entry: LogEntry) -> Result<(), StorageError> {
         let id_bytes = id.as_bytes().to_vec();
-        let article_cid_bytes = cid_to_bytes(&entry.article_cid);
+        let article_cid_bytes = entry.article_cid.to_bytes();
         // HLC timestamps are u64 wall-ms since UNIX epoch.  Both SQLite and
         // PostgreSQL store integers as i64.  A timestamp > i64::MAX (year
         // ~292 million CE) cannot be stored without truncation.
@@ -75,7 +71,7 @@ impl LogStorage for SqliteLogStorage {
         }
 
         for parent_cid in &entry.parent_cids {
-            let parent_bytes = cid_to_bytes(parent_cid);
+            let parent_bytes = parent_cid.to_bytes();
             sqlx::query(
                 "INSERT INTO log_entry_parents (entry_id, parent_id) VALUES (?, ?)
                  ON CONFLICT DO NOTHING",

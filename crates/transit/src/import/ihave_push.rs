@@ -189,7 +189,7 @@ async fn send_ihave(addr: &str, msgid: &str, article_bytes: &[u8]) -> SendResult
     if reader.read_line(&mut line).await.is_err() {
         return SendResult::Rejected;
     }
-    let code = response_code(&line);
+    let code = crate::import::parse_nntp_response_code(&line);
     if code != 200 && code != 201 {
         tracing::warn!("unexpected greeting from {addr}: {}", line.trim());
         return SendResult::Rejected;
@@ -206,7 +206,7 @@ async fn send_ihave(addr: &str, msgid: &str, article_bytes: &[u8]) -> SendResult
     if reader.read_line(&mut line).await.is_err() {
         return SendResult::Rejected;
     }
-    let code = response_code(&line);
+    let code = crate::import::parse_nntp_response_code(&line);
 
     match code {
         435 => return SendResult::Duplicate,
@@ -231,7 +231,7 @@ async fn send_ihave(addr: &str, msgid: &str, article_bytes: &[u8]) -> SendResult
     if reader.read_line(&mut line).await.is_err() {
         return SendResult::Rejected;
     }
-    let code = response_code(&line);
+    let code = crate::import::parse_nntp_response_code(&line);
 
     match code {
         235 => SendResult::Accepted,
@@ -246,21 +246,6 @@ async fn send_ihave(addr: &str, msgid: &str, article_bytes: &[u8]) -> SendResult
     }
 }
 
-/// Apply NNTP dot-stuffing: prefix any line starting with `.` with an extra `.`.
-///
-/// Handles both CRLF (`\r\n`) and bare-LF (`\n`) input and always produces
-/// CRLF output as required by RFC 3977.  Splitting on bare `\n` and keeping
-/// the trailing `\r` attached would emit a dangling `\r\n\n` for CRLF input
-/// that ends with a newline — this implementation avoids that by scanning
-/// byte-by-byte and stripping any `\r` immediately before `\n`.
-/// Parse the 3-digit NNTP response code from the start of a response line.
-///
-/// Returns 0 if the line is too short or the first three characters are not digits.
-fn response_code(line: &str) -> u16 {
-    line.get(..3)
-        .and_then(|s| s.parse::<u16>().ok())
-        .unwrap_or(0)
-}
 
 /// Extract the `Message-ID` header value (including angle brackets) from article text.
 ///
@@ -415,10 +400,10 @@ mod tests {
 
     #[test]
     fn response_code_parses_correctly() {
-        assert_eq!(response_code("235 Article transferred OK\r\n"), 235);
-        assert_eq!(response_code("435 Duplicate\r\n"), 435);
-        assert_eq!(response_code("335 Send article\r\n"), 335);
-        assert_eq!(response_code(""), 0);
-        assert_eq!(response_code("xy"), 0);
+        assert_eq!(crate::import::parse_nntp_response_code("235 Article transferred OK\r\n"), 235);
+        assert_eq!(crate::import::parse_nntp_response_code("435 Duplicate\r\n"), 435);
+        assert_eq!(crate::import::parse_nntp_response_code("335 Send article\r\n"), 335);
+        assert_eq!(crate::import::parse_nntp_response_code(""), 0);
+        assert_eq!(crate::import::parse_nntp_response_code("xy"), 0);
     }
 }

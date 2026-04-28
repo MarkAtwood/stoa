@@ -17,6 +17,7 @@ use stoa_lmdb::LmdbBlockDb;
 use crate::post::ipfs_write::{IpfsBlockStore, IpfsWriteError};
 
 /// IPFS block store backed by LMDB.
+#[derive(Debug)]
 pub struct LmdbBlockStore {
     db: Arc<LmdbBlockDb>,
 }

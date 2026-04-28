@@ -1,34 +1,36 @@
 //! Prometheus metrics for the reader daemon.
 
+use std::sync::LazyLock;
+
 use prometheus::{register_gauge_vec, register_histogram_vec, GaugeVec, HistogramVec};
 
-lazy_static::lazy_static! {
-    pub static ref NNTP_COMMAND_DURATION_SECONDS: HistogramVec =
-        register_histogram_vec!(
-            "nntp_command_duration_seconds",
-            "Duration of NNTP command handling in seconds, labeled by command name",
-            &["command"],
-            vec![0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0]
-        )
-        .expect("failed to register nntp_command_duration_seconds");
+pub static NNTP_COMMAND_DURATION_SECONDS: LazyLock<HistogramVec> = LazyLock::new(|| {
+    register_histogram_vec!(
+        "nntp_command_duration_seconds",
+        "Duration of NNTP command handling in seconds, labeled by command name",
+        &["command"],
+        vec![0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0]
+    )
+    .expect("failed to register nntp_command_duration_seconds")
+});
 
-    /// Unix timestamp of each configured TLS certificate's NotAfter date.
-    ///
-    /// Labels: `path` — the filesystem path of the certificate file.
-    /// Updated at startup and on `/reload`.  Absent until at least one cert
-    /// is configured.
-    pub static ref TLS_CERT_EXPIRY_SECONDS: GaugeVec =
-        register_gauge_vec!(
-            "tls_cert_expiry_seconds",
-            "Unix timestamp of TLS certificate expiry (NotAfter), labeled by cert path",
-            &["path"]
-        )
-        .expect("failed to register tls_cert_expiry_seconds");
-}
+/// Unix timestamp of each configured TLS certificate's NotAfter date.
+///
+/// Labels: `path` — the filesystem path of the certificate file.
+/// Updated at startup and on `/reload`.  Absent until at least one cert
+/// is configured.
+pub static TLS_CERT_EXPIRY_SECONDS: LazyLock<GaugeVec> = LazyLock::new(|| {
+    register_gauge_vec!(
+        "tls_cert_expiry_seconds",
+        "Unix timestamp of TLS certificate expiry (NotAfter), labeled by cert path",
+        &["path"]
+    )
+    .expect("failed to register tls_cert_expiry_seconds")
+});
 
 /// Returns all reader metrics in Prometheus text format.
 pub fn gather_metrics() -> String {
-    lazy_static::initialize(&NNTP_COMMAND_DURATION_SECONDS);
+    let _ = &*NNTP_COMMAND_DURATION_SECONDS;
     use prometheus::Encoder;
     let encoder = prometheus::TextEncoder::new();
     let metric_families = prometheus::gather();

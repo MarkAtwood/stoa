@@ -41,3 +41,26 @@ pub fn find_header_boundary(bytes: &[u8]) -> Option<usize> {
     }
     None
 }
+
+/// Split `bytes` at the RFC 5322 blank-line separator.
+///
+/// Returns `(headers, body)` where `headers` excludes the trailing blank line
+/// and `body` excludes the separator itself.  If no blank line is found,
+/// `headers` is the entire input and `body` is empty.
+///
+/// Both `\r\n\r\n` (CRLF) and `\n\n` (bare-LF) are recognised.
+pub fn split_header_body(bytes: &[u8]) -> (&[u8], &[u8]) {
+    match find_header_boundary(bytes) {
+        Some(body_start) => {
+            // Determine separator length: 4 for CRLF, 2 for bare-LF.
+            // The separator ends at body_start; check for the leading \r\n\r\n.
+            let sep_len = if body_start >= 4 && bytes[body_start - 4..body_start] == *b"\r\n\r\n" {
+                4
+            } else {
+                2
+            };
+            (&bytes[..body_start - sep_len], &bytes[body_start..])
+        }
+        None => (bytes, &[]),
+    }
+}

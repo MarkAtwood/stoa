@@ -8,13 +8,28 @@ use stoa_core::msgid_map::MsgIdMap;
 use crate::retention::audit_log::{append_audit_record, GcAuditRecord};
 use crate::retention::pin_client::PinClient;
 
+/// The reason an article was selected for GC.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GcReason {
+    /// No retention policy rule matched the article; it falls outside all pin windows.
+    NoMatchingRule,
+}
+
+impl std::fmt::Display for GcReason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GcReason::NoMatchingRule => f.write_str("no_matching_rule"),
+        }
+    }
+}
+
 /// A GC candidate with full metadata needed for the audit record.
 #[derive(Debug, Clone)]
 pub struct GcExecutorCandidate {
     pub cid: Cid,
     pub group_name: String,
     pub ingested_at_ms: u64,
-    pub gc_reason: String,
+    pub gc_reason: GcReason,
 }
 
 /// GC executor result.
@@ -68,7 +83,7 @@ pub async fn run_gc_executor<P: PinClient>(
                     group_name: candidate.group_name.clone(),
                     ingested_at_ms: candidate.ingested_at_ms,
                     gc_at_ms: now_ms,
-                    reason: candidate.gc_reason.clone(),
+                    reason: candidate.gc_reason.to_string(),
                 };
                 if let Err(e) = append_audit_record(transit_pool, &record).await {
                     tracing::warn!(cid = %candidate.cid, "GC: failed to write audit record: {e}");
@@ -130,7 +145,7 @@ mod tests {
                     cid: cid.clone(),
                     group_name: "comp.lang.rust".to_string(),
                     ingested_at_ms: now_ms - 86_400_000,
-                    gc_reason: "no_matching_rule".to_string(),
+                    gc_reason: GcReason::NoMatchingRule,
                 }
             })
             .collect();
@@ -182,7 +197,7 @@ mod tests {
             cid,
             group_name: "alt.test".to_string(),
             ingested_at_ms: 0,
-            gc_reason: "no_matching_rule".to_string(),
+            gc_reason: GcReason::NoMatchingRule,
         }];
 
         let result = run_gc_executor(&candidates, &pin_client, &transit_pool, &core_pool, 0)

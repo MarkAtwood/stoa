@@ -243,54 +243,9 @@ async fn handle_admin_connection(
             // apply config changes.  However, we do re-check TLS certificate
             // expiry on every reload request so operators can confirm cert
             // rotation succeeded without restarting.
-            let now_secs = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs() as i64;
             let mut cert_results: Vec<serde_json::Value> = Vec::new();
             for path in cert_paths.iter() {
-                match stoa_tls::cert_not_after(path) {
-                    Ok(expiry_unix) => {
-                        let days_remaining = (expiry_unix - now_secs) / 86400;
-                        let expires_at = chrono::DateTime::from_timestamp(expiry_unix, 0)
-                            .map(|t: chrono::DateTime<chrono::Utc>| {
-                                t.format("%Y-%m-%dT%H:%M:%SZ").to_string()
-                            })
-                            .unwrap_or_else(|| expiry_unix.to_string());
-                        crate::metrics::TLS_CERT_EXPIRY_SECONDS
-                            .with_label_values(&[path])
-                            .set(expiry_unix as f64);
-                        if days_remaining <= 7 {
-                            tracing::error!(
-                                event = "cert_expiry_critical",
-                                path = %path,
-                                days_remaining,
-                                expires_at = %expires_at,
-                                "TLS certificate expires very soon"
-                            );
-                        } else if days_remaining <= 30 {
-                            tracing::warn!(
-                                event = "cert_expiry_warning",
-                                path = %path,
-                                days_remaining,
-                                expires_at = %expires_at,
-                                "TLS certificate expiring soon"
-                            );
-                        }
-                        cert_results.push(serde_json::json!({
-                            "path": path,
-                            "expires_at": expires_at,
-                            "days_remaining": days_remaining,
-                        }));
-                    }
-                    Err(e) => {
-                        tracing::warn!(path = %path, "TLS cert expiry check failed: {e}");
-                        cert_results.push(serde_json::json!({
-                            "path": path,
-                            "error": e.to_string(),
-                        }));
-                    }
-                }
+                cert_results.push(crate::tls::check_cert_expiry(path));
             }
             let body = serde_json::json!({
                 "reloaded": false,

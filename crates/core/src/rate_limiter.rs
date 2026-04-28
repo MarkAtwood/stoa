@@ -50,7 +50,7 @@ impl RateLimiter {
         if self.rpm == 0 {
             return true;
         }
-        let mut inner = self.state.lock().unwrap();
+        let mut inner = self.state.lock().expect("rate limiter lock poisoned");
         let tokens_per_sec = self.rpm as f64 / 60.0;
         let max_tokens = self.rpm as f64;
         let now = Instant::now();

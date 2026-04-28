@@ -39,7 +39,6 @@ rustls = { version = "0.23", default-features = false, features = ["std", "tls12
 rustls-pemfile = "2"
 tokio-rustls = "0.26"
 prometheus = "0.14"
-lazy_static = "1.5.0"
 bcrypt = "0.15"
 bs58 = "0.4"
 ed25519-dalek = "2"

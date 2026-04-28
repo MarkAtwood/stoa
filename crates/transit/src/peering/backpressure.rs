@@ -11,11 +11,11 @@ const EMA_ALPHA: f64 = 0.1; // smoothing factor: ~10 samples to stabilize
 
 /// IPFS write latency monitor with EMA-based backpressure.
 ///
-/// Thread-safe: the EMA is stored in an `AtomicU64` (integer microseconds).
+/// Thread-safe: the EMA is stored in an `AtomicU64` (f64 bits of milliseconds).
 /// `backpressure_active()` reads the gauge without locking.
 pub struct IpfsLatencyMonitor {
     /// EMA of write latency in milliseconds (packed into u64 as f64 bits).
-    ema_us: AtomicU64,
+    ema_ms_bits: AtomicU64,
     /// Threshold in milliseconds above which backpressure activates.
     threshold_ms: u64,
     /// Whether backpressure is currently active.
@@ -30,7 +30,7 @@ impl IpfsLatencyMonitor {
     /// - `threshold_ms`: IPFS write p99 latency threshold in ms (default 500)
     pub fn new(threshold_ms: u64) -> Arc<Self> {
         Arc::new(Self {
-            ema_us: AtomicU64::new(f64::to_bits(0.0)),
+            ema_ms_bits: AtomicU64::new(f64::to_bits(0.0)),
             threshold_ms,
             active: AtomicBool::new(false),
             sample_count: AtomicU64::new(0),
@@ -47,7 +47,7 @@ impl IpfsLatencyMonitor {
     /// Updates the EMA and re-evaluates the backpressure state.
     pub fn record_latency_ms(&self, latency_ms: f64) {
         // Update EMA.
-        let prev_bits = self.ema_us.load(Ordering::Relaxed);
+        let prev_bits = self.ema_ms_bits.load(Ordering::Relaxed);
         let prev = f64::from_bits(prev_bits);
         let count = self.sample_count.fetch_add(1, Ordering::Relaxed);
 
@@ -59,7 +59,7 @@ impl IpfsLatencyMonitor {
         };
 
         // Store as f64 bits in AtomicU64.
-        self.ema_us.store(f64::to_bits(new_ema), Ordering::Relaxed);
+        self.ema_ms_bits.store(f64::to_bits(new_ema), Ordering::Relaxed);
 
         // Update backpressure state.
         let was_active = self.active.load(Ordering::Relaxed);
@@ -68,10 +68,10 @@ impl IpfsLatencyMonitor {
         if !was_active && new_ema > threshold {
             // ORDERING: Release on write, Acquire on read (backpressure_active).
             // This establishes a happens-before edge: any thread that reads
-            // active == true via Acquire is guaranteed to observe the ema_us
+            // active == true via Acquire is guaranteed to observe the ema_ms_bits
             // value that caused the transition.  Do NOT downgrade to Relaxed
             // for "consistency" — a Relaxed store could become visible before
-            // the ema_us update, breaking any diagnostic that reads ema_ms()
+            // the ema_ms_bits update, breaking any diagnostic that reads ema_ms()
             // after observing backpressure_active() == true.
             self.active.store(true, Ordering::Release);
             tracing::warn!(
@@ -100,7 +100,7 @@ impl IpfsLatencyMonitor {
     /// Current EMA latency in milliseconds.
     /// Uses Relaxed ordering — the value is advisory and written from one place only.
     pub fn ema_ms(&self) -> f64 {
-        f64::from_bits(self.ema_us.load(Ordering::Relaxed))
+        f64::from_bits(self.ema_ms_bits.load(Ordering::Relaxed))
     }
 
     /// Effective queue high-water mark fraction.

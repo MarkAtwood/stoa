@@ -151,9 +151,9 @@ impl<P: PinClient> GcRunner<P> {
     ///
     /// [`GcReport`]: crate::retention::gc_report::GcReport
     pub async fn run_once(&self, candidates: &[GcCandidate], now_ms: u64) -> u64 {
-        use crate::retention::gc_report::{ms_to_iso8601, new_run_id, GcReport, GcReportError};
+        use crate::retention::gc_report::{ms_to_datetime, new_run_id, GcReport, GcReportError};
 
-        let started_at = ms_to_iso8601(now_ms);
+        let started_at = ms_to_datetime(now_ms);
         let run_id = new_run_id();
         let start = std::time::Instant::now();
         let ms_per_day = 24u64 * 60 * 60 * 1000;
@@ -207,7 +207,7 @@ impl<P: PinClient> GcRunner<P> {
 
         let elapsed_ms = start.elapsed().as_millis() as u64;
         let completed_at_ms = now_ms + elapsed_ms;
-        let completed_at = ms_to_iso8601(completed_at_ms);
+        let completed_at = ms_to_datetime(completed_at_ms);
 
         self.metrics
             .gc_articles_unpinned_total
@@ -461,9 +461,10 @@ mod tests {
         assert_eq!(report.articles_deleted, 3, "must record 3 deletions");
         assert_eq!(report.articles_evaluated, 3);
         assert!(!report.run_id.is_empty(), "run_id must be populated");
-        assert!(
-            report.started_at.ends_with('Z'),
-            "started_at must be ISO 8601 UTC"
+        assert_eq!(
+            report.started_at.timezone(),
+            chrono::Utc,
+            "started_at must be UTC"
         );
     }
 

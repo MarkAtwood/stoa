@@ -99,11 +99,8 @@ pub fn cmd_key_rotate(
 
     // Reconstruct old fingerprint the same way keygen does:
     // SHA-256 of the SPKI DER bytes for the old public key.
-    const SPKI_HEADER: [u8; 12] = [
-        0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00,
-    ];
     let mut old_spki = Vec::with_capacity(44);
-    old_spki.extend_from_slice(&SPKI_HEADER);
+    old_spki.extend_from_slice(&crate::cli::key_support::SPKI_ED25519_HEADER);
     old_spki.extend_from_slice(old_verifying_key.as_bytes());
     let old_fingerprint = hex::encode(sha2::Sha256::digest(&old_spki));
 

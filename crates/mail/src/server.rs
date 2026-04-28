@@ -432,9 +432,11 @@ async fn route_method(
         }
     }
 
+    // TODO(user-state): resolve user_id from canonical_account_id
+    let user_id: i64 = 1;
+
     match method {
         "Mailbox/get" => {
-            let user_id: i64 = 1; // TODO(user-state): resolve from canonical_account_id
             let subscribed: std::collections::HashSet<String> = jmap
                 .subscription_store
                 .list_subscribed(user_id)
@@ -478,7 +480,6 @@ async fn route_method(
         }
 
         "Mailbox/set" => {
-            let user_id: i64 = 1; // TODO(user-state): resolve from canonical_account_id
             let old_state = jmap
                 .state_store
                 .get_state("Mailbox")
@@ -675,7 +676,6 @@ async fn route_method(
 
             // Handle keyword updates.
             if let Some(update_map) = args.get("update").and_then(|v| v.as_object()) {
-                let user_id: i64 = 1; // TODO(user-state): resolve from canonical_account_id
                 let (updated, not_updated) =
                     crate::email::set::handle_keyword_update(update_map, user_id, &jmap.user_flags)
                         .await;

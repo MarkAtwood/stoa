@@ -26,7 +26,7 @@ pub async fn run_server(
     nntp_queue: Arc<NntpQueue>,
     pool: Option<SqlitePool>,
     sieve_cache: Option<SieveCache>,
-) {
+) -> Result<(), String> {
     let auth: Option<Arc<MessageAuthenticator>> = {
         let result = match config.dns_resolver {
             crate::config::DnsResolver::Cloudflare => MessageAuthenticator::new_cloudflare(),
@@ -55,39 +55,38 @@ pub async fn run_server(
                 let secret_store = match secretx::from_uri(path) {
                     Ok(s) => s,
                     Err(e) => {
-                        eprintln!("error: auth.credential_file: invalid secretx URI: {e}");
-                        std::process::exit(1);
+                        return Err(format!(
+                            "auth.credential_file: invalid secretx URI: {e}"
+                        ));
                     }
                 };
                 let secret = match secret_store.get().await {
                     Ok(v) => v,
                     Err(e) => {
-                        eprintln!("error: auth.credential_file: secretx retrieval failed: {e}");
-                        std::process::exit(1);
+                        return Err(format!(
+                            "auth.credential_file: secretx retrieval failed: {e}"
+                        ));
                     }
                 };
                 let content = match secret.as_str() {
-                    Ok(s) => s,
+                    Ok(s) => s.to_string(),
                     Err(e) => {
-                        eprintln!(
-                            "error: auth.credential_file: secretx value not valid UTF-8: {e}"
-                        );
-                        std::process::exit(1);
+                        return Err(format!(
+                            "auth.credential_file: secretx value not valid UTF-8: {e}"
+                        ));
                     }
                 };
-                if let Err(e) = store.merge_from_content(path, content) {
-                    eprintln!("error: failed to parse credential file from secretx: {e}");
-                    std::process::exit(1);
+                if let Err(e) = store.merge_from_content(path, &content) {
+                    return Err(format!(
+                        "failed to parse credential file from secretx: {e}"
+                    ));
                 }
             } else if let Err(e) = store.merge_from_file(path) {
-                eprintln!("error: failed to load credential_file '{path}': {e}");
-                std::process::exit(1);
+                return Err(format!("failed to load credential_file '{path}': {e}"));
             }
         }
         Arc::new(store)
     };
-
-    let smtps_parts: Option<(TcpListener, TlsAcceptor)> = listener_smtps;
 
     let semaphore = Arc::new(Semaphore::new(config.limits.max_connections));
 
@@ -113,7 +112,7 @@ pub async fn run_server(
             ),
         }
 
-        let accepted = if let Some((ref smtps_listener, ref tls_acceptor)) = smtps_parts {
+        let accepted = if let Some((ref smtps_listener, ref tls_acceptor)) = listener_smtps {
             tokio::select! {
                 result = listener_25.accept() => match result {
                     Ok((s, a)) => Accepted::Plain(s, a),
@@ -210,6 +209,7 @@ pub async fn run_server(
             }
         }
     }
+    Ok(())
 }
 
 #[cfg(test)]

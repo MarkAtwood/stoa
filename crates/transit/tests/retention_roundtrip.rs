@@ -6,7 +6,7 @@
 
 use stoa_transit::retention::{
     audit_log::count_audit_records,
-    gc_executor::{run_gc_executor, GcExecutorCandidate},
+    gc_executor::{run_gc_executor, GcExecutorCandidate, GcReason},
     pin_client::{MemPinClient, PinClient},
     policy::{ArticleMeta, PinAction, PinPolicy, PinRule},
 };
@@ -93,7 +93,7 @@ async fn gc_roundtrip_13_unpinned_7_pinned() {
                 cid,
                 group_name: group.to_string(),
                 ingested_at_ms: now_ms - 86_400_000 * 30,
-                gc_reason: "no_matching_rule".to_string(),
+                gc_reason: GcReason::NoMatchingRule,
             });
         }
     }
@@ -111,7 +111,7 @@ async fn gc_roundtrip_13_unpinned_7_pinned() {
                 cid,
                 group_name: group.to_string(),
                 ingested_at_ms: now_ms - 86_400_000 * 30,
-                gc_reason: "no_matching_rule".to_string(),
+                gc_reason: GcReason::NoMatchingRule,
             });
         }
     }
@@ -166,7 +166,7 @@ async fn gc_roundtrip_pin_all_produces_no_candidates() {
                     cid: make_cid(&[100 + i]),
                     group_name: group.to_string(),
                     ingested_at_ms: 0,
-                    gc_reason: "no_matching_rule".to_string(),
+                    gc_reason: GcReason::NoMatchingRule,
                 })
             }
         })

@@ -16,6 +16,17 @@ pub enum InjectionSource {
     SmtpListId,
 }
 
+impl std::fmt::Display for InjectionSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NntpPost => f.write_str("NntpPost"),
+            Self::SmtpNewsgroups => f.write_str("SmtpNewsgroups"),
+            Self::SmtpSieve => f.write_str("SmtpSieve"),
+            Self::SmtpListId => f.write_str("SmtpListId"),
+        }
+    }
+}
+
 impl InjectionSource {
     /// Returns true if the article should be written to the group log and replicated to peers.
     ///

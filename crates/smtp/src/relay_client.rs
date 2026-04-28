@@ -74,21 +74,35 @@ async fn do_deliver(
     run_smtp_session(&mut reader, &mut writer, peer, envelope, article_bytes).await
 }
 
+/// Shared TLS client config built once per process.
+///
+/// Root CAs come from `webpki_roots`; the ring crypto provider is installed
+/// before the config is constructed.  Building `ClientConfig` (including the
+/// `RootCertStore` population) is expensive; sharing this across connections
+/// avoids repeating that work on every outbound TLS handshake.
+static TLS_CLIENT_CONFIG: std::sync::LazyLock<Arc<rustls::ClientConfig>> =
+    std::sync::LazyLock::new(|| {
+        static ONCE: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+        ONCE.get_or_init(|| {
+            rustls::crypto::ring::default_provider()
+                .install_default()
+                .unwrap_or(());
+        });
+        let mut root_store = rustls::RootCertStore::empty();
+        root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+        Arc::new(
+            rustls::ClientConfig::builder()
+                .with_root_certificates(root_store)
+                .with_no_client_auth(),
+        )
+    });
+
 /// Wrap a plain TCP stream with TLS using webpki root CAs.
 async fn tls_wrap(
     tcp: TcpStream,
     host: &str,
 ) -> Result<tokio_rustls::client::TlsStream<TcpStream>, SmtpRelayError> {
-    install_crypto_provider();
-
-    let mut root_store = rustls::RootCertStore::empty();
-    root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-
-    let config = rustls::ClientConfig::builder()
-        .with_root_certificates(root_store)
-        .with_no_client_auth();
-
-    let connector = tokio_rustls::TlsConnector::from(Arc::new(config));
+    let connector = tokio_rustls::TlsConnector::from(Arc::clone(&TLS_CLIENT_CONFIG));
 
     let server_name = rustls::pki_types::ServerName::try_from(host.to_owned())
         .map_err(|e| SmtpRelayError::TlsHandshake(format!("invalid hostname: {e}")))?;
@@ -97,19 +111,6 @@ async fn tls_wrap(
         .connect(server_name, tcp)
         .await
         .map_err(|e| SmtpRelayError::TlsHandshake(e.to_string()))
-}
-
-/// Install the ring crypto provider exactly once per process.
-///
-/// rustls 0.23 requires an explicit provider when multiple providers are
-/// compiled in (ring and aws-lc-rs are both present as transitive deps).
-fn install_crypto_provider() {
-    static ONCE: std::sync::OnceLock<()> = std::sync::OnceLock::new();
-    ONCE.get_or_init(|| {
-        rustls::crypto::ring::default_provider()
-            .install_default()
-            .unwrap_or(());
-    });
 }
 
 /// Run the SMTP session over already-established reader/writer halves.

@@ -12,8 +12,7 @@ pub async fn run_migrations(url: &str) -> Result<(), sqlx::migrate::MigrateError
         let pool = sqlx::postgres::PgPoolOptions::new()
             .max_connections(1)
             .connect(url)
-            .await
-            .map_err(sqlx::migrate::MigrateError::Execute)?;
+            .await?;
         let result = sqlx::migrate!("./migrations_pg").run(&pool).await;
         pool.close().await;
         result
@@ -29,8 +28,7 @@ pub async fn run_migrations(url: &str) -> Result<(), sqlx::migrate::MigrateError
         let pool = sqlx::sqlite::SqlitePoolOptions::new()
             .max_connections(1)
             .connect_with(opts)
-            .await
-            .map_err(sqlx::migrate::MigrateError::Execute)?;
+            .await?;
         let result = sqlx::migrate!("./migrations").run(&pool).await;
         pool.close().await;
         result

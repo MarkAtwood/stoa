@@ -176,6 +176,17 @@ impl ServerStores {
     /// (msgid_map) use overlapping version numbers, so they run against
     /// separate pools.
     pub async fn new_mem() -> Self {
+        Self::new_mem_impl(true).await
+    }
+
+    /// Identical to `new_mem` but with `search_index: None`, for testing
+    /// the 503 code path when search is disabled.
+    #[cfg(test)]
+    pub async fn new_mem_no_search() -> Self {
+        Self::new_mem_impl(false).await
+    }
+
+    async fn new_mem_impl(with_search: bool) -> Self {
         let reader_pool = make_pool_with_reader_migrations().await;
         let core_pool = make_pool_with_core_migrations().await;
 
@@ -200,58 +211,15 @@ impl ServerStores {
             trusted_issuer_store: Arc::new(TrustedIssuerStore::empty()),
             clock: Arc::new(Mutex::new(HlcClock::new(node_id, now_ms))),
             signing_key: Arc::new(signing_key),
-            search_index: {
+            search_index: if with_search {
                 let cfg = crate::config::SearchConfig::default();
                 Some(Arc::new(
                     TantivySearchIndex::open_in_memory(&cfg)
                         .expect("in-memory tantivy index cannot fail"),
                 ))
+            } else {
+                None
             },
-            smtp_relay_queue: None,
-            verification_store: Arc::new(VerificationStore::new(verify_pool)),
-            dkim_authenticator: Arc::new(
-                MessageAuthenticator::new_cloudflare_tls()
-                    .expect("DKIM authenticator init must not fail"),
-            ),
-            path_hostname: "localhost".to_string(),
-            audit_logger: None,
-            auth_failure_tracker: Arc::new(std::sync::Mutex::new(AuthFailureTracker::new(
-                10,
-                std::time::Duration::from_secs(60),
-                DEFAULT_MAX_ENTRIES,
-            ))),
-            oidc_store: None,
-        }
-    }
-
-    /// Identical to `new_mem` but with `search_index: None`, for testing
-    /// the 503 code path when search is disabled.
-    #[cfg(test)]
-    pub async fn new_mem_no_search() -> Self {
-        let reader_pool = make_pool_with_reader_migrations().await;
-        let core_pool = make_pool_with_core_migrations().await;
-
-        let now_ms = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as u64;
-
-        let signing_key = generate_signing_key();
-        let node_id = hlc_node_id(&signing_key);
-
-        let verify_pool = make_pool_with_verify_migrations().await;
-        Self {
-            ipfs_store: Arc::new(MemIpfsStore::new()),
-            msgid_map: Arc::new(MsgIdMap::new(core_pool)),
-            log_storage: Arc::new(MemLogStorage::new()),
-            article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
-            overview_store: Arc::new(OverviewStore::new(reader_pool)),
-            credential_store: Arc::new(CredentialStore::empty()),
-            client_cert_store: Arc::new(ClientCertStore::empty()),
-            trusted_issuer_store: Arc::new(TrustedIssuerStore::empty()),
-            clock: Arc::new(Mutex::new(HlcClock::new(node_id, now_ms))),
-            signing_key: Arc::new(signing_key),
-            search_index: None,
             smtp_relay_queue: None,
             verification_store: Arc::new(VerificationStore::new(verify_pool)),
             dkim_authenticator: Arc::new(

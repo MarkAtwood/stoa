@@ -5,7 +5,6 @@ use std::path::Path;
 /// can import it from `crate::config` without depending on stoa-auth directly.
 pub use stoa_auth::config::UserCredential;
 
-#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub listen: ListenConfig,

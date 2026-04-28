@@ -313,4 +313,24 @@ mod tests {
         assert!(stoa_core::article::GroupName::new("comp lang rust").is_err());
         assert!(stoa_core::article::GroupName::new("comp.lang rust").is_err());
     }
+
+    #[test]
+    fn percent_encode_decode_roundtrip() {
+        let base = "https://news.example.com";
+        let group = "comp.test";
+        for msgid in &[
+            "<abc123@example.com>",
+            "<hello world@example.com>",
+            "<foo/bar@example.com>",
+            "<test+special@sub.domain.org>",
+        ] {
+            let encoded = outbound::percent_encode_msgid(msgid);
+            let url = format!("{base}/ap/groups/{group}/articles/{encoded}");
+            let decoded = inbound::decode_msgid_from_url(&url, base, group);
+            assert_eq!(
+                decoded, *msgid,
+                "roundtrip failed for {msgid}: encoded={encoded}"
+            );
+        }
+    }
 }

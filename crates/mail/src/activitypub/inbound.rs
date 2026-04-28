@@ -139,7 +139,7 @@ pub fn note_to_article(
 /// Attempt to reconstruct a Message-ID from a Note URL.
 ///
 /// Inverts the encoding in `outbound::percent_encode_msgid`.
-fn decode_msgid_from_url(url: &str, base_url: &str, group_name: &str) -> String {
+pub(super) fn decode_msgid_from_url(url: &str, base_url: &str, group_name: &str) -> String {
     let prefix = format!("{base_url}/ap/groups/{group_name}/articles/");
     if let Some(encoded) = url.strip_prefix(&prefix) {
         encoded

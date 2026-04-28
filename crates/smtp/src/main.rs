@@ -194,7 +194,12 @@ async fn main() {
     }
 
     tokio::select! {
-        _ = run_server(listener_25, listener_587, listener_smtps, config, nntp_queue, pool, sieve_cache) => {}
+        r = run_server(listener_25, listener_587, listener_smtps, config, nntp_queue, pool, sieve_cache) => {
+            if let Err(e) = r {
+                eprintln!("error: {e}");
+                std::process::exit(1);
+            }
+        }
         _ = tokio::signal::ctrl_c() => {
             info!("received CTRL-C, shutting down");
         }

@@ -222,50 +222,6 @@ fn cmd_keygen(args: &[String]) -> ! {
     std::process::exit(0);
 }
 
-/// Check TLS certificate expiry and emit log warnings/errors.
-///
-/// - ≤ 30 days remaining: WARN log (`event=cert_expiry_warning`)
-/// - ≤  7 days remaining: ERROR log (`event=cert_expiry_critical`)
-///
-/// Also sets the `tls_cert_expiry_seconds{path=...}` Prometheus gauge.
-/// Parse failures are logged at WARN and do not block startup.
-fn check_cert_expiry(cert_path: &str, _errors: &mut Vec<String>) {
-    match stoa_tls::cert_not_after(cert_path) {
-        Ok(expiry_unix) => {
-            let now_secs = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs() as i64;
-            let days_remaining = (expiry_unix - now_secs) / 86400;
-            let expires_at = chrono::DateTime::from_timestamp(expiry_unix, 0)
-                .map(|t: chrono::DateTime<chrono::Utc>| t.format("%Y-%m-%dT%H:%M:%SZ").to_string())
-                .unwrap_or_else(|| expiry_unix.to_string());
-            stoa_transit::metrics::TLS_CERT_EXPIRY_SECONDS
-                .with_label_values(&[cert_path])
-                .set(expiry_unix as f64);
-            if days_remaining <= 7 {
-                error!(
-                    event = "cert_expiry_critical",
-                    path = cert_path,
-                    days_remaining,
-                    expires_at = %expires_at,
-                    "TLS certificate expires very soon"
-                );
-            } else if days_remaining <= 30 {
-                warn!(
-                    event = "cert_expiry_warning",
-                    path = cert_path,
-                    days_remaining,
-                    expires_at = %expires_at,
-                    "TLS certificate expiring soon"
-                );
-            }
-        }
-        Err(e) => {
-            warn!(path = cert_path, "TLS cert expiry check failed: {e}");
-        }
-    }
-}
 
 async fn run_startup_checks(
     config: &stoa_transit::config::Config,
@@ -296,7 +252,7 @@ async fn run_startup_checks(
         if let Err(e) = std::fs::read(&tls_cfg.cert_path) {
             errors.push(format!("TLS file unreadable: {}: {e}", tls_cfg.cert_path));
         } else {
-            check_cert_expiry(&tls_cfg.cert_path, &mut errors);
+            let _ = stoa_transit::admin::check_cert_expiry(&tls_cfg.cert_path);
         }
         // For secretx: URIs, validate URI syntax here; resolution happens at startup.
         if tls_cfg.key_path.starts_with("secretx:") {

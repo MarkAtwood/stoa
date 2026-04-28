@@ -102,7 +102,7 @@ fn strip_field_name<'a>(line: &'a [u8], field_name: &[u8]) -> Option<&'a [u8]> {
 /// The reader strips this header unconditionally and uses it for routing
 /// decisions.
 fn inject_source_header(article_bytes: &[u8], source: InjectionSource) -> Vec<u8> {
-    let header = format!("X-Stoa-Injection-Source: {source:?}\r\n");
+    let header = format!("X-Stoa-Injection-Source: {source}\r\n");
     let mut result = Vec::with_capacity(header.len() + article_bytes.len());
     result.extend_from_slice(header.as_bytes());
     result.extend_from_slice(article_bytes);

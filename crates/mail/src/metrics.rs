@@ -1,41 +1,43 @@
 //! Prometheus metrics for the mail (JMAP) server.
 
+use std::sync::LazyLock;
+
 use prometheus::{register_counter_vec, register_histogram_vec, register_int_gauge};
 
-lazy_static::lazy_static! {
-    /// Total JMAP method calls, labeled by method name (e.g. "Email/get").
-    pub static ref JMAP_REQUESTS_TOTAL: prometheus::CounterVec =
-        register_counter_vec!(
-            "jmap_requests_total",
-            "Total number of JMAP method calls, labeled by method",
-            &["method"]
-        )
-        .expect("failed to register jmap_requests_total");
+/// Total JMAP method calls, labeled by method name (e.g. "Email/get").
+pub static JMAP_REQUESTS_TOTAL: LazyLock<prometheus::CounterVec> = LazyLock::new(|| {
+    register_counter_vec!(
+        "jmap_requests_total",
+        "Total number of JMAP method calls, labeled by method",
+        &["method"]
+    )
+    .expect("failed to register jmap_requests_total")
+});
 
-    /// Per-method latency histogram for JMAP calls, in seconds.
-    pub static ref JMAP_REQUEST_DURATION_SECONDS: prometheus::HistogramVec =
+/// Per-method latency histogram for JMAP calls, in seconds.
+pub static JMAP_REQUEST_DURATION_SECONDS: LazyLock<prometheus::HistogramVec> =
+    LazyLock::new(|| {
         register_histogram_vec!(
             "jmap_request_duration_seconds",
             "Duration of JMAP method handling in seconds, labeled by method",
             &["method"],
             vec![0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0]
         )
-        .expect("failed to register jmap_request_duration_seconds");
+        .expect("failed to register jmap_request_duration_seconds")
+    });
 
-    /// Number of results returned by the most recent Email/query call.
-    pub static ref EMAIL_QUERY_RESULTS: prometheus::IntGauge =
-        register_int_gauge!(
-            "email_query_results",
-            "Number of results returned by the last Email/query call"
-        )
-        .expect("failed to register email_query_results");
-}
+/// Number of results returned by the most recent Email/query call.
+pub static EMAIL_QUERY_RESULTS: LazyLock<prometheus::IntGauge> = LazyLock::new(|| {
+    register_int_gauge!(
+        "email_query_results",
+        "Number of results returned by the last Email/query call"
+    )
+    .expect("failed to register email_query_results")
+});
 
 /// Force-initialise all metric statics and return the Prometheus text payload.
 pub fn gather_metrics() -> Vec<u8> {
-    lazy_static::initialize(&JMAP_REQUESTS_TOTAL);
-    lazy_static::initialize(&JMAP_REQUEST_DURATION_SECONDS);
-    lazy_static::initialize(&EMAIL_QUERY_RESULTS);
+    let _ = (&*JMAP_REQUESTS_TOTAL, &*JMAP_REQUEST_DURATION_SECONDS, &*EMAIL_QUERY_RESULTS);
 
     use prometheus::Encoder as _;
     let encoder = prometheus::TextEncoder::new();

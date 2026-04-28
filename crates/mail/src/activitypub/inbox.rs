@@ -122,16 +122,14 @@ async fn handle_follow(
     // Send Accept{Follow} asynchronously — fire and forget.
     let ap_state = Arc::clone(ap_state);
     let activity_id = activity["id"].as_str().unwrap_or("").to_string();
-    let actor_url_owned = actor_url.clone();
     let group_actor_url = format!("{}/ap/groups/{}", base_url, group_name);
-    let inbox_url_owned = inbox_url.clone();
     tokio::spawn(async move {
         deliver_accept(
             &ap_state,
             &group_actor_url,
-            &actor_url_owned,
+            &actor_url,
             &activity_id,
-            &inbox_url_owned,
+            &inbox_url,
         )
         .await;
     });

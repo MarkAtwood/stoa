@@ -17,6 +17,7 @@
 //!   `jsonwebtoken::decode`; algorithm confusion attacks are therefore prevented.
 //! - `exp`, `iss`, and `aud` claims are always validated.
 
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use jsonwebtoken::{Algorithm, DecodingKey, Validation};
@@ -58,15 +59,15 @@ struct ProviderValidator {
     config: OidcProviderConfig,
     /// Cached keys and the instant they were fetched.  `None` = not yet fetched.
     cache: RwLock<Option<(Vec<Jwk>, Instant)>>,
-    client: reqwest::Client,
+    client: Arc<reqwest::Client>,
 }
 
 impl ProviderValidator {
-    fn new(config: OidcProviderConfig) -> Self {
+    fn new(config: OidcProviderConfig, client: Arc<reqwest::Client>) -> Self {
         Self {
             config,
             cache: RwLock::new(None),
-            client: reqwest::Client::new(),
+            client,
         }
     }
 
@@ -315,8 +316,12 @@ impl OidcStore {
     /// No network calls are made at construction time; JWKS keys are fetched
     /// lazily on the first `validate_jwt` call for each provider.
     pub fn new(configs: Vec<OidcProviderConfig>) -> Self {
+        let client = Arc::new(reqwest::Client::new());
         Self {
-            providers: configs.into_iter().map(ProviderValidator::new).collect(),
+            providers: configs
+                .into_iter()
+                .map(|c| ProviderValidator::new(c, Arc::clone(&client)))
+                .collect(),
         }
     }
 

@@ -21,10 +21,10 @@ pub struct GcReportError {
 pub struct GcReport {
     /// Random hex-encoded run identifier (16 bytes = 32 hex chars).
     pub run_id: String,
-    /// ISO 8601 UTC timestamp when the run started (e.g. `"2026-04-27T03:00:00Z"`).
-    pub started_at: String,
-    /// ISO 8601 UTC timestamp when the run completed.
-    pub completed_at: String,
+    /// UTC timestamp when the run started.
+    pub started_at: chrono::DateTime<chrono::Utc>,
+    /// UTC timestamp when the run completed.
+    pub completed_at: chrono::DateTime<chrono::Utc>,
     /// Human-readable description of the active pin policy.
     pub policy: String,
     /// Number of distinct newsgroups present in the candidate set.
@@ -50,8 +50,7 @@ impl GcReport {
             tracing::warn!(report_dir, "GC: failed to create report directory: {e}");
             return;
         }
-        // Sanitise the timestamp for use in a filename (replace colons with dashes).
-        let ts_safe = self.started_at.replace(':', "-");
+        let ts_safe = self.started_at.format("%Y-%m-%dT%H-%M-%SZ").to_string();
         let filename = format!("{ts_safe}-{}.json", self.run_id);
         let path = dir.join(&filename);
         match serde_json::to_vec_pretty(self) {
@@ -77,13 +76,15 @@ pub fn new_run_id() -> String {
     hex::encode(bytes)
 }
 
-/// Format a Unix millisecond timestamp as an ISO 8601 UTC string.
-pub fn ms_to_iso8601(ms: u64) -> String {
+/// Convert a Unix millisecond timestamp to a `DateTime<Utc>`.
+///
+/// Returns the Unix epoch on overflow (which cannot happen for any real
+/// timestamp value).
+pub fn ms_to_datetime(ms: u64) -> chrono::DateTime<chrono::Utc> {
     let secs = (ms / 1000) as i64;
     let nsecs = ((ms % 1000) * 1_000_000) as u32;
     chrono::DateTime::<chrono::Utc>::from_timestamp(secs, nsecs)
-        .map(|dt| dt.format("%Y-%m-%dT%H:%M:%SZ").to_string())
-        .unwrap_or_else(|| ms.to_string())
+        .unwrap_or(chrono::DateTime::UNIX_EPOCH)
 }
 
 #[cfg(test)]
@@ -101,20 +102,23 @@ mod tests {
     }
 
     #[test]
-    fn ms_to_iso8601_formats_correctly() {
+    fn ms_to_datetime_formats_correctly() {
         // 2026-04-27T00:00:00Z = 1777248000000 ms
         let ms = 1_777_248_000_000u64;
-        let s = ms_to_iso8601(ms);
-        assert!(s.ends_with('Z'), "must end with Z: {s}");
+        let dt = ms_to_datetime(ms);
+        let s = dt.to_rfc3339();
         assert!(s.contains("2026-"), "must contain year: {s}");
+        assert_eq!(dt.timestamp(), (ms / 1000) as i64);
     }
 
     #[test]
     fn gc_report_serializes_to_json() {
+        let started_at = ms_to_datetime(1_777_248_000_000u64);
+        let completed_at = ms_to_datetime(1_777_248_001_000u64);
         let report = GcReport {
             run_id: "abc123".to_string(),
-            started_at: "2026-04-27T03:00:00Z".to_string(),
-            completed_at: "2026-04-27T03:00:01Z".to_string(),
+            started_at,
+            completed_at,
             policy: "pin-all (max_age=30d)".to_string(),
             groups_scanned: 3,
             articles_evaluated: 100,
@@ -137,8 +141,8 @@ mod tests {
         let tmp = tempfile::TempDir::new().expect("tempdir");
         let report = GcReport {
             run_id: "testrunid0000000".to_string(),
-            started_at: "2026-04-27T03:00:00Z".to_string(),
-            completed_at: "2026-04-27T03:00:01Z".to_string(),
+            started_at: ms_to_datetime(1_777_248_000_000u64),
+            completed_at: ms_to_datetime(1_777_248_001_000u64),
             policy: "test".to_string(),
             groups_scanned: 0,
             articles_evaluated: 0,

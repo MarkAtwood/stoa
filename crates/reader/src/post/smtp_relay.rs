@@ -91,17 +91,19 @@ pub async fn maybe_enqueue_smtp_relay(
 /// Looks for `\r\n\r\n` or `\n\n`; if neither is found, returns
 /// `article_bytes.len()` (treat the whole thing as headers).
 fn find_header_end(article_bytes: &[u8]) -> usize {
-    for i in 0..article_bytes.len().saturating_sub(3) {
-        if article_bytes[i..].starts_with(b"\r\n\r\n") {
-            return i;
+    match crate::post::find_header_boundary(article_bytes) {
+        Some(body_start) => {
+            let sep_len = if body_start >= 4
+                && article_bytes[body_start - 4..body_start] == *b"\r\n\r\n"
+            {
+                4
+            } else {
+                2
+            };
+            body_start - sep_len
         }
+        None => article_bytes.len(),
     }
-    for i in 0..article_bytes.len().saturating_sub(1) {
-        if article_bytes[i..].starts_with(b"\n\n") {
-            return i;
-        }
-    }
-    article_bytes.len()
 }
 
 /// Parse a comma-separated list of RFC 5322 addresses and return only those

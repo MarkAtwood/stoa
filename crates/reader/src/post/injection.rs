@@ -77,10 +77,7 @@ pub fn extract_injection_source(article_bytes: &mut Vec<u8>) -> InjectionSource 
 
         // Case-insensitive prefix match for the header name.
         if line.len() >= header_name_lower.len()
-            && line[..header_name_lower.len()]
-                .iter()
-                .zip(header_name_lower.iter())
-                .all(|(a, b)| a.to_ascii_lowercase() == *b)
+            && line[..header_name_lower.len()].eq_ignore_ascii_case(header_name_lower)
         {
             let raw_val = &line[INJECTION_SOURCE_HEADER.len()..];
             let val_str = std::str::from_utf8(raw_val)
@@ -156,17 +153,22 @@ pub fn prepend_path_header(article_bytes: &[u8], hostname: &str) -> Vec<u8> {
 /// `article_bytes.len()` if no separator is found (treat entire buffer as
 /// headers).
 fn find_header_end(article_bytes: &[u8]) -> usize {
-    for i in 0..article_bytes.len().saturating_sub(3) {
-        if article_bytes[i..].starts_with(b"\r\n\r\n") {
-            return i + 2; // include the first CRLF, stop before blank line
+    match crate::post::find_header_boundary(article_bytes) {
+        Some(body_start) => {
+            // Return position after the last header's line terminator but before
+            // the blank separator line: body_start - sep_len + sep_len/2.
+            // CRLF (sep_len=4): body_start - 2; bare-LF (sep_len=2): body_start - 1.
+            let sep_len = if body_start >= 4
+                && article_bytes[body_start - 4..body_start] == *b"\r\n\r\n"
+            {
+                4usize
+            } else {
+                2usize
+            };
+            body_start - sep_len / 2
         }
+        None => article_bytes.len(),
     }
-    for i in 0..article_bytes.len().saturating_sub(1) {
-        if article_bytes[i..].starts_with(b"\n\n") {
-            return i + 1;
-        }
-    }
-    article_bytes.len()
 }
 
 /// Find the end of the line starting at `start`, not crossing `limit`.

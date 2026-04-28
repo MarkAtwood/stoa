@@ -141,51 +141,6 @@ fn cmd_restore(backup_files: &[PathBuf], db: &stoa_reader::config::DatabaseConfi
     std::process::exit(0);
 }
 
-/// Check TLS certificate expiry for `cert_path`, log WARN/ERROR if close to
-/// expiry, and update the `tls_cert_expiry_seconds` Prometheus gauge.
-///
-/// - ≤ 30 days remaining: WARN log (`event=cert_expiry_warning`)
-/// - ≤  7 days remaining: ERROR log (`event=cert_expiry_critical`)
-///
-/// Parse failures are logged at WARN and do not block startup.
-fn check_cert_expiry(cert_path: &str) {
-    match stoa_tls::cert_not_after(cert_path) {
-        Ok(expiry_unix) => {
-            let now_secs = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs() as i64;
-            let days_remaining = (expiry_unix - now_secs) / 86400;
-            let expires_at = chrono::DateTime::from_timestamp(expiry_unix, 0)
-                .map(|t: chrono::DateTime<chrono::Utc>| t.format("%Y-%m-%dT%H:%M:%SZ").to_string())
-                .unwrap_or_else(|| expiry_unix.to_string());
-            stoa_reader::metrics::TLS_CERT_EXPIRY_SECONDS
-                .with_label_values(&[cert_path])
-                .set(expiry_unix as f64);
-            if days_remaining <= 7 {
-                error!(
-                    event = "cert_expiry_critical",
-                    path = cert_path,
-                    days_remaining,
-                    expires_at = %expires_at,
-                    "TLS certificate expires very soon"
-                );
-            } else if days_remaining <= 30 {
-                warn!(
-                    event = "cert_expiry_warning",
-                    path = cert_path,
-                    days_remaining,
-                    expires_at = %expires_at,
-                    "TLS certificate expiring soon"
-                );
-            }
-        }
-        Err(e) => {
-            warn!(path = cert_path, "TLS cert expiry check failed: {e}");
-        }
-    }
-}
-
 async fn run_startup_checks(config: &Config) -> Vec<String> {
     let mut errors: Vec<String> = Vec::new();
 
@@ -213,7 +168,7 @@ async fn run_startup_checks(config: &Config) -> Vec<String> {
         if let Err(e) = std::fs::read(cert) {
             errors.push(format!("TLS file unreadable: {cert}: {e}"));
         } else {
-            check_cert_expiry(cert);
+            let _ = stoa_reader::tls::check_cert_expiry(cert);
         }
     }
     if let Some(key) = config.tls.key_path.as_deref() {

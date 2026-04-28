@@ -34,7 +34,7 @@ use std::collections::HashMap;
 use tracing::warn;
 
 thread_local! {
-    static REGEX_CACHE: RefCell<HashMap<String, fancy_regex::Regex>> =
+    static REGEX_CACHE: RefCell<HashMap<(String, bool), fancy_regex::Regex>> =
         RefCell::new(HashMap::new());
 }
 
@@ -313,32 +313,19 @@ enum Comparator {
 /// without cloning: each one consumes a `Vec<&Form>` and produces another.
 fn extract_match_type<'a>(forms: &[&'a Form]) -> (MatchType, Vec<&'a Form>) {
     let mut mt = MatchType::Is;
-    let remaining: Vec<&Form> = forms
-        .iter()
-        .copied()
-        .filter(|f| match f {
-            Form::Tag(t) => match t.as_str() {
-                "is" => {
-                    mt = MatchType::Is;
-                    false
-                }
-                "contains" => {
-                    mt = MatchType::Contains;
-                    false
-                }
-                "matches" => {
-                    mt = MatchType::Matches;
-                    false
-                }
-                "regex" => {
-                    mt = MatchType::Regex;
-                    false
-                }
-                _ => true,
-            },
-            _ => true,
-        })
-        .collect();
+    let mut remaining = Vec::new();
+    for f in forms.iter().copied() {
+        if let Form::Tag(t) = f {
+            match t.as_str() {
+                "is" => { mt = MatchType::Is; continue; }
+                "contains" => { mt = MatchType::Contains; continue; }
+                "matches" => { mt = MatchType::Matches; continue; }
+                "regex" => { mt = MatchType::Regex; continue; }
+                _ => {}
+            }
+        }
+        remaining.push(f);
+    }
     (mt, remaining)
 }
 
@@ -346,29 +333,21 @@ fn extract_match_type<'a>(forms: &[&'a Form]) -> (MatchType, Vec<&'a Form>) {
 /// (Comparator, rest).
 fn extract_comparator<'a>(forms: &[&'a Form]) -> (Comparator, Vec<&'a Form>) {
     let mut cmp = Comparator::AsciiCasemap;
-    let mut skip_next = false;
-    let remaining: Vec<&Form> = forms
-        .iter()
-        .copied()
-        .filter(|f| {
-            if skip_next {
-                skip_next = false;
-                if let Form::Str(s) = f {
+    let mut remaining = Vec::new();
+    let mut iter = forms.iter().copied();
+    while let Some(f) = iter.next() {
+        if let Form::Tag(t) = f {
+            if t == "comparator" {
+                if let Some(Form::Str(s)) = iter.next() {
                     if s == "i;octet" {
                         cmp = Comparator::Octet;
                     }
                 }
-                return false;
+                continue;
             }
-            if let Form::Tag(t) = f {
-                if t == "comparator" {
-                    skip_next = true;
-                    return false;
-                }
-            }
-            true
-        })
-        .collect();
+        }
+        remaining.push(f);
+    }
     (cmp, remaining)
 }
 
@@ -414,9 +393,14 @@ fn str_is(a: &str, b: &str, casemap: bool) -> bool {
 
 fn str_contains(haystack: &str, needle: &str, casemap: bool) -> bool {
     if casemap {
+        if needle.is_empty() {
+            return true;
+        }
+        let needle = needle.as_bytes();
         haystack
-            .to_ascii_lowercase()
-            .contains(&needle.to_ascii_lowercase())
+            .as_bytes()
+            .windows(needle.len())
+            .any(|w| w.eq_ignore_ascii_case(needle))
     } else {
         haystack.contains(needle)
     }
@@ -432,6 +416,7 @@ fn str_matches_glob(value: &str, pattern: &str, casemap: bool) -> bool {
 /// Convert a Sieve glob pattern to an anchored regex string.
 fn sieve_glob_to_regex(pattern: &str) -> String {
     let mut out = String::from("(?s)\\A");
+    let mut buf = [0u8; 4];
     let mut chars = pattern.chars().peekable();
     while let Some(ch) = chars.next() {
         match ch {
@@ -439,10 +424,10 @@ fn sieve_glob_to_regex(pattern: &str) -> String {
                 if let Some(&next) = chars.peek() {
                     chars.next();
                     match next {
-                        '*' | '?' => out.push_str(&fancy_regex::escape(&next.to_string())),
+                        '*' | '?' => out.push_str(&fancy_regex::escape(next.encode_utf8(&mut buf))),
                         other => {
-                            out.push_str(&fancy_regex::escape(&ch.to_string()));
-                            out.push_str(&fancy_regex::escape(&other.to_string()));
+                            out.push_str(&fancy_regex::escape(ch.encode_utf8(&mut buf)));
+                            out.push_str(&fancy_regex::escape(other.encode_utf8(&mut buf)));
                         }
                     }
                 } else {
@@ -451,7 +436,7 @@ fn sieve_glob_to_regex(pattern: &str) -> String {
             }
             '*' => out.push_str(".*"),
             '?' => out.push('.'),
-            other => out.push_str(&fancy_regex::escape(&other.to_string())),
+            other => out.push_str(&fancy_regex::escape(other.encode_utf8(&mut buf))),
         }
     }
     out.push_str("\\z");
@@ -465,25 +450,27 @@ fn str_matches_regex(value: &str, pattern: &str, casemap: bool) -> bool {
 }
 
 fn str_matches_regex_pat(value: &str, anchored: &str, casemap: bool) -> bool {
-    let pat = if casemap {
-        format!("(?i){anchored}")
-    } else {
-        anchored.to_owned()
-    };
     REGEX_CACHE.with(|cache| {
         let mut cache = cache.borrow_mut();
-        let re = match cache.entry(pat.clone()) {
+        let re = match cache.entry((anchored.to_string(), casemap)) {
             std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
-            std::collections::hash_map::Entry::Vacant(e) => match fancy_regex::Regex::new(&pat) {
-                Ok(re) => e.insert(re),
-                Err(err) => {
-                    warn!(pattern = %pat, "Sieve :regex compile error: {err}");
-                    return false;
+            std::collections::hash_map::Entry::Vacant(e) => {
+                let pat = if casemap {
+                    format!("(?i){}", e.key().0)
+                } else {
+                    e.key().0.clone()
+                };
+                match fancy_regex::Regex::new(&pat) {
+                    Ok(re) => e.insert(re),
+                    Err(err) => {
+                        warn!(pattern = %pat, "Sieve :regex compile error: {err}");
+                        return false;
+                    }
                 }
-            },
+            }
         };
         re.is_match(value).unwrap_or_else(|e| {
-            warn!(pattern = %pat, "Sieve :regex execution error (backtracking limit?): {e}");
+            warn!(pattern = %anchored, casemap, "Sieve :regex execution error (backtracking limit?): {e}");
             false
         })
     })

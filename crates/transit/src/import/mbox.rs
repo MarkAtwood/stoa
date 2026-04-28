@@ -289,7 +289,7 @@ async fn mbox_send_ihave(addr: &str, msgid: &str, article_bytes: &[u8]) -> Ihave
     if reader.read_line(&mut line).await.is_err() {
         return IhaveSendResult::Failed;
     }
-    let code = mbox_response_code(&line);
+    let code = crate::import::parse_nntp_response_code(&line);
     if code != 200 && code != 201 {
         tracing::warn!("unexpected greeting from {addr}: {}", line.trim());
         return IhaveSendResult::Failed;
@@ -306,7 +306,7 @@ async fn mbox_send_ihave(addr: &str, msgid: &str, article_bytes: &[u8]) -> Ihave
     if reader.read_line(&mut line).await.is_err() {
         return IhaveSendResult::Failed;
     }
-    let code = mbox_response_code(&line);
+    let code = crate::import::parse_nntp_response_code(&line);
 
     match code {
         435 => return IhaveSendResult::Duplicate,
@@ -331,7 +331,7 @@ async fn mbox_send_ihave(addr: &str, msgid: &str, article_bytes: &[u8]) -> Ihave
     if reader.read_line(&mut line).await.is_err() {
         return IhaveSendResult::Failed;
     }
-    let code = mbox_response_code(&line);
+    let code = crate::import::parse_nntp_response_code(&line);
 
     match code {
         235 => IhaveSendResult::Accepted,
@@ -340,12 +340,6 @@ async fn mbox_send_ihave(addr: &str, msgid: &str, article_bytes: &[u8]) -> Ihave
             IhaveSendResult::Failed
         }
     }
-}
-
-fn mbox_response_code(line: &str) -> u16 {
-    line.get(..3)
-        .and_then(|s| s.parse::<u16>().ok())
-        .unwrap_or(0)
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
