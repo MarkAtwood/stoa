@@ -7,9 +7,8 @@
 //!   back to the actor's inbox.
 //! - **Undo{Follow}**: removes the follower.
 //!
-//! Inbound HTTP Signature verification is not yet implemented — a future
-//! hardening pass will add it.  For v1, we trust the `actor` field in the
-//! activity body.
+//! Inbound HTTP Signature verification is applied to all activity types when
+//! `verify_http_signatures = true` is set in the ActivityPub config.
 
 use axum::{
     extract::{Path, State},
@@ -45,8 +44,8 @@ pub async fn inbox_handler(
 
     let activity_type = activity["type"].as_str().unwrap_or("");
 
-    // HTTP Signature verification for Create activities.
-    if activity_type == "Create" && state.activitypub_config.verify_http_signatures {
+    // HTTP Signature verification — applied to all activity types.
+    if state.activitypub_config.verify_http_signatures {
         // Use the route path as the request path.
         let path = format!("/ap/groups/{}/inbox", group_name);
         match crate::activitypub::inbound::verify_http_signature("post", &path, &headers, &body)
@@ -222,18 +221,31 @@ async fn handle_create(
     group_name: &str,
     activity: &Value,
 ) -> Response {
-    let activity_id = activity["id"].as_str().unwrap_or("");
+    use data_encoding::HEXLOWER;
+    use sha2::{Digest, Sha256};
 
-    // Deduplication: if we've seen this activity before, silently accept.
-    if !activity_id.is_empty() {
-        match ap_state.received_store.record_if_new(activity_id).await {
-            Ok(false) => {
-                return StatusCode::ACCEPTED.into_response();
-            }
-            Ok(true) => {}
-            Err(e) => {
-                warn!(activity_id = %activity_id, error = %e, "dedup store error; continuing");
-            }
+    let activity_id = activity["id"].as_str().unwrap_or("").to_string();
+    let note_id = activity["object"]["id"].as_str().unwrap_or("").to_string();
+
+    // Deduplication key: activity id → note id → SHA-256 of activity JSON.
+    // Dedup always fires regardless of which fields are present.
+    let dedup_key = if !activity_id.is_empty() {
+        activity_id.clone()
+    } else if !note_id.is_empty() {
+        note_id.clone()
+    } else {
+        let json_bytes = serde_json::to_vec(activity).unwrap_or_default();
+        let hash = Sha256::digest(&json_bytes);
+        format!("sha256:{}", HEXLOWER.encode(&hash))
+    };
+
+    match ap_state.received_store.record_if_new(&dedup_key).await {
+        Ok(false) => {
+            return StatusCode::ACCEPTED.into_response();
+        }
+        Ok(true) => {}
+        Err(e) => {
+            warn!(dedup_key = %dedup_key, error = %e, "dedup store error; continuing");
         }
     }
 

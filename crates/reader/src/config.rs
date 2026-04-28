@@ -596,12 +596,11 @@ impl Config {
                     }
                 }
                 BackendType::S3 => {
-                    if backend.s3.is_none() {
-                        return Err(ConfigError::Validation(
+                    let s3 = backend.s3.as_ref().ok_or_else(|| {
+                        ConfigError::Validation(
                             "backend.type = 's3' requires a [backend.s3] section".into(),
-                        ));
-                    }
-                    let s3 = backend.s3.as_ref().unwrap();
+                        )
+                    })?;
                     if s3.bucket.is_empty() {
                         return Err(ConfigError::Validation(
                             "backend.s3.bucket must not be empty".into(),

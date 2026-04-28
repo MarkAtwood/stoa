@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 /// Metadata returned when listing tokens for a user.
 /// The raw token and its hash are never exposed here.
+#[derive(Debug, Clone)]
 pub struct TokenInfo {
     pub id: String,
     pub label: Option<String>,

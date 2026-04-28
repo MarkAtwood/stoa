@@ -25,8 +25,9 @@
 //! # Security invariants
 //!
 //! - Empty issuer list → no issuer-based auth (all fall through to password).
-//! - Parse errors on the leaf cert → fall through to password (never `Err`).
+//! - Parse errors on the leaf cert → fall through to password (`Ok(None)`).
 //! - Non-Ed25519 signature algorithms → fall through to password.
+//! - Issuer DN matches but signature is invalid → `Err` (forged cert detected).
 //! - CN match against the requested username is case-insensitive; the caller
 //!   performs the comparison.
 
@@ -105,11 +106,13 @@ impl TrustedIssuerStore {
     /// - The issuer list is empty.
     /// - The leaf cert cannot be parsed.
     /// - The signature algorithm is not Ed25519.
-    /// - No configured issuer's key verifies the signature.
+    /// - No configured issuer's Subject DN matches the leaf's Issuer DN.
     /// - The leaf cert has no CN in its Subject.
     ///
-    /// Never returns `Err` — all parse and verification failures are absorbed
-    /// so the caller falls through to password authentication transparently.
+    /// Returns `Err(String)` if a configured issuer's Subject DN matches the
+    /// leaf's Issuer DN but the Ed25519 signature verification fails.  This
+    /// indicates a forged or tampered certificate from a recognised issuer.
+    /// Callers should log the error and deny authentication.
     pub fn verify_and_extract_cn(&self, leaf_der: &[u8]) -> Result<Option<String>, String> {
         if self.issuers.is_empty() {
             return Ok(None);
@@ -184,9 +187,23 @@ impl TrustedIssuerStore {
             if issuer.subject_der != leaf_issuer_raw {
                 continue;
             }
-            if ed25519_verify_with_spki(tbs_bytes, sig_bytes, &issuer.spki_der) {
-                return Ok(Some(cn));
+            // The leaf claims to be issued by this CA (issuer DN matches).
+            // If signature verification fails here it means the cert is
+            // cryptographically invalid — forged or tampered.  Return Err so
+            // the caller can distinguish a forgery from a simple mismatch.
+            if !ed25519_verify_with_spki(tbs_bytes, sig_bytes, &issuer.spki_der) {
+                return Err(format!(
+                    "trusted_issuer: certificate CN={cn:?} has an invalid signature \
+                     against issuer '{}'",
+                    issuer
+                        .subject_der
+                        .iter()
+                        .map(|b| format!("{b:02x}"))
+                        .collect::<Vec<_>>()
+                        .join("")
+                ));
             }
+            return Ok(Some(cn));
         }
 
         Ok(None)

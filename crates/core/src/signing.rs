@@ -141,46 +141,22 @@ pub fn write_signing_key(
     // Determine parent directory for the temp file.
     let parent = path.parent().unwrap_or_else(|| std::path::Path::new("."));
 
-    // Write to a temp file in the same directory so the rename is on the
-    // same filesystem (required for atomicity on most platforms).
-    let tmp_path = parent.join(format!(".signing_key_tmp_{}.tmp", std::process::id()));
-
-    let result = (|| {
-        #[cfg(unix)]
-        let mut f = {
-            use std::os::unix::fs::OpenOptionsExt;
-            std::fs::OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .mode(0o600)
-                .open(&tmp_path)
-                .map_err(|e| format!("cannot create temp key file '{}': {e}", tmp_path.display()))?
-        };
-        #[cfg(not(unix))]
-        let mut f = std::fs::File::create_new(&tmp_path)
-            .map_err(|e| format!("cannot create temp key file '{}': {e}", tmp_path.display()))?;
-
-        f.write_all(&key.to_bytes())
-            .map_err(|e| format!("cannot write signing key to '{}': {e}", tmp_path.display()))?;
-
-        // Flush and close before rename.
-        drop(f);
-
-        std::fs::rename(&tmp_path, path).map_err(|e| {
-            format!(
-                "cannot rename '{}' to '{}': {e}",
-                tmp_path.display(),
-                path.display()
-            )
-        })
-    })();
-
-    if result.is_err() {
-        // Best-effort cleanup; ignore secondary errors.
-        let _ = std::fs::remove_file(&tmp_path);
+    // Use tempfile::NamedTempFile for atomic rename-safe temp file (unique per call).
+    let mut tmp = tempfile::NamedTempFile::new_in(parent)
+        .map_err(|e| format!("cannot create temp key file in '{}': {e}", parent.display()))?;
+    tmp.write_all(&key.to_bytes())
+        .map_err(|e| format!("cannot write temp key file: {e}"))?;
+    tmp.flush()
+        .map_err(|e| format!("cannot flush temp key file: {e}"))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(tmp.path(), std::fs::Permissions::from_mode(0o600))
+            .map_err(|e| format!("cannot chmod temp key file: {e}"))?;
     }
-
-    result
+    tmp.persist(path)
+        .map_err(|e| format!("cannot rename temp key file to '{}': {e}", path.display()))?;
+    Ok(())
 }
 
 /// Sign `canonical_bytes` with the given Ed25519 signing key.

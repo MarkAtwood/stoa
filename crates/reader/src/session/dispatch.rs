@@ -220,9 +220,15 @@ fn try_cert_auth(
         }
     }
     if let Some(ref der) = ctx.client_cert_der {
-        if let Ok(Some(cn)) = trusted_issuer_store.verify_and_extract_cn(der) {
-            if cn.eq_ignore_ascii_case(username) {
-                return Some(cn.to_lowercase());
+        match trusted_issuer_store.verify_and_extract_cn(der) {
+            Ok(Some(cn)) => {
+                if cn.eq_ignore_ascii_case(username) {
+                    return Some(cn.to_lowercase());
+                }
+            }
+            Ok(None) => {}
+            Err(e) => {
+                tracing::warn!("cert auth rejected (invalid signature): {e}");
             }
         }
     }

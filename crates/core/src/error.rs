@@ -210,7 +210,7 @@ impl From<ValidationError> for ProtocolError {
 // ── StorageError ─────────────────────────────────────────────────────────────
 
 /// Storage layer errors covering SQLite and IPFS operations.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum StorageError {
     Database(String),
     MigrationFailed(String),

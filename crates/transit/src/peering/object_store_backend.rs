@@ -27,7 +27,8 @@ macro_rules! impl_ipfs_store_via_inner {
             async fn delete(
                 &self,
                 cid: &cid::Cid,
-            ) -> Result<stoa_core::ipfs::DeletionOutcome, $crate::peering::pipeline::IpfsError> {
+            ) -> Result<stoa_core::ipfs::DeletionOutcome, $crate::peering::pipeline::IpfsError>
+            {
                 self.0.delete(cid).await
             }
         }

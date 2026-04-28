@@ -65,7 +65,7 @@ impl VerifResult {
 }
 
 /// One signature verification result for an article.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ArticleVerification {
     pub sig_type: SigType,
     pub result: VerifResult,

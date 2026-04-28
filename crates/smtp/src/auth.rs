@@ -8,6 +8,7 @@ use mail_auth::{
 use tracing::debug;
 
 /// The result of running the inbound authentication pipeline on one message.
+#[derive(Debug)]
 pub struct InboundAuthResult {
     /// Value for the `Authentication-Results:` header (the whole header value,
     /// not just the result token — includes the authserv-id prefix).

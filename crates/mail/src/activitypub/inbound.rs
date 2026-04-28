@@ -18,6 +18,7 @@
 //! 401.  Set `verify_http_signatures = false` to skip verification (dev mode).
 
 use axum::http::HeaderMap;
+use chrono::Utc;
 use serde_json::Value;
 use sqlx::AnyPool;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -76,8 +77,8 @@ pub fn note_to_article(
 
     let from = note["attributedTo"]
         .as_str()
-        .unwrap_or("unknown@activitypub.invalid")
-        .to_string();
+        .map(attributed_to_email)
+        .unwrap_or_else(|| "unknown@activitypub.invalid".to_string());
 
     let subject = note["summary"]
         .as_str()
@@ -113,9 +114,12 @@ pub fn note_to_article(
     article.push_str(&format!("Newsgroups: {group_name}\r\n"));
     article.push_str(&format!("Subject: {subject}\r\n"));
     article.push_str(&format!("Message-ID: {message_id}\r\n"));
-    if !published.is_empty() {
-        article.push_str(&format!("Date: {published}\r\n"));
-    }
+    let date = if published.is_empty() {
+        Utc::now().format("%a, %d %b %Y %H:%M:%S +0000").to_string()
+    } else {
+        published.clone()
+    };
+    article.push_str(&format!("Date: {date}\r\n"));
     if let Some(ref irt) = in_reply_to {
         article.push_str(&format!("In-Reply-To: {irt}\r\n"));
     }
@@ -143,10 +147,43 @@ fn decode_msgid_from_url(url: &str, base_url: &str, group_name: &str) -> String 
             .replace("%3e", ">")
             .replace("%40", "@")
             .replace("%2F", "/")
+            .replace("%20", " ")
     } else {
         // Unknown URL format — use as-is wrapped in angle brackets.
         format!("<{url}>")
     }
+}
+
+/// Convert an `attributedTo` URL to a synthetic RFC 5322 mailbox address.
+///
+/// For `https://host/path/to/user`, produces `user@host`.
+/// Falls back to `unknown@activitypub.invalid` if the URL cannot be parsed.
+fn attributed_to_email(url: &str) -> String {
+    // Strip scheme.
+    let without_scheme = url
+        .strip_prefix("https://")
+        .or_else(|| url.strip_prefix("http://"))
+        .unwrap_or(url);
+
+    // Split host from path.
+    let (host, path) = if let Some(slash) = without_scheme.find('/') {
+        (&without_scheme[..slash], &without_scheme[slash..])
+    } else {
+        // No path component at all.
+        return format!("unknown@{}", without_scheme);
+    };
+
+    if host.is_empty() {
+        return "unknown@activitypub.invalid".to_string();
+    }
+
+    // Last non-empty path segment becomes the local part.
+    let local = path
+        .split('/')
+        .rfind(|s| !s.is_empty())
+        .unwrap_or("unknown");
+
+    format!("{local}@{host}")
 }
 
 // ── HTTP Signature verification ───────────────────────────────────────────────
@@ -348,7 +385,7 @@ mod tests {
         let (msgid, newsgroups, bytes) =
             note_to_article(&note, "comp.lang.rust", "https://news.example.com").unwrap();
         let article = String::from_utf8(bytes).unwrap();
-        assert!(article.contains("From: https://mastodon.social/users/alice"));
+        assert!(article.contains("From: alice@mastodon.social"));
         assert!(article.contains("Newsgroups: comp.lang.rust"));
         assert!(article.contains("Subject: Re: hello"));
         assert!(article.contains("Hello, newsgroups!"));
@@ -377,6 +414,49 @@ mod tests {
         assert_eq!(strip_html("<p>Hello</p>"), "\nHello\n");
         assert_eq!(strip_html("plain text"), "plain text");
         assert_eq!(strip_html("&amp;&lt;&gt;"), "&<>");
+    }
+
+    #[test]
+    fn note_to_article_missing_published_generates_date() {
+        let note = serde_json::json!({
+            "type": "Note",
+            "id": "https://mastodon.social/users/bob/statuses/789",
+            "attributedTo": "https://mastodon.social/users/bob",
+            "content": "No timestamp here"
+        });
+        let (_, _, bytes) =
+            note_to_article(&note, "comp.test", "https://news.example.com").unwrap();
+        let article = String::from_utf8(bytes).unwrap();
+        assert!(
+            article.contains("Date: "),
+            "Date header must be present even without published"
+        );
+    }
+
+    #[test]
+    fn decode_msgid_percent20() {
+        let base = "https://news.example.com";
+        let group = "comp.test";
+        let url = format!("{base}/ap/groups/{group}/articles/%3Chello%20world%40example.com%3E");
+        let decoded = decode_msgid_from_url(&url, base, group);
+        assert_eq!(decoded, "<hello world@example.com>");
+    }
+
+    #[test]
+    fn attributed_to_email_roundtrip() {
+        assert_eq!(
+            attributed_to_email("https://mastodon.social/users/alice"),
+            "alice@mastodon.social"
+        );
+        assert_eq!(
+            attributed_to_email("https://example.org/users/deeply/nested/bob"),
+            "bob@example.org"
+        );
+        // No path component — host used as domain, local part is "unknown".
+        assert_eq!(
+            attributed_to_email("https://activitypub.invalid"),
+            "unknown@activitypub.invalid"
+        );
     }
 
     #[tokio::test]

@@ -1,6 +1,7 @@
 use cid::Cid;
 
 /// Per-user article flags: \Seen and \Flagged (JMAP keywords).
+#[derive(Debug, Clone, PartialEq)]
 pub struct Flags {
     pub seen: bool,
     pub flagged: bool,

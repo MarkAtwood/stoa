@@ -283,6 +283,15 @@ impl std::fmt::Display for OidcError {
     }
 }
 
+impl std::error::Error for OidcError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            OidcError::Http(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /// Multi-provider OIDC JWT validator.
@@ -308,19 +317,23 @@ impl OidcStore {
     ///
     /// Returns `Ok(username)` when any provider accepts the token (first match wins).
     /// Returns `Err` if no provider accepts it — wrong issuer, bad signature,
-    /// expired, wrong audience, missing claim, etc.
+    /// expired, wrong audience, missing claim, etc.  The error includes the
+    /// reason from every provider so operators can diagnose misconfiguration.
     pub async fn validate_jwt(&self, token: &str) -> Result<String, OidcError> {
         if self.providers.is_empty() {
             return Err(OidcError::Config("no OIDC providers configured".into()));
         }
-        let mut last_err = OidcError::Config("no providers tried".into());
+        let mut errors: Vec<String> = Vec::new();
         for provider in &self.providers {
             match provider.validate_jwt(token).await {
                 Ok(username) => return Ok(username),
-                Err(e) => last_err = e,
+                Err(e) => errors.push(e.to_string()),
             }
         }
-        Err(last_err)
+        Err(OidcError::Config(format!(
+            "all providers rejected the token: [{}]",
+            errors.join("; ")
+        )))
     }
 }
 

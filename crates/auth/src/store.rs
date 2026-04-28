@@ -47,6 +47,7 @@ fn make_dummy_hash(entries: &HashMap<String, String>) -> String {
 /// Bcrypt-hashed credential store.
 ///
 /// Usernames are normalised to ASCII-lowercase for case-insensitive matching.
+#[derive(Debug)]
 pub struct CredentialStore {
     /// Lowercase username → bcrypt hash.
     entries: HashMap<String, String>,

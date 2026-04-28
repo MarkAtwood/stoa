@@ -5,7 +5,7 @@ use serde::Deserialize;
 /// A single operator-configured user account.
 ///
 /// The `password` field must be a **bcrypt hash**, never plaintext.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct UserCredential {
     pub username: String,
     /// bcrypt hash, never plaintext.
