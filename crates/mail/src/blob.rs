@@ -135,6 +135,7 @@ mod tests {
             base_url: "http://localhost".to_string(),
             cors: crate::config::CorsConfig::default(),
             slow_jmap_threshold_ms: 0,
+            activitypub_config: Default::default(),
         });
         (state, tmp)
     }

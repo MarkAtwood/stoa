@@ -131,6 +131,7 @@ async fn main() {
         base_url: config.listen.base_url.clone(),
         cors: config.cors.clone(),
         slow_jmap_threshold_ms: config.log.slow_jmap_threshold_ms,
+        activitypub_config: config.activitypub,
     });
 
     let shutdown = async {

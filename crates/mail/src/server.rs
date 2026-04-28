@@ -57,6 +57,7 @@ pub struct AppState {
     pub cors: CorsConfig,
     /// Milliseconds threshold for slow JMAP WARN log.  0 = disabled.
     pub slow_jmap_threshold_ms: u64,
+    pub activitypub_config: crate::config::ActivityPubConfig,
 }
 
 /// Authenticated user identity extracted from HTTP Basic Auth.
@@ -250,6 +251,18 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/health", get(health_handler))
         .route("/metrics", get(metrics_handler))
         .route("/.well-known/jmap", get(well_known_jmap))
+        .route(
+            "/.well-known/webfinger",
+            get(crate::activitypub::webfinger_handler),
+        )
+        .route(
+            "/ap/groups/{group_name}",
+            get(crate::activitypub::actor_handler),
+        )
+        .route(
+            "/ap/groups/{group_name}/followers",
+            get(crate::activitypub::followers_handler),
+        )
         .route("/feed/{*path}", get(crate::feed::feed_handler))
         .merge(protected)
         .layer(cors_layer)
@@ -319,7 +332,15 @@ async fn jmap_api_handler(
 
     for crate::jmap::types::Invocation(method, args, call_id) in request.method_calls {
         let t0 = std::time::Instant::now();
-        let result = route_method(&method, args, jmap, &canonical_account_id, server_start, is_operator).await;
+        let result = route_method(
+            &method,
+            args,
+            jmap,
+            &canonical_account_id,
+            server_start,
+            is_operator,
+        )
+        .await;
         let elapsed = t0.elapsed().as_secs_f64();
         crate::metrics::JMAP_REQUESTS_TOTAL
             .with_label_values(&[&method])
@@ -616,9 +637,9 @@ async fn route_method(
             // the client split the request rather than getting a partial result.
             const MAX_IDS: usize = 500;
             if ids.len() > MAX_IDS {
-                return serde_json::to_value(
-                    crate::jmap::types::MethodError::request_too_large(MAX_IDS),
-                )
+                return serde_json::to_value(crate::jmap::types::MethodError::request_too_large(
+                    MAX_IDS,
+                ))
                 .unwrap_or(json!({}));
             }
             let email_state = jmap
@@ -1004,7 +1025,6 @@ async fn route_method(
         // ── Admin methods (urn:ietf:params:jmap:usenet-ipfs-admin) ───────────────
         // These methods are only accessible to users with the operator role.
         // Non-operators receive a `forbidden` error.
-
         "ServerStatus/get" => {
             if !is_operator {
                 return serde_json::to_value(crate::jmap::types::MethodError::forbidden())
@@ -1117,6 +1137,7 @@ mod tests {
             base_url: "http://localhost".to_string(),
             cors: crate::config::CorsConfig::default(),
             slow_jmap_threshold_ms: 0,
+            activitypub_config: Default::default(),
         });
         (state, tmp)
     }
@@ -1134,12 +1155,16 @@ mod tests {
             base_url: base_url.to_string(),
             cors: crate::config::CorsConfig::default(),
             slow_jmap_threshold_ms: 0,
+            activitypub_config: Default::default(),
         });
         (state, tmp)
     }
 
     /// Build an AppState with a single user (bcrypt cost 4 for test speed).
-    async fn auth_state(username: &str, plaintext_password: &str) -> (Arc<AppState>, tempfile::TempPath) {
+    async fn auth_state(
+        username: &str,
+        plaintext_password: &str,
+    ) -> (Arc<AppState>, tempfile::TempPath) {
         let hash = bcrypt::hash(plaintext_password, 4).expect("bcrypt::hash must not fail");
         let users = vec![UserCredential {
             username: username.to_string(),
@@ -1160,6 +1185,7 @@ mod tests {
             base_url: "http://localhost".to_string(),
             cors: crate::config::CorsConfig::default(),
             slow_jmap_threshold_ms: 0,
+            activitypub_config: Default::default(),
         });
         (state, tmp)
     }
@@ -1220,9 +1246,9 @@ mod tests {
             change_log: Arc::new(crate::state::change_log::ChangeLogStore::new(
                 mail_pool.clone(),
             )),
-            subscription_store: Arc::new(
-                crate::state::subscriptions::SubscriptionStore::new(mail_pool.clone()),
-            ),
+            subscription_store: Arc::new(crate::state::subscriptions::SubscriptionStore::new(
+                mail_pool.clone(),
+            )),
             search_index: None,
             smtp_relay_queue: None,
         });
@@ -1236,6 +1262,7 @@ mod tests {
             base_url: "http://localhost".to_string(),
             cors: crate::config::CorsConfig::default(),
             slow_jmap_threshold_ms: 0,
+            activitypub_config: Default::default(),
         });
         (state, ipfs, tmps)
     }
@@ -1569,7 +1596,10 @@ mod tests {
         let (state, ipfs, _tmps) = jmap_state().await;
 
         let block_data = b"blob-get-test-block";
-        let cid = ipfs.put_raw(block_data).await.expect("put_raw must succeed");
+        let cid = ipfs
+            .put_raw(block_data)
+            .await
+            .expect("put_raw must succeed");
         let addr = spawn_server(state).await;
 
         let resp = reqwest::Client::new()
@@ -1601,8 +1631,13 @@ mod tests {
         );
         assert_eq!(list[0]["size"].as_u64(), Some(block_data.len() as u64));
 
-        let not_found = result["notFound"].as_array().expect("notFound must be an array");
-        assert!(not_found.is_empty(), "notFound must be empty for a known CID");
+        let not_found = result["notFound"]
+            .as_array()
+            .expect("notFound must be an array");
+        assert!(
+            not_found.is_empty(),
+            "notFound must be empty for a known CID"
+        );
     }
 
     /// RFC 9404: Blob/get puts unknown CIDs into notFound.
@@ -1629,7 +1664,9 @@ mod tests {
         assert_eq!(resp.status(), 200);
         let body: serde_json::Value = resp.json().await.unwrap();
         let result = &body["methodResponses"][0][1];
-        let not_found = result["notFound"].as_array().expect("notFound must be an array");
+        let not_found = result["notFound"]
+            .as_array()
+            .expect("notFound must be an array");
         assert_eq!(not_found.len(), 1, "absent CID must appear in notFound");
         assert_eq!(not_found[0].as_str(), Some(absent));
         let list = result["list"].as_array().expect("list must be an array");
@@ -1664,7 +1701,9 @@ mod tests {
         assert_eq!(resp.status(), 200);
         let body: serde_json::Value = resp.json().await.unwrap();
         let result = &body["methodResponses"][0][1];
-        let copied = result["copied"].as_object().expect("copied must be an object");
+        let copied = result["copied"]
+            .as_object()
+            .expect("copied must be an object");
         assert!(
             copied.contains_key(blob_id),
             "requested blobId must appear in copied"
@@ -1674,7 +1713,9 @@ mod tests {
             Some(blob_id),
             "Blob/copy must return same blobId (CIDs are global)"
         );
-        let not_copied = result["notCopied"].as_object().expect("notCopied must be an object");
+        let not_copied = result["notCopied"]
+            .as_object()
+            .expect("notCopied must be an object");
         assert!(not_copied.is_empty(), "notCopied must be empty");
     }
 
@@ -1737,6 +1778,7 @@ mod tests {
                 allowed_origins: vec!["*".to_string()],
             },
             slow_jmap_threshold_ms: 0,
+            activitypub_config: Default::default(),
         });
         let addr = spawn_server(state).await;
         let resp = reqwest::Client::new()
@@ -1778,6 +1820,7 @@ mod tests {
                 allowed_origins: vec!["https://client.example.com".to_string()],
             },
             slow_jmap_threshold_ms: 0,
+            activitypub_config: Default::default(),
         });
         let addr = spawn_server(state).await;
         let resp = reqwest::Client::new()
@@ -2117,7 +2160,9 @@ mod tests {
         let result = &body["methodResponses"][0][1];
         let list = result["list"].as_array().expect("list must be array");
         assert!(list.is_empty(), "empty emailIds must return empty list");
-        let not_found = result["notFound"].as_array().expect("notFound must be array");
+        let not_found = result["notFound"]
+            .as_array()
+            .expect("notFound must be array");
         assert!(
             not_found.is_empty(),
             "empty emailIds must return empty notFound"
@@ -2158,7 +2203,9 @@ mod tests {
         // No text filter → emailId has no matching article in article_numbers → notFound.
         // (In a production setup with real article_numbers seeded, subject/preview would be null.)
         let list = result["list"].as_array().expect("list must be array");
-        let not_found = result["notFound"].as_array().expect("notFound must be array");
+        let not_found = result["notFound"]
+            .as_array()
+            .expect("notFound must be array");
         // With no text query and no article_numbers entry, the CID is not found.
         // Either list has the entry with null snippets or it's in notFound.
         // With no text query, the code takes the (None, None) branch and adds to list.
@@ -2194,6 +2241,7 @@ mod tests {
             base_url: "http://localhost".to_string(),
             cors: crate::config::CorsConfig::default(),
             slow_jmap_threshold_ms: 0,
+            activitypub_config: Default::default(),
         });
         (state, tmp)
     }
@@ -2238,5 +2286,114 @@ mod tests {
             body["capabilities"]["urn:ietf:params:jmap:usenet-ipfs-admin"].is_null(),
             "non-operator session must not have admin capability; got: {body}"
         );
+    }
+
+    // ── ActivityPub endpoint tests ─────────────────────────────────────────────
+
+    /// Build an AppState with ActivityPub enabled and the given base URL.
+    async fn ap_enabled_state(base_url: &str) -> (Arc<AppState>, tempfile::TempPath) {
+        let (s, tmp) = dev_state_with_base_url(base_url).await;
+        let inner = match Arc::try_unwrap(s) {
+            Ok(v) => v,
+            Err(_) => panic!("ap_enabled_state: unexpected Arc clone"),
+        };
+        (
+            Arc::new(AppState {
+                activitypub_config: crate::config::ActivityPubConfig { enabled: true },
+                ..inner
+            }),
+            tmp,
+        )
+    }
+
+    #[tokio::test]
+    async fn webfinger_returns_jrd_for_valid_group() {
+        let (state, _tmp) = ap_enabled_state("https://news.example.com").await;
+        let addr = spawn_server(state).await;
+        let resp = reqwest::Client::new()
+            .get(format!(
+                "http://{addr}/.well-known/webfinger?resource=acct:comp.lang.rust@news.example.com"
+            ))
+            .send()
+            .await
+            .expect("request must succeed");
+        assert_eq!(resp.status(), 200);
+        let ct = resp
+            .headers()
+            .get("content-type")
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
+        assert!(ct.contains("application/jrd+json"), "content-type: {ct}");
+        let body: serde_json::Value = resp.json().await.unwrap();
+        assert_eq!(body["subject"], "acct:comp.lang.rust@news.example.com");
+        assert_eq!(body["links"][0]["rel"], "self");
+        assert!(
+            body["links"][0]["href"]
+                .as_str()
+                .unwrap()
+                .ends_with("/ap/groups/comp.lang.rust"),
+            "href: {}",
+            body["links"][0]["href"]
+        );
+    }
+
+    #[tokio::test]
+    async fn webfinger_returns_404_when_disabled() {
+        let (state, _tmp) = dev_state_with_base_url("https://news.example.com").await;
+        let addr = spawn_server(state).await;
+        let resp = reqwest::Client::new()
+            .get(format!(
+                "http://{addr}/.well-known/webfinger?resource=acct:comp.lang.rust@news.example.com"
+            ))
+            .send()
+            .await
+            .expect("request must succeed");
+        assert_eq!(resp.status(), 404);
+    }
+
+    #[tokio::test]
+    async fn actor_returns_json_ld_for_valid_group() {
+        let (state, _tmp) = ap_enabled_state("https://news.example.com").await;
+        let addr = spawn_server(state).await;
+        let resp = reqwest::Client::new()
+            .get(format!("http://{addr}/ap/groups/comp.lang.rust"))
+            .send()
+            .await
+            .expect("request must succeed");
+        assert_eq!(resp.status(), 200);
+        let ct = resp
+            .headers()
+            .get("content-type")
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
+        assert!(ct.contains("application/activity+json"), "content-type: {ct}");
+        let body: serde_json::Value = resp.json().await.unwrap();
+        assert_eq!(body["type"], "Group");
+        assert_eq!(body["name"], "comp.lang.rust");
+        assert_eq!(body["preferredUsername"], "comp.lang.rust");
+        assert!(
+            body["id"].as_str().unwrap().ends_with("/ap/groups/comp.lang.rust"),
+            "id: {}",
+            body["id"]
+        );
+        assert!(body["inbox"].is_string());
+        assert!(body["outbox"].is_string());
+        assert!(body["followers"].is_string());
+    }
+
+    #[tokio::test]
+    async fn actor_returns_404_for_non_newsgroup_path() {
+        let (state, _tmp) = ap_enabled_state("https://news.example.com").await;
+        let addr = spawn_server(state).await;
+        let resp = reqwest::Client::new()
+            .get(format!("http://{addr}/ap/groups/Inbox"))
+            .send()
+            .await
+            .expect("request must succeed");
+        assert_eq!(resp.status(), 404);
     }
 }

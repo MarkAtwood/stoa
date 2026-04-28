@@ -56,6 +56,7 @@ async fn auth_state_alice() -> Arc<AppState> {
         base_url: "http://localhost".to_string(),
         cors: stoa_mail::config::CorsConfig::default(),
         slow_jmap_threshold_ms: 0,
+        activitypub_config: Default::default(),
     })
 }
 
@@ -72,6 +73,7 @@ async fn dev_state() -> Arc<AppState> {
         base_url: "http://localhost".to_string(),
         cors: stoa_mail::config::CorsConfig::default(),
         slow_jmap_threshold_ms: 0,
+        activitypub_config: Default::default(),
     })
 }
 

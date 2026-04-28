@@ -20,6 +20,8 @@ pub struct Config {
     pub cors: CorsConfig,
     #[serde(default)]
     pub delivery: DeliveryConfig,
+    #[serde(default)]
+    pub activitypub: ActivityPubConfig,
 }
 
 fn default_base_url() -> String {
@@ -116,6 +118,15 @@ fn default_smtp_relay_retry_secs() -> u64 {
 
 fn default_smtp_peer_down_secs() -> u64 {
     300
+}
+
+/// ActivityPub federation configuration.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct ActivityPubConfig {
+    /// Enable the ActivityPub federation endpoints (`/.well-known/webfinger`,
+    /// `/ap/groups/{name}`, etc.).  Default: `false`.
+    pub enabled: bool,
 }
 
 /// Configuration for outbound SMTP relay delivery from the JMAP Email/set create path.

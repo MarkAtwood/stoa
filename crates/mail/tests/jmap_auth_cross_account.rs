@@ -131,7 +131,9 @@ async fn spawn_dev_server(tag: &str) -> (String, Vec<tempfile::TempPath>) {
             (*mail_pool_arc).clone(),
         )),
         search_index: None,
-        subscription_store: Arc::new(stoa_mail::state::subscriptions::SubscriptionStore::new((*mail_pool_arc).clone())),
+        subscription_store: Arc::new(stoa_mail::state::subscriptions::SubscriptionStore::new(
+            (*mail_pool_arc).clone(),
+        )),
         smtp_relay_queue: None,
     });
 
@@ -145,6 +147,7 @@ async fn spawn_dev_server(tag: &str) -> (String, Vec<tempfile::TempPath>) {
         base_url: "http://localhost".to_string(),
         cors: stoa_mail::config::CorsConfig::default(),
         slow_jmap_threshold_ms: 0,
+        activitypub_config: Default::default(),
     });
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();

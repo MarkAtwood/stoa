@@ -1,6 +1,6 @@
+pub mod activitypub;
 pub mod auth_token;
 pub mod blob;
-pub mod upload;
 pub mod config;
 pub mod email;
 pub mod feed;
@@ -14,3 +14,4 @@ pub mod state;
 pub mod thread;
 pub mod tls;
 pub mod token_store;
+pub mod upload;

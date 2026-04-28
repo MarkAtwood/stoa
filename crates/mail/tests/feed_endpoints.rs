@@ -83,6 +83,7 @@ async fn state_no_jmap() -> Arc<AppState> {
         base_url: "http://localhost".to_string(),
         cors: stoa_mail::config::CorsConfig::default(),
         slow_jmap_threshold_ms: 0,
+        activitypub_config: Default::default(),
     })
 }
 
@@ -117,7 +118,9 @@ async fn state_with_jmap() -> (
             (*mail_pool_arc).clone(),
         )),
         search_index: None,
-        subscription_store: Arc::new(stoa_mail::state::subscriptions::SubscriptionStore::new((*mail_pool_arc).clone())),
+        subscription_store: Arc::new(stoa_mail::state::subscriptions::SubscriptionStore::new(
+            (*mail_pool_arc).clone(),
+        )),
         smtp_relay_queue: None,
     });
 
@@ -131,6 +134,7 @@ async fn state_with_jmap() -> (
         base_url: "http://localhost".to_string(),
         cors: stoa_mail::config::CorsConfig::default(),
         slow_jmap_threshold_ms: 0,
+        activitypub_config: Default::default(),
     });
 
     (

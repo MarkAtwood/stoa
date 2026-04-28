@@ -10,10 +10,7 @@
 
 use serde_json::{json, Value};
 
-use crate::{
-    mailbox::types::mailbox_id_for_group,
-    state::subscriptions::SubscriptionStore,
-};
+use crate::{mailbox::types::mailbox_id_for_group, state::subscriptions::SubscriptionStore};
 use stoa_reader::store::article_numbers::ArticleNumberStore;
 
 /// Returns `true` when `name` looks like a newsgroup name.
@@ -70,10 +67,7 @@ pub async fn handle_mailbox_set(
             match subscription_store.subscribe(user_id, name).await {
                 Ok(()) => {
                     let id = mailbox_id_for_group(name);
-                    created.insert(
-                        client_id.clone(),
-                        json!({ "id": id }),
-                    );
+                    created.insert(client_id.clone(), json!({ "id": id }));
                 }
                 Err(e) => {
                     not_created.insert(
@@ -88,10 +82,7 @@ pub async fn handle_mailbox_set(
     // ── destroy ─────────────────────────────────────────────────────────────
     if let Some(destroy_arr) = args.get("destroy").and_then(|v| v.as_array()) {
         // Build id→group_name reverse map from known groups.
-        let groups = article_numbers
-            .list_groups()
-            .await
-            .unwrap_or_default();
+        let groups = article_numbers.list_groups().await.unwrap_or_default();
         let id_to_name: std::collections::HashMap<String, String> = groups
             .iter()
             .map(|(name, _, _)| (mailbox_id_for_group(name), name.clone()))
@@ -115,10 +106,7 @@ pub async fn handle_mailbox_set(
                     }
                 }
                 None => {
-                    not_destroyed.insert(
-                        id.to_string(),
-                        json!({"type": "notFound"}),
-                    );
+                    not_destroyed.insert(id.to_string(), json!({"type": "notFound"}));
                 }
             }
         }
@@ -191,7 +179,10 @@ mod tests {
             }
         });
         let result = handle_mailbox_set(&args, 1, &sub_store, &article_numbers, "0", "0").await;
-        assert!(result["created"]["c1"]["id"].is_string(), "must return id: {result}");
+        assert!(
+            result["created"]["c1"]["id"].is_string(),
+            "must return id: {result}"
+        );
         assert!(
             sub_store.is_subscribed(1, "comp.lang.rust").await.unwrap(),
             "must be subscribed after create"
@@ -207,7 +198,10 @@ mod tests {
             }
         });
         let result = handle_mailbox_set(&args, 1, &sub_store, &article_numbers, "0", "0").await;
-        assert!(result["notCreated"]["c1"].is_object(), "Inbox must be rejected: {result}");
+        assert!(
+            result["notCreated"]["c1"].is_object(),
+            "Inbox must be rejected: {result}"
+        );
         assert_eq!(result["notCreated"]["c1"]["type"], "invalidArguments");
     }
 
@@ -220,6 +214,9 @@ mod tests {
             }
         });
         let result = handle_mailbox_set(&args, 1, &sub_store, &article_numbers, "0", "0").await;
-        assert!(result["notCreated"]["c1"].is_object(), "missing name must be rejected: {result}");
+        assert!(
+            result["notCreated"]["c1"].is_object(),
+            "missing name must be rejected: {result}"
+        );
     }
 }

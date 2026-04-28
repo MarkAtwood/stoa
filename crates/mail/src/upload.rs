@@ -75,15 +75,14 @@ pub async fn jmap_upload(
     };
 
     // Header bytes: everything before the blank-line separator.
-    let header_bytes = if body_start >= 4
-        && article_bytes[body_start - 4..body_start] == *b"\r\n\r\n"
-    {
-        &article_bytes[..body_start - 4]
-    } else if body_start >= 2 {
-        &article_bytes[..body_start - 2]
-    } else {
-        &article_bytes[..0]
-    };
+    let header_bytes =
+        if body_start >= 4 && article_bytes[body_start - 4..body_start] == *b"\r\n\r\n" {
+            &article_bytes[..body_start - 4]
+        } else if body_start >= 2 {
+            &article_bytes[..body_start - 2]
+        } else {
+            &article_bytes[..0]
+        };
 
     // Validate required RFC 5536 headers.
     if let Err(resp) = validate_post_headers(header_bytes) {
@@ -145,16 +144,12 @@ fn json_response(status: StatusCode, body: serde_json::Value) -> Response<Body> 
     Response::builder()
         .status(status)
         .header(header::CONTENT_TYPE, "application/json")
-        .body(Body::from(
-            serde_json::to_vec(&body).unwrap_or_default(),
-        ))
+        .body(Body::from(serde_json::to_vec(&body).unwrap_or_default()))
         .unwrap()
 }
 
 /// Extract `Message-ID` and `Newsgroups` from raw header bytes.
-fn extract_msgid_newsgroups(
-    header_bytes: &[u8],
-) -> Result<(String, Vec<String>), String> {
+fn extract_msgid_newsgroups(header_bytes: &[u8]) -> Result<(String, Vec<String>), String> {
     let (parsed, _) = mailparse::parse_headers(header_bytes)
         .map_err(|_| "failed to parse article headers".to_string())?;
 
@@ -217,6 +212,7 @@ mod tests {
             base_url: "http://localhost".to_string(),
             cors: crate::config::CorsConfig::default(),
             slow_jmap_threshold_ms: 0,
+            activitypub_config: Default::default(),
         });
         (state, tmp)
     }
@@ -271,8 +267,7 @@ mod tests {
     /// extract_msgid_newsgroups correctly parses Message-ID and Newsgroups.
     #[test]
     fn extract_msgid_newsgroups_parses_headers() {
-        let headers =
-            b"Newsgroups: comp.lang.rust,comp.test\r\nMessage-ID: <abc@example.com>\r\n";
+        let headers = b"Newsgroups: comp.lang.rust,comp.test\r\nMessage-ID: <abc@example.com>\r\n";
         let (mid, ngs) = extract_msgid_newsgroups(headers).expect("must parse");
         assert_eq!(mid, "<abc@example.com>");
         assert_eq!(ngs, vec!["comp.lang.rust", "comp.test"]);

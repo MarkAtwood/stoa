@@ -62,6 +62,7 @@ fn dev_app_state(token_store: Arc<TokenStore>) -> Arc<AppState> {
         base_url: "http://localhost".to_string(),
         cors: stoa_mail::config::CorsConfig::default(),
         slow_jmap_threshold_ms: 0,
+        activitypub_config: Default::default(),
     })
 }
 
@@ -86,6 +87,7 @@ fn auth_app_state_alice(token_store: Arc<TokenStore>) -> Arc<AppState> {
         base_url: "http://localhost".to_string(),
         cors: stoa_mail::config::CorsConfig::default(),
         slow_jmap_threshold_ms: 0,
+        activitypub_config: Default::default(),
     })
 }
 
@@ -117,6 +119,7 @@ fn auth_app_state_two_users(token_store: Arc<TokenStore>) -> Arc<AppState> {
         base_url: "http://localhost".to_string(),
         cors: stoa_mail::config::CorsConfig::default(),
         slow_jmap_threshold_ms: 0,
+        activitypub_config: Default::default(),
     })
 }
 
