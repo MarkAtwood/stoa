@@ -43,6 +43,9 @@ pub struct BackendConfig {
     /// SQLite-specific settings.  Required when `type = "sqlite"`.
     #[serde(default)]
     pub sqlite: Option<SqliteBackendConfig>,
+    /// RocksDB-specific settings.  Required when `type = "rocksdb"`.
+    #[serde(default)]
+    pub rocksdb: Option<RocksDbBackendConfig>,
 }
 
 /// Backend type discriminator.
@@ -57,6 +60,7 @@ pub enum BackendType {
     Filesystem,
     Lmdb,
     Sqlite,
+    RocksDb,
 }
 
 /// Configuration for the Kubo HTTP RPC backend.
@@ -318,4 +322,36 @@ pub struct WebDavBackendConfig {
 pub struct SqliteBackendConfig {
     /// Path to the SQLite database file.  Created at startup if absent.
     pub path: String,
+}
+
+/// Configuration for the RocksDB embedded block store backend.
+///
+/// ## Storage layout
+///
+/// Blocks are stored as binary CID bytes → raw block data in the default
+/// column family.  Using binary CID keys (36 bytes for CIDv1 raw SHA-256)
+/// is more compact than string encoding and avoids codec round-trips.
+///
+/// ## Performance tuning
+///
+/// RocksDB is an LSM-tree store with higher write throughput than LMDB at
+/// the cost of slower point reads (LSM vs B-tree) and a heavier binary.
+/// Useful for transit nodes with high ingest rates.
+///
+/// A Bloom filter is always enabled on the default column family to make
+/// negative lookups (cache misses) cheap.  `cache_size_mb` controls the
+/// block cache (default: 64 MiB).
+///
+/// ## GC
+///
+/// `DELETE` is synchronous and immediate; compaction runs in the background
+/// and reclaims space automatically.
+#[derive(Debug, Deserialize, Clone)]
+pub struct RocksDbBackendConfig {
+    /// Directory for the RocksDB database.  Created at startup if absent.
+    pub path: String,
+    /// LRU block cache size in MiB.  Defaults to 64 MiB.
+    /// Increase for read-heavy workloads.
+    #[serde(default)]
+    pub cache_size_mb: Option<u64>,
 }

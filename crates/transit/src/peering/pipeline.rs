@@ -298,6 +298,21 @@ pub async fn build_store(config: &crate::config::Config) -> Result<StoreBuildRes
                     kubo_client: None,
                 })
             }
+            BackendType::RocksDb => {
+                let rocks_cfg = backend
+                    .rocksdb
+                    .as_ref()
+                    .ok_or("backend.type = 'rocks_db' requires a [backend.rocksdb] section")?;
+                let store = super::rocks_store::RocksStore::open(
+                    std::path::Path::new(&rocks_cfg.path),
+                    rocks_cfg.cache_size_mb,
+                )
+                .map_err(|e| format!("RocksDB store init failed: {e}"))?;
+                Ok(StoreBuildResult {
+                    store: Arc::new(store),
+                    kubo_client: None,
+                })
+            }
         }
     } else {
         // Backward-compat: use legacy [ipfs] section.

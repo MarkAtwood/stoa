@@ -12,6 +12,7 @@ pub mod s3_store;
 pub mod azure_store;
 pub mod gcs_store;
 pub mod webdav_store;
+pub mod rocks_store;
 pub mod mode_stream;
 pub mod peer_registry;
 pub mod pipeline;

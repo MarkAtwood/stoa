@@ -41,6 +41,7 @@ stoa-tls = { path = "../tls" }
 stoa-verify = { path = "../verify" }
 mail-auth = "0.8"
 stoa-lmdb = { path = "../lmdb" }
+rocksdb = "0.22"
 object_store = { version = "0.12", features = ["aws", "azure", "gcp", "http"] }
 bytes = "1.11.1"
 

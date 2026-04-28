@@ -319,6 +319,18 @@ pub async fn build_block_store(
                     .map_err(|e| format!("WebDAV store init failed: {e}"))?;
                 Ok(Arc::new(store))
             }
+            BackendType::RocksDb => {
+                let rocks_cfg = backend
+                    .rocksdb
+                    .as_ref()
+                    .ok_or("backend.type = 'rocks_db' requires a [backend.rocksdb] section")?;
+                let store = super::rocks_store::RocksBlockStore::open(
+                    std::path::Path::new(&rocks_cfg.path),
+                    rocks_cfg.cache_size_mb,
+                )
+                .map_err(|e| format!("RocksDB store init failed: {e}"))?;
+                Ok(Arc::new(store))
+            }
         }
     } else {
         // Backward-compat: use legacy [ipfs] section.

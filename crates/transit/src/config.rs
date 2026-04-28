@@ -12,8 +12,8 @@ use stoa_core::wildmat::GroupFilter;
 // transit config validation code can use them without a long path prefix.
 pub use stoa_core::ipfs_backend::{
     AzureBackendConfig, BackendConfig, BackendType, FsBackendConfig, GcsBackendConfig,
-    KuboBackendConfig, LmdbBackendConfig, S3BackendConfig, SqliteBackendConfig,
-    WebDavBackendConfig,
+    KuboBackendConfig, LmdbBackendConfig, RocksDbBackendConfig, S3BackendConfig,
+    SqliteBackendConfig, WebDavBackendConfig,
 };
 
 #[derive(Debug, Deserialize)]
@@ -722,6 +722,18 @@ impl Config {
                                 )));
                             }
                         }
+                    }
+                }
+                BackendType::RocksDb => {
+                    let rocksdb = backend.rocksdb.as_ref().ok_or_else(|| {
+                        ConfigError::Validation(
+                            "backend.type = 'rocks_db' requires a [backend.rocksdb] section".into(),
+                        )
+                    })?;
+                    if rocksdb.path.is_empty() {
+                        return Err(ConfigError::Validation(
+                            "backend.rocksdb.path must not be empty".into(),
+                        ));
                     }
                 }
             },
@@ -2364,6 +2376,109 @@ max_age_days = 30
         let cfg = Config::from_file(f.path()).expect("webdav with allow_http must parse");
         let backend = cfg.backend.as_ref().expect("backend must be set");
         assert!(matches!(backend.backend_type, BackendType::WebDav));
+    }
+
+    /// [backend] with type = "rocks_db" and a [backend.rocksdb] section parses and validates.
+    #[test]
+    fn backend_rocksdb_section_parses() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[backend]
+type = "rocks_db"
+
+[backend.rocksdb]
+path = "/var/lib/stoa/rocksdb"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("rocksdb backend config must parse");
+        let backend = cfg.backend.as_ref().expect("backend must be set");
+        assert!(matches!(backend.backend_type, BackendType::RocksDb));
+        assert_eq!(
+            backend.rocksdb.as_ref().map(|r| r.path.as_str()),
+            Some("/var/lib/stoa/rocksdb")
+        );
+    }
+
+    /// [backend] with type = "rocks_db" but no [backend.rocksdb] section is rejected.
+    #[test]
+    fn backend_rocksdb_without_subsection_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[backend]
+type = "rocks_db"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("rocks_db without subsection must fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend.rocksdb] with empty path is rejected.
+    #[test]
+    fn backend_rocksdb_empty_path_rejected() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[backend]
+type = "rocks_db"
+
+[backend.rocksdb]
+path = ""
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("empty path must fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
     }
 
     /// [backend.webdav] with a trailing slash in url is rejected.

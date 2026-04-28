@@ -6,8 +6,8 @@ use std::path::Path;
 // reader config validation code can use them without a long path prefix.
 pub use stoa_core::ipfs_backend::{
     AzureBackendConfig, BackendConfig, BackendType, FsBackendConfig, GcsBackendConfig,
-    KuboBackendConfig, LmdbBackendConfig, S3BackendConfig, SqliteBackendConfig,
-    WebDavBackendConfig,
+    KuboBackendConfig, LmdbBackendConfig, RocksDbBackendConfig, S3BackendConfig,
+    SqliteBackendConfig, WebDavBackendConfig,
 };
 
 /// Default hostname for the NNTP Path: header injected on POST.
@@ -687,6 +687,19 @@ impl Config {
                                 )));
                             }
                         }
+                    }
+                }
+                BackendType::RocksDb => {
+                    let rocksdb = backend.rocksdb.as_ref().ok_or_else(|| {
+                        ConfigError::Validation(
+                            "backend.type = 'rocks_db' requires a [backend.rocksdb] section"
+                                .into(),
+                        )
+                    })?;
+                    if rocksdb.path.is_empty() {
+                        return Err(ConfigError::Validation(
+                            "backend.rocksdb.path must not be empty".into(),
+                        ));
                     }
                 }
             }
@@ -1607,6 +1620,97 @@ allow_http = true
         let cfg = Config::from_file(f.path()).expect("webdav with allow_http must parse");
         let backend = cfg.backend.as_ref().expect("backend must be set");
         assert!(matches!(backend.backend_type, BackendType::WebDav));
+    }
+
+    /// [backend] with type = "rocks_db" and a [backend.rocksdb] section parses and validates.
+    #[test]
+    fn backend_rocksdb_section_parses() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "rocks_db"
+
+[backend.rocksdb]
+path = "/var/lib/stoa/rocksdb"
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("rocksdb backend config must parse");
+        let backend = cfg.backend.as_ref().expect("backend must be set");
+        assert!(matches!(backend.backend_type, BackendType::RocksDb));
+        assert_eq!(
+            backend.rocksdb.as_ref().map(|r| r.path.as_str()),
+            Some("/var/lib/stoa/rocksdb")
+        );
+    }
+
+    /// [backend] with type = "rocks_db" but no [backend.rocksdb] section is rejected.
+    #[test]
+    fn backend_rocksdb_without_subsection_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "rocks_db"
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("rocks_db without subsection must fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend.rocksdb] with empty path is rejected.
+    #[test]
+    fn backend_rocksdb_empty_path_rejected() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "rocks_db"
+
+[backend.rocksdb]
+path = ""
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("empty path must fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
     }
 
     /// [backend.webdav] with a trailing slash in url is rejected.
