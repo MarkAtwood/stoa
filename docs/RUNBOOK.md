@@ -204,21 +204,31 @@ stoa-transit --config transit.toml 2>&1 | tee -a /var/log/stoa-transit.log
 
 ### Verify
 
-Check the admin endpoint:
+Check the readiness endpoint (verifies SQLite and Kubo are up):
 
 ```bash
-curl -s http://127.0.0.1:9090/health | python3 -m json.tool
+curl -s http://127.0.0.1:9090/healthz/ready | python3 -m json.tool
 ```
 
-Expected response:
+Expected response when healthy:
 ```json
 {
   "status": "ok",
-  "uptime_secs": 12
+  "uptime_secs": 12,
+  "checks": [
+    {"name": "sqlite_transit", "ok": true, "detail": ""},
+    {"name": "sqlite_core",    "ok": true, "detail": ""},
+    {"name": "kubo_reachable", "ok": true, "detail": "peer ID: QmXxx..."}
+  ]
 }
 ```
 
+Returns HTTP 503 with `"status": "degraded"` if any check fails.
+
+`GET /health` is a backward-compatible alias for `/healthz/ready`.
+
 Other admin endpoints:
+- `GET /healthz/live` — process-alive probe (always 200; no external deps)
 - `GET /stats` — article, group, and peer counts
 - `GET /log-tip?group=comp.lang.rust` — current group log tip CID
 - `GET /peers` — connected peers
@@ -606,6 +616,81 @@ cache_path = "/var/cache/reader-blocks"
 `type = "s3"` and `type = "filesystem"` are accepted by the parser but will
 cause a hard startup error ("not yet implemented"). They are placeholders for
 future epics.
+
+---
+
+## Kubernetes and ECS health probes
+
+### Liveness vs readiness
+
+| Probe | Endpoint | When 200 | When to use |
+|-------|----------|----------|-------------|
+| **Liveness** | `GET /healthz/live` | Always (process is running) | Kubernetes `livenessProbe` — restart the pod if the process hangs |
+| **Readiness** | `GET /healthz/ready` | SQLite and Kubo are reachable | Kubernetes `readinessProbe` / ALB target group — remove from rotation while starting up or degraded |
+
+A daemon that is alive but not yet connected to Kubo should fail readiness without failing liveness.  Kubernetes will stop sending traffic but will not restart the pod.
+
+### Kubernetes probe configuration
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /healthz/live
+    port: 9090          # [admin] port in transit.toml
+  initialDelaySeconds: 5
+  periodSeconds: 15
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /healthz/ready
+    port: 9090
+  initialDelaySeconds: 10   # allow time for Kubo to connect
+  periodSeconds: 10
+  failureThreshold: 3
+```
+
+If the admin endpoint requires a bearer token, inject it as an HTTP header:
+
+```yaml
+readinessProbe:
+  httpGet:
+    path: /healthz/ready
+    port: 9090
+    httpHeaders:
+      - name: Authorization
+        value: Bearer $(ADMIN_TOKEN)
+```
+
+### ECS health check configuration
+
+```json
+{
+  "healthCheck": {
+    "command": [
+      "CMD-SHELL",
+      "curl -sf -H 'Authorization: Bearer $ADMIN_TOKEN' http://127.0.0.1:9090/healthz/ready || exit 1"
+    ],
+    "interval": 15,
+    "timeout": 5,
+    "retries": 3,
+    "startPeriod": 30
+  }
+}
+```
+
+### ALB target group health check
+
+- **Path**: `/healthz/ready`
+- **Port**: admin port (e.g. 9090)
+- **Protocol**: HTTP
+- **Healthy threshold**: 2
+- **Unhealthy threshold**: 3
+- **Timeout**: 5 s
+- **Interval**: 15 s
+
+> The admin endpoint should be bound to loopback (`127.0.0.1`) for security.
+> Route ALB health checks through a sidecar or NLB that forwards only to the admin port.
 
 ---
 

@@ -1175,6 +1175,7 @@ async fn main() {
                     audit_logger: Some(admin_audit_logger),
                     backup_dest_dir: config.backup.dest_dir.clone(),
                     reload_state: Some(Arc::clone(&reload_state)),
+                    ipfs_api_url: Some(config.ipfs.api_url.clone()),
                 },
                 start_time,
                 admin_bearer_token,

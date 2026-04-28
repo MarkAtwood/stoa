@@ -5,7 +5,9 @@
 //! loopback only in production (see [`crate::config::AdminConfig`]).
 //!
 //! Endpoints:
-//! - `GET /health`           — liveness check with uptime
+//! - `GET /healthz/live`     — liveness probe: always 200 if process is running
+//! - `GET /healthz/ready`    — readiness probe: 200 when SQLite and IPFS are up; 503 otherwise
+//! - `GET /health`           — backward-compatible alias for `/healthz/ready`
 //! - `GET /stats`            — article, pin, group, and peer counts from SQLite
 //! - `GET /log-tip?group=X`  — tip CID and entry count for a group log
 //! - `GET /peers`            — extended health info for active (non-blacklisted) peers
@@ -15,7 +17,7 @@
 //! - `GET /ipns`             — IPNS address and latest article CID per group
 //! - `GET /version`          — binary name and semver version
 //! - `GET /groups`           — distinct group names known to this node
-//! - `POST /reload`          — re-checks TLS cert expiry; returns 200 with `{"reloaded":false}` (full reload not yet implemented)
+//! - `POST /reload`          — re-reads config and applies live-reloadable fields; returns diff
 //!
 //! ## Authorization model (v1 limitation)
 //!
@@ -49,6 +51,10 @@ pub struct AdminPools {
     /// Shared live-reloadable config state.  `None` disables `POST /admin/reload`
     /// (returns 200 with `{"reloaded":false}` stub instead).
     pub reload_state: Option<Arc<crate::reload::ReloadableState>>,
+    /// IPFS API base URL (e.g. `"http://127.0.0.1:5001"`).  When present,
+    /// `/healthz/ready` will call `node_id` to verify Kubo reachability.
+    /// When `None` (e.g. in tests using `MemIpfsStore`) the IPFS check is skipped.
+    pub ipfs_api_url: Option<String>,
 }
 
 /// Start the admin HTTP server on the given address.
@@ -90,6 +96,7 @@ pub fn start_admin_server(
     let audit_logger = pools.audit_logger;
     let backup_dest_dir = Arc::new(pools.backup_dest_dir);
     let reload_state: Option<Arc<crate::reload::ReloadableState>> = pools.reload_state;
+    let ipfs_api_url = Arc::new(pools.ipfs_api_url);
     tokio::spawn(async move {
         let listener = match tokio::net::TcpListener::bind(addr).await {
             Ok(l) => l,
@@ -112,6 +119,7 @@ pub fn start_admin_server(
                     let backup_dest_dir = Arc::clone(&backup_dest_dir);
                     let cert_paths = Arc::clone(&cert_paths);
                     let reload_state = reload_state.clone();
+                    let ipfs_api_url = Arc::clone(&ipfs_api_url);
                     tokio::spawn(async move {
                         if let Err(e) = handle_admin_connection(
                             stream,
@@ -125,6 +133,7 @@ pub fn start_admin_server(
                             backup_dest_dir.as_deref(),
                             &cert_paths,
                             reload_state.as_deref(),
+                            ipfs_api_url.as_deref(),
                         )
                         .await
                         {
@@ -153,6 +162,7 @@ async fn handle_admin_connection(
     backup_dest_dir: Option<&str>,
     cert_paths: &[String],
     reload_state: Option<&crate::reload::ReloadableState>,
+    ipfs_api_url: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let (pool, core_pool) = pools;
     let peer_ip = stream.peer_addr()?.ip();
@@ -276,9 +286,15 @@ async fn handle_admin_connection(
     }
 
     match path {
-        "/health" => {
-            let body = build_health_json(start_time);
+        "/healthz/live" => {
+            let body = build_liveness_json(start_time);
             write_json(&mut writer, 200, "OK", &body).await?;
+        }
+        "/healthz/ready" | "/health" => {
+            let (status, body) =
+                build_readiness_json(pool, core_pool, ipfs_api_url, start_time).await;
+            let reason = if status == 200 { "OK" } else { "Service Unavailable" };
+            write_json(&mut writer, status, reason, &body).await?;
         }
         "/stats" => match build_stats_json(pool, core_pool).await {
             Ok(body) => write_json(&mut writer, 200, "OK", &body).await?,
@@ -703,13 +719,136 @@ async fn write_binary_car<W: AsyncWrite + Unpin>(
     writer.write_all(body).await
 }
 
-pub(crate) fn build_health_json(start_time: Instant) -> String {
+/// Build the liveness JSON body (always succeeds; no external deps).
+///
+/// Used by `GET /healthz/live`.
+pub(crate) fn build_liveness_json(start_time: Instant) -> String {
     let uptime_secs = start_time.elapsed().as_secs();
     serde_json::json!({
         "status": "ok",
         "uptime_secs": uptime_secs,
     })
     .to_string()
+}
+
+
+/// A single dependency check result.
+struct HealthCheck {
+    name: &'static str,
+    ok: bool,
+    detail: String,
+}
+
+/// Build the readiness JSON body and the HTTP status code (200 or 503).
+///
+/// Checks:
+/// - `sqlite_transit`: can we `SELECT 1` from the transit schema?
+/// - `sqlite_core`: can we `SELECT 1` from the core schema?
+/// - `kubo_reachable`: if `ipfs_api_url` is set, is Kubo's `/api/v0/id` reachable?
+///
+/// Returns `(status_code, json_body)`.
+pub(crate) async fn build_readiness_json(
+    pool: &AnyPool,
+    core_pool: &AnyPool,
+    ipfs_api_url: Option<&str>,
+    start_time: Instant,
+) -> (u16, String) {
+    const CHECK_TIMEOUT: Duration = Duration::from_secs(5);
+
+    let mut checks: Vec<HealthCheck> = Vec::new();
+
+    // ── sqlite_transit ────────────────────────────────────────────────────────
+    checks.push(
+        match tokio::time::timeout(
+            CHECK_TIMEOUT,
+            sqlx::query_scalar::<_, i64>("SELECT 1").fetch_one(pool),
+        )
+        .await
+        {
+            Ok(Ok(_)) => HealthCheck { name: "sqlite_transit", ok: true, detail: String::new() },
+            Ok(Err(e)) => HealthCheck {
+                name: "sqlite_transit",
+                ok: false,
+                detail: e.to_string(),
+            },
+            Err(_) => HealthCheck {
+                name: "sqlite_transit",
+                ok: false,
+                detail: "timeout".to_string(),
+            },
+        },
+    );
+
+    // ── sqlite_core ───────────────────────────────────────────────────────────
+    checks.push(
+        match tokio::time::timeout(
+            CHECK_TIMEOUT,
+            sqlx::query_scalar::<_, i64>("SELECT 1").fetch_one(core_pool),
+        )
+        .await
+        {
+            Ok(Ok(_)) => HealthCheck { name: "sqlite_core", ok: true, detail: String::new() },
+            Ok(Err(e)) => HealthCheck {
+                name: "sqlite_core",
+                ok: false,
+                detail: e.to_string(),
+            },
+            Err(_) => HealthCheck {
+                name: "sqlite_core",
+                ok: false,
+                detail: "timeout".to_string(),
+            },
+        },
+    );
+
+    // ── kubo_reachable ────────────────────────────────────────────────────────
+    if let Some(url) = ipfs_api_url {
+        let client = stoa_core::ipfs::KuboHttpClient::new(url);
+        checks.push(
+            match tokio::time::timeout(CHECK_TIMEOUT, client.node_id()).await {
+                Ok(Ok(peer_id)) => HealthCheck {
+                    name: "kubo_reachable",
+                    ok: true,
+                    detail: format!("peer ID: {peer_id}"),
+                },
+                Ok(Err(e)) => HealthCheck {
+                    name: "kubo_reachable",
+                    ok: false,
+                    detail: format!("Kubo error: {e}"),
+                },
+                Err(_) => HealthCheck {
+                    name: "kubo_reachable",
+                    ok: false,
+                    detail: "timeout connecting to Kubo".to_string(),
+                },
+            },
+        );
+    }
+
+    let all_ok = checks.iter().all(|c| c.ok);
+    let status_str = if all_ok { "ok" } else { "degraded" };
+    let status_code: u16 = if all_ok { 200 } else { 503 };
+
+    let checks_json: Vec<serde_json::Value> = checks
+        .iter()
+        .map(|c| {
+            serde_json::json!({
+                "name": c.name,
+                "ok": c.ok,
+                "detail": c.detail,
+            })
+        })
+        .collect();
+
+    let uptime_secs = start_time.elapsed().as_secs();
+    let body = serde_json::json!({
+        "status": status_str,
+        "uptime_secs": uptime_secs,
+        "checks": checks_json,
+    })
+    .to_string();
+
+    (status_code, body)
 }
 
 pub(crate) async fn build_stats_json(
@@ -986,9 +1125,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn health_handler_returns_ok_json() {
+    async fn liveness_handler_returns_ok_json() {
         let start_time = Instant::now();
-        let json = build_health_json(start_time);
+        let json = build_liveness_json(start_time);
         assert!(json.contains("\"status\""), "missing status key: {json}");
         assert!(json.contains("\"ok\""), "missing ok value: {json}");
         assert!(
@@ -1118,14 +1257,48 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn health_uptime_is_non_negative() {
+    async fn liveness_uptime_is_non_negative() {
         let start_time = Instant::now();
-        let json = build_health_json(start_time);
+        let json = build_liveness_json(start_time);
         let v: serde_json::Value = serde_json::from_str(&json).unwrap();
         assert!(
             v["uptime_secs"].as_u64().is_some(),
             "uptime_secs must be a non-negative integer"
         );
+    }
+
+    #[tokio::test]
+    async fn readiness_ok_when_sqlite_up_and_no_kubo_url() {
+        let (pool, core_pool) = make_pools().await;
+        let (status, body) =
+            build_readiness_json(&pool, &core_pool, None, Instant::now()).await;
+        assert_eq!(status, 200, "status must be 200 when checks pass: {body}");
+        let v: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(v["status"], "ok");
+        let checks = v["checks"].as_array().expect("checks must be array");
+        assert_eq!(checks.len(), 2, "two checks (sqlite_transit, sqlite_core)");
+        for c in checks {
+            assert_eq!(c["ok"], true, "check {:?} must be ok", c["name"]);
+        }
+    }
+
+    #[tokio::test]
+    async fn readiness_503_when_kubo_unreachable() {
+        let (pool, core_pool) = make_pools().await;
+        // Port 1 is closed/unreachable on loopback.
+        let (status, body) = build_readiness_json(
+            &pool,
+            &core_pool,
+            Some("http://127.0.0.1:1"),
+            Instant::now(),
+        )
+        .await;
+        assert_eq!(status, 503, "status must be 503 when Kubo unreachable: {body}");
+        let v: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(v["status"], "degraded");
+        let checks = v["checks"].as_array().expect("checks must be array");
+        let kubo = checks.iter().find(|c| c["name"] == "kubo_reachable").expect("kubo_reachable check must exist");
+        assert_eq!(kubo["ok"], false, "kubo check must be false");
     }
 
     #[test]
