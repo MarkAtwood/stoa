@@ -904,7 +904,7 @@ async fn run_post_pipeline(
                     // DID claim", which is the accurate description.
                     tracing::warn!(
                         msgid = %message_id,
-                        error = %e,
+                        error = ?e,
                         "DID author signature verification error (treating as invalid)"
                     );
                     Some(false)
