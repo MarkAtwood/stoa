@@ -90,7 +90,7 @@ pub async fn verify_dkim_headers(
                         identity,
                     };
                 }
-                DkimResult::Neutral(err) => VerifResult::Fail {
+                DkimResult::Neutral(err) => VerifResult::Neutral {
                     reason: format!("{err:?}"),
                 },
                 DkimResult::Fail(err) => VerifResult::Fail {

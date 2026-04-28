@@ -45,7 +45,15 @@ pub async fn ensure_instance_node_id(pool: &AnyPool, hostname: &str) -> [u8; 8] 
             }
             fresh
         }
-        _ => fresh,
+        Ok(None) => fresh,
+        Err(e) => {
+            tracing::warn!(
+                error = %e,
+                "instance_id: database read failed, falling back to ephemeral random ID \
+                — node identity will not persist across restarts"
+            );
+            fresh
+        }
     }
 }
 

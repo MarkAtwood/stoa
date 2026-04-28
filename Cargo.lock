@@ -4492,6 +4492,7 @@ dependencies = [
  "tempfile",
  "time",
  "tokio",
+ "tracing",
  "x509-parser",
 ]
 

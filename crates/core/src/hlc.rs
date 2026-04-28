@@ -48,6 +48,7 @@ impl std::error::Error for HlcError {}
 pub const DEFAULT_MAX_CLOCK_SKEW_MS: u64 = 5_000;
 
 /// Hybrid Logical Clock (Kulkarni & Demirbas 2014).
+#[derive(Debug)]
 pub struct HlcClock {
     last: HlcTimestamp,
     node_id: [u8; 8],

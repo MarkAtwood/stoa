@@ -320,7 +320,7 @@ pub async fn start_gc_scheduler<P, F, Fut>(
 mod tests {
     use super::*;
     use crate::retention::pin_client::MemPinClient;
-    use crate::retention::policy::{PinPolicy, PinRule};
+    use crate::retention::policy::{PinAction, PinPolicy, PinRule};
     use cid::Cid;
     use multihash_codetable::{Code, MultihashDigest};
 
@@ -345,7 +345,7 @@ mod tests {
             groups: "sci.math".to_string(),
             max_age_days: None,
             max_article_bytes: None,
-            action: "pin".to_string(),
+            action: PinAction::Pin,
         }])
     }
 
@@ -354,7 +354,7 @@ mod tests {
             groups: "all".to_string(),
             max_age_days: None,
             max_article_bytes: None,
-            action: "pin".to_string(),
+            action: PinAction::Pin,
         }])
     }
 

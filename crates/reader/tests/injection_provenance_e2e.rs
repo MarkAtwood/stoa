@@ -22,7 +22,7 @@ use tokio::net::{TcpListener, TcpStream};
 use stoa_core::{article::GroupName, group_log::LogStorage, util::epoch_to_rfc2822};
 use stoa_reader::{
     config::UserCredential,
-    session::lifecycle::run_session,
+    session::lifecycle::{run_session, ListenerKind},
     store::{credentials::CredentialStore, server_stores::ServerStores},
 };
 
@@ -113,7 +113,7 @@ async fn post_article_and_quit(
     let stores2 = stores.clone();
     tokio::spawn(async move {
         let (stream, _) = listener.accept().await.unwrap();
-        run_session(stream, false, &config2, stores2, None).await;
+        run_session(stream, ListenerKind::Plain, &config2, stores2, None).await;
     });
 
     let stream = TcpStream::connect(addr).await.unwrap();
@@ -280,7 +280,7 @@ async fn authenticated_drain_smtp_list_id_is_local_only() {
     let stores2 = stores.clone();
     tokio::spawn(async move {
         let (stream, _) = listener.accept().await.unwrap();
-        run_session(stream, false, &config2, stores2, None).await;
+        run_session(stream, ListenerKind::Plain, &config2, stores2, None).await;
     });
 
     let stream = TcpStream::connect(addr).await.unwrap();

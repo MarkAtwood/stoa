@@ -81,7 +81,9 @@ fn check_mandatory_headers(headers: &HashMap<String, Vec<String>>) -> Result<(),
 ///
 /// Group names must be lowercase (POST path is stricter than internal storage).
 fn check_newsgroups(headers: &HashMap<String, Vec<String>>) -> Result<(), Response> {
-    let values = headers.get("newsgroups").expect("presence checked above");
+    let values = headers
+        .get("newsgroups")
+        .ok_or_else(|| Response::new(441, "Missing required header: Newsgroups"))?;
     for value in values {
         for raw_name in value.split(',') {
             let name = raw_name.trim();
@@ -119,7 +121,7 @@ fn check_date(headers: &HashMap<String, Vec<String>>) -> Result<(), Response> {
     let value = headers
         .get("date")
         .and_then(|v| v.first())
-        .expect("presence checked above");
+        .ok_or_else(|| Response::new(441, "Missing required header: Date"))?;
 
     let ts = mailparse::dateparse(value)
         .map_err(|_| Response::new(441, "Invalid Date header format"))?;
@@ -141,7 +143,7 @@ fn check_message_id(headers: &HashMap<String, Vec<String>>) -> Result<(), Respon
     let value = headers
         .get("message-id")
         .and_then(|v| v.first())
-        .expect("presence checked above");
+        .ok_or_else(|| Response::new(441, "Missing required header: Message-ID"))?;
 
     if !is_valid_message_id(value) {
         return Err(Response::new(441, "Invalid Message-ID format"));

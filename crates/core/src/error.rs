@@ -253,9 +253,16 @@ impl std::error::Error for StorageError {}
 #[derive(Debug, Clone, PartialEq)]
 pub enum SigningError {
     InvalidKeyMaterial(String),
-    SignatureLengthInvalid { got: usize, expected: usize },
+    SignatureLengthInvalid {
+        got: usize,
+        expected: usize,
+    },
     VerificationFailed,
     KeyNotLoaded,
+    /// File read, write, stat, or permission errors on key files.
+    Io(String),
+    /// Malformed key data (wrong length, bad PEM, etc.).
+    InvalidKey(String),
 }
 
 impl fmt::Display for SigningError {
@@ -268,6 +275,8 @@ impl fmt::Display for SigningError {
             ),
             Self::VerificationFailed => write!(f, "signature verification failed"),
             Self::KeyNotLoaded => write!(f, "signing key not loaded"),
+            Self::Io(msg) => write!(f, "signing key I/O error: {msg}"),
+            Self::InvalidKey(msg) => write!(f, "invalid signing key: {msg}"),
         }
     }
 }

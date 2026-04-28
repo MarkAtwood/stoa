@@ -68,14 +68,14 @@ impl PeerRegistry {
         Ok(row.map(|r| {
             use sqlx::Row;
             PeerRecord {
-                peer_id: r.get(0),
-                address: r.get(1),
-                last_seen_ms: r.get(2),
-                articles_accepted: r.get(3),
-                articles_rejected: r.get(4),
-                consecutive_failures: r.get(5),
-                blacklisted_until_ms: r.get(6),
-                configured: r.get::<i64, _>(7) != 0,
+                peer_id: r.get("peer_id"),
+                address: r.get("address"),
+                last_seen_ms: r.get("last_seen"),
+                articles_accepted: r.get("articles_accepted"),
+                articles_rejected: r.get("articles_rejected"),
+                consecutive_failures: r.get("consecutive_failures"),
+                blacklisted_until_ms: r.get("blacklisted_until"),
+                configured: r.get::<i64, _>("configured") != 0,
             }
         }))
     }
@@ -151,14 +151,14 @@ impl PeerRegistry {
         Ok(rows
             .into_iter()
             .map(|r| PeerRecord {
-                peer_id: r.get(0),
-                address: r.get(1),
-                last_seen_ms: r.get(2),
-                articles_accepted: r.get(3),
-                articles_rejected: r.get(4),
-                consecutive_failures: r.get(5),
-                blacklisted_until_ms: r.get(6),
-                configured: r.get::<i64, _>(7) != 0,
+                peer_id: r.get("peer_id"),
+                address: r.get("address"),
+                last_seen_ms: r.get("last_seen"),
+                articles_accepted: r.get("articles_accepted"),
+                articles_rejected: r.get("articles_rejected"),
+                consecutive_failures: r.get("consecutive_failures"),
+                blacklisted_until_ms: r.get("blacklisted_until"),
+                configured: r.get::<i64, _>("configured") != 0,
             })
             .collect())
     }

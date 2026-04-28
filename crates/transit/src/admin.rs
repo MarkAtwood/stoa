@@ -80,7 +80,7 @@ pub struct AdminPools {
 /// footgun in production; the server must not start in that configuration.
 #[allow(clippy::too_many_arguments)]
 pub fn start_admin_server(
-    addr: std::net::SocketAddr,
+    listener: tokio::net::TcpListener,
     pools: AdminPools,
     start_time: Instant,
     bearer_token: Option<String>,
@@ -89,6 +89,9 @@ pub fn start_admin_server(
     ipns_path: Option<String>,
     cert_paths: Arc<Vec<String>>,
 ) -> Result<(), String> {
+    let addr = listener
+        .local_addr()
+        .map_err(|e| format!("admin listener has no local address: {e}"))?;
     if !addr.ip().is_loopback() && bearer_token.is_none() {
         return Err(format!(
             "admin endpoint at {addr} is on a non-loopback interface but no bearer_token \
@@ -106,13 +109,6 @@ pub fn start_admin_server(
     let ipfs_api_url = Arc::new(pools.ipfs_api_url);
     let last_gc_report = pools.last_gc_report;
     tokio::spawn(async move {
-        let listener = match tokio::net::TcpListener::bind(addr).await {
-            Ok(l) => l,
-            Err(e) => {
-                tracing::warn!("admin server failed to bind {addr}: {e}");
-                return;
-            }
-        };
         tracing::info!("admin server listening on {addr}");
         loop {
             match listener.accept().await {

@@ -5,7 +5,7 @@
 /// this from body_bytes.len() (the header byte count is accounted for
 /// by the caller).
 pub fn compute_byte_count(body_bytes: &[u8]) -> u64 {
-    body_bytes.len() as u64
+    u64::try_from(body_bytes.len()).expect("usize fits in u64 on all supported platforms")
 }
 
 /// Compute line_count for OVER/XOVER output from verbatim body bytes.
@@ -14,7 +14,8 @@ pub fn compute_byte_count(body_bytes: &[u8]) -> u64 {
 /// in the article body. A line ends with \n (LF). Matches what NNTP
 /// servers report in OVER/XOVER output.
 pub fn compute_line_count(body_bytes: &[u8]) -> u64 {
-    body_bytes.iter().filter(|&&b| b == b'\n').count() as u64
+    u64::try_from(body_bytes.iter().filter(|&&b| b == b'\n').count())
+        .expect("usize fits in u64 on all supported platforms")
 }
 
 /// Extract content_type_summary from raw article header bytes.
@@ -104,7 +105,9 @@ pub fn compute_metadata(
         newsgroups,
         hlc_timestamp,
         operator_signature: Vec::new(),
-        byte_count: header_bytes.len() as u64 + compute_byte_count(body_bytes),
+        byte_count: u64::try_from(header_bytes.len())
+            .expect("usize fits in u64 on all supported platforms")
+            + compute_byte_count(body_bytes),
         line_count: compute_line_count(body_bytes),
         content_type_summary: extract_content_type_summary(header_bytes),
     }

@@ -7,7 +7,7 @@ use object_store::ObjectStore;
 use std::sync::Arc;
 
 use stoa_core::ipfs_backend::WebDavBackendConfig;
-use stoa_core::secret::resolve_secret_uri;
+use stoa_core::secret::{resolve_secret_uri, SecretError};
 
 use crate::peering::object_store_backend::ObjectStoreBackend;
 use crate::peering::pipeline::IpfsStore;
@@ -21,7 +21,7 @@ pub struct WebDavStore(ObjectStoreBackend);
 
 impl WebDavStore {
     /// Build from operator config, resolving any `secretx://` URIs.
-    pub async fn new(cfg: &WebDavBackendConfig) -> Result<Self, String> {
+    pub async fn new(cfg: &WebDavBackendConfig) -> Result<Self, SecretError> {
         use base64::Engine as _;
         use object_store::http::HttpBuilder;
         use object_store::ClientOptions;
@@ -42,8 +42,10 @@ impl WebDavStore {
         if let (Some(username), Some(pwd)) = (&cfg.username, &password) {
             let credentials =
                 base64::engine::general_purpose::STANDARD.encode(format!("{username}:{pwd}"));
-            let auth_value = HeaderValue::from_str(&format!("Basic {credentials}"))
-                .map_err(|e| format!("WebDAV backend: invalid credentials: {e}"))?;
+            let auth_value =
+                HeaderValue::from_str(&format!("Basic {credentials}")).map_err(|e| {
+                    SecretError::Retrieval(format!("WebDAV backend: invalid credentials: {e}"))
+                })?;
             let mut headers = HeaderMap::new();
             headers.insert(AUTHORIZATION, auth_value);
             client_options = client_options.with_default_headers(headers);
@@ -54,14 +56,16 @@ impl WebDavStore {
                 .with_url(&cfg.url)
                 .with_client_options(client_options)
                 .build()
-                .map_err(|e| format!("WebDAV backend init failed: {e}"))?,
+                .map_err(|e| SecretError::Retrieval(format!("WebDAV backend init failed: {e}")))?,
         ) as Arc<dyn ObjectStore>;
 
         let context = format!("WebDAV url '{}'", cfg.url);
         // The WebDAV URL is the collection root; no subdirectory prefix is used.
         // Passing Some("") to new_with_store results in blocks stored at
         // <url>/<cid> and the startup probe at <url>/_stoa_write_probe.
-        super::object_store_backend::startup_probe(&store, "", &context).await?;
+        super::object_store_backend::startup_probe(&store, "", &context)
+            .await
+            .map_err(SecretError::Retrieval)?;
 
         Ok(Self(ObjectStoreBackend::new_with_store(store, Some(""))))
     }

@@ -226,7 +226,14 @@ fn rsa_decoding_key_and_alg(jwk: &Jwk) -> Result<(DecodingKey, Algorithm), OidcE
         DecodingKey::from_rsa_components(n, e).map_err(|e| OidcError::InvalidKey(e.to_string()))?;
 
     let alg = match jwk.alg.as_deref() {
-        Some("RS256") | None => Algorithm::RS256, // default for RSA
+        Some("RS256") => Algorithm::RS256,
+        None => {
+            // DECISION: RS256 is the correct default for JWKs with kty=RSA and no alg field.
+            // RFC 7518 §3.3 defines RS256 as the baseline RSA signature algorithm.
+            // Providers that omit alg (e.g. some Azure AD JWKS endpoints) expect RS256.
+            tracing::debug!(key_id = ?jwk.kid, "JWK has no 'alg' field; defaulting to RS256 per RFC 7518 §3.3");
+            Algorithm::RS256
+        }
         Some("RS384") => Algorithm::RS384,
         Some("RS512") => Algorithm::RS512,
         Some("PS256") => Algorithm::PS256,

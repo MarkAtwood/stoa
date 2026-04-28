@@ -22,7 +22,12 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Instant;
+use tokio::sync::RwLock;
+
+pub(crate) const PUB_KEY_CACHE_TTL: std::time::Duration = std::time::Duration::from_secs(300);
 
 /// Runtime ActivityPub state: key, follower store, and dedup store.
 ///
@@ -34,6 +39,10 @@ pub struct ActivityPubState {
     pub key: Option<http_sign::RsaActorKey>,
     pub follower_store: Arc<follower_store::FollowerStore>,
     pub received_store: Arc<inbound::ReceivedActivityStore>,
+    /// Shared HTTP client — reuse connection pools across all AP deliveries.
+    pub http_client: reqwest::Client,
+    /// Cache of fetched actor public keys: key_id -> (pem, fetched_at).
+    pub pub_key_cache: RwLock<HashMap<String, (String, Instant)>>,
 }
 
 use crate::server::AppState;
@@ -80,7 +89,7 @@ pub async fn webfinger_handler(
     if resource_domain != domain {
         return StatusCode::NOT_FOUND.into_response();
     }
-    if !is_valid_group_name(group_name) {
+    if stoa_core::article::GroupName::new(group_name).is_err() {
         return StatusCode::NOT_FOUND.into_response();
     }
     let actor_url = format!("{}/ap/groups/{}", state.base_url, group_name);
@@ -137,7 +146,7 @@ pub async fn actor_handler(
     if !state.activitypub_config.enabled {
         return StatusCode::NOT_FOUND.into_response();
     }
-    if !is_valid_group_name(&group_name) {
+    if stoa_core::article::GroupName::new(&group_name).is_err() {
         return StatusCode::NOT_FOUND.into_response();
     }
     let base = &state.base_url;
@@ -181,7 +190,7 @@ pub async fn followers_handler(
     if !state.activitypub_config.enabled {
         return StatusCode::NOT_FOUND.into_response();
     }
-    if !is_valid_group_name(&group_name) {
+    if stoa_core::article::GroupName::new(&group_name).is_err() {
         return StatusCode::NOT_FOUND.into_response();
     }
     let followers_url = format!("{}/ap/groups/{}/followers", state.base_url, group_name);
@@ -223,7 +232,7 @@ pub async fn outbox_handler(
     if !state.activitypub_config.enabled {
         return StatusCode::NOT_FOUND.into_response();
     }
-    if !is_valid_group_name(&group_name) {
+    if stoa_core::article::GroupName::new(&group_name).is_err() {
         return StatusCode::NOT_FOUND.into_response();
     }
     let outbox_url = format!("{}/ap/groups/{}/outbox", state.base_url, group_name);
@@ -259,10 +268,6 @@ pub(super) fn extract_host_path(url: &str) -> (String, String) {
     }
 }
 
-fn is_valid_group_name(name: &str) -> bool {
-    !name.is_empty() && name.contains('.') && !name.chars().any(|c| c.is_whitespace())
-}
-
 /// Extract the domain (host without port) from a base URL.
 pub fn ap_domain(base_url: &str) -> String {
     let without_scheme = base_url
@@ -294,19 +299,18 @@ mod tests {
 
     #[test]
     fn valid_group_name_accepts_dotted() {
-        assert!(is_valid_group_name("comp.lang.rust"));
-        assert!(is_valid_group_name("alt.test"));
+        assert!(stoa_core::article::GroupName::new("comp.lang.rust").is_ok());
+        assert!(stoa_core::article::GroupName::new("alt.test").is_ok());
     }
 
     #[test]
-    fn valid_group_name_rejects_no_dot() {
-        assert!(!is_valid_group_name("inbox"));
-        assert!(!is_valid_group_name(""));
+    fn valid_group_name_rejects_empty() {
+        assert!(stoa_core::article::GroupName::new("").is_err());
     }
 
     #[test]
     fn valid_group_name_rejects_spaces() {
-        assert!(!is_valid_group_name("comp lang rust"));
-        assert!(!is_valid_group_name("comp.lang rust"));
+        assert!(stoa_core::article::GroupName::new("comp lang rust").is_err());
+        assert!(stoa_core::article::GroupName::new("comp.lang rust").is_err());
     }
 }

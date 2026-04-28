@@ -158,6 +158,9 @@ fn parse_result(result: &str, reason: Option<&str>, _sig_type: &SigType) -> Veri
             VerifResult::DnsError { domain, err }
         }
         "no-key" => VerifResult::NoKey,
+        "neutral" => VerifResult::Neutral {
+            reason: reason.unwrap_or("unknown").to_owned(),
+        },
         _ => VerifResult::ParseError {
             reason: format!("unknown result type '{}': {}", result, reason.unwrap_or("")),
         },

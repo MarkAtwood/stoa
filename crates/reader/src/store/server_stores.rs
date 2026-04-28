@@ -417,8 +417,11 @@ async fn load_or_generate_signing_key(path: &Option<String>) -> Result<SigningKe
                 .await
                 .map_err(|e| format!("operator.signing_key_path: secretx retrieval failed: {e}"))?;
             stoa_core::signing::load_signing_key_from_bytes(secret.as_bytes())
+                .map_err(|e| e.to_string())
         }
-        Some(p) => stoa_core::signing::load_signing_key(std::path::Path::new(p)),
+        Some(p) => {
+            stoa_core::signing::load_signing_key(std::path::Path::new(p)).map_err(|e| e.to_string())
+        }
         None => {
             let key = generate_signing_key();
             tracing::warn!(

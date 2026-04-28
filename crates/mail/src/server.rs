@@ -2414,11 +2414,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn actor_returns_404_for_non_newsgroup_path() {
+    async fn actor_returns_404_for_invalid_group_name() {
+        // "1invalid" starts with a digit: rejected by GroupName validation.
         let (state, _tmp) = ap_enabled_state("https://news.example.com").await;
         let addr = spawn_server(state).await;
         let resp = reqwest::Client::new()
-            .get(format!("http://{addr}/ap/groups/Inbox"))
+            .get(format!("http://{addr}/ap/groups/1invalid"))
             .send()
             .await
             .expect("request must succeed");

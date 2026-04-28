@@ -128,14 +128,14 @@ pub async fn deliver_article(
             return Vec::new();
         }
     };
-    let client = reqwest::Client::new();
+    let client = &ap_state.http_client;
     let date = chrono::Utc::now()
         .format("%a, %d %b %Y %H:%M:%S GMT")
         .to_string();
 
     let mut results = Vec::with_capacity(followers.len());
     for follower in &followers {
-        let result = deliver_one(&client, ap_state.key.as_ref(), &body, follower, &date).await;
+        let result = deliver_one(client, ap_state.key.as_ref(), &body, follower, &date).await;
         results.push(result);
     }
     results

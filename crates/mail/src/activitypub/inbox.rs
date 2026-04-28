@@ -48,8 +48,15 @@ pub async fn inbox_handler(
     if state.activitypub_config.verify_http_signatures {
         // Use the route path as the request path.
         let path = format!("/ap/groups/{}/inbox", group_name);
-        match crate::activitypub::inbound::verify_http_signature("post", &path, &headers, &body)
-            .await
+        match crate::activitypub::inbound::verify_http_signature(
+            "post",
+            &path,
+            &headers,
+            &body,
+            &ap_state.http_client,
+            &ap_state.pub_key_cache,
+        )
+        .await
         {
             Ok(actor) => {
                 info!(group = %group_name, actor = %actor, "HTTP Signature verified");
@@ -96,14 +103,11 @@ async fn handle_follow(
             return StatusCode::BAD_REQUEST.into_response();
         }
     };
-    // Derive inbox URL: fetch actor document to get inbox, or use a heuristic.
-    // For v1, we look for a pre-filled inbox in the activity or fall back to
-    // actor_url + "/inbox".  Remote delivery is best-effort.
-    let inbox_url = activity["object"]
-        .as_str()
-        .and_then(|_| activity["actor"].as_str())
-        .map(|_| format!("{}/inbox", actor_url))
-        .unwrap_or_else(|| format!("{}/inbox", actor_url));
+    // NOTE: The correct implementation would fetch the actor document and read its
+    // inbox field. For now, we assume inbox is at {actor_url}/inbox, which works
+    // for Mastodon-style actors. A future hardening pass should fetch the actor
+    // document via the shared HTTP client.
+    let inbox_url = format!("{}/inbox", actor_url);
 
     if let Err(e) = ap_state
         .follower_store
@@ -185,7 +189,8 @@ async fn deliver_accept(
         .format("%a, %d %b %Y %H:%M:%S GMT")
         .to_string();
 
-    let mut req = reqwest::Client::new()
+    let mut req = ap_state
+        .http_client
         .post(remote_inbox_url)
         .header("Content-Type", "application/activity+json")
         .header("Date", &date)

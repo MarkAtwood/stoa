@@ -40,6 +40,12 @@ impl From<StorageError> for AppendError {
     }
 }
 
+impl From<AppendError> for StorageError {
+    fn from(e: AppendError) -> Self {
+        StorageError::Database(format!("group log append error: {e}"))
+    }
+}
+
 /// Compute the [`LogEntryId`] for `entry` from its canonical byte representation.
 ///
 /// The input is:

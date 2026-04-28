@@ -207,7 +207,7 @@ fn now_ms() -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::retention::policy::PinRule;
+    use crate::retention::policy::{PinAction, PinRule};
     use sqlx::AnyPool;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -320,7 +320,7 @@ mod tests {
             groups: "all".to_string(),
             max_age_days: None,
             max_article_bytes: None,
-            action: "pin".to_string(),
+            action: PinAction::Pin,
         }]);
         let result = cmd_gc_run(&pool, &policy).await.unwrap();
         assert!(

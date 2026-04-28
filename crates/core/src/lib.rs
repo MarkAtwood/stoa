@@ -26,4 +26,5 @@ pub use article::{Article, ArticleHeader, GroupName};
 pub use error::{ProtocolError, SigningError, StorageError, UsenetIpfsError, ValidationError};
 pub use injection_source::{default_injection_source, InjectionSource};
 pub use ipld::{ArticleMetadata, ArticleRootNode, MimeNode};
+pub use signing::Overwrite;
 pub use validation::{check_duplicate, validate_article_ingress, MsgIdStorage, ValidationConfig};

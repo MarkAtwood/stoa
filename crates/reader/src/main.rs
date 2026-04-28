@@ -8,7 +8,7 @@ use tracing::{error, info, warn};
 use stoa_reader::{
     admin::start_admin_server,
     config::Config,
-    session::lifecycle::run_session,
+    session::lifecycle::{run_session, ListenerKind},
     store::{backfill::backfill_overview, server_stores::ServerStores},
     tls::TlsAcceptor,
 };
@@ -292,7 +292,12 @@ fn cmd_keygen(args: &[String]) -> ! {
         }
     };
     let key = stoa_core::signing::generate_signing_key();
-    if let Err(e) = stoa_core::signing::write_signing_key(&key, output_path, force) {
+    let overwrite = if force {
+        stoa_core::signing::Overwrite::Force
+    } else {
+        stoa_core::signing::Overwrite::NoOverwrite
+    };
+    if let Err(e) = stoa_core::signing::write_signing_key(&key, output_path, overwrite) {
         eprintln!("error: {e}");
         std::process::exit(1);
     }
@@ -525,7 +530,7 @@ async fn main() {
                 Arc::clone(&semaphore),
                 config.clone(),
                 stores.clone(),
-                true,
+                ListenerKind::Tls,
                 Some(nntps_acceptor),
             ))
         } else {
@@ -538,7 +543,7 @@ async fn main() {
     let drain_timeout_secs = config.limits.drain_timeout_secs.unwrap_or(30);
 
     tokio::select! {
-        _ = accept_loop(listener, semaphore, config, stores, false, tls_acceptor) => {}
+        _ = accept_loop(listener, semaphore, config, stores, ListenerKind::Plain, tls_acceptor) => {}
         _ = tls_listener_future => {}
         _ = tokio::signal::ctrl_c() => {
             info!("received CTRL-C, shutting down");
@@ -577,22 +582,27 @@ async fn main() {
 
 /// Accept loop shared by NNTP (plain or STARTTLS) and NNTPS (implicit TLS) listeners.
 ///
-/// `is_tls`: `true` for implicit-TLS listeners (port 563); `false` for plain-NNTP
-/// listeners (port 119) where TLS may be negotiated via STARTTLS.
+/// `kind`: `ListenerKind::Tls` for implicit-TLS listeners (port 563);
+/// `ListenerKind::Plain` for plain-NNTP listeners (port 119) where TLS may be
+/// negotiated via STARTTLS.
 async fn accept_loop(
     listener: TcpListener,
     semaphore: Arc<Semaphore>,
     config: Arc<Config>,
     stores: Arc<ServerStores>,
-    is_tls: bool,
+    kind: ListenerKind,
     tls_acceptor: Option<Arc<TlsAcceptor>>,
 ) {
-    let kind = if is_tls { "NNTPS" } else { "NNTP" };
+    let proto = if kind == ListenerKind::Tls {
+        "NNTPS"
+    } else {
+        "NNTP"
+    };
     loop {
         let permit = match semaphore.clone().acquire_owned().await {
             Ok(p) => p,
             Err(_) => {
-                warn!("semaphore closed, stopping {kind} accept loop");
+                warn!("semaphore closed, stopping {proto} accept loop");
                 break;
             }
         };
@@ -600,7 +610,7 @@ async fn accept_loop(
         let (stream, peer_addr) = match listener.accept().await {
             Ok(pair) => pair,
             Err(e) => {
-                error!("{kind} accept error: {}", e);
+                error!("{proto} accept error: {}", e);
                 drop(permit);
                 continue;
             }
@@ -611,8 +621,8 @@ async fn accept_loop(
         let tls_acceptor = tls_acceptor.clone();
         tokio::spawn(async move {
             let _permit = permit;
-            run_session(stream, is_tls, &config, stores, tls_acceptor).await;
-            info!(%peer_addr, "{kind} connection closed");
+            run_session(stream, kind, &config, stores, tls_acceptor).await;
+            info!(%peer_addr, "{proto} connection closed");
         });
     }
 }

@@ -1,5 +1,6 @@
 //! AUTHINFO command handler (RFC 4643).
 
+use crate::session::response::Response;
 use stoa_core::audit::{AuditEvent, AuditLogger};
 
 /// Process an AUTHINFO USER/PASS attempt and return the appropriate NNTP response.
@@ -18,7 +19,7 @@ pub fn authinfo_response(
     service: &str,
     auth_method: &str,
     audit_logger: Option<&dyn AuditLogger>,
-) -> &'static str {
+) -> Response {
     if let Some(logger) = audit_logger {
         logger.log(AuditEvent::AuthAttempt {
             peer_addr: peer_addr.to_string(),
@@ -29,9 +30,9 @@ pub fn authinfo_response(
         });
     }
     if success {
-        "281 Authentication accepted\r\n"
+        Response::authentication_accepted()
     } else {
-        "481 Authentication failed\r\n"
+        Response::authentication_failed()
     }
 }
 
@@ -49,12 +50,12 @@ mod tests {
             "password",
             None,
         );
-        assert!(resp.starts_with("281"), "success should give 281: {resp}");
+        assert_eq!(resp.code, 281, "success should give 281: {:?}", resp);
     }
 
     #[test]
     fn auth_failure_returns_481() {
         let resp = authinfo_response("baduser", "1.2.3.4:50001", false, "nntp", "password", None);
-        assert!(resp.starts_with("481"), "failure should give 481: {resp}");
+        assert_eq!(resp.code, 481, "failure should give 481: {:?}", resp);
     }
 }

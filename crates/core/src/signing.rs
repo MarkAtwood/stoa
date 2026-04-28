@@ -16,12 +16,12 @@ use crate::error::SigningError;
 /// [`load_signing_key`], no file-permission checks are performed — the caller
 /// is responsible for securing the key material before passing it here (e.g.
 /// when the bytes were retrieved from a secrets manager rather than a file).
-pub fn load_signing_key_from_bytes(bytes: &[u8]) -> Result<SigningKey, String> {
+pub fn load_signing_key_from_bytes(bytes: &[u8]) -> Result<SigningKey, SigningError> {
     if bytes.len() != 32 {
-        return Err(format!(
+        return Err(SigningError::InvalidKey(format!(
             "signing key must be exactly 32 bytes, got {}",
             bytes.len()
-        ));
+        )));
     }
     let arr: [u8; 32] = bytes.try_into().expect("length already verified above");
     Ok(SigningKey::from_bytes(&arr))
@@ -35,19 +35,23 @@ pub fn load_signing_key_from_bytes(bytes: &[u8]) -> Result<SigningKey, String> {
 /// Returns `Err` with a descriptive message if the file is missing, unreadable,
 /// wrong length, or has insecure permissions.  The error message never contains
 /// key material.
-pub fn load_signing_key(path: &std::path::Path) -> Result<SigningKey, String> {
+pub fn load_signing_key(path: &std::path::Path) -> Result<SigningKey, SigningError> {
     #[cfg(unix)]
     check_key_file_permissions(path)?;
 
-    let bytes = std::fs::read(path)
-        .map_err(|e| format!("cannot read signing key file {}: {e}", path.display()))?;
+    let bytes = std::fs::read(path).map_err(|e| {
+        SigningError::Io(format!(
+            "cannot read signing key file {}: {e}",
+            path.display()
+        ))
+    })?;
 
     if bytes.len() != 32 {
-        return Err(format!(
+        return Err(SigningError::InvalidKey(format!(
             "signing key file '{}' must contain exactly 32 bytes, got {}",
             path.display(),
             bytes.len()
-        ));
+        )));
     }
 
     let arr: [u8; 32] = bytes.try_into().expect("length already verified above");
@@ -89,22 +93,26 @@ pub fn hlc_node_id(signing_key: &SigningKey) -> [u8; 8] {
 /// A world-readable signing key can be read by any local user and should be
 /// treated as compromised.  Operators must set file permissions to 0600.
 #[cfg(unix)]
-fn check_key_file_permissions(path: &std::path::Path) -> Result<(), String> {
+fn check_key_file_permissions(path: &std::path::Path) -> Result<(), SigningError> {
     use std::os::unix::fs::MetadataExt;
-    let meta = std::fs::metadata(path)
-        .map_err(|e| format!("cannot stat signing key file {}: {e}", path.display()))?;
+    let meta = std::fs::metadata(path).map_err(|e| {
+        SigningError::Io(format!(
+            "cannot stat signing key file {}: {e}",
+            path.display()
+        ))
+    })?;
     let mode = meta.mode();
     // Reject both world-readable (o+r = 0o004) and group-readable (g+r = 0o040).
     // A group-readable key can be read by any process sharing the same Unix group,
     // which is not acceptable for a signing key.
     if mode & 0o044 != 0 {
-        return Err(format!(
+        return Err(SigningError::Io(format!(
             "signing key file '{}' is readable by group or world (mode {:04o}); \
              set permissions to 0600: chmod 0600 {}",
             path.display(),
             mode & 0o777,
             path.display()
-        ));
+        )));
     }
     Ok(())
 }
@@ -118,44 +126,61 @@ pub fn generate_signing_key() -> SigningKey {
     SigningKey::generate(&mut OsRng)
 }
 
+/// Whether to overwrite an existing signing key file.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Overwrite {
+    /// Overwrite an existing file.
+    Force,
+    /// Fail if the file already exists.
+    NoOverwrite,
+}
+
 /// Write a raw 32-byte signing key seed to `path` with mode 0600.
 ///
-/// - If `path` already exists and `force` is false, returns `Err`.
+/// - If `path` already exists and `overwrite` is `Overwrite::NoOverwrite`, returns `Err`.
 /// - On non-Unix platforms, the mode 0600 step is skipped (best effort).
 /// - The write is atomic: bytes are written to a sibling temp file then
 ///   renamed into place, so a crash mid-write never leaves a partial key.
 pub fn write_signing_key(
     key: &SigningKey,
     path: &std::path::Path,
-    force: bool,
-) -> Result<(), String> {
+    overwrite: Overwrite,
+) -> Result<(), SigningError> {
     use std::io::Write;
 
-    if !force && path.exists() {
-        return Err(format!(
+    if overwrite == Overwrite::NoOverwrite && path.exists() {
+        return Err(SigningError::Io(format!(
             "signing key file '{}' already exists; use --force to overwrite",
             path.display()
-        ));
+        )));
     }
 
     // Determine parent directory for the temp file.
     let parent = path.parent().unwrap_or_else(|| std::path::Path::new("."));
 
     // Use tempfile::NamedTempFile for atomic rename-safe temp file (unique per call).
-    let mut tmp = tempfile::NamedTempFile::new_in(parent)
-        .map_err(|e| format!("cannot create temp key file in '{}': {e}", parent.display()))?;
+    let mut tmp = tempfile::NamedTempFile::new_in(parent).map_err(|e| {
+        SigningError::Io(format!(
+            "cannot create temp key file in '{}': {e}",
+            parent.display()
+        ))
+    })?;
     tmp.write_all(&key.to_bytes())
-        .map_err(|e| format!("cannot write temp key file: {e}"))?;
+        .map_err(|e| SigningError::Io(format!("cannot write temp key file: {e}")))?;
     tmp.flush()
-        .map_err(|e| format!("cannot flush temp key file: {e}"))?;
+        .map_err(|e| SigningError::Io(format!("cannot flush temp key file: {e}")))?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(tmp.path(), std::fs::Permissions::from_mode(0o600))
-            .map_err(|e| format!("cannot chmod temp key file: {e}"))?;
+            .map_err(|e| SigningError::Io(format!("cannot chmod temp key file: {e}")))?;
     }
-    tmp.persist(path)
-        .map_err(|e| format!("cannot rename temp key file to '{}': {e}", path.display()))?;
+    tmp.persist(path).map_err(|e| {
+        SigningError::Io(format!(
+            "cannot rename temp key file to '{}': {e}",
+            path.display()
+        ))
+    })?;
     Ok(())
 }
 
@@ -293,7 +318,7 @@ mod tests {
     fn load_signing_key_from_bytes_rejects_wrong_length() {
         let result = load_signing_key_from_bytes(&[0u8; 31]);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("32 bytes"));
+        assert!(result.unwrap_err().to_string().contains("32 bytes"));
     }
 
     /// write_signing_key + load_signing_key round-trip.
@@ -302,7 +327,7 @@ mod tests {
         let dir = tempfile::TempDir::new().unwrap();
         let path = dir.path().join("operator.key");
         let key = fresh_key();
-        write_signing_key(&key, &path, false).expect("write must succeed");
+        write_signing_key(&key, &path, Overwrite::NoOverwrite).expect("write must succeed");
 
         let loaded = load_signing_key(&path).expect("load must succeed");
         assert_eq!(
@@ -320,11 +345,11 @@ mod tests {
         let dir = tempfile::TempDir::new().unwrap();
         let path = dir.path().join("operator.key");
         let key = fresh_key();
-        write_signing_key(&key, &path, false).expect("write must succeed");
+        write_signing_key(&key, &path, Overwrite::NoOverwrite).expect("write must succeed");
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
         let result = load_signing_key(&path);
         assert!(result.is_err(), "must refuse world-readable key file");
-        let msg = result.unwrap_err();
+        let msg = result.unwrap_err().to_string();
         assert!(
             msg.contains("readable by group or world"),
             "error must mention group-or-world: {msg}"
@@ -339,12 +364,12 @@ mod tests {
         let dir = tempfile::TempDir::new().unwrap();
         let path = dir.path().join("operator.key");
         let key = fresh_key();
-        write_signing_key(&key, &path, false).expect("write must succeed");
+        write_signing_key(&key, &path, Overwrite::NoOverwrite).expect("write must succeed");
         // 0o640: owner read+write, group read, world none.
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o640)).unwrap();
         let result = load_signing_key(&path);
         assert!(result.is_err(), "must refuse group-readable key file");
-        let msg = result.unwrap_err();
+        let msg = result.unwrap_err().to_string();
         assert!(
             msg.contains("readable by group or world"),
             "error must mention group-or-world: {msg}"

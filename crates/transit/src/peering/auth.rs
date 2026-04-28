@@ -206,9 +206,10 @@ where
     // the nearest trusted key via response latency.  `subtle::ConstantTimeEq`
     // takes the same wall time regardless of where keys differ.  Do NOT
     // replace `ct_eq` with a plain byte comparison, even on loopback.
-    let is_trusted = trusted_keys
-        .iter()
-        .any(|k| bool::from(k.to_bytes().ct_eq(&their_pubkey_bytes)));
+    // Use fold to scan all keys without short-circuiting, preventing timing oracle.
+    let is_trusted = trusted_keys.iter().fold(false, |found, k| {
+        found | bool::from(k.to_bytes().ct_eq(&their_pubkey_bytes))
+    });
     if !is_trusted {
         return Err(PeeringAuthError::PeerNotTrusted);
     }

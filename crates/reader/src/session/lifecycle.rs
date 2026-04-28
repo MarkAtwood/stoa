@@ -45,17 +45,26 @@ use crate::{
     store::{overview::extract_overview, server_stores::ServerStores},
 };
 
+/// Whether this listener accepts plain NNTP or implicit-TLS (NNTPS) connections.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ListenerKind {
+    /// Plain NNTP (port 119 / STARTTLS upgrade path).
+    Plain,
+    /// Implicit TLS / NNTPS (port 563).
+    Tls,
+}
+
 /// Run a complete NNTP session on the given TCP stream.
 ///
-/// `is_tls`: true for NNTPS connections (implicit TLS, accepted by the
-/// caller before this function is invoked). false for plain connections
-/// on port 119 — STARTTLS is available if `tls_acceptor` is `Some`.
+/// `kind`: `ListenerKind::Tls` for NNTPS connections (implicit TLS, accepted by
+/// the caller before this function is invoked). `ListenerKind::Plain` for plain
+/// connections on port 119 — STARTTLS is available if `tls_acceptor` is `Some`.
 /// `tls_acceptor`: pre-loaded TLS acceptor, shared across connections.
-/// Must be `Some` when `is_tls = true`. On plain connections, `Some`
+/// Must be `Some` when `kind = ListenerKind::Tls`. On plain connections, `Some`
 /// enables STARTTLS; `None` disables it.
 pub async fn run_session(
     stream: TcpStream,
-    is_tls: bool,
+    kind: ListenerKind,
     config: &Config,
     stores: Arc<ServerStores>,
     tls_acceptor: Option<Arc<crate::tls::TlsAcceptor>>,
@@ -68,7 +77,7 @@ pub async fn run_session(
         }
     };
 
-    if is_tls {
+    if kind == ListenerKind::Tls {
         let acceptor = match tls_acceptor {
             Some(a) => a,
             None => {

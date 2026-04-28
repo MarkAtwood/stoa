@@ -73,7 +73,7 @@ impl fmt::Debug for LogEntryId {
 /// `parent_cids` holds the CIDs of the parent entries in the DAG. An entry
 /// with no parents is a root (genesis) entry. Multiple parents represent a
 /// merge of concurrent branches.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LogEntry {
     /// Hybrid Logical Clock timestamp (milliseconds since Unix epoch).
     pub hlc_timestamp: u64,

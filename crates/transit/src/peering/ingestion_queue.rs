@@ -89,8 +89,17 @@ impl IngestionSender {
     /// Returns `Ok(())` if accepted, `Err("436 ...")` if either high-water mark is exceeded.
     pub async fn try_enqueue(&self, article: QueuedArticle) -> Result<(), &'static str> {
         let article_bytes = article.bytes.len();
-        // Bytes high-water mark check (soft limit; checked before channel try_send).
-        if self.metrics.is_bytes_overloaded(article_bytes) {
+        // Pre-reserve bytes atomically to close the TOCTOU window between the
+        // overload check and the actual enqueue.  If the resulting total exceeds
+        // the limit, refund immediately before returning the error.
+        let prev = self
+            .metrics
+            .bytes_current
+            .fetch_add(article_bytes as u64, Ordering::AcqRel);
+        if prev + article_bytes as u64 > self.metrics.bytes_max {
+            self.metrics
+                .bytes_current
+                .fetch_sub(article_bytes as u64, Ordering::AcqRel);
             self.metrics
                 .rejected_full_total
                 .fetch_add(1, Ordering::Relaxed);
@@ -100,13 +109,14 @@ impl IngestionSender {
         match self.tx.try_send(article) {
             Ok(()) => {
                 self.metrics.depth_current.fetch_add(1, Ordering::Relaxed);
-                self.metrics
-                    .bytes_current
-                    .fetch_add(article_bytes as u64, Ordering::Relaxed);
                 self.metrics.accepted_total.fetch_add(1, Ordering::Relaxed);
                 Ok(())
             }
             Err(mpsc::error::TrySendError::Full(_)) => {
+                // Refund bytes since the article was not enqueued.
+                self.metrics
+                    .bytes_current
+                    .fetch_sub(article_bytes as u64, Ordering::AcqRel);
                 self.metrics
                     .rejected_full_total
                     .fetch_add(1, Ordering::Relaxed);
@@ -114,6 +124,10 @@ impl IngestionSender {
                 Err("436 Transfer not possible; try again later\r\n")
             }
             Err(mpsc::error::TrySendError::Closed(_)) => {
+                // Refund bytes since the article was not enqueued.
+                self.metrics
+                    .bytes_current
+                    .fetch_sub(article_bytes as u64, Ordering::AcqRel);
                 // Receiver dropped — queue is shutting down.
                 Err("431 Ingestion queue unavailable\r\n")
             }

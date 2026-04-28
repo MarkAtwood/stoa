@@ -94,7 +94,7 @@ pub fn cmd_key_rotate(
     node_id: &str,
 ) -> Result<(Vec<u8>, String, String), String> {
     // Load old signing key and derive its fingerprint from the verifying key.
-    let old_signing_key = load_signing_key(&config.old_key_path)?;
+    let old_signing_key = load_signing_key(&config.old_key_path).map_err(|e| e.to_string())?;
     let old_verifying_key = old_signing_key.verifying_key();
 
     // Reconstruct old fingerprint the same way keygen does:

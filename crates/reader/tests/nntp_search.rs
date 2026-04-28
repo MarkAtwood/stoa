@@ -10,7 +10,10 @@ use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 
-use stoa_reader::{session::lifecycle::run_session, store::server_stores::ServerStores};
+use stoa_reader::{
+    session::lifecycle::{run_session, ListenerKind},
+    store::server_stores::ServerStores,
+};
 
 fn test_config(addr: &str) -> stoa_reader::config::Config {
     let toml = format!(
@@ -38,7 +41,7 @@ async fn start_session(
 
     tokio::spawn(async move {
         let (stream, _) = listener.accept().await.expect("accept");
-        run_session(stream, false, &config, stores, None).await;
+        run_session(stream, ListenerKind::Plain, &config, stores, None).await;
     });
 
     let client = TcpStream::connect(addr).await.expect("connect");

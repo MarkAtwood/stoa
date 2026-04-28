@@ -32,7 +32,7 @@ use stoa_transit::{
         gc_candidates::select_gc_candidates,
         ipns_publisher::{IpnsEvent, IpnsPublisher},
         pin_client::HttpPinClient,
-        policy::{PinPolicy, PinRule},
+        policy::{PinAction, PinPolicy, PinRule},
         remote_pin_worker::RemotePinWorker,
     },
     staging::StagingStore,
@@ -204,7 +204,12 @@ fn cmd_keygen(args: &[String]) -> ! {
         }
     };
     let key = stoa_core::signing::generate_signing_key();
-    if let Err(e) = stoa_core::signing::write_signing_key(&key, output_path, force) {
+    let overwrite = if force {
+        stoa_core::signing::Overwrite::Force
+    } else {
+        stoa_core::signing::Overwrite::NoOverwrite
+    };
+    if let Err(e) = stoa_core::signing::write_signing_key(&key, output_path, overwrite) {
         eprintln!("error: {e}");
         std::process::exit(1);
     }
@@ -262,7 +267,9 @@ fn check_cert_expiry(cert_path: &str, _errors: &mut Vec<String>) {
     }
 }
 
-async fn run_startup_checks(config: &stoa_transit::config::Config) -> Vec<String> {
+async fn run_startup_checks(
+    config: &stoa_transit::config::Config,
+) -> (Vec<String>, Option<TcpListener>) {
     let mut errors: Vec<String> = Vec::new();
 
     // Kubo reachability check (skipped for non-Kubo backends).
@@ -332,18 +339,21 @@ async fn run_startup_checks(config: &stoa_transit::config::Config) -> Vec<String
         }
     }
 
-    // Admin bind address check.
-    match TcpListener::bind(&config.admin.addr).await {
-        Ok(_) => {}
+    // Admin bind address check: bind once here and return the listener so
+    // start_admin_server can reuse it, eliminating the race window between
+    // the connectivity test and the server bind.
+    let admin_listener = match TcpListener::bind(&config.admin.addr).await {
+        Ok(l) => Some(l),
         Err(e) => {
             errors.push(format!(
                 "Admin address {} already in use or invalid: {e}",
                 config.admin.addr
             ));
+            None
         }
-    }
+    };
 
-    errors
+    (errors, admin_listener)
 }
 
 /// Notify the IPNS publisher of the new article tip for each group.
@@ -431,7 +441,7 @@ async fn run_pipeline_and_notify(
 ) -> bool {
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_default()
         .as_millis() as u64;
     let timestamp = hlc.lock().await.send(now_ms);
     let ctx = PipelineCtx {
@@ -516,7 +526,7 @@ async fn main() {
         "starting"
     );
 
-    let check_errors = run_startup_checks(&config).await;
+    let (check_errors, admin_listener) = run_startup_checks(&config).await;
     if !check_errors.is_empty() {
         for msg in &check_errors {
             eprintln!("error: {msg}");
@@ -566,7 +576,11 @@ async fn main() {
     }
     let core_pool = Arc::new(
         stoa_core::db_pool::open_any_pool(&config.database.core_url, config.database.pool_size)
-            .await,
+            .await
+            .unwrap_or_else(|e| {
+                eprintln!("error: {e}");
+                std::process::exit(1);
+            }),
     );
     let msgid_map = Arc::new(MsgIdMap::new((*core_pool).clone()));
     let log_storage = Arc::new(SqliteLogStorage::new((*core_pool).clone()));
@@ -576,7 +590,12 @@ async fn main() {
         std::process::exit(1);
     }
     let transit_pool = Arc::new(
-        stoa_core::db_pool::open_any_pool(&config.database.url, config.database.pool_size).await,
+        stoa_core::db_pool::open_any_pool(&config.database.url, config.database.pool_size)
+            .await
+            .unwrap_or_else(|e| {
+                eprintln!("error: {e}");
+                std::process::exit(1);
+            }),
     );
 
     // ── Verify pool (separate schema; no version conflicts with transit) ───────
@@ -587,7 +606,11 @@ async fn main() {
     }
     let verify_pool =
         stoa_core::db_pool::open_any_pool(&config.database.verify_url, config.database.pool_size)
-            .await;
+            .await
+            .unwrap_or_else(|e| {
+                eprintln!("error: {e}");
+                std::process::exit(1);
+            });
     let verification_store = Arc::new(VerificationStore::new(verify_pool));
 
     let dkim_authenticator = match MessageAuthenticator::new_cloudflare_tls() {
@@ -800,7 +823,7 @@ async fn main() {
 
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_default()
         .as_millis() as u64;
     // Derive node_id from a per-instance UUID stored in the transit database
     // (usenet-ipfs-ky62.5).  Multiple transit instances sharing a signing key
@@ -1169,7 +1192,7 @@ async fn main() {
                 groups: "all".to_string(),
                 max_age_days: Some(gc_max_age_days),
                 max_article_bytes: None,
-                action: "pin".to_string(),
+                action: PinAction::Pin,
             }),
             other => {
                 warn!(rule = other, "GC: unrecognised pinning rule, ignored");
@@ -1191,54 +1214,53 @@ async fn main() {
 
     // ── Admin HTTP server (5vc) ───────────────────────────────────────────────
 
-    match config.admin.addr.parse::<std::net::SocketAddr>() {
-        Ok(admin_addr) => {
-            let admin_bearer_token = stoa_core::secret::resolve_secret_uri(
-                config.admin.bearer_token.clone(),
-                "admin.bearer_token",
-            )
-            .await
-            .unwrap_or_else(|msg| {
-                eprintln!("{msg}");
-                std::process::exit(1);
-            });
-            let admin_audit_logger: Arc<dyn AuditLogger> = Arc::new(start_audit_logger(
-                (*core_pool).clone(),
-                100,
-                Duration::from_secs(5),
-            ));
-            let admin_cert_paths: Arc<Vec<String>> = Arc::new(
-                config
-                    .tls
-                    .as_ref()
-                    .map(|t| t.cert_path.clone())
-                    .into_iter()
-                    .collect(),
-            );
-            if let Err(e) = start_admin_server(
-                admin_addr,
-                AdminPools {
-                    transit_pool: Arc::clone(&transit_pool),
-                    core_pool: Arc::clone(&core_pool),
-                    audit_logger: Some(admin_audit_logger),
-                    backup_dest_dir: config.backup.dest_dir.clone(),
-                    reload_state: Some(Arc::clone(&reload_state)),
-                    ipfs_api_url: Some(config.ipfs.api_url.clone()),
-                    last_gc_report: gc_last_report,
-                },
-                start_time,
-                admin_bearer_token,
-                config.admin.rate_limit_rpm,
-                Arc::clone(&ipfs_store),
-                ipns_path_string.clone(),
-                admin_cert_paths,
-            ) {
-                eprintln!("error: admin server: {e}");
-                std::process::exit(1);
-            }
-        }
-        Err(e) => {
-            eprintln!("error: invalid admin addr '{}': {e}", config.admin.addr);
+    {
+        // admin_listener was bound in run_startup_checks; reuse it here to
+        // eliminate the race window between the connectivity test and the
+        // server bind (bug 29ad).
+        let admin_listener = admin_listener
+            .expect("admin_listener must be Some when startup checks passed without errors");
+        let admin_bearer_token = stoa_core::secret::resolve_secret_uri(
+            config.admin.bearer_token.clone(),
+            "admin.bearer_token",
+        )
+        .await
+        .unwrap_or_else(|msg| {
+            eprintln!("{msg}");
+            std::process::exit(1);
+        });
+        let admin_audit_logger: Arc<dyn AuditLogger> = Arc::new(start_audit_logger(
+            (*core_pool).clone(),
+            100,
+            Duration::from_secs(5),
+        ));
+        let admin_cert_paths: Arc<Vec<String>> = Arc::new(
+            config
+                .tls
+                .as_ref()
+                .map(|t| t.cert_path.clone())
+                .into_iter()
+                .collect(),
+        );
+        if let Err(e) = start_admin_server(
+            admin_listener,
+            AdminPools {
+                transit_pool: Arc::clone(&transit_pool),
+                core_pool: Arc::clone(&core_pool),
+                audit_logger: Some(admin_audit_logger),
+                backup_dest_dir: config.backup.dest_dir.clone(),
+                reload_state: Some(Arc::clone(&reload_state)),
+                ipfs_api_url: Some(config.ipfs.api_url.clone()),
+                last_gc_report: gc_last_report,
+            },
+            start_time,
+            admin_bearer_token,
+            config.admin.rate_limit_rpm,
+            Arc::clone(&ipfs_store),
+            ipns_path_string.clone(),
+            admin_cert_paths,
+        ) {
+            eprintln!("error: admin server: {e}");
             std::process::exit(1);
         }
     }

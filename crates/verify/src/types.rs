@@ -34,6 +34,8 @@ pub enum VerifResult {
     NoKey,
     /// The signature header could not be parsed.
     ParseError { reason: String },
+    /// Signature present but outcome is neither pass nor fail (e.g. DKIM Neutral).
+    Neutral { reason: String },
 }
 
 impl VerifResult {
@@ -45,6 +47,7 @@ impl VerifResult {
             VerifResult::DnsError { .. } => "dns-error",
             VerifResult::NoKey => "no-key",
             VerifResult::ParseError { .. } => "parse-error",
+            VerifResult::Neutral { .. } => "neutral",
         }
     }
 
@@ -54,6 +57,7 @@ impl VerifResult {
             VerifResult::Fail { reason } => Some(reason),
             VerifResult::DnsError { err, .. } => Some(err),
             VerifResult::ParseError { reason } => Some(reason),
+            VerifResult::Neutral { reason } => Some(reason),
             _ => None,
         }
     }

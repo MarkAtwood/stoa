@@ -175,7 +175,7 @@ impl IpfsStore for KuboStore {
         self.client
             .block_get(cid)
             .await
-            .map_err(|e| IpfsError::WriteFailed(e.to_string()))
+            .map_err(|e| IpfsError::ReadFailed(e.to_string()))
     }
 
     /// Unpin `cid` from Kubo. The block remains readable until `ipfs repo gc` runs.

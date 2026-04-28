@@ -12,6 +12,12 @@ pub struct MsgIdMap {
     pool: AnyPool,
 }
 
+impl std::fmt::Debug for MsgIdMap {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "MsgIdMap")
+    }
+}
+
 impl MsgIdMap {
     pub fn new(pool: AnyPool) -> Self {
         Self { pool }

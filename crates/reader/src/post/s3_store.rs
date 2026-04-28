@@ -10,7 +10,7 @@ use object_store::ObjectStore;
 use std::sync::Arc;
 
 use stoa_core::ipfs_backend::S3BackendConfig;
-use stoa_core::secret::resolve_secret_uri;
+use stoa_core::secret::{resolve_secret_uri, SecretError};
 
 use crate::post::object_store_backend::ObjectStoreBlockBackend;
 
@@ -20,7 +20,7 @@ pub struct S3BlockStore(ObjectStoreBlockBackend);
 
 impl S3BlockStore {
     /// Build from operator config, resolving any `secretx://` URIs.
-    pub async fn new(cfg: &S3BackendConfig) -> Result<Self, String> {
+    pub async fn new(cfg: &S3BackendConfig) -> Result<Self, SecretError> {
         use object_store::aws::AmazonS3Builder;
 
         let access_key =
@@ -49,7 +49,7 @@ impl S3BlockStore {
         let store = Arc::new(
             builder
                 .build()
-                .map_err(|e| format!("S3 backend init failed: {e}"))?,
+                .map_err(|e| SecretError::Retrieval(format!("S3 backend init failed: {e}")))?,
         ) as Arc<dyn ObjectStore>;
         let prefix = cfg.prefix.as_deref().unwrap_or("blocks").to_string();
 
@@ -57,7 +57,9 @@ impl S3BlockStore {
             "S3 bucket '{}', prefix '{}', region '{}'",
             cfg.bucket, prefix, cfg.region
         );
-        super::object_store_backend::startup_probe(&store, &prefix, &context).await?;
+        super::object_store_backend::startup_probe(&store, &prefix, &context)
+            .await
+            .map_err(SecretError::Retrieval)?;
 
         Ok(Self(ObjectStoreBlockBackend::new_with_store(
             store,

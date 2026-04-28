@@ -83,9 +83,9 @@ pub enum RateLimitResult {
     Exhausted(ExhaustionAction),
 }
 
-/// Registry of per-peer token buckets, keyed by peer address string.
+/// Registry of per-peer token buckets, keyed by peer IP address.
 pub struct PeerRateLimiter {
-    buckets: HashMap<String, TokenBucket>,
+    buckets: HashMap<std::net::IpAddr, TokenBucket>,
     rate: f64,
     capacity: u64,
     action: ExhaustionAction,
@@ -109,12 +109,18 @@ impl PeerRateLimiter {
     /// Evicts fully-refilled buckets every EVICT_INTERVAL calls to amortize
     /// the O(n) retain cost across many articles from many peers.
     pub fn check(&mut self, peer_addr: &str) -> Option<RateLimitResult> {
+        use std::net::{IpAddr, SocketAddr};
+        let ip: IpAddr = peer_addr
+            .parse::<SocketAddr>()
+            .map(|sa| sa.ip())
+            .or_else(|_| peer_addr.parse::<IpAddr>())
+            .unwrap_or(IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED));
         let rate = self.rate;
         let capacity = self.capacity;
         let action = self.action;
         let bucket = self
             .buckets
-            .entry(peer_addr.to_owned())
+            .entry(ip)
             .or_insert_with(|| TokenBucket::new(rate, capacity, action));
         let result = bucket.check_and_consume();
         self.call_count = self.call_count.wrapping_add(1);
@@ -130,7 +136,13 @@ impl PeerRateLimiter {
 
     /// Remove the bucket for a peer (e.g. on disconnect).
     pub fn remove_peer(&mut self, peer_addr: &str) {
-        self.buckets.remove(peer_addr);
+        use std::net::{IpAddr, SocketAddr};
+        let ip: IpAddr = peer_addr
+            .parse::<SocketAddr>()
+            .map(|sa| sa.ip())
+            .or_else(|_| peer_addr.parse::<IpAddr>())
+            .unwrap_or(IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED));
+        self.buckets.remove(&ip);
     }
 }
 
@@ -178,11 +190,11 @@ mod tests {
     #[test]
     fn peer_rate_limiter_tracks_multiple_peers() {
         let mut limiter = PeerRateLimiter::new(1.0, 2, ExhaustionAction::Respond431);
-        assert!(limiter.check("peer_a").is_none());
-        assert!(limiter.check("peer_a").is_none());
-        assert!(limiter.check("peer_a").is_some());
+        assert!(limiter.check("192.0.2.1").is_none());
+        assert!(limiter.check("192.0.2.1").is_none());
+        assert!(limiter.check("192.0.2.1").is_some());
 
-        assert!(limiter.check("peer_b").is_none());
+        assert!(limiter.check("192.0.2.2").is_none());
     }
 
     #[test]
@@ -191,7 +203,7 @@ mod tests {
         let mut accepted = 0usize;
         let mut rejected = 0usize;
         for _ in 0..10 {
-            match limiter.check("peer_a") {
+            match limiter.check("192.0.2.1") {
                 None => accepted += 1,
                 Some(_) => rejected += 1,
             }

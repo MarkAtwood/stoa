@@ -8,7 +8,7 @@ use stoa_transit::retention::{
     audit_log::count_audit_records,
     gc_executor::{run_gc_executor, GcExecutorCandidate},
     pin_client::{MemPinClient, PinClient},
-    policy::{ArticleMeta, PinPolicy, PinRule},
+    policy::{ArticleMeta, PinAction, PinPolicy, PinRule},
 };
 
 use cid::Cid;
@@ -47,13 +47,13 @@ fn selective_policy() -> PinPolicy {
             groups: "sci.*".to_string(),
             max_age_days: None,
             max_article_bytes: None,
-            action: "pin".to_string(),
+            action: PinAction::Pin,
         },
         PinRule {
             groups: "alt.*".to_string(),
             max_age_days: None,
             max_article_bytes: None,
-            action: "pin".to_string(),
+            action: PinAction::Pin,
         },
     ])
 }
@@ -64,7 +64,7 @@ fn pin_all_policy() -> PinPolicy {
         groups: "all".to_string(),
         max_age_days: None,
         max_article_bytes: None,
-        action: "pin".to_string(),
+        action: PinAction::Pin,
     }])
 }
 

@@ -10,7 +10,7 @@ use object_store::ObjectStore;
 use std::sync::Arc;
 
 use stoa_core::ipfs_backend::AzureBackendConfig;
-use stoa_core::secret::resolve_secret_uri;
+use stoa_core::secret::{resolve_secret_uri, SecretError};
 
 use crate::peering::object_store_backend::ObjectStoreBackend;
 
@@ -23,7 +23,7 @@ pub struct AzureStore(ObjectStoreBackend);
 
 impl AzureStore {
     /// Build from operator config, resolving any `secretx://` URIs.
-    pub async fn new(cfg: &AzureBackendConfig) -> Result<Self, String> {
+    pub async fn new(cfg: &AzureBackendConfig) -> Result<Self, SecretError> {
         use object_store::azure::MicrosoftAzureBuilder;
 
         let access_key =
@@ -53,7 +53,7 @@ impl AzureStore {
         let store = Arc::new(
             builder
                 .build()
-                .map_err(|e| format!("Azure backend init failed: {e}"))?,
+                .map_err(|e| SecretError::Retrieval(format!("Azure backend init failed: {e}")))?,
         ) as Arc<dyn ObjectStore>;
         let prefix = cfg.prefix.as_deref().unwrap_or("blocks").to_string();
 
@@ -61,7 +61,9 @@ impl AzureStore {
             "Azure account '{}', container '{}', prefix '{}'",
             cfg.account, cfg.container, prefix
         );
-        super::object_store_backend::startup_probe(&store, &prefix, &context).await?;
+        super::object_store_backend::startup_probe(&store, &prefix, &context)
+            .await
+            .map_err(SecretError::Retrieval)?;
 
         Ok(Self(ObjectStoreBackend::new_with_store(
             store,

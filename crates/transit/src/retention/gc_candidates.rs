@@ -103,7 +103,7 @@ pub async fn select_gc_candidates(
 mod tests {
     use super::*;
     use crate::migrations::run_migrations;
-    use crate::retention::policy::PinRule;
+    use crate::retention::policy::{PinAction, PinRule};
     use cid::Cid;
     use multihash_codetable::{Code, MultihashDigest};
 
@@ -185,7 +185,7 @@ mod tests {
             groups: "all".to_string(),
             max_age_days: None,
             max_article_bytes: None,
-            action: "pin".to_string(),
+            action: PinAction::Pin,
         }]);
         let result = select_gc_candidates(&pool, &policy, NOW_MS, GRACE_MS)
             .await

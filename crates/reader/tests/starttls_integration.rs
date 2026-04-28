@@ -9,7 +9,7 @@
 //! 5. AUTHINFO USER works after STARTTLS (session accepts commands over TLS).
 //!
 //! Architecture: each test binds a TCP listener on 127.0.0.1:0, spawns
-//! `run_session(stream, false, ...)` in a background task, then drives a
+//! `run_session(stream, ListenerKind::Plain, ...)` in a background task, then drives a
 //! `TcpStream` client manually.  After sending STARTTLS and reading the 382
 //! response, the client performs a TLS handshake using `tokio_rustls::TlsConnector`
 //! with a custom `ServerCertVerifier` that accepts the self-signed test cert.
@@ -29,7 +29,9 @@ use tokio::time::{timeout, Duration};
 use tokio_rustls::TlsConnector;
 
 use stoa_reader::{
-    session::lifecycle::run_session, store::server_stores::ServerStores, tls::load_tls_acceptor,
+    session::lifecycle::{run_session, ListenerKind},
+    store::server_stores::ServerStores,
+    tls::load_tls_acceptor,
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -133,7 +135,7 @@ async fn spawn_server(
 
     tokio::spawn(async move {
         let (stream, _peer) = listener.accept().await.expect("server accept must succeed");
-        run_session(stream, false, &config, stores, tls_acceptor).await;
+        run_session(stream, ListenerKind::Plain, &config, stores, tls_acceptor).await;
     });
 
     addr

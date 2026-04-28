@@ -42,11 +42,18 @@ pub struct ArticleMeta {
     pub age_days: u64,
 }
 
+/// Whether a matching article should be pinned or left unpinned.
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PinAction {
+    Pin,
+    Skip,
+}
+
 /// A single pinning policy rule, deserializable from TOML.
 ///
 /// Rules are evaluated in order by [`PinPolicy::should_pin`]. The first rule
-/// whose conditions all match determines the outcome. Unknown `action` values
-/// are treated as no-match (rule is skipped) rather than panicking.
+/// whose conditions all match determines the outcome.
 #[derive(Debug, Deserialize, Clone)]
 pub struct PinRule {
     /// Group pattern for this rule, using the **pinning glob syntax** (NOT RFC 3977 wildmat).
@@ -64,8 +71,8 @@ pub struct PinRule {
     pub max_age_days: Option<u64>,
     /// If `Some`, only articles no larger than this many bytes match this rule.
     pub max_article_bytes: Option<usize>,
-    /// `"pin"` to pin matching articles; `"skip"` to leave them unpinned.
-    pub action: String,
+    /// Whether matching articles should be pinned or left unpinned.
+    pub action: PinAction,
 }
 
 /// Ordered list of pinning rules evaluated against each incoming article.
@@ -94,13 +101,14 @@ impl PinPolicy {
     /// appears in the `Newsgroups:` header (e.g. `"comp.lang.rust, alt.test"`).
     /// Each group name is trimmed of whitespace and evaluated independently.
     /// The article is pinned if **any** of its groups causes a rule to return
-    /// `"pin"` and no earlier group caused a rule to return `"skip"`.
+    /// [`PinAction::Pin`] and no earlier group caused a rule to return
+    /// [`PinAction::Skip`].
     ///
     /// More precisely: rules are evaluated in declaration order for each
     /// group in turn.  The first `(rule, group)` pair that fully matches
     /// determines the outcome for that group.  If any group resolves to
-    /// `"pin"`, the article is pinned; if all groups resolve to `"skip"` or
-    /// no-match, the article is not pinned.
+    /// [`PinAction::Pin`], the article is pinned; if all groups resolve to
+    /// [`PinAction::Skip`] or no-match, the article is not pinned.
     pub fn should_pin(&self, meta: &ArticleMeta) -> bool {
         for group in meta
             .group
@@ -115,7 +123,7 @@ impl PinPolicy {
             };
             for rule in &self.rules {
                 if Self::matches_rule(rule, &single) {
-                    if rule.action == "pin" {
+                    if rule.action == PinAction::Pin {
                         return true;
                     }
                     break;
@@ -270,44 +278,49 @@ mod tests {
         groups: &str,
         max_age_days: Option<u64>,
         max_article_bytes: Option<usize>,
-        action: &str,
+        action: PinAction,
     ) -> PinRule {
         PinRule {
             groups: groups.to_string(),
             max_age_days,
             max_article_bytes,
-            action: action.to_string(),
+            action,
         }
     }
 
     #[test]
     fn pin_rule_matches_all_groups() {
-        let policy = PinPolicy::new(vec![pin_rule("all", None, None, "pin")]);
+        let policy = PinPolicy::new(vec![pin_rule("all", None, None, PinAction::Pin)]);
         assert!(policy.should_pin(&meta("comp.lang.rust", 1, 512)));
         assert!(policy.should_pin(&meta("alt.test", 1, 512)));
     }
 
     #[test]
     fn skip_rule_matches_specific_group() {
-        let policy = PinPolicy::new(vec![pin_rule("comp.lang.rust", None, None, "skip")]);
+        let policy = PinPolicy::new(vec![pin_rule(
+            "comp.lang.rust",
+            None,
+            None,
+            PinAction::Skip,
+        )]);
         assert!(!policy.should_pin(&meta("comp.lang.rust", 1, 512)));
     }
 
     #[test]
     fn max_age_excludes_old_article() {
-        let policy = PinPolicy::new(vec![pin_rule("all", Some(30), None, "pin")]);
+        let policy = PinPolicy::new(vec![pin_rule("all", Some(30), None, PinAction::Pin)]);
         assert!(!policy.should_pin(&meta("comp.lang.rust", 60, 512)));
     }
 
     #[test]
     fn max_age_includes_new_article() {
-        let policy = PinPolicy::new(vec![pin_rule("all", Some(30), None, "pin")]);
+        let policy = PinPolicy::new(vec![pin_rule("all", Some(30), None, PinAction::Pin)]);
         assert!(policy.should_pin(&meta("comp.lang.rust", 5, 512)));
     }
 
     #[test]
     fn max_bytes_excludes_large_article() {
-        let policy = PinPolicy::new(vec![pin_rule("all", None, Some(1024), "pin")]);
+        let policy = PinPolicy::new(vec![pin_rule("all", None, Some(1024), PinAction::Pin)]);
         assert!(!policy.should_pin(&meta("comp.lang.rust", 1, 2048)));
     }
 
@@ -330,8 +343,8 @@ mod tests {
     #[test]
     fn first_matching_rule_wins() {
         let policy = PinPolicy::new(vec![
-            pin_rule("all", None, None, "pin"),
-            pin_rule("all", None, None, "skip"),
+            pin_rule("all", None, None, PinAction::Pin),
+            pin_rule("all", None, None, PinAction::Skip),
         ]);
         assert!(policy.should_pin(&meta("comp.lang.rust", 1, 512)));
     }
@@ -345,14 +358,19 @@ mod tests {
 
     #[test]
     fn validate_single_valid_rule_ok() {
-        let policy = PinPolicy::new(vec![pin_rule("comp.lang.rust", Some(30), None, "pin")]);
+        let policy = PinPolicy::new(vec![pin_rule(
+            "comp.lang.rust",
+            Some(30),
+            None,
+            PinAction::Pin,
+        )]);
         assert!(policy.validate().is_ok());
     }
 
     #[test]
     fn validate_invalid_group_pattern_returns_error() {
         for bad in &["123abc", "comp..lang", ".leading-dot", ""] {
-            let policy = PinPolicy::new(vec![pin_rule(bad, None, None, "pin")]);
+            let policy = PinPolicy::new(vec![pin_rule(bad, None, None, PinAction::Pin)]);
             let err = policy
                 .validate()
                 .expect_err(&format!("pattern '{}' must be invalid", bad));
@@ -366,7 +384,7 @@ mod tests {
 
     #[test]
     fn validate_useless_rule_zero_max_age_all_groups() {
-        let policy = PinPolicy::new(vec![pin_rule("all", Some(0), None, "pin")]);
+        let policy = PinPolicy::new(vec![pin_rule("all", Some(0), None, PinAction::Pin)]);
         let err = policy
             .validate()
             .expect_err("max_age_days=0 with groups=all must be invalid");
@@ -380,7 +398,7 @@ mod tests {
     fn crosspost_pinned_if_any_group_is_pinned() {
         // Policy: pin sci.math only.
         // Article cross-posted to comp.lang.rust and sci.math → should be pinned.
-        let policy = PinPolicy::new(vec![pin_rule("sci.math", None, None, "pin")]);
+        let policy = PinPolicy::new(vec![pin_rule("sci.math", None, None, PinAction::Pin)]);
         let m = ArticleMeta {
             group: "comp.lang.rust, sci.math".to_string(),
             age_days: 1,
@@ -396,7 +414,7 @@ mod tests {
     fn crosspost_not_pinned_when_no_group_matches() {
         // Policy: pin sci.math only.
         // Article cross-posted to comp.lang.rust and alt.test → should not be pinned.
-        let policy = PinPolicy::new(vec![pin_rule("sci.math", None, None, "pin")]);
+        let policy = PinPolicy::new(vec![pin_rule("sci.math", None, None, PinAction::Pin)]);
         let m = ArticleMeta {
             group: "comp.lang.rust, alt.test".to_string(),
             age_days: 1,
@@ -411,8 +429,8 @@ mod tests {
     #[test]
     fn validate_overlapping_rules_warns_not_errors() {
         let policy = PinPolicy::new(vec![
-            pin_rule("comp.*", Some(30), None, "pin"),
-            pin_rule("comp.*", None, None, "skip"),
+            pin_rule("comp.*", Some(30), None, PinAction::Pin),
+            pin_rule("comp.*", None, None, PinAction::Skip),
         ]);
         assert!(
             policy.validate().is_ok(),

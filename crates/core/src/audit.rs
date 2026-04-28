@@ -97,7 +97,8 @@ impl AuditEvent {
 
     /// Serialize the event to JSON.
     pub fn to_json(&self) -> String {
-        serde_json::to_string(self).expect("AuditEvent serialization must not fail")
+        serde_json::to_string(self)
+            .unwrap_or_else(|e| format!("{{\"error\":\"audit serialization failed: {}\"}}", e))
     }
 
     /// Deserialize an event from JSON.

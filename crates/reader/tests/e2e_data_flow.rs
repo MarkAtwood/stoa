@@ -10,7 +10,7 @@ use tokio::net::{TcpListener, TcpStream};
 
 use stoa_reader::{
     config::UserCredential,
-    session::lifecycle::run_session,
+    session::lifecycle::{run_session, ListenerKind},
     store::{credentials::CredentialStore, server_stores::ServerStores},
 };
 
@@ -117,7 +117,7 @@ async fn e2e_post_group_over_article() {
     let stores2 = stores.clone();
     tokio::spawn(async move {
         let (stream, _) = listener.accept().await.unwrap();
-        run_session(stream, false, &config2, stores2, None).await;
+        run_session(stream, ListenerKind::Plain, &config2, stores2, None).await;
     });
 
     let stream = TcpStream::connect(addr).await.unwrap();
@@ -244,7 +244,7 @@ async fn authinfo_rate_limiter_closes_after_max_failures() {
     let stores2 = stores.clone();
     tokio::spawn(async move {
         let (stream, _) = listener.accept().await.unwrap();
-        run_session(stream, false, &config2, stores2, None).await;
+        run_session(stream, ListenerKind::Plain, &config2, stores2, None).await;
     });
 
     let stream = TcpStream::connect(addr).await.unwrap();

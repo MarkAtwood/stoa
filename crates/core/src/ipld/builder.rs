@@ -19,6 +19,7 @@ use crate::ipld::{
 use crate::ipld::codec::CODEC_DAG_CBOR;
 
 /// Result of building a complete article IPLD block set.
+#[derive(Debug)]
 pub struct BuiltArticle {
     /// The canonical article CID (CIDv1 SHA-256 DAG-CBOR).
     /// This is the stable identifier used in the group log and Message-ID→CID map.

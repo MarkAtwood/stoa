@@ -14,26 +14,21 @@
 
 use sqlx::any::AnyPoolOptions;
 
+use crate::error::StorageError;
+
 /// Returns `true` if `url` is a PostgreSQL URL.
 pub fn is_postgres_url(url: &str) -> bool {
     url.starts_with("postgres://") || url.starts_with("postgresql://")
 }
 
-/// Open an [`sqlx::AnyPool`] from a database URL.
+/// Open an [`sqlx::AnyPool`] from a database URL, returning an error on failure.
 ///
 /// - `sqlite://` URLs: creates the file if absent (`mode=rwc`), enables WAL mode.
 /// - `postgres://` / `postgresql://` URLs: connects directly.
-///
-/// Panics and calls `process::exit(1)` on connection failure.
-/// Suitable for use in binary `main`; prefer [`try_open_any_pool`] in tests.
-pub async fn open_any_pool(url: &str, pool_size: u32) -> sqlx::AnyPool {
-    match try_open_any_pool(url, pool_size).await {
-        Ok(p) => p,
-        Err(e) => {
-            eprintln!("error: failed to open database '{url}': {e}");
-            std::process::exit(1);
-        }
-    }
+pub async fn open_any_pool(url: &str, pool_size: u32) -> Result<sqlx::AnyPool, StorageError> {
+    try_open_any_pool(url, pool_size)
+        .await
+        .map_err(|e| StorageError::Database(format!("failed to open database '{url}': {e}")))
 }
 
 /// Open an [`sqlx::AnyPool`] from a database URL, returning an error on failure.

@@ -21,7 +21,9 @@ use axum::http::HeaderMap;
 use chrono::Utc;
 use serde_json::Value;
 use sqlx::AnyPool;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::collections::HashMap;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use tokio::sync::RwLock;
 use uuid::Uuid;
 
 // ── Deduplication store ────────────────────────────────────────────────────────
@@ -190,8 +192,9 @@ fn attributed_to_email(url: &str) -> String {
 
 /// Verify the HTTP Signature on an inbound request.
 ///
-/// Fetches the `keyId` URL to obtain the actor's RSA public key, then
-/// verifies the signature against the reconstructed signed-string.
+/// Fetches the `keyId` URL to obtain the actor's RSA public key (with
+/// TTL-based caching via `pub_key_cache`), then verifies the signature
+/// against the reconstructed signed-string.
 ///
 /// Returns `Ok(actor_url)` on success, `Err(reason)` on failure.
 pub async fn verify_http_signature(
@@ -199,6 +202,8 @@ pub async fn verify_http_signature(
     path: &str,
     headers: &HeaderMap,
     body: &[u8],
+    http_client: &reqwest::Client,
+    pub_key_cache: &RwLock<HashMap<String, (String, Instant)>>,
 ) -> Result<String, String> {
     let sig_header = headers
         .get("signature")
@@ -214,14 +219,28 @@ pub async fn verify_http_signature(
     let sig_b64 = parse_sig_param(sig_header, "signature")
         .ok_or_else(|| "Signature header missing signature".to_string())?;
 
-    // Fetch the actor document to get the public key.
-    let pub_key_pem = fetch_public_key(&key_id).await?;
-
-    // Reconstruct the signed string.
+    // Reconstruct the signed string (needed for both cache-hit and miss paths).
     let signed_string = build_signed_string(method, path, headers, body, &signed_headers_spec)?;
 
-    // Verify RSA-SHA256 signature.
-    verify_rsa_sha256(&pub_key_pem, &signed_string, &sig_b64)?;
+    // Fast path: try cache under read lock.
+    {
+        let cache = pub_key_cache.read().await;
+        if let Some((pem, fetched_at)) = cache.get(&key_id) {
+            if fetched_at.elapsed() < crate::activitypub::PUB_KEY_CACHE_TTL {
+                verify_rsa_sha256(pem, &signed_string, &sig_b64)?;
+                let actor_url = key_id.split('#').next().unwrap_or(&key_id).to_string();
+                return Ok(actor_url);
+            }
+        }
+    }
+
+    // Slow path: fetch fresh key and update cache under write lock.
+    let pem = fetch_public_key(&key_id, http_client).await?;
+    {
+        let mut cache = pub_key_cache.write().await;
+        cache.insert(key_id.clone(), (pem.clone(), Instant::now()));
+    }
+    verify_rsa_sha256(&pem, &signed_string, &sig_b64)?;
 
     // Extract actor URL: the part of keyId before the fragment.
     let actor_url = key_id.split('#').next().unwrap_or(&key_id).to_string();
@@ -240,10 +259,9 @@ fn parse_sig_param(header: &str, name: &str) -> Option<String> {
 }
 
 /// Fetch and extract the RSA public key PEM from an ActivityPub actor document.
-async fn fetch_public_key(key_id: &str) -> Result<String, String> {
+async fn fetch_public_key(key_id: &str, http_client: &reqwest::Client) -> Result<String, String> {
     let actor_url = key_id.split('#').next().unwrap_or(key_id);
-    let client = reqwest::Client::new();
-    let resp = client
+    let resp = http_client
         .get(actor_url)
         .header("Accept", "application/activity+json, application/json")
         .timeout(std::time::Duration::from_secs(5))
