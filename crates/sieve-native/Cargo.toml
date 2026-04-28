@@ -6,6 +6,9 @@ rust-version = "1.80"
 license = "MIT"
 
 [dependencies]
+# fancy-regex pinned at 0.13.  Before upgrading: run all evaluator::tests::glob_*
+# unit tests to confirm glob-to-regex conversion is unchanged, then cross-check
+# a sample of sieve scripts against the stoa-sieve (AGPL) reference evaluator.
 fancy-regex = "0.13"
 tracing = "0.1"
 

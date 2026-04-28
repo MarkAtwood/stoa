@@ -719,3 +719,146 @@ fn apply_set_modifiers(value: String, modifiers: &[&str]) -> String {
     }
     v
 }
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── sieve_glob_to_regex: regex string output ─────────────────────────────
+
+    /// The `*` wildcard must emit `.*` in the regex.
+    #[test]
+    fn glob_star_emits_dot_star() {
+        let re = sieve_glob_to_regex("foo*bar");
+        assert!(re.contains(".*"), "star must expand to .* in regex: {re:?}");
+    }
+
+    /// The `?` wildcard must emit `.` (any single char) in the regex.
+    #[test]
+    fn glob_question_emits_dot() {
+        let re = sieve_glob_to_regex("fo?");
+        // Should contain a bare "." but NOT ".*" for the ? position.
+        assert!(re.contains('.'), "? must emit a dot in regex: {re:?}");
+    }
+
+    /// A literal dot in the pattern must be escaped so it does not match
+    /// any character.  Oracle: RFC 5228 §2.7.1 — only `*` and `?` are
+    /// wildcards; all other characters are literals.
+    #[test]
+    fn glob_literal_dot_escaped() {
+        let re = sieve_glob_to_regex("a.b");
+        // fancy_regex::escape(".") yields "\.", which we expect to appear.
+        assert!(
+            re.contains("\\."),
+            "literal dot must be escaped in regex: {re:?}"
+        );
+    }
+
+    // ── str_matches_glob: functional oracle (RFC 5228 §2.7.1) ───────────────
+
+    /// `*` matches zero characters.
+    /// Oracle: RFC 5228 §2.7.1 "asterisk … matches zero or more characters".
+    #[test]
+    fn glob_star_matches_empty() {
+        assert!(
+            str_matches_glob("", "*", false),
+            "* must match empty string"
+        );
+    }
+
+    /// `*` matches an arbitrary sequence.
+    #[test]
+    fn glob_star_matches_multi() {
+        assert!(str_matches_glob("hello world", "*", false));
+        assert!(str_matches_glob("hello world", "hel*rld", false));
+    }
+
+    /// `?` matches exactly one character; not zero, not two.
+    /// Oracle: RFC 5228 §2.7.1 "question mark … matches any single character".
+    #[test]
+    fn glob_question_matches_one_char() {
+        assert!(str_matches_glob("a", "?", false), "? must match single char");
+        assert!(!str_matches_glob("", "?", false), "? must not match empty string");
+        assert!(!str_matches_glob("ab", "?", false), "? must not match two chars");
+    }
+
+    /// A literal dot in the pattern must match only a dot, not any character.
+    /// Oracle: RFC 5228 §2.7.1 — only `*` and `?` are wildcards.
+    #[test]
+    fn glob_literal_dot_matches_only_dot() {
+        assert!(
+            str_matches_glob("hello.world", "hello.world", false),
+            "literal dot must match dot"
+        );
+        assert!(
+            !str_matches_glob("helloXworld", "hello.world", false),
+            "literal dot must NOT match arbitrary char"
+        );
+    }
+
+    /// A literal `+` in the pattern is not a regex quantifier.
+    #[test]
+    fn glob_literal_plus_is_not_quantifier() {
+        assert!(str_matches_glob("a+b", "a+b", false), "literal + must match +");
+        assert!(!str_matches_glob("ab", "a+b", false), "literal + must NOT be a quantifier");
+        assert!(!str_matches_glob("aab", "a+b", false));
+    }
+
+    /// `\*` in the pattern matches a literal `*`, not a wildcard.
+    /// Oracle: RFC 5228 §2.7.1 "backslash followed by an asterisk
+    /// or question mark is a literal character".
+    #[test]
+    fn glob_escaped_star_is_literal() {
+        assert!(
+            str_matches_glob("test*", "test\\*", false),
+            r"test\* must match literal test*"
+        );
+        assert!(
+            !str_matches_glob("testXXX", "test\\*", false),
+            r"test\* must NOT treat \* as wildcard"
+        );
+    }
+
+    /// `\?` in the pattern matches a literal `?`.
+    #[test]
+    fn glob_escaped_question_is_literal() {
+        assert!(
+            str_matches_glob("test?", "test\\?", false),
+            r"test\? must match literal test?"
+        );
+        assert!(
+            !str_matches_glob("testX", "test\\?", false),
+            r"test\? must NOT match arbitrary char"
+        );
+    }
+
+    /// Glob matching is case-insensitive when `casemap` is true.
+    /// Oracle: RFC 5228 §2.7.3 comparator `i;ascii-casemap`.
+    #[test]
+    fn glob_casemap_ignores_case() {
+        assert!(
+            str_matches_glob("HELLO", "hel*", true),
+            "casemap=true must be case-insensitive"
+        );
+        assert!(
+            !str_matches_glob("HELLO", "hel*", false),
+            "casemap=false must be case-sensitive"
+        );
+    }
+
+    /// A malformed regex pattern (one that isn't a valid regex after
+    /// glob conversion) must not panic — it must return false.
+    /// This verifies the `unwrap_or(false)` safety net in str_matches_regex_pat.
+    #[test]
+    fn glob_malformed_regex_does_not_panic() {
+        // Inject a pattern that, after glob→regex conversion, produces valid regex.
+        // But pass a direct invalid regex to str_matches_regex_pat to hit the
+        // error path.
+        let result = str_matches_regex_pat("anything", "(?s)\\A(?:[\\z", false);
+        assert!(!result, "invalid regex must return false, not panic");
+    }
+}

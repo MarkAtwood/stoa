@@ -82,6 +82,16 @@ stoa/
 - `message_id` from the NNTP wire is untrusted; validate format before using as a map key or log entry.
 - `POST` path: operator signs every article before writing to IPFS. Never write an unsigned article to the group log.
 
+## Upgrading fancy-regex (sieve-native)
+
+`fancy-regex` is pinned in `crates/sieve-native/Cargo.toml`.  Before upgrading:
+
+1. Run `cargo test -p stoa-sieve-native --lib` — all `evaluator::tests::glob_*` tests must pass.
+2. Cross-check 5+ sieve scripts with glob patterns against the `stoa-sieve` (AGPL) evaluator.
+3. Verify `fancy_regex::escape()` output is unchanged for the chars used in `sieve_glob_to_regex`.
+
+If any test fails after an upgrade, bisect with the fancy-regex changelog before merging.
+
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
 ## Beads Issue Tracker
 
