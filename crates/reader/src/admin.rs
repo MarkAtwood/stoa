@@ -344,6 +344,9 @@ pub(crate) fn build_version_json() -> String {
     serde_json::json!({
         "version": env!("CARGO_PKG_VERSION"),
         "binary": env!("CARGO_PKG_NAME"),
+        "git_sha": env!("GIT_SHA"),
+        "build_date": env!("BUILD_DATE"),
+        "rust_version": env!("RUST_VERSION_STR"),
     })
     .to_string()
 }
@@ -441,6 +444,9 @@ mod tests {
         let v: serde_json::Value = serde_json::from_str(&json).unwrap();
         assert!(v["version"].is_string(), "version must be a string: {json}");
         assert!(v["binary"].is_string(), "binary must be a string: {json}");
+        assert!(v["git_sha"].is_string(), "git_sha must be a string: {json}");
+        assert!(v["build_date"].is_string(), "build_date must be a string: {json}");
+        assert!(v["rust_version"].is_string(), "rust_version must be a string: {json}");
     }
 
     #[test]

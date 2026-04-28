@@ -20,6 +20,16 @@ fn parse_args() -> (PathBuf, bool, Vec<PathBuf>) {
     if args.get(1).map(|s| s.as_str()) == Some("keygen") {
         cmd_keygen(&args[2..]);
     }
+    if args.iter().any(|a| a == "--version" || a == "-V") {
+        println!(
+            "{} {} ({} {})",
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_VERSION"),
+            env!("GIT_SHA"),
+            env!("BUILD_DATE"),
+        );
+        std::process::exit(0);
+    }
 
     let mut config_path: Option<PathBuf> = None;
     let mut check_only = false;
@@ -358,6 +368,14 @@ async fn main() {
         .with(otel_trace_layer)
         .with(otel_log_layer)
         .init();
+
+    info!(
+        binary = env!("CARGO_PKG_NAME"),
+        version = env!("CARGO_PKG_VERSION"),
+        git_sha = env!("GIT_SHA"),
+        build_date = env!("BUILD_DATE"),
+        "starting"
+    );
 
     let check_errors = run_startup_checks(&config).await;
     if !check_errors.is_empty() {
