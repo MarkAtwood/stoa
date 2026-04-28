@@ -38,6 +38,7 @@ pub fn start_admin_server(
     start_time: Instant,
     bearer_token: Option<String>,
     rate_limit_rpm: u32,
+    cert_paths: Arc<Vec<String>>,
 ) -> Result<(), String> {
     if !addr.ip().is_loopback() && bearer_token.is_none() {
         return Err(format!(
@@ -62,12 +63,14 @@ pub fn start_admin_server(
                 Ok((stream, peer)) => {
                     let bearer_token = Arc::clone(&bearer_token);
                     let rate_limiter = Arc::clone(&rate_limiter);
+                    let cert_paths = Arc::clone(&cert_paths);
                     tokio::spawn(async move {
                         if let Err(e) = handle_admin_connection(
                             stream,
                             start_time,
                             bearer_token.as_deref(),
                             &rate_limiter,
+                            &cert_paths,
                         )
                         .await
                         {
@@ -89,6 +92,7 @@ async fn handle_admin_connection(
     start_time: Instant,
     bearer_token: Option<&str>,
     rate_limiter: &RateLimiter,
+    cert_paths: &[String],
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let peer_ip = stream.peer_addr()?.ip();
     let mut reader = BufReader::new(stream);
@@ -232,15 +236,68 @@ async fn handle_admin_connection(
             write_json(&mut writer, 200, "OK", &build_version_json()).await?;
         }
         "/reload" => {
-            // Config reload is not yet implemented.  Return 501 so operators
-            // know to restart the daemon rather than assuming config was applied.
-            write_json(
-                &mut writer,
-                501,
-                "Not Implemented",
-                r#"{"reloaded":false,"error":"config reload is not yet implemented \u2014 restart the daemon to apply changes"}"#,
-            )
-            .await?;
+            // Full config reload is not yet implemented; restart the daemon to
+            // apply config changes.  However, we do re-check TLS certificate
+            // expiry on every reload request so operators can confirm cert
+            // rotation succeeded without restarting.
+            let now_secs = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs() as i64;
+            let mut cert_results: Vec<serde_json::Value> = Vec::new();
+            for path in cert_paths.iter() {
+                match stoa_tls::cert_not_after(path) {
+                    Ok(expiry_unix) => {
+                        let days_remaining = (expiry_unix - now_secs) / 86400;
+                        let expires_at =
+                            chrono::DateTime::from_timestamp(expiry_unix, 0)
+                                .map(|t: chrono::DateTime<chrono::Utc>| {
+                                    t.format("%Y-%m-%dT%H:%M:%SZ").to_string()
+                                })
+                                .unwrap_or_else(|| expiry_unix.to_string());
+                        crate::metrics::TLS_CERT_EXPIRY_SECONDS
+                            .with_label_values(&[path])
+                            .set(expiry_unix as f64);
+                        if days_remaining <= 7 {
+                            tracing::error!(
+                                event = "cert_expiry_critical",
+                                path = %path,
+                                days_remaining,
+                                expires_at = %expires_at,
+                                "TLS certificate expires very soon"
+                            );
+                        } else if days_remaining <= 30 {
+                            tracing::warn!(
+                                event = "cert_expiry_warning",
+                                path = %path,
+                                days_remaining,
+                                expires_at = %expires_at,
+                                "TLS certificate expiring soon"
+                            );
+                        }
+                        cert_results.push(serde_json::json!({
+                            "path": path,
+                            "expires_at": expires_at,
+                            "days_remaining": days_remaining,
+                        }));
+                    }
+                    Err(e) => {
+                        tracing::warn!(path = %path, "TLS cert expiry check failed: {e}");
+                        cert_results.push(serde_json::json!({
+                            "path": path,
+                            "error": e,
+                        }));
+                    }
+                }
+            }
+            let body = serde_json::json!({
+                "reloaded": false,
+                "note": "full config reload not yet implemented — restart to apply config changes",
+                "tls_certs_checked": cert_results.len(),
+                "tls_certs": cert_results,
+            })
+            .to_string();
+            write_json(&mut writer, 200, "OK", &body).await?;
         }
         _ => {
             write_json(&mut writer, 404, "Not Found", r#"{"error":"not found"}"#).await?;
@@ -393,7 +450,8 @@ mod tests {
             .unwrap();
         rt.block_on(async {
             let addr: std::net::SocketAddr = "0.0.0.0:0".parse().unwrap();
-            let result = start_admin_server(addr, Instant::now(), None, 60);
+            let result =
+                start_admin_server(addr, Instant::now(), None, 60, Arc::new(vec![]));
             assert!(
                 result.is_err(),
                 "must refuse non-loopback without bearer token"
@@ -410,7 +468,8 @@ mod tests {
         rt.block_on(async {
             let addr: std::net::SocketAddr = "127.0.0.1:0".parse().unwrap();
             // Port 0 → OS assigns a free port; this just tests the guard logic.
-            let result = start_admin_server(addr, Instant::now(), None, 60);
+            let result =
+                start_admin_server(addr, Instant::now(), None, 60, Arc::new(vec![]));
             assert!(result.is_ok(), "loopback without token must be allowed");
         });
     }

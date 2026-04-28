@@ -1151,6 +1151,9 @@ async fn main() {
                 100,
                 Duration::from_secs(5),
             ));
+            let admin_cert_paths: Arc<Vec<String>> = Arc::new(
+                config.tls.as_ref().map(|t| t.cert_path.clone()).into_iter().collect(),
+            );
             if let Err(e) = start_admin_server(
                 admin_addr,
                 AdminPools {
@@ -1164,6 +1167,7 @@ async fn main() {
                 config.admin.rate_limit_rpm,
                 Arc::clone(&ipfs_store),
                 ipns_path_string.clone(),
+                admin_cert_paths,
             ) {
                 eprintln!("error: admin server: {e}");
                 std::process::exit(1);

@@ -70,6 +70,7 @@ pub fn start_admin_server(
     rate_limit_rpm: u32,
     ipfs: Arc<dyn IpfsStore>,
     ipns_path: Option<String>,
+    cert_paths: Arc<Vec<String>>,
 ) -> Result<(), String> {
     if !addr.ip().is_loopback() && bearer_token.is_none() {
         return Err(format!(
@@ -104,6 +105,7 @@ pub fn start_admin_server(
                     let ipns_path = Arc::clone(&ipns_path);
                     let audit_logger = audit_logger.clone();
                     let backup_dest_dir = Arc::clone(&backup_dest_dir);
+                    let cert_paths = Arc::clone(&cert_paths);
                     tokio::spawn(async move {
                         if let Err(e) = handle_admin_connection(
                             stream,
@@ -115,6 +117,7 @@ pub fn start_admin_server(
                             ipns_path.as_deref(),
                             audit_logger.as_deref(),
                             backup_dest_dir.as_deref(),
+                            &cert_paths,
                         )
                         .await
                         {
@@ -141,6 +144,7 @@ async fn handle_admin_connection(
     ipns_path: Option<&str>,
     audit_logger: Option<&dyn AuditLogger>,
     backup_dest_dir: Option<&str>,
+    cert_paths: &[String],
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let (pool, core_pool) = pools;
     let peer_ip = stream.peer_addr()?.ip();
@@ -439,15 +443,68 @@ async fn handle_admin_connection(
             }
         }
         "/reload" => {
-            // Config reload is not yet implemented.  Return 501 so operators
-            // know to restart the daemon rather than assuming config was applied.
-            write_json(
-                &mut writer,
-                501,
-                "Not Implemented",
-                r#"{"reloaded":false,"error":"config reload is not yet implemented \u2014 restart the daemon to apply changes"}"#,
-            )
-            .await?;
+            // Full config reload is not yet implemented; restart the daemon to
+            // apply config changes.  However, we do re-check TLS certificate
+            // expiry on every reload request so operators can confirm cert
+            // rotation succeeded without restarting.
+            let now_secs = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs() as i64;
+            let mut cert_results: Vec<serde_json::Value> = Vec::new();
+            for path in cert_paths.iter() {
+                match stoa_tls::cert_not_after(path) {
+                    Ok(expiry_unix) => {
+                        let days_remaining = (expiry_unix - now_secs) / 86400;
+                        let expires_at =
+                            chrono::DateTime::from_timestamp(expiry_unix, 0)
+                                .map(|t: chrono::DateTime<chrono::Utc>| {
+                                    t.format("%Y-%m-%dT%H:%M:%SZ").to_string()
+                                })
+                                .unwrap_or_else(|| expiry_unix.to_string());
+                        crate::metrics::TLS_CERT_EXPIRY_SECONDS
+                            .with_label_values(&[path])
+                            .set(expiry_unix as f64);
+                        if days_remaining <= 7 {
+                            tracing::error!(
+                                event = "cert_expiry_critical",
+                                path = %path,
+                                days_remaining,
+                                expires_at = %expires_at,
+                                "TLS certificate expires very soon"
+                            );
+                        } else if days_remaining <= 30 {
+                            tracing::warn!(
+                                event = "cert_expiry_warning",
+                                path = %path,
+                                days_remaining,
+                                expires_at = %expires_at,
+                                "TLS certificate expiring soon"
+                            );
+                        }
+                        cert_results.push(serde_json::json!({
+                            "path": path,
+                            "expires_at": expires_at,
+                            "days_remaining": days_remaining,
+                        }));
+                    }
+                    Err(e) => {
+                        tracing::warn!(path = %path, "TLS cert expiry check failed: {e}");
+                        cert_results.push(serde_json::json!({
+                            "path": path,
+                            "error": e,
+                        }));
+                    }
+                }
+            }
+            let body = serde_json::json!({
+                "reloaded": false,
+                "note": "full config reload not yet implemented — restart to apply config changes",
+                "tls_certs_checked": cert_results.len(),
+                "tls_certs": cert_results,
+            })
+            .to_string();
+            write_json(&mut writer, 200, "OK", &body).await?;
         }
         _ => {
             write_json(&mut writer, 404, "Not Found", r#"{"error":"not found"}"#).await?;

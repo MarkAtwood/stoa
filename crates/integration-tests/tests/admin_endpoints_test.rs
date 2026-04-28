@@ -8,6 +8,7 @@ use std::time::Instant;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 
+use std::sync::Arc;
 use stoa_reader::admin::start_admin_server;
 
 /// Send a raw GET request and return `(status_line, body)`.
@@ -62,7 +63,7 @@ fn free_loopback_port() -> u16 {
 async fn admin_health_returns_ok_json() {
     let port = free_loopback_port();
     let addr: std::net::SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
-    start_admin_server(addr, Instant::now(), None, 60).expect("start admin server");
+    start_admin_server(addr, Instant::now(), None, 60, Arc::new(vec![])).expect("start admin server");
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
     let (status, body) = http_get(&format!("127.0.0.1:{port}"), "/health").await;
@@ -81,7 +82,7 @@ async fn admin_health_returns_ok_json() {
 async fn admin_version_returns_binary_and_version_fields() {
     let port = free_loopback_port();
     let addr: std::net::SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
-    start_admin_server(addr, Instant::now(), None, 60).expect("start admin server");
+    start_admin_server(addr, Instant::now(), None, 60, Arc::new(vec![])).expect("start admin server");
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
     let (status, body) = http_get(&format!("127.0.0.1:{port}"), "/version").await;
@@ -94,19 +95,19 @@ async fn admin_version_returns_binary_and_version_fields() {
 // ── POST /reload ──────────────────────────────────────────────────────────────
 
 #[tokio::test]
-async fn admin_reload_post_returns_501_not_implemented() {
+async fn admin_reload_post_returns_200_with_cert_check() {
     let port = free_loopback_port();
     let addr: std::net::SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
-    start_admin_server(addr, Instant::now(), None, 60).expect("start admin server");
+    start_admin_server(addr, Instant::now(), None, 60, Arc::new(vec![])).expect("start admin server");
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
     let (status, body) = http_post(&format!("127.0.0.1:{port}"), "/reload").await;
-    assert!(status.contains("501"), "expected 501, got: {status}");
+    assert!(status.contains("200"), "expected 200, got: {status}");
     let v: serde_json::Value = serde_json::from_str(&body).expect("valid JSON");
     assert_eq!(v["reloaded"], false, "reloaded must be false: {body}");
     assert!(
-        v["error"].is_string(),
-        "error field must be present: {body}"
+        v["tls_certs_checked"].as_u64().is_some(),
+        "tls_certs_checked field must be present: {body}"
     );
 }
 
@@ -114,7 +115,7 @@ async fn admin_reload_post_returns_501_not_implemented() {
 async fn admin_get_reload_returns_405() {
     let port = free_loopback_port();
     let addr: std::net::SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
-    start_admin_server(addr, Instant::now(), None, 60).expect("start admin server");
+    start_admin_server(addr, Instant::now(), None, 60, Arc::new(vec![])).expect("start admin server");
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
     let (status, _body) = http_get(&format!("127.0.0.1:{port}"), "/reload").await;
@@ -130,7 +131,7 @@ async fn admin_get_reload_returns_405() {
 async fn admin_metrics_returns_text_plain() {
     let port = free_loopback_port();
     let addr: std::net::SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
-    start_admin_server(addr, Instant::now(), None, 60).expect("start admin server");
+    start_admin_server(addr, Instant::now(), None, 60, Arc::new(vec![])).expect("start admin server");
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
     let mut stream = TcpStream::connect(format!("127.0.0.1:{port}"))
@@ -173,7 +174,7 @@ async fn admin_metrics_returns_text_plain() {
 async fn admin_unknown_path_returns_404() {
     let port = free_loopback_port();
     let addr: std::net::SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
-    start_admin_server(addr, Instant::now(), None, 60).expect("start admin server");
+    start_admin_server(addr, Instant::now(), None, 60, Arc::new(vec![])).expect("start admin server");
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
     let (status, _body) = http_get(&format!("127.0.0.1:{port}"), "/nonexistent").await;
