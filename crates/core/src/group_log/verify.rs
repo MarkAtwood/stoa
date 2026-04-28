@@ -227,14 +227,10 @@ pub async fn verify_entry<S: LogStorage>(
         })?;
         let parent_id = LogEntryId::from_bytes(raw);
 
-        if !storage.has_entry(&parent_id).await? {
-            return Err(VerifyError::MissingParent(parent_cid.to_string()));
-        }
-
-        let parent_entry = storage
-            .get_entry(&parent_id)
-            .await?
-            .ok_or_else(|| VerifyError::MissingParent(parent_cid.to_string()))?;
+        let parent_entry = match storage.get_entry(&parent_id).await? {
+            Some(e) => e,
+            None => return Err(VerifyError::MissingParent(parent_cid.to_string())),
+        };
 
         if entry.hlc_timestamp <= parent_entry.hlc_timestamp {
             return Err(VerifyError::HlcNotMonotonic {

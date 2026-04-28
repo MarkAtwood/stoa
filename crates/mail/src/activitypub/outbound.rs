@@ -10,7 +10,9 @@
 //! has been written to IPFS and the group log.  The call is fire-and-forget —
 //! individual delivery failures are logged but do not bubble up.
 
+use bytes::Bytes;
 use serde_json::{json, Value};
+use tokio::task::JoinSet;
 use tracing::{info, warn};
 use uuid::Uuid;
 
@@ -122,29 +124,56 @@ pub async fn deliver_article(
     }
     let activity = build_create_note(base_url, article);
     let body = match serde_json::to_vec(&activity) {
-        Ok(b) => b,
+        Ok(b) => Bytes::from(b),
         Err(e) => {
             warn!(error = %e, "failed to serialize Create{{Note}} activity");
             return Vec::new();
         }
     };
-    let client = &ap_state.http_client;
     let date = chrono::Utc::now()
         .format("%a, %d %b %Y %H:%M:%S GMT")
         .to_string();
 
-    let mut results = Vec::with_capacity(followers.len());
-    for follower in &followers {
-        let result = deliver_one(client, ap_state.key.as_ref(), &body, follower, &date).await;
-        results.push(result);
+    let mut join_set: JoinSet<DeliveryResult> = JoinSet::new();
+    for follower in followers {
+        let client = ap_state.http_client.clone();
+        let key = ap_state.key.clone();
+        let body = body.clone();
+        let date = date.clone();
+        join_set
+            .spawn(async move { deliver_one(&client, key.as_ref(), body, &follower, &date).await });
     }
+
+    let mut results = Vec::with_capacity(join_set.len());
+    let mut delivered = 0usize;
+    let mut failed = 0usize;
+    while let Some(res) = join_set.join_next().await {
+        match res {
+            Ok(result) => {
+                if result.success {
+                    delivered += 1;
+                } else {
+                    failed += 1;
+                }
+                results.push(result);
+            }
+            Err(e) => {
+                warn!(error = %e, "ActivityPub delivery task panicked");
+                failed += 1;
+            }
+        }
+    }
+    info!(
+        delivered,
+        failed, "ActivityPub deliver_article fanout complete"
+    );
     results
 }
 
 async fn deliver_one(
     client: &reqwest::Client,
     key: Option<&RsaActorKey>,
-    body: &[u8],
+    body: Bytes,
     follower: &Follower,
     date: &str,
 ) -> DeliveryResult {
@@ -156,7 +185,7 @@ async fn deliver_one(
         .header("Host", &host);
 
     if let Some(k) = key {
-        match k.sign_post(&host, &path, date, body) {
+        match k.sign_post(&host, &path, date, &body) {
             Ok(sig) => {
                 req = req.header("Signature", sig);
             }
@@ -166,7 +195,7 @@ async fn deliver_one(
         }
     }
 
-    match req.body(body.to_vec()).send().await {
+    match req.body(body).send().await {
         Ok(resp) => {
             let status = resp.status().as_u16();
             let success = resp.status().is_success();

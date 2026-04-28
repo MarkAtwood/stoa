@@ -90,12 +90,15 @@ pub struct PeeringShared {
 pub async fn run_peering_session<S>(
     stream: S,
     peer_addr: String,
-    peer_ip: String,
+    peer_ip: std::net::IpAddr,
     shared: Arc<PeeringShared>,
 ) where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
     tracing::debug!(%peer_addr, "peering connection accepted");
+
+    // Stringify once; all DB and rate-limiter functions take &str.
+    let peer_ip_str = peer_ip.to_string();
 
     // Register peer if not yet known; then check blacklist.
     // Silently drop the connection with no NNTP greeting on blacklist hit —
@@ -103,12 +106,12 @@ pub async fn run_peering_session<S>(
     let registry = PeerRegistry::new((*shared.transit_pool).clone());
     let now_ms = wall_ms();
     if let Err(e) = registry
-        .ensure_registered(&peer_ip, &peer_addr, now_ms)
+        .ensure_registered(&peer_ip_str, &peer_addr, now_ms)
         .await
     {
         tracing::warn!(%peer_ip, "peer registry update failed: {e}");
     }
-    match is_blacklisted(&shared.transit_pool, &peer_ip, now_ms).await {
+    match is_blacklisted(&shared.transit_pool, &peer_ip_str, now_ms).await {
         Ok(true) => {
             tracing::debug!(%peer_ip, "rejecting blacklisted peer");
             return;
@@ -217,14 +220,14 @@ pub async fn run_peering_session<S>(
                                     .peer_rate_limiter
                                     .lock()
                                     .unwrap()
-                                    .check(&peer_ip)
+                                    .check(&peer_ip_str)
                                     .is_none()
                                 {
                                     if enqueue_article(&shared, &msgid, article_bytes)
                                         .await
                                         .is_ok()
                                     {
-                                        record_accepted(&registry, &peer_ip).await;
+                                        record_accepted(&registry, &peer_ip_str).await;
                                         takethis_response(&result)
                                     } else {
                                         "436 Transfer not possible; try again later"
@@ -234,12 +237,14 @@ pub async fn run_peering_session<S>(
                                         %peer_addr, %msgid,
                                         "TAKETHIS rate limit exceeded"
                                     );
-                                    record_and_maybe_blacklist(&registry, &shared, &peer_ip).await;
+                                    record_and_maybe_blacklist(&registry, &shared, &peer_ip_str)
+                                        .await;
                                     "436 Transfer not possible; try again later"
                                 }
                             } else {
                                 if matches!(result, IngestResult::Rejected(_)) {
-                                    record_and_maybe_blacklist(&registry, &shared, &peer_ip).await;
+                                    record_and_maybe_blacklist(&registry, &shared, &peer_ip_str)
+                                        .await;
                                 }
                                 takethis_response(&result)
                             };
@@ -275,14 +280,14 @@ pub async fn run_peering_session<S>(
                                         .peer_rate_limiter
                                         .lock()
                                         .unwrap()
-                                        .check(&peer_ip)
+                                        .check(&peer_ip_str)
                                         .is_none()
                                     {
                                         if enqueue_article(&shared, &msgid, article_bytes)
                                             .await
                                             .is_ok()
                                         {
-                                            record_accepted(&registry, &peer_ip).await;
+                                            record_accepted(&registry, &peer_ip_str).await;
                                             Some(ihave_response(&result).to_owned())
                                         } else {
                                             Some(
@@ -295,14 +300,22 @@ pub async fn run_peering_session<S>(
                                             %peer_addr, %msgid,
                                             "IHAVE rate limit exceeded"
                                         );
-                                        record_and_maybe_blacklist(&registry, &shared, &peer_ip)
-                                            .await;
+                                        record_and_maybe_blacklist(
+                                            &registry,
+                                            &shared,
+                                            &peer_ip_str,
+                                        )
+                                        .await;
                                         Some("436 Transfer failed, try again later\r\n".to_owned())
                                     }
                                 } else {
                                     if matches!(result, IngestResult::Rejected(_)) {
-                                        record_and_maybe_blacklist(&registry, &shared, &peer_ip)
-                                            .await;
+                                        record_and_maybe_blacklist(
+                                            &registry,
+                                            &shared,
+                                            &peer_ip_str,
+                                        )
+                                        .await;
                                     }
                                     Some(ihave_response(&result).to_owned())
                                 }

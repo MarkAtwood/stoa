@@ -318,7 +318,7 @@ async fn mbox_send_ihave(addr: &str, msgid: &str, article_bytes: &[u8]) -> Ihave
     }
 
     // Send article with dot-stuffing, terminated by ".\r\n".
-    let stuffed = mbox_dot_stuff(article_bytes);
+    let stuffed = stoa_core::util::nntp_dot_stuff(article_bytes);
     if writer.write_all(&stuffed).await.is_err() {
         return IhaveSendResult::Failed;
     }
@@ -346,21 +346,6 @@ fn mbox_response_code(line: &str) -> u16 {
     line.get(..3)
         .and_then(|s| s.parse::<u16>().ok())
         .unwrap_or(0)
-}
-
-fn mbox_dot_stuff(bytes: &[u8]) -> Vec<u8> {
-    let mut out = Vec::with_capacity(bytes.len() + 16);
-    for line in bytes.split(|&b| b == b'\n') {
-        if line.starts_with(b".") {
-            out.push(b'.');
-        }
-        out.extend_from_slice(line);
-        out.push(b'\n');
-    }
-    if out.last() == Some(&b'\n') && !bytes.ends_with(b"\n") {
-        out.pop();
-    }
-    out
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

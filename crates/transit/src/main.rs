@@ -1415,7 +1415,7 @@ async fn accept_loop(listener: TcpListener, shared: Arc<PeeringShared>) -> std::
     loop {
         let (stream, addr) = listener.accept().await?;
         let peer_addr = addr.to_string();
-        let peer_ip = addr.ip().to_string();
+        let peer_ip = addr.ip();
         tracing::debug!(%peer_addr, "new peering connection");
         let shared = Arc::clone(&shared);
         tokio::spawn(async move {

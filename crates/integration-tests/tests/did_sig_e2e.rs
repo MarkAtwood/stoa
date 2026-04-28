@@ -10,7 +10,10 @@ use ed25519_dalek::Signer;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 
-use stoa_reader::{session::lifecycle::run_session, store::server_stores::ServerStores};
+use stoa_reader::{
+    session::lifecycle::{run_session, ListenerKind},
+    store::server_stores::ServerStores,
+};
 
 // ── Config helper (same pattern as nntp_conformance.rs) ───────────────────────
 
@@ -80,7 +83,9 @@ async fn start_server() -> (std::net::SocketAddr, Arc<stoa_reader::config::Confi
                 let (stream, _) = listener.accept().await.unwrap();
                 let s = Arc::clone(&stores);
                 let c = Arc::clone(&config);
-                tokio::spawn(async move { run_session(stream, false, &c, s, None).await });
+                tokio::spawn(
+                    async move { run_session(stream, ListenerKind::Plain, &c, s, None).await },
+                );
             }
         });
     }

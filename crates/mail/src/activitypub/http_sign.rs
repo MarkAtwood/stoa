@@ -25,10 +25,13 @@ use sha2::{Digest, Sha256};
 use std::fmt;
 
 /// RSA key pair used for HTTP Signatures on outbound ActivityPub requests.
+#[derive(Clone)]
 pub struct RsaActorKey {
     /// Key identifier URL, e.g. `https://example.com/ap/groups/comp.lang.rust#main-key`.
     pub key_id: String,
     private_key: RsaPrivateKey,
+    /// Pre-computed signing key — avoids cloning `RsaPrivateKey` on every sign call.
+    signing_key: SigningKey<Sha256>,
 }
 
 impl fmt::Debug for RsaActorKey {
@@ -36,6 +39,7 @@ impl fmt::Debug for RsaActorKey {
         f.debug_struct("RsaActorKey")
             .field("key_id", &self.key_id)
             .field("private_key", &"<redacted>")
+            .field("signing_key", &"<redacted>")
             .finish()
     }
 }
@@ -45,18 +49,22 @@ impl RsaActorKey {
     pub fn generate(key_id: impl Into<String>) -> Result<Self, rsa::Error> {
         let mut rng = rand::thread_rng();
         let private_key = RsaPrivateKey::new(&mut rng, 2048)?;
+        let signing_key = SigningKey::new(private_key.clone());
         Ok(Self {
             key_id: key_id.into(),
             private_key,
+            signing_key,
         })
     }
 
     /// Load an RSA key from PKCS#1 PEM.
     pub fn from_pem(key_id: impl Into<String>, pem: &str) -> Result<Self, rsa::pkcs1::Error> {
         let private_key = RsaPrivateKey::from_pkcs1_pem(pem)?;
+        let signing_key = SigningKey::new(private_key.clone());
         Ok(Self {
             key_id: key_id.into(),
             private_key,
+            signing_key,
         })
     }
 
@@ -99,8 +107,7 @@ impl RsaActorKey {
         };
         let signed_string =
             format!("(request-target): post {path}\nhost: {host}\ndate: {date}\ndigest: {digest}");
-        let signing_key: SigningKey<Sha256> = SigningKey::new(self.private_key.clone());
-        let sig_bytes = signing_key.sign(signed_string.as_bytes()).to_bytes();
+        let sig_bytes = self.signing_key.sign(signed_string.as_bytes()).to_bytes();
         let sig_b64 = BASE64.encode(&sig_bytes);
         Ok(format!(
             r#"keyId="{}",algorithm="rsa-sha256",headers="(request-target) host date digest",signature="{}""#,

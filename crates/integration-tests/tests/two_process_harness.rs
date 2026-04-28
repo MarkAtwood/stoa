@@ -21,7 +21,7 @@ use stoa_core::{hlc::HlcClock, msgid_map::MsgIdMap};
 use stoa_reader::{
     auth_limiter::{AuthFailureTracker, DEFAULT_MAX_ENTRIES},
     post::ipfs_write::{IpfsBlockStore, IpfsWriteError},
-    session::lifecycle::run_session,
+    session::lifecycle::{run_session, ListenerKind},
     store::{
         article_numbers::ArticleNumberStore, credentials::CredentialStore, overview::OverviewStore,
         server_stores::ServerStores,
@@ -361,7 +361,9 @@ async fn transit_reader_shared_store() {
                 let (stream, _) = reader_listener.accept().await.unwrap();
                 let s = Arc::clone(&stores);
                 let c = Arc::clone(&config);
-                tokio::spawn(async move { run_session(stream, false, &c, s, None).await });
+                tokio::spawn(
+                    async move { run_session(stream, ListenerKind::Plain, &c, s, None).await },
+                );
             }
         });
     }
@@ -378,7 +380,7 @@ async fn transit_reader_shared_store() {
                 let (stream, addr) = transit_listener.accept().await.unwrap();
                 let s = Arc::clone(&shared);
                 tokio::spawn(async move {
-                    run_peering_session(stream, addr.to_string(), addr.ip().to_string(), s).await;
+                    run_peering_session(stream, addr.to_string(), addr.ip(), s).await;
                 });
             }
         });

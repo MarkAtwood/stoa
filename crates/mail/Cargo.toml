@@ -30,6 +30,7 @@ multihash-codetable = { version = "0.2", features = ["sha2"] }
 sha2 = "0.10"
 rsa = { version = "0.9", features = ["sha2"] }
 rand = "0.8"
+bytes = "1"
 reqwest = { version = "0.12", features = ["json"] }
 uuid = { version = "1", features = ["v4"] }
 rand_core = { version = "0.6", features = ["getrandom"] }

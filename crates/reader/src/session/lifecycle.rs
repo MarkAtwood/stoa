@@ -1003,6 +1003,10 @@ async fn run_post_pipeline(
     // verbatim before the server's own injected value, allowing the client to
     // forge integrity signals seen by readers.
     strip_server_synthesized_headers(&mut article_bytes);
+    // Save pre-path bytes for DID verification.  The author signed the article
+    // BEFORE the server added the Path: header; DID verification must use these
+    // bytes so that strip_did_sig_header reproduces exactly what was signed.
+    let article_bytes_pre_path = article_bytes.clone();
     // Step 1b: Inject the Path: header required by RFC 5536 §3.1.
     // Must happen before signing so the header is covered by the operator signature.
     let article_bytes = prepend_path_header(&article_bytes, &stores.path_hostname);
@@ -1037,8 +1041,8 @@ async fn run_post_pipeline(
         // twice (once here, once inside extract_did_sig), which is a no-op
         // today only because header_section falls back to returning the full
         // slice when no blank line is present.
-        if let Some(header_val) = extract_did_sig(article_bytes) {
-            match verify_did_sig(article_bytes, &header_val) {
+        if let Some(header_val) = extract_did_sig(&article_bytes_pre_path) {
+            match verify_did_sig(&article_bytes_pre_path, &header_val) {
                 Ok(valid) => {
                     tracing::debug!(
                         msgid = %message_id,

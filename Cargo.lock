@@ -4595,6 +4595,7 @@ dependencies = [
  "async-trait",
  "axum",
  "bcrypt",
+ "bytes",
  "chrono",
  "cid",
  "data-encoding",

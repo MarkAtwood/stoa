@@ -28,7 +28,7 @@ use stoa_core::{
 use stoa_reader::{
     auth_limiter::{AuthFailureTracker, DEFAULT_MAX_ENTRIES},
     post::ipfs_write::{IpfsBlockStore, IpfsWriteError},
-    session::lifecycle::run_session,
+    session::lifecycle::{run_session, ListenerKind},
     store::{
         article_numbers::ArticleNumberStore, client_cert_store::ClientCertStore,
         credentials::CredentialStore, overview::OverviewStore, server_stores::ServerStores,
@@ -277,7 +277,9 @@ async fn nntp_conformance_via_nntplib() {
                 let (stream, _) = listener.accept().await.unwrap();
                 let s = Arc::clone(&stores);
                 let c = Arc::clone(&config);
-                tokio::spawn(async move { run_session(stream, false, &c, s, None).await });
+                tokio::spawn(
+                    async move { run_session(stream, ListenerKind::Plain, &c, s, None).await },
+                );
             }
         });
     }
@@ -411,7 +413,7 @@ async fn auth_lockout_triggered_after_threshold_failures() {
                 let stores = Arc::clone(&stores);
                 let config = Arc::clone(&config);
                 tokio::spawn(async move {
-                    run_session(stream, false, &config, stores, None).await;
+                    run_session(stream, ListenerKind::Plain, &config, stores, None).await;
                 });
             }
         });
@@ -523,7 +525,11 @@ async fn article_posted_writes_audit_row() {
                 let config = Arc::clone(&config);
                 tokio::spawn(async move {
                     stoa_reader::session::lifecycle::run_session(
-                        stream, false, &config, stores, None,
+                        stream,
+                        stoa_reader::session::lifecycle::ListenerKind::Plain,
+                        &config,
+                        stores,
+                        None,
                     )
                     .await;
                 });
@@ -545,15 +551,11 @@ async fn article_posted_writes_audit_row() {
     let resp = cmd(&mut w_half, &mut reader, "POST").await;
     assert!(resp.starts_with("340"), "expected 340 send-article: {resp}");
 
-    let date = "Mon, 27 Apr 2026 12:00:00 +0000";
-    let article = "Newsgroups: comp.test\r\n\
-                   From: audit@test.example\r\n\
-                   Subject: Audit Test\r\n\
-                   Date: Mon, 27 Apr 2026 12:00:00 +0000\r\n\
-                   Message-ID: <audit-test@test.example>\r\n\
-                   \r\n\
-                   Audit test body.\r\n";
-    let _ = date; // used in the header string above
+    let date = common::now_rfc2822();
+    let article = format!(
+        "Newsgroups: comp.test\r\nFrom: audit@test.example\r\nSubject: Audit Test\r\nDate: {}\r\nMessage-ID: <audit-test@test.example>\r\n\r\nAudit test body.\r\n",
+        date
+    );
     w_half.write_all(article.as_bytes()).await.unwrap();
     w_half.write_all(b".\r\n").await.unwrap();
 

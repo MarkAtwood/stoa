@@ -4,7 +4,7 @@
 //! This module stores and queries that per-peer group data so that
 //! IHAVE/TAKETHIS is only forwarded to peers that serve the group.
 
-use sqlx::AnyPool;
+use sqlx::{AnyPool, QueryBuilder};
 use stoa_core::error::StorageError;
 
 /// Record the full group list served by a peer (replaces previous entry).
@@ -28,11 +28,13 @@ pub async fn update_peer_groups(
         .await
         .map_err(|e| StorageError::Database(e.to_string()))?;
 
-    for group in groups {
-        sqlx::query("INSERT INTO peer_groups (peer_id, group_name, updated_at) VALUES (?, ?, ?)")
-            .bind(peer_id)
-            .bind(*group)
-            .bind(now_ms)
+    if !groups.is_empty() {
+        let mut qb: QueryBuilder<sqlx::Any> =
+            QueryBuilder::new("INSERT INTO peer_groups (peer_id, group_name, updated_at) ");
+        qb.push_values(groups.iter(), |mut b, group| {
+            b.push_bind(peer_id).push_bind(*group).push_bind(now_ms);
+        });
+        qb.build()
             .execute(&mut *tx)
             .await
             .map_err(|e| StorageError::Database(e.to_string()))?;

@@ -375,68 +375,9 @@ async fn fetch_article(
 ///
 /// Returns `"YYYYMMDD HHMMSS"` (caller appends `" GMT"` in the NEWNEWS command).
 pub(crate) fn format_nntp_date(unix_secs: u64) -> String {
-    let secs_of_day = (unix_secs % 86400) as u32;
-    let hour = secs_of_day / 3600;
-    let minute = (secs_of_day % 3600) / 60;
-    let second = secs_of_day % 60;
-
-    let mut days = (unix_secs / 86400) as u32;
-
-    // Gregorian calendar: compute year.
-    // Each 400-year cycle = 146097 days.
-    let cycles400 = days / 146097;
-    days %= 146097;
-
-    // Each 100-year century = 36524 days (no leap on century unless div-400).
-    let cycles100 = (days / 36524).min(3);
-    days -= cycles100 * 36524;
-
-    // Each 4-year cycle = 1461 days.
-    let cycles4 = days / 1461;
-    days %= 1461;
-
-    // Each remaining year = 365 days (first year in a 4-cycle can be leap).
-    let cycles1 = (days / 365).min(3);
-    days -= cycles1 * 365;
-
-    let year = 1970 + cycles400 * 400 + cycles100 * 100 + cycles4 * 4 + cycles1;
-
-    // Now `days` is 0-based day-of-year. Compute month and day.
-    let leap = is_leap_year(year);
-    let month_lengths: [u32; 12] = [
-        31,
-        if leap { 29 } else { 28 },
-        31,
-        30,
-        31,
-        30,
-        31,
-        31,
-        30,
-        31,
-        30,
-        31,
-    ];
-
-    let mut month = 1u32;
-    let mut remaining = days;
-    for &mlen in &month_lengths {
-        if remaining < mlen {
-            break;
-        }
-        remaining -= mlen;
-        month += 1;
-    }
-    let day = remaining + 1;
-
-    format!(
-        "{:04}{:02}{:02} {:02}{:02}{:02}",
-        year, month, day, hour, minute, second
-    )
-}
-
-fn is_leap_year(year: u32) -> bool {
-    (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
+    use chrono::DateTime;
+    let dt = DateTime::from_timestamp(unix_secs as i64, 0).unwrap_or(DateTime::UNIX_EPOCH);
+    dt.format("%Y%m%d %H%M%S").to_string()
 }
 
 // ── Protocol helper ───────────────────────────────────────────────────────────

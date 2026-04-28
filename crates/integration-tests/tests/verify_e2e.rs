@@ -12,7 +12,10 @@ use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 
-use stoa_reader::{session::lifecycle::run_session, store::server_stores::ServerStores};
+use stoa_reader::{
+    session::lifecycle::{run_session, ListenerKind},
+    store::server_stores::ServerStores,
+};
 use stoa_verify::VerifResult;
 
 // ── Config helper ─────────────────────────────────────────────────────────────
@@ -83,7 +86,9 @@ async fn start_server() -> (
                 let (stream, _) = listener.accept().await.unwrap();
                 let s = Arc::clone(&stores);
                 let c = Arc::clone(&config);
-                tokio::spawn(async move { run_session(stream, false, &c, s, None).await });
+                tokio::spawn(
+                    async move { run_session(stream, ListenerKind::Plain, &c, s, None).await },
+                );
             }
         });
     }
