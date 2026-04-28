@@ -28,6 +28,7 @@ use std::sync::Arc;
 
 use stoa_core::ipfs::DeletionOutcome;
 use stoa_core::ipfs_backend::S3BackendConfig;
+use stoa_core::secret::resolve_secret_uri;
 
 use crate::post::ipfs_write::{IpfsBlockStore, IpfsWriteError};
 
@@ -46,8 +47,8 @@ impl S3BlockStore {
     pub async fn new(cfg: &S3BackendConfig) -> Result<Self, String> {
         use object_store::aws::AmazonS3Builder;
 
-        let access_key = resolve_secret_or_literal(cfg.access_key_id.as_deref()).await?;
-        let secret_key = resolve_secret_or_literal(cfg.secret_access_key.as_deref()).await?;
+        let access_key = resolve_secret_uri(cfg.access_key_id.clone(), "backend.s3.access_key_id").await?;
+        let secret_key = resolve_secret_uri(cfg.secret_access_key.clone(), "backend.s3.secret_access_key").await?;
 
         let mut builder = AmazonS3Builder::new()
             .with_bucket_name(&cfg.bucket)
@@ -72,14 +73,15 @@ impl S3BlockStore {
 
         let prefix = cfg.prefix.as_deref().unwrap_or("blocks").to_string();
 
-        // Startup probe: verify bucket reachability and write access.
-        let probe = OPath::from("_stoa_write_probe");
+        // Startup probe: verify bucket reachability and write access under the
+        // configured prefix so that prefix-restricted IAM policies are exercised.
+        let probe = OPath::from(format!("{prefix}/_stoa_write_probe"));
         store
             .put(&probe, PutPayload::from_static(b""))
             .await
             .map_err(|e| {
                 format!(
-                    "S3 backend startup probe failed (bucket '{}', region '{}'): {e}",
+                    "S3 backend startup probe failed (bucket '{}', prefix '{prefix}', region '{}'): {e}",
                     cfg.bucket, cfg.region
                 )
             })?;
@@ -159,29 +161,6 @@ impl IpfsBlockStore for S3BlockStore {
     }
 }
 
-/// Resolve a config value that may be a `secretx://` URI or a literal string.
-///
-/// Returns `Ok(None)` if `val` is `None` (credential omitted — use instance
-/// profile / IRSA on AWS).
-async fn resolve_secret_or_literal(val: Option<&str>) -> Result<Option<String>, String> {
-    match val {
-        None => Ok(None),
-        Some(s) if s.starts_with("secretx:") => {
-            let store =
-                secretx::from_uri(s).map_err(|e| format!("invalid secretx URI '{s}': {e}"))?;
-            let secret = store
-                .get()
-                .await
-                .map_err(|e| format!("secretx retrieval failed for '{s}': {e}"))?;
-            let string = std::str::from_utf8(secret.as_bytes())
-                .map_err(|e| format!("secretx value for '{s}' is not valid UTF-8: {e}"))?
-                .trim_end_matches('\n')
-                .to_string();
-            Ok(Some(string))
-        }
-        Some(s) => Ok(Some(s.to_string())),
-    }
-}
 
 #[cfg(test)]
 mod tests {
