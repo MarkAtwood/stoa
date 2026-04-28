@@ -14,7 +14,6 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use ed25519_dalek::SigningKey;
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use stoa_core::{group_log::MemLogStorage, hlc::HlcTimestamp, msgid_map::MsgIdMap};
 use stoa_transit::peering::pipeline::{run_pipeline, MemIpfsStore, PipelineCtx};
 
@@ -34,36 +33,28 @@ fn make_article(i: usize) -> Vec<u8> {
     .into_bytes()
 }
 
-async fn make_transit_pool(db_name: &str) -> sqlx::SqlitePool {
-    let url = format!("file:{db_name}?mode=memory&cache=shared");
-    let opts = SqliteConnectOptions::new()
-        .filename(&url)
-        .create_if_missing(true);
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
-        .await
-        .expect("in-memory transit SQLite pool");
-    stoa_transit::migrations::run_migrations(&pool)
+async fn make_transit_pool(_db_name: &str) -> (sqlx::AnyPool, tempfile::TempPath) {
+    let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+    let url = format!("sqlite://{}", tmp.to_str().unwrap());
+    stoa_transit::migrations::run_migrations(&url)
         .await
         .expect("transit migrations");
-    pool
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+        .await
+        .expect("in-memory transit pool");
+    (pool, tmp)
 }
 
-async fn make_msgid_pool(db_name: &str) -> sqlx::SqlitePool {
-    let url = format!("file:{db_name}?mode=memory&cache=shared");
-    let opts = SqliteConnectOptions::new()
-        .filename(&url)
-        .create_if_missing(true);
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(opts)
-        .await
-        .expect("in-memory SQLite pool");
-    stoa_core::migrations::run_migrations(&pool)
+async fn make_msgid_pool(_db_name: &str) -> (sqlx::AnyPool, tempfile::TempPath) {
+    let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+    let url = format!("sqlite://{}", tmp.to_str().unwrap());
+    stoa_core::migrations::run_migrations(&url)
         .await
         .expect("migrations");
-    pool
+    let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+        .await
+        .expect("msgid pool");
+    (pool, tmp)
 }
 
 #[tokio::main]
@@ -73,10 +64,10 @@ async fn main() {
     // ══════════════════════════════════════════════════════════════════════════
 
     let ipfs = MemIpfsStore::new();
-    let pool = make_msgid_pool("ihave_bench_throughput").await;
+    let (pool, _tmp_msgid) = make_msgid_pool("ihave_bench_throughput").await;
     let msgid_map = MsgIdMap::new(pool);
     let log_storage = MemLogStorage::new();
-    let transit_pool = make_transit_pool("ihave_bench_transit_throughput").await;
+    let (transit_pool, _tmp_transit) = make_transit_pool("ihave_bench_transit_throughput").await;
 
     let signing_key = SigningKey::from_bytes(&[0x42u8; 32]);
     let timestamp = HlcTimestamp {
@@ -98,6 +89,7 @@ async fn main() {
             verify_store: None,
             trusted_keys: &[],
             dkim_auth: None,
+            group_filter: None,
         };
         run_pipeline(article, &ipfs, &msgid_map, &log_storage, &transit_pool, ctx)
             .await
@@ -120,10 +112,10 @@ async fn main() {
     // ══════════════════════════════════════════════════════════════════════════
 
     let ipfs2 = MemIpfsStore::new();
-    let pool2 = make_msgid_pool("ihave_bench_latency").await;
+    let (pool2, _tmp_msgid2) = make_msgid_pool("ihave_bench_latency").await;
     let msgid_map2 = MsgIdMap::new(pool2);
     let log_storage2 = MemLogStorage::new();
-    let transit_pool2 = make_transit_pool("ihave_bench_transit_latency").await;
+    let (transit_pool2, _tmp_transit2) = make_transit_pool("ihave_bench_transit_latency").await;
 
     let mut latencies: Vec<Duration> = Vec::with_capacity(ARTICLE_COUNT);
 
@@ -141,6 +133,7 @@ async fn main() {
             verify_store: None,
             trusted_keys: &[],
             dkim_auth: None,
+            group_filter: None,
         };
         let t0 = Instant::now();
         run_pipeline(
