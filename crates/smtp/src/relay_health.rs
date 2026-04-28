@@ -79,21 +79,17 @@ impl PeerHealthState {
         }
     }
 
-    /// Record a delivery attempt against a peer.
-    pub fn record_attempt(&mut self, idx: usize) {
-        if let Some((_, status)) = self.peers.get_mut(idx) {
-            status.attempt_count += 1;
-        }
-    }
-
-    /// Select the next peer for delivery using round-robin among eligible peers.
+    /// Select the next peer for delivery and record the attempt atomically.
     ///
     /// A peer is eligible if:
     /// - it is marked up, OR
     /// - it has never failed (`last_failure` is `None`), OR
     /// - its last failure was more than `down_backoff` ago
     ///
-    /// Returns `(index, &SmtpRelayPeerConfig)` or `None` if no peers are eligible.
+    /// On success, advances the round-robin cursor and increments `attempt_count`
+    /// for the chosen peer in one step, so callers cannot forget to record the
+    /// attempt.  Returns `(index, &SmtpRelayPeerConfig)` or `None` if no peers
+    /// are eligible.
     pub fn select_peer(&mut self) -> Option<(usize, &SmtpRelayPeerConfig)> {
         let now = Instant::now();
         let n = self.peers.len();
@@ -121,8 +117,9 @@ impl PeerHealthState {
         let chosen_pos = eligible.iter().position(|&i| i >= start).unwrap_or(0);
         let chosen_idx = eligible[chosen_pos];
 
-        // Advance rr_index past the chosen peer for the next call.
+        // Advance rr_index and record the attempt atomically.
         self.rr_index = (chosen_idx + 1) % n;
+        self.peers[chosen_idx].1.attempt_count += 1;
 
         Some((chosen_idx, &self.peers[chosen_idx].0))
     }
@@ -255,14 +252,14 @@ mod tests {
     }
 
     #[test]
-    fn record_attempt_increments_count() {
+    fn select_peer_increments_attempt_count() {
         let mut state = PeerHealthState::new(
             vec![make_peer("smtp1.example.com")],
             Duration::from_secs(300),
         );
-        state.record_attempt(0);
-        state.record_attempt(0);
+        state.select_peer();
+        state.select_peer();
         let status = state.all_statuses().next().unwrap();
-        assert_eq!(status.attempt_count, 2);
+        assert_eq!(status.attempt_count, 2, "select_peer must increment attempt_count");
     }
 }

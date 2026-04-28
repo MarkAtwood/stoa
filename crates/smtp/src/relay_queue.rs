@@ -257,13 +257,12 @@ impl SmtpRelayQueue {
         envelope: &EnvelopeFile,
         article_bytes: &[u8],
     ) {
-        // Select peer and record attempt — hold lock briefly, drop before async call.
+        // Select peer and record attempt atomically — hold lock briefly, drop before async call.
         let (idx, peer_cfg) = {
             let mut health = self.health.lock().expect("health lock");
             match health.select_peer() {
                 Some((idx, cfg)) => {
                     let cfg = cfg.clone();
-                    health.record_attempt(idx);
                     (idx, cfg)
                 }
                 None => {
