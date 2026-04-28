@@ -264,9 +264,6 @@ pub async fn build_block_store(
                 )
                 .await
                 .map_err(|e| format!("sqlite store init failed: {e}"))?;
-                tracing::info!(
-                    "sqlite backend active — IPNS unavailable with this backend"
-                );
                 Ok(Arc::new(store))
             }
             BackendType::Filesystem => {
@@ -279,9 +276,6 @@ pub async fn build_block_store(
                     fs_cfg.max_bytes,
                 )
                 .map_err(|e| format!("filesystem store init failed: {e}"))?;
-                tracing::info!(
-                    "filesystem backend active — IPNS unavailable with this backend"
-                );
                 Ok(Arc::new(store))
             }
         }

@@ -211,9 +211,6 @@ pub async fn build_store(config: &crate::config::Config) -> Result<StoreBuildRes
                 )
                 .await
                 .map_err(|e| format!("sqlite store init failed: {e}"))?;
-                tracing::info!(
-                    "sqlite backend active — IPNS unavailable with this backend"
-                );
                 Ok(StoreBuildResult {
                     store: Arc::new(store),
                     kubo_client: None,
@@ -230,9 +227,6 @@ pub async fn build_store(config: &crate::config::Config) -> Result<StoreBuildRes
                         fs_cfg.max_bytes,
                     )
                     .map_err(|e| format!("filesystem store init failed: {e}"))?;
-                tracing::info!(
-                    "filesystem backend active — IPNS unavailable with this backend"
-                );
                 Ok(StoreBuildResult {
                     store: Arc::new(store),
                     kubo_client: None,

@@ -19,6 +19,7 @@ use stoa_core::ipfs::DeletionOutcome;
 use crate::post::ipfs_write::{IpfsBlockStore, IpfsWriteError};
 
 /// IPFS block store backed by a SQLite database.
+#[derive(Debug)]
 pub struct SqliteBlockStore {
     pool: sqlx::SqlitePool,
 }
@@ -51,6 +52,30 @@ impl SqliteBlockStore {
         .execute(&pool)
         .await
         .map_err(|e| format!("sqlite store: failed to create blocks table: {e}"))?;
+        // Fail fast if an existing table has an incompatible schema rather than
+        // discovering the mismatch at first article ingest.
+        sqlx::query("SELECT cid, codec, data, byte_size, stored_at FROM blocks LIMIT 0")
+            .execute(&pool)
+            .await
+            .map_err(|e| format!("sqlite store: blocks table schema is incompatible: {e}"))?;
+        // Stamp schema version 1 on first open; reject future-version databases.
+        let version: i64 = sqlx::query_scalar("PRAGMA user_version")
+            .fetch_one(&pool)
+            .await
+            .map_err(|e| format!("sqlite store: failed to read schema version: {e}"))?;
+        match version {
+            0 => sqlx::query("PRAGMA user_version = 1")
+                .execute(&pool)
+                .await
+                .map_err(|e| format!("sqlite store: failed to set schema version: {e}"))
+                .map(|_| ())?,
+            1 => {}
+            v => {
+                return Err(format!(
+                    "sqlite store: unsupported schema version {v} (expected 1)"
+                ))
+            }
+        }
         Ok(Self { pool })
     }
 
@@ -254,5 +279,69 @@ mod tests {
             .await
             .expect("open must create db file");
         assert!(db_path.exists(), "database file must exist after open");
+    }
+
+    #[tokio::test]
+    async fn open_detects_incompatible_schema() {
+        let tmp = tempfile::TempDir::new().expect("tempdir");
+        let db_path = tmp.path().join("bad.db");
+        let opts = SqliteConnectOptions::from_str(&format!("sqlite://{}", db_path.display()))
+            .unwrap()
+            .create_if_missing(true);
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(opts)
+            .await
+            .unwrap();
+        sqlx::query("CREATE TABLE blocks (cid TEXT NOT NULL PRIMARY KEY, data BLOB NOT NULL)")
+            .execute(&pool)
+            .await
+            .unwrap();
+        drop(pool);
+        let err = SqliteBlockStore::open(&db_path)
+            .await
+            .expect_err("incompatible schema must fail at open");
+        assert!(
+            err.contains("incompatible"),
+            "error must mention incompatibility: {err}"
+        );
+    }
+
+    #[tokio::test]
+    async fn open_rejects_future_schema_version() {
+        let tmp = tempfile::TempDir::new().expect("tempdir");
+        let db_path = tmp.path().join("future.db");
+        let opts = SqliteConnectOptions::from_str(&format!("sqlite://{}", db_path.display()))
+            .unwrap()
+            .create_if_missing(true);
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(opts)
+            .await
+            .unwrap();
+        sqlx::query(
+            "CREATE TABLE blocks (
+                cid TEXT NOT NULL PRIMARY KEY,
+                codec INTEGER NOT NULL,
+                data BLOB NOT NULL,
+                byte_size INTEGER NOT NULL,
+                stored_at INTEGER NOT NULL
+            )",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        sqlx::query("PRAGMA user_version = 99")
+            .execute(&pool)
+            .await
+            .unwrap();
+        drop(pool);
+        let err = SqliteBlockStore::open(&db_path)
+            .await
+            .expect_err("future schema version must fail at open");
+        assert!(
+            err.contains("unsupported schema version"),
+            "error must mention schema version: {err}"
+        );
     }
 }
