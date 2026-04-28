@@ -625,12 +625,9 @@ impl Config {
                     }
                 }
                 BackendType::Azure => {
-                    if backend.azure.is_none() {
-                        return Err(ConfigError::Validation(
-                            "backend.type = 'azure' requires a [backend.azure] section".into(),
-                        ));
-                    }
-                    let azure = backend.azure.as_ref().unwrap();
+                    let azure = backend.azure.as_ref().ok_or_else(|| ConfigError::Validation(
+                        "backend.type = 'azure' requires a [backend.azure] section".into(),
+                    ))?;
                     if azure.account.is_empty() {
                         return Err(ConfigError::Validation(
                             "backend.azure.account must not be empty".into(),
@@ -658,12 +655,9 @@ impl Config {
                     }
                 }
                 BackendType::Gcs => {
-                    if backend.gcs.is_none() {
-                        return Err(ConfigError::Validation(
-                            "backend.type = 'gcs' requires a [backend.gcs] section".into(),
-                        ));
-                    }
-                    let gcs = backend.gcs.as_ref().unwrap();
+                    let gcs = backend.gcs.as_ref().ok_or_else(|| ConfigError::Validation(
+                        "backend.type = 'gcs' requires a [backend.gcs] section".into(),
+                    ))?;
                     if gcs.bucket.is_empty() {
                         return Err(ConfigError::Validation(
                             "backend.gcs.bucket must not be empty".into(),
@@ -682,6 +676,11 @@ impl Config {
                                     "backend.gcs.service_account_key: invalid secretx URI: {e}"
                                 )));
                             }
+                        } else if !v.starts_with('{') {
+                            return Err(ConfigError::Validation(
+                                "backend.gcs.service_account_key must be a JSON object \
+                                 starting with '{' or a secretx:// URI".into(),
+                            ));
                         }
                     }
                 }

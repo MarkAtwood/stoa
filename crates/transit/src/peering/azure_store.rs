@@ -43,6 +43,12 @@ impl AzureStore {
             builder = builder.with_use_emulator(true);
         }
         if cfg.allow_http.unwrap_or(false) {
+            if !cfg.use_emulator.unwrap_or(false) {
+                tracing::warn!(
+                    "Azure backend: allow_http = true without use_emulator; \
+                     traffic to Azure Blob Storage will be transmitted unencrypted"
+                );
+            }
             builder = builder.with_allow_http(true);
         }
         let store = Arc::new(
