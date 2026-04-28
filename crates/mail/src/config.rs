@@ -121,12 +121,24 @@ fn default_smtp_peer_down_secs() -> u64 {
 }
 
 /// ActivityPub federation configuration.
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct ActivityPubConfig {
     /// Enable the ActivityPub federation endpoints (`/.well-known/webfinger`,
     /// `/ap/groups/{name}`, etc.).  Default: `false`.
     pub enabled: bool,
+    /// Verify HTTP Signatures on inbound `Create{Note}` activities.
+    /// Default: `true`.  Set to `false` for development/testing.
+    pub verify_http_signatures: bool,
+}
+
+impl Default for ActivityPubConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            verify_http_signatures: true,
+        }
+    }
 }
 
 /// Configuration for outbound SMTP relay delivery from the JMAP Email/set create path.

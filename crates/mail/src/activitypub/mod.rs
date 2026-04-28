@@ -11,6 +11,7 @@
 
 pub mod follower_store;
 pub mod http_sign;
+pub mod inbound;
 pub mod inbox;
 pub mod outbound;
 
@@ -23,7 +24,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-/// Runtime ActivityPub state: key + follower store.
+/// Runtime ActivityPub state: key, follower store, and dedup store.
 ///
 /// Placed in `AppState.activitypub` when `[activitypub] enabled = true` and
 /// a key is available.  `None` means ActivityPub is disabled.
@@ -32,6 +33,7 @@ pub struct ActivityPubState {
     /// outbound signing is skipped (useful in development / tests).
     pub key: Option<http_sign::RsaActorKey>,
     pub follower_store: Arc<follower_store::FollowerStore>,
+    pub received_store: Arc<inbound::ReceivedActivityStore>,
 }
 
 use crate::server::AppState;

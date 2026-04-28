@@ -2315,7 +2315,10 @@ mod tests {
         };
         (
             Arc::new(AppState {
-                activitypub_config: crate::config::ActivityPubConfig { enabled: true },
+                activitypub_config: crate::config::ActivityPubConfig {
+                    enabled: true,
+                    verify_http_signatures: false,
+                },
                 activitypub: None,
                 ..inner
             }),
