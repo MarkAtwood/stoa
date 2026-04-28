@@ -73,6 +73,7 @@ pub struct PinRule {
 /// Rules are checked in declaration order; the first matching rule wins.
 /// If no rule matches the article, `should_pin` returns `false` — pinning
 /// is explicit opt-in, not opt-out.
+#[derive(Clone)]
 pub struct PinPolicy {
     rules: Vec<PinRule>,
 }

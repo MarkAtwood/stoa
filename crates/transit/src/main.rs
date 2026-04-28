@@ -17,6 +17,7 @@ use stoa_transit::{
     admin::{start_admin_server, AdminPools},
     config::{check_admin_addr, Config},
     hlc_persist::{load_hlc_checkpoint, save_hlc_checkpoint},
+    instance_id::ensure_instance_node_id,
     peering::{
         auth::parse_trusted_peer_keys,
         blacklist::BlacklistConfig,
@@ -26,7 +27,11 @@ use stoa_transit::{
         session::{run_peering_session, PeeringShared},
     },
     retention::{
+        gc::{start_gc_scheduler, GcMetrics, GcRunner},
+        gc_candidates::select_gc_candidates,
         ipns_publisher::{IpnsEvent, IpnsPublisher},
+        pin_client::HttpPinClient,
+        policy::{PinPolicy, PinRule},
         remote_pin_worker::RemotePinWorker,
     },
     staging::StagingStore,
@@ -642,7 +647,15 @@ async fn main() {
             .clone()
             .expect("kubo_client_for_ipns set when enabled");
         let interval = config.ipns.republish_interval_secs;
-        tokio::spawn(IpnsPublisher::new(client, interval).run(rx));
+        // When using PostgreSQL, elect a single IPNS publisher via advisory lock
+        // (ky62.5): only the instance that holds IPNS_ADVISORY_LOCK_ID publishes.
+        let publisher = if config.database.url.starts_with("postgres") {
+            IpnsPublisher::new(client, interval)
+                .with_pg_lock((*transit_pool).clone())
+        } else {
+            IpnsPublisher::new(client, interval)
+        };
+        tokio::spawn(publisher.run(rx));
         info!(
             "IPNS publishing enabled (interval {}s)",
             config.ipns.republish_interval_secs
@@ -750,25 +763,27 @@ async fn main() {
         std::process::exit(1);
     });
 
+    // ── Local hostname (needed for HLC node_id and Path: header) ─────────────
+
+    let local_hostname: String = config
+        .operator
+        .hostname
+        .clone()
+        .unwrap_or_else(resolve_local_hostname);
+    info!(hostname = %local_hostname, "local hostname for Path: header");
+
     // ── HLC clock and ingestion queue ─────────────────────────────────────────
 
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_millis() as u64;
-    // Derive node_id from SHA-256 of the operator signing key's public bytes.
-    // Using the public key (not the libp2p peer_id) ensures the node_id is
-    // stable across restarts as long as the operator key file is unchanged,
-    // and is globally unique assuming Ed25519 keys are not reused across
-    // distinct operators.
-    let node_id = {
-        use sha2::{Digest, Sha256};
-        let pubkey_bytes = signing_key.verifying_key().to_bytes();
-        let hash = Sha256::digest(pubkey_bytes);
-        let mut id = [0u8; 8];
-        id.copy_from_slice(&hash[..8]);
-        id
-    };
+    // Derive node_id from a per-instance UUID stored in the transit database
+    // (usenet-ipfs-ky62.5).  Multiple transit instances sharing a signing key
+    // each get a distinct, stable node_id as long as they run on different
+    // hostnames.  For single-instance SQLite deployments, the value is
+    // generated once on first startup and reused across restarts.
+    let node_id = ensure_instance_node_id(&transit_pool, &local_hostname).await;
     // DECISION (rbe3.34): HLC checkpoint persisted across restarts for monotone timestamps
     //
     // Without persistence, a server restart resets the HLC logical counter to 0.
@@ -831,15 +846,6 @@ async fn main() {
     );
     let ingestion_sender = Arc::new(ingestion_sender);
 
-    // ── Local hostname for Path: header (Son-of-RFC-1036 §3.3) ───────────────
-
-    let local_hostname: String = config
-        .operator
-        .hostname
-        .clone()
-        .unwrap_or_else(resolve_local_hostname);
-    info!(hostname = %local_hostname, "local hostname for Path: header");
-
     // ── Optional TLS acceptor for inbound peering ─────────────────────────────
 
     let tls_acceptor: Option<Arc<tokio_rustls::TlsAcceptor>> = if let Some(ref tls_cfg) = config.tls
@@ -880,6 +886,12 @@ async fn main() {
     } else {
         None
     };
+
+    // Extract GC config before config.staging is moved (partial move workaround).
+    let gc_kubo_url: Option<String> = config.kubo_api_url().map(|s| s.to_string());
+    let gc_max_age_days: u64 = config.gc.max_age_days;
+    let gc_pinning_rules: Vec<String> = config.pinning.rules.clone();
+    let db_url_is_pg: bool = config.database.url.starts_with("postgres");
 
     // ── Write-ahead staging area (optional) ───────────────────────────────────
 
@@ -1173,6 +1185,78 @@ async fn main() {
         Arc::clone(&transit_pool),
         std::time::Duration::from_secs(60),
     ));
+
+    // ── GC scheduler (ky62.4) ─────────────────────────────────────────────────
+    //
+    // Only started when a Kubo API URL is configured (required for unpin).
+    // The GC interval is hardcoded to 1 hour; the cron schedule in config.gc
+    // is reserved for a future cron-expression parser.
+    //
+    // PG deployments use pg_try_advisory_lock(GC_ADVISORY_LOCK_ID) so that
+    // exactly one instance runs GC at a time.
+
+    if let Some(kubo_url) = gc_kubo_url {
+        // Build pin policy: each "pin-all" rule retains articles up to
+        // max_age_days; articles older than that become GC candidates.
+        let pin_rules: Vec<PinRule> = gc_pinning_rules
+            .iter()
+            .filter_map(|r| match r.as_str() {
+                "pin-all" => Some(PinRule {
+                    groups: "all".to_string(),
+                    max_age_days: Some(gc_max_age_days),
+                    max_article_bytes: None,
+                    action: "pin".to_string(),
+                }),
+                other => {
+                    warn!(rule = other, "GC: unrecognised pinning rule, ignored");
+                    None
+                }
+            })
+            .collect();
+
+        if !pin_rules.is_empty() {
+            let policy = PinPolicy::new(pin_rules);
+            let policy_for_candidates = policy.clone();
+            let pin_client = HttpPinClient::new(kubo_url);
+            let gc_metrics = GcMetrics::new();
+            let runner = GcRunner::new(pin_client, policy, Arc::clone(&gc_metrics));
+
+            let gc_transit = Arc::clone(&transit_pool);
+            let grace_ms = gc_max_age_days.saturating_mul(24 * 60 * 60 * 1000);
+
+            let candidates_fn = move || {
+                let pool = Arc::clone(&gc_transit);
+                let pol = policy_for_candidates.clone();
+                async move {
+                    let now = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_millis() as u64;
+                    select_gc_candidates(&pool, &pol, now, grace_ms)
+                        .await
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(Into::into)
+                        .collect()
+                }
+            };
+
+            let gc_lock = if db_url_is_pg {
+                Some((*transit_pool).clone())
+            } else {
+                None
+            };
+
+            start_gc_scheduler(
+                runner,
+                Duration::from_secs(3600),
+                candidates_fn,
+                gc_lock,
+            )
+            .await;
+            info!(interval_secs = 3600, "GC scheduler started");
+        }
+    }
 
     // ── Shutdown ──────────────────────────────────────────────────────────────
 

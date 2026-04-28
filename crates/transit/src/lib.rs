@@ -8,6 +8,7 @@ pub mod export;
 pub mod group_metrics;
 pub mod hlc_persist;
 pub mod import;
+pub mod instance_id;
 pub mod metrics;
 pub mod migrations;
 pub mod peering;

@@ -4,8 +4,15 @@
 //! evaluates each against the `PolicyEngine`, and unpins those that
 //! don't pass. The `start_gc_scheduler` function runs `run_once` on
 //! a `tokio::time::interval`.
+//!
+//! When `gc_lock` is `Some(pool)` (PostgreSQL deployments), each scheduled
+//! run is guarded by `pg_try_advisory_lock(GC_ADVISORY_LOCK_ID)`.  If the
+//! lock cannot be acquired another instance is already running GC, so the
+//! current run is skipped.  The lock is released immediately after the run
+//! completes.
 
 use cid::Cid;
+use sqlx::AnyPool;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -13,6 +20,43 @@ use std::time::Duration;
 use crate::retention::gc_candidates::GcArticleRecord;
 use crate::retention::pin_client::PinClient;
 use crate::retention::policy::{ArticleMeta, PinPolicy};
+
+/// PostgreSQL session-level advisory lock ID reserved for the GC scheduler.
+///
+/// Chosen to be memorable and unlikely to collide with application locks:
+/// derived from the epic ID (ky62) and purpose (GC = 1).
+pub const GC_ADVISORY_LOCK_ID: i64 = 6_200_000_001;
+
+/// Try to acquire a PostgreSQL session-level advisory lock.
+///
+/// Returns `true` if the lock was acquired (or if `pool` is `None`, i.e.
+/// this is a SQLite deployment where locking is not needed).
+/// Returns `false` if another session already holds the lock.
+async fn try_gc_lock(pool: Option<&AnyPool>) -> bool {
+    let pool = match pool {
+        Some(p) => p,
+        None => return true,
+    };
+    sqlx::query_scalar::<_, bool>("SELECT pg_try_advisory_lock(?)")
+        .bind(GC_ADVISORY_LOCK_ID)
+        .fetch_one(pool)
+        .await
+        .unwrap_or(false)
+}
+
+/// Release the PostgreSQL advisory lock acquired by `try_gc_lock`.
+///
+/// No-op when `pool` is `None`.
+async fn release_gc_lock(pool: Option<&AnyPool>) {
+    let pool = match pool {
+        Some(p) => p,
+        None => return,
+    };
+    let _ = sqlx::query("SELECT pg_advisory_unlock(?)")
+        .bind(GC_ADVISORY_LOCK_ID)
+        .execute(pool)
+        .await;
+}
 
 /// Metrics for the GC run.
 #[derive(Debug, Default)]
@@ -148,10 +192,15 @@ impl<P: PinClient> GcRunner<P> {
 /// The `candidates_fn` closure is called before each GC run to fetch
 /// the current list of candidates. This decouples the GC scheduler from
 /// the storage backend.
+///
+/// `gc_lock`: when `Some(pool)` (PostgreSQL deployments), each run is
+/// guarded by a `pg_try_advisory_lock`.  If the lock is held by another
+/// instance the run is skipped with a debug log.  For SQLite pass `None`.
 pub async fn start_gc_scheduler<P, F, Fut>(
     runner: GcRunner<P>,
     interval: Duration,
     candidates_fn: F,
+    gc_lock: Option<AnyPool>,
 ) where
     P: PinClient + 'static,
     F: Fn() -> Fut + Send + 'static,
@@ -162,12 +211,22 @@ pub async fn start_gc_scheduler<P, F, Fut>(
         ticker.tick().await; // skip the immediate first tick
         loop {
             ticker.tick().await;
+
+            if !try_gc_lock(gc_lock.as_ref()).await {
+                tracing::debug!(
+                    "GC: advisory lock held by another instance, skipping this run"
+                );
+                continue;
+            }
+
             let now_ms = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_millis() as u64;
             let candidates = candidates_fn().await;
             runner.run_once(&candidates, now_ms).await;
+
+            release_gc_lock(gc_lock.as_ref()).await;
         }
     });
 }

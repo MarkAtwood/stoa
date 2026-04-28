@@ -8,15 +8,27 @@
 //!
 //! Rate limiting: a minimum interval between consecutive publishes prevents
 //! excessive DHT traffic on high-volume ingestion nodes.
+//!
+//! Multi-instance single-writer (ky62.5): when `pg_lock` is `Some(pool)`
+//! (PostgreSQL deployment), only the instance that holds
+//! `pg_try_advisory_lock(IPNS_ADVISORY_LOCK_ID)` actually publishes to IPNS.
+//! Others drain events and update their local group map but skip the actual
+//! publish, so they remain ready to take over if the lock-holder dies.
 
 use cid::Cid;
 use multihash_codetable::{Code, MultihashDigest};
+use sqlx::AnyPool;
 use std::collections::BTreeMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 
 use stoa_core::ipfs::KuboHttpClient;
+
+/// PostgreSQL advisory lock ID reserved for the IPNS publisher.
+///
+/// Only the instance that holds this lock publishes to IPNS.
+pub const IPNS_ADVISORY_LOCK_ID: i64 = 6_200_000_002;
 
 /// Event sent by the drain task each time an article is successfully ingested.
 pub struct IpnsEvent {
@@ -35,6 +47,9 @@ pub struct IpnsPublisher {
     republish_interval_ms: u64,
     /// Wall-clock time of the last successful publish (ms since UNIX epoch).
     last_publish_ms: u64,
+    /// When `Some`, use `pg_try_advisory_lock` before each publish so only
+    /// one transit instance publishes IPNS in a multi-instance deployment.
+    pg_lock: Option<AnyPool>,
 }
 
 impl IpnsPublisher {
@@ -44,24 +59,56 @@ impl IpnsPublisher {
             groups: BTreeMap::new(),
             republish_interval_ms: republish_interval_secs.saturating_mul(1000),
             last_publish_ms: 0,
+            pg_lock: None,
         }
     }
 
+    /// Enable PostgreSQL advisory lock for single-writer IPNS publishing.
+    ///
+    /// Call this before `.run()` for PostgreSQL deployments.  When set, only
+    /// the instance that can acquire `IPNS_ADVISORY_LOCK_ID` will actually
+    /// publish; others silently drain events without publishing.
+    pub fn with_pg_lock(mut self, pool: AnyPool) -> Self {
+        self.pg_lock = Some(pool);
+        self
+    }
+
     /// Receive ingestion events and publish the IPNS index on each one,
-    /// subject to the configured rate limit.
+    /// subject to the configured rate limit and advisory lock.
     pub async fn run(mut self, mut rx: mpsc::Receiver<IpnsEvent>) {
         info!("IPNS publisher started");
         while let Some(event) = rx.recv().await {
             self.groups.insert(event.group.clone(), event.cid);
             let now_ms = now_ms();
             if now_ms.saturating_sub(self.last_publish_ms) >= self.republish_interval_ms {
-                self.update_and_publish().await;
-                self.last_publish_ms = now_ms;
+                if self.can_publish().await {
+                    self.update_and_publish().await;
+                    self.last_publish_ms = now_ms;
+                } else {
+                    debug!(group = %event.group, "IPNS publish skipped (advisory lock held by another instance)");
+                }
             } else {
                 debug!(group = %event.group, "IPNS publish skipped (rate limit)");
             }
         }
         info!("IPNS publisher stopped");
+    }
+
+    /// Returns `true` if this instance is allowed to publish.
+    ///
+    /// When `pg_lock` is `None` (SQLite / single-instance), always returns `true`.
+    /// When `pg_lock` is `Some`, attempts `pg_try_advisory_lock`; returns whether
+    /// the lock was acquired.
+    async fn can_publish(&self) -> bool {
+        let pool = match &self.pg_lock {
+            Some(p) => p,
+            None => return true,
+        };
+        sqlx::query_scalar::<_, bool>("SELECT pg_try_advisory_lock(?)")
+            .bind(IPNS_ADVISORY_LOCK_ID)
+            .fetch_one(pool)
+            .await
+            .unwrap_or(false)
     }
 
     /// Build the JSON index, store it as an IPFS block in Kubo, then publish IPNS.
