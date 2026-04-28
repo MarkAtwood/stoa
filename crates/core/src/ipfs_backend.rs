@@ -50,6 +50,9 @@ pub struct BackendConfig {
     /// Transit only; requires the `rados` Cargo feature and `librados-dev` at build time.
     #[serde(default)]
     pub rados: Option<RadosBackendConfig>,
+    /// PostgreSQL BYTEA block store settings.  Required when `type = "pg_blob"`.
+    #[serde(default)]
+    pub pg_blob: Option<PgBlobBackendConfig>,
 }
 
 /// Backend type discriminator.
@@ -68,6 +71,9 @@ pub enum BackendType {
     /// Native Ceph RADOS backend.  Transit only; not available in reader.
     /// Requires the `rados` Cargo feature and `librados-dev` at build time.
     Rados,
+    /// PostgreSQL BYTEA block store.  Stores blocks in a `blocks` table in the
+    /// operator's existing PostgreSQL or Aurora instance.
+    PgBlob,
 }
 
 /// Configuration for the Kubo HTTP RPC backend.
@@ -361,6 +367,46 @@ pub struct RocksDbBackendConfig {
     /// Increase for read-heavy workloads.
     #[serde(default)]
     pub cache_size_mb: Option<u64>,
+}
+
+/// Configuration for the PostgreSQL BYTEA block store backend.
+///
+/// ## Schema
+///
+/// A `blocks` table is created (or verified) at startup:
+/// ```sql
+/// CREATE TABLE IF NOT EXISTS blocks (
+///     cid       TEXT    NOT NULL PRIMARY KEY,
+///     codec     INTEGER NOT NULL,
+///     data      BYTEA   NOT NULL,
+///     byte_size INTEGER NOT NULL,
+///     stored_at BIGINT  NOT NULL  -- unix milliseconds
+/// );
+/// ```
+///
+/// ## Sizing
+///
+/// Suitable for single-operator instances up to ~50–100 GB.  For larger
+/// deployments, use S3 or a dedicated object store.
+///
+/// ## Transactional consistency
+///
+/// When `database_url` targets the same PostgreSQL instance as the metadata
+/// plane (article_numbers, msgid_map), the operator can wrap block writes and
+/// metadata writes in a single transaction.  If either write fails the other
+/// is also rolled back, preventing orphaned CIDs.
+///
+/// ## GC
+///
+/// `delete()` is transactional and returns [`DeletionOutcome::Immediate`].
+/// The article is inaccessible as soon as the DELETE transaction commits.
+#[derive(Debug, Deserialize, Clone)]
+pub struct PgBlobBackendConfig {
+    /// PostgreSQL connection URL (e.g. `"postgres://user:pass@host/dbname"`).
+    /// Accepts `secretx://` URIs for the password component (standard URL
+    /// percent-encoding: `postgres://user:secretx%3A%2F%2Fenv%2FPGPASSWORD@host/db`).
+    /// For operators already running Aurora, use the same URL as the metadata plane.
+    pub database_url: String,
 }
 
 /// Configuration for the native Ceph RADOS block store backend.

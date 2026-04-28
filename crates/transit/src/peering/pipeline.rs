@@ -333,6 +333,11 @@ pub async fn build_store(config: &crate::config::Config) -> Result<StoreBuildRes
                     kubo_client: None,
                 })
             }
+            BackendType::PgBlob => {
+                Err("backend.type = 'pg_blob' is not supported in stoa-transit; \
+                     use the SQLite or filesystem backend for embedded storage, \
+                     or S3 for cloud storage".into())
+            }
             BackendType::Rados => {
                 #[cfg(not(feature = "rados"))]
                 return Err(

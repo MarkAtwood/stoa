@@ -338,6 +338,16 @@ pub async fn build_block_store(
                 .map_err(|e| format!("RocksDB store init failed: {e}"))?;
                 Ok(Arc::new(store))
             }
+            BackendType::PgBlob => {
+                let pg_cfg = backend
+                    .pg_blob
+                    .as_ref()
+                    .ok_or("backend.type = 'pg_blob' requires a [backend.pg_blob] section")?;
+                let store = super::pg_store::PgBlockStore::new(pg_cfg)
+                    .await
+                    .map_err(|e| format!("pg block store init failed: {e}"))?;
+                Ok(Arc::new(store))
+            }
             BackendType::Rados => Err(
                 "backend.type = 'rados' is not supported in stoa-reader;                  use the S3 backend pointed at RADOS Gateway instead".into(),
             ),

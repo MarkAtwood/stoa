@@ -6,8 +6,8 @@ use std::path::Path;
 // reader config validation code can use them without a long path prefix.
 pub use stoa_core::ipfs_backend::{
     AzureBackendConfig, BackendConfig, BackendType, FsBackendConfig, GcsBackendConfig,
-    KuboBackendConfig, LmdbBackendConfig, RocksDbBackendConfig, S3BackendConfig,
-    SqliteBackendConfig, WebDavBackendConfig,
+    KuboBackendConfig, LmdbBackendConfig, PgBlobBackendConfig, RocksDbBackendConfig,
+    S3BackendConfig, SqliteBackendConfig, WebDavBackendConfig,
 };
 
 /// Default hostname for the NNTP Path: header injected on POST.
@@ -737,6 +737,18 @@ impl Config {
                     if rocksdb.path.is_empty() {
                         return Err(ConfigError::Validation(
                             "backend.rocksdb.path must not be empty".into(),
+                        ));
+                    }
+                }
+                BackendType::PgBlob => {
+                    let pg = backend.pg_blob.as_ref().ok_or_else(|| {
+                        ConfigError::Validation(
+                            "backend.type = 'pg_blob' requires a [backend.pg_blob] section".into(),
+                        )
+                    })?;
+                    if pg.database_url.is_empty() {
+                        return Err(ConfigError::Validation(
+                            "backend.pg_blob.database_url must not be empty".into(),
                         ));
                     }
                 }
@@ -1965,6 +1977,97 @@ type = "sqlite"
         let f = write_toml(toml);
         let err = Config::from_file(f.path())
             .expect_err("sqlite without subsection must fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend] with type = "pg_blob" and a [backend.pg_blob] section parses and validates.
+    #[test]
+    fn backend_pg_blob_section_parses() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "pg_blob"
+
+[backend.pg_blob]
+database_url = "postgres://stoa:secret@localhost/stoa"
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("pg_blob backend config must parse");
+        let backend = cfg.backend.as_ref().expect("backend must be set");
+        assert!(matches!(backend.backend_type, BackendType::PgBlob));
+        assert_eq!(
+            backend.pg_blob.as_ref().map(|p| p.database_url.as_str()),
+            Some("postgres://stoa:secret@localhost/stoa")
+        );
+    }
+
+    /// [backend] with type = "pg_blob" but no [backend.pg_blob] section is rejected.
+    #[test]
+    fn backend_pg_blob_without_subsection_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "pg_blob"
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("pg_blob without subsection must fail validation");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend.pg_blob] with empty database_url is rejected.
+    #[test]
+    fn backend_pg_blob_empty_url_rejected() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "pg_blob"
+
+[backend.pg_blob]
+database_url = ""
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("pg_blob with empty database_url must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"

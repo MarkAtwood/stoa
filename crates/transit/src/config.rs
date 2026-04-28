@@ -756,6 +756,11 @@ impl Config {
                         ));
                     }
                 }
+                BackendType::PgBlob => {
+                    return Err(ConfigError::Validation(
+                        "backend.type = 'pg_blob' is not supported in stoa-transit".into(),
+                    ));
+                }
                 BackendType::Rados => {
                     let rados = backend.rados.as_ref().ok_or_else(|| {
                         ConfigError::Validation(
