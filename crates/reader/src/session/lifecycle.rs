@@ -649,13 +649,21 @@ where
             .unwrap_or("UNKNOWN")
             .to_uppercase();
         let cmd_start = std::time::Instant::now();
-        let resp = dispatch(
-            ctx,
-            cmd,
-            &config.auth,
-            &stores.client_cert_store,
-            &stores.trusted_issuer_store,
-        );
+        let resp = {
+            let _span = tracing::info_span!(
+                "nntp.command",
+                "nntp.command" = %cmd_label,
+                "net.peer.ip" = %peer_addr,
+            )
+            .entered();
+            dispatch(
+                ctx,
+                cmd,
+                &config.auth,
+                &stores.client_cert_store,
+                &stores.trusted_issuer_store,
+            )
+        };
         crate::metrics::NNTP_COMMAND_DURATION_SECONDS
             .with_label_values(&[cmd_label.as_str()])
             .observe(cmd_start.elapsed().as_secs_f64());

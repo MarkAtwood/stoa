@@ -326,16 +326,22 @@ async fn main() {
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(&config.log.level));
 
-    if config.log.format == "json" {
-        tracing_subscriber::fmt()
-            .json()
-            .with_env_filter(filter)
-            .init();
-    } else {
-        tracing_subscriber::fmt().with_env_filter(filter).init();
-    }
-
     let _otel_guard = stoa_reader::telemetry::init_telemetry(&config.telemetry);
+    let otel_trace_layer = tracing_opentelemetry::layer()
+        .with_tracer(opentelemetry::global::tracer("stoa-reader"));
+
+    use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+    let (json_fmt, text_fmt) = if config.log.format == "json" {
+        (Some(tracing_subscriber::fmt::layer().json()), None)
+    } else {
+        (None, Some(tracing_subscriber::fmt::layer()))
+    };
+    tracing_subscriber::registry()
+        .with(filter)
+        .with(json_fmt)
+        .with(text_fmt)
+        .with(otel_trace_layer)
+        .init();
 
     let check_errors = run_startup_checks(&config).await;
     if !check_errors.is_empty() {
