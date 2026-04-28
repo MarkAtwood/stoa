@@ -8,13 +8,14 @@
 //! - `GET /health`           — liveness check with uptime
 //! - `GET /stats`            — article, pin, group, and peer counts from SQLite
 //! - `GET /log-tip?group=X`  — tip CID and entry count for a group log
-//! - `GET /peers`            — list of active (non-blacklisted) peers
+//! - `GET /peers`            — extended health info for active (non-blacklisted) peers
+//! - `GET /peers/<addr>/ping` — TCP liveness probe for a peer address (returns latency_ms)
 //! - `GET /metrics`          — Prometheus text format (delegates to [`crate::metrics`])
 //! - `GET /pinning/remote`   — per-service job counts from the remote pin jobs table
 //! - `GET /ipns`             — IPNS address and latest article CID per group
 //! - `GET /version`          — binary name and semver version
 //! - `GET /groups`           — distinct group names known to this node
-//! - `POST /reload`          — stub; returns HTTP 501 with `{"reloaded":false}` until config reload is implemented
+//! - `POST /reload`          — re-checks TLS cert expiry; returns 200 with `{"reloaded":false}` (full reload not yet implemented)
 //!
 //! ## Authorization model (v1 limitation)
 //!
@@ -311,19 +312,25 @@ async fn handle_admin_connection(
                 },
             }
         }
-        "/peers" => match build_peers_json(pool).await {
-            Ok(body) => write_json(&mut writer, 200, "OK", &body).await?,
-            Err(e) => {
-                tracing::warn!("admin /peers error: {e}");
-                write_json(
-                    &mut writer,
-                    500,
-                    "Internal Server Error",
-                    r#"{"error":"internal server error"}"#,
-                )
-                .await?;
+        "/peers" => {
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as i64;
+            match build_peers_json(pool, now_ms).await {
+                Ok(body) => write_json(&mut writer, 200, "OK", &body).await?,
+                Err(e) => {
+                    tracing::warn!("admin /peers error: {e}");
+                    write_json(
+                        &mut writer,
+                        500,
+                        "Internal Server Error",
+                        r#"{"error":"internal server error"}"#,
+                    )
+                    .await?;
+                }
             }
-        },
+        }
         "/metrics" => {
             let body = crate::metrics::gather_metrics();
             let content_length = body.len();
@@ -505,6 +512,28 @@ async fn handle_admin_connection(
             })
             .to_string();
             write_json(&mut writer, 200, "OK", &body).await?;
+        }
+        path if path.starts_with("/peers/") && path.ends_with("/ping") => {
+            let encoded_addr = &path["/peers/".len()..path.len() - "/ping".len()];
+            let address = percent_decode(encoded_addr);
+            if address.is_empty() {
+                write_json(
+                    &mut writer,
+                    400,
+                    "Bad Request",
+                    r#"{"error":"missing peer address"}"#,
+                )
+                .await?;
+            } else {
+                let (reachable, latency_ms) = ping_peer(&address).await;
+                let body = serde_json::json!({
+                    "address": address,
+                    "reachable": reachable,
+                    "latency_ms": latency_ms,
+                })
+                .to_string();
+                write_json(&mut writer, 200, "OK", &body).await?;
+            }
         }
         _ => {
             write_json(&mut writer, 404, "Not Found", r#"{"error":"not found"}"#).await?;
@@ -769,25 +798,71 @@ pub async fn build_pinning_remote_json(pool: &AnyPool) -> Result<String, sqlx::E
     Ok(serde_json::to_string(&result).unwrap_or_else(|_| "[]".to_string()))
 }
 
-pub(crate) async fn build_peers_json(pool: &AnyPool) -> Result<String, sqlx::Error> {
-    let rows: Vec<(String, String)> = sqlx::query_as(
-        "SELECT peer_id, address FROM peers WHERE blacklisted_until IS NULL OR blacklisted_until = 0",
-    )
-    .fetch_all(pool)
-    .await
-    .unwrap_or_default();
+/// Returns JSON array of active (non-blacklisted) peers with extended health fields.
+///
+/// Fields per peer:
+/// - `peer_id` — unique identifier
+/// - `address` — configured host:port
+/// - `connected` — true when `last_seen_ms` is within the last 5 minutes (liveness proxy)
+/// - `last_seen` — ISO8601 UTC timestamp of last successful article exchange
+/// - `articles_received` — articles accepted from this peer since daemon start
+/// - `articles_rejected` — articles rejected from this peer since daemon start
+/// - `consecutive_failures` — current run of consecutive rejection events
+/// - `health_score` — composite score in [0.0, 1.0] (see `peer_score`)
+/// - `configured` — true when this peer appears in operator config
+pub(crate) async fn build_peers_json(
+    pool: &AnyPool,
+    now_ms: i64,
+) -> Result<String, sqlx::Error> {
+    use crate::peering::peer_registry::{peer_score, PeerRegistry};
 
-    let peers: Vec<serde_json::Value> = rows
-        .into_iter()
-        .map(|(peer_id, addr)| {
+    let registry = PeerRegistry::new(pool.clone());
+    let records = registry
+        .list_active(now_ms)
+        .await
+        .map_err(|e| sqlx::Error::Protocol(e.to_string()))?;
+
+    const CONNECTED_WINDOW_MS: i64 = 300_000; // 5 minutes
+
+    let peers: Vec<serde_json::Value> = records
+        .iter()
+        .map(|r| {
+            let connected = r.last_seen_ms > now_ms - CONNECTED_WINDOW_MS;
+            let last_seen = chrono::DateTime::from_timestamp(r.last_seen_ms / 1000, 0)
+                .map(|t: chrono::DateTime<chrono::Utc>| t.format("%Y-%m-%dT%H:%M:%SZ").to_string())
+                .unwrap_or_else(|| r.last_seen_ms.to_string());
             serde_json::json!({
-                "peer_id": peer_id,
-                "addr": addr,
+                "peer_id": r.peer_id,
+                "address": r.address,
+                "connected": connected,
+                "last_seen": last_seen,
+                "articles_received": r.articles_accepted,
+                "articles_rejected": r.articles_rejected,
+                "consecutive_failures": r.consecutive_failures,
+                "health_score": peer_score(r),
+                "configured": r.configured,
             })
         })
         .collect();
 
     Ok(serde_json::to_string(&peers).unwrap_or_else(|_| "[]".to_string()))
+}
+
+/// Attempt a TCP connection to `address` and measure round-trip latency.
+///
+/// Returns `(reachable, latency_ms)`.  A 5-second timeout applies; on timeout
+/// or connection refused, `reachable` is `false` and `latency_ms` is `None`.
+async fn ping_peer(address: &str) -> (bool, Option<u64>) {
+    use std::time::Instant;
+    const PING_TIMEOUT: Duration = Duration::from_secs(5);
+    let start = Instant::now();
+    match tokio::time::timeout(PING_TIMEOUT, tokio::net::TcpStream::connect(address)).await {
+        Ok(Ok(_stream)) => {
+            let latency_ms = start.elapsed().as_millis() as u64;
+            (true, Some(latency_ms))
+        }
+        Ok(Err(_)) | Err(_) => (false, None),
+    }
 }
 
 /// Build JSON for `GET /ipns`.
@@ -935,8 +1010,93 @@ mod tests {
     #[tokio::test]
     async fn peers_returns_empty_array_on_empty_db() {
         let pool = make_pool().await;
-        let json = build_peers_json(&pool).await.unwrap();
+        let now_ms = 1700000000000i64;
+        let json = build_peers_json(&pool, now_ms).await.unwrap();
         assert_eq!(json, "[]", "expected empty array: {json}");
+    }
+
+    #[tokio::test]
+    async fn peers_returns_extended_fields_for_known_peer() {
+        use crate::peering::peer_registry::{PeerRecord, PeerRegistry};
+
+        let pool = make_pool().await;
+        let now_ms = 1700000000000i64;
+
+        // Insert a peer seen 60 seconds ago (within the 5-minute connected window).
+        let registry = PeerRegistry::new((*pool).clone());
+        registry
+            .upsert(&PeerRecord {
+                peer_id: "test-peer-id".to_string(),
+                address: "192.0.2.1:119".to_string(),
+                last_seen_ms: now_ms - 60_000,
+                articles_accepted: 42,
+                articles_rejected: 3,
+                consecutive_failures: 0,
+                blacklisted_until_ms: None,
+                configured: true,
+            })
+            .await
+            .unwrap();
+
+        let json = build_peers_json(&pool, now_ms).await.unwrap();
+        let arr: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(arr.as_array().unwrap().len(), 1);
+        let peer = &arr[0];
+        assert_eq!(peer["peer_id"], "test-peer-id");
+        assert_eq!(peer["address"], "192.0.2.1:119");
+        assert_eq!(peer["connected"], true, "seen 60s ago should be connected");
+        assert!(peer["last_seen"].is_string(), "last_seen must be a string");
+        assert_eq!(peer["articles_received"], 42);
+        assert_eq!(peer["articles_rejected"], 3);
+        assert_eq!(peer["consecutive_failures"], 0);
+        assert!(
+            peer["health_score"].as_f64().is_some(),
+            "health_score must be a float"
+        );
+        assert_eq!(peer["configured"], true);
+    }
+
+    #[tokio::test]
+    async fn peers_connected_false_when_stale() {
+        use crate::peering::peer_registry::{PeerRecord, PeerRegistry};
+
+        let pool = make_pool().await;
+        let now_ms = 1700000000000i64;
+
+        // Insert a peer last seen 10 minutes ago (outside the 5-minute window).
+        let registry = PeerRegistry::new((*pool).clone());
+        registry
+            .upsert(&PeerRecord {
+                peer_id: "stale-peer".to_string(),
+                address: "192.0.2.2:119".to_string(),
+                last_seen_ms: now_ms - 600_000,
+                articles_accepted: 0,
+                articles_rejected: 0,
+                consecutive_failures: 0,
+                blacklisted_until_ms: None,
+                configured: false,
+            })
+            .await
+            .unwrap();
+
+        let json = build_peers_json(&pool, now_ms).await.unwrap();
+        let arr: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(arr[0]["connected"], false, "stale peer must not be connected");
+    }
+
+    #[test]
+    fn percent_decode_passthrough() {
+        assert_eq!(percent_decode("192.0.2.1"), "192.0.2.1");
+    }
+
+    #[test]
+    fn percent_decode_colon() {
+        assert_eq!(percent_decode("192.0.2.1%3A119"), "192.0.2.1:119");
+    }
+
+    #[test]
+    fn percent_decode_mixed() {
+        assert_eq!(percent_decode("peer.example.com%3A119"), "peer.example.com:119");
     }
 
     #[tokio::test]
