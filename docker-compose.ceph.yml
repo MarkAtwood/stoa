@@ -1,0 +1,42 @@
+# Docker Compose file for local Ceph RADOS block store integration testing.
+#
+# Usage:
+#   docker-compose -f docker-compose.ceph.yml up -d
+#   # Wait ~60s for the cluster to be ready (health check will turn green).
+#   # Extract credentials:
+#   docker exec stoa_test_ceph cat /etc/ceph/ceph.conf > /tmp/ceph.conf
+#   docker exec stoa_test_ceph ceph auth get-or-create-key client.stoa_test \
+#       mon 'allow r' osd 'allow rwx pool=stoa_test' \
+#       >> /tmp/ceph.conf
+#   docker exec stoa_test_ceph ceph osd pool create stoa_test 8
+#   export TEST_RADOS_CONF=/tmp/ceph.conf
+#   export TEST_RADOS_POOL=stoa_test
+#   export TEST_RADOS_USER=admin
+#   cargo test --features rados -p stoa-transit --test rados_integration
+#   docker-compose -f docker-compose.ceph.yml down -v
+#
+# The quay.io/ceph/demo image runs a single-node Ceph cluster (mon, osd, mgr,
+# mds, rgw).  It is large (~1 GB) and takes ~60 s to become healthy.
+# Use tmpfs for the OSD journal to avoid slow disk I/O in CI.
+#
+# Note: this image requires kernel support for the loop device and sufficient
+# /tmp space (~2 GB).  On Linux desktop/CI this works without extra setup.
+
+services:
+  ceph:
+    image: quay.io/ceph/demo:latest
+    container_name: stoa_test_ceph
+    environment:
+      MON_IP: "127.0.0.1"
+      CEPH_PUBLIC_NETWORK: "127.0.0.0/8"
+      CEPH_DEMO_UID: stoa_demo
+      CEPH_DEMO_ACCESS_KEY: stoa_demo_ak
+      CEPH_DEMO_SECRET_KEY: stoa_demo_sk
+    network_mode: host
+    privileged: true
+    healthcheck:
+      test: ["CMD-SHELL", "ceph health | grep -q HEALTH_OK"]
+      interval: 10s
+      timeout: 15s
+      retries: 18
+      start_period: 30s
