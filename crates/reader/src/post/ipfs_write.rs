@@ -254,7 +254,18 @@ pub fn build_block_store(
                 Ok(Arc::new(store))
             }
             BackendType::S3 => Err("S3 backend is not yet implemented".to_string()),
-            BackendType::Filesystem => Err("filesystem backend is not yet implemented".to_string()),
+            BackendType::Filesystem => {
+                let fs_cfg = backend
+                    .filesystem
+                    .as_ref()
+                    .ok_or("backend.type = 'filesystem' requires a [backend.filesystem] section")?;
+                let store = super::fs_store::FsBlockStore::open(std::path::Path::new(&fs_cfg.path))
+                    .map_err(|e| format!("filesystem store init failed: {e}"))?;
+                tracing::info!(
+                    "filesystem backend active — IPNS unavailable with this backend"
+                );
+                Ok(Arc::new(store))
+            }
         }
     } else {
         // Backward-compat: use legacy [ipfs] section.

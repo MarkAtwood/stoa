@@ -1,6 +1,7 @@
 pub mod did_passthrough;
 pub mod did_verify;
 pub mod injection;
+pub mod fs_store;
 pub mod ipfs_write;
 pub mod lmdb_store;
 pub mod log_append;

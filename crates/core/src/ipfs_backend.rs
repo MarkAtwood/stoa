@@ -15,7 +15,7 @@ use serde::Deserialize;
 /// compatibility; when both are present `[backend]` takes precedence.
 #[derive(Debug, Deserialize, Clone)]
 pub struct BackendConfig {
-    /// Backend discriminator.  Supported values: `"kubo"`, `"lmdb"`.
+    /// Backend discriminator.  Supported values: `"kubo"`, `"lmdb"`, `"filesystem"`.
     #[serde(rename = "type")]
     pub backend_type: BackendType,
     /// Kubo-specific settings.  Required when `type = "kubo"`.
@@ -24,7 +24,7 @@ pub struct BackendConfig {
     /// S3-specific settings (not yet implemented).
     #[serde(default)]
     pub s3: Option<S3BackendConfig>,
-    /// Filesystem-specific settings (not yet implemented).
+    /// Filesystem-specific settings.  Required when `type = "filesystem"`.
     #[serde(default)]
     pub filesystem: Option<FsBackendConfig>,
     /// LMDB-specific settings.  Required when `type = "lmdb"`.
@@ -57,10 +57,10 @@ pub struct KuboBackendConfig {
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct S3BackendConfig {}
 
-/// Placeholder — filesystem backend not yet implemented.
+/// Configuration for the filesystem block store backend.
 #[derive(Debug, Deserialize, Clone)]
 pub struct FsBackendConfig {
-    /// Root directory for block files.
+    /// Root directory for block files.  Created at startup if absent.
     pub path: String,
 }
 

@@ -576,23 +576,17 @@ impl Config {
                         }
                     }
                 }
-                // DECISION (rbe3.29): unimplemented backends rejected at config validation
-                //
-                // BackendType::S3 and BackendType::Filesystem exist in the enum for
-                // future use.  Without this explicit rejection at config load time, an
-                // operator who writes `type = "s3"` would start the daemon successfully
-                // and only discover the error when the factory function panics or returns
-                // an uninformative error mid-startup.  Failing fast here produces a clear
-                // error message naming the unimplemented variants and directing the
-                // operator to the supported alternatives.
-                // S3 and Filesystem are declared in the enum for future use but are not
-                // yet implemented.  Reject them at config load time so the daemon fails
-                // fast with a clear message instead of panicking in the factory function.
-                BackendType::S3 | BackendType::Filesystem => {
+                BackendType::Filesystem => {
+                    if backend.filesystem.is_none() {
+                        return Err(ConfigError::Validation(
+                            "backend.type = 'filesystem' requires a [backend.filesystem] section"
+                                .into(),
+                        ));
+                    }
+                }
+                BackendType::S3 => {
                     return Err(ConfigError::Validation(
-                        "backend.type 's3' and 'filesystem' are not yet implemented; \
-                         use 'kubo' or 'lmdb'"
-                            .into(),
+                        "backend.type 's3' is not yet implemented; use 'kubo', 'lmdb', or 'filesystem'".into(),
                     ));
                 }
             },
@@ -1699,6 +1693,74 @@ max_age_days = 30
         let f = write_toml(toml);
         let err = Config::from_file(f.path())
             .expect_err("s3 backend must fail with not-yet-implemented error");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend] with type = "filesystem" and a [backend.filesystem] section parses and validates.
+    #[test]
+    fn backend_filesystem_section_parses() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[backend]
+type = "filesystem"
+
+[backend.filesystem]
+path = "/tmp/stoa-blocks"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("filesystem backend config must parse");
+        let backend = cfg.backend.as_ref().expect("backend must be set");
+        assert!(matches!(backend.backend_type, BackendType::Filesystem));
+        assert_eq!(
+            backend.filesystem.as_ref().map(|fs| fs.path.as_str()),
+            Some("/tmp/stoa-blocks")
+        );
+    }
+
+    /// [backend] with type = "filesystem" but no [backend.filesystem] section is rejected.
+    #[test]
+    fn backend_filesystem_without_subsection_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:119"
+
+[peers]
+addresses = []
+
+[groups]
+names = []
+
+[backend]
+type = "filesystem"
+
+[pinning]
+rules = ["pin-all"]
+
+[gc]
+schedule = "0 3 * * *"
+max_age_days = 30
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("filesystem without subsection must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"

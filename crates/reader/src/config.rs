@@ -541,14 +541,17 @@ impl Config {
                         }
                     }
                 }
-                // S3 and Filesystem are declared in the enum for future use but are not
-                // yet implemented.  Reject them at config load time so the daemon fails
-                // fast with a clear message instead of panicking in the factory function.
-                BackendType::S3 | BackendType::Filesystem => {
+                BackendType::Filesystem => {
+                    if backend.filesystem.is_none() {
+                        return Err(ConfigError::Validation(
+                            "backend.type = 'filesystem' requires a [backend.filesystem] section"
+                                .into(),
+                        ));
+                    }
+                }
+                BackendType::S3 => {
                     return Err(ConfigError::Validation(
-                        "backend.type 's3' and 'filesystem' are not yet implemented; \
-                         use 'kubo' or 'lmdb'"
-                            .into(),
+                        "backend.type 's3' is not yet implemented; use 'kubo', 'lmdb', or 'filesystem'".into(),
                     ));
                 }
             }
@@ -993,6 +996,66 @@ type = "s3"
         let f = write_toml(toml);
         let err = Config::from_file(f.path())
             .expect_err("s3 backend must fail with not-yet-implemented error");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+    }
+
+    /// [backend] with type = "filesystem" and a [backend.filesystem] section parses and validates.
+    #[test]
+    fn backend_filesystem_section_parses() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "filesystem"
+
+[backend.filesystem]
+path = "/tmp/stoa-blocks"
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("filesystem backend config must parse");
+        let backend = cfg.backend.as_ref().expect("backend must be set");
+        assert!(matches!(backend.backend_type, BackendType::Filesystem));
+        assert_eq!(
+            backend.filesystem.as_ref().map(|fs| fs.path.as_str()),
+            Some("/tmp/stoa-blocks")
+        );
+    }
+
+    /// [backend] with type = "filesystem" but no [backend.filesystem] section is rejected.
+    #[test]
+    fn backend_filesystem_without_subsection_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:119"
+
+[limits]
+max_connections = 10
+command_timeout_secs = 30
+
+[auth]
+required = false
+
+[tls]
+
+[backend]
+type = "filesystem"
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path())
+            .expect_err("filesystem without subsection must fail validation");
         assert!(
             matches!(err, ConfigError::Validation(_)),
             "expected Validation error, got {err:?}"

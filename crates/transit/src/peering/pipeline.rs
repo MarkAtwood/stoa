@@ -201,7 +201,22 @@ pub fn build_store(config: &crate::config::Config) -> Result<StoreBuildResult, S
                 })
             }
             BackendType::S3 => Err("S3 backend is not yet implemented".to_string()),
-            BackendType::Filesystem => Err("filesystem backend is not yet implemented".to_string()),
+            BackendType::Filesystem => {
+                let fs_cfg = backend
+                    .filesystem
+                    .as_ref()
+                    .ok_or("backend.type = 'filesystem' requires a [backend.filesystem] section")?;
+                let store =
+                    super::fs_store::FsStore::open(std::path::Path::new(&fs_cfg.path))
+                        .map_err(|e| format!("filesystem store init failed: {e}"))?;
+                tracing::info!(
+                    "filesystem backend active — IPNS unavailable with this backend"
+                );
+                Ok(StoreBuildResult {
+                    store: Arc::new(store),
+                    kubo_client: None,
+                })
+            }
             BackendType::Lmdb => {
                 let lmdb_cfg = backend
                     .lmdb
