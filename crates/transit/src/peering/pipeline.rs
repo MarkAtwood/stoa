@@ -404,6 +404,9 @@ where
             Ok(g) => g,
             Err(_) => {
                 tracing::warn!("invalid group name in Newsgroups: {group_name_str:?}");
+                crate::metrics::ARTICLES_REJECTED_GROUP_TOTAL
+                    .with_label_values(&[group_name_str.as_str(), "invalid_group_name"])
+                    .inc();
                 continue;
             }
         };
@@ -421,6 +424,9 @@ where
             Ok(tips) => tips,
             Err(e) => {
                 tracing::warn!("list_tips failed for {group_name_str}: {e}");
+                crate::metrics::ARTICLES_REJECTED_GROUP_TOTAL
+                    .with_label_values(&[group_name_str.as_str(), "log_tip_error"])
+                    .inc();
                 continue;
             }
         };
@@ -439,6 +445,9 @@ where
                 // Self-check failure is a programming error (wrong key or
                 // canonical bytes bug) — abort the article rather than
                 // silently skipping groups.
+                crate::metrics::ARTICLES_REJECTED_GROUP_TOTAL
+                    .with_label_values(&[group_name_str.as_str(), "signature_error"])
+                    .inc();
                 return Err(format!(
                     "log entry signature self-check failed for {group_name_str}: {e}"
                 ));
@@ -447,6 +456,9 @@ where
         match crdt_append(log_storage, &group, verified).await {
             Err(e) => {
                 tracing::warn!("log append failed for group {group_name_str}: {e}");
+                crate::metrics::ARTICLES_REJECTED_GROUP_TOTAL
+                    .with_label_values(&[group_name_str.as_str(), "log_append_error"])
+                    .inc();
             }
             Ok(entry_id) => {
                 crate::metrics::ARTICLES_INGESTED_GROUP_TOTAL

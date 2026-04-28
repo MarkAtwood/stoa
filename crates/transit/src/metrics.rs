@@ -109,6 +109,21 @@ lazy_static::lazy_static! {
         )
         .expect("failed to register ingest_backpressure_total");
 
+    /// Articles rejected at the pipeline stage (after dequeue), labeled by
+    /// newsgroup and failure reason.  Only emitted when the group name is known;
+    /// pre-parse rejections (malformed, size, duplicate) use
+    /// `articles_rejected_total{reason}` instead.
+    ///
+    /// Reason values: `invalid_group_name`, `log_tip_error`, `log_append_error`,
+    /// `signature_error`.
+    pub static ref ARTICLES_REJECTED_GROUP_TOTAL: prometheus::CounterVec =
+        register_counter_vec!(
+            "articles_rejected_group_total",
+            "Articles rejected at the pipeline stage, labeled by group and reason",
+            &["group", "reason"]
+        )
+        .expect("failed to register articles_rejected_group_total");
+
     /// Unix timestamp of each configured TLS certificate's NotAfter date.
     ///
     /// Labels: `path` — the filesystem path of the certificate file.
@@ -141,6 +156,7 @@ pub fn gather_metrics() -> String {
     lazy_static::initialize(&ARTICLES_REJECTED_TOTAL);
     lazy_static::initialize(&INGEST_BACKPRESSURE_TOTAL);
     lazy_static::initialize(&TLS_CERT_EXPIRY_SECONDS);
+    lazy_static::initialize(&ARTICLES_REJECTED_GROUP_TOTAL);
 
     use prometheus::Encoder;
     let encoder = prometheus::TextEncoder::new();
@@ -308,5 +324,17 @@ mod tests {
             .inc();
         let output = gather_metrics();
         assert!(output.contains("articles_rejected_total"));
+    }
+
+    #[test]
+    fn rejected_group_counter_increments() {
+        ARTICLES_REJECTED_GROUP_TOTAL
+            .with_label_values(&["comp.test", "log_append_error"])
+            .inc();
+        let output = gather_metrics();
+        assert!(
+            output.contains("articles_rejected_group_total"),
+            "missing articles_rejected_group_total in:\n{output}"
+        );
     }
 }
