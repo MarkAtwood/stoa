@@ -84,6 +84,8 @@ pub enum VerifyError {
     EntryIdMismatch,
     /// `entry.parent_cids` exceeds [`MAX_PARENT_CIDS`].
     TooManyParents { count: usize },
+    /// `entry.article_cid` uses a codec other than DAG-CBOR (0x71).
+    InvalidArticleCidCodec { codec: u64 },
 }
 
 impl std::fmt::Display for VerifyError {
@@ -105,6 +107,12 @@ impl std::fmt::Display for VerifyError {
                     "entry has {count} parent CIDs; maximum is {MAX_PARENT_CIDS}"
                 )
             }
+            Self::InvalidArticleCidCodec { codec } => {
+                write!(
+                    f,
+                    "article_cid codec 0x{codec:x} is not DAG-CBOR (0x71)"
+                )
+            }
         }
     }
 }
@@ -117,7 +125,8 @@ impl std::error::Error for VerifyError {
             Self::MissingParent(_)
             | Self::HlcNotMonotonic { .. }
             | Self::EntryIdMismatch
-            | Self::TooManyParents { .. } => None,
+            | Self::TooManyParents { .. }
+            | Self::InvalidArticleCidCodec { .. } => None,
         }
     }
 }
@@ -190,6 +199,15 @@ pub async fn verify_entry<S: LogStorage>(
     if entry.parent_cids.len() > MAX_PARENT_CIDS {
         return Err(VerifyError::TooManyParents {
             count: entry.parent_cids.len(),
+        });
+    }
+
+    // Reject entries whose article_cid uses any codec other than DAG-CBOR
+    // (0x71).  An adversarial peer could supply a different codec that passes
+    // signature verification but fails downstream IPFS fetch or IPLD decode.
+    if entry.article_cid.codec() != 0x71 {
+        return Err(VerifyError::InvalidArticleCidCodec {
+            codec: entry.article_cid.codec(),
         });
     }
 
@@ -492,6 +510,36 @@ mod tests {
         assert!(
             matches!(result, Err(VerifyError::TooManyParents { count }) if count == MAX_PARENT_CIDS + 1),
             "oversized parent list must yield TooManyParents, got {result:?}"
+        );
+    }
+
+    // ── verify_entry_wrong_codec ──────────────────────────────────────────────
+
+    /// An entry whose article_cid uses a codec other than DAG-CBOR (0x71)
+    /// must be rejected with InvalidArticleCidCodec before signature checks.
+    #[tokio::test]
+    async fn verify_entry_wrong_codec() {
+        let storage = MemLogStorage::new();
+        let key = test_signing_key();
+        let pubkey = key.verifying_key();
+
+        // Use raw codec (0x55) instead of DAG-CBOR (0x71).
+        let digest = Code::Sha2_256.digest(b"article-raw-codec");
+        let wrong_codec_cid = Cid::new_v1(0x55, digest);
+
+        let mut entry = LogEntry {
+            hlc_timestamp: 11_000,
+            article_cid: wrong_codec_cid,
+            operator_signature: vec![],
+            parent_cids: vec![],
+        };
+        sign_entry(&mut entry, &key);
+
+        let entry_id = LogEntryId::from_bytes([0u8; 32]);
+        let result = verify_entry(&entry, &entry_id, &storage, &pubkey).await;
+        assert!(
+            matches!(result, Err(VerifyError::InvalidArticleCidCodec { codec }) if codec == 0x55),
+            "wrong codec must yield InvalidArticleCidCodec, got {result:?}"
         );
     }
 }
