@@ -28,6 +28,7 @@ pub struct RadosStore {
     /// Kept alive to prevent `rados_shutdown` while `ioctx` is active.
     _rados: Rados,
     ioctx: Arc<IoCtx>,
+    pool: String,
 }
 
 // SAFETY: librados operations via IoCtx are thread-safe per Ceph documentation.
@@ -55,24 +56,33 @@ impl RadosStore {
             .map_err(|e| format!("RADOS ioctx_create for pool '{}' failed: {e}", cfg.pool))?;
 
         // Startup write probe — verify pool exists and client has write permission.
+        // ENOENT on cleanup is ignored: another instance may have already deleted it;
+        // a successful write is sufficient to prove write access.
         let probe = "_stoa_write_probe";
         ioctx
             .rados_object_write_full(probe, b"probe")
             .map_err(|e| format!("RADOS pool '{}' write probe failed: {e}", cfg.pool))?;
-        ioctx
-            .rados_object_remove(probe)
-            .map_err(|e| format!("RADOS pool '{}' probe cleanup failed: {e}", cfg.pool))?;
+        match ioctx.rados_object_remove(probe) {
+            Ok(()) | Err(ceph::error::RadosError::ApiError(nix::errno::Errno::ENOENT)) => {}
+            Err(e) => {
+                return Err(format!(
+                    "RADOS pool '{}' probe cleanup failed: {e}",
+                    cfg.pool
+                ))
+            }
+        }
 
         Ok(Self {
             _rados: rados,
             ioctx: Arc::new(ioctx),
+            pool: cfg.pool.clone(),
         })
     }
 }
 
 impl std::fmt::Debug for RadosStore {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "RadosStore")
+        write!(f, "RadosStore(pool={})", self.pool)
     }
 }
 
@@ -109,9 +119,16 @@ impl IpfsStore for RadosStore {
                 Err(e) => return Err(IpfsError::ReadFailed(e.to_string())),
             };
             let mut buf = Vec::with_capacity(size as usize);
-            ioctx
-                .rados_object_read(&obj_name, &mut buf, 0)
-                .map_err(|e| IpfsError::ReadFailed(e.to_string()))?;
+            // Handle TOCTOU: object may be deleted between stat and read.
+            match ioctx.rados_object_read(&obj_name, &mut buf, 0) {
+                Ok(_) => {}
+                Err(ceph::error::RadosError::ApiError(e))
+                    if e == nix::errno::Errno::ENOENT =>
+                {
+                    return Ok(None)
+                }
+                Err(e) => return Err(IpfsError::ReadFailed(e.to_string())),
+            }
             Ok(Some(buf))
         })
         .await
@@ -142,4 +159,4 @@ impl IpfsStore for RadosStore {
 }
 
 // No unit tests: RADOS I/O requires a live Ceph cluster.
-// Integration tests live in tests/rados_integration.rs (CI: ceph/demo docker image).
+// Integration tests require the ceph/demo docker image; see the epic for CI setup.
