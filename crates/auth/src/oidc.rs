@@ -190,6 +190,9 @@ impl ProviderValidator {
         validation.set_audience(&[self.config.audience.as_str()]);
         validation.set_issuer(&[self.config.issuer.as_str()]);
         validation.validate_exp = true;
+        // Require exp to be present and numeric. Without this, a string-typed exp
+        // (e.g. "never") silently bypasses expiry validation (GHSA-h395-gr6q-cpjc).
+        validation.required_spec_claims = ["exp"].iter().map(|s| s.to_string()).collect();
 
         let data = jsonwebtoken::decode::<serde_json::Value>(token, &decoding_key, &validation)
             .map_err(|e| OidcError::InvalidToken(e.to_string()))?;
