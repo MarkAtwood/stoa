@@ -741,7 +741,7 @@ fn parse_message_id_and_newsgroups(article_bytes: &[u8]) -> Option<(String, Vec<
 }
 
 #[cfg(test)]
-/// Parse the `Newsgroups:` header into a list of group name strings.
+// Parse the `Newsgroups:` header into a list of group name strings.
 fn parse_newsgroups(article_bytes: &[u8]) -> Vec<String> {
     let value = match extract_header(article_bytes, "Newsgroups") {
         Some(v) => v,
@@ -755,7 +755,7 @@ fn parse_newsgroups(article_bytes: &[u8]) -> Vec<String> {
 }
 
 #[cfg(test)]
-/// Extract the `Message-ID:` value from article bytes.
+// Extract the `Message-ID:` value from article bytes.
 fn extract_message_id(article_bytes: &[u8]) -> Option<String> {
     extract_header(article_bytes, "Message-ID").map(|s| s.to_owned())
 }

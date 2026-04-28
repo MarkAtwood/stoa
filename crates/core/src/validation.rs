@@ -137,7 +137,9 @@ pub fn validate_message_id(id: &str) -> Result<(), ValidationError> {
 /// is needed, it is added here once and applies to both paths automatically.
 ///
 /// # Checks (in order)
-/// 1. All 6 mandatory RFC 5536 headers present and non-empty
+/// 1. The 5 mandatory RFC 5536 headers (From, Date, Message-ID, Subject, Path)
+///    present and non-empty; Newsgroups is the 6th mandatory header, checked
+///    separately in step 3 below
 /// 2. Message-ID format valid: must match `<local@domain>` with no whitespace
 /// 3. Newsgroups not empty
 /// 4. All group names in Newsgroups are valid RFC 3977 group names
@@ -323,7 +325,7 @@ pub fn check_duplicate(message_id: &str, storage: &dyn MsgIdStorage) -> Result<(
 mod tests {
     use super::*;
     use crate::article::{Article, ArticleHeader, GroupName};
-    use crate::wildmat::{GroupFilter, GroupPolicy};
+    use crate::wildmat::GroupFilter;
     use std::collections::HashSet;
     use std::sync::Arc;
 
@@ -593,7 +595,7 @@ mod tests {
     // ── validate_message_id ───────────────────────────────────────────────────
 
     #[test]
-    fn validate_message_id_tests() {
+    fn validate_message_id_rejects_malformed_and_accepts_valid() {
         assert!(validate_message_id("<local@domain>").is_ok());
         assert!(validate_message_id("<a@b.c>").is_ok());
 

@@ -322,7 +322,7 @@ mod tests {
     }
 
     #[test]
-    fn groupfilter_negation_excludes_first_match() {
+    fn groupfilter_negated_pattern_rejects_group() {
         let f = GroupFilter::new(&["comp.*", "sci.*", "!alt.binaries.*", "alt.test"]).unwrap();
         assert!(!f.accepts("alt.binaries.pictures"));
     }

@@ -90,6 +90,22 @@ impl PeerHealthState {
     /// for the chosen peer in one step, so callers cannot forget to record the
     /// attempt.  Returns `(index, &SmtpRelayPeerConfig)` or `None` if no peers
     /// are eligible.
+    ///
+    /// ## Round-robin design
+    ///
+    /// `rr_index` is tracked in *full peer list space* (0..n), not in eligible
+    /// list space.  This ensures that when a downed peer recovers, the cursor
+    /// position is still meaningful — we resume where the full list left off,
+    /// not some position relative to a smaller eligible subset.
+    ///
+    /// Selection: build the eligible index list, then find the first eligible
+    /// index `>= rr_index`.  If none exist at or after `rr_index`, wrap to
+    /// index 0 of the eligible list (i.e. `unwrap_or(0)` returns position 0 in
+    /// the *eligible* list, which is the smallest eligible peer index overall).
+    ///
+    /// After selecting `chosen_idx`, `rr_index` advances to `(chosen_idx + 1) % n`
+    /// so the next call starts scanning just past the chosen peer in full-list
+    /// space, distributing load even if the eligible set is sparse.
     pub fn select_peer(&mut self) -> Option<(usize, &SmtpRelayPeerConfig)> {
         let now = Instant::now();
         let n = self.peers.len();

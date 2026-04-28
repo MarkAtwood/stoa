@@ -109,7 +109,17 @@ impl SmtpRelayQueue {
     /// If no peers are configured, or if `rcpt_to` is empty, returns `Ok(())`
     /// immediately without writing any files.
     ///
-    /// Writes atomically: `.msg.tmp` → `.msg`, then `.env.tmp` → `.env`.
+    /// Write order is load-bearing for crash safety: `.msg` is renamed before
+    /// `.env`.  The drain scans for `.env` files and reads the paired `.msg`;
+    /// if `.env` is absent, the drain skips the entry.
+    ///
+    /// Crash between the two renames: `.msg` exists, `.env` does not.  The
+    /// drain skips this `.msg` (no `.env` partner) and the file is retried on
+    /// the next startup scan.  No orphaned data accumulates indefinitely.
+    ///
+    /// If the order were reversed (`.env` first), a crash would leave a `.env`
+    /// without its `.msg`, causing the drain to read a non-existent payload.
+    ///
     /// Returns `Err` only if the filesystem write fails.
     pub async fn enqueue(
         &self,
