@@ -167,3 +167,9 @@ Phase markers reset for new epic
 [00:57:20] COORDINATOR: phase0 done
 [16:51:27] COORDINATOR: epic usenet-ipfs-f235 already claimed; phase0 done
 [16:51:43] COORDINATOR: phase1 done (beads already expanded from review)
+[01:53:06] COORDINATOR: claimed epic usenet-ipfs-drrd (IMAP4rev2 RFC 9051)
+[02:05:50] COORDINATOR: phase1 done — 9 code beads + 2 tracking beads + 2 DECISION issues ready; wave 0 (drrd.1 drrd.2 drrd.3) unblocked; superseded 4 coarse child issues
+[02:09:49] COORDINATOR: wave 0 closed (drrd.1 drrd.2 drrd.3 drrd.4); 47+2 tests green; upstream issue filed at duesee/imap-codec#704
+[02:19:41] COORDINATOR: wave 1+2 closed (drrd.5-10); 61+2 tests green; IMAP4rev2+NAMESPACE advertised, ENABLE handler and NAMESPACE handler implemented, all tests written
+[02:23:25] COORDINATOR: phase2 done; all 11 code+tracking beads closed; 61 unit + 5 e2e tests green; zero warnings
+[02:23:34] COORDINATOR: review round 1, epic usenet-ipfs-x7ki

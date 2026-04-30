@@ -1,153 +1,101 @@
-# Session Handoff — 2026-04-23
-
-## What was accomplished this session
-
-### Epics completed
-
-**stoa-9mf (StagingStore)** — committed `dc97378`
-- On-disk write-ahead buffer for inbound NNTP articles
-- `StagingStore { try_stage(), drain_one(), complete(), pending_count() }`
-- SQLite table `transit_staging`; capacity limits (max_bytes 5GiB, max_entries 500K)
-- Drain task in transit main: polls `drain_one()` → `run_pipeline()` → `complete()`
-- `PeeringShared.staging: Option<Arc<StagingStore>>`; all test initializers updated
-
-**stoa-31v (BlockCache)** — committed `5658f11`
-- LRU decorator over `IpfsStore` trait
-- `BlockCache { cache_get(), cache_put(), evict_for() }` with SQLite + file backing
-- `unix_nanos()` for sub-second LRU ordering (avoids ties in rapid test runs)
-- `CacheConfig` wired into `Config` and `main.rs` (wraps ipfs_store after node start)
-- SQLite table `transit_block_cache` with `idx_block_cache_lru`
-
-**IMAP SASL-IR** — committed `6fe8b09`
-- Added `Capability::SaslIr` to TLS capability list in `crates/imap/src/session/commands.rs`
-
-**stoa-3am (JMAP x-stoa-sig)** — NOT YET COMMITTED
-- Added `ipfs_sig: Option<String>` to `Email` struct in `crates/mail/src/email/types.rs`
-- Serialized as `"x-stoa-sig"`, omitted when None (`skip_serializing_if`)
-- Populated from `root.metadata.operator_signature` via `BASE64URL_NOPAD.encode()` if non-empty
-- 3 tests: `ipfs_sig_absent_when_unsigned`, `ipfs_sig_present_when_signed` (oracle: "AQIDBA"), `ipfs_sig_serializes_in_json_and_roundtrips`
-- All workspace tests pass (493 tests, 0 failures)
-
-### Issues closed (not blocked, superseded, or resolved)
-
-- **an4** (IMAP X-USENET-IPFS-GET) — superseded. `GET /jmap/download/{accountId}/{CID}/{name}` in `blob.rs` already implements this fully. IMAP X-command blocked by imap-next library.
-- **02d** (IMAP X-USENET-IPFS-VERIFY) — superseded. Blob download returns full article bytes including `X-Stoa-Sig` header; `x-stoa-sig` field (3am) exposes sig in Email/get.
-- **kuz** (IMAP OBJECTID) — superseded. JMAP `Email.id` IS the CID string natively; `x-stoa-cid` also exposed.
-
-### Upstream action
-
-- Filed **duesee/imap-codec#702** requesting `Capability::Imap4Rev2` for RFC 9051
-- `5vw` (IMAP4rev2) updated to note waiting on that issue
-
----
+# Session Handoff — 2026-04-29
 
 ## Uncommitted work — COMMIT BEFORE NEXT SESSION
 
 ```
-crates/mail/src/email/types.rs   — x-stoa-sig field (issue 3am)
-audit/status.md                  — session log
+Cargo.toml                — secretx 0.3.0 → 0.3.1
+crates/mail/Cargo.toml    — aws/azure/gcp features for secretx cloud backends
+crates/reader/Cargo.toml  — aws/azure/gcp features for secretx cloud backends
+crates/smtp/Cargo.toml    — aws/azure/gcp features for secretx cloud backends
+crates/transit/Cargo.toml — aws/azure/gcp features for secretx cloud backends
 ```
 
 Suggested commit message:
 ```
-feat(jmap): expose x-stoa-sig as Email/get property
+chore(deps): secretx 0.3.1; gate cloud backends behind features
 ```
 
 ---
 
-## Open issues (9 total, all ready)
+## What was accomplished recently
 
-### P2 — Work these first
-
-| ID | Title | Notes |
-|----|-------|-------|
-| `err` | jmap: wire Mailbox/query into route_method() | Handler exists at `mailbox/query.rs`, just needs a route arm in `server.rs` |
-| `65ax` | jmap: wire Email/set (keywords) into route_method() | Handler exists at `email/set.rs`, UserFlagsStore ready; just needs routing |
-| `u6hx` | jmap: implement Thread/get | Walk References/In-Reply-To chain; thread ID = CID of earliest ancestor |
-| `vcv4` | jmap: implement Email/changes and Mailbox/changes | StateStore exists in `state/version.rs`; wire state into responses, then implement delta queries |
-
-### P3
-
-| ID | Title | Notes |
-|----|-------|-------|
-| `gbf` | jmap: implement SearchSnippet/get | TantivySearchIndex already wired for Email/query |
-| `isiq` | jmap: implement RFC 9404 Blob/get and Blob/copy | Advertise `urn:ietf:params:jmap:blob`; Blob/copy is a no-op (CIDs are global) |
-| `o6tg` | jmap: implement JMAP upload endpoint for article submission | POST /jmap/upload/{accountId}/; run through `write_article_to_ipfs()` |
-
-### P3 — Waiting on upstream
-
-| ID | Title | Notes |
-|----|-------|-------|
-| `5vw` | imap: IMAP4rev2 support (RFC 9051) | Blocked: `Capability::Imap4Rev2` missing from imap-types. Filed duesee/imap-codec#702. Resume when upstream resolves. |
-
-### P4 — Needs human coordination before starting
-
-| ID | Title | Notes |
-|----|-------|-------|
-| `03z` | [epic] ActivityPub federation | Explicitly says "coordinate before implementing". Design decisions needed: actor type (Group vs Service), HTTP Signatures profile (draft-cavage vs RFC 9421), inbound injection scope, Corundum rfc822+mime alignment. |
+- **JMAP x-stoa-sig** (`7000af0`) — `Email/get` exposes `x-stoa-sig` from `operator_signature`
+- **StagingStore** (`dc97378`) — on-disk write-ahead buffer for inbound NNTP articles
+- **BlockCache** (`5658f11`) — LRU decorator over `IpfsStore` (SQLite + file backing)
+- **ActivityPub** — full inbound/outbound Create{Note} injection, HTTP Signatures, follower management, WebFinger
+- **JMAP** — Mailbox/set subscription, operator role/admin capability gating, Thread/get, Email/changes
+- **Multiple backends** — PostgreSQL BYTEA, RADOS, WebDAV, git SHA-256 object store
+- **Auth security fix** — `exp` claim must be numeric (GHSA-h395-gr6q-cpjc)
+- Round of P0–P3 review fixes across type safety, performance, correctness
 
 ---
 
-## Key codebase map
+## Open issues (11, all P3)
 
-### Mail crate (`crates/mail/src/`)
+### IMAP4rev2 cluster — blocked on upstream
+| ID | Title |
+|----|-------|
+| `5vw` | imap: IMAP4rev2 support (RFC 9051) — waiting on duesee/imap-codec#702 |
+| `8vq2` | IMAP4rev2: NAMESPACE, STATUS=SIZE, and SASL-IR support |
+| `c34y` | IMAP4rev2: integration test and upstream imap-codec tracking |
+| `x638` | IMAP4rev2: ENABLE IMAP4rev2 session mode and capability advertisement |
 
-```
-server.rs               — HTTP server; route_method() dispatches Mailbox/get, Email/query, Email/get
-                          ADD: Mailbox/query, Email/set, Thread/get, Email/changes, Mailbox/changes arms
-jmap/session.rs         — Session resource; advertises capabilities and URLs
-jmap/types.rs           — Request/Response/MethodError types
-jmap/dispatch.rs        — Generic dispatcher (not currently used; server.rs does inline routing)
-blob.rs                 — GET /jmap/download/{accountId}/{blobId}/{name} — CID→RFC 5322 blob delivery
-email/get.rs            — Email/get handler
-email/query.rs          — Email/query handler (filters: inMailbox, after, before, from, subject, text)
-email/set.rs            — Email/set handler (destroy→notPermitted; keywords→UserFlagsStore; NOT WIRED)
-email/types.rs          — Email struct with x-stoa-cid, x-stoa-sig custom properties
-mailbox/get.rs          — Mailbox/get handler
-mailbox/query.rs        — Mailbox/query handler (isSubscribed filter, name sort) — NOT WIRED
-mailbox/types.rs        — Mailbox struct; mailbox_id_for_group() = SHA256→base32 of group name
-state/version.rs        — StateStore: per-scope monotonic JMAP state integers in SQLite
-state/flags.rs          — UserFlagsStore: per-user per-CID $seen/$flagged in SQLite
-feed.rs                 — Atom feed handler (independent of JMAP)
-```
+### ZFS DMU cluster
+| ID | Title |
+|----|-------|
+| `e6xo` | ZFS DMU: evaluate ioctl vs FUSE vs zvol approaches |
+| `6btr` | ZFS DMU: document privilege requirements and CI strategy |
+| `vl6k` | ZFS DMU userspace object API |
+| `kv6k` | ZFS DMU: implement usenet-ipfs-zfs-dmu crate |
+| `ilil` | ZFS DMU block store backend |
 
-### Transit crate (`crates/transit/src/`)
+### DECISION records (open, no work required)
+| ID | Title |
+|----|-------|
+| `okyx` | DECISION: dual-CID model (raw 0x55 + DAG-CBOR 0x71) |
+| `rqtv` | DECISION: wildmat uses iterative DP, not regex |
 
-```
-staging.rs              — StagingStore: write-ahead buffer for inbound articles
-block_cache.rs          — BlockCache: LRU decorator over IpfsStore
-peering/session.rs      — NNTP peering; enqueue_article() checks staging first
-main.rs                 — Startup: wraps IpfsStore with BlockCache if config.cache set;
-                          constructs StagingStore if config.staging set; runs drain task
-```
+---
 
-### Reader crate (`crates/reader/src/`)
+## Workspace layout (14 crates)
 
 ```
-post/sign.rs            — sign_article(), verify_article_sig(); OPERATOR_SIG_HEADER
-post/did_verify.rs      — verify_did_sig() for X-Stoa-DID-Sig headers
-post/ipfs_write.rs      — write_article_to_ipfs() — used by both NNTP POST and JMAP upload
-session/lifecycle.rs    — handle_xverify() at line 855; NNTP command handlers
+crates/
+  auth/              — OIDC, client cert, bearer token validation
+  core/              — article types, CID scheme, group log (Merkle-CRDT), signing
+  ctl/               — operator CLI
+  imap/              — IMAP4rev1 server (imap-next 0.3.4 / imap-types 2.0.0-alpha.6)
+  integration-tests/ — end-to-end harness
+  lmdb/              — LMDB bindings (only crate permitted to use unsafe)
+  mail/              — JMAP server (Email/get/query/set, Mailbox/*, Thread/get, blob download)
+  reader/            — RFC 3977 NNTP reader server
+  sieve/             — sieve-rs wrapper (AGPL-3.0-only; NOT linked by any production binary)
+  sieve-native/      — native Sieve evaluator (MIT)
+  smtp/              — SMTP submission (MIT; uses sieve-native, not sieve)
+  tls/               — shared TLS config and rustls setup
+  transit/           — peering daemon, store-and-forward, pinning, GC, metrics
+  verify/            — signature verification utilities
 ```
 
 ---
 
-## Architecture notes (non-obvious things to remember)
+## Key architecture notes
 
-- **CID = JMAP Email ID = blobId**: Not a mapping — they are literally the same string. `Email.id`, `Email.blobId`, `Email.x-stoa-cid` all equal the article root CID.
-- **Thread ID derivation**: Walk `References`/`In-Reply-To` chain through the overview index, take the CID of the root article. If no chain, threadId = emailId. Not stored — recomputed on demand.
-- **StateStore is already wired in SQLite** but responses still return hardcoded "0". Email/changes implementation needs: (a) bump state on article ingest, (b) wire live state into Email/query/get responses, (c) implement changes query against overview index.
-- **Mailbox IDs are derived, not stored**: `mailbox_id_for_group("comp.lang.rust")` = SHA256→base26+digits→26 chars. Stable across restarts. Defined in `mailbox/types.rs`.
-- **Upload endpoint advertised but not implemented**: Session advertises `/jmap/upload/{accountId}/` but it returns 404. Issue `o6tg` covers this.
-- **EventSource advertised but not implemented**: Session advertises eventsource URL. No push support yet. Not in the issue list (deliberately omitted as low priority for newsreader).
-- **imap-next X-command limitation**: imap-next 0.3.4 / imap-types 2.0.0-alpha.6 have no `CommandBody::Other` for custom X-commands. This is by design in the library. an4/02d were superseded by JMAP rather than waiting.
-- **AGPL note**: `stoa-smtp` is AGPL-3.0 due to `sieve-rs` dependency. Do not add features without understanding the AGPL obligation. Other crates are MIT.
+- **CID = JMAP Email ID = blobId**: `Email.id`, `Email.blobId`, `Email.x-stoa-cid` are the same string.
+- **Thread ID**: Walk `References`/`In-Reply-To` through overview index; threadId = CID of root article. Recomputed on demand, not stored.
+- **Mailbox IDs are derived**: `mailbox_id_for_group(name)` = SHA256→base26+digits→26 chars. Stable across restarts. Defined in `mailbox/types.rs`.
+- **StateStore wired in SQLite**: state integers are live; Email/changes bumps state on article ingest.
+- **imap-next X-command limitation**: `CommandBody::Other` not available in imap-types 2.0.0-alpha.6; IMAP X-commands blocked by library design. JMAP superseded the IMAP X-command issues instead.
+- **admin servers**: use `subtle::ConstantTimeEq` for bearer token comparison — do not replace with `==`.
+- **spawn_blocking**: correct async/sync bridge for LMDB (blocks on write txn serialization).
+- **Secrets**: `secretx` abstraction; env/file always compiled in; cloud backends (aws-sm/aws-ssm/azure-kv/gcp-sm) gated behind per-binary Cargo features.
+- **sieve / AGPL boundary**: `stoa-sieve` (AGPL) is never linked by production binaries. `stoa-smtp` uses `stoa-sieve-native` (MIT) only.
 
 ---
 
-## Session close checklist status
+## Session close checklist
 
-- [ ] `git add crates/mail/src/email/types.rs audit/status.md`
-- [ ] `git commit -m "feat(jmap): expose x-stoa-sig as Email/get property"`
+- [ ] `git add Cargo.toml crates/mail/Cargo.toml crates/reader/Cargo.toml crates/smtp/Cargo.toml crates/transit/Cargo.toml`
+- [ ] `git commit -m "chore(deps): secretx 0.3.1; gate cloud backends behind features"`
 - [ ] `git push`
-- [ ] `bd dolt push` (may fail if no remote configured — non-fatal)
+- [ ] `bd dolt push`
