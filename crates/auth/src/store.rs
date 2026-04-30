@@ -116,10 +116,11 @@ impl CredentialStore {
     /// fail for that user with no error at request time.
     pub fn from_credentials(users: &[UserCredential]) -> Self {
         for u in users {
-            if parse_bcrypt_cost(&u.password).is_none() {
+            if !looks_like_bcrypt_hash(&u.password) {
                 panic!(
                     "stoa-auth: password for user '{}' is not a valid bcrypt hash \
-                     (must start with $2a$, $2b$, $2x$, or $2y$ with a cost of 4–31); \
+                     (must start with $2a$, $2b$, $2x$, or $2y$ with a cost of 4–31 \
+                     and be at least 60 characters); \
                      use `htpasswd -B -n {}` or `bcrypt::hash()` to generate a valid hash",
                     u.username, u.username,
                 );
