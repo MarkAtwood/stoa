@@ -149,7 +149,14 @@ impl ServerStores {
             log_storage: Arc::new(MemLogStorage::new()),
             article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
             overview_store: Arc::new(OverviewStore::new(reader_pool)),
-            credential_store: Arc::new(build_credential_store(&config.auth).await?),
+            credential_store: Arc::new(
+                stoa_auth::build_credential_store(
+                    &config.auth.users,
+                    config.auth.credential_file.as_deref(),
+                )
+                .await
+                .map_err(|e| e.to_string())?,
+            ),
             client_cert_store: Arc::new(ClientCertStore::from_config(&config.auth.client_certs)),
             trusted_issuer_store: Arc::new(trusted_issuer_store),
             clock: Arc::new(Mutex::new(HlcClock::new(node_id, now_ms))),
@@ -322,61 +329,6 @@ async fn make_disk_pool_with_verify_migrations(url: &str) -> Result<sqlx::AnyPoo
         .map_err(|e| format!("failed to open verify database '{url}': {e}"))
 }
 
-/// Error returned by [`build_credential_store`].
-///
-/// Carries either a structured [`CredentialStoreError`] from the auth crate or
-/// a secretx retrieval error string.  The outer startup path converts to
-/// `String` at the boundary; within this module the variants remain matchable.
-#[derive(Debug, thiserror::Error)]
-enum BuildStoreError {
-    #[error(transparent)]
-    Credentials(#[from] stoa_auth::CredentialStoreError),
-    #[error("{0}")]
-    Secretx(String),
-}
-
-/// Build a `CredentialStore` from the `[auth]` section of the config.
-///
-/// Loads inline `users` first, then merges any entries from `credential_file`
-/// (file entries override inline entries with the same username).
-///
-/// `credential_file` may be either a filesystem path or a `secretx:` URI.
-/// When it is a `secretx:` URI, the secret is fetched and its text content is
-/// parsed as a credential file; no filesystem access is performed.
-async fn build_credential_store(
-    auth: &crate::config::AuthConfig,
-) -> Result<CredentialStore, String> {
-    build_credential_store_inner(auth)
-        .await
-        .map_err(|e| e.to_string())
-}
-
-async fn build_credential_store_inner(
-    auth: &crate::config::AuthConfig,
-) -> Result<CredentialStore, BuildStoreError> {
-    let mut store = CredentialStore::from_credentials(&auth.users);
-    if let Some(path) = &auth.credential_file {
-        if path.starts_with("secretx:") {
-            let secret_store = secretx::from_uri(path).map_err(|e| {
-                BuildStoreError::Secretx(format!("auth.credential_file: invalid secretx URI: {e}"))
-            })?;
-            let secret = secret_store.get().await.map_err(|e| {
-                BuildStoreError::Secretx(format!(
-                    "auth.credential_file: secretx retrieval failed: {e}"
-                ))
-            })?;
-            let content = secret.as_str().map_err(|e| {
-                BuildStoreError::Secretx(format!(
-                    "auth.credential_file: secretx value not valid UTF-8: {e}"
-                ))
-            })?;
-            store.merge_from_content(path, content)?;
-        } else {
-            store.merge_from_file(path)?;
-        }
-    }
-    Ok(store)
-}
 
 /// Load a 32-byte Ed25519 signing key from the given file path or secretx URI,
 /// or generate a fresh random key if no path is configured.

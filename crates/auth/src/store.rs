@@ -274,6 +274,55 @@ impl CredentialStore {
     }
 }
 
+/// Error returned by [`build_credential_store`].
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
+pub enum BuildStoreError {
+    /// A credential file line was malformed or contained an invalid hash.
+    #[error(transparent)]
+    Credentials(#[from] CredentialStoreError),
+    /// Secretx URI resolution or retrieval failed.
+    #[error("{0}")]
+    Secretx(String),
+}
+
+/// Build a [`CredentialStore`] from an inline user list and optional credential file.
+///
+/// Loads `users` first (expected to be pre-validated as bcrypt hashes by the
+/// caller's `Config::validate()`), then merges any entries from `credential_file`
+/// if provided. File entries override inline entries with the same username.
+/// The timing-equalisation dummy hash is recomputed after any merge.
+///
+/// `credential_file` may be a filesystem path or a `secretx:` URI. Cloud
+/// backends (`aws`, `azure`, `gcp`) must be enabled as features on this crate.
+pub async fn build_credential_store(
+    users: &[crate::config::UserCredential],
+    credential_file: Option<&str>,
+) -> Result<CredentialStore, BuildStoreError> {
+    let mut store = CredentialStore::from_credentials(users);
+    if let Some(path) = credential_file {
+        if path.starts_with("secretx:") {
+            let secret_store = secretx::from_uri(path).map_err(|e| {
+                BuildStoreError::Secretx(format!("auth.credential_file: invalid secretx URI: {e}"))
+            })?;
+            let secret = secret_store.get().await.map_err(|e| {
+                BuildStoreError::Secretx(format!(
+                    "auth.credential_file: secretx retrieval failed: {e}"
+                ))
+            })?;
+            let content = secret.as_str().map_err(|e| {
+                BuildStoreError::Secretx(format!(
+                    "auth.credential_file: secretx value not valid UTF-8: {e}"
+                ))
+            })?;
+            store.merge_from_content(path, content)?;
+        } else {
+            store.merge_from_file(path)?;
+        }
+    }
+    Ok(store)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

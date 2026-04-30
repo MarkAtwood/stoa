@@ -101,13 +101,20 @@ async fn main() {
 
     // Build the credential store once; all sessions share it so the dummy
     // hash is computed only once rather than per-connection.
-    let credential_store = Arc::new(match build_credential_store(&config.auth).await {
-        Ok(s) => s,
-        Err(e) => {
-            error!("failed to build credential store: {e}");
-            std::process::exit(1);
-        }
-    });
+    let credential_store = Arc::new(
+        match stoa_auth::build_credential_store(
+            &config.auth.users,
+            config.auth.credential_file.as_deref(),
+        )
+        .await
+        {
+            Ok(s) => s,
+            Err(e) => {
+                error!("failed to build credential store: {e}");
+                std::process::exit(1);
+            }
+        },
+    );
     let config = Arc::new(config);
 
     // Optional IMAPS (implicit TLS) listener.
@@ -150,54 +157,3 @@ async fn sigterm() {
     stream.recv().await;
 }
 
-/// Error returned by [`build_credential_store`].
-#[derive(Debug, thiserror::Error)]
-enum BuildStoreError {
-    #[error(transparent)]
-    Credentials(#[from] stoa_auth::CredentialStoreError),
-    #[error("{0}")]
-    Secretx(String),
-}
-
-/// Build a `CredentialStore` from the `[auth]` section of the config.
-///
-/// Loads inline `users` first, then merges any entries from `credential_file`
-/// (file entries override inline entries with the same username).
-///
-/// `credential_file` may be either a filesystem path or a `secretx:` URI.
-/// When it is a `secretx:` URI, the secret is fetched and its text content is
-/// parsed as a credential file; no filesystem access is performed.
-async fn build_credential_store(
-    auth: &stoa_imap::config::AuthConfig,
-) -> Result<stoa_auth::CredentialStore, String> {
-    build_credential_store_inner(auth)
-        .await
-        .map_err(|e| e.to_string())
-}
-
-async fn build_credential_store_inner(
-    auth: &stoa_imap::config::AuthConfig,
-) -> Result<stoa_auth::CredentialStore, BuildStoreError> {
-    let mut store = stoa_auth::CredentialStore::from_credentials(&auth.users);
-    if let Some(path) = &auth.credential_file {
-        if path.starts_with("secretx:") {
-            let secret_store = secretx::from_uri(path).map_err(|e| {
-                BuildStoreError::Secretx(format!("auth.credential_file: invalid secretx URI: {e}"))
-            })?;
-            let secret = secret_store.get().await.map_err(|e| {
-                BuildStoreError::Secretx(format!(
-                    "auth.credential_file: secretx retrieval failed: {e}"
-                ))
-            })?;
-            let content = secret.as_str().map_err(|e| {
-                BuildStoreError::Secretx(format!(
-                    "auth.credential_file: secretx value not valid UTF-8: {e}"
-                ))
-            })?;
-            store.merge_from_content(path, content)?;
-        } else {
-            store.merge_from_file(path)?;
-        }
-    }
-    Ok(store)
-}

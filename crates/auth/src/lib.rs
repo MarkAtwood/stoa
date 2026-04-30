@@ -14,7 +14,10 @@ pub use config::{
     AuthConfig, ClientCertEntry, OidcProviderConfig, TrustedIssuerEntry, UserCredential,
 };
 pub use oidc::{OidcError, OidcStore};
-pub use store::{looks_like_bcrypt_hash, CredentialStore, CredentialStoreError};
+pub use store::{
+    build_credential_store, looks_like_bcrypt_hash, BuildStoreError, CredentialStore,
+    CredentialStoreError,
+};
 pub use trusted_issuer_store::TrustedIssuerStore;
 
 /// Compute the SHA-256 fingerprint of a certificate DER encoding.

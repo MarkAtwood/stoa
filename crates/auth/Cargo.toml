@@ -8,8 +8,14 @@ rust-version = "1.80"
 name = "stoa_auth"
 path = "src/lib.rs"
 
+[features]
+aws   = ["secretx/aws-sm", "secretx/aws-ssm"]
+azure = ["secretx/azure-kv"]
+gcp   = ["secretx/gcp-sm"]
+
 [dependencies]
 bcrypt = "0.15"
+secretx = { workspace = true }
 thiserror = "1"
 zeroize = "1"
 ed25519-dalek = { version = "2" }
