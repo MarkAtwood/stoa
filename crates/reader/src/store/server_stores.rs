@@ -122,10 +122,11 @@ impl ServerStores {
             .unwrap()
             .as_millis() as u64;
 
-        let signing_key = load_or_generate_signing_key(&config.operator.signing_key_path).await?;
+        let signing_key =
+            load_or_generate_signing_key(config.operator.signing_key_path.as_deref()).await?;
         let node_id = hlc_node_id(&signing_key);
 
-        let trusted_issuer_store = build_trusted_issuer_store(&config.auth.trusted_issuers)?;
+        let trusted_issuer_store = TrustedIssuerStore::from_config(&config.auth.trusted_issuers)?;
 
         let smtp_relay_queue = build_smtp_relay_queue(&config.smtp_relay)
             .map_err(|e| format!("smtp relay queue init failed: {e}"))?;
@@ -319,22 +320,6 @@ async fn make_disk_pool_with_verify_migrations(url: &str) -> Result<sqlx::AnyPoo
         .map_err(|e| format!("failed to open verify database '{url}': {e}"))
 }
 
-/// Build a `TrustedIssuerStore` from the reader's `[auth]` trusted_issuers list.
-///
-/// Converts the reader's local `TrustedIssuerEntry` type to the auth crate's
-/// type, then delegates to `TrustedIssuerStore::from_config`.
-fn build_trusted_issuer_store(
-    entries: &[crate::config::TrustedIssuerEntry],
-) -> Result<TrustedIssuerStore, String> {
-    let auth_entries: Vec<stoa_auth::TrustedIssuerEntry> = entries
-        .iter()
-        .map(|e| stoa_auth::TrustedIssuerEntry {
-            cert_path: e.cert_path.clone(),
-        })
-        .collect();
-    TrustedIssuerStore::from_config(&auth_entries)
-}
-
 /// Build a `CredentialStore` from the `[auth]` section of the config.
 ///
 /// Loads inline `users` first, then merges any entries from `credential_file`
@@ -347,7 +332,7 @@ async fn build_credential_store(
     auth: &crate::config::AuthConfig,
 ) -> Result<CredentialStore, String> {
     let mut store = CredentialStore::from_credentials(&auth.users);
-    if let Some(ref path) = auth.credential_file {
+    if let Some(path) = &auth.credential_file {
         if path.starts_with("secretx:") {
             let secret_store = secretx::from_uri(path)
                 .map_err(|e| format!("auth.credential_file: invalid secretx URI: {e}"))?;
@@ -377,7 +362,7 @@ async fn build_credential_store(
 ///
 /// `path` may be either a filesystem path (read as a 32-byte binary file) or
 /// a `secretx:` URI whose resolved bytes are used directly.
-async fn load_or_generate_signing_key(path: &Option<String>) -> Result<SigningKey, String> {
+async fn load_or_generate_signing_key(path: Option<&str>) -> Result<SigningKey, String> {
     match path {
         Some(p) if p.starts_with("secretx:") => {
             let store = secretx::from_uri(p)

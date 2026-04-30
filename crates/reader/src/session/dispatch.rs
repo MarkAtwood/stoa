@@ -216,14 +216,14 @@ fn try_cert_auth(
     cert_store: &ClientCertStore,
     trusted_issuer_store: &TrustedIssuerStore,
 ) -> Option<String> {
-    if let Some(ref fp) = ctx.client_cert_fingerprint {
+    if let Some(fp) = &ctx.client_cert_fingerprint {
         if let Some(cert_user) = cert_store.lookup(fp) {
             if cert_user.eq_ignore_ascii_case(username) {
                 return Some(cert_user.to_lowercase());
             }
         }
     }
-    if let Some(ref der) = ctx.client_cert_der {
+    if let Some(der) = &ctx.client_cert_der {
         match trusted_issuer_store.verify_and_extract_cn(der) {
             Ok(Some(cn)) => {
                 if cn.eq_ignore_ascii_case(username) {

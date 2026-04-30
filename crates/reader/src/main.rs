@@ -196,14 +196,14 @@ async fn run_startup_checks(config: &Config) -> Vec<String> {
     }
 
     // Validate secretx URI syntax for remaining string secrets.
-    if let Some(ref tok) = config.admin.admin_token {
+    if let Some(tok) = &config.admin.admin_token {
         if tok.starts_with("secretx:") {
             if let Err(e) = secretx::from_uri(tok) {
                 errors.push(format!("admin.admin_token: invalid secretx URI: {e}"));
             }
         }
     }
-    if let Some(ref path) = config.auth.credential_file {
+    if let Some(path) = &config.auth.credential_file {
         if path.starts_with("secretx:") {
             if let Err(e) = secretx::from_uri(path) {
                 errors.push(format!("auth.credential_file: invalid secretx URI: {e}"));
@@ -464,7 +464,7 @@ async fn main() {
 
     // Optional NNTPS listener (implicit TLS, port 563 by convention).
     let tls_listener_future: std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> =
-        if let Some(ref tls_addr) = config.tls.tls_addr {
+        if let Some(tls_addr) = &config.tls.tls_addr {
             let tls_listener = match TcpListener::bind(tls_addr).await {
                 Ok(l) => l,
                 Err(e) => {

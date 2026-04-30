@@ -4,7 +4,7 @@ use std::path::Path;
 // Re-export stoa_auth::UserCredential so AuthConfig::users (Vec<UserCredential>)
 // resolves to the same type that stoa_auth::CredentialStore::from_credentials()
 // expects, with no conversion shim needed at call sites.
-pub use stoa_auth::UserCredential;
+pub use stoa_auth::{ClientCertEntry, TrustedIssuerEntry, UserCredential};
 
 // ── Backend config (pluggable block store) ────────────────────────────────────
 // Types are defined in stoa_core::ipfs_backend and re-exported here so that
@@ -17,7 +17,7 @@ pub use stoa_core::ipfs_backend::{
 
 /// Default hostname for the NNTP Path: header injected on POST.
 fn default_path_hostname() -> String {
-    "localhost".to_string()
+    "localhost".to_owned()
 }
 
 #[derive(Debug, Deserialize)]
@@ -83,13 +83,13 @@ pub struct DatabaseConfig {
 
 impl DatabaseConfig {
     fn default_reader_url() -> String {
-        "sqlite:///reader.db".to_string()
+        "sqlite:///reader.db".to_owned()
     }
     fn default_core_url() -> String {
-        "sqlite:///reader_core.db".to_string()
+        "sqlite:///reader_core.db".to_owned()
     }
     fn default_verify_url() -> String {
-        "sqlite:///reader_verify.db".to_string()
+        "sqlite:///reader_verify.db".to_owned()
     }
 }
 
@@ -280,32 +280,6 @@ fn default_max_article_bytes() -> usize {
 
 pub use stoa_auth::looks_like_bcrypt_hash;
 
-/// A TLS client certificate pinned to a username.
-///
-/// When a client presents a certificate whose SHA-256 fingerprint matches
-/// `sha256_fingerprint`, the session is authenticated as `username` without
-/// requiring a password. Only valid on NNTPS (port 563) connections.
-#[derive(Debug, Deserialize, Clone)]
-pub struct ClientCertEntry {
-    /// SHA-256 fingerprint of the leaf certificate DER, formatted as
-    /// `"sha256:<64-hex-chars>"`.  Case-insensitive on input.
-    pub sha256_fingerprint: String,
-    /// Username to authenticate when this certificate is presented.
-    pub username: String,
-}
-
-/// A trusted CA issuer for client certificate chain authentication.
-///
-/// When a client presents a certificate signed by one of these CAs, the leaf
-/// certificate's Common Name (CN) is used as the authenticated username.
-/// Only valid on NNTPS (port 563) connections.
-#[derive(Debug, Deserialize, Clone)]
-pub struct TrustedIssuerEntry {
-    /// Path to a PEM-encoded CA certificate.  The CA's public key is extracted
-    /// at startup and used for Ed25519 signature verification.
-    pub cert_path: String,
-}
-
 #[derive(Debug, Deserialize)]
 pub struct AuthConfig {
     pub required: bool,
@@ -366,6 +340,8 @@ impl AuthConfig {
             && self.users.is_empty()
             && self.credential_file.is_none()
             && self.oidc_providers.is_empty()
+            && self.client_certs.is_empty()
+            && self.trusted_issuers.is_empty()
     }
 }
 
@@ -404,7 +380,7 @@ pub struct AdminConfig {
 }
 
 fn default_admin_addr() -> String {
-    "127.0.0.1:9090".to_string()
+    "127.0.0.1:9090".to_owned()
 }
 
 fn default_admin_rate_limit_rpm() -> u32 {
@@ -445,7 +421,7 @@ pub struct LogConfig {
 }
 
 fn default_log_level() -> String {
-    "info".to_string()
+    "info".to_owned()
 }
 
 impl Default for LogConfig {
@@ -457,6 +433,7 @@ impl Default for LogConfig {
     }
 }
 
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum ConfigError {
     Io(String),
@@ -2403,6 +2380,45 @@ api_url = "http://127.0.0.1:5001"
         assert!(
             result.is_err(),
             "drain must time out when sessions hold permits"
+        );
+    }
+
+    #[test]
+    fn not_dev_mode_when_client_certs_configured() {
+        let auth = AuthConfig {
+            required: false,
+            users: vec![],
+            credential_file: None,
+            oidc_providers: vec![],
+            client_certs: vec![ClientCertEntry {
+                sha256_fingerprint: "sha256:aabbcc".to_string(),
+                username: "alice".to_string(),
+            }],
+            trusted_issuers: vec![],
+            drain_username: None,
+        };
+        assert!(
+            !auth.is_dev_mode(),
+            "client_certs configured must not be dev mode"
+        );
+    }
+
+    #[test]
+    fn not_dev_mode_when_trusted_issuers_configured() {
+        let auth = AuthConfig {
+            required: false,
+            users: vec![],
+            credential_file: None,
+            oidc_providers: vec![],
+            client_certs: vec![],
+            trusted_issuers: vec![TrustedIssuerEntry {
+                cert_path: "/etc/ssl/ca.pem".to_string(),
+            }],
+            drain_username: None,
+        };
+        assert!(
+            !auth.is_dev_mode(),
+            "trusted_issuers configured must not be dev mode"
         );
     }
 }

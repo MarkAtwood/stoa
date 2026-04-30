@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use std::path::Path;
 
+use stoa_auth::looks_like_bcrypt_hash;
 /// Re-export the shared credential type so callers within this crate
 /// can import it from `crate::config` without depending on stoa-auth directly.
 pub use stoa_auth::UserCredential;
@@ -99,7 +100,7 @@ pub struct AuthConfig {
 }
 
 fn default_mechanisms() -> Vec<String> {
-    vec!["PLAIN".to_string(), "LOGIN".to_string()]
+    vec!["PLAIN".to_owned(), "LOGIN".to_owned()]
 }
 
 #[derive(Debug, Deserialize)]
@@ -130,7 +131,7 @@ pub struct LogConfig {
 }
 
 fn default_log_level() -> String {
-    "info".to_string()
+    "info".to_owned()
 }
 
 impl Default for LogConfig {
@@ -142,6 +143,7 @@ impl Default for LogConfig {
     }
 }
 
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum ConfigError {
     Io(String),
@@ -201,6 +203,14 @@ impl Config {
                 "listen.tls_addr requires tls.cert_path and tls.key_path to be set".into(),
             ));
         }
+        for u in &self.auth.users {
+            if !looks_like_bcrypt_hash(&u.password) {
+                return Err(ConfigError::Validation(format!(
+                    "auth.users['{}']: password is not a valid bcrypt hash",
+                    u.username
+                )));
+            }
+        }
         Ok(())
     }
 }
@@ -230,7 +240,7 @@ idle_timeout_secs = 900
 max_literal_bytes = 5242880
 
 [auth]
-users = [{ username = "alice", password = "hunter2" }]
+users = [{ username = "alice", password = "$2b$10$YzVuN3B1T0RwR3ZpVzZwbOhWv5mJkOpFgZ3KqP4D2xLz1eSBmJu6e" }]
 
 [tls]
 "#;
@@ -351,6 +361,34 @@ cert_path = "/etc/ssl/server.pem"
         let err =
             Config::from_file(Path::new("/nonexistent/path/imap.toml")).expect_err("should fail");
         assert!(matches!(err, ConfigError::Io(_)));
+    }
+
+    #[test]
+    fn auth_users_plaintext_password_is_validation_error() {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:143"
+
+[database]
+path = "/var/lib/stoa/imap.db"
+
+[auth]
+users = [{ username = "alice", password = "plaintextpassword" }]
+
+[tls]
+"#;
+        let f = write_toml(toml);
+        let err =
+            Config::from_file(f.path()).expect_err("plaintext password in auth.users must fail");
+        assert!(
+            matches!(err, ConfigError::Validation(_)),
+            "expected Validation error, got {err:?}"
+        );
+        let msg = err.to_string();
+        assert!(
+            msg.contains("auth.users['alice']"),
+            "error message should name the offending user, got: {msg}"
+        );
     }
 
     #[test]

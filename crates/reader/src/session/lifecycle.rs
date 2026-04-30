@@ -583,7 +583,7 @@ where
                 } else {
                     stores.credential_store.check(&username, password).await
                 };
-                if let Some(ref logger) = stores.audit_logger {
+                if let Some(logger) = &stores.audit_logger {
                     logger.log(AuditEvent::AuthAttempt {
                         peer_addr: peer_addr.to_string(),
                         user: username.clone(),
@@ -705,7 +705,7 @@ where
                         if let Ok(mut tracker) = stores.auth_failure_tracker.lock() {
                             tracker.record_success(peer_ip);
                         }
-                        if let Some(ref logger) = stores.audit_logger {
+                        if let Some(logger) = &stores.audit_logger {
                             logger.log(AuditEvent::AuthAttempt {
                                 peer_addr: peer_addr.to_string(),
                                 user: username.clone(),
@@ -740,7 +740,7 @@ where
                                 "auth_lockout: failure threshold reached for IP"
                             );
                         }
-                        if let Some(ref logger) = stores.audit_logger {
+                        if let Some(logger) = &stores.audit_logger {
                             logger.log(AuditEvent::AuthAttempt {
                                 peer_addr: peer_addr.to_string(),
                                 user: String::new(),
@@ -854,7 +854,7 @@ where
                 ctx.is_drain_session,
             )
             .await;
-            if let Some(ref logger) = stores.audit_logger {
+            if let Some(logger) = &stores.audit_logger {
                 match post_meta {
                     Some(ref meta) => logger.log(AuditEvent::ArticlePosted {
                         peer_addr: peer_addr.to_string(),
@@ -1085,6 +1085,7 @@ async fn run_post_pipeline(
     // before any async I/O so concurrent POSTs are not serialised by it.
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
+        // SAFETY: system clock is always after UNIX_EPOCH on any supported platform
         .unwrap()
         .as_millis() as u64;
     let hlc_timestamps: Vec<u64> = {
@@ -1164,7 +1165,7 @@ async fn run_post_pipeline(
 
     // Step 9: Best-effort full-text search indexing.
     // Failures are logged but never cause the POST to fail.
-    if let Some(ref idx) = stores.search_index {
+    if let Some(idx) = &stores.search_index {
         for (group, article_number) in &append_result.assignments {
             let req = ArticleIndexRequest {
                 message_id: &message_id,
