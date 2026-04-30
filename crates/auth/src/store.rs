@@ -420,6 +420,32 @@ mod tests {
         assert!(msg.contains("malformed entry"), "got: {msg}");
     }
 
+    #[test]
+    fn from_file_returns_err_for_empty_username() {
+        let hash = bcrypt::hash("pass", 4).unwrap();
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(tmp.path(), format!(":{hash}\n")).unwrap();
+        let result = CredentialStore::from_file(tmp.path());
+        assert!(result.is_err(), "empty username line must fail");
+        let err = result.err().unwrap();
+        assert!(
+            matches!(err, CredentialStoreError::EmptyUsername { .. }),
+            "expected EmptyUsername, got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn from_content_returns_err_for_empty_username() {
+        let hash = bcrypt::hash("pass", 4).unwrap();
+        let content = format!(":{hash}\n");
+        let result = CredentialStore::from_content("<test>", &content);
+        assert!(result.is_err());
+        assert!(matches!(
+            result.err().unwrap(),
+            CredentialStoreError::EmptyUsername { .. }
+        ));
+    }
+
     #[tokio::test]
     async fn merge_from_content_overrides_inline() {
         let inline_hash = bcrypt::hash("inline-pass", 4).unwrap();

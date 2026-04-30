@@ -101,7 +101,7 @@ async fn main() {
 
     // Build the credential store once; all sessions share it so the dummy
     // hash is computed only once rather than per-connection.
-    let credential_store = Arc::new(match build_credential_store(&config.auth) {
+    let credential_store = Arc::new(match build_credential_store(&config.auth).await {
         Ok(s) => s,
         Err(e) => {
             error!("failed to build credential store: {e}");
@@ -154,12 +154,31 @@ async fn sigterm() {
 ///
 /// Loads inline `users` first, then merges any entries from `credential_file`
 /// (file entries override inline entries with the same username).
-fn build_credential_store(
+///
+/// `credential_file` may be either a filesystem path or a `secretx:` URI.
+/// When it is a `secretx:` URI, the secret is fetched and its text content is
+/// parsed as a credential file; no filesystem access is performed.
+async fn build_credential_store(
     auth: &stoa_imap::config::AuthConfig,
-) -> Result<stoa_auth::CredentialStore, stoa_auth::CredentialStoreError> {
+) -> Result<stoa_auth::CredentialStore, String> {
     let mut store = stoa_auth::CredentialStore::from_credentials(&auth.users);
     if let Some(path) = &auth.credential_file {
-        store.merge_from_file(path)?;
+        if path.starts_with("secretx:") {
+            let secret_store = secretx::from_uri(path)
+                .map_err(|e| format!("auth.credential_file: invalid secretx URI: {e}"))?;
+            let secret = secret_store
+                .get()
+                .await
+                .map_err(|e| format!("auth.credential_file: secretx retrieval failed: {e}"))?;
+            let content = secret
+                .as_str()
+                .map_err(|e| format!("auth.credential_file: secretx value not valid UTF-8: {e}"))?;
+            store
+                .merge_from_content(path, content)
+                .map_err(|e| e.to_string())?;
+        } else {
+            store.merge_from_file(path).map_err(|e| e.to_string())?;
+        }
     }
     Ok(store)
 }
