@@ -278,7 +278,7 @@ fn default_max_article_bytes() -> usize {
     1_048_576
 }
 
-pub use stoa_auth::looks_like_bcrypt_hash;
+use stoa_auth::looks_like_bcrypt_hash;
 
 #[derive(Debug, Deserialize)]
 pub struct AuthConfig {
@@ -747,11 +747,11 @@ impl Config {
                 "either [backend] or [ipfs] with a non-empty api_url is required".into(),
             ));
         }
-        for (i, cred) in self.auth.users.iter().enumerate() {
+        for cred in &self.auth.users {
             if !looks_like_bcrypt_hash(&cred.password) {
                 return Err(ConfigError::Validation(format!(
-                    "auth.users[{i}].password appears to be plaintext — \
-                     use a bcrypt hash (run: htpasswd -bnBC 10 '' <password> | tr -d ':\\n')"
+                    "auth.users['{}']: password is not a valid bcrypt hash (cost must be 4–31)",
+                    cred.username
                 )));
             }
         }
@@ -793,6 +793,7 @@ pub fn check_admin_addr(admin: &AdminConfig) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use stoa_auth::looks_like_bcrypt_hash;
     use std::io::Write;
     use tempfile::NamedTempFile;
 

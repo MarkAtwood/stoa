@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::Path;
 
+use stoa_auth::looks_like_bcrypt_hash;
 pub use stoa_auth::AuthConfig;
 
 /// Database key used to identify the single global Sieve script.
@@ -516,6 +517,14 @@ impl Config {
                 "delivery.smtp_relay_queue_dir must not be empty when relay peers are configured"
                     .into(),
             ));
+        }
+        for u in &self.auth.users {
+            if !looks_like_bcrypt_hash(&u.password) {
+                return Err(ConfigError::Validation(format!(
+                    "auth.users['{}']: password is not a valid bcrypt hash (cost must be 4–31)",
+                    u.username
+                )));
+            }
         }
         Ok(())
     }

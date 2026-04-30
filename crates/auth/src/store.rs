@@ -21,6 +21,8 @@ pub enum CredentialStoreError {
     },
     #[error("{label}: line {line_num}: malformed entry (expected 'username:hash')")]
     MalformedLine { label: String, line_num: usize },
+    #[error("{label}: line {line_num}: username must not be empty")]
+    EmptyUsername { label: String, line_num: usize },
     #[error("{label}: user '{username}': password is not a valid bcrypt hash (cost must be 4–31)")]
     BadHash { label: String, username: String },
 }
@@ -174,7 +176,7 @@ impl CredentialStore {
             let user = user.trim().to_ascii_lowercase();
             let hash = hash.trim().to_string();
             if user.is_empty() {
-                return Err(CredentialStoreError::MalformedLine {
+                return Err(CredentialStoreError::EmptyUsername {
                     label: label.to_string(),
                     line_num: lineno + 1,
                 });
