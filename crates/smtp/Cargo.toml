@@ -38,6 +38,11 @@ tempfile = "3"
 tower = { version = "0.5", features = ["util"] }
 prometheus = { version = "0.14", default-features = false }
 
+[features]
+aws   = ["secretx/aws-sm", "secretx/aws-ssm"]
+azure = ["secretx/azure-kv"]
+gcp   = ["secretx/gcp-sm"]
+
 [dev-dependencies]
 bcrypt = "0.15"
 rcgen = "0.13"

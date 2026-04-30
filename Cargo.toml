@@ -19,6 +19,7 @@ members = [
 [workspace.dependencies]
 # Secrets retrieval — backend-agnostic URI-driven abstraction.
 # Features "env" and "file" cover local/dev deployments.
-# Add "aws-sm", "aws-kms", "pkcs11" etc. per consuming crate as needed.
-secretx-core = { version = "0.3.0" }
-secretx = { version = "0.3.0", default-features = false, features = ["env", "file"] }
+# Cloud backends ("aws-sm", "aws-ssm", "azure-kv", "gcp-sm") are gated behind
+# per-binary features (aws/azure/gcp) and compiled in only when requested.
+secretx-core = { version = "0.3.1" }
+secretx = { version = "0.3.1", default-features = false, features = ["env", "file"] }

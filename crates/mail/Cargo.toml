@@ -47,6 +47,11 @@ chrono = "0.4"
 prometheus = "0.14"
 tower-http = { version = "0.6", features = ["cors"] }
 
+[features]
+aws   = ["secretx/aws-sm", "secretx/aws-ssm"]
+azure = ["secretx/azure-kv"]
+gcp   = ["secretx/gcp-sm"]
+
 [dev-dependencies]
 bcrypt = "0.15"
 reqwest = { version = "0.12", features = ["json"] }

@@ -55,6 +55,9 @@ opentelemetry-appender-tracing = "0.31"
 # Enable native Ceph RADOS block store backend.
 # Requires librados-dev to be installed at build time.
 rados = ["dep:ceph", "dep:nix"]
+aws   = ["secretx/aws-sm", "secretx/aws-ssm"]
+azure = ["secretx/azure-kv"]
+gcp   = ["secretx/gcp-sm"]
 
 [[bench]]
 name = "ihave_throughput"

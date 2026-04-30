@@ -58,6 +58,11 @@ opentelemetry-otlp = { version = "0.31", features = ["metrics", "trace", "logs",
 tracing-opentelemetry = "0.32"
 opentelemetry-appender-tracing = "0.31"
 
+[features]
+aws   = ["secretx/aws-sm", "secretx/aws-ssm"]
+azure = ["secretx/azure-kv"]
+gcp   = ["secretx/gcp-sm"]
+
 [[bench]]
 name = "nntp_latency"
 harness = false
