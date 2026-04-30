@@ -126,20 +126,16 @@ async fn main() {
         None
     };
 
-    // Open the Sieve delivery database only when local users are configured.
-    let pool = if !config.users.is_empty() {
-        match store::open(&config.database.path).await {
-            Ok(p) => {
-                info!(path = %config.database.path, "Sieve delivery database opened");
-                Some(p)
-            }
-            Err(e) => {
-                error!("failed to open database {}: {e}", config.database.path);
-                std::process::exit(1);
-            }
+    // Open the Sieve delivery database for global script evaluation.
+    let pool = match store::open(&config.database.path).await {
+        Ok(p) => {
+            info!(path = %config.database.path, "Sieve delivery database opened");
+            Some(p)
         }
-    } else {
-        None
+        Err(e) => {
+            error!("failed to open database {}: {e}", config.database.path);
+            std::process::exit(1);
+        }
     };
 
     info!(
@@ -179,7 +175,7 @@ async fn main() {
         None
     };
 
-    // Start the Sieve admin HTTP API when local users are configured.
+    // Start the Sieve admin HTTP API.
     if let Some(ref admin_pool) = pool {
         let admin_config = Arc::clone(&config);
         let admin_pool = admin_pool.clone();

@@ -4,6 +4,13 @@ use std::path::Path;
 
 pub use stoa_auth::AuthConfig;
 
+/// Database key used to identify the single global Sieve script.
+///
+/// The `user_sieve_scripts` table is keyed by `(username, script_name)`.
+/// In the single-user delivery model there are no per-user namespaces, so
+/// the global policy script is stored under this sentinel username.
+pub const GLOBAL_SCRIPT_KEY: &str = "_global";
+
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub listen: ListenConfig,
@@ -20,8 +27,6 @@ pub struct Config {
     #[serde(default)]
     pub delivery: DeliveryConfig,
     #[serde(default)]
-    pub users: Vec<UserConfig>,
-    #[serde(default)]
     pub database: DatabaseConfig,
     #[serde(default)]
     pub sieve_admin: SieveAdminConfig,
@@ -36,13 +41,6 @@ pub struct Config {
     /// advertised and no credentials are accepted.
     #[serde(default)]
     pub auth: AuthConfig,
-}
-
-/// A local mailbox user.  `email` is matched against RCPT TO addresses.
-#[derive(Debug, Deserialize, Clone)]
-pub struct UserConfig {
-    pub username: String,
-    pub email: String,
 }
 
 fn default_db_path() -> String {

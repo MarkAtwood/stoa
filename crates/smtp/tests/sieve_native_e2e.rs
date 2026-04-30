@@ -25,7 +25,7 @@ use stoa_auth::{AuthConfig, CredentialStore};
 use stoa_smtp::{
     config::{
         Config, DatabaseConfig, DnsResolver, LimitsConfig, ListenConfig, LogConfig, LogFormat,
-        ReaderConfig, SieveAdminConfig, TlsConfig, UserConfig,
+        ReaderConfig, SieveAdminConfig, TlsConfig,
     },
     queue::NntpQueue,
     session::run_session,
@@ -60,10 +60,6 @@ fn test_config() -> Arc<Config> {
         },
         reader: ReaderConfig::default(),
         delivery: stoa_smtp::config::DeliveryConfig::default(),
-        users: vec![UserConfig {
-            username: "alice".to_string(),
-            email: "alice@example.com".to_string(),
-        }],
         database: DatabaseConfig::default(),
         sieve_admin: SieveAdminConfig::default(),
         dns_resolver: DnsResolver::System,
@@ -162,6 +158,7 @@ async fn drive(
             pool,
             None,
             None,
+            None,
         )
         .await;
     });
@@ -192,7 +189,7 @@ async fn fileinto_newsgroup() {
     let pool = open_test_db().await;
     store::save_script(
         &pool,
-        "alice",
+        "_global",
         "default",
         br#"require ["fileinto"]; fileinto "newsgroup:comp.test";"#,
         true,
@@ -224,7 +221,7 @@ async fn fileinto_newsgroup() {
         "queued article must contain 'Newsgroups: comp.test'; got:\n{text}"
     );
 
-    let inbox_count = count_mailbox(&pool, "alice", "INBOX").await;
+    let inbox_count = count_mailbox(&pool, "_global", "INBOX").await;
     assert_eq!(inbox_count, 0, "newsgroup fileinto must not store in INBOX");
 }
 
@@ -239,7 +236,7 @@ async fn reject_returns_550() {
     let pool = open_test_db().await;
     store::save_script(
         &pool,
-        "alice",
+        "_global",
         "default",
         br#"require ["reject"]; reject "policy";"#,
         true,
@@ -258,7 +255,7 @@ async fn reject_returns_550() {
         0,
         "rejected message must not appear in NNTP queue"
     );
-    let inbox_count = count_mailbox(&pool, "alice", "INBOX").await;
+    let inbox_count = count_mailbox(&pool, "_global", "INBOX").await;
     assert_eq!(inbox_count, 0, "rejected message must not appear in INBOX");
 }
 
@@ -272,7 +269,7 @@ async fn reject_returns_550() {
 #[tokio::test]
 async fn discard_returns_250_nothing_stored() {
     let pool = open_test_db().await;
-    store::save_script(&pool, "alice", "default", b"discard;", true)
+    store::save_script(&pool, "_global", "default", b"discard;", true)
         .await
         .expect("save script");
 
@@ -287,7 +284,7 @@ async fn discard_returns_250_nothing_stored() {
         0,
         "discarded message must not appear in NNTP queue"
     );
-    let inbox_count = count_mailbox(&pool, "alice", "INBOX").await;
+    let inbox_count = count_mailbox(&pool, "_global", "INBOX").await;
     assert_eq!(inbox_count, 0, "discarded message must not appear in INBOX");
 }
 
@@ -308,7 +305,7 @@ if header :contains "Subject" "rust" {
 
     // Session 1: subject "rust" → should go to newsgroup queue.
     let pool1 = open_test_db().await;
-    store::save_script(&pool1, "alice", "default", script, true)
+    store::save_script(&pool1, "_global", "default", script, true)
         .await
         .expect("save script");
 
@@ -322,12 +319,12 @@ if header :contains "Subject" "rust" {
         1,
         "subject 'rust' must route to newsgroup queue"
     );
-    let inbox1 = count_mailbox(&pool1, "alice", "INBOX").await;
+    let inbox1 = count_mailbox(&pool1, "_global", "INBOX").await;
     assert_eq!(inbox1, 0, "rust-subject message must not land in INBOX");
 
     // Session 2: subject "Test" → no match → implicit keep → INBOX.
     let pool2 = open_test_db().await;
-    store::save_script(&pool2, "alice", "default", script, true)
+    store::save_script(&pool2, "_global", "default", script, true)
         .await
         .expect("save script");
 
@@ -341,7 +338,7 @@ if header :contains "Subject" "rust" {
         0,
         "non-matching subject must not route to newsgroup queue"
     );
-    let inbox2 = count_mailbox(&pool2, "alice", "INBOX").await;
+    let inbox2 = count_mailbox(&pool2, "_global", "INBOX").await;
     assert_eq!(inbox2, 1, "non-matching subject must land in INBOX");
 }
 
@@ -357,7 +354,7 @@ async fn variables_set_fileinto() {
     let pool = open_test_db().await;
     store::save_script(
         &pool,
-        "alice",
+        "_global",
         "default",
         br#"require ["variables", "fileinto"];
 set "ng" "newsgroup:comp.test";
@@ -391,7 +388,7 @@ fileinto "${ng}";"#,
         "queued article must contain 'Newsgroups: comp.test'; got:\n{text}"
     );
 
-    let inbox_count = count_mailbox(&pool, "alice", "INBOX").await;
+    let inbox_count = count_mailbox(&pool, "_global", "INBOX").await;
     assert_eq!(inbox_count, 0, "variables fileinto must not store in INBOX");
 }
 
@@ -418,6 +415,6 @@ async fn implicit_keep_no_script() {
         0,
         "implicit keep must not route to newsgroup queue"
     );
-    let inbox_count = count_mailbox(&pool, "alice", "INBOX").await;
+    let inbox_count = count_mailbox(&pool, "_global", "INBOX").await;
     assert_eq!(inbox_count, 1, "implicit keep must deliver to INBOX");
 }

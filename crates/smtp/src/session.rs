@@ -131,12 +131,17 @@ enum SessionState {
 /// is enqueued without authentication (suitable for loopback submission or
 /// unit tests).
 ///
-/// `pool` is optional: when `Some` and `config.users` is non-empty, non-list
-/// messages are delivered inline via per-user Sieve scripts instead of being
-/// forwarded through the message queue.
+/// `pool` is optional: when `Some`, the global Sieve script is evaluated and
+/// the result is applied for all recipients.  When `None`, all messages are
+/// treated as Keep (delivered to INBOX if `mail_pool` is set).
 ///
 /// `mail_pool` is optional: when `Some`, INBOX delivery writes into the JMAP
 /// mail store instead of the smtp-local store.  Falls back to `pool` on error.
+///
+/// `inbox_mailbox_id` is the pre-looked-up JMAP mailbox_id for the INBOX
+/// special folder.  Callers populate this once at startup (from the mail DB)
+/// so `sieve_delivery` never issues a per-message `SELECT … WHERE role='inbox'`
+/// query.  `None` means JMAP delivery is not configured.
 pub async fn run_session<S>(
     stream: S,
     is_tls: bool,
@@ -148,6 +153,7 @@ pub async fn run_session<S>(
     pool: Option<SqlitePool>,
     mail_pool: Option<SqlitePool>,
     sieve_cache: Option<SieveCache>,
+    inbox_mailbox_id: Option<String>,
 ) where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
@@ -397,21 +403,6 @@ pub async fn run_session<S>(
                         ref ehlo_domain,
                         ref from,
                     } => {
-                        // Always reject unknown recipients; empty users list rejects all.
-                        let known = config
-                            .users
-                            .iter()
-                            .any(|u| u.email.eq_ignore_ascii_case(&to_addr));
-                        if !known {
-                            if write_half
-                                .write_all(b"550 5.1.1 User not found\r\n")
-                                .await
-                                .is_err()
-                            {
-                                break;
-                            }
-                            continue;
-                        }
                         let ehlo_domain = ehlo_domain.clone();
                         let from_clone = from.clone();
                         if write_half.write_all(b"250 OK\r\n").await.is_err() {
@@ -424,21 +415,6 @@ pub async fn run_session<S>(
                         };
                     }
                     SessionState::Rcpt { ref mut to, .. } => {
-                        // Always reject unknown recipients; empty users list rejects all.
-                        let known = config
-                            .users
-                            .iter()
-                            .any(|u| u.email.eq_ignore_ascii_case(&to_addr));
-                        if !known {
-                            if write_half
-                                .write_all(b"550 5.1.1 User not found\r\n")
-                                .await
-                                .is_err()
-                            {
-                                break;
-                            }
-                            continue;
-                        }
                         if to.len() >= config.limits.max_recipients {
                             if write_half
                                 .write_all(b"452 Too many recipients\r\n")
@@ -637,6 +613,7 @@ pub async fn run_session<S>(
                     &config,
                     pool.as_ref(),
                     mail_pool.as_ref(),
+                    inbox_mailbox_id.as_deref(),
                     &to,
                     &raw_bytes,
                     &from,
@@ -678,6 +655,18 @@ pub async fn run_session<S>(
                             b"250 OK\r\n"
                         };
                         if write_half.write_all(reply).await.is_err() {
+                            break;
+                        }
+                    }
+                    SieveOutcome::TransientError => {
+                        SMTP_MESSAGES_REJECTED_TOTAL
+                            .with_label_values(&["transient"])
+                            .inc();
+                        if write_half
+                            .write_all(b"452 4.3.0 Mailbox temporarily unavailable\r\n")
+                            .await
+                            .is_err()
+                        {
                             break;
                         }
                     }
@@ -791,13 +780,18 @@ enum SieveOutcome {
     /// No rejection; message was processed for all recipients.
     /// `nntp_queue_error` is `true` if at least one newsgroup enqueue failed.
     Accepted { nntp_queue_error: bool },
+    /// Both the JMAP store and the smtp fallback store failed for a Keep
+    /// action.  The caller must send `452` so the sending MTA retries.
+    TransientError,
 }
 
-/// Evaluate Sieve filters for all addressed local users and apply the
-/// resulting actions (Keep → INBOX, FileInto → folder or newsgroup, Discard,
-/// Reject).
+/// Evaluate the global Sieve script and apply the resulting actions.
 ///
-/// Returns [`SieveOutcome::Rejected`] if any script issued a reject — the
+/// The global script is keyed to `crate::config::GLOBAL_SCRIPT_KEY` in the `user_sieve_scripts`
+/// table.  When no script is stored the default action is Keep (RFC 5228
+/// §2.10.2).
+///
+/// Returns [`SieveOutcome::Rejected`] if the script issued a reject — the
 /// caller is responsible for sending the 550 response and incrementing the
 /// reject metric.  Returns [`SieveOutcome::Accepted`] otherwise, with a flag
 /// indicating whether any newsgroup enqueue failed (caller sends 452 vs 250).
@@ -806,6 +800,7 @@ async fn sieve_delivery(
     config: &Config,
     pool: Option<&SqlitePool>,
     mail_pool: Option<&SqlitePool>,
+    inbox_mailbox_id: Option<&str>,
     to: &[String],
     raw_bytes: &[u8],
     from: &str,
@@ -813,181 +808,183 @@ async fn sieve_delivery(
     nntp_queue: &NntpQueue,
     peer_addr: &str,
 ) -> SieveOutcome {
-    // Collect Sieve actions for every addressed local user.
-    let mut deliveries: Vec<(String, String, Vec<stoa_sieve_native::SieveAction>)> = Vec::new();
-    for recipient_email in to {
-        if let Some(user) = config
-            .users
-            .iter()
-            .find(|u| u.email.eq_ignore_ascii_case(recipient_email))
-        {
-            let actions = if let Some(db_pool) = pool {
-                let sieve_timeout =
-                    tokio::time::Duration::from_millis(config.limits.sieve_eval_timeout_ms);
-                let username = user.username.clone();
-                match tokio::time::timeout(
-                    sieve_timeout,
-                    sieve_for_user(
-                        db_pool,
-                        &username,
-                        raw_bytes,
-                        from,
-                        recipient_email,
-                        sieve_cache,
-                    ),
-                )
-                .await
-                {
-                    Ok(actions) => actions,
-                    Err(_elapsed) => {
-                        tracing::warn!(%username, "Sieve evaluation timed out; defaulting to Keep");
-                        crate::metrics::SMTP_SIEVE_EVAL_TIMEOUTS_TOTAL.inc();
-                        vec![stoa_sieve_native::SieveAction::Keep]
-                    }
-                }
-            } else {
-                vec![stoa_sieve_native::SieveAction::Keep]
-            };
-            deliveries.push((user.username.clone(), recipient_email.clone(), actions));
-        }
-    }
+    // Use the first recipient address for Sieve envelope matching.
+    // In a single-user system all recipients share the same global policy.
+    let envelope_to = to.first().map(|s| s.as_str()).unwrap_or("");
 
-    // If any script wants to reject, reject the whole transaction.
-    for (_, _, actions) in &deliveries {
-        for action in actions {
-            if let stoa_sieve_native::SieveAction::Reject(r) = action {
-                return SieveOutcome::Rejected(r.clone());
+    // Evaluate the global script (keyed to crate::config::GLOBAL_SCRIPT_KEY).
+    let actions = if let Some(db_pool) = pool {
+        let sieve_timeout = tokio::time::Duration::from_millis(config.limits.sieve_eval_timeout_ms);
+        match tokio::time::timeout(
+            sieve_timeout,
+            sieve_global(db_pool, raw_bytes, from, envelope_to, sieve_cache),
+        )
+        .await
+        {
+            Ok(actions) => actions,
+            Err(_elapsed) => {
+                tracing::warn!("Sieve evaluation timed out; defaulting to Keep");
+                crate::metrics::SMTP_SIEVE_EVAL_TIMEOUTS_TOTAL.inc();
+                vec![stoa_sieve_native::SieveAction::Keep]
             }
         }
+    } else {
+        vec![stoa_sieve_native::SieveAction::Keep]
+    };
+
+    // Reject-before-deliver: if the script issues Reject, return immediately.
+    for action in &actions {
+        if let stoa_sieve_native::SieveAction::Reject(r) = action {
+            return SieveOutcome::Rejected(r.clone());
+        }
     }
 
-    // No reject — apply Keep / FileInto / Discard per recipient.
+    // Apply Keep / FileInto / Discard actions once for the message.
     let mut nntp_queue_error = false;
-    for (username, email, actions) in deliveries {
-        for action in actions {
-            match action {
-                stoa_sieve_native::SieveAction::Keep => {
-                    if let Some(mp) = mail_pool {
-                        // Single JOIN query: resolve user_id and INBOX mailbox_id together.
-                        let row_opt: Option<(i64, String)> = sqlx::query_as(
-                            "SELECT u.id, m.mailbox_id \
-                             FROM users u \
-                             JOIN user_mailboxes m ON m.user_id = u.id AND m.role = 'inbox' \
-                             WHERE u.username = ?",
+    for action in actions {
+        match action {
+            stoa_sieve_native::SieveAction::Keep => {
+                if let Some(mp) = mail_pool {
+                    // Use the inbox_mailbox_id cached at startup — avoids a
+                    // per-message SELECT on the mailboxes table.
+                    if let Some(mid) = inbox_mailbox_id {
+                        let insert_result = sqlx::query(
+                            "INSERT INTO messages (mailbox_id, envelope_from, envelope_to, raw_message) VALUES (?,?,?,?)",
                         )
-                        .bind(&username)
-                        .fetch_optional(mp)
-                        .await
-                        .ok()
-                        .flatten();
+                        .bind(mid)
+                        .bind(from)
+                        .bind(envelope_to)
+                        .bind(raw_bytes)
+                        .execute(mp)
+                        .await;
 
-                        if let Some((uid, mid)) = row_opt {
-                            let insert_result = sqlx::query(
-                                "INSERT INTO mailbox_messages (user_id, mailbox_id, envelope_from, envelope_to, raw_message) VALUES (?,?,?,?,?)",
-                            )
-                            .bind(uid)
-                            .bind(&mid)
-                            .bind(from)
-                            .bind(&email)
-                            .bind(raw_bytes)
-                            .execute(mp)
-                            .await;
-
-                            match insert_result {
-                                Ok(_) => {
-                                    let _ = sqlx::query(
-                                        "INSERT INTO state_version (scope, version) VALUES ('Email', 1) \
-                                         ON CONFLICT(scope) DO UPDATE SET version = version + 1",
+                        match insert_result {
+                            Ok(_) => {
+                                let _ = sqlx::query(
+                                    "INSERT INTO state_version (scope, version) VALUES ('Email', 1) \
+                                     ON CONFLICT(scope) DO UPDATE SET version = version + 1",
+                                )
+                                .execute(mp)
+                                .await;
+                            }
+                            Err(e) => {
+                                warn!(peer = %peer_addr, "SMTP→JMAP write failed: {e}; falling through to smtp store");
+                                if let Some(db_pool) = pool {
+                                    if let Err(e2) = store::deliver(
+                                        db_pool,
+                                        crate::config::GLOBAL_SCRIPT_KEY,
+                                        "INBOX",
+                                        from,
+                                        envelope_to,
+                                        raw_bytes,
                                     )
-                                    .execute(mp)
-                                    .await;
-                                }
-                                Err(e) => {
-                                    warn!(peer = %peer_addr, %username, "SMTP→JMAP write failed: {e}; falling through to smtp store");
-                                    if let Some(db_pool) = pool {
-                                        if let Err(e2) = store::deliver(
-                                            db_pool, &username, "INBOX", from, &email, raw_bytes,
-                                        )
-                                        .await
-                                        {
-                                            warn!(peer = %peer_addr, %username, "deliver to INBOX failed: {e2}");
-                                        }
+                                    .await
+                                    {
+                                        warn!(peer = %peer_addr, "deliver to INBOX failed: {e2}; both delivery paths failed, returning transient error");
+                                        return SieveOutcome::TransientError;
                                     }
+                                } else {
+                                    warn!(peer = %peer_addr, "SMTP→JMAP write failed and no smtp fallback pool; returning transient error");
+                                    return SieveOutcome::TransientError;
                                 }
+                            }
+                        }
+                    } else {
+                        warn!(peer = %peer_addr, "INBOX not in JMAP mailboxes table; falling back to smtp store");
+                        if let Some(db_pool) = pool {
+                            if let Err(e) = store::deliver(
+                                db_pool,
+                                crate::config::GLOBAL_SCRIPT_KEY,
+                                "INBOX",
+                                from,
+                                envelope_to,
+                                raw_bytes,
+                            )
+                            .await
+                            {
+                                warn!(peer = %peer_addr, "fallback smtp store deliver failed: {e}; both delivery paths failed, returning transient error");
+                                return SieveOutcome::TransientError;
                             }
                         } else {
-                            warn!(peer = %peer_addr, %username, "user or INBOX not in JMAP DB; falling back to smtp store");
-                            if let Some(db_pool) = pool {
-                                if let Err(e) = store::deliver(
-                                    db_pool, &username, "INBOX", from, &email, raw_bytes,
-                                )
-                                .await
-                                {
-                                    warn!(peer = %peer_addr, %username, "fallback smtp store deliver failed: {e}");
-                                }
-                            }
+                            warn!(peer = %peer_addr, "INBOX not in JMAP mailboxes table and no smtp fallback pool; returning transient error");
+                            return SieveOutcome::TransientError;
                         }
-                    } else if let Some(db_pool) = pool {
-                        if let Err(e) =
-                            store::deliver(db_pool, &username, "INBOX", from, &email, raw_bytes)
-                                .await
-                        {
-                            warn!(peer = %peer_addr, %username, "deliver to INBOX failed: {e}");
-                        }
+                    }
+                } else if let Some(db_pool) = pool {
+                    if let Err(e) = store::deliver(
+                        db_pool,
+                        crate::config::GLOBAL_SCRIPT_KEY,
+                        "INBOX",
+                        from,
+                        envelope_to,
+                        raw_bytes,
+                    )
+                    .await
+                    {
+                        warn!(peer = %peer_addr, "deliver to INBOX failed: {e}");
+                    }
+                } else {
+                    // No database configured but Keep action requires local
+                    // delivery.  Return a 452 transient failure so the sending
+                    // MTA retries — silently discarding mail here is data loss.
+                    warn!(
+                        peer = %peer_addr,
+                        "Sieve Keep: no database configured, returning transient error"
+                    );
+                    return SieveOutcome::TransientError;
+                }
+            }
+            stoa_sieve_native::SieveAction::FileInto(folder) => {
+                if let Some(newsgroup) = folder.strip_prefix("newsgroup:") {
+                    let (article, injection_source) = if routing::has_newsgroups_header(raw_bytes) {
+                        (raw_bytes.to_vec(), InjectionSource::SmtpNewsgroups)
                     } else {
-                        // No database configured but Keep action requires local
-                        // delivery.  Return a 452 transient failure so the sending
-                        // MTA retries — silently discarding mail here is data loss.
-                        warn!(
-                            peer = %peer_addr, %username,
-                            "Sieve Keep: no database configured, returning transient error"
-                        );
+                        (
+                            routing::add_newsgroups_header(raw_bytes, newsgroup),
+                            InjectionSource::SmtpSieve,
+                        )
+                    };
+                    if let Err(e) = nntp_queue.enqueue(&article, injection_source).await {
+                        warn!(peer = %peer_addr, %newsgroup, "NNTP queue write failed: {e}");
                         nntp_queue_error = true;
                     }
-                }
-                stoa_sieve_native::SieveAction::FileInto(folder) => {
-                    if let Some(newsgroup) = folder.strip_prefix("newsgroup:") {
-                        let (article, injection_source) =
-                            if routing::has_newsgroups_header(raw_bytes) {
-                                (raw_bytes.to_vec(), InjectionSource::SmtpNewsgroups)
-                            } else {
-                                (
-                                    routing::add_newsgroups_header(raw_bytes, newsgroup),
-                                    InjectionSource::SmtpSieve,
-                                )
-                            };
-                        if let Err(e) = nntp_queue.enqueue(&article, injection_source).await {
-                            warn!(peer = %peer_addr, %newsgroup, "NNTP queue write failed: {e}");
-                            nntp_queue_error = true;
-                        }
-                    } else if let Some(db_pool) = pool {
-                        if let Err(e) =
-                            store::deliver(db_pool, &username, &folder, from, &email, raw_bytes)
-                                .await
-                        {
-                            warn!(peer = %peer_addr, %username, %folder, "deliver to folder failed: {e}");
-                        }
-                    } else {
-                        warn!(
-                            peer = %peer_addr, %username, %folder,
-                            "Sieve FileInto: no database configured, message not stored"
-                        );
+                } else if let Some(db_pool) = pool {
+                    if let Err(e) = store::deliver(
+                        db_pool,
+                        crate::config::GLOBAL_SCRIPT_KEY,
+                        &folder,
+                        from,
+                        envelope_to,
+                        raw_bytes,
+                    )
+                    .await
+                    {
+                        warn!(peer = %peer_addr, %folder, "deliver to folder failed: {e}");
                     }
+                } else {
+                    warn!(
+                        peer = %peer_addr, %folder,
+                        "Sieve FileInto: no database configured, message not stored"
+                    );
                 }
-                stoa_sieve_native::SieveAction::Discard => {
-                    info!(peer = %peer_addr, %username, "Sieve discard — message dropped");
-                }
-                stoa_sieve_native::SieveAction::Reject(_) => {}
             }
+            stoa_sieve_native::SieveAction::Discard => {
+                info!(peer = %peer_addr, "Sieve discard — message dropped");
+            }
+            stoa_sieve_native::SieveAction::Reject(_) => {}
         }
     }
 
     SieveOutcome::Accepted { nntp_queue_error }
 }
 
-async fn sieve_for_user(
+/// Load and evaluate the active global Sieve script.
+///
+/// The global script is keyed to `crate::config::GLOBAL_SCRIPT_KEY` in the `user_sieve_scripts`
+/// table.  Defaults to [`Keep`](stoa_sieve_native::SieveAction::Keep) when no
+/// script is stored or the script fails to compile.
+async fn sieve_global(
     pool: &SqlitePool,
-    username: &str,
     raw_message: &[u8],
     envelope_from: &str,
     envelope_to: &str,
@@ -996,33 +993,32 @@ async fn sieve_for_user(
     // Check cache before hitting the database.
     if let Some(cache) = cache {
         let lock = cache.lock().await;
-        if let Some(compiled) = lock.get(username) {
+        if let Some(compiled) = lock.get(crate::config::GLOBAL_SCRIPT_KEY) {
             let compiled = Arc::clone(compiled);
             drop(lock);
             return stoa_sieve_native::evaluate(&compiled, raw_message, envelope_from, envelope_to);
         }
     }
 
-    let script_bytes = store::load_active_script(pool, username).await;
+    let script_bytes = store::load_active_script(pool, crate::config::GLOBAL_SCRIPT_KEY).await;
     match script_bytes {
         Some(bytes) => match stoa_sieve_native::compile(&bytes) {
             Ok(compiled) => {
                 let compiled = Arc::new(compiled);
                 if let Some(cache) = cache {
-                    cache
-                        .lock()
-                        .await
-                        .insert(username.to_owned(), Arc::clone(&compiled));
+                    cache.lock().await.insert(
+                        crate::config::GLOBAL_SCRIPT_KEY.to_owned(),
+                        Arc::clone(&compiled),
+                    );
                 }
                 stoa_sieve_native::evaluate(&compiled, raw_message, envelope_from, envelope_to)
             }
             Err(e) => {
                 tracing::error!(
-                    %username,
                     error = %e,
                     sieve.event = "compile_error",
-                    "Sieve script compile error — failing open to Keep; \
-                     user's filter rules are NOT being applied"
+                    "global Sieve script compile error — failing open to Keep; \
+                     filter rules are NOT being applied"
                 );
                 vec![stoa_sieve_native::SieveAction::Keep]
             }
@@ -1175,7 +1171,7 @@ mod tests {
     use super::*;
     use crate::config::{
         AuthConfig, DatabaseConfig, LimitsConfig, ListenConfig, LogConfig, ReaderConfig,
-        SieveAdminConfig, TlsConfig, UserConfig,
+        SieveAdminConfig, TlsConfig,
     };
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -1204,40 +1200,6 @@ mod tests {
             },
             reader: ReaderConfig::default(),
             delivery: crate::config::DeliveryConfig::default(),
-            users: vec![],
-            database: DatabaseConfig::default(),
-            sieve_admin: SieveAdminConfig::default(),
-            dns_resolver: crate::config::DnsResolver::System,
-            auth: AuthConfig::default(),
-        })
-    }
-
-    fn test_config_with_users(users: Vec<UserConfig>) -> Arc<Config> {
-        Arc::new(Config {
-            hostname: "test.example.com".to_string(),
-            listen: ListenConfig {
-                port_25: "127.0.0.1:0".to_string(),
-                port_587: "127.0.0.1:0".to_string(),
-                smtps_addr: None,
-            },
-            tls: TlsConfig {
-                cert_path: None,
-                key_path: None,
-            },
-            limits: LimitsConfig {
-                max_message_bytes: 1_048_576,
-                max_recipients: 10,
-                command_timeout_secs: 300,
-                max_connections: 10,
-                sieve_eval_timeout_ms: 5_000,
-            },
-            log: LogConfig {
-                level: "info".to_string(),
-                format: crate::config::LogFormat::Json,
-            },
-            reader: ReaderConfig::default(),
-            delivery: crate::config::DeliveryConfig::default(),
-            users,
             database: DatabaseConfig::default(),
             sieve_admin: SieveAdminConfig::default(),
             dns_resolver: crate::config::DnsResolver::System,
@@ -1284,6 +1246,7 @@ mod tests {
                 pool,
                 None,
                 None,
+                None,
             )
             .await;
         });
@@ -1318,11 +1281,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_basic_smtp_session() {
-        // Basic end-to-end: full SMTP exchange with a known recipient completes successfully.
-        let rcpt_user = UserConfig {
-            username: "rcpt".to_string(),
-            email: "rcpt@example.com".to_string(),
-        };
+        // Basic end-to-end: full SMTP exchange completes successfully.
+        // All RCPT TO addresses are accepted in the global delivery model.
         let client = b"EHLO client.example.com\r\n\
             MAIL FROM:<sender@example.com>\r\n\
             RCPT TO:<rcpt@example.com>\r\n\
@@ -1333,8 +1293,7 @@ mod tests {
             .\r\n\
             QUIT\r\n";
 
-        let (response, _queue_dir) =
-            drive_session_ext(client, test_config_with_users(vec![rcpt_user]), None).await;
+        let (response, _queue_dir) = drive_session_ext(client, test_config(), None).await;
 
         assert!(
             response.starts_with("220 "),
@@ -1404,17 +1363,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_rcpt_empty_users_rejects_all() {
-        // An empty user list means no local recipients exist — not an open relay.
-        // All RCPT TO addresses must be rejected with 550 when users is empty.
+    async fn test_rcpt_any_address_accepted() {
+        // Global delivery model: all RCPT TO addresses are accepted (no per-user allowlist).
         let client = b"EHLO client.example.com\r\n\
             MAIL FROM:<sender@example.com>\r\n\
             RCPT TO:<anyone@example.com>\r\n\
             QUIT\r\n";
         let (response, _) = drive_session(client).await;
         assert!(
-            response.contains("550 5.1.1 User not found"),
-            "empty users must reject all RCPT TO with 550, got: {response}"
+            response.contains("250 OK"),
+            "all RCPT TO must be accepted in global delivery model, got: {response}"
         );
     }
 
@@ -1441,12 +1399,9 @@ mod tests {
                 .expect("resolver creation must not fail"),
         );
 
-        // Use a user so the message is stored in INBOX for inspection.
+        // Message is stored in INBOX for inspection via the smtp-local store.
         let pool = open_test_db().await;
-        let config = test_config_with_users(vec![UserConfig {
-            username: "rcpt".to_string(),
-            email: "rcpt@example.com".to_string(),
-        }]);
+        let config = test_config();
         let queue_dir = tempfile::tempdir().expect("tempdir");
         let nntp_queue = NntpQueue::new(queue_dir.path()).expect("NntpQueue::new");
         let credential_store = Arc::new(CredentialStore::empty());
@@ -1469,6 +1424,7 @@ mod tests {
                 queue2,
                 Some(auth2),
                 Some(pool2),
+                None,
                 None,
                 None,
             )
@@ -1496,9 +1452,10 @@ mod tests {
 
         assert!(response.contains("250 OK"), "expected 250 after DATA");
 
-        let raw_bytes = crate::store::get_first_message_raw(&pool, "rcpt", "INBOX")
-            .await
-            .expect("message must be in INBOX");
+        let raw_bytes =
+            crate::store::get_first_message_raw(&pool, crate::config::GLOBAL_SCRIPT_KEY, "INBOX")
+                .await
+                .expect("message must be in INBOX");
         let raw = std::str::from_utf8(&raw_bytes).expect("valid UTF-8");
         assert!(
             raw.contains("Authentication-Results:"),
@@ -1507,13 +1464,6 @@ mod tests {
     }
 
     // ── Sieve delivery tests ──────────────────────────────────────────────────
-
-    fn alice() -> UserConfig {
-        UserConfig {
-            username: "alice".to_string(),
-            email: "alice@example.com".to_string(),
-        }
-    }
 
     const FULL_MSG: &[u8] = b"EHLO client.example.com\r\n\
         MAIL FROM:<sender@example.com>\r\n\
@@ -1526,39 +1476,10 @@ mod tests {
         QUIT\r\n";
 
     #[tokio::test]
-    async fn test_rcpt_unknown_user_rejected() {
-        let config = test_config_with_users(vec![alice()]);
-        let client = b"EHLO client.example.com\r\n\
-            MAIL FROM:<sender@example.com>\r\n\
-            RCPT TO:<unknown@example.com>\r\n\
-            QUIT\r\n";
-        let (response, _) = drive_session_ext(client, config, None).await;
-        assert!(
-            response.contains("550 5.1.1"),
-            "expected 550 5.1.1 for unknown user, got: {response}"
-        );
-    }
-
-    #[tokio::test]
-    async fn test_rcpt_known_user_accepted() {
-        let config = test_config_with_users(vec![alice()]);
-        let client = b"EHLO client.example.com\r\n\
-            MAIL FROM:<sender@example.com>\r\n\
-            RCPT TO:<alice@example.com>\r\n\
-            QUIT\r\n";
-        let (response, _) = drive_session_ext(client, config, None).await;
-        assert!(
-            !response.contains("550"),
-            "expected no 550 for known user, got: {response}"
-        );
-        assert!(response.contains("250 OK"), "expected 250 OK for RCPT TO");
-    }
-
-    #[tokio::test]
     async fn test_sieve_default_delivers_to_inbox() {
-        // No script stored → default Keep → message in INBOX.
+        // No global script stored → default Keep → message in INBOX.
         let pool = open_test_db().await;
-        let config = test_config_with_users(vec![alice()]);
+        let config = test_config();
 
         let pool_clone = pool.clone();
         let (response, _) = drive_session_ext(FULL_MSG, config, Some(pool_clone)).await;
@@ -1567,7 +1488,8 @@ mod tests {
             response.contains("250 OK"),
             "expected 250 OK, got: {response}"
         );
-        let count = crate::store::count_messages(&pool, "alice", "INBOX").await;
+        let count =
+            crate::store::count_messages(&pool, crate::config::GLOBAL_SCRIPT_KEY, "INBOX").await;
         assert_eq!(count, 1, "expected 1 message in INBOX");
     }
 
@@ -1576,7 +1498,7 @@ mod tests {
         let pool = open_test_db().await;
         crate::store::save_script(
             &pool,
-            "alice",
+            crate::config::GLOBAL_SCRIPT_KEY,
             "default",
             br#"require ["fileinto"]; fileinto "Work";"#,
             true,
@@ -1584,7 +1506,7 @@ mod tests {
         .await
         .expect("save script");
 
-        let config = test_config_with_users(vec![alice()]);
+        let config = test_config();
         let pool_clone = pool.clone();
         let (response, _) = drive_session_ext(FULL_MSG, config, Some(pool_clone)).await;
 
@@ -1592,8 +1514,10 @@ mod tests {
             response.contains("250 OK"),
             "expected 250 OK, got: {response}"
         );
-        let count_work = crate::store::count_messages(&pool, "alice", "Work").await;
-        let count_inbox = crate::store::count_messages(&pool, "alice", "INBOX").await;
+        let count_work =
+            crate::store::count_messages(&pool, crate::config::GLOBAL_SCRIPT_KEY, "Work").await;
+        let count_inbox =
+            crate::store::count_messages(&pool, crate::config::GLOBAL_SCRIPT_KEY, "INBOX").await;
         assert_eq!(count_work, 1, "expected 1 message in Work");
         assert_eq!(count_inbox, 0, "expected 0 messages in INBOX");
     }
@@ -1601,11 +1525,17 @@ mod tests {
     #[tokio::test]
     async fn test_sieve_discard_accepts_but_no_db_write() {
         let pool = open_test_db().await;
-        crate::store::save_script(&pool, "alice", "default", b"discard;", true)
-            .await
-            .expect("save script");
+        crate::store::save_script(
+            &pool,
+            crate::config::GLOBAL_SCRIPT_KEY,
+            "default",
+            b"discard;",
+            true,
+        )
+        .await
+        .expect("save script");
 
-        let config = test_config_with_users(vec![alice()]);
+        let config = test_config();
         let pool_clone = pool.clone();
         let (response, _) = drive_session_ext(FULL_MSG, config, Some(pool_clone)).await;
 
@@ -1613,7 +1543,8 @@ mod tests {
             response.contains("250 OK"),
             "expected 250 OK (discard still accepts), got: {response}"
         );
-        let count = crate::store::count_messages(&pool, "alice", "INBOX").await;
+        let count =
+            crate::store::count_messages(&pool, crate::config::GLOBAL_SCRIPT_KEY, "INBOX").await;
         assert_eq!(count, 0, "expected 0 messages — message was discarded");
     }
 
@@ -1622,7 +1553,7 @@ mod tests {
         let pool = open_test_db().await;
         crate::store::save_script(
             &pool,
-            "alice",
+            crate::config::GLOBAL_SCRIPT_KEY,
             "default",
             br#"require ["reject"]; reject "Not wanted";"#,
             true,
@@ -1630,12 +1561,13 @@ mod tests {
         .await
         .expect("save script");
 
-        let config = test_config_with_users(vec![alice()]);
+        let config = test_config();
         let pool_clone = pool.clone();
         let (response, _) = drive_session_ext(FULL_MSG, config, Some(pool_clone)).await;
 
         assert!(response.contains("550"), "expected 550, got: {response}");
-        let count = crate::store::count_messages(&pool, "alice", "INBOX").await;
+        let count =
+            crate::store::count_messages(&pool, crate::config::GLOBAL_SCRIPT_KEY, "INBOX").await;
         assert_eq!(count, 0, "expected 0 messages — message was rejected");
     }
 
@@ -1646,7 +1578,7 @@ mod tests {
         let pool = open_test_db().await;
         crate::store::save_script(
             &pool,
-            "alice",
+            crate::config::GLOBAL_SCRIPT_KEY,
             "default",
             br#"require ["fileinto"]; fileinto "newsgroup:comp.test";"#,
             true,
@@ -1654,7 +1586,7 @@ mod tests {
         .await
         .expect("save script");
 
-        let config = test_config_with_users(vec![alice()]);
+        let config = test_config();
         let pool_clone = pool.clone();
         let (response, queue_dir) = drive_session_ext(FULL_MSG, config, Some(pool_clone)).await;
 
@@ -1682,7 +1614,8 @@ mod tests {
         );
 
         // Nothing in INBOX.
-        let count = crate::store::count_messages(&pool, "alice", "INBOX").await;
+        let count =
+            crate::store::count_messages(&pool, crate::config::GLOBAL_SCRIPT_KEY, "INBOX").await;
         assert_eq!(count, 0, "newsgroup fileinto must not deliver to INBOX");
     }
 
@@ -1693,7 +1626,7 @@ mod tests {
         let pool = open_test_db().await;
         crate::store::save_script(
             &pool,
-            "alice",
+            crate::config::GLOBAL_SCRIPT_KEY,
             "default",
             br#"require ["fileinto"]; fileinto "newsgroup:comp.test";"#,
             true,
@@ -1713,7 +1646,7 @@ mod tests {
             .\r\n\
             QUIT\r\n";
 
-        let config = test_config_with_users(vec![alice()]);
+        let config = test_config();
         let (response, queue_dir) = drive_session_ext(msg_with_ng, config, Some(pool)).await;
 
         assert!(
@@ -1753,10 +1686,7 @@ mod tests {
     #[tokio::test]
     async fn test_received_header_prepended() {
         let pool = open_test_db().await;
-        let config = test_config_with_users(vec![UserConfig {
-            username: "rcpt".to_string(),
-            email: "rcpt@example.com".to_string(),
-        }]);
+        let config = test_config();
 
         let client = b"EHLO mail.sender.example\r\n\
             MAIL FROM:<sender@example.com>\r\n\
@@ -1776,9 +1706,10 @@ mod tests {
             "expected 250 after DATA: {response}"
         );
 
-        let raw_bytes = crate::store::get_first_message_raw(&pool, "rcpt", "INBOX")
-            .await
-            .expect("message must be in INBOX");
+        let raw_bytes =
+            crate::store::get_first_message_raw(&pool, crate::config::GLOBAL_SCRIPT_KEY, "INBOX")
+                .await
+                .expect("message must be in INBOX");
         let raw = std::str::from_utf8(&raw_bytes).expect("valid UTF-8");
 
         assert!(
@@ -1838,10 +1769,7 @@ mod tests {
         // A real MTA sends MAIL FROM:<addr> SIZE=nnn.  The session must
         // accept it and store the address without the SIZE suffix.
         let pool = open_test_db().await;
-        let config = test_config_with_users(vec![UserConfig {
-            username: "rcpt".to_string(),
-            email: "rcpt@example.com".to_string(),
-        }]);
+        let config = test_config();
         let client = b"EHLO client.example.com\r\n\
             MAIL FROM:<sender@example.com> SIZE=1024\r\n\
             RCPT TO:<rcpt@example.com>\r\n\
@@ -1858,9 +1786,10 @@ mod tests {
             "expected 250 after DATA: {response}"
         );
 
-        let envelope_from = crate::store::get_first_envelope_from(&pool, "rcpt", "INBOX")
-            .await
-            .expect("message must be in INBOX");
+        let envelope_from =
+            crate::store::get_first_envelope_from(&pool, crate::config::GLOBAL_SCRIPT_KEY, "INBOX")
+                .await
+                .expect("message must be in INBOX");
         assert_eq!(
             envelope_from, "sender@example.com",
             "envelope_from must not include SIZE param"
@@ -1898,7 +1827,6 @@ mod tests {
             },
             reader: ReaderConfig::default(),
             delivery: crate::config::DeliveryConfig::default(),
-            users: vec![],
             database: DatabaseConfig::default(),
             sieve_admin: SieveAdminConfig::default(),
             dns_resolver: crate::config::DnsResolver::System,
@@ -1977,7 +1905,6 @@ mod tests {
             },
             reader: ReaderConfig::default(),
             delivery: crate::config::DeliveryConfig::default(),
-            users: vec![],
             database: DatabaseConfig::default(),
             sieve_admin: SieveAdminConfig::default(),
             dns_resolver: crate::config::DnsResolver::System,
@@ -2001,6 +1928,7 @@ mod tests {
                 config2,
                 credential_store,
                 queue2,
+                None,
                 None,
                 None,
                 None,
@@ -2037,16 +1965,21 @@ mod tests {
     const MINIMAL_MESSAGE: &[u8] = b"From: a@example.com\r\nTo: b@example.com\r\n\r\nHi\r\n";
 
     #[tokio::test]
-    async fn sieve_for_user_populates_cache_on_first_call() {
+    async fn sieve_global_populates_cache_on_first_call() {
         let pool = crate::store::open(":memory:").await.unwrap();
-        crate::store::save_script(&pool, "alice", "default", b"keep;", true)
-            .await
-            .unwrap();
+        crate::store::save_script(
+            &pool,
+            crate::config::GLOBAL_SCRIPT_KEY,
+            "default",
+            b"keep;",
+            true,
+        )
+        .await
+        .unwrap();
 
         let cache = new_sieve_cache();
-        sieve_for_user(
+        sieve_global(
             &pool,
-            "alice",
             MINIMAL_MESSAGE,
             "a@example.com",
             "b@example.com",
@@ -2055,23 +1988,31 @@ mod tests {
         .await;
 
         assert!(
-            cache.lock().await.contains_key("alice"),
-            "cache should contain alice after first call"
+            cache
+                .lock()
+                .await
+                .contains_key(crate::config::GLOBAL_SCRIPT_KEY),
+            "cache should contain _global after first call"
         );
     }
 
     #[tokio::test]
-    async fn sieve_for_user_uses_cached_script_after_db_removal() {
+    async fn sieve_global_uses_cached_script_after_db_removal() {
         let pool = crate::store::open(":memory:").await.unwrap();
-        crate::store::save_script(&pool, "alice", "default", b"discard;", true)
-            .await
-            .unwrap();
+        crate::store::save_script(
+            &pool,
+            crate::config::GLOBAL_SCRIPT_KEY,
+            "default",
+            b"discard;",
+            true,
+        )
+        .await
+        .unwrap();
 
         let cache = new_sieve_cache();
         // First call: DB load, cache populated, script is Discard.
-        let actions = sieve_for_user(
+        let actions = sieve_global(
             &pool,
-            "alice",
             MINIMAL_MESSAGE,
             "a@example.com",
             "b@example.com",
@@ -2086,12 +2027,11 @@ mod tests {
         );
 
         // Remove from DB — subsequent call must use the cache, still Discard.
-        crate::store::delete_script(&pool, "alice", "default")
+        crate::store::delete_script(&pool, crate::config::GLOBAL_SCRIPT_KEY, "default")
             .await
             .unwrap();
-        let actions2 = sieve_for_user(
+        let actions2 = sieve_global(
             &pool,
-            "alice",
             MINIMAL_MESSAGE,
             "a@example.com",
             "b@example.com",
@@ -2107,11 +2047,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn sieve_for_user_no_cache_falls_back_to_keep_when_no_script() {
+    async fn sieve_global_no_cache_falls_back_to_keep_when_no_script() {
         let pool = crate::store::open(":memory:").await.unwrap();
-        let actions = sieve_for_user(
+        let actions = sieve_global(
             &pool,
-            "nobody",
             MINIMAL_MESSAGE,
             "a@example.com",
             "b@example.com",
@@ -2161,11 +2100,7 @@ mod tests {
     /// A message with 25+ Received: headers must be rejected with 554.
     #[tokio::test]
     async fn test_mail_loop_rejection_returns_554() {
-        let rcpt_user = UserConfig {
-            username: "rcpt".to_string(),
-            email: "rcpt@example.com".to_string(),
-        };
-        let config = test_config_with_users(vec![rcpt_user]);
+        let config = test_config();
 
         // Build a DATA payload with 25 Received: headers — exactly the limit.
         let mut body_lines = String::new();
@@ -2204,11 +2139,7 @@ mod tests {
     /// A message with exactly 24 Received: headers must still be accepted.
     #[tokio::test]
     async fn test_mail_loop_24_hops_accepted() {
-        let rcpt_user = UserConfig {
-            username: "rcpt".to_string(),
-            email: "rcpt@example.com".to_string(),
-        };
-        let config = test_config_with_users(vec![rcpt_user]);
+        let config = test_config();
 
         let mut body_lines = String::new();
         for _ in 0..24 {
@@ -2237,7 +2168,7 @@ mod tests {
     /// Sieve Keep with pool=None must return 452 (transient), not 250 OK.
     #[tokio::test]
     async fn test_sieve_keep_no_pool_returns_452() {
-        let config = test_config_with_users(vec![alice()]);
+        let config = test_config();
         // Pass pool=None so the Keep action cannot deliver to INBOX.
         let (response, _) = drive_session_ext(FULL_MSG, config, None).await;
         assert!(
@@ -2282,6 +2213,7 @@ mod tests {
                 config2,
                 store2,
                 queue2,
+                None,
                 None,
                 None,
                 None,

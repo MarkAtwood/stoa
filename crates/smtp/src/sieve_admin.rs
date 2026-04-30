@@ -330,11 +330,12 @@ async fn get_metrics() -> Response {
         .into_response()
 }
 
-fn user_exists(s: &AdminState, username: &str) -> bool {
-    s.config
-        .users
-        .iter()
-        .any(|u| u.username.eq_ignore_ascii_case(username))
+/// Returns `true` if `username` is the global script key.
+///
+/// In the single-user global delivery model the only valid username for Sieve
+/// script management is `crate::config::GLOBAL_SCRIPT_KEY`.  Any other identifier is rejected with 404.
+fn user_exists(_s: &AdminState, username: &str) -> bool {
+    username.eq_ignore_ascii_case(crate::config::GLOBAL_SCRIPT_KEY)
 }
 
 #[cfg(test)]
@@ -346,10 +347,9 @@ mod tests {
 
     use crate::config::{
         AuthConfig, DatabaseConfig, LimitsConfig, ListenConfig, LogConfig, ReaderConfig, TlsConfig,
-        UserConfig,
     };
 
-    fn test_config(users: Vec<UserConfig>) -> Arc<Config> {
+    fn test_config() -> Arc<Config> {
         Arc::new(Config {
             hostname: "test.example.com".to_string(),
             listen: ListenConfig {
@@ -365,7 +365,6 @@ mod tests {
             log: LogConfig::default(),
             reader: ReaderConfig::default(),
             delivery: crate::config::DeliveryConfig::default(),
-            users,
             database: DatabaseConfig::default(),
             sieve_admin: crate::config::SieveAdminConfig::default(),
             dns_resolver: crate::config::DnsResolver::System,
@@ -373,21 +372,14 @@ mod tests {
         })
     }
 
-    fn alice() -> UserConfig {
-        UserConfig {
-            username: "alice".into(),
-            email: "alice@example.com".into(),
-        }
-    }
-
-    async fn app_with_alice() -> (Router, SqlitePool) {
-        let (app, pool, _cache) = app_with_alice_and_cache().await;
+    async fn app_with_global() -> (Router, SqlitePool) {
+        let (app, pool, _cache) = app_with_global_and_cache().await;
         (app, pool)
     }
 
-    async fn app_with_alice_and_cache() -> (Router, SqlitePool, crate::session::SieveCache) {
+    async fn app_with_global_and_cache() -> (Router, SqlitePool, crate::session::SieveCache) {
         let pool = crate::store::open(":memory:").await.expect("open db");
-        let config = test_config(vec![alice()]);
+        let config = test_config();
         let cache = crate::session::new_sieve_cache();
         let state = AdminState {
             config,
@@ -417,24 +409,26 @@ mod tests {
 
     #[tokio::test]
     async fn putscript_valid_stores_and_returns_201() {
-        let (app, pool) = app_with_alice().await;
+        let (app, pool) = app_with_global().await;
         let req = Request::builder()
             .method(Method::PUT)
-            .uri("/admin/sieve/alice/default")
+            .uri("/admin/sieve/_global/default")
             .body(Body::from("keep;"))
             .unwrap();
         let resp = app.oneshot(req).await.unwrap();
         assert_eq!(resp.status(), StatusCode::CREATED);
-        let stored = store::get_script(&pool, "alice", "default").await.unwrap();
+        let stored = store::get_script(&pool, crate::config::GLOBAL_SCRIPT_KEY, "default")
+            .await
+            .unwrap();
         assert_eq!(stored.as_deref(), Some(b"keep;" as &[u8]));
     }
 
     #[tokio::test]
     async fn putscript_invalid_sieve_returns_422() {
-        let (app, _) = app_with_alice().await;
+        let (app, _) = app_with_global().await;
         let req = Request::builder()
             .method(Method::PUT)
-            .uri("/admin/sieve/alice/default")
+            .uri("/admin/sieve/_global/default")
             .body(Body::from("this is not valid sieve @@@@"))
             .unwrap();
         let resp = app.oneshot(req).await.unwrap();
@@ -443,28 +437,25 @@ mod tests {
 
     #[tokio::test]
     async fn putscript_too_large_returns_413() {
-        let (app, _) = app_with_alice().await;
+        let (app, _) = app_with_global().await;
         let big = vec![b'#'; 65_537]; // one byte over 64 KiB default
         let req = Request::builder()
             .method(Method::PUT)
-            .uri("/admin/sieve/alice/default")
+            .uri("/admin/sieve/_global/default")
             .body(Body::from(big))
             .unwrap();
         let resp = app.oneshot(req).await.unwrap();
         assert_eq!(resp.status(), StatusCode::PAYLOAD_TOO_LARGE);
     }
 
-    /// The SMTP session uses eq_ignore_ascii_case for email matching; the sieve
-    /// admin must use the same case-insensitivity for usernames so that a user
-    /// configured as "Alice" is reachable at /admin/sieve/alice and /admin/sieve/ALICE.
+    /// The global script key crate::config::GLOBAL_SCRIPT_KEY must be accepted case-insensitively.
     #[tokio::test]
-    async fn listscripts_username_is_case_insensitive() {
-        let (app, _) = app_with_alice().await;
-        // alice() has username "alice"; try with different case.
+    async fn listscripts_global_key_is_case_insensitive() {
+        let (app, _) = app_with_global().await;
         for uri in &[
-            "/admin/sieve/Alice",
-            "/admin/sieve/ALICE",
-            "/admin/sieve/aLiCe",
+            "/admin/sieve/_global",
+            "/admin/sieve/_GLOBAL",
+            "/admin/sieve/_Global",
         ] {
             let req = Request::builder()
                 .method(Method::GET)
@@ -483,7 +474,7 @@ mod tests {
 
     #[tokio::test]
     async fn putscript_unknown_user_returns_404() {
-        let (app, _) = app_with_alice().await;
+        let (app, _) = app_with_global().await;
         let req = Request::builder()
             .method(Method::PUT)
             .uri("/admin/sieve/unknown/default")
@@ -495,14 +486,20 @@ mod tests {
 
     #[tokio::test]
     async fn getscript_returns_stored_bytes() {
-        let (app, pool) = app_with_alice().await;
-        store::save_script(&pool, "alice", "work", b"discard;", false)
-            .await
-            .unwrap();
+        let (app, pool) = app_with_global().await;
+        store::save_script(
+            &pool,
+            crate::config::GLOBAL_SCRIPT_KEY,
+            "work",
+            b"discard;",
+            false,
+        )
+        .await
+        .unwrap();
 
         let req = Request::builder()
             .method(Method::GET)
-            .uri("/admin/sieve/alice/work")
+            .uri("/admin/sieve/_global/work")
             .body(Body::empty())
             .unwrap();
         let resp = app.oneshot(req).await.unwrap();
@@ -513,10 +510,10 @@ mod tests {
 
     #[tokio::test]
     async fn getscript_missing_returns_404() {
-        let (app, _) = app_with_alice().await;
+        let (app, _) = app_with_global().await;
         let req = Request::builder()
             .method(Method::GET)
-            .uri("/admin/sieve/alice/nonexistent")
+            .uri("/admin/sieve/_global/nonexistent")
             .body(Body::empty())
             .unwrap();
         let resp = app.oneshot(req).await.unwrap();
@@ -525,17 +522,29 @@ mod tests {
 
     #[tokio::test]
     async fn listscripts_returns_names_and_active_flag() {
-        let (app, pool) = app_with_alice().await;
-        store::save_script(&pool, "alice", "a", b"keep;", false)
-            .await
-            .unwrap();
-        store::save_script(&pool, "alice", "b", b"discard;", true)
-            .await
-            .unwrap();
+        let (app, pool) = app_with_global().await;
+        store::save_script(
+            &pool,
+            crate::config::GLOBAL_SCRIPT_KEY,
+            "a",
+            b"keep;",
+            false,
+        )
+        .await
+        .unwrap();
+        store::save_script(
+            &pool,
+            crate::config::GLOBAL_SCRIPT_KEY,
+            "b",
+            b"discard;",
+            true,
+        )
+        .await
+        .unwrap();
 
         let req = Request::builder()
             .method(Method::GET)
-            .uri("/admin/sieve/alice")
+            .uri("/admin/sieve/_global")
             .body(Body::empty())
             .unwrap();
         let resp = app.oneshot(req).await.unwrap();
@@ -547,28 +556,36 @@ mod tests {
 
     #[tokio::test]
     async fn deletescript_removes_row() {
-        let (app, pool) = app_with_alice().await;
-        store::save_script(&pool, "alice", "tmp", b"keep;", false)
-            .await
-            .unwrap();
+        let (app, pool) = app_with_global().await;
+        store::save_script(
+            &pool,
+            crate::config::GLOBAL_SCRIPT_KEY,
+            "tmp",
+            b"keep;",
+            false,
+        )
+        .await
+        .unwrap();
 
         let req = Request::builder()
             .method(Method::DELETE)
-            .uri("/admin/sieve/alice/tmp")
+            .uri("/admin/sieve/_global/tmp")
             .body(Body::empty())
             .unwrap();
         let resp = app.oneshot(req).await.unwrap();
         assert_eq!(resp.status(), StatusCode::NO_CONTENT);
-        let remaining = store::get_script(&pool, "alice", "tmp").await.unwrap();
+        let remaining = store::get_script(&pool, crate::config::GLOBAL_SCRIPT_KEY, "tmp")
+            .await
+            .unwrap();
         assert!(remaining.is_none(), "expected script to be deleted");
     }
 
     #[tokio::test]
     async fn deletescript_missing_returns_404() {
-        let (app, _) = app_with_alice().await;
+        let (app, _) = app_with_global().await;
         let req = Request::builder()
             .method(Method::DELETE)
-            .uri("/admin/sieve/alice/ghost")
+            .uri("/admin/sieve/_global/ghost")
             .body(Body::empty())
             .unwrap();
         let resp = app.oneshot(req).await.unwrap();
@@ -577,23 +594,37 @@ mod tests {
 
     #[tokio::test]
     async fn setactive_switches_active_script() {
-        let (app, pool) = app_with_alice().await;
-        store::save_script(&pool, "alice", "first", b"keep;", true)
-            .await
-            .unwrap();
-        store::save_script(&pool, "alice", "second", b"discard;", false)
-            .await
-            .unwrap();
+        let (app, pool) = app_with_global().await;
+        store::save_script(
+            &pool,
+            crate::config::GLOBAL_SCRIPT_KEY,
+            "first",
+            b"keep;",
+            true,
+        )
+        .await
+        .unwrap();
+        store::save_script(
+            &pool,
+            crate::config::GLOBAL_SCRIPT_KEY,
+            "second",
+            b"discard;",
+            false,
+        )
+        .await
+        .unwrap();
 
         let req = Request::builder()
             .method(Method::POST)
-            .uri("/admin/sieve/alice/second/activate")
+            .uri("/admin/sieve/_global/second/activate")
             .body(Body::empty())
             .unwrap();
         let resp = app.oneshot(req).await.unwrap();
         assert_eq!(resp.status(), StatusCode::NO_CONTENT);
 
-        let scripts = store::list_scripts(&pool, "alice").await.unwrap();
+        let scripts = store::list_scripts(&pool, crate::config::GLOBAL_SCRIPT_KEY)
+            .await
+            .unwrap();
         let first_active = scripts.iter().find(|(n, _)| n == "first").map(|(_, a)| *a);
         let second_active = scripts.iter().find(|(n, _)| n == "second").map(|(_, a)| *a);
         assert_eq!(first_active, Some(false), "first should be deactivated");
@@ -602,7 +633,7 @@ mod tests {
 
     #[tokio::test]
     async fn checkscript_valid_returns_200_no_storage() {
-        let (app, pool) = app_with_alice().await;
+        let (app, pool) = app_with_global().await;
         let req = Request::builder()
             .method(Method::POST)
             .uri("/admin/sieve/check")
@@ -611,13 +642,15 @@ mod tests {
         let resp = app.oneshot(req).await.unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
         // Nothing should be stored.
-        let scripts = store::list_scripts(&pool, "alice").await.unwrap();
+        let scripts = store::list_scripts(&pool, crate::config::GLOBAL_SCRIPT_KEY)
+            .await
+            .unwrap();
         assert!(scripts.is_empty(), "check must not store anything");
     }
 
     #[tokio::test]
     async fn checkscript_invalid_returns_422() {
-        let (app, _) = app_with_alice().await;
+        let (app, _) = app_with_global().await;
         let req = Request::builder()
             .method(Method::POST)
             .uri("/admin/sieve/check")
@@ -627,7 +660,7 @@ mod tests {
         assert_eq!(resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
     }
 
-    fn test_config_with_token(users: Vec<UserConfig>, token: &str) -> Arc<Config> {
+    fn test_config_with_token(token: &str) -> Arc<Config> {
         Arc::new(Config {
             hostname: "test.example.com".to_string(),
             listen: ListenConfig {
@@ -643,7 +676,6 @@ mod tests {
             log: LogConfig::default(),
             reader: ReaderConfig::default(),
             delivery: crate::config::DeliveryConfig::default(),
-            users,
             database: DatabaseConfig::default(),
             sieve_admin: crate::config::SieveAdminConfig {
                 bearer_token: Some(token.to_string()),
@@ -656,7 +688,7 @@ mod tests {
 
     async fn app_with_token(token: &str) -> Router {
         let pool = crate::store::open(":memory:").await.expect("open db");
-        let config = test_config_with_token(vec![alice()], token);
+        let config = test_config_with_token(token);
         let cache = crate::session::new_sieve_cache();
         let state = AdminState {
             config,
@@ -685,7 +717,7 @@ mod tests {
         let app = app_with_token("secret").await;
         let req = Request::builder()
             .method(Method::GET)
-            .uri("/admin/sieve/alice")
+            .uri("/admin/sieve/_global")
             .body(Body::empty())
             .unwrap();
         let resp = app.oneshot(req).await.unwrap();
@@ -697,7 +729,7 @@ mod tests {
         let app = app_with_token("secret").await;
         let req = Request::builder()
             .method(Method::GET)
-            .uri("/admin/sieve/alice")
+            .uri("/admin/sieve/_global")
             .header("Authorization", "Bearer wrong")
             .body(Body::empty())
             .unwrap();
@@ -710,7 +742,7 @@ mod tests {
         let app = app_with_token("secret").await;
         let req = Request::builder()
             .method(Method::GET)
-            .uri("/admin/sieve/alice")
+            .uri("/admin/sieve/_global")
             .header("Authorization", "Bearer secret")
             .body(Body::empty())
             .unwrap();
@@ -722,73 +754,94 @@ mod tests {
 
     #[tokio::test]
     async fn put_script_invalidates_cache_entry() {
-        let (app, _pool, cache) = app_with_alice_and_cache().await;
+        let (app, _pool, cache) = app_with_global_and_cache().await;
 
         // Pre-populate the cache with a stale entry.
         cache.lock().await.insert(
-            "alice".to_string(),
+            crate::config::GLOBAL_SCRIPT_KEY.to_string(),
             std::sync::Arc::new(stoa_sieve_native::compile(b"discard;").unwrap()),
         );
 
         let req = Request::builder()
             .method(Method::PUT)
-            .uri("/admin/sieve/alice/default")
+            .uri("/admin/sieve/_global/default")
             .body(Body::from("keep;"))
             .unwrap();
         let resp = app.oneshot(req).await.unwrap();
         assert_eq!(resp.status(), StatusCode::CREATED);
         assert!(
-            !cache.lock().await.contains_key("alice"),
+            !cache
+                .lock()
+                .await
+                .contains_key(crate::config::GLOBAL_SCRIPT_KEY),
             "cache entry must be removed after PUT"
         );
     }
 
     #[tokio::test]
     async fn delete_script_invalidates_cache_entry() {
-        let (app, pool, cache) = app_with_alice_and_cache().await;
-        store::save_script(&pool, "alice", "tmp", b"keep;", true)
-            .await
-            .unwrap();
+        let (app, pool, cache) = app_with_global_and_cache().await;
+        store::save_script(
+            &pool,
+            crate::config::GLOBAL_SCRIPT_KEY,
+            "tmp",
+            b"keep;",
+            true,
+        )
+        .await
+        .unwrap();
 
         cache.lock().await.insert(
-            "alice".to_string(),
+            crate::config::GLOBAL_SCRIPT_KEY.to_string(),
             std::sync::Arc::new(stoa_sieve_native::compile(b"keep;").unwrap()),
         );
 
         let req = Request::builder()
             .method(Method::DELETE)
-            .uri("/admin/sieve/alice/tmp")
+            .uri("/admin/sieve/_global/tmp")
             .body(Body::empty())
             .unwrap();
         let resp = app.oneshot(req).await.unwrap();
         assert_eq!(resp.status(), StatusCode::NO_CONTENT);
         assert!(
-            !cache.lock().await.contains_key("alice"),
+            !cache
+                .lock()
+                .await
+                .contains_key(crate::config::GLOBAL_SCRIPT_KEY),
             "cache entry must be removed after DELETE"
         );
     }
 
     #[tokio::test]
     async fn activate_script_invalidates_cache_entry() {
-        let (app, pool, cache) = app_with_alice_and_cache().await;
-        store::save_script(&pool, "alice", "s", b"discard;", false)
-            .await
-            .unwrap();
+        let (app, pool, cache) = app_with_global_and_cache().await;
+        store::save_script(
+            &pool,
+            crate::config::GLOBAL_SCRIPT_KEY,
+            "s",
+            b"discard;",
+            false,
+        )
+        .await
+        .unwrap();
 
         cache.lock().await.insert(
-            "alice".to_string(),
+            crate::config::GLOBAL_SCRIPT_KEY.to_string(),
             std::sync::Arc::new(stoa_sieve_native::compile(b"discard;").unwrap()),
         );
 
         let req = Request::builder()
             .method(Method::POST)
-            .uri("/admin/sieve/alice/s/activate")
+            .uri("/admin/sieve/_global/s/activate")
             .body(Body::empty())
             .unwrap();
         let resp = app.oneshot(req).await.unwrap();
         assert_eq!(resp.status(), StatusCode::NO_CONTENT);
         assert!(
-            !cache.lock().await.contains_key("alice"),
+            !cache
+                .lock()
+                .await
+                .contains_key(crate::config::GLOBAL_SCRIPT_KEY),
             "cache entry must be removed after activate"
         );
     }
@@ -815,7 +868,6 @@ mod tests {
             log: LogConfig::default(),
             reader: ReaderConfig::default(),
             delivery: crate::config::DeliveryConfig::default(),
-            users: vec![],
             database: DatabaseConfig::default(),
             sieve_admin: crate::config::SieveAdminConfig {
                 bind: bind.to_string(),

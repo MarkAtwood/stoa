@@ -1,6 +1,19 @@
+//! Per-user article flags: `\Seen` and `\Flagged` (JMAP keywords).
+//!
+//! # Why `user_id` is retained in this table
+//!
+//! The i5ay simplification dropped `user_id` from the mailbox *storage* tables
+//! (`mailboxes`, `messages`) because those tables hold message content that is
+//! shared across all users in a single-user deployment.  Read/flag state is
+//! per-user *preference*, not storage, so `user_id` belongs here.
+//!
+//! In v1, `user_id = 1` is always used (single-user model).  Retaining the
+//! column means future multi-user support requires no schema migration — only a
+//! new caller convention.
+
 use cid::Cid;
 
-/// Per-user article flags: \Seen and \Flagged (JMAP keywords).
+/// Per-user article flags: `\Seen` and `\Flagged` (JMAP keywords).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Flags {
     pub seen: bool,

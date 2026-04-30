@@ -183,3 +183,15 @@ Phase markers reset for new epic
 [04:35:57] COORDINATOR: I-n1z4.3 dispatched; spans 2 crates (smtp+mail)
 [04:58:40] COORDINATOR: phase2 done — 2110 tests pass; starting review round 1
 [04:58:56] COORDINATOR: review round 1, epic usenet-ipfs-4d9y
+[06:18:49] COORDINATOR: starting do-epic for usenet-ipfs-i5ay (simplify to single-user shared mailbox); phases 0+1 done in prior session; starting phase 2
+[06:18:50] COORDINATOR: claimed usenet-ipfs-oh45; dispatching implementation team
+[06:30:11] COORDINATOR: oh45 closed — migrations 0011+0012 land, user_id dropped from mailboxes+messages, all SQL queries updated; 222+447 tests pass, clippy clean
+[06:30:21] COORDINATOR: dispatching parallel teams for t5je (smtp global sieve) and ycyh (provision singleton)
+[06:49:33] COORDINATOR: t5je+ycyh closed — global Sieve eval, singleton provision, UserConfig removed; 218+258 tests pass; dispatching krwv
+[07:04:29] COORDINATOR: phase2 done; all 4 beads closed; workspace tests all green; reopening i5ay for phase3 review
+[07:04:37] COORDINATOR: review round 1, epic usenet-ipfs-lnc3
+[07:13:47] REVIEW round 1: after calibration P0=1 (lnc3.17) P1=0 P2=14 opinion=4
+[07:26:45] COORDINATOR: round 1 fixes complete; P0=0 P1=0 P2=0; starting round 2 review
+[07:36:27] COORDINATOR: review converged — 2 rounds, P0+P1+P2=0; proceeding to phase 4
+[07:36:36] COORDINATOR: epic usenet-ipfs-i5ay closed; phase 4 done
+[07:36:39] COORDINATOR: epic usenet-ipfs-i5ay closed; phase 4 done

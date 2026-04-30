@@ -199,7 +199,6 @@ fn base_config() -> Arc<Config> {
         },
         reader: ReaderConfig::default(),
         delivery: DeliveryConfig::default(),
-        users: vec![],
         database: DatabaseConfig::default(),
         sieve_admin: SieveAdminConfig::default(),
         dns_resolver: DnsResolver::System,

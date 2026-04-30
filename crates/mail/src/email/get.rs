@@ -26,12 +26,11 @@ use super::types::Email;
 /// Handle Email/get.
 ///
 /// For each id:
-///   - If the id starts with `"smtp:"`, fetch from the `mailbox_messages` table
+///   - If the id starts with `"smtp:"`, fetch from the `messages` table
 ///     in a single batched query.
 ///   - Otherwise, parse as a CID, fetch from IPFS, and decode DAG-CBOR.
 ///
 /// `pool` is the mail database pool used for smtp: id lookups.
-/// `user_id` is the authenticated user's row id (guards against cross-user access).
 /// `account_id` is the canonical JMAP accountId string for the response.
 /// `state` is the current JMAP Email state token from StateStore.
 ///
@@ -40,7 +39,6 @@ pub async fn handle_email_get(
     ids: &[String],
     ipfs: &dyn IpfsBlockStore,
     pool: Option<&sqlx::AnyPool>,
-    user_id: i64,
     properties: Option<&[String]>,
     state: &str,
     account_id: &str,
@@ -58,7 +56,7 @@ pub async fn handle_email_get(
         HashMap::new()
     } else {
         match pool {
-            Some(p) => fetch_smtp_emails_batch(&smtp_row_ids, p, user_id).await,
+            Some(p) => fetch_smtp_emails_batch(&smtp_row_ids, p).await,
             None => HashMap::new(),
         }
     };
@@ -97,22 +95,15 @@ pub async fn handle_email_get(
 
 /// Fetch multiple smtp messages in one IN-clause query.
 ///
-/// Rows not matching `user_id` are silently excluded (cross-user guard).
 /// Row IDs not present in the result are treated as not-found by the caller.
-async fn fetch_smtp_emails_batch(
-    row_ids: &[i64],
-    pool: &sqlx::AnyPool,
-    user_id: i64,
-) -> HashMap<i64, Email> {
+async fn fetch_smtp_emails_batch(row_ids: &[i64], pool: &sqlx::AnyPool) -> HashMap<i64, Email> {
     if row_ids.is_empty() {
         return HashMap::new();
     }
     let mut qb: sqlx::QueryBuilder<sqlx::Any> = sqlx::QueryBuilder::new(
         "SELECT id, raw_message, mailbox_id, received_at \
-         FROM mailbox_messages WHERE user_id = ",
+         FROM messages WHERE id IN (",
     );
-    qb.push_bind(user_id);
-    qb.push(" AND id IN (");
     let mut sep = qb.separated(", ");
     for rid in row_ids {
         sep.push_bind(*rid);
@@ -232,7 +223,7 @@ mod tests {
         let ipfs = MemIpfs::new();
         let cid = insert_root_node(&ipfs, vec!["comp.test".to_string()], 512).await;
 
-        let resp = handle_email_get(&[cid.to_string()], &ipfs, None, 1, None, "0", "u_test").await;
+        let resp = handle_email_get(&[cid.to_string()], &ipfs, None, None, "0", "u_test").await;
         let list = resp["list"].as_array().unwrap();
         assert_eq!(list.len(), 1, "should find 1 email");
         assert_eq!(list[0]["id"].as_str().unwrap(), cid.to_string());
@@ -247,7 +238,7 @@ mod tests {
         let ipfs = MemIpfs::new();
         let fake_cid = "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi";
         let resp =
-            handle_email_get(&[fake_cid.to_string()], &ipfs, None, 1, None, "0", "u_test").await;
+            handle_email_get(&[fake_cid.to_string()], &ipfs, None, None, "0", "u_test").await;
         let list = resp["list"].as_array().unwrap();
         assert!(list.is_empty());
         let not_found = resp["notFound"].as_array().unwrap();
@@ -257,16 +248,8 @@ mod tests {
     #[tokio::test]
     async fn get_invalid_cid_returns_not_found() {
         let ipfs = MemIpfs::new();
-        let resp = handle_email_get(
-            &["not-a-cid".to_string()],
-            &ipfs,
-            None,
-            1,
-            None,
-            "0",
-            "u_test",
-        )
-        .await;
+        let resp =
+            handle_email_get(&["not-a-cid".to_string()], &ipfs, None, None, "0", "u_test").await;
         let not_found = resp["notFound"].as_array().unwrap();
         assert_eq!(not_found.len(), 1);
     }
@@ -280,7 +263,6 @@ mod tests {
             &[cid1.to_string(), cid2.to_string()],
             &ipfs,
             None,
-            1,
             None,
             "0",
             "u_test",

@@ -108,6 +108,14 @@ async fn state_with_jmap() -> (
     let overview_store = Arc::new(OverviewStore::new(reader_pool));
     let ipfs = Arc::new(MemIpfsStore::new());
 
+    stoa_mail::mailbox::provision::provision_mailboxes(&mail_pool_arc)
+        .await
+        .expect("provision_mailboxes must succeed at startup");
+    let special_mailboxes = Arc::new(
+        stoa_mail::mailbox::provision::list_mailboxes(&mail_pool_arc)
+            .await
+            .expect("list_mailboxes must succeed after provision"),
+    );
     let jmap = Arc::new(JmapStores {
         ipfs,
         msgid_map: Arc::new(stoa_core::msgid_map::MsgIdMap::new(core_pool)),
@@ -124,6 +132,7 @@ async fn state_with_jmap() -> (
         )),
         smtp_relay_queue: None,
         mail_pool: Arc::clone(&mail_pool_arc),
+        special_mailboxes,
     });
 
     let state = Arc::new(AppState {

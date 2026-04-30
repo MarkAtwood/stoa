@@ -1,3 +1,16 @@
+//! Manages per-user newsgroup subscriptions.
+//!
+//! # Why `user_id` is retained in this table
+//!
+//! The i5ay simplification dropped `user_id` from the mailbox *storage* tables
+//! (`mailboxes`, `messages`) because those tables hold message content that is
+//! shared across all users in a single-user deployment.  Subscriptions are
+//! per-user *preferences*, not storage, so `user_id` belongs here.
+//!
+//! In v1, `user_id = 1` is always used (single-user model).  Retaining the
+//! column means future multi-user support requires no schema migration — only a
+//! new caller convention.
+
 /// Manages per-user newsgroup subscriptions.
 pub struct SubscriptionStore {
     pool: sqlx::AnyPool,

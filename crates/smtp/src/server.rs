@@ -59,6 +59,18 @@ pub async fn run_server(
     } else {
         None
     };
+    // Look up the INBOX mailbox_id once at startup so per-message delivery
+    // never needs to query it again (lnc3.23).
+    let inbox_mailbox_id: Option<String> = if let Some(ref mp) = mail_pool {
+        sqlx::query_scalar("SELECT mailbox_id FROM mailboxes WHERE role = 'inbox'")
+            .fetch_optional(mp)
+            .await
+            .ok()
+            .flatten()
+    } else {
+        None
+    };
+
     let auth: Option<Arc<MessageAuthenticator>> = {
         let result = match config.dns_resolver {
             crate::config::DnsResolver::Cloudflare => MessageAuthenticator::new_cloudflare(),
@@ -204,6 +216,7 @@ pub async fn run_server(
         let mail_pool_clone = mail_pool.clone();
         let cache = sieve_cache.clone();
         let cred_store = Arc::clone(&credential_store);
+        let inbox_id = inbox_mailbox_id.clone();
 
         match accepted {
             Accepted::Plain(stream, peer_addr) => {
@@ -222,6 +235,7 @@ pub async fn run_server(
                         pool,
                         mail_pool_clone,
                         cache,
+                        inbox_id,
                     )
                     .await;
                 });
@@ -242,6 +256,7 @@ pub async fn run_server(
                         pool,
                         mail_pool_clone,
                         cache,
+                        inbox_id,
                     )
                     .await;
                 });
@@ -285,7 +300,6 @@ mod tests {
             },
             reader: ReaderConfig::default(),
             delivery: DeliveryConfig::default(),
-            users: vec![],
             database: DatabaseConfig::default(),
             sieve_admin: SieveAdminConfig::default(),
             dns_resolver: crate::config::DnsResolver::System,
