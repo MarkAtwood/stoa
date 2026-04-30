@@ -77,36 +77,33 @@ async fn main() {
         }
     };
 
-    match (config.tls.cert_path.as_deref(), config.tls.key_path.as_deref()) {
-        (Some(cert), Some(key)) => {
-            if key.starts_with("secretx:") {
-                let store = match secretx::from_uri(key) {
-                    Ok(s) => s,
-                    Err(e) => {
-                        eprintln!("error: tls.key_path: invalid secretx URI: {e}");
-                        std::process::exit(1);
-                    }
-                };
-                let secret = match store.get().await {
-                    Ok(v) => v,
-                    Err(e) => {
-                        eprintln!("error: tls.key_path: secretx retrieval failed: {e}");
-                        std::process::exit(1);
-                    }
-                };
-                if let Err(e) =
-                    stoa_tls::load_tls_server_config_with_key_bytes(cert, secret.as_bytes(), key)
-                {
-                    eprintln!("error: failed to load TLS configuration: {e}");
+    if let (Some(cert), Some(key)) = (config.tls.cert_path.as_deref(), config.tls.key_path.as_deref()) {
+        if key.starts_with("secretx:") {
+            let store = match secretx::from_uri(key) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("error: tls.key_path: invalid secretx URI: {e}");
                     std::process::exit(1);
                 }
-            } else if let Err(e) = stoa_tls::load_tls_server_config(cert, key) {
+            };
+            let secret = match store.get().await {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("error: tls.key_path: secretx retrieval failed: {e}");
+                    std::process::exit(1);
+                }
+            };
+            if let Err(e) =
+                stoa_tls::load_tls_server_config_with_key_bytes(cert, secret.as_bytes(), key)
+            {
                 eprintln!("error: failed to load TLS configuration: {e}");
                 std::process::exit(1);
             }
-            info!(cert, "TLS configuration loaded");
+        } else if let Err(e) = stoa_tls::load_tls_server_config(cert, key) {
+            eprintln!("error: failed to load TLS configuration: {e}");
+            std::process::exit(1);
         }
-        _ => {}
+        info!(cert, "TLS certificate and key validated (HTTPS listener not yet active in v1)");
     }
 
     if let Err(e) = stoa_mail::migrations::run_migrations(&config.database.url).await {
