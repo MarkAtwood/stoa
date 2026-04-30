@@ -440,10 +440,17 @@ mod tests {
         let content = format!(":{hash}\n");
         let result = CredentialStore::from_content("<test>", &content);
         assert!(result.is_err());
-        assert!(matches!(
-            result.err().unwrap(),
-            CredentialStoreError::EmptyUsername { .. }
-        ));
+        let err = result.err().unwrap();
+        assert!(
+            matches!(err, CredentialStoreError::EmptyUsername { .. }),
+            "expected EmptyUsername, got: {err:?}"
+        );
+        let msg = err.to_string();
+        assert!(
+            msg.contains("username must not be empty"),
+            "error message must describe the problem, got: {msg}"
+        );
+        assert!(msg.contains("<test>"), "error message must include label, got: {msg}");
     }
 
     #[tokio::test]

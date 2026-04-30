@@ -92,41 +92,11 @@ pub async fn run_server(
 
     // Build the credential store once at startup and share it across sessions.
     // credential_file may be a filesystem path or a secretx: URI.
-    let credential_store = {
-        let mut store = CredentialStore::from_credentials(&config.auth.users);
-        if let Some(ref path) = config.auth.credential_file {
-            if path.starts_with("secretx:") {
-                let secret_store = match secretx::from_uri(path) {
-                    Ok(s) => s,
-                    Err(e) => {
-                        return Err(format!("auth.credential_file: invalid secretx URI: {e}"));
-                    }
-                };
-                let secret = match secret_store.get().await {
-                    Ok(v) => v,
-                    Err(e) => {
-                        return Err(format!(
-                            "auth.credential_file: secretx retrieval failed: {e}"
-                        ));
-                    }
-                };
-                let content = match secret.as_str() {
-                    Ok(s) => s.to_string(),
-                    Err(e) => {
-                        return Err(format!(
-                            "auth.credential_file: secretx value not valid UTF-8: {e}"
-                        ));
-                    }
-                };
-                if let Err(e) = store.merge_from_content(path, &content) {
-                    return Err(format!("failed to parse credential file from secretx: {e}"));
-                }
-            } else if let Err(e) = store.merge_from_file(path) {
-                return Err(format!("failed to load credential_file '{path}': {e}"));
-            }
-        }
-        Arc::new(store)
-    };
+    let credential_store = Arc::new(
+        build_credential_store(&config)
+            .await
+            .map_err(|e| format!("failed to build credential store: {e}"))?,
+    );
 
     let semaphore = Arc::new(Semaphore::new(config.limits.max_connections));
 
@@ -264,6 +234,35 @@ pub async fn run_server(
         }
     }
     Ok(())
+}
+
+/// Build a `CredentialStore` from the `[auth]` section of the SMTP config.
+///
+/// Loads inline `users` first, then merges any entries from `credential_file`
+/// (file entries override inline entries with the same username).
+///
+/// `credential_file` may be either a filesystem path or a `secretx:` URI.
+async fn build_credential_store(config: &Config) -> Result<CredentialStore, String> {
+    let mut store = CredentialStore::from_credentials(&config.auth.users);
+    if let Some(path) = &config.auth.credential_file {
+        if path.starts_with("secretx:") {
+            let secret_store = secretx::from_uri(path)
+                .map_err(|e| format!("auth.credential_file: invalid secretx URI: {e}"))?;
+            let secret = secret_store
+                .get()
+                .await
+                .map_err(|e| format!("auth.credential_file: secretx retrieval failed: {e}"))?;
+            let content = secret
+                .as_str()
+                .map_err(|e| format!("auth.credential_file: secretx value not valid UTF-8: {e}"))?;
+            store
+                .merge_from_content(path, content)
+                .map_err(|e| e.to_string())?;
+        } else {
+            store.merge_from_file(path).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(store)
 }
 
 #[cfg(test)]
