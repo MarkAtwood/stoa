@@ -396,6 +396,10 @@ users = [{ username = "alice", password = "plaintextpassword" }]
             msg.contains("auth.users['alice']"),
             "error message should name the offending user, got: {msg}"
         );
+        assert!(
+            msg.contains("not a valid bcrypt hash"),
+            "error message should describe the problem, got: {msg}"
+        );
     }
 
     #[test]
