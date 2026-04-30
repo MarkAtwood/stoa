@@ -1,7 +1,11 @@
 # ADR-0002: rust-ipfs 0.15.0 as the Embedded IPFS Client
 
 ## Status
-Accepted
+Superseded by ADR-0008
+
+> **Note:** The embedded rust-ipfs model was not carried through to implementation.
+> The deployed system uses a Kubo HTTP RPC client against an external Kubo daemon.
+> See ADR-0008 for the current decision.
 
 ## Context
 

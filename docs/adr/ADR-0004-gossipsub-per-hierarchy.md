@@ -1,7 +1,11 @@
 # ADR-0004: Gossipsub Topics Per Hierarchy, Not Per Group
 
 ## Status
-Accepted
+Superseded by ADR-0009
+
+> **Note:** The gossipsub dissemination layer was removed in commit bcd4026.
+> The deployed system uses direct TCP peering sessions with IHAVE/TAKETHIS.
+> See ADR-0009 for the current decision.
 
 ## Context
 

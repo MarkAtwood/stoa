@@ -59,7 +59,7 @@ entries it was appended on top of, forming the DAG.
 Reconciliation (`core/group_log/reconcile.rs`) computes the symmetric difference
 between local and remote tip sets and exchanges missing entries. After backfill,
 the local tip set is updated to include all merged tips. Tip advertisements are
-broadcast via gossipsub (`stoa.hier.<hierarchy>` topics, see ADR-0004).
+exchanged with peers via TCP IHAVE/TAKETHIS peering sessions (see ADR-0009). The gossipsub dissemination layer described in ADR-0004 was removed in commit bcd4026.
 
 ## Consequences
 
