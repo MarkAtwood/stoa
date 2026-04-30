@@ -167,7 +167,7 @@ impl CredentialStore {
                     line_num: lineno + 1,
                 });
             }
-            if parse_bcrypt_cost(&hash).is_none() {
+            if !looks_like_bcrypt_hash(&hash) {
                 return Err(CredentialStoreError::BadHash {
                     label: label.to_string(),
                     username: user,

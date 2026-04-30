@@ -1085,7 +1085,7 @@ async fn run_post_pipeline(
     // before any async I/O so concurrent POSTs are not serialised by it.
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        // SAFETY: system clock is always after UNIX_EPOCH on any supported platform
+        // infallible: system clock is always after UNIX_EPOCH on any supported platform
         .unwrap()
         .as_millis() as u64;
     let hlc_timestamps: Vec<u64> = {

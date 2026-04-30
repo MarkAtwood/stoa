@@ -161,7 +161,7 @@ mod tests {
     fn minimal_article(newsgroups: Option<&str>, from: Option<&str>) -> Vec<u8> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            // SAFETY: system clock is always after UNIX_EPOCH on any supported platform
+            // infallible: system clock is always after UNIX_EPOCH on any supported platform
             .unwrap()
             .as_secs() as i64;
         let date_str = epoch_to_rfc2822(now);

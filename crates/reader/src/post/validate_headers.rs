@@ -203,7 +203,7 @@ mod tests {
         // Build a Date string that is definitely within ±24 h of now.
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            // SAFETY: system clock is always after UNIX_EPOCH on any supported platform
+            // infallible: system clock is always after UNIX_EPOCH on any supported platform
             .unwrap()
             .as_secs() as i64;
         // Format as RFC 2822; httpdate gives us RFC 7231, which mailparse also accepts.

@@ -119,6 +119,7 @@ impl ServerStores {
 
         let now_ms = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
+            // infallible: system clock is always after UNIX_EPOCH on any supported platform
             .unwrap()
             .as_millis() as u64;
 
@@ -193,6 +194,7 @@ impl ServerStores {
 
         let now_ms = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
+            // infallible: system clock is always after UNIX_EPOCH on any supported platform
             .unwrap()
             .as_millis() as u64;
 
@@ -227,7 +229,7 @@ impl ServerStores {
                 MessageAuthenticator::new_cloudflare_tls()
                     .expect("DKIM authenticator init must not fail"),
             ),
-            path_hostname: "localhost".to_string(),
+            path_hostname: "localhost".to_owned(),
             audit_logger: None,
             auth_failure_tracker: Arc::new(std::sync::Mutex::new(AuthFailureTracker::new(
                 10,
