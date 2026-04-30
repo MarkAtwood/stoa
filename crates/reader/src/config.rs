@@ -1,6 +1,11 @@
 use serde::Deserialize;
 use std::path::Path;
 
+// Re-export stoa_auth::UserCredential so AuthConfig::users (Vec<UserCredential>)
+// resolves to the same type that stoa_auth::CredentialStore::from_credentials()
+// expects, with no conversion shim needed at call sites.
+pub use stoa_auth::UserCredential;
+
 // ── Backend config (pluggable block store) ────────────────────────────────────
 // Types are defined in stoa_core::ipfs_backend and re-exported here so that
 // reader config validation code can use them without a long path prefix.
@@ -271,12 +276,6 @@ fn default_post_body_timeout_secs() -> u64 {
 fn default_max_article_bytes() -> usize {
     // Match DEFAULT_MAX_ARTICLE_BYTES in crates/reader/src/session/commands/post.rs.
     1_048_576
-}
-
-#[derive(Debug, Deserialize)]
-pub struct UserCredential {
-    pub username: String,
-    pub password: String,
 }
 
 /// Returns `true` if `s` looks like a valid bcrypt hash.

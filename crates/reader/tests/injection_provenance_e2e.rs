@@ -19,11 +19,12 @@ use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 
+use stoa_auth::CredentialStore;
 use stoa_core::{article::GroupName, group_log::LogStorage, util::epoch_to_rfc2822};
 use stoa_reader::{
     config::UserCredential,
     session::lifecycle::{run_session, ListenerKind},
-    store::{credentials::CredentialStore, server_stores::ServerStores},
+    store::server_stores::ServerStores,
 };
 
 // ── Config ────────────────────────────────────────────────────────────────────

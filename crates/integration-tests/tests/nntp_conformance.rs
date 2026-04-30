@@ -20,6 +20,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::Mutex;
 
+use stoa_auth::CredentialStore;
 use stoa_core::{
     audit::{start_audit_logger, AuditLogger},
     hlc::HlcClock,
@@ -31,7 +32,7 @@ use stoa_reader::{
     session::lifecycle::{run_session, ListenerKind},
     store::{
         article_numbers::ArticleNumberStore, client_cert_store::ClientCertStore,
-        credentials::CredentialStore, overview::OverviewStore, server_stores::ServerStores,
+        overview::OverviewStore, server_stores::ServerStores,
     },
 };
 

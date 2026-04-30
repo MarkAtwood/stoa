@@ -8,10 +8,11 @@ use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 
+use stoa_auth::CredentialStore;
 use stoa_reader::{
     config::UserCredential,
     session::lifecycle::{run_session, ListenerKind},
-    store::{credentials::CredentialStore, server_stores::ServerStores},
+    store::server_stores::ServerStores,
 };
 
 fn test_config(addr: &str) -> stoa_reader::config::Config {

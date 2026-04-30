@@ -17,14 +17,14 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::Mutex;
 
+use stoa_auth::CredentialStore;
 use stoa_core::{hlc::HlcClock, msgid_map::MsgIdMap};
 use stoa_reader::{
     auth_limiter::{AuthFailureTracker, DEFAULT_MAX_ENTRIES},
     post::ipfs_write::{IpfsBlockStore, IpfsWriteError},
     session::lifecycle::{run_session, ListenerKind},
     store::{
-        article_numbers::ArticleNumberStore, credentials::CredentialStore, overview::OverviewStore,
-        server_stores::ServerStores,
+        article_numbers::ArticleNumberStore, overview::OverviewStore, server_stores::ServerStores,
     },
 };
 use stoa_transit::peering::{

@@ -27,8 +27,8 @@ use crate::post::ipfs_write::{IpfsBlockStore, MemIpfsStore};
 use crate::search::TantivySearchIndex;
 use crate::store::article_numbers::ArticleNumberStore;
 use crate::store::client_cert_store::ClientCertStore;
-use crate::store::credentials::CredentialStore;
 use crate::store::overview::OverviewStore;
+use stoa_auth::CredentialStore;
 
 /// All storage handles needed by the POST pipeline and article retrieval.
 ///
