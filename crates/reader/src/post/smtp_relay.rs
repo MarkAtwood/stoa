@@ -93,13 +93,12 @@ pub async fn maybe_enqueue_smtp_relay(
 fn find_header_end(article_bytes: &[u8]) -> usize {
     match crate::post::find_header_boundary(article_bytes) {
         Some(body_start) => {
-            let sep_len = if body_start >= 4
-                && article_bytes[body_start - 4..body_start] == *b"\r\n\r\n"
-            {
-                4
-            } else {
-                2
-            };
+            let sep_len =
+                if body_start >= 4 && article_bytes[body_start - 4..body_start] == *b"\r\n\r\n" {
+                    4
+                } else {
+                    2
+                };
             body_start - sep_len
         }
         None => article_bytes.len(),

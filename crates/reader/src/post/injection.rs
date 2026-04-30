@@ -158,13 +158,12 @@ fn find_header_end(article_bytes: &[u8]) -> usize {
             // Return position after the last header's line terminator but before
             // the blank separator line: body_start - sep_len + sep_len/2.
             // CRLF (sep_len=4): body_start - 2; bare-LF (sep_len=2): body_start - 1.
-            let sep_len = if body_start >= 4
-                && article_bytes[body_start - 4..body_start] == *b"\r\n\r\n"
-            {
-                4usize
-            } else {
-                2usize
-            };
+            let sep_len =
+                if body_start >= 4 && article_bytes[body_start - 4..body_start] == *b"\r\n\r\n" {
+                    4usize
+                } else {
+                    2usize
+                };
             body_start - sep_len / 2
         }
         None => article_bytes.len(),

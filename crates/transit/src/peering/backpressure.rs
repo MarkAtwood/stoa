@@ -59,7 +59,8 @@ impl IpfsLatencyMonitor {
         };
 
         // Store as f64 bits in AtomicU64.
-        self.ema_ms_bits.store(f64::to_bits(new_ema), Ordering::Relaxed);
+        self.ema_ms_bits
+            .store(f64::to_bits(new_ema), Ordering::Relaxed);
 
         // Update backpressure state.
         let was_active = self.active.load(Ordering::Relaxed);

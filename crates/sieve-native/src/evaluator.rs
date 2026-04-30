@@ -317,10 +317,22 @@ fn extract_match_type<'a>(forms: &[&'a Form]) -> (MatchType, Vec<&'a Form>) {
     for f in forms.iter().copied() {
         if let Form::Tag(t) = f {
             match t.as_str() {
-                "is" => { mt = MatchType::Is; continue; }
-                "contains" => { mt = MatchType::Contains; continue; }
-                "matches" => { mt = MatchType::Matches; continue; }
-                "regex" => { mt = MatchType::Regex; continue; }
+                "is" => {
+                    mt = MatchType::Is;
+                    continue;
+                }
+                "contains" => {
+                    mt = MatchType::Contains;
+                    continue;
+                }
+                "matches" => {
+                    mt = MatchType::Matches;
+                    continue;
+                }
+                "regex" => {
+                    mt = MatchType::Regex;
+                    continue;
+                }
                 _ => {}
             }
         }

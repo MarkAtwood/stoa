@@ -55,9 +55,7 @@ pub async fn run_server(
                 let secret_store = match secretx::from_uri(path) {
                     Ok(s) => s,
                     Err(e) => {
-                        return Err(format!(
-                            "auth.credential_file: invalid secretx URI: {e}"
-                        ));
+                        return Err(format!("auth.credential_file: invalid secretx URI: {e}"));
                     }
                 };
                 let secret = match secret_store.get().await {
@@ -77,9 +75,7 @@ pub async fn run_server(
                     }
                 };
                 if let Err(e) = store.merge_from_content(path, &content) {
-                    return Err(format!(
-                        "failed to parse credential file from secretx: {e}"
-                    ));
+                    return Err(format!("failed to parse credential file from secretx: {e}"));
                 }
             } else if let Err(e) = store.merge_from_file(path) {
                 return Err(format!("failed to load credential_file '{path}': {e}"));

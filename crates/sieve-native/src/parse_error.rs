@@ -13,7 +13,11 @@ impl std::fmt::Display for ParseError {
         if self.line == 0 && self.col == 0 {
             write!(f, "parse error: {}", self.message)
         } else {
-            write!(f, "parse error at {}:{}: {}", self.line, self.col, self.message)
+            write!(
+                f,
+                "parse error at {}:{}: {}",
+                self.line, self.col, self.message
+            )
         }
     }
 }

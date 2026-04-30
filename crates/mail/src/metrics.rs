@@ -37,7 +37,11 @@ pub static EMAIL_QUERY_RESULTS: LazyLock<prometheus::IntGauge> = LazyLock::new(|
 
 /// Force-initialise all metric statics and return the Prometheus text payload.
 pub fn gather_metrics() -> Vec<u8> {
-    let _ = (&*JMAP_REQUESTS_TOTAL, &*JMAP_REQUEST_DURATION_SECONDS, &*EMAIL_QUERY_RESULTS);
+    let _ = (
+        &*JMAP_REQUESTS_TOTAL,
+        &*JMAP_REQUEST_DURATION_SECONDS,
+        &*EMAIL_QUERY_RESULTS,
+    );
 
     use prometheus::Encoder as _;
     let encoder = prometheus::TextEncoder::new();

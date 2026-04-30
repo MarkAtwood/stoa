@@ -31,6 +31,13 @@ pub fn capability_list(tls: bool) -> Vec1<Capability<'static>> {
     // These extensions are not TLS-dependent.
     caps.push(Capability::Enable);
     caps.push(Capability::Unselect);
+    // WORKAROUND: imap-types 2.0.0-alpha.6 has no Capability::Imap4Rev2 variant.
+    // try_from routes this to Capability::Other(CapabilityOther). Replace with
+    // Capability::Imap4Rev2 when duesee/imap-codec#702 ships a typed variant.
+    caps.push(
+        Capability::try_from("IMAP4rev2").expect("IMAP4rev2 is a valid IMAP atom and cannot fail"),
+    );
+    caps.push(Capability::Namespace);
     Vec1::try_from(caps).expect("capability list always has at least one element")
 }
 
@@ -80,6 +87,17 @@ mod tests {
             caps.as_ref().contains(&Capability::Unselect),
             "UNSELECT must always be present"
         );
+        assert!(
+            caps.as_ref().contains(
+                &Capability::try_from("IMAP4rev2")
+                    .expect("IMAP4rev2 is a valid IMAP atom and cannot fail")
+            ),
+            "IMAP4rev2 must always be present"
+        );
+        assert!(
+            caps.as_ref().contains(&Capability::Namespace),
+            "NAMESPACE must always be present"
+        );
     }
 
     #[test]
@@ -123,6 +141,17 @@ mod tests {
             caps.as_ref().contains(&Capability::Move),
             "MOVE must be present with TLS"
         );
+        assert!(
+            caps.as_ref().contains(
+                &Capability::try_from("IMAP4rev2")
+                    .expect("IMAP4rev2 is a valid IMAP atom and cannot fail")
+            ),
+            "IMAP4rev2 must always be present"
+        );
+        assert!(
+            caps.as_ref().contains(&Capability::Namespace),
+            "NAMESPACE must always be present"
+        );
     }
 
     #[test]
@@ -130,5 +159,69 @@ mod tests {
         // Vec1 invariant: at minimum IMAP4rev1 is present.
         assert!(!capability_list(false).as_ref().is_empty());
         assert!(!capability_list(true).as_ref().is_empty());
+    }
+
+    // RFC 9051 §6.1.1: capability string for IMAP4rev2 is "IMAP4rev2" (exact case).
+    #[test]
+    fn capability_list_includes_imap4rev2_no_tls() {
+        let caps = capability_list(false);
+        assert!(
+            caps.as_ref()
+                .iter()
+                .any(|cap| format!("{}", cap) == "IMAP4rev2"),
+            "IMAP4rev2 must be present in capability list (no TLS)"
+        );
+    }
+
+    #[test]
+    fn capability_list_includes_imap4rev2_tls() {
+        let caps = capability_list(true);
+        assert!(
+            caps.as_ref()
+                .iter()
+                .any(|cap| format!("{}", cap) == "IMAP4rev2"),
+            "IMAP4rev2 must be present in capability list (TLS)"
+        );
+    }
+
+    // RFC 2342 §5: capability string for NAMESPACE is "NAMESPACE".
+    #[test]
+    fn capability_list_includes_namespace_no_tls() {
+        let caps = capability_list(false);
+        assert!(
+            caps.as_ref().contains(&Capability::Namespace),
+            "NAMESPACE must be present in capability list (no TLS)"
+        );
+    }
+
+    #[test]
+    fn capability_list_does_not_include_status_size() {
+        for tls in [false, true] {
+            let caps = capability_list(tls);
+            assert!(
+                !caps
+                    .as_ref()
+                    .iter()
+                    .any(|cap| format!("{}", cap) == "STATUS=SIZE"),
+                "STATUS=SIZE must not appear in capability list (tls={tls})"
+            );
+        }
+    }
+
+    // RFC 9051 §6.1.1: "IMAP4rev2" must appear as a space-separated atom in the
+    // "* CAPABILITY ..." wire response.
+    #[test]
+    fn capability_data_wire_contains_imap4rev2() {
+        use imap_codec::{encode::Encoder, ResponseCodec};
+        use imap_next::imap_types::response::Response;
+
+        let data = capability_data(true);
+        let response = Response::Data(data);
+        let wire = ResponseCodec::default().encode(&response).dump();
+        assert!(
+            wire.windows(b"IMAP4rev2".len()).any(|w| w == b"IMAP4rev2"),
+            "wire encoding of CAPABILITY response must contain b\"IMAP4rev2\"; got: {:?}",
+            String::from_utf8_lossy(&wire)
+        );
     }
 }

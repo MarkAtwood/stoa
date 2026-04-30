@@ -122,14 +122,46 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, ParseError> {
 
         // --- Punctuation ---
         match ch {
-            '[' => { advance!(); tokens.push(Token::LBracket); continue; }
-            ']' => { advance!(); tokens.push(Token::RBracket); continue; }
-            '(' => { advance!(); tokens.push(Token::LParen); continue; }
-            ')' => { advance!(); tokens.push(Token::RParen); continue; }
-            '{' => { advance!(); tokens.push(Token::LBrace); continue; }
-            '}' => { advance!(); tokens.push(Token::RBrace); continue; }
-            ';' => { advance!(); tokens.push(Token::Semicolon); continue; }
-            ',' => { advance!(); tokens.push(Token::Comma); continue; }
+            '[' => {
+                advance!();
+                tokens.push(Token::LBracket);
+                continue;
+            }
+            ']' => {
+                advance!();
+                tokens.push(Token::RBracket);
+                continue;
+            }
+            '(' => {
+                advance!();
+                tokens.push(Token::LParen);
+                continue;
+            }
+            ')' => {
+                advance!();
+                tokens.push(Token::RParen);
+                continue;
+            }
+            '{' => {
+                advance!();
+                tokens.push(Token::LBrace);
+                continue;
+            }
+            '}' => {
+                advance!();
+                tokens.push(Token::RBrace);
+                continue;
+            }
+            ';' => {
+                advance!();
+                tokens.push(Token::Semicolon);
+                continue;
+            }
+            ',' => {
+                advance!();
+                tokens.push(Token::Comma);
+                continue;
+            }
             _ => {}
         }
 
@@ -165,9 +197,18 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, ParseError> {
                 col,
             })?;
             let multiplier: u64 = match chars.peek().copied() {
-                Some('K') | Some('k') => { advance!(); 1024 }
-                Some('M') | Some('m') => { advance!(); 1024 * 1024 }
-                Some('G') | Some('g') => { advance!(); 1024 * 1024 * 1024 }
+                Some('K') | Some('k') => {
+                    advance!();
+                    1024
+                }
+                Some('M') | Some('m') => {
+                    advance!();
+                    1024 * 1024
+                }
+                Some('G') | Some('g') => {
+                    advance!();
+                    1024 * 1024 * 1024
+                }
                 _ => 1,
             };
             let value = base.checked_mul(multiplier).ok_or_else(|| ParseError {
@@ -190,7 +231,7 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, ParseError> {
                 let err_line = line;
                 let err_col = col;
                 advance!(); // consume ':'
-                // Consume optional CR/LF or CRLF to end the `text:` header line.
+                            // Consume optional CR/LF or CRLF to end the `text:` header line.
                 if chars.peek().copied() == Some('\r') {
                     advance!();
                 }
@@ -276,8 +317,14 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, ParseError> {
                                     col: err_col,
                                 });
                             }
-                            Some('"') => { advance!(); s.push('"'); }
-                            Some('\\') => { advance!(); s.push('\\'); }
+                            Some('"') => {
+                                advance!();
+                                s.push('"');
+                            }
+                            Some('\\') => {
+                                advance!();
+                                s.push('\\');
+                            }
                             // RFC 5228 §2.3.1: only \" and \\ are defined escape sequences;
                             // other backslash sequences pass through unchanged.
                             _ => {

@@ -246,7 +246,6 @@ async fn send_ihave(addr: &str, msgid: &str, article_bytes: &[u8]) -> SendResult
     }
 }
 
-
 /// Extract the `Message-ID` header value (including angle brackets) from article text.
 ///
 /// Searches the header section (up to the first blank line) for a
@@ -400,9 +399,18 @@ mod tests {
 
     #[test]
     fn response_code_parses_correctly() {
-        assert_eq!(crate::import::parse_nntp_response_code("235 Article transferred OK\r\n"), 235);
-        assert_eq!(crate::import::parse_nntp_response_code("435 Duplicate\r\n"), 435);
-        assert_eq!(crate::import::parse_nntp_response_code("335 Send article\r\n"), 335);
+        assert_eq!(
+            crate::import::parse_nntp_response_code("235 Article transferred OK\r\n"),
+            235
+        );
+        assert_eq!(
+            crate::import::parse_nntp_response_code("435 Duplicate\r\n"),
+            435
+        );
+        assert_eq!(
+            crate::import::parse_nntp_response_code("335 Send article\r\n"),
+            335
+        );
         assert_eq!(crate::import::parse_nntp_response_code(""), 0);
         assert_eq!(crate::import::parse_nntp_response_code("xy"), 0);
     }

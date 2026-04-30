@@ -11,6 +11,7 @@ use std::num::NonZeroU32;
 
 use imap_next::imap_types::{
     core::{IString, QuotedChar, Tag},
+    extensions::namespace::Namespace,
     flag::{Flag, FlagPerm},
     mailbox::{ListMailbox, Mailbox},
     response::{Code, Data, Status},
@@ -69,13 +70,17 @@ pub async fn handle_select(
 ///
 /// Caller enqueues these via `server.enqueue_data()`, then the `Status`
 /// responses from `select_status_responses()`, then the tagged OK.
-pub fn select_untagged_data() -> Vec<Data<'static>> {
-    vec![
-        Data::Flags(system_flags()),
-        // EXISTS and RECENT counts are stubbed until article sync is wired.
-        Data::Exists(0),
-        Data::Recent(0),
-    ]
+///
+/// When `rev2_mode` is true (client has ENABLEd IMAP4rev2), the `* RECENT`
+/// response is omitted — RFC 9051 §7.3.2 removes the RECENT concept and
+/// servers MUST NOT send it to IMAP4rev2 clients.
+pub fn select_untagged_data(rev2_mode: bool) -> Vec<Data<'static>> {
+    // EXISTS count is stubbed until article sync is wired.
+    let mut items = vec![Data::Flags(system_flags()), Data::Exists(0)];
+    if !rev2_mode {
+        items.push(Data::Recent(0));
+    }
+    items
 }
 
 /// Build the untagged `* OK [CODE] text` responses for SELECT/EXAMINE.
@@ -149,6 +154,19 @@ pub async fn handle_list(
         .collect()
 }
 
+/// Handle `NAMESPACE` (RFC 2342).
+///
+/// Returns one personal namespace with prefix `""` and delimiter `"."`.
+/// Other-users and shared namespace lists are empty (NIL).
+pub fn handle_namespace() -> Data<'static> {
+    let personal = vec![Namespace::new(
+        IString::try_from("").expect("empty string is a valid IString"),
+        Some(QuotedChar::try_from('.').expect("dot is a valid QuotedChar")),
+    )];
+    Data::namespace(personal, vec![], vec![])
+        .expect("valid namespace args produce valid Data::Namespace")
+}
+
 /// Handle `STATUS <mailbox> (<items>)`.
 ///
 /// Returns `Some(Data::Status { ... })` or `None` if the mailbox is not
@@ -218,7 +236,12 @@ pub async fn handle_status(
 /// the server operational while the warning surfaces the issue to operators.
 fn clamp_u32(v: i64, field: &str, mailbox: &str) -> u32 {
     u32::try_from(v).unwrap_or_else(|_| {
-        tracing::warn!(mailbox, field, value = v, "corrupt {field} exceeds u32, clamping to 1");
+        tracing::warn!(
+            mailbox,
+            field,
+            value = v,
+            "corrupt {field} exceeds u32, clamping to 1"
+        );
         1
     })
 }
@@ -265,7 +288,10 @@ pub async fn get_or_create_uidvalidity(
             .fetch_one(pool)
             .await?;
 
-    Ok((clamp_u32(v, "uidvalidity", mailbox), clamp_u32(n, "next_uid", mailbox)))
+    Ok((
+        clamp_u32(v, "uidvalidity", mailbox),
+        clamp_u32(n, "next_uid", mailbox),
+    ))
 }
 
 // ── Flag helpers ──────────────────────────────────────────────────────────────
@@ -557,6 +583,153 @@ mod tests {
         assert!(
             data.is_empty(),
             "INBOX.* should not match any comp.* or alt.* entries"
+        );
+    }
+
+    // ── NAMESPACE (RFC 2342) tests ────────────────────────────────────────────
+    //
+    // Oracle: RFC 2342 §5.
+    //
+    // This server has exactly one personal namespace: prefix="" (empty string),
+    // delimiter='.' (the newsgroup hierarchy separator).  There are no
+    // "Other Users" namespaces and no "Shared" namespaces.
+    //
+    // RFC 2342 §5 wire format:
+    //   * NAMESPACE (("" ".")) NIL NIL\r\n
+    //   personal ^^^^^^^^^^^^^ — one entry: empty prefix, dot delimiter
+    //   other    ^^^ — NIL (no other-users namespaces)
+    //   shared       ^^^ — NIL (no shared namespaces)
+    //
+    // Tests 1–3 call `handle_namespace()`, added by drrd.10 to mailbox.rs.
+    // Signature expected:  pub fn handle_namespace() -> Data<'static>
+    // Until drrd.10 lands, these tests will not compile — that is expected.
+    //
+    // Test 4 (wire encoding) builds the value from scratch and compiles before
+    // drrd.10 is complete.
+
+    /// RFC 2342 §5: the personal namespace must have an empty string prefix.
+    #[test]
+    fn handle_namespace_personal_prefix_is_empty() {
+        use imap_next::imap_types::{
+            core::IString, extensions::namespace::Namespace, response::Data,
+        };
+
+        let data: Data<'static> = handle_namespace();
+        let Data::Namespace { personal, .. } = data else {
+            panic!("handle_namespace must return Data::Namespace");
+        };
+        assert_eq!(
+            personal.len(),
+            1,
+            "exactly one personal namespace entry required (RFC 2342 §5)"
+        );
+        let ns: &Namespace<'_> = &personal[0];
+        // RFC 2342 §5: "the Personal Namespace prefix is the empty string".
+        let prefix_bytes: &[u8] = match &ns.prefix {
+            IString::Quoted(q) => q.as_ref().as_bytes(),
+            IString::Literal(l) => l.as_ref(),
+        };
+        assert_eq!(
+            prefix_bytes, b"",
+            "personal namespace prefix must be the empty string (RFC 2342 §5)"
+        );
+    }
+
+    /// RFC 2342 §5: the personal namespace must use '.' as hierarchy delimiter.
+    #[test]
+    fn handle_namespace_personal_delimiter_is_dot() {
+        use imap_next::imap_types::{core::QuotedChar, response::Data};
+
+        let data: Data<'static> = handle_namespace();
+        let Data::Namespace { personal, .. } = data else {
+            panic!("handle_namespace must return Data::Namespace");
+        };
+        let ns = &personal[0];
+        // Oracle: RFC 2342 §5 example uses "." as delimiter for NNTP groups.
+        assert_eq!(
+            ns.delimiter,
+            Some(QuotedChar::unvalidated('.')),
+            "personal namespace delimiter must be '.' (RFC 2342 §5)"
+        );
+    }
+
+    /// RFC 2342 §5: Other Users and Shared namespace lists must be empty (NIL
+    /// on the wire).
+    #[test]
+    fn handle_namespace_other_and_shared_are_empty() {
+        use imap_next::imap_types::response::Data;
+
+        let data: Data<'static> = handle_namespace();
+        let Data::Namespace { other, shared, .. } = data else {
+            panic!("handle_namespace must return Data::Namespace");
+        };
+        assert!(
+            other.is_empty(),
+            "Other Users namespace list must be NIL/empty (RFC 2342 §5)"
+        );
+        assert!(
+            shared.is_empty(),
+            "Shared namespace list must be NIL/empty (RFC 2342 §5)"
+        );
+    }
+
+    /// RFC 2342 §5 wire encoding: a `Data::Namespace` with one personal
+    /// namespace (prefix="", delimiter='.') and no other/shared namespaces must
+    /// encode to bytes containing "NAMESPACE" and two "NIL" tokens for the
+    /// empty other and shared namespace lists.
+    ///
+    /// Expected wire line (RFC 2342 §5):
+    ///   * NAMESPACE (("" ".")) NIL NIL\r\n
+    ///
+    /// This test builds the value from scratch and does NOT call
+    /// `handle_namespace()`, so it compiles before drrd.10 lands.
+    #[test]
+    fn handle_namespace_wire_encoding() {
+        use imap_codec::{encode::Encoder, ResponseCodec};
+        use imap_next::imap_types::{
+            core::{IString, QuotedChar},
+            extensions::namespace::Namespace,
+            response::{Data, Response},
+        };
+
+        // Construct the exact Data value that handle_namespace() must return.
+        // Oracle: RFC 2342 §5 — personal prefix="" delimiter='.' other=NIL shared=NIL.
+        let personal_ns = Namespace::new(
+            IString::try_from("").expect("empty string is a valid IString"),
+            Some(QuotedChar::unvalidated('.')),
+        );
+        let data: Data<'static> = Data::namespace(
+            vec![personal_ns],
+            vec![], // other — encodes as NIL
+            vec![], // shared — encodes as NIL
+        )
+        .expect("valid namespace arguments must not produce an error");
+
+        let response = Response::Data(data);
+        let bytes: Vec<u8> = ResponseCodec::default().encode(&response).dump();
+        let wire = String::from_utf8_lossy(&bytes);
+
+        // Must contain the NAMESPACE keyword (RFC 2342 §5).
+        assert!(
+            bytes.windows(b"NAMESPACE".len()).any(|w| w == b"NAMESPACE"),
+            "wire encoding must contain 'NAMESPACE'; got: {wire:?}"
+        );
+        // Two NIL tokens for the empty other and shared namespace lists.
+        // Oracle: imap-codec namespace encoder — empty Vec → b"NIL".
+        let nil_count = bytes.windows(b"NIL".len()).filter(|w| *w == b"NIL").count();
+        assert_eq!(
+            nil_count, 2,
+            "exactly two NIL tokens required (other + shared); got: {wire:?}"
+        );
+        // Personal namespace prefix must be the empty quoted string.
+        assert!(
+            bytes.windows(2).any(|w| w == b"\"\""),
+            "personal namespace prefix must encode as empty quoted string \"\\\"\\\"\"; got: {wire:?}"
+        );
+        // Response line must end with CRLF (RFC 2342 §5 grammar).
+        assert!(
+            bytes.ends_with(b"\r\n"),
+            "NAMESPACE response must end with CRLF; got: {wire:?}"
         );
     }
 }

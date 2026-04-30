@@ -45,6 +45,15 @@ pub struct LimitsConfig {
     /// Maximum literal size accepted (bytes). Applies to APPEND and LOGIN.
     #[serde(default = "default_max_literal_bytes")]
     pub max_literal_bytes: u64,
+    /// Maximum total command size accepted (bytes).
+    ///
+    /// This caps the heap allocation for a single IMAP command line, including
+    /// AUTHENTICATE PLAIN with its inline base64 credential.  The imap-next
+    /// library requires `max_literal_bytes < max_command_size_bytes`; at
+    /// session startup the effective value is silently raised to
+    /// `max_literal_bytes + 1` if the configured value is smaller.
+    #[serde(default = "default_max_command_size_bytes")]
+    pub max_command_size_bytes: u64,
 }
 
 fn default_max_connections() -> usize {
@@ -59,12 +68,17 @@ fn default_max_literal_bytes() -> u64 {
     10 * 1024 * 1024 // 10 MiB
 }
 
+fn default_max_command_size_bytes() -> u64 {
+    8 * 1024 // 8 KiB
+}
+
 impl Default for LimitsConfig {
     fn default() -> Self {
         Self {
             max_connections: default_max_connections(),
             idle_timeout_secs: default_idle_timeout_secs(),
             max_literal_bytes: default_max_literal_bytes(),
+            max_command_size_bytes: default_max_command_size_bytes(),
         }
     }
 }
@@ -251,6 +265,7 @@ path = "/tmp/imap.db"
         assert_eq!(cfg.limits.max_connections, 200);
         assert_eq!(cfg.limits.idle_timeout_secs, 1800);
         assert_eq!(cfg.limits.max_literal_bytes, 10 * 1024 * 1024);
+        assert_eq!(cfg.limits.max_command_size_bytes, 8 * 1024);
         assert_eq!(cfg.auth.mechanisms, vec!["PLAIN", "LOGIN"]);
     }
 
@@ -336,5 +351,26 @@ cert_path = "/etc/ssl/server.pem"
         let err =
             Config::from_file(Path::new("/nonexistent/path/imap.toml")).expect_err("should fail");
         assert!(matches!(err, ConfigError::Io(_)));
+    }
+
+    #[test]
+    fn max_command_size_bytes_round_trips_from_toml() {
+        let toml = r#"
+[listen]
+addr = "0.0.0.0:143"
+
+[database]
+path = "/tmp/imap.db"
+
+[limits]
+max_command_size_bytes = 16384
+
+[auth]
+
+[tls]
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("should parse");
+        assert_eq!(cfg.limits.max_command_size_bytes, 16384);
     }
 }

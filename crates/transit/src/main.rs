@@ -222,7 +222,6 @@ fn cmd_keygen(args: &[String]) -> ! {
     std::process::exit(0);
 }
 
-
 async fn run_startup_checks(
     config: &stoa_transit::config::Config,
 ) -> (Vec<String>, Option<TcpListener>) {
