@@ -312,9 +312,9 @@ mod tests {
     }
 
     fn make_store(users: &[(&str, &str)]) -> stoa_auth::CredentialStore {
-        let creds: Vec<stoa_auth::config::UserCredential> = users
+        let creds: Vec<stoa_auth::UserCredential> = users
             .iter()
-            .map(|(u, p)| stoa_auth::config::UserCredential {
+            .map(|(u, p)| stoa_auth::UserCredential {
                 username: u.to_string(),
                 password: p.to_string(),
             })

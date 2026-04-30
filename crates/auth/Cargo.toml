@@ -10,6 +10,8 @@ path = "src/lib.rs"
 
 [dependencies]
 bcrypt = "0.15"
+thiserror = "1"
+zeroize = "1"
 ed25519-dalek = { version = "2" }
 hex = "0.4"
 jsonwebtoken = "9"

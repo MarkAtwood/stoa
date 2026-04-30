@@ -358,9 +358,11 @@ async fn build_credential_store(
             let content = secret
                 .as_str()
                 .map_err(|e| format!("auth.credential_file: secretx value not valid UTF-8: {e}"))?;
-            store.merge_from_content(path, content)?;
+            store
+                .merge_from_content(path, content)
+                .map_err(|e| e.to_string())?;
         } else {
-            store.merge_from_file(path)?;
+            store.merge_from_file(path).map_err(|e| e.to_string())?;
         }
     }
     Ok(store)

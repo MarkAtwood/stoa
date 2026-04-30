@@ -2,9 +2,16 @@
 
 use serde::Deserialize;
 
-/// A single operator-configured user account.
+/// A username/password credential pair used in SMTP/IMAP/NNTP auth config.
 ///
 /// The `password` field must be a **bcrypt hash**, never plaintext.
+///
+/// # TOML config stability
+/// The field names `username` and `password` are operator-visible config keys
+/// (e.g. `[[auth.users]]` sections). Renaming either field is a **breaking
+/// change** for deployed operator configs — serde deserialization will silently
+/// ignore unknown keys and use defaults, producing auth failures at runtime
+/// with no compile-time warning.
 #[derive(Debug, Clone, Deserialize)]
 pub struct UserCredential {
     pub username: String,

@@ -3,7 +3,7 @@ use std::path::Path;
 
 /// Re-export the shared credential type so callers within this crate
 /// can import it from `crate::config` without depending on stoa-auth directly.
-pub use stoa_auth::config::UserCredential;
+pub use stoa_auth::UserCredential;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -92,7 +92,7 @@ pub struct AuthConfig {
     pub mechanisms: Vec<String>,
     /// Inline user accounts. The `password` field must be a bcrypt hash.
     ///
-    /// Uses the shared `stoa_auth::config::UserCredential` type so that
+    /// Uses the shared `stoa_auth::UserCredential` type so that
     /// user configuration is consistent across IMAP, NNTP, and JMAP.
     #[serde(default)]
     pub users: Vec<UserCredential>,

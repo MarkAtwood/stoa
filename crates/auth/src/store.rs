@@ -5,8 +5,24 @@
 //! found, to prevent a timing oracle on username existence.
 
 use std::collections::HashMap;
+use std::path::Path;
 
 use crate::config::UserCredential;
+
+/// Error returned by `CredentialStore` file and content loading methods.
+#[derive(Debug, thiserror::Error)]
+pub enum CredentialStoreError {
+    #[error("{label}: I/O error: {source}")]
+    Io {
+        label: String,
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("{label}: line {line_num}: malformed entry (expected 'username:hash')")]
+    MalformedLine { label: String, line_num: usize },
+    #[error("{label}: user '{username}': password is not a valid bcrypt hash (cost must be 4–31)")]
+    BadHash { label: String, username: String },
+}
 
 /// Extract the cost factor from a bcrypt hash string.
 ///
@@ -29,6 +45,17 @@ fn parse_bcrypt_cost(hash: &str) -> Option<u32> {
     Some(cost)
 }
 
+/// Returns `true` if `s` looks like a valid bcrypt hash.
+///
+/// Checks: version prefix in `{$2a$, $2b$, $2x$, $2y$}`, cost in 4–31, and
+/// total length ≥ 60.  This is a format check, not a cryptographic one — its
+/// purpose is to catch the common operator mistake of storing a plaintext
+/// password in `[auth.users]` and surface a clear error at startup rather than
+/// silently failing every authentication attempt.
+pub fn looks_like_bcrypt_hash(s: &str) -> bool {
+    s.len() >= 60 && parse_bcrypt_cost(s).is_some()
+}
+
 /// Compute a dummy bcrypt hash at the same cost as the configured hashes.
 ///
 /// Inspects the entries map and extracts the cost from the first valid bcrypt
@@ -47,6 +74,9 @@ fn make_dummy_hash(entries: &HashMap<String, String>) -> String {
 /// Bcrypt-hashed credential store.
 ///
 /// Usernames are normalised to ASCII-lowercase for case-insensitive matching.
+// Clone is intentionally NOT derived — CredentialStore holds bcrypt hashes and
+// a timing-equalisation dummy hash; accidental copies waste memory and could
+// complicate future zeroize-on-drop work. Use Arc<CredentialStore> for sharing.
 #[derive(Debug)]
 pub struct CredentialStore {
     /// Lowercase username → bcrypt hash.
@@ -115,28 +145,33 @@ impl CredentialStore {
     ///
     /// `label` is used in error messages (typically the file path or URI).
     ///
-    /// Returns `Err(String)` if a line is malformed.
-    pub fn from_content(label: &str, content: &str) -> Result<Self, String> {
+    /// Returns `Err(CredentialStoreError)` if a line is malformed.
+    pub fn from_content(label: &str, content: &str) -> Result<Self, CredentialStoreError> {
         let mut entries = HashMap::new();
         for (lineno, line) in content.lines().enumerate() {
             let line = line.trim();
             if line.is_empty() || line.starts_with('#') {
                 continue;
             }
-            let (user, hash) = line
-                .split_once(':')
-                .ok_or_else(|| format!("{label}:{}: missing ':' separator", lineno + 1))?;
+            let (user, hash) =
+                line.split_once(':')
+                    .ok_or_else(|| CredentialStoreError::MalformedLine {
+                        label: label.to_string(),
+                        line_num: lineno + 1,
+                    })?;
             let user = user.trim().to_ascii_lowercase();
             let hash = hash.trim().to_string();
             if user.is_empty() {
-                return Err(format!("{label}:{}: empty username", lineno + 1));
+                return Err(CredentialStoreError::MalformedLine {
+                    label: label.to_string(),
+                    line_num: lineno + 1,
+                });
             }
             if parse_bcrypt_cost(&hash).is_none() {
-                return Err(format!(
-                    "{label}:{}: password for user '{user}' is not a valid bcrypt hash \
-                     (must start with $2a$, $2b$, $2x$, or $2y$ with a cost of 4–31)",
-                    lineno + 1
-                ));
+                return Err(CredentialStoreError::BadHash {
+                    label: label.to_string(),
+                    username: user,
+                });
             }
             entries.insert(user, hash);
         }
@@ -151,11 +186,15 @@ impl CredentialStore {
     ///
     /// Reads the file and delegates to [`from_content`](Self::from_content).
     ///
-    /// Returns `Err(String)` if the file cannot be read or a line is malformed.
-    pub fn from_file(path: &str) -> Result<Self, String> {
-        let content =
-            std::fs::read_to_string(path).map_err(|e| format!("cannot read {path}: {e}"))?;
-        Self::from_content(path, &content)
+    /// Returns `Err(CredentialStoreError)` if the file cannot be read or a line is malformed.
+    pub fn from_file(path: impl AsRef<Path>) -> Result<Self, CredentialStoreError> {
+        let path = path.as_ref();
+        let label = path.display().to_string();
+        let content = std::fs::read_to_string(path).map_err(|e| CredentialStoreError::Io {
+            label: label.clone(),
+            source: e,
+        })?;
+        Self::from_content(&label, &content)
     }
 
     /// Merge credentials from raw content into an existing store, overwriting
@@ -163,7 +202,11 @@ impl CredentialStore {
     /// recomputed from the merged entry set.
     ///
     /// `label` is used in error messages (typically the source path or URI).
-    pub fn merge_from_content(&mut self, label: &str, content: &str) -> Result<(), String> {
+    pub fn merge_from_content(
+        &mut self,
+        label: &str,
+        content: &str,
+    ) -> Result<(), CredentialStoreError> {
         let other = Self::from_content(label, content)?;
         self.entries.extend(other.entries);
         self.dummy_hash = make_dummy_hash(&self.entries);
@@ -173,7 +216,7 @@ impl CredentialStore {
     /// Merge credentials from a file into an existing store, overwriting
     /// any duplicate usernames with the file's version.  The dummy hash is
     /// recomputed from the merged entry set.
-    pub fn merge_from_file(&mut self, path: &str) -> Result<(), String> {
+    pub fn merge_from_file(&mut self, path: impl AsRef<Path>) -> Result<(), CredentialStoreError> {
         let other = Self::from_file(path)?;
         self.entries.extend(other.entries);
         self.dummy_hash = make_dummy_hash(&self.entries);
@@ -208,10 +251,12 @@ impl CredentialStore {
             .get(&username.to_ascii_lowercase())
             .cloned()
             .unwrap_or_else(|| self.dummy_hash.clone());
-        let password = password.to_string();
-        tokio::task::spawn_blocking(move || bcrypt::verify(&password, &hash).unwrap_or(false))
-            .await
-            .unwrap_or(false)
+        let password = zeroize::Zeroizing::new(password.to_string());
+        tokio::task::spawn_blocking(move || {
+            bcrypt::verify(password.as_str(), &hash).unwrap_or(false)
+        })
+        .await
+        .unwrap_or(false)
     }
 }
 
@@ -306,8 +351,7 @@ mod tests {
         let tmp = tempfile::NamedTempFile::new().unwrap();
         std::fs::write(tmp.path(), &contents).unwrap();
 
-        let store = CredentialStore::from_file(tmp.path().to_str().unwrap())
-            .expect("from_file must succeed");
+        let store = CredentialStore::from_file(tmp.path()).expect("from_file must succeed");
         assert!(store.entries.contains_key("bob"), "bob must be loaded");
         assert!(store.entries.contains_key("alice"), "alice must be loaded");
     }
@@ -316,18 +360,18 @@ mod tests {
     fn from_file_returns_err_for_plaintext_password() {
         let tmp = tempfile::NamedTempFile::new().unwrap();
         std::fs::write(tmp.path(), "alice:plaintextpassword\n").unwrap();
-        let result = CredentialStore::from_file(tmp.path().to_str().unwrap());
+        let result = CredentialStore::from_file(tmp.path());
         assert!(
             result.is_err(),
             "from_file must return Err for plaintext password"
         );
-        let msg = result.err().unwrap();
+        let msg = result.err().unwrap().to_string();
         assert!(msg.contains("not a valid bcrypt hash"), "got: {msg}");
     }
 
     #[test]
     fn from_file_returns_err_for_missing_file() {
-        let result = CredentialStore::from_file("/nonexistent/path/creds.txt");
+        let result = CredentialStore::from_file(Path::new("/nonexistent/path/creds.txt"));
         assert!(
             result.is_err(),
             "from_file must return Err for missing file"
@@ -338,7 +382,7 @@ mod tests {
     fn from_file_returns_err_for_malformed_line() {
         let tmp = tempfile::NamedTempFile::new().unwrap();
         std::fs::write(tmp.path(), "nocolon\n").unwrap();
-        let result = CredentialStore::from_file(tmp.path().to_str().unwrap());
+        let result = CredentialStore::from_file(tmp.path());
         assert!(
             result.is_err(),
             "from_file must return Err for line missing ':'"
@@ -358,8 +402,8 @@ mod tests {
     fn from_content_returns_err_for_malformed_line() {
         let result = CredentialStore::from_content("<test>", "nocolon\n");
         assert!(result.is_err(), "must fail on malformed line");
-        let msg = result.err().unwrap();
-        assert!(msg.contains("missing ':' separator"), "got: {msg}");
+        let msg = result.err().unwrap().to_string();
+        assert!(msg.contains("malformed entry"), "got: {msg}");
     }
 
     #[tokio::test]
@@ -400,7 +444,7 @@ mod tests {
         let contents = format!("alice:{file_hash}\nbob:{}\n", bcrypt::hash("b", 4).unwrap());
         let tmp = tempfile::NamedTempFile::new().unwrap();
         std::fs::write(tmp.path(), &contents).unwrap();
-        store.merge_from_file(tmp.path().to_str().unwrap()).unwrap();
+        store.merge_from_file(tmp.path()).unwrap();
 
         assert!(
             store.check("alice", "file-pass").await,

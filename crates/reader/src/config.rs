@@ -278,34 +278,7 @@ fn default_max_article_bytes() -> usize {
     1_048_576
 }
 
-/// Returns `true` if `s` looks like a valid bcrypt hash.
-///
-/// Checks: version prefix in `{$2a$, $2b$, $2x$, $2y$}`, cost in 4–31, and
-/// total length ≥ 60.  This is a format check, not a cryptographic one — its
-/// purpose is to catch the common operator mistake of storing a plaintext
-/// password in `[auth.users]` and surface a clear error at startup rather than
-/// silently failing every authentication attempt.
-///
-/// The cost check matches the range accepted by `CredentialStore::from_credentials`
-/// so that a hash that passes this check will not cause a startup panic there.
-pub fn looks_like_bcrypt_hash(s: &str) -> bool {
-    let has_valid_prefix = s.starts_with("$2b$")
-        || s.starts_with("$2a$")
-        || s.starts_with("$2x$")
-        || s.starts_with("$2y$");
-    if !has_valid_prefix || s.len() < 60 {
-        return false;
-    }
-    // Parse cost: "$2b$NN$..." → ["", "2b", "NN", "..."]
-    let mut parts = s.splitn(4, '$');
-    parts.next(); // empty before first $
-    parts.next(); // version
-    let cost: u32 = match parts.next().and_then(|c| c.parse().ok()) {
-        Some(c) => c,
-        None => return false,
-    };
-    (4..=31).contains(&cost)
-}
+pub use stoa_auth::looks_like_bcrypt_hash;
 
 /// A TLS client certificate pinned to a username.
 ///
