@@ -177,8 +177,44 @@ async fn main() {
         "stoa-smtp starting"
     );
 
+    // Resolve DKIM signing key from delivery.dkim config.
+    let dkim_signer: Option<Arc<mail_auth::dkim::DkimSigner<mail_auth::common::crypto::Ed25519Key, mail_auth::dkim::Done>>> = if let Some(ref dcfg) = config.delivery.dkim {
+        use base64::Engine as _;
+        use zeroize::Zeroize as _;
+        let mut seed = match base64::engine::general_purpose::STANDARD.decode(&dcfg.key_seed_b64) {
+            Ok(b) => b,
+            Err(e) => {
+                eprintln!("error: dkim.key_seed_b64: invalid base64: {e}");
+                std::process::exit(1);
+            }
+        };
+        let pubkey = match base64::engine::general_purpose::STANDARD.decode(&dcfg.public_key_b64) {
+            Ok(b) => b,
+            Err(e) => {
+                eprintln!("error: dkim.public_key_b64: invalid base64: {e}");
+                std::process::exit(1);
+            }
+        };
+        let ed_key = match mail_auth::common::crypto::Ed25519Key::from_seed_and_public_key(&seed, &pubkey) {
+            Ok(k) => k,
+            Err(e) => {
+                eprintln!("error: dkim: failed to construct Ed25519 signing key: {e}");
+                std::process::exit(1);
+            }
+        };
+        seed.zeroize();
+        let signer = mail_auth::dkim::DkimSigner::from_key(ed_key)
+            .domain(dcfg.domain.as_str())
+            .selector(dcfg.selector.as_str())
+            .headers(["From", "To", "Subject", "Date", "Message-ID", "MIME-Version"]);
+        info!(domain = %dcfg.domain, selector = %dcfg.selector, "DKIM signing enabled");
+        Some(Arc::new(signer))
+    } else {
+        None
+    };
+
     // Create the durable NNTP queue and start the drain task.
-    let nntp_queue = match NntpQueue::new(&config.delivery.queue_dir) {
+    let nntp_queue = match NntpQueue::new(&config.delivery.queue_dir, dkim_signer.clone()) {
         Ok(q) => q,
         Err(e) => {
             error!(

@@ -1257,7 +1257,7 @@ mod tests {
         pool: Option<SqlitePool>,
     ) -> (String, tempfile::TempDir) {
         let queue_dir = tempfile::tempdir().expect("tempdir");
-        let nntp_queue = NntpQueue::new(queue_dir.path()).expect("NntpQueue::new");
+        let nntp_queue = NntpQueue::new(queue_dir.path(), None).expect("NntpQueue::new");
         let credential_store = Arc::new(CredentialStore::empty());
 
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
@@ -1437,7 +1437,7 @@ mod tests {
         let pool = open_test_db().await;
         let config = test_config();
         let queue_dir = tempfile::tempdir().expect("tempdir");
-        let nntp_queue = NntpQueue::new(queue_dir.path()).expect("NntpQueue::new");
+        let nntp_queue = NntpQueue::new(queue_dir.path(), None).expect("NntpQueue::new");
         let credential_store = Arc::new(CredentialStore::empty());
 
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -1948,7 +1948,7 @@ mod tests {
         });
 
         let queue_dir = tempfile::tempdir().expect("tempdir");
-        let nntp_queue = NntpQueue::new(queue_dir.path()).expect("NntpQueue::new");
+        let nntp_queue = NntpQueue::new(queue_dir.path(), None).expect("NntpQueue::new");
         let credential_store = Arc::new(CredentialStore::empty());
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
@@ -2230,7 +2230,7 @@ mod tests {
 
         let config = test_config();
         let queue_dir = tempfile::tempdir().expect("tempdir");
-        let nntp_queue = NntpQueue::new(queue_dir.path()).expect("NntpQueue::new");
+        let nntp_queue = NntpQueue::new(queue_dir.path(), None).expect("NntpQueue::new");
 
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await

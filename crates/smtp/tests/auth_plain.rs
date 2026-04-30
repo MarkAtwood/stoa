@@ -122,7 +122,7 @@ fn test_config(tim_credential: Option<UserCredential>) -> Arc<Config> {
 /// collects the full server response string.
 async fn drive(client_script: &[u8], is_tls: bool, config: Arc<Config>) -> String {
     let queue_dir = tempfile::tempdir().expect("tempdir");
-    let nntp_queue = NntpQueue::new(queue_dir.path()).expect("NntpQueue::new");
+    let nntp_queue = NntpQueue::new(queue_dir.path(), None).expect("NntpQueue::new");
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await

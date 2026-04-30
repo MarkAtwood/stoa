@@ -485,7 +485,7 @@ mod tests {
             password: None,
         };
         let queue =
-            stoa_smtp::SmtpRelayQueue::new(dir.path(), vec![peer], Duration::from_secs(300))
+            stoa_smtp::SmtpRelayQueue::new(dir.path(), vec![peer], Duration::from_secs(300), None)
                 .expect("queue");
 
         let (msgid_map, _tmp_msgid) = make_msgid_map().await;
@@ -536,7 +536,7 @@ mod tests {
             password: None,
         };
         let queue =
-            stoa_smtp::SmtpRelayQueue::new(dir.path(), vec![peer], Duration::from_secs(300))
+            stoa_smtp::SmtpRelayQueue::new(dir.path(), vec![peer], Duration::from_secs(300), None)
                 .expect("queue");
 
         let (msgid_map, _tmp_msgid) = make_msgid_map().await;
@@ -586,7 +586,7 @@ mod tests {
             password: None,
         };
         let queue =
-            stoa_smtp::SmtpRelayQueue::new(dir.path(), vec![peer], Duration::from_secs(300))
+            stoa_smtp::SmtpRelayQueue::new(dir.path(), vec![peer], Duration::from_secs(300), None)
                 .expect("queue");
 
         // Remove the queue directory so enqueue will fail with an I/O error.

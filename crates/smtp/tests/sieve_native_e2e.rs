@@ -136,7 +136,7 @@ async fn drive(
     client_script: &[u8],
 ) -> (String, tempfile::TempDir) {
     let queue_dir = tempfile::tempdir().expect("tempdir");
-    let nntp_queue = NntpQueue::new(queue_dir.path()).expect("NntpQueue::new");
+    let nntp_queue = NntpQueue::new(queue_dir.path(), None).expect("NntpQueue::new");
     let cred_store = Arc::new(CredentialStore::empty());
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")

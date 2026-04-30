@@ -210,7 +210,7 @@ fn base_config() -> Arc<Config> {
 /// Build an `NntpQueue` backed by a temporary directory.
 fn test_queue() -> (Arc<NntpQueue>, tempfile::TempDir) {
     let dir = tempfile::tempdir().expect("tempdir for NntpQueue");
-    let q = NntpQueue::new(dir.path()).expect("NntpQueue::new");
+    let q = NntpQueue::new(dir.path(), None).expect("NntpQueue::new");
     (q, dir)
 }
 

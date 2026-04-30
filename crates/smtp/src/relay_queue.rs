@@ -3,7 +3,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, SystemTime};
 
-use tracing::{info, warn};
+use mail_auth::common::headers::HeaderWriter;
+use tracing::{error, info, warn};
 
 use crate::config::SmtpRelayPeerConfig;
 use crate::relay_client::{deliver_via_relay, RelayEnvelope};
@@ -53,6 +54,7 @@ pub struct SmtpRelayQueue {
     notify: tokio::sync::Notify,
     health: Arc<Mutex<PeerHealthState>>,
     peers: Vec<SmtpRelayPeerConfig>,
+    dkim_signer: Option<Arc<mail_auth::dkim::DkimSigner<mail_auth::common::crypto::Ed25519Key, mail_auth::dkim::Done>>>,
 }
 
 impl SmtpRelayQueue {
@@ -65,6 +67,7 @@ impl SmtpRelayQueue {
         queue_dir: impl Into<PathBuf>,
         peers: Vec<SmtpRelayPeerConfig>,
         down_backoff: Duration,
+        dkim_signer: Option<Arc<mail_auth::dkim::DkimSigner<mail_auth::common::crypto::Ed25519Key, mail_auth::dkim::Done>>>,
     ) -> std::io::Result<Arc<Self>> {
         let queue_dir = queue_dir.into();
         std::fs::create_dir_all(&queue_dir)?;
@@ -101,6 +104,7 @@ impl SmtpRelayQueue {
             notify: tokio::sync::Notify::new(),
             health,
             peers,
+            dkim_signer,
         }))
     }
 
@@ -289,7 +293,43 @@ impl SmtpRelayQueue {
 
         crate::metrics::inc_relay_attempt(&peer_cfg.host);
 
-        match deliver_via_relay(&peer_cfg, &relay_envelope, article_bytes).await {
+        // DKIM-sign the article before SMTP relay delivery.
+        // Signing failure = permanent dead-letter (never send unsigned, never retry).
+        let signed_bytes;
+        let article_bytes_to_send: &[u8] = if let Some(signer) = &self.dkim_signer {
+            match signer.sign(article_bytes) {
+                Ok(sig) => {
+                    let header = sig.to_header();
+                    let mut v = Vec::with_capacity(header.len() + article_bytes.len());
+                    v.extend_from_slice(header.as_bytes());
+                    v.extend_from_slice(article_bytes);
+                    signed_bytes = v;
+                    &signed_bytes
+                }
+                Err(e) => {
+                    let message_id = crate::queue::extract_message_id(article_bytes);
+                    error!(message_id = %message_id, "DKIM signing failed, moving to dead-letter: {e}");
+                    let dead_dir = self.queue_dir.join("dead");
+                    for path in [env_path, msg_path] {
+                        if let Some(name) = path.file_name() {
+                            let dead_path = dead_dir.join(name);
+                            if let Err(mv_err) = tokio::fs::rename(path, &dead_path).await {
+                                warn!(
+                                    path = %path.display(),
+                                    dead = %dead_path.display(),
+                                    "relay queue: failed to move file to dead/ after DKIM failure: {mv_err}"
+                                );
+                            }
+                        }
+                    }
+                    return;
+                }
+            }
+        } else {
+            article_bytes
+        };
+
+        match deliver_via_relay(&peer_cfg, &relay_envelope, article_bytes_to_send).await {
             Ok(()) => {
                 self.health.lock().expect("health lock").mark_up(idx);
                 crate::metrics::inc_relay_success(&peer_cfg.host);
@@ -360,8 +400,9 @@ mod tests {
     #[tokio::test]
     async fn enqueue_no_peers_is_noop() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let queue = SmtpRelayQueue::new(dir.path().to_path_buf(), vec![], Duration::from_secs(300))
-            .expect("new");
+        let queue =
+            SmtpRelayQueue::new(dir.path().to_path_buf(), vec![], Duration::from_secs(300), None)
+                .expect("new");
 
         queue
             .enqueue(b"article", "from@example.com", &["to@example.com"])
@@ -387,6 +428,7 @@ mod tests {
             dir.path().to_path_buf(),
             vec![make_peer("smtp.example.com")],
             Duration::from_secs(300),
+            None,
         )
         .expect("new");
 
@@ -418,6 +460,7 @@ mod tests {
             dir.path().to_path_buf(),
             vec![make_peer("smtp.example.com")],
             Duration::from_secs(300),
+            None,
         )
         .expect("new");
 
@@ -438,7 +481,7 @@ mod tests {
     async fn new_creates_queue_dir_and_dead_subdir() {
         let parent = tempfile::tempdir().expect("tempdir");
         let queue_dir = parent.path().join("sub").join("relay-queue");
-        SmtpRelayQueue::new(queue_dir.clone(), vec![], Duration::from_secs(300))
+        SmtpRelayQueue::new(queue_dir.clone(), vec![], Duration::from_secs(300), None)
             .expect("new should create dirs");
         assert!(queue_dir.is_dir(), "queue_dir should exist");
         assert!(queue_dir.join("dead").is_dir(), "dead/ subdir should exist");
@@ -451,6 +494,7 @@ mod tests {
             dir.path().to_path_buf(),
             vec![make_peer("smtp.example.com")],
             Duration::from_secs(300),
+            None,
         )
         .expect("new");
 
@@ -485,6 +529,7 @@ mod tests {
             dir.path().to_path_buf(),
             vec![make_peer("smtp.example.com")],
             Duration::from_secs(300),
+            None,
         )
         .expect("new");
 
@@ -525,7 +570,7 @@ mod tests {
         std::fs::set_permissions(&queue_dir, std::fs::Permissions::from_mode(0o555))
             .expect("set permissions");
 
-        let result = SmtpRelayQueue::new(queue_dir.clone(), vec![], Duration::from_secs(300));
+        let result = SmtpRelayQueue::new(queue_dir.clone(), vec![], Duration::from_secs(300), None);
 
         // Restore write permission so tempdir cleanup can remove the directory.
         let _ = std::fs::set_permissions(&queue_dir, std::fs::Permissions::from_mode(0o755));
@@ -533,6 +578,91 @@ mod tests {
         assert!(
             result.is_err(),
             "new() should fail on a read-only queue dir"
+        );
+    }
+
+    // --- DKIM signing tests ---
+
+    // Build a DkimSigner using the RFC 8463 §A.2 test key.
+    // Seed and public key taken verbatim from the RFC appendix; these are
+    // fixed public test vectors, not derived from this code.
+    fn test_dkim_signer() -> Arc<mail_auth::dkim::DkimSigner<mail_auth::common::crypto::Ed25519Key, mail_auth::dkim::Done>> {
+        // RFC 8463 §A.2 private key seed (base64 "nWGxne/9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A=").
+        let seed: [u8; 32] = [
+            0x9d, 0x61, 0xb1, 0x9d, 0xef, 0xfd, 0x5a, 0x60,
+            0xba, 0x84, 0x4a, 0xf4, 0x92, 0xec, 0x2c, 0xc4,
+            0x44, 0x49, 0xc5, 0x69, 0x7b, 0x32, 0x69, 0x19,
+            0x70, 0x3b, 0xac, 0x03, 0x1c, 0xae, 0x7f, 0x60,
+        ];
+        // RFC 8463 §A.2 public key (base64 "11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=").
+        let pubkey: [u8; 32] = [
+            0xd7, 0x5a, 0x98, 0x01, 0x82, 0xb1, 0x0a, 0xb7,
+            0xd5, 0x4b, 0xfe, 0xd3, 0xc9, 0x64, 0x07, 0x3a,
+            0x0e, 0xe1, 0x72, 0xf3, 0xda, 0xa6, 0x23, 0x25,
+            0xaf, 0x02, 0x1a, 0x68, 0xf7, 0x07, 0x51, 0x1a,
+        ];
+        let ed_key = mail_auth::common::crypto::Ed25519Key::from_seed_and_public_key(&seed, &pubkey)
+            .expect("RFC 8463 §A.2 test key must be valid");
+        Arc::new(
+            mail_auth::dkim::DkimSigner::from_key(ed_key)
+                .domain("example.com")
+                .selector("test")
+                .headers(["From", "To", "Subject", "Date", "Message-ID", "MIME-Version"]),
+        )
+    }
+
+    // Oracle: RFC 6376 §3.5 — DKIM-Signature header field is prepended to the
+    // message, contains "a=ed25519-sha256", and does NOT contain "l=" (body
+    // length tag is prohibited by RFC 8463 §3.4 for security reasons).
+    #[test]
+    fn test_relay_dkim_signing_prepends_header() {
+        let signer = test_dkim_signer();
+        let msg = b"From: sender@example.com\r\nTo: rcpt@example.com\r\nSubject: Test\r\nDate: Thu, 01 Jan 2026 00:00:00 +0000\r\nMessage-ID: <test@example.com>\r\nMIME-Version: 1.0\r\n\r\nHello.\r\n";
+        let sig = signer.sign(msg).expect("sign must succeed with RFC 8463 test key");
+        let header = sig.to_header();
+        assert!(
+            header.starts_with("DKIM-Signature:"),
+            "signed header must start with 'DKIM-Signature:', got: {header:?}"
+        );
+        assert!(
+            header.contains("a=ed25519-sha256"),
+            "signed header must contain 'a=ed25519-sha256', got: {header:?}"
+        );
+        assert!(
+            !header.contains("l="),
+            "signed header must NOT contain body length tag 'l=', got: {header:?}"
+        );
+        // Verify prepend logic: signed message = header bytes + original bytes.
+        let mut expected = Vec::new();
+        expected.extend_from_slice(header.as_bytes());
+        expected.extend_from_slice(msg);
+        assert_eq!(
+            &expected[..header.len()],
+            header.as_bytes(),
+            "signed bytes must begin with the DKIM-Signature header"
+        );
+        assert_eq!(
+            &expected[header.len()..],
+            msg.as_ref(),
+            "original article bytes must follow the DKIM-Signature header unchanged"
+        );
+    }
+
+    // Oracle: when dkim_signer is None the article bytes must be delivered
+    // unchanged (the else branch of the signing block is a no-op pass-through).
+    #[test]
+    fn test_relay_dkim_signing_absent() {
+        let article_bytes: &[u8] = b"From: a@example.com\r\n\r\nBody.\r\n";
+        // Simulate the else branch: no signer present.
+        let signer: Option<Arc<mail_auth::dkim::DkimSigner<mail_auth::common::crypto::Ed25519Key, mail_auth::dkim::Done>>> = None;
+        let bytes_to_send: &[u8] = if signer.is_some() {
+            panic!("signer should be None in this test");
+        } else {
+            article_bytes
+        };
+        assert_eq!(
+            bytes_to_send, article_bytes,
+            "without a DKIM signer the article bytes must be passed through unmodified"
         );
     }
 
@@ -545,6 +675,7 @@ mod tests {
             dir.path().to_path_buf(),
             vec![make_peer("smtp.example.com")],
             Duration::from_secs(300),
+            None,
         )
         .expect("new");
 

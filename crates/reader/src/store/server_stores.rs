@@ -382,6 +382,6 @@ fn build_smtp_relay_queue(
         return Ok(None);
     }
     let down_backoff = std::time::Duration::from_secs(cfg.peer_down_secs);
-    let queue = SmtpRelayQueue::new(queue_dir, cfg.peers.clone(), down_backoff)?;
+    let queue = SmtpRelayQueue::new(queue_dir, cfg.peers.clone(), down_backoff, None)?;
     Ok(Some(queue))
 }

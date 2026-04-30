@@ -290,7 +290,7 @@ mod tests {
 
         let config = test_config();
         let queue_dir = tempfile::tempdir().expect("tempdir");
-        let nntp_queue = NntpQueue::new(queue_dir.path()).expect("NntpQueue::new");
+        let nntp_queue = NntpQueue::new(queue_dir.path(), None).expect("NntpQueue::new");
 
         tokio::spawn(run_server(
             listener_25,
@@ -323,7 +323,7 @@ mod tests {
 
         let config = test_config();
         let queue_dir = tempfile::tempdir().expect("tempdir");
-        let nntp_queue = NntpQueue::new(queue_dir.path()).expect("NntpQueue::new");
+        let nntp_queue = NntpQueue::new(queue_dir.path(), None).expect("NntpQueue::new");
 
         tokio::spawn(run_server(
             listener_25,

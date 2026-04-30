@@ -1,3 +1,4 @@
+use base64::Engine as _;
 use ipnet::IpNet;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -228,6 +229,29 @@ fn default_peer_down_secs() -> u64 {
     300
 }
 
+/// DKIM signing configuration for outbound messages.
+///
+/// `key_seed_b64` is the base64-encoded 32-byte Ed25519 seed (private key material).
+/// It is intentionally redacted from `Debug` output.
+#[derive(Clone, serde::Deserialize, serde::Serialize, Default)]
+pub struct DkimConfig {
+    pub domain: String,
+    pub selector: String,
+    pub key_seed_b64: String,
+    pub public_key_b64: String,
+}
+
+impl std::fmt::Debug for DkimConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DkimConfig")
+            .field("domain", &self.domain)
+            .field("selector", &self.selector)
+            .field("key_seed_b64", &"[REDACTED]")
+            .field("public_key_b64", &self.public_key_b64)
+            .finish()
+    }
+}
+
 /// Configuration for the durable NNTP injection queue and outbound SMTP relay.
 #[derive(Debug, Deserialize)]
 pub struct DeliveryConfig {
@@ -280,6 +304,10 @@ pub struct DeliveryConfig {
     /// signal for tuning: frequent up↔down oscillation suggests too-low a value.
     #[serde(default = "default_peer_down_secs")]
     pub smtp_peer_down_secs: u64,
+    /// Optional DKIM signing configuration. When absent, outbound messages are
+    /// not DKIM-signed.
+    #[serde(default)]
+    pub dkim: Option<DkimConfig>,
 }
 
 impl Default for DeliveryConfig {
@@ -292,6 +320,7 @@ impl Default for DeliveryConfig {
             smtp_relay_queue_dir: default_smtp_relay_queue_dir(),
             smtp_relay_retry_secs: default_smtp_relay_retry_secs(),
             smtp_peer_down_secs: default_peer_down_secs(),
+            dkim: None,
         }
     }
 }
@@ -524,6 +553,43 @@ impl Config {
                 return Err(ConfigError::Validation(format!(
                     "auth.users['{}']: password is not a valid bcrypt hash (cost must be 4–31)",
                     u.username
+                )));
+            }
+        }
+        if let Some(dcfg) = &self.delivery.dkim {
+            if dcfg.domain.is_empty() {
+                return Err(ConfigError::Validation(
+                    "dkim.domain must not be empty".into(),
+                ));
+            }
+            if dcfg.selector.is_empty() {
+                return Err(ConfigError::Validation(
+                    "dkim.selector must not be empty".into(),
+                ));
+            }
+            let mut seed_bytes = base64::engine::general_purpose::STANDARD
+                .decode(&dcfg.key_seed_b64)
+                .map_err(|_| {
+                    ConfigError::Validation("dkim.key_seed_b64: invalid base64".into())
+                })?;
+            if seed_bytes.len() != 32 {
+                let got = seed_bytes.len();
+                zeroize::Zeroize::zeroize(&mut seed_bytes);
+                return Err(ConfigError::Validation(format!(
+                    "dkim.key_seed_b64: must decode to 32 bytes, got {}",
+                    got
+                )));
+            }
+            zeroize::Zeroize::zeroize(&mut seed_bytes);
+            let pubkey_bytes = base64::engine::general_purpose::STANDARD
+                .decode(&dcfg.public_key_b64)
+                .map_err(|_| {
+                    ConfigError::Validation("dkim.public_key_b64: invalid base64".into())
+                })?;
+            if pubkey_bytes.len() != 32 {
+                return Err(ConfigError::Validation(format!(
+                    "dkim.public_key_b64: must decode to 32 bytes, got {}",
+                    pubkey_bytes.len()
                 )));
             }
         }
@@ -862,5 +928,101 @@ port_587 = "0.0.0.0:587"
     #[test]
     fn peer_whitelist_ipv6_cidr_matches_ipv6_addr() {
         assert!(whitelist_check(&["fd00::/8"], "[fd00::1]:12345"));
+    }
+
+    // ── DKIM config validation tests ───────────────────────────────────────
+    //
+    // Oracle: 32 zero bytes base64-encodes to
+    //   "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+    // 16 zero bytes base64-encodes to "AAAAAAAAAAAAAAAAAAAAAA=="
+    // Verified independently with: python3 -c "import base64; print(base64.b64encode(bytes(32)))"
+
+    fn minimal_toml_with_dkim(extra: &str) -> String {
+        format!(
+            r#"
+[listen]
+port_25 = "0.0.0.0:25"
+port_587 = "0.0.0.0:587"
+
+{extra}
+"#
+        )
+    }
+
+    #[test]
+    fn test_dkim_config_valid() {
+        let toml = minimal_toml_with_dkim(
+            r#"[delivery.dkim]
+domain = "example.com"
+selector = "mail"
+key_seed_b64 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+public_key_b64 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=""#,
+        );
+        let f = write_toml(&toml);
+        Config::from_file(f.path()).expect("valid dkim config should pass validation");
+    }
+
+    #[test]
+    fn test_dkim_config_missing_domain() {
+        let toml = minimal_toml_with_dkim(
+            r#"[delivery.dkim]
+domain = ""
+selector = "mail"
+key_seed_b64 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+public_key_b64 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=""#,
+        );
+        let f = write_toml(&toml);
+        let err = Config::from_file(f.path()).expect_err("empty domain should fail");
+        match err {
+            ConfigError::Validation(msg) => assert!(msg.contains("domain"), "msg={msg}"),
+            other => panic!("expected Validation, got {other}"),
+        }
+    }
+
+    #[test]
+    fn test_dkim_config_bad_seed_b64() {
+        let toml = minimal_toml_with_dkim(
+            r#"[delivery.dkim]
+domain = "example.com"
+selector = "mail"
+key_seed_b64 = "!!!"
+public_key_b64 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=""#,
+        );
+        let f = write_toml(&toml);
+        let err = Config::from_file(f.path()).expect_err("bad base64 should fail");
+        match err {
+            ConfigError::Validation(msg) => {
+                assert!(msg.contains("key_seed_b64"), "msg={msg}")
+            }
+            other => panic!("expected Validation, got {other}"),
+        }
+    }
+
+    #[test]
+    fn test_dkim_config_bad_seed_length() {
+        // 16 zero bytes in base64 — valid base64 but wrong length
+        let toml = minimal_toml_with_dkim(
+            r#"[delivery.dkim]
+domain = "example.com"
+selector = "mail"
+key_seed_b64 = "AAAAAAAAAAAAAAAAAAAAAA=="
+public_key_b64 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=""#,
+        );
+        let f = write_toml(&toml);
+        let err = Config::from_file(f.path()).expect_err("16-byte seed should fail");
+        match err {
+            ConfigError::Validation(msg) => {
+                assert!(msg.contains("32 bytes"), "msg={msg}")
+            }
+            other => panic!("expected Validation, got {other}"),
+        }
+    }
+
+    #[test]
+    fn test_dkim_config_absent() {
+        let toml = minimal_toml_with_dkim("");
+        let f = write_toml(&toml);
+        let cfg = Config::from_file(f.path()).expect("absent dkim should pass validation");
+        assert!(cfg.delivery.dkim.is_none());
     }
 }

@@ -222,6 +222,7 @@ mod tests {
             dir.path().to_path_buf(),
             vec![],
             std::time::Duration::from_secs(300),
+            None,
         )
         .expect("queue");
 
@@ -251,6 +252,7 @@ mod tests {
             dir2.path().to_path_buf(),
             vec![peer],
             std::time::Duration::from_secs(300),
+            None,
         )
         .expect("queue2");
 
@@ -278,6 +280,7 @@ mod tests {
             dir.path().to_path_buf(),
             vec![peer],
             std::time::Duration::from_secs(300),
+            None,
         )
         .expect("queue");
 
