@@ -1,3 +1,4 @@
+use ipnet::IpNet;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::Path;
@@ -41,6 +42,13 @@ pub struct Config {
     /// advertised and no credentials are accepted.
     #[serde(default)]
     pub auth: AuthConfig,
+    /// Trusted peer CIDRs. Once DNSBL (usenet-ipfs-1d63), FCrDNS (usenet-ipfs-fxxx), and
+    /// greylisting (usenet-ipfs-mgzn) are implemented, connections from these IPs will bypass
+    /// all three. Currently, the flag is computed but no filters are wired in yet. Empty by
+    /// default. Both IPv4 and IPv6 CIDRs are supported. An invalid CIDR is a fatal startup
+    /// error.
+    #[serde(default)]
+    pub peer_whitelist: Vec<IpNet>,
 }
 
 fn default_db_path() -> String {
@@ -720,5 +728,129 @@ host = "smtp.example.com"
             }
             other => panic!("expected Validation, got {other}"),
         }
+    }
+
+    // ── T1: valid CIDRs in peer_whitelist parse correctly ──────────────────
+    //
+    // Oracle: ipnet::IpNet::from_str accepts "10.0.0.0/8" and "2001:db8::/32"
+    // per the ipnet crate docs and RFC 4632 / RFC 4291 notation.
+    // peer_whitelist must appear before [listen] so TOML treats it as a
+    // top-level key, not listen.peer_whitelist.
+    #[test]
+    fn peer_whitelist_valid_cidrs_parse() {
+        let toml = r#"
+peer_whitelist = ["10.0.0.0/8", "2001:db8::/32"]
+
+[listen]
+port_25 = "0.0.0.0:25"
+port_587 = "0.0.0.0:587"
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("should parse");
+        assert_eq!(cfg.peer_whitelist.len(), 2);
+    }
+
+    // ── T2: invalid CIDR in peer_whitelist fails deserialization ───────────
+    //
+    // Oracle: "not_a_cidr" fails IpNet FromStr, which serde propagates as a
+    // parse error.
+    #[test]
+    fn peer_whitelist_invalid_cidr_fails_deserialization() {
+        let toml = r#"
+peer_whitelist = ["not_a_cidr"]
+
+[listen]
+port_25 = "0.0.0.0:25"
+port_587 = "0.0.0.0:587"
+"#;
+        let f = write_toml(toml);
+        let err = Config::from_file(f.path()).expect_err("should fail");
+        assert!(matches!(err, ConfigError::Parse(_)));
+    }
+
+    // ── T3: peer_whitelist absent → empty Vec (serde(default)) ────────────
+    //
+    // Oracle: #[serde(default)] on Vec<T> yields an empty Vec when the key is
+    // absent — guaranteed by the Rust std Default impl for Vec.
+    #[test]
+    fn peer_whitelist_absent_is_empty_default() {
+        let toml = r#"
+[listen]
+port_25 = "0.0.0.0:25"
+port_587 = "0.0.0.0:587"
+"#;
+        let f = write_toml(toml);
+        let cfg = Config::from_file(f.path()).expect("should parse");
+        assert!(cfg.peer_whitelist.is_empty());
+    }
+
+    // ── Helper for T4–T8: normalization + containment via production code ──
+    //
+    // Parses peer_addr as a SocketAddr to extract the IP, then delegates
+    // normalization to the production `normalize_peer_ip` function so that
+    // T7 actually exercises session.rs:normalize_peer_ip rather than a
+    // local re-implementation.
+    fn whitelist_check(whitelist: &[&str], peer_addr: &str) -> bool {
+        use std::net::{IpAddr, SocketAddr};
+
+        let client_ip: IpAddr = peer_addr
+            .parse::<SocketAddr>()
+            .map(|sa| sa.ip())
+            .unwrap_or(IpAddr::from([0, 0, 0, 0]));
+
+        let client_ip = crate::session::normalize_peer_ip(client_ip);
+
+        whitelist
+            .iter()
+            .map(|s| s.parse::<IpNet>().unwrap())
+            .any(|net| net.contains(&client_ip))
+    }
+
+    // ── T4: whitelisted IP matches ─────────────────────────────────────────
+    //
+    // Oracle: 192.168.1.50 ∈ 192.168.0.0/16 — RFC 1918 block, ipnet contains
+    // semantics.
+    #[test]
+    fn peer_whitelist_whitelisted_ip_matches() {
+        assert!(whitelist_check(&["192.168.0.0/16"], "192.168.1.50:12345"));
+    }
+
+    // ── T5: non-whitelisted IP does not match ──────────────────────────────
+    //
+    // Oracle: 10.0.0.1 ∉ 192.168.0.0/16 — different RFC 1918 block.
+    #[test]
+    fn peer_whitelist_non_whitelisted_ip_no_match() {
+        assert!(!whitelist_check(&["192.168.0.0/16"], "10.0.0.1:12345"));
+    }
+
+    // ── T6: empty whitelist never matches ─────────────────────────────────
+    //
+    // Oracle: Iterator::any() on an empty iterator always returns false —
+    // Rust std guarantee.
+    #[test]
+    fn peer_whitelist_empty_never_matches() {
+        assert!(!whitelist_check(&[], "192.168.1.50:12345"));
+    }
+
+    // ── T7: IPv4-mapped IPv6 is normalized and matches IPv4 CIDR ──────────
+    //
+    // Oracle: RFC 4291 §2.5.5.2 — ::ffff:192.168.1.50 is the IPv4-mapped
+    // representation of 192.168.1.50.  After normalization the address must
+    // match an IPv4 CIDR that covers 192.168.1.50.  This is the regression
+    // test for the IPv4-mapped normalization path.
+    #[test]
+    fn peer_whitelist_ipv4_mapped_ipv6_matches_ipv4_cidr() {
+        assert!(whitelist_check(
+            &["192.168.0.0/16"],
+            "[::ffff:192.168.1.50]:12345"
+        ));
+    }
+
+    // ── T8: native IPv6 address matches IPv6 CIDR ─────────────────────────
+    //
+    // Oracle: fd00::1 ∈ fd00::/8 — per ipnet contains semantics for IPv6.
+    #[test]
+    fn peer_whitelist_ipv6_cidr_matches_ipv6_addr() {
+        assert!(whitelist_check(&["fd00::/8"], "[fd00::1]:12345"));
     }
 }

@@ -38,6 +38,20 @@ pub fn new_sieve_cache() -> SieveCache {
 
 const MAX_LINE_BYTES: usize = 4096;
 
+/// Normalize an IPv4-mapped IPv6 address (`::ffff:x.x.x.x`) to its IPv4 form.
+///
+/// Uses `to_ipv4_mapped()` not `to_ipv4()` — the latter also matches deprecated
+/// IPv4-compatible addresses (`::x.x.x.x` per RFC 4291 §2.5.4), which we do NOT want.
+pub(crate) fn normalize_peer_ip(ip: IpAddr) -> IpAddr {
+    match ip {
+        IpAddr::V6(v6) => v6
+            .to_ipv4_mapped()
+            .map(IpAddr::V4)
+            .unwrap_or(IpAddr::V6(v6)),
+        v4 => v4,
+    }
+}
+
 /// Result of reading one SMTP command line.
 enum CmdLine {
     /// A complete line, including the trailing `\n`.
@@ -167,11 +181,30 @@ pub async fn run_session<S>(
         return;
     }
 
-    // Parse the peer IP once; fall back to loopback if unparseable.
+    // Parse the peer IP once; fall back to unroutable 0.0.0.0 if unparseable.
+    // 0.0.0.0 is used (not 127.0.0.1) so that a parse failure cannot silently
+    // match a 127.0.0.0/8 whitelist entry.
     let client_ip: IpAddr = peer_addr
         .parse::<std::net::SocketAddr>()
         .map(|sa| sa.ip())
-        .unwrap_or(IpAddr::from([127, 0, 0, 1]));
+        .unwrap_or(IpAddr::from([0, 0, 0, 0]));
+
+    // Normalize IPv4-mapped IPv6 (::ffff:x.x.x.x) to plain IPv4 for CIDR matching.
+    let client_ip = normalize_peer_ip(client_ip);
+
+    // When DNSBL/FCrDNS/greylisting (usenet-ipfs-1d63/fxxx/mgzn) are wired in,
+    // check this flag before applying those filters.
+    // NOTE: whitelisted connections still require SMTP AUTH — this flag only bypasses
+    // anti-spam filters, never authentication.
+    let connection_whitelisted = config
+        .peer_whitelist
+        .iter()
+        .any(|net| net.contains(&client_ip));
+    if connection_whitelisted {
+        tracing::info!(peer = %peer_addr, "connection whitelisted — spam filters will be bypassed once implemented");
+    }
+    // connection_whitelisted will also be consumed by greylisting (usenet-ipfs-mgzn)
+    // to bypass RCPT TO delay — no suppressor needed here.
 
     let mut state = SessionState::Fresh;
     let mut authenticated_user: Option<String> = None;
@@ -1204,6 +1237,7 @@ mod tests {
             sieve_admin: SieveAdminConfig::default(),
             dns_resolver: crate::config::DnsResolver::System,
             auth: AuthConfig::default(),
+            peer_whitelist: vec![],
         })
     }
 
@@ -1831,6 +1865,7 @@ mod tests {
             sieve_admin: SieveAdminConfig::default(),
             dns_resolver: crate::config::DnsResolver::System,
             auth: AuthConfig::default(),
+            peer_whitelist: vec![],
         });
 
         let client = b"EHLO client.example.com\r\nQUIT\r\n";
@@ -1909,6 +1944,7 @@ mod tests {
             sieve_admin: SieveAdminConfig::default(),
             dns_resolver: crate::config::DnsResolver::System,
             auth: AuthConfig::default(),
+            peer_whitelist: vec![],
         });
 
         let queue_dir = tempfile::tempdir().expect("tempdir");

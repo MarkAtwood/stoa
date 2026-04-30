@@ -111,6 +111,7 @@ fn test_config(tim_credential: Option<UserCredential>) -> Arc<Config> {
         sieve_admin: SieveAdminConfig::default(),
         dns_resolver: DnsResolver::System,
         auth,
+        peer_whitelist: vec![],
     })
 }
 

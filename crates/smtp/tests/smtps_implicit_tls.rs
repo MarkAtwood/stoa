@@ -203,6 +203,7 @@ fn base_config() -> Arc<Config> {
         sieve_admin: SieveAdminConfig::default(),
         dns_resolver: DnsResolver::System,
         auth: AuthConfig::default(),
+        peer_whitelist: vec![],
     })
 }
 

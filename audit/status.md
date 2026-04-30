@@ -195,3 +195,8 @@ Phase markers reset for new epic
 [07:36:27] COORDINATOR: review converged — 2 rounds, P0+P1+P2=0; proceeding to phase 4
 [07:36:36] COORDINATOR: epic usenet-ipfs-i5ay closed; phase 4 done
 [07:36:39] COORDINATOR: epic usenet-ipfs-i5ay closed; phase 4 done
+[15:31:26] COORDINATOR: starting do-epic for usenet-ipfs-na4h (manual peer whitelist); phase 0
+[15:31:27] COORDINATOR: claimed usenet-ipfs-na4h; phase0 done
+[15:46:07] COORDINATOR: phase2 complete — na4h.1/2/3 all closed, build+tests+clippy+fmt clean
+[15:56:35] REVIEW round 1: P0=0 P1=0 P2=0 (after fixes). SEC7: running out of real complaints. Converged.
+[15:58:16] COORDINATOR: na4h COMPLETE. Unblocked: usenet-ipfs-mgzn
