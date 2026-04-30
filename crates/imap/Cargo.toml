@@ -30,6 +30,7 @@ rustls = { version = "0.23", default-features = false, features = ["std", "tls12
 rustls-pemfile = "2"
 base64 = "0.22"
 bcrypt = "0.15"
+secretx = { workspace = true }
 subtle = "2"
 
 [features]

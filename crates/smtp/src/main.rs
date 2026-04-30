@@ -34,7 +34,7 @@ fn parse_args() -> PathBuf {
 async fn main() {
     let config_path = parse_args();
 
-    let config = match Config::from_file(&config_path) {
+    let mut config = match Config::from_file(&config_path) {
         Ok(c) => c,
         Err(e) => {
             eprintln!(
@@ -125,6 +125,37 @@ async fn main() {
     } else {
         None
     };
+
+    // Resolve secretx: URIs for string secrets before Arc-wrapping the config.
+    config.sieve_admin.bearer_token = stoa_core::secret::resolve_secret_uri(
+        config.sieve_admin.bearer_token.clone(),
+        "sieve_admin.bearer_token",
+    )
+    .await
+    .unwrap_or_else(|e| {
+        eprintln!("{e}");
+        std::process::exit(1);
+    });
+    config.reader.nntp_password = stoa_core::secret::resolve_secret_uri(
+        config.reader.nntp_password.clone(),
+        "reader.nntp_password",
+    )
+    .await
+    .unwrap_or_else(|e| {
+        eprintln!("{e}");
+        std::process::exit(1);
+    });
+    for peer in config.delivery.smtp_relay_peers.iter_mut() {
+        peer.password = stoa_core::secret::resolve_secret_uri(
+            peer.password.clone(),
+            &format!("delivery.smtp_relay_peers[{}].password", peer.host),
+        )
+        .await
+        .unwrap_or_else(|e| {
+            eprintln!("{e}");
+            std::process::exit(1);
+        });
+    }
 
     // Open the Sieve delivery database for global script evaluation.
     let pool = match store::open(&config.database.path).await {

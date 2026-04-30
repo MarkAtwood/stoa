@@ -1,6 +1,5 @@
 use std::{path::PathBuf, sync::Arc, time::Instant};
 
-use stoa_auth::CredentialStore;
 use stoa_mail::{
     config::{Config, LogFormat},
     server::AppState,
@@ -65,38 +64,49 @@ async fn main() {
 
     info!(listen_addr = %addr, "stoa-mail starting");
 
-    let mut credential_store = CredentialStore::from_credentials(&config.auth.users);
-    if let Some(ref path) = config.auth.credential_file {
-        if path.starts_with("secretx:") {
-            let store = match secretx::from_uri(path) {
-                Ok(s) => s,
-                Err(e) => {
-                    eprintln!("error: auth.credential_file: invalid secretx URI: {e}");
-                    std::process::exit(1);
-                }
-            };
-            let secret = match store.get().await {
-                Ok(v) => v,
-                Err(e) => {
-                    eprintln!("error: auth.credential_file: secretx retrieval failed: {e}");
-                    std::process::exit(1);
-                }
-            };
-            let content = match secret.as_str() {
-                Ok(s) => s,
-                Err(e) => {
-                    eprintln!("error: auth.credential_file: secretx value not valid UTF-8: {e}");
-                    std::process::exit(1);
-                }
-            };
-            if let Err(e) = credential_store.merge_from_content(path, content) {
-                eprintln!("error: failed to parse credential file from secretx: {e}");
-                std::process::exit(1);
-            }
-        } else if let Err(e) = credential_store.merge_from_file(path) {
-            eprintln!("error: failed to load credential file '{}': {}", path, e);
+    let credential_store = match stoa_auth::build_credential_store(
+        &config.auth.users,
+        config.auth.credential_file.as_deref(),
+    )
+    .await
+    {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("error: failed to build credential store: {e}");
             std::process::exit(1);
         }
+    };
+
+    match (config.tls.cert_path.as_deref(), config.tls.key_path.as_deref()) {
+        (Some(cert), Some(key)) => {
+            if key.starts_with("secretx:") {
+                let store = match secretx::from_uri(key) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        eprintln!("error: tls.key_path: invalid secretx URI: {e}");
+                        std::process::exit(1);
+                    }
+                };
+                let secret = match store.get().await {
+                    Ok(v) => v,
+                    Err(e) => {
+                        eprintln!("error: tls.key_path: secretx retrieval failed: {e}");
+                        std::process::exit(1);
+                    }
+                };
+                if let Err(e) =
+                    stoa_tls::load_tls_server_config_with_key_bytes(cert, secret.as_bytes(), key)
+                {
+                    eprintln!("error: failed to load TLS configuration: {e}");
+                    std::process::exit(1);
+                }
+            } else if let Err(e) = stoa_tls::load_tls_server_config(cert, key) {
+                eprintln!("error: failed to load TLS configuration: {e}");
+                std::process::exit(1);
+            }
+            info!(cert, "TLS configuration loaded");
+        }
+        _ => {}
     }
 
     if let Err(e) = stoa_mail::migrations::run_migrations(&config.database.url).await {

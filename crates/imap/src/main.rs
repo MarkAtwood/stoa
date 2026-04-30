@@ -83,16 +83,41 @@ async fn main() {
         config.tls.cert_path.as_deref(),
         config.tls.key_path.as_deref(),
     ) {
-        (Some(cert), Some(key)) => match stoa_tls::load_tls_server_config(cert, key) {
-            Ok(server_config) => {
-                info!(cert, "IMAP TLS acceptor loaded");
-                Some(Arc::new(TlsAcceptor::from(server_config)))
-            }
-            Err(e) => {
-                error!("failed to load TLS configuration: {e}");
-                std::process::exit(1);
-            }
-        },
+        (Some(cert), Some(key)) => {
+            let server_config = if key.starts_with("secretx:") {
+                let store = match secretx::from_uri(key) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        error!("tls.key_path: invalid secretx URI: {e}");
+                        std::process::exit(1);
+                    }
+                };
+                let secret = match store.get().await {
+                    Ok(v) => v,
+                    Err(e) => {
+                        error!("tls.key_path: secretx retrieval failed: {e}");
+                        std::process::exit(1);
+                    }
+                };
+                match stoa_tls::load_tls_server_config_with_key_bytes(cert, secret.as_bytes(), key) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        error!("failed to load TLS configuration: {e}");
+                        std::process::exit(1);
+                    }
+                }
+            } else {
+                match stoa_tls::load_tls_server_config(cert, key) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        error!("failed to load TLS configuration: {e}");
+                        std::process::exit(1);
+                    }
+                }
+            };
+            info!(cert, "IMAP TLS acceptor loaded");
+            Some(Arc::new(TlsAcceptor::from(server_config)))
+        }
         _ => None,
     };
 
