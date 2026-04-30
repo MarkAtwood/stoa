@@ -11,6 +11,7 @@ use crate::config::UserCredential;
 
 /// Error returned by `CredentialStore` file and content loading methods.
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum CredentialStoreError {
     #[error("{label}: I/O error: {source}")]
     Io {
@@ -95,6 +96,16 @@ impl CredentialStore {
     /// The `password` field in each `UserCredential` must already be a valid
     /// bcrypt hash (not a plaintext password). Usernames are normalised to
     /// ASCII-lowercase.
+    ///
+    /// # Preconditions
+    ///
+    /// All passwords must have been validated with [`looks_like_bcrypt_hash`]
+    /// (or an equivalent `Config::validate()` call) before being passed here.
+    /// The standard startup path in each service binary calls `Config::validate()`
+    /// before constructing a `CredentialStore`, satisfying this requirement.
+    /// If you are calling this from a code path that bypasses config validation,
+    /// use [`CredentialStore::from_content`] or [`CredentialStore::from_file`]
+    /// instead — they return `Err` on invalid hashes rather than panicking.
     ///
     /// # Panics
     ///

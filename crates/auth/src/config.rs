@@ -70,7 +70,7 @@ pub struct OidcProviderConfig {
 }
 
 fn default_username_claim() -> String {
-    "email".to_string()
+    "email".to_owned()
 }
 
 /// Authentication configuration shared across NNTP, JMAP, and SMTP services.

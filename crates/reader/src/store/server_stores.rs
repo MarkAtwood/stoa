@@ -322,6 +322,32 @@ async fn make_disk_pool_with_verify_migrations(url: &str) -> Result<sqlx::AnyPoo
         .map_err(|e| format!("failed to open verify database '{url}': {e}"))
 }
 
+/// Error returned by [`build_credential_store`].
+///
+/// Carries either a structured [`CredentialStoreError`] from the auth crate or
+/// a secretx retrieval error string.  The outer startup path converts to
+/// `String` at the boundary; within this module the variants remain matchable.
+#[derive(Debug)]
+enum BuildStoreError {
+    Credentials(stoa_auth::CredentialStoreError),
+    Secretx(String),
+}
+
+impl std::fmt::Display for BuildStoreError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BuildStoreError::Credentials(e) => write!(f, "{e}"),
+            BuildStoreError::Secretx(msg) => write!(f, "{msg}"),
+        }
+    }
+}
+
+impl From<stoa_auth::CredentialStoreError> for BuildStoreError {
+    fn from(e: stoa_auth::CredentialStoreError) -> Self {
+        BuildStoreError::Credentials(e)
+    }
+}
+
 /// Build a `CredentialStore` from the `[auth]` section of the config.
 ///
 /// Loads inline `users` first, then merges any entries from `credential_file`
@@ -333,23 +359,29 @@ async fn make_disk_pool_with_verify_migrations(url: &str) -> Result<sqlx::AnyPoo
 async fn build_credential_store(
     auth: &crate::config::AuthConfig,
 ) -> Result<CredentialStore, String> {
+    build_credential_store_inner(auth)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+async fn build_credential_store_inner(
+    auth: &crate::config::AuthConfig,
+) -> Result<CredentialStore, BuildStoreError> {
     let mut store = CredentialStore::from_credentials(&auth.users);
     if let Some(path) = &auth.credential_file {
         if path.starts_with("secretx:") {
             let secret_store = secretx::from_uri(path)
-                .map_err(|e| format!("auth.credential_file: invalid secretx URI: {e}"))?;
+                .map_err(|e| BuildStoreError::Secretx(format!("auth.credential_file: invalid secretx URI: {e}")))?;
             let secret = secret_store
                 .get()
                 .await
-                .map_err(|e| format!("auth.credential_file: secretx retrieval failed: {e}"))?;
+                .map_err(|e| BuildStoreError::Secretx(format!("auth.credential_file: secretx retrieval failed: {e}")))?;
             let content = secret
                 .as_str()
-                .map_err(|e| format!("auth.credential_file: secretx value not valid UTF-8: {e}"))?;
-            store
-                .merge_from_content(path, content)
-                .map_err(|e| e.to_string())?;
+                .map_err(|e| BuildStoreError::Secretx(format!("auth.credential_file: secretx value not valid UTF-8: {e}")))?;
+            store.merge_from_content(path, content)?;
         } else {
-            store.merge_from_file(path).map_err(|e| e.to_string())?;
+            store.merge_from_file(path)?;
         }
     }
     Ok(store)
