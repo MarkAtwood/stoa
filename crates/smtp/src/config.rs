@@ -53,7 +53,7 @@ pub struct Config {
 }
 
 fn default_db_path() -> String {
-    "smtp.db".to_string()
+    "smtp.db".to_owned()
 }
 
 #[derive(Debug, Deserialize)]
@@ -72,7 +72,7 @@ impl Default for DatabaseConfig {
 }
 
 fn default_sieve_admin_bind() -> String {
-    "127.0.0.1:4190".to_string()
+    "127.0.0.1:4190".to_owned()
 }
 
 fn default_max_script_bytes() -> u64 {
@@ -135,7 +135,7 @@ pub struct ReaderConfig {
 }
 
 fn default_nntp_addr() -> String {
-    "127.0.0.1:119".to_string()
+    "127.0.0.1:119".to_owned()
 }
 
 fn default_nntp_max_retries() -> u32 {
@@ -209,7 +209,7 @@ impl SmtpRelayPeerConfig {
 }
 
 fn default_queue_dir() -> String {
-    "smtp-queue".to_string()
+    "smtp-queue".to_owned()
 }
 
 fn default_nntp_retry_secs() -> u64 {
@@ -217,7 +217,7 @@ fn default_nntp_retry_secs() -> u64 {
 }
 
 fn default_smtp_relay_queue_dir() -> String {
-    "smtp-relay-queue".to_string()
+    "smtp-relay-queue".to_owned()
 }
 
 fn default_smtp_relay_retry_secs() -> u64 {
@@ -364,7 +364,7 @@ impl Default for LimitsConfig {
 }
 
 fn default_log_level() -> String {
-    "info".to_string()
+    "info".to_owned()
 }
 
 /// Log output format.
@@ -425,9 +425,10 @@ impl std::fmt::Display for DnsResolver {
 }
 
 fn default_hostname() -> String {
-    "localhost".to_string()
+    "localhost".to_owned()
 }
 
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum ConfigError {
     Io(String),

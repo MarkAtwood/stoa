@@ -101,9 +101,13 @@ async fn main() {
 
     // Build the credential store once; all sessions share it so the dummy
     // hash is computed only once rather than per-connection.
-    let credential_store = Arc::new(stoa_auth::CredentialStore::from_credentials(
-        &config.auth.users,
-    ));
+    let credential_store = Arc::new(match build_credential_store(&config.auth) {
+        Ok(s) => s,
+        Err(e) => {
+            error!("failed to build credential store: {e}");
+            std::process::exit(1);
+        }
+    });
     let config = Arc::new(config);
 
     // Optional IMAPS (implicit TLS) listener.
@@ -144,4 +148,18 @@ async fn sigterm() {
     use tokio::signal::unix::{signal, SignalKind};
     let mut stream = signal(SignalKind::terminate()).expect("failed to install SIGTERM handler");
     stream.recv().await;
+}
+
+/// Build a `CredentialStore` from the `[auth]` section of the config.
+///
+/// Loads inline `users` first, then merges any entries from `credential_file`
+/// (file entries override inline entries with the same username).
+fn build_credential_store(
+    auth: &stoa_imap::config::AuthConfig,
+) -> Result<stoa_auth::CredentialStore, stoa_auth::CredentialStoreError> {
+    let mut store = stoa_auth::CredentialStore::from_credentials(&auth.users);
+    if let Some(path) = &auth.credential_file {
+        store.merge_from_file(path)?;
+    }
+    Ok(store)
 }

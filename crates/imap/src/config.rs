@@ -97,6 +97,13 @@ pub struct AuthConfig {
     /// user configuration is consistent across IMAP, NNTP, and JMAP.
     #[serde(default)]
     pub users: Vec<UserCredential>,
+    /// Path to a credential file (username:bcrypt-hash, one per line).
+    ///
+    /// Lines starting with `#` are ignored. Loaded at startup and merged
+    /// with the inline `users` list; file entries override inline entries
+    /// with the same username.
+    #[serde(default)]
+    pub credential_file: Option<String>,
 }
 
 fn default_mechanisms() -> Vec<String> {
@@ -206,7 +213,7 @@ impl Config {
         for u in &self.auth.users {
             if !looks_like_bcrypt_hash(&u.password) {
                 return Err(ConfigError::Validation(format!(
-                    "auth.users['{}']: password is not a valid bcrypt hash",
+                    "auth.users['{}']: password is not a valid bcrypt hash (cost must be 4–31)",
                     u.username
                 )));
             }

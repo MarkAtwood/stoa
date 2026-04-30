@@ -56,6 +56,7 @@ fn test_config() -> Arc<stoa_imap::config::Config> {
                 username: "testuser".into(),
                 password: bcrypt::hash("testpass", 4).expect("bcrypt hash"),
             }],
+            credential_file: None,
         },
         tls: TlsConfig {
             cert_path: None,

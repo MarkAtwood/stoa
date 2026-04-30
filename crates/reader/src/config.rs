@@ -793,8 +793,8 @@ pub fn check_admin_addr(admin: &AdminConfig) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use stoa_auth::looks_like_bcrypt_hash;
     use std::io::Write;
+    use stoa_auth::looks_like_bcrypt_hash;
     use tempfile::NamedTempFile;
 
     fn write_toml(content: &str) -> NamedTempFile {
@@ -2321,12 +2321,12 @@ api_url = "http://127.0.0.1:5001"
         );
         let msg = err.to_string();
         assert!(
-            msg.contains("auth.users[0].password"),
-            "error must name the offending field: {msg}"
+            msg.contains("auth.users['alice']"),
+            "error must name the offending user: {msg}"
         );
         assert!(
-            msg.contains("plaintext"),
-            "error must say 'plaintext': {msg}"
+            msg.contains("not a valid bcrypt hash"),
+            "error must describe the problem: {msg}"
         );
     }
 
