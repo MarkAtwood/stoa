@@ -123,6 +123,7 @@ async fn state_with_jmap() -> (
             (*mail_pool_arc).clone(),
         )),
         smtp_relay_queue: None,
+        mail_pool: Arc::clone(&mail_pool_arc),
     });
 
     let state = Arc::new(AppState {

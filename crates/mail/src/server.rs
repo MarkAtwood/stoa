@@ -41,6 +41,8 @@ pub struct JmapStores {
     pub search_index: Option<Arc<TantivySearchIndex>>,
     /// Outbound SMTP relay queue. `None` means no relay peers configured.
     pub smtp_relay_queue: Option<Arc<SmtpRelayQueue>>,
+    /// Mail database pool, used for user resolution and provisioning.
+    pub mail_pool: Arc<sqlx::AnyPool>,
 }
 
 #[derive(Clone)]
@@ -432,8 +434,19 @@ async fn route_method(
         }
     }
 
-    // TODO(user-state): resolve user_id from canonical_account_id
-    let user_id: i64 = 1;
+    let user_id =
+        match crate::mailbox::provision::resolve_user_id(&jmap.mail_pool, canonical_account_id)
+            .await
+        {
+            Ok(id) => id,
+            Err(_) => {
+                let err = crate::jmap::types::MethodError::account_not_found();
+                return serde_json::to_value(&err).unwrap_or(json!({}));
+            }
+        };
+    crate::mailbox::provision::provision_user_mailboxes(&jmap.mail_pool, user_id)
+        .await
+        .unwrap_or_else(|e| tracing::warn!("provision_user_mailboxes failed: {e}"));
 
     match method {
         "Mailbox/get" => {
@@ -471,12 +484,25 @@ async fn route_method(
                         .filter_map(|v| v.as_str().map(str::to_string))
                         .collect()
                 });
+            let special_mailboxes =
+                crate::mailbox::provision::list_user_mailboxes(&jmap.mail_pool, user_id)
+                    .await
+                    .unwrap_or_else(|e| {
+                        tracing::warn!("list_user_mailboxes failed: {e}");
+                        vec![]
+                    });
             let state = jmap
                 .state_store
                 .get_state("Mailbox")
                 .await
                 .unwrap_or_else(|_| "0".to_string());
-            crate::mailbox::get::handle_mailbox_get(&group_infos, ids_filter.as_deref(), &state)
+            crate::mailbox::get::handle_mailbox_get(
+                &special_mailboxes,
+                &group_infos,
+                ids_filter.as_deref(),
+                &state,
+                canonical_account_id,
+            )
         }
 
         "Mailbox/set" => {
@@ -538,6 +564,73 @@ async fn route_method(
                 .and_then(|f| f.get("inMailbox"))
                 .and_then(|v| v.as_str());
 
+            let email_state = jmap
+                .state_store
+                .get_state("Email")
+                .await
+                .unwrap_or_else(|_| "0".to_string());
+
+            // Check if mailbox_id belongs to a user special folder (e.g. INBOX).
+            // Uses a single indexed EXISTS query instead of fetching the full list.
+            // If so, return smtp: message IDs from mailbox_messages with SQL-side pagination.
+            if let Some(mid) = mailbox_id {
+                let is_special: bool = sqlx::query_scalar(
+                    "SELECT EXISTS(SELECT 1 FROM user_mailboxes WHERE user_id = ? AND mailbox_id = ?)",
+                )
+                .bind(user_id)
+                .bind(mid)
+                .fetch_one(&*jmap.mail_pool)
+                .await
+                .unwrap_or(false);
+
+                if is_special {
+                    let position: u64 = args.get("position").and_then(|v| v.as_u64()).unwrap_or(0);
+                    let limit: i64 = args
+                        .get("limit")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(10_000)
+                        .min(10_000) as i64;
+
+                    let total: i64 = sqlx::query_scalar(
+                        "SELECT COUNT(*) FROM mailbox_messages WHERE user_id = ? AND mailbox_id = ?",
+                    )
+                    .bind(user_id)
+                    .bind(mid)
+                    .fetch_one(&*jmap.mail_pool)
+                    .await
+                    .unwrap_or(0);
+
+                    let total = total as u64;
+                    // RFC 8620 §5.5: position in response must be clamped to total.
+                    let response_position = position.min(total);
+
+                    let page: Vec<Value> = sqlx::query_scalar::<_, i64>(
+                        "SELECT id FROM mailbox_messages \
+                         WHERE user_id = ? AND mailbox_id = ? \
+                         ORDER BY id DESC LIMIT ? OFFSET ?",
+                    )
+                    .bind(user_id)
+                    .bind(mid)
+                    .bind(limit)
+                    .bind(response_position as i64)
+                    .fetch_all(&*jmap.mail_pool)
+                    .await
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|row_id| Value::String(format!("smtp:{row_id}")))
+                    .collect();
+
+                    return json!({
+                        "accountId": canonical_account_id,
+                        "queryState": email_state,
+                        "canCalculateChanges": false,
+                        "position": response_position,
+                        "ids": page,
+                        "total": total,
+                    });
+                }
+            }
+
             let groups = match jmap.article_numbers.list_groups().await {
                 Ok(g) => g,
                 Err(e) => return json!({"error": e.to_string()}),
@@ -545,12 +638,6 @@ async fn route_method(
             let target_group = groups.iter().find(|(name, _, _)| {
                 crate::mailbox::types::mailbox_id_for_group(name) == mailbox_id.unwrap_or("")
             });
-
-            let email_state = jmap
-                .state_store
-                .get_state("Email")
-                .await
-                .unwrap_or_else(|_| "0".to_string());
 
             let (group_name, lo, hi) = match target_group {
                 Some(g) => g.clone(),
@@ -657,7 +744,16 @@ async fn route_method(
                 .get_state("Email")
                 .await
                 .unwrap_or_else(|_| "0".to_string());
-            crate::email::get::handle_email_get(&ids, jmap.ipfs.as_ref(), None, &email_state).await
+            crate::email::get::handle_email_get(
+                &ids,
+                jmap.ipfs.as_ref(),
+                Some(&*jmap.mail_pool),
+                user_id,
+                None,
+                &email_state,
+                canonical_account_id,
+            )
+            .await
         }
 
         "Email/set" => {
@@ -1250,28 +1346,38 @@ mod tests {
         tmps.push(core_tmp);
 
         let ipfs = Arc::new(MemIpfsStore::new());
+        let mail_pool_arc = Arc::new(mail_pool);
+
+        // Dev mode uses "u_anonymous" as the canonical accountId; seed the user so
+        // resolve_user_id can find it.
+        sqlx::query("INSERT INTO users (username, password_hash) VALUES ('anonymous', 'x')")
+            .execute(&*mail_pool_arc)
+            .await
+            .expect("seed anonymous user");
+
         let stores = Arc::new(JmapStores {
             ipfs: ipfs.clone(),
             msgid_map: Arc::new(stoa_core::msgid_map::MsgIdMap::new(core_pool)),
             article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
             overview_store: Arc::new(OverviewStore::new(reader_pool)),
-            user_flags: Arc::new(UserFlagsStore::new(mail_pool.clone())),
-            state_store: Arc::new(StateStore::new(mail_pool.clone())),
+            user_flags: Arc::new(UserFlagsStore::new((*mail_pool_arc).clone())),
+            state_store: Arc::new(StateStore::new((*mail_pool_arc).clone())),
             change_log: Arc::new(crate::state::change_log::ChangeLogStore::new(
-                mail_pool.clone(),
+                (*mail_pool_arc).clone(),
             )),
             subscription_store: Arc::new(crate::state::subscriptions::SubscriptionStore::new(
-                mail_pool.clone(),
+                (*mail_pool_arc).clone(),
             )),
             search_index: None,
             smtp_relay_queue: None,
+            mail_pool: Arc::clone(&mail_pool_arc),
         });
         let state = Arc::new(AppState {
             start_time: Instant::now(),
             jmap: Some(stores),
             credential_store: Arc::new(CredentialStore::empty()),
             auth_config: Arc::new(AuthConfig::default()),
-            token_store: Arc::new(TokenStore::new(Arc::new(mail_pool))),
+            token_store: Arc::new(TokenStore::new(Arc::clone(&mail_pool_arc))),
             oidc_store: None,
             base_url: "http://localhost".to_string(),
             cors: crate::config::CorsConfig::default(),

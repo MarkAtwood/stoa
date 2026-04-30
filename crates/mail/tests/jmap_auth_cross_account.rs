@@ -119,6 +119,13 @@ async fn spawn_dev_server(tag: &str) -> (String, Vec<tempfile::TempPath>) {
     let mail_pool_arc = Arc::new(mail_pool);
     let (core_pool, core_tmp) = make_core_pool(tag).await;
 
+    // Dev mode uses "u_anonymous" as the canonical accountId; seed the user so
+    // resolve_user_id can find it.
+    sqlx::query("INSERT INTO users (username, password_hash) VALUES ('anonymous', 'x')")
+        .execute(&*mail_pool_arc)
+        .await
+        .expect("seed anonymous user");
+
     let ipfs = Arc::new(MemIpfs::new());
     let jmap_stores = Arc::new(JmapStores {
         ipfs: ipfs as Arc<dyn IpfsBlockStore>,
@@ -135,6 +142,7 @@ async fn spawn_dev_server(tag: &str) -> (String, Vec<tempfile::TempPath>) {
             (*mail_pool_arc).clone(),
         )),
         smtp_relay_queue: None,
+        mail_pool: Arc::clone(&mail_pool_arc),
     });
 
     let state = Arc::new(AppState {

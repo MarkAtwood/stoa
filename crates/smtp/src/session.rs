@@ -134,6 +134,9 @@ enum SessionState {
 /// `pool` is optional: when `Some` and `config.users` is non-empty, non-list
 /// messages are delivered inline via per-user Sieve scripts instead of being
 /// forwarded through the message queue.
+///
+/// `mail_pool` is optional: when `Some`, INBOX delivery writes into the JMAP
+/// mail store instead of the smtp-local store.  Falls back to `pool` on error.
 pub async fn run_session<S>(
     stream: S,
     is_tls: bool,
@@ -143,6 +146,7 @@ pub async fn run_session<S>(
     nntp_queue: Arc<NntpQueue>,
     auth: Option<Arc<MessageAuthenticator>>,
     pool: Option<SqlitePool>,
+    mail_pool: Option<SqlitePool>,
     sieve_cache: Option<SieveCache>,
 ) where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
@@ -632,6 +636,7 @@ pub async fn run_session<S>(
                 match sieve_delivery(
                     &config,
                     pool.as_ref(),
+                    mail_pool.as_ref(),
                     &to,
                     &raw_bytes,
                     &from,
@@ -800,6 +805,7 @@ enum SieveOutcome {
 async fn sieve_delivery(
     config: &Config,
     pool: Option<&SqlitePool>,
+    mail_pool: Option<&SqlitePool>,
     to: &[String],
     raw_bytes: &[u8],
     from: &str,
@@ -861,7 +867,67 @@ async fn sieve_delivery(
         for action in actions {
             match action {
                 stoa_sieve_native::SieveAction::Keep => {
-                    if let Some(db_pool) = pool {
+                    if let Some(mp) = mail_pool {
+                        // Single JOIN query: resolve user_id and INBOX mailbox_id together.
+                        let row_opt: Option<(i64, String)> = sqlx::query_as(
+                            "SELECT u.id, m.mailbox_id \
+                             FROM users u \
+                             JOIN user_mailboxes m ON m.user_id = u.id AND m.role = 'inbox' \
+                             WHERE u.username = ?",
+                        )
+                        .bind(&username)
+                        .fetch_optional(mp)
+                        .await
+                        .ok()
+                        .flatten();
+
+                        if let Some((uid, mid)) = row_opt {
+                            let insert_result = sqlx::query(
+                                "INSERT INTO mailbox_messages (user_id, mailbox_id, envelope_from, envelope_to, raw_message) VALUES (?,?,?,?,?)",
+                            )
+                            .bind(uid)
+                            .bind(&mid)
+                            .bind(from)
+                            .bind(&email)
+                            .bind(raw_bytes)
+                            .execute(mp)
+                            .await;
+
+                            match insert_result {
+                                Ok(_) => {
+                                    let _ = sqlx::query(
+                                        "INSERT INTO state_version (scope, version) VALUES ('Email', 1) \
+                                         ON CONFLICT(scope) DO UPDATE SET version = version + 1",
+                                    )
+                                    .execute(mp)
+                                    .await;
+                                }
+                                Err(e) => {
+                                    warn!(peer = %peer_addr, %username, "SMTP→JMAP write failed: {e}; falling through to smtp store");
+                                    if let Some(db_pool) = pool {
+                                        if let Err(e2) = store::deliver(
+                                            db_pool, &username, "INBOX", from, &email, raw_bytes,
+                                        )
+                                        .await
+                                        {
+                                            warn!(peer = %peer_addr, %username, "deliver to INBOX failed: {e2}");
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            warn!(peer = %peer_addr, %username, "user or INBOX not in JMAP DB; falling back to smtp store");
+                            if let Some(db_pool) = pool {
+                                if let Err(e) = store::deliver(
+                                    db_pool, &username, "INBOX", from, &email, raw_bytes,
+                                )
+                                .await
+                                {
+                                    warn!(peer = %peer_addr, %username, "fallback smtp store deliver failed: {e}");
+                                }
+                            }
+                        }
+                    } else if let Some(db_pool) = pool {
                         if let Err(e) =
                             store::deliver(db_pool, &username, "INBOX", from, &email, raw_bytes)
                                 .await
@@ -1217,6 +1283,7 @@ mod tests {
                 None,
                 pool,
                 None,
+                None,
             )
             .await;
         });
@@ -1402,6 +1469,7 @@ mod tests {
                 queue2,
                 Some(auth2),
                 Some(pool2),
+                None,
                 None,
             )
             .await;
@@ -1936,6 +2004,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .await;
         });
@@ -2213,6 +2282,7 @@ mod tests {
                 config2,
                 store2,
                 queue2,
+                None,
                 None,
                 None,
                 None,

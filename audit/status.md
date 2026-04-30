@@ -173,3 +173,13 @@ Phase markers reset for new epic
 [02:19:41] COORDINATOR: wave 1+2 closed (drrd.5-10); 61+2 tests green; IMAP4rev2+NAMESPACE advertised, ENABLE handler and NAMESPACE handler implemented, all tests written
 [02:23:25] COORDINATOR: phase2 done; all 11 code+tracking beads closed; 61 unit + 5 e2e tests green; zero warnings
 [02:23:34] COORDINATOR: review round 1, epic usenet-ipfs-x7ki
+[03:58:29] COORDINATOR: claimed epic usenet-ipfs-n1z4 (JMAP multi-user + INBOX provisioning)
+[03:58:40] COORDINATOR: phase0 complete
+[04:09:49] COORDINATOR: phase1 done — n1z4 beads enriched with pseudocode; wave structure: n1z4.1 → n1z4.2+n1z4.3 (parallel) → epic close
+[04:10:23] COORDINATOR: phase2 started — dispatching team for n1z4.1
+[04:14:39] COORDINATOR: filed 6pw8 (state/changelog scoping gap); depends on n1z4.1
+[04:22:51] COORDINATOR: n1z4.1 closed — 257 tests pass, fmt+clippy clean; dispatching n1z4.2+n1z4.3 parallel
+[04:33:45] COORDINATOR: n1z4.2 closed — 265 tests pass; dispatching n1z4.3
+[04:35:57] COORDINATOR: I-n1z4.3 dispatched; spans 2 crates (smtp+mail)
+[04:58:40] COORDINATOR: phase2 done — 2110 tests pass; starting review round 1
+[04:58:56] COORDINATOR: review round 1, epic usenet-ipfs-4d9y

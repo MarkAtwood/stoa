@@ -224,6 +224,16 @@ fn default_peer_down_secs() -> u64 {
 /// Configuration for the durable NNTP injection queue and outbound SMTP relay.
 #[derive(Debug, Deserialize)]
 pub struct DeliveryConfig {
+    /// Path to the mail crate's SQLite database file.
+    ///
+    /// When set, SMTP delivery writes messages into the JMAP mail store
+    /// (`mailbox_messages` table) instead of the smtp-local store.  The
+    /// mail binary must have already run its migrations against this file.
+    /// If the file does not exist at startup, SMTP→JMAP bridging is
+    /// disabled and a warning is logged; the server continues running using
+    /// the smtp-local store as fallback.
+    #[serde(default)]
+    pub mail_db_path: Option<String>,
     /// Directory for queued outbound NNTP articles. Created on startup if absent.
     #[serde(default = "default_queue_dir")]
     pub queue_dir: String,
@@ -268,6 +278,7 @@ pub struct DeliveryConfig {
 impl Default for DeliveryConfig {
     fn default() -> Self {
         Self {
+            mail_db_path: None,
             queue_dir: default_queue_dir(),
             nntp_retry_secs: default_nntp_retry_secs(),
             smtp_relay_peers: Vec::new(),

@@ -122,6 +122,14 @@ async fn jmap_session_e2e() {
     let article_numbers = Arc::new(ArticleNumberStore::new(reader_pool.clone()));
     let overview_store = Arc::new(OverviewStore::new(reader_pool));
     let mail_pool_arc = Arc::new(mail_pool);
+
+    // Dev mode uses "u_anonymous" as the canonical accountId; seed the user so
+    // resolve_user_id can find it.
+    sqlx::query("INSERT INTO users (username, password_hash) VALUES ('anonymous', 'x')")
+        .execute(&*mail_pool_arc)
+        .await
+        .expect("seed anonymous user");
+
     let state_store = Arc::new(StateStore::new((*mail_pool_arc).clone()));
     let user_flags = Arc::new(UserFlagsStore::new((*mail_pool_arc).clone()));
     let token_store = Arc::new(TokenStore::new(Arc::clone(&mail_pool_arc)));
@@ -191,6 +199,7 @@ async fn jmap_session_e2e() {
             (*mail_pool_arc).clone(),
         )),
         smtp_relay_queue: None,
+        mail_pool: Arc::clone(&mail_pool_arc),
     });
     let state = Arc::new(AppState {
         start_time: std::time::Instant::now(),
@@ -260,7 +269,14 @@ async fn jmap_session_e2e() {
         !mailbox_list.is_empty(),
         "Mailbox/get must return at least one mailbox"
     );
-    let mailbox_id = mailbox_list[0]["id"].as_str().unwrap().to_string();
+    // Special folders now appear in the list too; find comp.test by name.
+    let mailbox_id = mailbox_list
+        .iter()
+        .find(|m| m["name"].as_str() == Some(newsgroup))
+        .expect("comp.test mailbox must be present in Mailbox/get list")["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
 
     // 3. Email/query — expect the seeded article to appear
     let req_body = serde_json::json!({

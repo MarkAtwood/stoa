@@ -2,6 +2,135 @@ use data_encoding::BASE32_NOPAD;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+/// Per-mailbox client permissions (RFC 8621 §2, myRights).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MailboxRights {
+    #[serde(rename = "mayReadItems")]
+    pub may_read_items: bool,
+    #[serde(rename = "mayAddItems")]
+    pub may_add_items: bool,
+    #[serde(rename = "mayRemoveItems")]
+    pub may_remove_items: bool,
+    #[serde(rename = "maySetSeen")]
+    pub may_set_seen: bool,
+    #[serde(rename = "maySetKeywords")]
+    pub may_set_keywords: bool,
+    #[serde(rename = "mayCreateChild")]
+    pub may_create_child: bool,
+    #[serde(rename = "mayRename")]
+    pub may_rename: bool,
+    #[serde(rename = "mayDelete")]
+    pub may_delete: bool,
+    #[serde(rename = "maySubmit")]
+    pub may_submit: bool,
+}
+
+impl MailboxRights {
+    /// INBOX: server-delivered; clients may read and flag but not add/remove.
+    pub fn inbox_defaults() -> Self {
+        Self {
+            may_read_items: true,
+            may_add_items: false,
+            may_remove_items: false,
+            may_set_seen: true,
+            may_set_keywords: true,
+            may_create_child: false,
+            may_rename: false,
+            may_delete: false,
+            may_submit: false,
+        }
+    }
+
+    /// Sent: clients may read, add (copy-on-send), flag, and submit.
+    pub fn sent_defaults() -> Self {
+        Self {
+            may_read_items: true,
+            may_add_items: true,
+            may_remove_items: false,
+            may_set_seen: true,
+            may_set_keywords: true,
+            may_create_child: false,
+            may_rename: false,
+            may_delete: false,
+            may_submit: true,
+        }
+    }
+
+    /// Drafts: clients may read, add, remove, and flag.
+    pub fn drafts_defaults() -> Self {
+        Self {
+            may_read_items: true,
+            may_add_items: true,
+            may_remove_items: true,
+            may_set_seen: true,
+            may_set_keywords: true,
+            may_create_child: false,
+            may_rename: false,
+            may_delete: false,
+            may_submit: false,
+        }
+    }
+
+    /// Trash: clients may read, add, remove, and flag.
+    pub fn trash_defaults() -> Self {
+        Self {
+            may_read_items: true,
+            may_add_items: true,
+            may_remove_items: true,
+            may_set_seen: true,
+            may_set_keywords: true,
+            may_create_child: false,
+            may_rename: false,
+            may_delete: false,
+            may_submit: false,
+        }
+    }
+
+    /// Junk: same as trash.
+    pub fn junk_defaults() -> Self {
+        Self::trash_defaults()
+    }
+
+    /// Archive: clients may read, add, remove, and flag.
+    pub fn archive_defaults() -> Self {
+        Self {
+            may_read_items: true,
+            may_add_items: true,
+            may_remove_items: true,
+            may_set_seen: true,
+            may_set_keywords: true,
+            may_create_child: false,
+            may_rename: false,
+            may_delete: false,
+            may_submit: false,
+        }
+    }
+
+    /// Newsgroup: read-only; no add/remove/rename/delete.
+    pub fn newsgroup_defaults() -> Self {
+        Self {
+            may_read_items: true,
+            may_add_items: false,
+            may_remove_items: false,
+            may_set_seen: true,
+            may_set_keywords: true,
+            may_create_child: false,
+            may_rename: false,
+            may_delete: false,
+            may_submit: false,
+        }
+    }
+}
+
+/// A special-use (RFC 6154) mailbox row as read from the database.
+#[derive(Debug, Clone)]
+pub struct SpecialMailbox {
+    pub id: String,
+    pub role: String,
+    pub name: String,
+    pub sort_order: u32,
+}
+
 /// JMAP Mailbox object (RFC 8621 §2).
 ///
 /// In stoa, each newsgroup maps to a Mailbox. The id is stable and
@@ -30,6 +159,9 @@ pub struct Mailbox {
     /// Whether this user is subscribed to the group.
     #[serde(rename = "isSubscribed")]
     pub is_subscribed: bool,
+    /// Per-mailbox client permissions (RFC 8621 §2).
+    #[serde(rename = "myRights")]
+    pub my_rights: MailboxRights,
 }
 
 /// Derive a stable, collision-resistant JMAP id from a newsgroup name.
@@ -59,6 +191,30 @@ impl Mailbox {
             total_emails,
             unread_emails,
             is_subscribed,
+            my_rights: MailboxRights::newsgroup_defaults(),
+        }
+    }
+
+    /// Construct a Mailbox from a provisioned special-use folder row.
+    pub fn from_special(special: &SpecialMailbox) -> Self {
+        let my_rights = match special.role.as_str() {
+            "inbox" => MailboxRights::inbox_defaults(),
+            "sent" => MailboxRights::sent_defaults(),
+            "drafts" => MailboxRights::drafts_defaults(),
+            "trash" | "junk" => MailboxRights::trash_defaults(),
+            "archive" => MailboxRights::archive_defaults(),
+            _ => MailboxRights::inbox_defaults(),
+        };
+        Self {
+            id: special.id.clone(),
+            name: special.name.clone(),
+            parent_id: None,
+            role: Some(special.role.clone()),
+            sort_order: special.sort_order,
+            total_emails: 0,
+            unread_emails: 0,
+            is_subscribed: true,
+            my_rights,
         }
     }
 }

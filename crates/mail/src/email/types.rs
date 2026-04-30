@@ -71,11 +71,12 @@ pub struct Email {
     pub preview: Option<String>,
     /// Custom property: IPFS root CID string (DAG-CBOR, codec 0x71).
     ///
-    /// Identical to `id` and `blob_id`.  Advertised via the
+    /// Present only for IPFS-backed newsgroup articles; absent for SMTP-delivered
+    /// messages (which have no IPFS representation).  Advertised via the
     /// `urn:stoa:jmap:cid` session capability.  Clients that do not
     /// recognise this property may ignore it per RFC 8620 §3.3.
-    #[serde(rename = "x-stoa-cid")]
-    pub ipfs_cid: Arc<str>,
+    #[serde(rename = "x-stoa-cid", skip_serializing_if = "Option::is_none")]
+    pub ipfs_cid: Option<Arc<str>>,
     /// Custom property: base64url-no-pad encoded operator Ed25519 signature.
     ///
     /// Present only when the article carries an `X-Stoa-Sig` operator
@@ -99,6 +100,100 @@ pub struct Email {
 }
 
 impl Email {
+    /// Construct a minimal Email from SMTP-delivered raw bytes.
+    ///
+    /// `smtp_id` is the synthetic JMAP id in the form `"smtp:<row_id>"`.
+    /// `raw` is the complete RFC 5322 message bytes as stored in `mailbox_messages`.
+    /// `mailbox_id` is the JMAP mailbox id string the message was placed in.
+    /// `received_at` is the SQLite `datetime('now')` string from the row.
+    pub fn from_smtp_message(
+        smtp_id: &str,
+        raw: &[u8],
+        mailbox_id: &str,
+        received_at: &str,
+    ) -> Self {
+        let parsed = mailparse::parse_mail(raw).ok();
+
+        let subject = parsed.as_ref().and_then(|m| {
+            m.headers
+                .iter()
+                .find(|h| h.get_key_ref().eq_ignore_ascii_case("Subject"))
+                .map(|h| h.get_value())
+        });
+
+        let from_header = parsed.as_ref().and_then(|m| {
+            m.headers
+                .iter()
+                .find(|h| h.get_key_ref().eq_ignore_ascii_case("From"))
+                .map(|h| h.get_value())
+        });
+
+        let from = from_header.map(|f| {
+            let addr = f.trim();
+            let email_addr = if let (Some(lt), Some(gt)) = (addr.rfind('<'), addr.rfind('>')) {
+                addr[lt + 1..gt].trim().to_string()
+            } else {
+                addr.to_string()
+            };
+            let name = if addr.contains('<') {
+                let n = addr[..addr.rfind('<').unwrap()].trim().trim_matches('"');
+                if n.is_empty() {
+                    None
+                } else {
+                    Some(n.to_string())
+                }
+            } else {
+                None
+            };
+            vec![EmailAddress {
+                name,
+                email: email_addr,
+            }]
+        });
+
+        let message_id = parsed.as_ref().and_then(|m| {
+            m.headers
+                .iter()
+                .find(|h| h.get_key_ref().eq_ignore_ascii_case("Message-ID"))
+                .map(|h| vec![h.get_value()])
+        });
+
+        let id: Arc<str> = Arc::from(smtp_id);
+        let mut mailbox_ids = HashMap::new();
+        mailbox_ids.insert(mailbox_id.to_string(), true);
+
+        // Convert received_at from SQLite datetime format to RFC 3339 with Z suffix.
+        // SQLite datetime('now') yields "YYYY-MM-DD HH:MM:SS"; needs T separator and Z.
+        let received_at_rfc3339 = if received_at.contains('T') {
+            if received_at.ends_with('Z') {
+                received_at.to_string()
+            } else {
+                format!("{received_at}Z")
+            }
+        } else {
+            received_at.replacen(' ', "T", 1) + "Z"
+        };
+
+        Email {
+            id: Arc::clone(&id),
+            blob_id: Arc::clone(&id),
+            mailbox_ids,
+            keywords: HashMap::new(),
+            received_at: received_at_rfc3339,
+            size: raw.len() as u64,
+            from,
+            subject,
+            message_id,
+            in_reply_to: None,
+            references: None,
+            preview: None,
+            // smtp messages have no IPFS representation; omit x-stoa-cid entirely.
+            ipfs_cid: None,
+            ipfs_sig: None,
+            ipfs_verifications: None,
+        }
+    }
+
     /// Build a JMAP Email from an ArticleRootNode and its CID.
     ///
     /// `header_map` may be None if the structured header block is unavailable;
@@ -156,7 +251,7 @@ impl Email {
             in_reply_to,
             references,
             preview,
-            ipfs_cid: cid_str,
+            ipfs_cid: Some(cid_str),
             ipfs_sig,
             ipfs_verifications: None,
         }
@@ -271,8 +366,8 @@ mod tests {
         let root = dummy_root(vec!["comp.test".to_string()], 1_000_000_000_000, 128);
         let email = Email::from_root_node(&cid, &root, None, HashMap::new(), None);
         assert_eq!(
-            &*email.ipfs_cid,
-            cid.to_string().as_str(),
+            email.ipfs_cid.as_deref(),
+            Some(cid.to_string().as_str()),
             "x-stoa-cid must equal the email id (root CID)"
         );
     }

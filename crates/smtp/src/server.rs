@@ -1,3 +1,4 @@
+use std::str::FromStr as _;
 use std::sync::Arc;
 
 use mail_auth::MessageAuthenticator;
@@ -27,6 +28,37 @@ pub async fn run_server(
     pool: Option<SqlitePool>,
     sieve_cache: Option<SieveCache>,
 ) -> Result<(), String> {
+    // Open the mail database if configured.  Uses create_if_missing(false) so
+    // we never create the file — the mail binary is responsible for migrations.
+    let mail_pool: Option<SqlitePool> = if let Some(ref path) = config.delivery.mail_db_path {
+        let url = format!("sqlite:{path}");
+        match sqlx::sqlite::SqliteConnectOptions::from_str(&url)
+            .map(|opts| opts.create_if_missing(false))
+        {
+            Ok(opts) => {
+                match sqlx::sqlite::SqlitePoolOptions::new()
+                    .max_connections(3)
+                    .connect_with(opts)
+                    .await
+                {
+                    Ok(p) => {
+                        info!(path = %path, "mail DB opened; SMTP→JMAP bridge enabled");
+                        Some(p)
+                    }
+                    Err(e) => {
+                        warn!(path = %path, "mail DB open failed: {e}; SMTP→JMAP bridge disabled");
+                        None
+                    }
+                }
+            }
+            Err(e) => {
+                warn!(path = %path, "mail DB URL parse failed: {e}");
+                None
+            }
+        }
+    } else {
+        None
+    };
     let auth: Option<Arc<MessageAuthenticator>> = {
         let result = match config.dns_resolver {
             crate::config::DnsResolver::Cloudflare => MessageAuthenticator::new_cloudflare(),
@@ -169,6 +201,7 @@ pub async fn run_server(
         let nntp_queue = Arc::clone(&nntp_queue);
         let auth = auth.clone();
         let pool = pool.clone();
+        let mail_pool_clone = mail_pool.clone();
         let cache = sieve_cache.clone();
         let cred_store = Arc::clone(&credential_store);
 
@@ -179,7 +212,16 @@ pub async fn run_server(
                 tokio::spawn(async move {
                     let _permit = permit;
                     run_session(
-                        stream, false, peer_str, config, cred_store, nntp_queue, auth, pool, cache,
+                        stream,
+                        false,
+                        peer_str,
+                        config,
+                        cred_store,
+                        nntp_queue,
+                        auth,
+                        pool,
+                        mail_pool_clone,
+                        cache,
                     )
                     .await;
                 });
@@ -198,6 +240,7 @@ pub async fn run_server(
                         nntp_queue,
                         auth,
                         pool,
+                        mail_pool_clone,
                         cache,
                     )
                     .await;
