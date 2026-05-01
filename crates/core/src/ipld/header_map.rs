@@ -12,7 +12,6 @@
 
 use std::collections::BTreeMap;
 
-use base64::Engine;
 use chrono::DateTime;
 use serde::{Deserialize, Serialize};
 
@@ -69,11 +68,12 @@ pub fn build_header_map(raw_headers: &[u8]) -> HeaderMapNode {
             continue;
         }
         let key = raw_key.to_ascii_lowercase();
-        let raw_value = hdr.get_value();
+        // mailparse::get_value() decodes RFC 2047 encoded words automatically.
         let value = if DATE_HEADERS.contains(&key.as_str()) {
-            rfc2822_to_rfc3339(&raw_value).unwrap_or(raw_value)
+            let raw = hdr.get_value();
+            rfc2822_to_rfc3339(&raw).unwrap_or(raw)
         } else {
-            decode_rfc2047(&raw_value)
+            hdr.get_value()
         };
         acc.entry(key).or_default().push(value);
     }
@@ -92,80 +92,6 @@ pub fn build_header_map(raw_headers: &[u8]) -> HeaderMapNode {
 /// Returns true if `name` consists only of ASCII letters, digits, and hyphens.
 fn is_valid_header_name(name: &str) -> bool {
     !name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
-}
-
-/// Decode RFC 2047 encoded words (e.g. `=?utf-8?Q?caf=C3=A9?=`) in a header
-/// value string to plain UTF-8.
-///
-/// Adjacent encoded words are decoded independently and concatenated. Any text
-/// between encoded words is preserved as-is. Unknown charsets fall back to
-/// UTF-8 lossy decoding.
-fn decode_rfc2047(input: &str) -> String {
-    let mut result = String::with_capacity(input.len());
-    let mut remaining = input;
-
-    while let Some(start) = remaining.find("=?") {
-        result.push_str(&remaining[..start]);
-        remaining = &remaining[start + 2..];
-
-        if let Some(end) = remaining.find("?=") {
-            let word = &remaining[..end];
-            remaining = &remaining[end + 2..];
-
-            let parts: Vec<&str> = word.splitn(3, '?').collect();
-            if parts.len() == 3 {
-                let charset = parts[0].to_ascii_lowercase();
-                let encoding = parts[1].to_ascii_uppercase();
-                let text = parts[2];
-
-                let decoded_bytes: Option<Vec<u8>> = match encoding.as_str() {
-                    "B" => base64::engine::general_purpose::STANDARD.decode(text).ok(),
-                    "Q" => {
-                        // RFC 2047 Q-encoding: underscore stands for 0x20 (space).
-                        let qp: String = text
-                            .chars()
-                            .map(|c| if c == '_' { ' ' } else { c })
-                            .collect();
-                        quoted_printable::decode(qp.as_bytes(), quoted_printable::ParseMode::Robust)
-                            .ok()
-                    }
-                    _ => None,
-                };
-
-                if let Some(bytes) = decoded_bytes {
-                    result.push_str(&charset_bytes_to_utf8(&bytes, &charset));
-                } else {
-                    result.push_str("=?");
-                    result.push_str(word);
-                    result.push_str("?=");
-                }
-            } else {
-                result.push_str("=?");
-                result.push_str(word);
-                result.push_str("?=");
-            }
-        } else {
-            result.push_str("=?");
-            result.push_str(remaining);
-            remaining = "";
-            break;
-        }
-    }
-    result.push_str(remaining);
-    result
-}
-
-/// Convert charset-encoded bytes to a UTF-8 String.
-fn charset_bytes_to_utf8(bytes: &[u8], charset: &str) -> String {
-    match charset {
-        "utf-8" | "utf8" | "us-ascii" | "ascii" => String::from_utf8_lossy(bytes).into_owned(),
-        // ISO-8859-1 / Latin-1: codepoints 0x00–0xFF match Unicode exactly.
-        "iso-8859-1" | "latin-1" | "latin1" | "iso8859-1" => {
-            bytes.iter().map(|&b| b as char).collect()
-        }
-        // Unknown charset: best-effort UTF-8 lossy.
-        _ => String::from_utf8_lossy(bytes).into_owned(),
-    }
 }
 
 /// Transform an RFC 2822 date string to RFC 3339.
@@ -308,53 +234,6 @@ Received: from c.example by d.example\r\n\
     fn empty_input_produces_empty_map() {
         let map = build_header_map(b"");
         assert!(map.is_empty());
-    }
-
-    // ── RFC 2047 decoding ─────────────────────────────────────────────────────
-
-    #[test]
-    fn rfc2047_base64_utf8() {
-        // Python oracle:
-        //   import email.header
-        //   email.header.decode_header("=?utf-8?B?Y2Fmw6k=?=")
-        //   -> [(b'caf\xc3\xa9', 'utf-8')]  # decodes to "café"
-        let input = "=?utf-8?B?Y2Fmw6k=?=";
-        assert_eq!(decode_rfc2047(input), "café");
-    }
-
-    #[test]
-    fn rfc2047_quoted_printable_utf8() {
-        // Python oracle:
-        //   import email.header
-        //   email.header.decode_header("=?utf-8?Q?caf=C3=A9?=")
-        //   -> [(b'caf\xc3\xa9', 'utf-8')]  # decodes to "café"
-        let input = "=?utf-8?Q?caf=C3=A9?=";
-        assert_eq!(decode_rfc2047(input), "café");
-    }
-
-    #[test]
-    fn rfc2047_underscore_is_space() {
-        // Python oracle:
-        //   email.header.decode_header("=?utf-8?Q?Hello_world?=")
-        //   -> [(b'Hello world', 'utf-8')]
-        let input = "=?utf-8?Q?Hello_world?=";
-        assert_eq!(decode_rfc2047(input), "Hello world");
-    }
-
-    #[test]
-    fn rfc2047_latin1() {
-        // Python oracle:
-        //   email.header.decode_header("=?iso-8859-1?Q?caf=E9?=")
-        //   -> [(b'caf\xe9', 'iso-8859-1')]  # decodes to "café"
-        // ISO-8859-1 byte 0xE9 -> Unicode U+00E9 -> 'é'
-        let input = "=?iso-8859-1?Q?caf=E9?=";
-        assert_eq!(decode_rfc2047(input), "café");
-    }
-
-    #[test]
-    fn rfc2047_no_encoded_words_unchanged() {
-        let input = "Plain ASCII value";
-        assert_eq!(decode_rfc2047(input), "Plain ASCII value");
     }
 
     #[test]

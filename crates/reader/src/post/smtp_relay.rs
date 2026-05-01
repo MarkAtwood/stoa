@@ -105,28 +105,26 @@ fn find_header_end(article_bytes: &[u8]) -> usize {
     }
 }
 
-/// Parse a comma-separated list of RFC 5322 addresses and return only those
-/// containing `@`.
+/// Parse an RFC 5322 address list and return only addresses containing `@`.
 ///
-/// Accepts both `user@example.com` and `Display Name <user@example.com>`.
+/// Accepts bare addresses (`user@example.com`), angle-bracket form
+/// (`Display Name <user@example.com>`), quoted display names with commas
+/// (`"Smith, John" <j@example.com>`), and RFC 5322 address groups.
+/// Uses `mailparse::addrparse` so quoting and folding are handled correctly.
 fn parse_email_addrs(value: &str) -> Vec<String> {
-    value
-        .split(',')
-        .filter_map(|token| {
-            let token = token.trim();
-            if let (Some(lt), Some(gt)) = (token.find('<'), token.rfind('>')) {
-                if lt < gt {
-                    let addr = token[lt + 1..gt].trim().to_string();
-                    if addr.contains('@') {
-                        return Some(addr);
-                    }
+    match mailparse::addrparse(value) {
+        Ok(list) => list
+            .iter()
+            .flat_map(|addr| match addr {
+                mailparse::MailAddr::Single(info) => vec![info.addr.clone()],
+                mailparse::MailAddr::Group(group) => {
+                    group.addrs.iter().map(|i| i.addr.clone()).collect()
                 }
-            } else if token.contains('@') {
-                return Some(token.to_string());
-            }
-            None
-        })
-        .collect()
+            })
+            .filter(|addr| addr.contains('@'))
+            .collect(),
+        Err(_) => Vec::new(),
+    }
 }
 
 #[cfg(test)]
@@ -155,6 +153,15 @@ mod tests {
             b"To: Alice <alice@example.com>, Bob <bob@example.com>\r\nFrom: c@d.com\r\n\r\nBody";
         let result = extract_email_recipients(article);
         assert_eq!(result, vec!["alice@example.com", "bob@example.com"]);
+    }
+
+    #[test]
+    fn quoted_comma_in_display_name() {
+        // "Smith, John" <john@example.com> — the comma inside the quoted display
+        // name must not split the address into two tokens.
+        let article = b"To: \"Smith, John\" <john@example.com>\r\nFrom: b@c.com\r\n\r\nBody";
+        let result = extract_email_recipients(article);
+        assert_eq!(result, vec!["john@example.com"]);
     }
 
     #[test]
