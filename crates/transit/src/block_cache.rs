@@ -215,28 +215,33 @@ impl BlockCache {
     /// Evict LRU entries until both limits are satisfied when `incoming_bytes`
     /// are added.
     async fn evict_for(&self, incoming_bytes: u64) -> Result<(), CacheError> {
-        loop {
-            let (count, total_bytes): (i64, i64) = sqlx::query_as(
-                "SELECT COUNT(*), COALESCE(SUM(byte_size), 0) FROM transit_block_cache",
-            )
-            .fetch_one(&*self.pool)
-            .await?;
+        // Read count and total size once; maintain running totals locally so
+        // we avoid a full-table COUNT(*)/SUM scan on every loop iteration.
+        let (initial_count, initial_bytes): (i64, i64) = sqlx::query_as(
+            "SELECT COUNT(*), COALESCE(SUM(byte_size), 0) FROM transit_block_cache",
+        )
+        .fetch_one(&*self.pool)
+        .await?;
 
-            let needs_eviction = (count as u64 + 1 > self.config.max_entries)
-                || (total_bytes as u64 + incoming_bytes > self.config.max_bytes);
+        let mut count = initial_count as u64;
+        let mut total_bytes = initial_bytes as u64;
+
+        loop {
+            let needs_eviction = (count + 1 > self.config.max_entries)
+                || (total_bytes + incoming_bytes > self.config.max_bytes);
             if !needs_eviction {
                 break;
             }
 
             // Fetch the least-recently-used entry.
-            let lru: Option<(String, String)> = sqlx::query_as(
-                "SELECT cid, file_path FROM transit_block_cache \
+            let lru: Option<(String, String, i64)> = sqlx::query_as(
+                "SELECT cid, file_path, byte_size FROM transit_block_cache \
                  ORDER BY last_access ASC LIMIT 1",
             )
             .fetch_optional(&*self.pool)
             .await?;
 
-            let Some((evict_cid, evict_path)) = lru else {
+            let Some((evict_cid, evict_path, evict_bytes)) = lru else {
                 break; // Nothing left to evict.
             };
 
@@ -248,6 +253,9 @@ impl BlockCache {
                 .execute(&*self.pool)
                 .await?;
             debug!(cid = %evict_cid, "evicted LRU cache entry");
+
+            count = count.saturating_sub(1);
+            total_bytes = total_bytes.saturating_sub(evict_bytes as u64);
         }
         Ok(())
     }
