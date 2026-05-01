@@ -2,9 +2,6 @@
 
 use std::path::Path;
 use std::time::Instant;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
-use tokio::net::TcpStream;
 
 /// Summary of a completed import run.
 #[derive(Debug, Default)]
@@ -41,13 +38,7 @@ pub struct IhaveImportConfig {
     pub parallel: usize,
 }
 
-/// Result of sending a single article via IHAVE.
-#[derive(Debug)]
-enum SendResult {
-    Accepted,
-    Duplicate,
-    Rejected,
-}
+use crate::import::{SendResult, connect_nntp, send_ihave_on_conn};
 
 /// Run the IHAVE bulk import from `article_dir`.
 ///
@@ -200,90 +191,6 @@ async fn process_chunk(
     }
 
     (accepted, rejected, duplicates, malformed)
-}
-
-/// Open a TCP connection to `addr` and read the NNTP greeting.
-///
-/// Returns `Some((reader, writer))` on success, `None` on any failure.
-async fn connect_nntp(
-    addr: &str,
-) -> Option<(BufReader<OwnedReadHalf>, OwnedWriteHalf)> {
-    let stream = match TcpStream::connect(addr).await {
-        Ok(s) => s,
-        Err(e) => {
-            tracing::warn!("TCP connect to {addr} failed: {e}");
-            return None;
-        }
-    };
-
-    let (reader_half, writer) = stream.into_split();
-    let mut reader = BufReader::new(reader_half);
-    let mut line = String::new();
-
-    // Read greeting (200 or 201).
-    if reader.read_line(&mut line).await.is_err() {
-        return None;
-    }
-    let code = crate::import::parse_nntp_response_code(&line);
-    if code != 200 && code != 201 {
-        tracing::warn!("unexpected greeting from {addr}: {}", line.trim());
-        return None;
-    }
-
-    Some((reader, writer))
-}
-
-/// Send one article via IHAVE on an already-established connection.
-///
-/// Returns `Ok(SendResult)` on protocol success/failure, or `Err` if an I/O
-/// error occurs (meaning the connection should be discarded).
-async fn send_ihave_on_conn(
-    reader: &mut BufReader<OwnedReadHalf>,
-    writer: &mut OwnedWriteHalf,
-    msgid: &str,
-    article_bytes: &[u8],
-) -> Result<SendResult, std::io::Error> {
-    let mut line = String::new();
-
-    // Send IHAVE <msgid>.
-    let ihave_cmd = format!("IHAVE {msgid}\r\n");
-    writer.write_all(ihave_cmd.as_bytes()).await?;
-
-    // Read IHAVE response.
-    line.clear();
-    reader.read_line(&mut line).await?;
-    let code = crate::import::parse_nntp_response_code(&line);
-
-    match code {
-        435 => return Ok(SendResult::Duplicate),
-        335 => {} // proceed to send article
-        _ => {
-            tracing::info!("IHAVE {msgid} got code {code}: {}", line.trim());
-            return Ok(SendResult::Rejected);
-        }
-    }
-
-    // Send article with dot-stuffing, terminated by ".\r\n".
-    let stuffed = stoa_core::util::nntp_dot_stuff(article_bytes);
-    writer.write_all(&stuffed).await?;
-    writer.write_all(b".\r\n").await?;
-
-    // Read final transfer response.
-    line.clear();
-    reader.read_line(&mut line).await?;
-    let code = crate::import::parse_nntp_response_code(&line);
-
-    match code {
-        235 => Ok(SendResult::Accepted),
-        436 | 437 => {
-            tracing::info!("transfer of {msgid} failed with code {code}");
-            Ok(SendResult::Rejected)
-        }
-        _ => {
-            tracing::info!("unexpected final code {code} for {msgid}");
-            Ok(SendResult::Rejected)
-        }
-    }
 }
 
 /// Extract the `Message-ID` header value (including angle brackets) from article text.

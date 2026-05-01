@@ -6,8 +6,9 @@
 
 use std::path::Path;
 use std::time::Instant;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::TcpStream;
+use tokio::io::{AsyncBufReadExt, BufReader};
+
+use crate::import::{SendResult, connect_nntp, send_ihave_on_conn};
 
 /// A single parsed mbox message.
 #[derive(Debug)]
@@ -241,110 +242,36 @@ async fn import_messages(
             }
         };
 
-        match mbox_send_ihave(&config.transit_addr, msgid, &msg.raw).await {
-            IhaveSendResult::Accepted => {
+        let send_result = match connect_nntp(&config.transit_addr).await {
+            Some((mut reader, mut writer)) => {
+                match send_ihave_on_conn(&mut reader, &mut writer, msgid, &msg.raw).await {
+                    Ok(r) => r,
+                    Err(e) => {
+                        tracing::warn!("I/O error sending {msgid}: {e}");
+                        SendResult::Rejected
+                    }
+                }
+            }
+            None => {
+                tracing::warn!("could not connect to {} for {msgid}", config.transit_addr);
+                SendResult::Rejected
+            }
+        };
+        match send_result {
+            SendResult::Accepted => {
                 summary.imported += 1;
             }
-            IhaveSendResult::Duplicate => {
+            SendResult::Duplicate => {
                 // Already present — counts as imported for reporting purposes.
                 summary.imported += 1;
             }
-            IhaveSendResult::Failed => {
+            SendResult::Rejected => {
                 summary.failed += 1;
             }
         }
 
         if config.progress_interval > 0 && (idx + 1) % config.progress_interval == 0 {
             tracing::info!(count = idx + 1, "mbox import progress");
-        }
-    }
-}
-
-// ── NNTP IHAVE send (inline, per-message TCP connection) ──────────────────────
-
-#[derive(Debug)]
-enum IhaveSendResult {
-    Accepted,
-    Duplicate,
-    Failed,
-}
-
-/// Open a TCP connection to `addr` and send one article via IHAVE.
-async fn mbox_send_ihave(addr: &str, msgid: &str, article_bytes: &[u8]) -> IhaveSendResult {
-    let stream = match TcpStream::connect(addr).await {
-        Ok(s) => s,
-        Err(e) => {
-            tracing::warn!("TCP connect to {addr} failed: {e}");
-            return IhaveSendResult::Failed;
-        }
-    };
-
-    let (reader_half, mut writer) = stream.into_split();
-    let mut reader = BufReader::new(reader_half);
-    let mut line = String::new();
-
-    // Read greeting (200 or 201).
-    line.clear();
-    if reader.read_line(&mut line).await.is_err() {
-        return IhaveSendResult::Failed;
-    }
-    let code = crate::import::parse_nntp_response_code(&line);
-    if code != 200 && code != 201 {
-        tracing::warn!("unexpected greeting from {addr}: {}", line.trim());
-        return IhaveSendResult::Failed;
-    }
-
-    // Send IHAVE <msgid>.
-    let cmd = format!("IHAVE {msgid}\r\n");
-    if writer.write_all(cmd.as_bytes()).await.is_err() {
-        return IhaveSendResult::Failed;
-    }
-
-    // Read IHAVE response.
-    line.clear();
-    if reader.read_line(&mut line).await.is_err() {
-        return IhaveSendResult::Failed;
-    }
-    let code = crate::import::parse_nntp_response_code(&line);
-
-    match code {
-        435 => return IhaveSendResult::Duplicate,
-        335 => {} // proceed
-        _ => {
-            tracing::info!("IHAVE {msgid} got code {code}: {}", line.trim());
-            return IhaveSendResult::Failed;
-        }
-    }
-
-    // Send article with dot-stuffing, terminated by ".\r\n".
-    let stuffed = stoa_core::util::nntp_dot_stuff(article_bytes);
-    if writer.write_all(&stuffed).await.is_err() {
-        return IhaveSendResult::Failed;
-    }
-    if writer.write_all(b".\r\n").await.is_err() {
-        return IhaveSendResult::Failed;
-    }
-
-    // Read final transfer response.
-    line.clear();
-    if reader.read_line(&mut line).await.is_err() {
-        return IhaveSendResult::Failed;
-    }
-    let code = crate::import::parse_nntp_response_code(&line);
-
-    match code {
-        235 => IhaveSendResult::Accepted,
-        436 => {
-            tracing::info!("transfer of {msgid} failed with 436 (transient — server busy)");
-            IhaveSendResult::Failed
-        }
-        437 => {
-            tracing::info!("transfer of {msgid} rejected with 437 (permanent — article refused)");
-            IhaveSendResult::Failed
-        }
-        _ => {
-            tracing::info!("transfer of {msgid} failed with unexpected code {code}");
-            IhaveSendResult::Failed
         }
     }
 }
