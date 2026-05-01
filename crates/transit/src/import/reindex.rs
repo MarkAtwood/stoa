@@ -160,6 +160,7 @@ mod tests {
     async fn make_pool() -> (AnyPool, tempfile::TempPath) {
         let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
         let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        stoa_core::migrations::run_migrations(&url).await.unwrap();
         let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
             .await
             .unwrap();
@@ -224,7 +225,6 @@ mod tests {
         let summary = run_reindex(articles, &pool, &config).await.unwrap();
         assert!(summary.dry_run);
         assert_eq!(summary.indexed, 5, "dry_run counts as 'would index'");
-        let _ = ensure_msgid_map(&pool).await.unwrap();
         let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM msgid_map")
             .fetch_one(&pool)
             .await
