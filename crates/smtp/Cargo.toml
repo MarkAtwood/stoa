@@ -32,6 +32,8 @@ stoa-tls = { path = "../tls" }
 stoa-sieve-native = { path = "../sieve-native" }
 stoa-auth = { path = "../auth" }
 base64 = "0.22"
+data-encoding = "2"
+sha2 = "0.10"
 ipnet = { version = "2", features = ["serde"] }
 webpki-roots = "0.26"
 pin-project = "1"

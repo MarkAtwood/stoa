@@ -840,6 +840,22 @@ enum SieveOutcome {
     TransientError,
 }
 
+/// Derive a stable JMAP mailbox_id for a List/* mailbox name.
+///
+/// Algorithm: SHA-256(name as UTF-8) → first 16 bytes → BASE32_NOPAD.
+/// Result is always 26 uppercase characters.  This is the same algorithm used
+/// by `stoa_mail::mailbox::provision::mailbox_id_for_role` so that the two
+/// crates agree on ids for the same logical mailbox.
+///
+/// Oracle: Python
+///   `import hashlib, base64; base64.b32encode(hashlib.sha256(name.encode()).digest()[:16]).decode().rstrip('=')`
+fn list_mailbox_id(name: &str) -> String {
+    use data_encoding::BASE32_NOPAD;
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(name.as_bytes());
+    BASE32_NOPAD.encode(&digest[..16])
+}
+
 /// Evaluate the global Sieve script and apply the resulting actions.
 ///
 /// The global script is keyed to `crate::config::GLOBAL_SCRIPT_KEY` in the `user_sieve_scripts`
@@ -899,14 +915,31 @@ async fn sieve_delivery(
     for action in actions {
         match action {
             stoa_sieve_native::SieveAction::Keep => {
+                // If the message carries a List-Id: header, route it to a
+                // per-list mailbox instead of INBOX.  The mailbox name is
+                // "List/<list-id>" (flat, no dot-to-slash expansion).
+                // The JMAP mailbox_id uses the same SHA-256(name)[..16] →
+                // BASE32_NOPAD scheme as stoa_mail::mailbox::provision::mailbox_id_for_role.
+                let (smtp_mailbox, jmap_mailbox_id): (String, String) =
+                    if let Some(list_id) = routing::extract_list_id(raw_bytes) {
+                        let name = format!("List/{list_id}");
+                        let id = list_mailbox_id(&name);
+                        (name, id)
+                    } else {
+                        (
+                            "INBOX".to_string(),
+                            inbox_mailbox_id.unwrap_or("").to_string(),
+                        )
+                    };
+
                 if let Some(mp) = mail_pool {
-                    // Use the inbox_mailbox_id cached at startup — avoids a
-                    // per-message SELECT on the mailboxes table.
-                    if let Some(mid) = inbox_mailbox_id {
+                    // For INBOX: use the id cached at startup.
+                    // For List/*: use the id derived on the fly with the same algorithm.
+                    if !jmap_mailbox_id.is_empty() {
                         let insert_result = sqlx::query(
                             "INSERT INTO messages (mailbox_id, envelope_from, envelope_to, raw_message) VALUES (?,?,?,?)",
                         )
-                        .bind(mid)
+                        .bind(&jmap_mailbox_id)
                         .bind(from)
                         .bind(envelope_to)
                         .bind(raw_bytes)
@@ -923,19 +956,19 @@ async fn sieve_delivery(
                                 .await;
                             }
                             Err(e) => {
-                                warn!(peer = %peer_addr, "SMTP→JMAP write failed: {e}; falling through to smtp store");
+                                warn!(peer = %peer_addr, mailbox = %smtp_mailbox, "SMTP→JMAP write failed: {e}; falling through to smtp store");
                                 if let Some(db_pool) = pool {
                                     if let Err(e2) = store::deliver(
                                         db_pool,
                                         crate::config::GLOBAL_SCRIPT_KEY,
-                                        "INBOX",
+                                        &smtp_mailbox,
                                         from,
                                         envelope_to,
                                         raw_bytes,
                                     )
                                     .await
                                     {
-                                        warn!(peer = %peer_addr, "deliver to INBOX failed: {e2}; both delivery paths failed, returning transient error");
+                                        warn!(peer = %peer_addr, mailbox = %smtp_mailbox, "deliver failed: {e2}; both delivery paths failed, returning transient error");
                                         return SieveOutcome::TransientError;
                                     }
                                 } else {
@@ -950,14 +983,14 @@ async fn sieve_delivery(
                             if let Err(e) = store::deliver(
                                 db_pool,
                                 crate::config::GLOBAL_SCRIPT_KEY,
-                                "INBOX",
+                                &smtp_mailbox,
                                 from,
                                 envelope_to,
                                 raw_bytes,
                             )
                             .await
                             {
-                                warn!(peer = %peer_addr, "fallback smtp store deliver failed: {e}; both delivery paths failed, returning transient error");
+                                warn!(peer = %peer_addr, mailbox = %smtp_mailbox, "fallback smtp store deliver failed: {e}; both delivery paths failed, returning transient error");
                                 return SieveOutcome::TransientError;
                             }
                         } else {
@@ -969,14 +1002,14 @@ async fn sieve_delivery(
                     if let Err(e) = store::deliver(
                         db_pool,
                         crate::config::GLOBAL_SCRIPT_KEY,
-                        "INBOX",
+                        &smtp_mailbox,
                         from,
                         envelope_to,
                         raw_bytes,
                     )
                     .await
                     {
-                        warn!(peer = %peer_addr, "deliver to INBOX failed: {e}");
+                        warn!(peer = %peer_addr, mailbox = %smtp_mailbox, "deliver failed: {e}");
                     }
                 } else {
                     // No database configured but Keep action requires local
@@ -1232,6 +1265,33 @@ mod tests {
         SieveAdminConfig, TlsConfig,
     };
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    // ── list_mailbox_id ───────────────────────────────────────────────────────
+    // Oracle: Python
+    //   import hashlib, base64
+    //   def mid(name): return base64.b32encode(hashlib.sha256(name.encode()).digest()[:16]).decode().rstrip('=')
+
+    #[test]
+    fn list_mailbox_id_oracle() {
+        // Oracle: mid('List/rust-users.lists.rust-lang.org') = 'U22LEYZSQKMQEBJK7VVRUKLURQ'
+        assert_eq!(
+            list_mailbox_id("List/rust-users.lists.rust-lang.org"),
+            "U22LEYZSQKMQEBJK7VVRUKLURQ"
+        );
+    }
+
+    #[test]
+    fn list_mailbox_id_is_26_chars() {
+        assert_eq!(list_mailbox_id("List/example.lists.example.com").len(), 26);
+    }
+
+    #[test]
+    fn list_mailbox_id_different_names_differ() {
+        assert_ne!(
+            list_mailbox_id("List/a.example.com"),
+            list_mailbox_id("List/b.example.com")
+        );
+    }
 
     fn test_config() -> Arc<Config> {
         Arc::new(Config {
@@ -1737,6 +1797,63 @@ mod tests {
             1,
             "must not have duplicate Newsgroups: header, got:\n{text}"
         );
+    }
+
+    // ── List-Id: auto-routing ─────────────────────────────────────────────────
+
+    const LIST_MSG: &[u8] = b"EHLO client.example.com\r\n\
+        MAIL FROM:<sender@example.com>\r\n\
+        RCPT TO:<alice@example.com>\r\n\
+        DATA\r\n\
+        List-Id: <rust-users.lists.rust-lang.org>\r\n\
+        Subject: List post\r\n\
+        \r\n\
+        Body\r\n\
+        .\r\n\
+        QUIT\r\n";
+
+    /// A message with List-Id: must be delivered to List/<list-id>, not INBOX.
+    #[tokio::test]
+    async fn test_list_id_routes_to_list_mailbox() {
+        let pool = open_test_db().await;
+        let config = test_config();
+        let pool_clone = pool.clone();
+        let (response, _) = drive_session_ext(LIST_MSG, config, Some(pool_clone)).await;
+
+        assert!(
+            response.contains("250 OK"),
+            "expected 250 OK, got: {response}"
+        );
+
+        let count_list = crate::store::count_messages(
+            &pool,
+            crate::config::GLOBAL_SCRIPT_KEY,
+            "List/rust-users.lists.rust-lang.org",
+        )
+        .await;
+        let count_inbox =
+            crate::store::count_messages(&pool, crate::config::GLOBAL_SCRIPT_KEY, "INBOX").await;
+
+        assert_eq!(count_list, 1, "expected 1 message in List/* mailbox");
+        assert_eq!(count_inbox, 0, "expected 0 messages in INBOX");
+    }
+
+    /// A message without List-Id: must be delivered to INBOX, not a List mailbox.
+    #[tokio::test]
+    async fn test_no_list_id_routes_to_inbox() {
+        let pool = open_test_db().await;
+        let config = test_config();
+        let pool_clone = pool.clone();
+        let (response, _) = drive_session_ext(FULL_MSG, config, Some(pool_clone)).await;
+
+        assert!(
+            response.contains("250 OK"),
+            "expected 250 OK, got: {response}"
+        );
+
+        let count_inbox =
+            crate::store::count_messages(&pool, crate::config::GLOBAL_SCRIPT_KEY, "INBOX").await;
+        assert_eq!(count_inbox, 1, "expected 1 message in INBOX");
     }
 
     // ── Received: header (RFC 5321 §4.4) ─────────────────────────────────────
