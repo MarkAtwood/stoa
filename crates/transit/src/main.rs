@@ -140,10 +140,10 @@ fn cmd_restore(backup_files: &[PathBuf], db: &stoa_transit::config::DatabaseConf
         }
 
         // Strip "sqlite://" prefix if present to get the file path.
+        // Do NOT strip leading slashes after the prefix: sqlite:///data/transit.db
+        // yields /data/transit.db (absolute path), which must be preserved as-is.
         fn url_to_path(url: &str) -> &str {
-            url.strip_prefix("sqlite://")
-                .unwrap_or(url)
-                .trim_start_matches('/')
+            url.strip_prefix("sqlite://").unwrap_or(url)
         }
 
         let dest = if stem.starts_with("transit-") {
@@ -1293,6 +1293,10 @@ async fn main() {
         .collect();
     let (gc_runner_pre, gc_last_report) = if gc_kubo_url.is_some() && !gc_pre_pin_rules.is_empty() {
         let policy = PinPolicy::new(gc_pre_pin_rules.clone());
+        if let Err(e) = policy.validate() {
+            eprintln!("error: invalid retention policy: {e}");
+            std::process::exit(1);
+        }
         let pin_client = HttpPinClient::new(gc_kubo_url.as_deref().unwrap().to_string());
         let gc_metrics = GcMetrics::new();
         let runner = GcRunner::new(pin_client, policy, gc_metrics)
