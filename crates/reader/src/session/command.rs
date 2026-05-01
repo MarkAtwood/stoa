@@ -1,5 +1,7 @@
-/// RFC 3977 §3.1.3 — maximum line length including CRLF.
-const MAX_LINE_BYTES: usize = 512;
+/// RFC 3977 §3.1.3 — maximum line length including CRLF is 512 bytes.
+/// `parse_command` receives a line with CRLF already stripped by the caller,
+/// so the limit on the stripped content is 510 bytes (512 − 2).
+const MAX_LINE_BYTES: usize = 510;
 
 /// An article reference: either a message-ID, a local article number,
 /// or a CID locator (the `cid:<cid-string>` form from ADR-0007).
@@ -762,17 +764,18 @@ mod tests {
 
     #[test]
     fn parse_line_too_long() {
-        let long: String = "A".repeat(513);
+        // 511 stripped bytes = 513 wire bytes (with CRLF): exceeds RFC 3977 §3.1 limit.
+        let long: String = "A".repeat(511);
         let result = parse_command(&long);
         assert_eq!(result, Err(ParseError::LineTooLong));
     }
 
     #[test]
-    fn parse_line_exactly_512_bytes_is_ok() {
-        // "QUIT" + padding to exactly 512 bytes; parse as unknown (not QUIT with trailing)
-        // Just verify it does NOT return LineTooLong.
-        let line = format!("QUIT{}", " ".repeat(508));
-        assert_eq!(line.len(), 512);
+    fn parse_line_exactly_510_bytes_is_ok() {
+        // RFC 3977 §3.1 allows 512 bytes including CRLF → 510 stripped content bytes.
+        // parse_command receives a CRLF-stripped line, so 510 bytes must be accepted.
+        let line = format!("QUIT{}", " ".repeat(506));
+        assert_eq!(line.len(), 510);
         let result = parse_command(&line);
         assert_ne!(result, Err(ParseError::LineTooLong));
     }

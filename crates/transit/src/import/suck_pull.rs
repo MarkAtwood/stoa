@@ -6,6 +6,9 @@ use stoa_core::{error::StorageError, msgid_map::MsgIdMap};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 
+/// Maximum article body size accepted from a remote peer (5 MiB).
+const MAX_ARTICLE_BYTES: usize = 5 * 1024 * 1024;
+
 /// Configuration for the suck pull import.
 #[derive(Debug, Clone)]
 pub struct SuckPullConfig {
@@ -110,6 +113,7 @@ pub async fn run_suck_pull(
     let mut summary = SuckPullSummary::default();
 
     for group in &config.groups {
+        let fetched_before = summary.fetched;
         let since = match config.since_override {
             Some(ts) => ts,
             None => read_cursor(pool, group).await?.unwrap_or(default_since),
@@ -215,8 +219,12 @@ pub async fn run_suck_pull(
             }
         }
 
-        // Update cursor to now for this group.
-        update_cursor(pool, group, now_unix).await?;
+        // Only advance the cursor when at least one article was successfully
+        // fetched.  Advancing on zero fetches silently shrinks the NEWNEWS
+        // window and can cause articles to be missed on a subsequent run.
+        if summary.fetched > fetched_before {
+            update_cursor(pool, group, now_unix).await?;
+        }
     }
 
     // Send QUIT.
@@ -364,6 +372,12 @@ async fn fetch_article(
         };
         body.extend_from_slice(out_line.as_bytes());
         body.extend_from_slice(b"\r\n");
+        if body.len() > MAX_ARTICLE_BYTES {
+            tracing::warn!(
+                "suck_pull: article {msgid} exceeded {MAX_ARTICLE_BYTES} bytes; dropping"
+            );
+            return FetchResult::Failed;
+        }
     }
 
     FetchResult::Fetched(body)
