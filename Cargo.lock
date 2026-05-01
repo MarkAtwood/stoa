@@ -5479,6 +5479,7 @@ dependencies = [
  "ed25519-dalek",
  "hex",
  "mailparse",
+ "memchr",
  "multihash-codetable",
  "proptest",
  "quoted_printable",
@@ -5670,6 +5671,7 @@ name = "stoa-sieve-native"
 version = "0.1.0"
 dependencies = [
  "fancy-regex 0.13.0",
+ "lru",
  "stoa-sieve",
  "tracing",
 ]

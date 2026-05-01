@@ -1,5 +1,7 @@
 use std::future::Future;
 
+use cid::Cid;
+
 use crate::article::GroupName;
 use crate::error::StorageError;
 use crate::group_log::types::{LogEntry, LogEntryId};
@@ -26,6 +28,16 @@ pub trait LogStorage: Send + Sync {
     /// Return `true` if an entry with the given id exists.
     fn has_entry(&self, id: &LogEntryId)
         -> impl Future<Output = Result<bool, StorageError>> + Send;
+
+    /// Return only the parent CIDs of an entry, or `None` if not found.
+    ///
+    /// More efficient than `get_entry` when the caller only needs to traverse
+    /// the DAG (e.g. reconcile BFS), because it skips deserializing the full
+    /// log entry.
+    fn get_parent_cids(
+        &self,
+        id: &LogEntryId,
+    ) -> impl Future<Output = Result<Option<Vec<Cid>>, StorageError>> + Send;
 
     /// Return the current tip ids for a group (empty vec if no tips set).
     fn list_tips(

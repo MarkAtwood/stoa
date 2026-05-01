@@ -49,6 +49,14 @@ impl LogStorage for MemLogStorage {
         Ok(map.contains_key(id.as_bytes()))
     }
 
+    async fn get_parent_cids(
+        &self,
+        id: &LogEntryId,
+    ) -> Result<Option<Vec<cid::Cid>>, crate::error::StorageError> {
+        let map = self.entries.read().await;
+        Ok(map.get(id.as_bytes()).map(|e| e.parent_cids.clone()))
+    }
+
     async fn list_tips(&self, group: &GroupName) -> Result<Vec<LogEntryId>, StorageError> {
         let map = self.tips.read().await;
         let ids = map

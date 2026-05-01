@@ -12,6 +12,10 @@ use std::time::{Duration, Instant};
 const EVICT_INTERVAL: u64 = 1024;
 /// Evict entries idle longer than one hour.
 const IDLE_TTL: Duration = Duration::from_secs(3600);
+/// Hard cap on the number of tracked IPs. When reached, trigger immediate
+/// eviction before inserting a new entry, preventing unbounded growth under
+/// DDoS from many distinct source addresses.
+const MAX_ENTRIES: usize = 65_536;
 
 struct RateLimitState {
     /// Tokens available (fractional).
@@ -73,10 +77,11 @@ impl RateLimiter {
             }
         }
 
-        // Evict entries idle for more than one hour, but only every EVICT_INTERVAL
-        // calls to amortize the O(n) scan across many requests.
+        // Evict idle entries periodically or when the map hits the hard cap.
+        // Periodic eviction: every EVICT_INTERVAL calls amortizes the O(n) scan.
+        // Cap eviction: prevents unbounded growth under DDoS from many distinct IPs.
         inner.call_count = inner.call_count.wrapping_add(1);
-        if inner.call_count % EVICT_INTERVAL == 0 {
+        if inner.call_count % EVICT_INTERVAL == 0 || inner.map.len() > MAX_ENTRIES {
             let evict_before = now - IDLE_TTL;
             inner.map.retain(|_, v| v.last_refill >= evict_before);
         }

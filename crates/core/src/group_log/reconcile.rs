@@ -100,8 +100,8 @@ pub async fn reconcile<S: LogStorage>(
             }
         }
 
-        if let Some(entry) = storage.get_entry(&entry_id).await? {
-            for parent_cid in &entry.parent_cids {
+        if let Some(parent_cids) = storage.get_parent_cids(&entry_id).await? {
+            for parent_cid in &parent_cids {
                 let digest_bytes = parent_cid.hash().digest();
                 if let Ok(raw) = <[u8; 32]>::try_from(digest_bytes) {
                     queue.push_back(LogEntryId::from_bytes(raw));

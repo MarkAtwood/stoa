@@ -179,42 +179,44 @@ fn build_message(raw: Vec<u8>) -> MboxMessage {
     }
 }
 
-/// Parse a directory of .mbox files and collect all messages.
-pub async fn parse_mbox_directory(dir: &Path) -> Result<Vec<MboxMessage>, std::io::Error> {
-    let mut all: Vec<MboxMessage> = Vec::new();
-    let mut rd = tokio::fs::read_dir(dir).await?;
-    while let Some(entry) = rd.next_entry().await? {
-        let ft = entry.file_type().await?;
-        if ft.is_file() {
-            let path = entry.path();
-            let mut msgs = parse_mbox_file(&path).await?;
-            all.append(&mut msgs);
-        }
-    }
-    Ok(all)
-}
-
 /// Run the mbox backfill import from a file or directory.
 ///
 /// For each message, sends it to the transit daemon via IHAVE.
+/// Processes one file at a time so the entire archive is never held
+/// in memory simultaneously (fixes OOM risk on multi-GB mbox archives).
 /// Returns a summary of the import.
 pub async fn run_mbox_import(
     source: &Path,
     config: &MboxImportConfig,
 ) -> Result<MboxImportSummary, std::io::Error> {
     let start = Instant::now();
+    let mut summary = MboxImportSummary::default();
 
-    let messages = if source.is_dir() {
-        parse_mbox_directory(source).await?
+    if source.is_dir() {
+        let mut rd = tokio::fs::read_dir(source).await?;
+        while let Some(entry) = rd.next_entry().await? {
+            let ft = entry.file_type().await?;
+            if ft.is_file() {
+                let messages = parse_mbox_file(&entry.path()).await?;
+                import_messages(messages, config, &mut summary).await;
+            }
+        }
     } else {
-        parse_mbox_file(source).await?
-    };
+        let messages = parse_mbox_file(source).await?;
+        import_messages(messages, config, &mut summary).await;
+    }
 
-    let mut summary = MboxImportSummary {
-        total_messages: messages.len(),
-        ..Default::default()
-    };
+    summary.elapsed_ms = start.elapsed().as_millis() as u64;
+    Ok(summary)
+}
 
+/// Process a batch of parsed messages, sending each via IHAVE and updating the summary.
+async fn import_messages(
+    messages: Vec<MboxMessage>,
+    config: &MboxImportConfig,
+    summary: &mut MboxImportSummary,
+) {
+    summary.total_messages += messages.len();
     for (idx, msg) in messages.iter().enumerate() {
         // Determine the newsgroup.
         let group = match msg
@@ -256,9 +258,6 @@ pub async fn run_mbox_import(
             tracing::info!(count = idx + 1, "mbox import progress");
         }
     }
-
-    summary.elapsed_ms = start.elapsed().as_millis() as u64;
-    Ok(summary)
 }
 
 // ── NNTP IHAVE send (inline, per-message TCP connection) ──────────────────────
@@ -463,11 +462,15 @@ Body.\r\n\
     }
 
     #[tokio::test]
-    async fn parse_mbox_directory_aggregates_files() {
+    async fn parse_mbox_file_each_file_two_messages() {
+        // Verify that each mbox file in a directory can be parsed independently;
+        // run_mbox_import processes them one at a time without collecting all in memory.
         let dir = TempDir::new().unwrap();
-        write_mbox(&dir, "a.mbox", SAMPLE_MBOX);
-        write_mbox(&dir, "b.mbox", SAMPLE_MBOX);
-        let messages = parse_mbox_directory(dir.path()).await.unwrap();
-        assert_eq!(messages.len(), 4, "two files × two messages each");
+        let a = write_mbox(&dir, "a.mbox", SAMPLE_MBOX);
+        let b = write_mbox(&dir, "b.mbox", SAMPLE_MBOX);
+        let ma = parse_mbox_file(&a).await.unwrap();
+        let mb = parse_mbox_file(&b).await.unwrap();
+        assert_eq!(ma.len(), 2, "file a must have 2 messages");
+        assert_eq!(mb.len(), 2, "file b must have 2 messages");
     }
 }

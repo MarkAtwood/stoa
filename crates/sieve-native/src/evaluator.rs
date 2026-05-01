@@ -33,9 +33,15 @@ use std::cmp::Reverse;
 use std::collections::HashMap;
 use tracing::warn;
 
+/// Maximum compiled regexes kept per thread. Prevents unbounded growth in
+/// long-running SMTP processes that receive many distinct Sieve :regex patterns.
+const REGEX_CACHE_CAP: usize = 256;
+
 thread_local! {
-    static REGEX_CACHE: RefCell<HashMap<(String, bool), fancy_regex::Regex>> =
-        RefCell::new(HashMap::new());
+    static REGEX_CACHE: RefCell<lru::LruCache<(String, bool), fancy_regex::Regex>> =
+        RefCell::new(lru::LruCache::new(
+            std::num::NonZeroUsize::new(REGEX_CACHE_CAP).expect("cache cap > 0"),
+        ));
 }
 
 // ---------------------------------------------------------------------------
@@ -464,24 +470,28 @@ fn str_matches_regex(value: &str, pattern: &str, casemap: bool) -> bool {
 fn str_matches_regex_pat(value: &str, anchored: &str, casemap: bool) -> bool {
     REGEX_CACHE.with(|cache| {
         let mut cache = cache.borrow_mut();
-        let re = match cache.entry((anchored.to_string(), casemap)) {
-            std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
-            std::collections::hash_map::Entry::Vacant(e) => {
-                let pat = if casemap {
-                    format!("(?i){}", e.key().0)
-                } else {
-                    e.key().0.clone()
-                };
-                match fancy_regex::Regex::new(&pat) {
-                    Ok(re) => e.insert(re),
-                    Err(err) => {
-                        warn!(pattern = %pat, "Sieve :regex compile error: {err}");
-                        return false;
-                    }
+        let key = (anchored.to_string(), casemap);
+
+        // Insert on miss; LruCache evicts the LRU entry when CAP is reached.
+        if cache.get(&key).is_none() {
+            let pat = if casemap {
+                format!("(?i){anchored}")
+            } else {
+                anchored.to_string()
+            };
+            match fancy_regex::Regex::new(&pat) {
+                Ok(re) => {
+                    cache.put(key.clone(), re);
+                }
+                Err(err) => {
+                    warn!(pattern = %pat, "Sieve :regex compile error: {err}");
+                    return false;
                 }
             }
-        };
-        re.is_match(value).unwrap_or_else(|e| {
+        }
+
+        // get() promotes the entry to MRU; unwrap is safe: we just ensured it exists.
+        cache.get(&key).expect("just inserted").is_match(value).unwrap_or_else(|e| {
             warn!(pattern = %anchored, casemap, "Sieve :regex execution error (backtracking limit?): {e}");
             false
         })

@@ -147,6 +147,38 @@ impl LogStorage for SqliteLogStorage {
         Ok(row.is_some())
     }
 
+    async fn get_parent_cids(
+        &self,
+        id: &LogEntryId,
+    ) -> Result<Option<Vec<cid::Cid>>, StorageError> {
+        let id_bytes = id.as_bytes().to_vec();
+
+        // First check if the entry exists at all.
+        let exists: Option<(i64,)> =
+            sqlx::query_as("SELECT 1 FROM log_entries WHERE id = ? LIMIT 1")
+                .bind(&id_bytes)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(db_err)?;
+        if exists.is_none() {
+            return Ok(None);
+        }
+
+        // Fetch only the parent CIDs — skip hlc_timestamp, article_cid, operator_signature.
+        let parent_rows: Vec<(Vec<u8>,)> =
+            sqlx::query_as("SELECT parent_id FROM log_entry_parents WHERE entry_id = ?")
+                .bind(&id_bytes)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(db_err)?;
+
+        let mut parent_cids = Vec::with_capacity(parent_rows.len());
+        for (pb,) in parent_rows {
+            parent_cids.push(cid_from_bytes(&pb)?);
+        }
+        Ok(Some(parent_cids))
+    }
+
     async fn list_tips(&self, group: &GroupName) -> Result<Vec<LogEntryId>, StorageError> {
         let rows: Vec<(Vec<u8>,)> =
             sqlx::query_as("SELECT tip_id FROM group_tips WHERE group_name = ?")

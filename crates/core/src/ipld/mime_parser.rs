@@ -154,26 +154,37 @@ fn parse_multipart(
 /// Split `body` into sections using the MIME boundary delimiter.
 /// Returns a Vec of byte slices representing the preamble + each part body.
 /// The end delimiter causes the remaining bytes to be dropped.
+///
+/// Uses `memchr::memmem` for an O(n) scan instead of checking `starts_with`
+/// at every line start (which is O(n × boundary_len) for short-line bodies).
 fn split_on_boundary<'a>(body: &'a [u8], delimiter: &[u8], end_delimiter: &[u8]) -> Vec<&'a [u8]> {
-    let mut result: Vec<&'a [u8]> = Vec::new();
-    let mut pos = 0usize;
-    let mut section_start = 0usize;
+    use memchr::memmem::Finder;
 
-    while pos < body.len() {
-        // Look for delimiter at start of current line.
+    let mut result: Vec<&'a [u8]> = Vec::new();
+    let finder = Finder::new(delimiter);
+    let mut section_start = 0usize;
+    let mut search_from = 0usize;
+
+    while let Some(pos) = finder.find(&body[search_from..]).map(|p| p + search_from) {
+        // Delimiter must be at a line start: at offset 0 or preceded by '\n'.
+        let at_line_start = pos == 0 || body[pos - 1] == b'\n';
+        if !at_line_start {
+            search_from = pos + 1;
+            continue;
+        }
+
+        // Check for end delimiter (e.g. "--boundary--") before treating as a
+        // regular delimiter. end_delimiter always starts with delimiter so the
+        // Finder will have found it here.
         if body[pos..].starts_with(end_delimiter) {
             result.push(trim_trailing_crlf(&body[section_start..pos]));
             return result;
         }
-        if body[pos..].starts_with(delimiter) {
-            result.push(trim_trailing_crlf(&body[section_start..pos]));
-            // Skip past the delimiter line.
-            let line_end = find_line_end(body, pos);
-            section_start = line_end;
-            pos = line_end;
-            continue;
-        }
-        pos = find_line_end(body, pos);
+
+        result.push(trim_trailing_crlf(&body[section_start..pos]));
+        let line_end = find_line_end(body, pos);
+        section_start = line_end;
+        search_from = line_end;
     }
 
     result.push(trim_trailing_crlf(&body[section_start..]));
