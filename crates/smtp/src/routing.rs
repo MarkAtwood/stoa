@@ -3,6 +3,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use mail_parser::{HeaderName, MessageParser};
 
+use crate::queue::header_section_end;
+
 /// Parse the List-ID value from an RFC 2919 header value string.
 ///
 /// Input is the full header value, e.g. `<rust-users.lists.rust-lang.org>`.
@@ -26,19 +28,7 @@ pub fn parse_list_id(header_value: &str) -> Option<String> {
 /// Only the header section (bytes before the first blank line) is parsed,
 /// avoiding a full body parse for what may be a multi-megabyte message.
 pub fn extract_list_id(raw_message: &[u8]) -> Option<String> {
-    // Locate the blank line that separates headers from body.
-    let header_end = raw_message
-        .windows(4)
-        .position(|w| w == b"\r\n\r\n")
-        .map(|p| p + 2) // include the trailing \r\n so the parser sees a complete header block
-        .or_else(|| {
-            raw_message
-                .windows(2)
-                .position(|w| w == b"\n\n")
-                .map(|p| p + 1)
-        })
-        .unwrap_or(raw_message.len());
-
+    let header_end = header_section_end(raw_message);
     let msg = MessageParser::default().parse(&raw_message[..header_end])?;
     let raw = msg.header_raw(HeaderName::ListId)?;
     parse_list_id(raw)
@@ -49,18 +39,7 @@ pub fn extract_list_id(raw_message: &[u8]) -> Option<String> {
 /// Only the header section (up to the first blank line) is scanned.
 /// The check is case-insensitive per RFC 2822 §2.2.
 pub fn has_newsgroups_header(raw_message: &[u8]) -> bool {
-    let header_end = raw_message
-        .windows(4)
-        .position(|w| w == b"\r\n\r\n")
-        .map(|p| p + 2)
-        .or_else(|| {
-            raw_message
-                .windows(2)
-                .position(|w| w == b"\n\n")
-                .map(|p| p + 1)
-        })
-        .unwrap_or(raw_message.len());
-
+    let header_end = header_section_end(raw_message);
     let headers = &raw_message[..header_end];
     // Header at start of message or after a newline (handles both \r\n and \n).
     headers
@@ -74,18 +53,7 @@ pub fn has_newsgroups_header(raw_message: &[u8]) -> bool {
 /// Only the header section (up to the first blank line) is scanned.
 /// The check is case-insensitive per RFC 2822 §2.2.
 pub fn has_message_id_header(raw_message: &[u8]) -> bool {
-    let header_end = raw_message
-        .windows(4)
-        .position(|w| w == b"\r\n\r\n")
-        .map(|p| p + 2)
-        .or_else(|| {
-            raw_message
-                .windows(2)
-                .position(|w| w == b"\n\n")
-                .map(|p| p + 1)
-        })
-        .unwrap_or(raw_message.len());
-
+    let header_end = header_section_end(raw_message);
     let headers = &raw_message[..header_end];
     // Check at start of message or after a newline (covers both \r\n and \n line endings).
     // "\nMessage-ID:" is 12 bytes (\n + 10 name chars + colon).

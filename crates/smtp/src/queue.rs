@@ -64,7 +64,7 @@ pub(crate) fn extract_message_id(bytes: &[u8]) -> Option<String> {
 }
 
 /// Return the byte offset of the end of the header section (the blank line
-/// separator), or the full length of `bytes` if no blank line is found.
+/// separator, inclusive), or the full length of `bytes` if no blank line is found.
 pub(crate) fn find_header_end(bytes: &[u8]) -> usize {
     let mut i = 0;
     while i < bytes.len() {
@@ -82,6 +82,26 @@ pub(crate) fn find_header_end(bytes: &[u8]) -> usize {
         i += 1; // skip the '\n'
     }
     bytes.len()
+}
+
+/// Return the byte offset of the end of the header block, excluding the blank
+/// line separator — i.e. through the final header line's `\r\n`.
+///
+/// This is the correct slice bound for passing to a header parser:
+/// `&bytes[..header_section_end(bytes)]` contains all headers without the
+/// trailing blank line.  Returns the full length of `bytes` if no blank line is found.
+pub(crate) fn header_section_end(bytes: &[u8]) -> usize {
+    bytes
+        .windows(4)
+        .position(|w| w == b"\r\n\r\n")
+        .map(|p| p + 2)
+        .or_else(|| {
+            bytes
+                .windows(2)
+                .position(|w| w == b"\n\n")
+                .map(|p| p + 1)
+        })
+        .unwrap_or(bytes.len())
 }
 
 /// If `line` starts with `field_name:` (case-insensitive), return the bytes

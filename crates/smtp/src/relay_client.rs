@@ -8,6 +8,7 @@ use tokio::time::timeout;
 
 use crate::config::SmtpRelayPeerConfig;
 use crate::relay_error::SmtpRelayError;
+use stoa_core::util::nntp_dot_stuff;
 
 const OPERATION_TIMEOUT: Duration = Duration::from_secs(30);
 /// RFC 5321 §4.5.3.1.5 — maximum reply line length is 512 octets including CRLF.
@@ -331,7 +332,7 @@ async fn run_smtp_session(
     }
 
     // 7. Dot-stuffed article body + terminator.
-    let stuffed = dot_stuff(article_bytes);
+    let stuffed = nntp_dot_stuff(article_bytes);
     writer
         .write_all(&stuffed)
         .await
@@ -395,18 +396,6 @@ fn check_250(code: u16, line: &str, context: &str) -> Result<(), SmtpRelayError>
 ///
 /// Any line beginning with `.` gets an extra `.` prepended.
 /// The `\r\n.\r\n` DATA terminator is added by the caller.
-pub fn dot_stuff(input: &[u8]) -> Vec<u8> {
-    let mut out = Vec::with_capacity(input.len() + 16);
-    let mut sol = true; // start-of-line
-    for &b in input {
-        if sol && b == b'.' {
-            out.push(b'.');
-        }
-        out.push(b);
-        sol = b == b'\n';
-    }
-    out
-}
 
 /// Parse one SMTP response line.
 ///
@@ -466,46 +455,46 @@ mod tests {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
 
-    // ---- dot_stuff ----
+    // ---- nntp_dot_stuff (SMTP dot-stuffing) ----
     // Oracle: RFC 5321 §4.5.2 — lines beginning with '.' receive an extra '.'.
 
     #[test]
     fn dot_stuff_prepends_dot_to_dot_lines() {
         let input = b".hello\r\nworld\r\n";
-        let output = dot_stuff(input);
+        let output = nntp_dot_stuff(input);
         assert_eq!(&output, b"..hello\r\nworld\r\n");
     }
 
     #[test]
     fn dot_stuff_leaves_non_dot_lines_unchanged() {
         let input = b"hello\r\nworld\r\n";
-        let output = dot_stuff(input);
+        let output = nntp_dot_stuff(input);
         assert_eq!(&output, input.as_ref());
     }
 
     #[test]
     fn dot_stuff_handles_multiple_dot_lines() {
         let input = b".a\r\nb\r\n.c\r\n";
-        let output = dot_stuff(input);
+        let output = nntp_dot_stuff(input);
         assert_eq!(&output, b"..a\r\nb\r\n..c\r\n");
     }
 
     #[test]
     fn dot_stuff_empty_input() {
-        assert_eq!(dot_stuff(b""), b"");
+        assert_eq!(nntp_dot_stuff(b""), b"");
     }
 
     #[test]
     fn dot_stuff_dot_not_at_line_start() {
         let input = b"hello.world\r\n";
-        let output = dot_stuff(input);
+        let output = nntp_dot_stuff(input);
         assert_eq!(&output, input.as_ref());
     }
 
     #[test]
     fn dot_stuff_leading_dot_first_line() {
         let input = b".first\r\nnormal\r\n";
-        let output = dot_stuff(input);
+        let output = nntp_dot_stuff(input);
         assert_eq!(&output, b"..first\r\nnormal\r\n");
     }
 

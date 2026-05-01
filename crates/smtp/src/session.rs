@@ -21,7 +21,7 @@ use crate::metrics::{
     SMTP_CONNECTIONS_TOTAL, SMTP_DATA_BYTES_TOTAL, SMTP_MESSAGES_ACCEPTED_TOTAL,
     SMTP_MESSAGES_REJECTED_TOTAL,
 };
-use crate::queue::NntpQueue;
+use crate::queue::{header_section_end, NntpQueue};
 use crate::{routing, store};
 
 /// Thread-safe cache of compiled Sieve scripts, keyed by username.
@@ -604,13 +604,12 @@ pub async fn run_session<S>(
                     }
 
                     // Prepend Authentication-Results header to the message.
-                    // Rotate in-place to avoid a second full-body allocation.
                     let header_bytes =
                         format!("Authentication-Results: {}\r\n", result.header).into_bytes();
-                    let header_len = header_bytes.len();
-                    raw_bytes.resize(raw_bytes.len() + header_len, 0);
-                    raw_bytes.rotate_right(header_len);
-                    raw_bytes[..header_len].copy_from_slice(&header_bytes);
+                    let mut new_bytes = Vec::with_capacity(header_bytes.len() + raw_bytes.len());
+                    new_bytes.extend_from_slice(&header_bytes);
+                    new_bytes.extend_from_slice(&raw_bytes);
+                    raw_bytes = new_bytes;
                 }
 
                 // ─── Received: header (RFC 5321 §4.4) ────────────────────────
@@ -628,10 +627,11 @@ pub async fn run_session<S>(
                         ehlo_domain, client_ip, config.hostname, date_str
                     );
                     let received_bytes = received.into_bytes();
-                    let received_len = received_bytes.len();
-                    raw_bytes.resize(raw_bytes.len() + received_len, 0);
-                    raw_bytes.rotate_right(received_len);
-                    raw_bytes[..received_len].copy_from_slice(&received_bytes);
+                    let mut new_bytes =
+                        Vec::with_capacity(received_bytes.len() + raw_bytes.len());
+                    new_bytes.extend_from_slice(&received_bytes);
+                    new_bytes.extend_from_slice(&raw_bytes);
+                    raw_bytes = new_bytes;
                 }
                 // ─────────────────────────────────────────────────────────────
 
@@ -1102,15 +1102,7 @@ async fn sieve_global(
 /// Used for mail loop detection: RFC 5321 §6.3 recommends rejecting messages
 /// with 25 or more `Received:` hops as a probable loop.
 fn count_received_headers(msg: &[u8]) -> usize {
-    // Find the end of the header section (first blank line).
-    let header_end = msg
-        .windows(4)
-        .position(|w| w == b"\r\n\r\n")
-        .map(|p| p + 2)
-        .or_else(|| msg.windows(2).position(|w| w == b"\n\n").map(|p| p + 1))
-        .unwrap_or(msg.len());
-
-    let headers = &msg[..header_end];
+    let headers = &msg[..header_section_end(msg)];
     let prefix = b"received:";
     let mut count = 0;
     let mut i = 0;

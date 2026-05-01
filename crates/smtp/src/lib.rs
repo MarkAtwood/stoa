@@ -14,7 +14,7 @@ pub mod sieve_admin;
 pub mod store;
 pub mod tls;
 
-pub use relay_client::{deliver_via_relay, dot_stuff, RelayEnvelope};
+pub use relay_client::{deliver_via_relay, RelayEnvelope};
 pub use relay_error::SmtpRelayError;
 pub use relay_health::PeerHealthState;
 pub use relay_queue::SmtpRelayQueue;
