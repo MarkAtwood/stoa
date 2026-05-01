@@ -1,4 +1,4 @@
-use stoa_auth::TrustedIssuerStore;
+use stoa_auth::{ClientCertStore, TrustedIssuerStore};
 
 use crate::{
     config::AuthConfig,
@@ -9,7 +9,6 @@ use crate::{
         response::Response,
         state::SessionState,
     },
-    store::client_cert_store::ClientCertStore,
 };
 
 /// Dispatch a parsed command, enforcing state machine preconditions.
@@ -245,7 +244,6 @@ mod tests {
     use crate::{
         config::{AuthConfig, UserCredential},
         session::{command::Command, context::SessionContext, state::SessionState},
-        store::client_cert_store::ClientCertStore,
     };
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 

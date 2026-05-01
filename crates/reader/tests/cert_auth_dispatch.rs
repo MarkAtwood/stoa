@@ -31,10 +31,10 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use stoa_auth::TrustedIssuerStore;
+use stoa_auth::ClientCertStore;
 use stoa_reader::{
     config::{AuthConfig, ClientCertEntry},
     session::{command::Command, context::SessionContext, dispatch::dispatch, state::SessionState},
-    store::client_cert_store::ClientCertStore,
 };
 
 // ---------------------------------------------------------------------------
@@ -98,7 +98,7 @@ fn ctx_tls_no_cert(auth_required: bool) -> SessionContext {
 }
 
 fn cert_store_with_alice() -> ClientCertStore {
-    ClientCertStore::from_entries(&[entry(ALICE_CERT_FINGERPRINT, "alice")])
+    ClientCertStore::from_config(&[entry(ALICE_CERT_FINGERPRINT, "alice")])
 }
 
 // ---------------------------------------------------------------------------

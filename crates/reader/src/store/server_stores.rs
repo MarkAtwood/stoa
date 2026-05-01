@@ -26,7 +26,7 @@ use stoa_verify::VerificationStore;
 use crate::post::ipfs_write::{IpfsBlockStore, MemIpfsStore};
 use crate::search::TantivySearchIndex;
 use crate::store::article_numbers::ArticleNumberStore;
-use crate::store::client_cert_store::ClientCertStore;
+use stoa_auth::ClientCertStore;
 use crate::store::overview::OverviewStore;
 use stoa_auth::CredentialStore;
 
