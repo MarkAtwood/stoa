@@ -3,6 +3,7 @@
 use std::path::Path;
 use std::time::Instant;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::TcpStream;
 
 /// Summary of a completed import run.
@@ -111,7 +112,12 @@ pub async fn run_ihave_import(
     Ok(summary)
 }
 
-/// Process a slice of article files, sending each via IHAVE.
+/// Process a slice of article files over a single TCP connection.
+///
+/// Opens one connection to `addr` at the start of the chunk and reuses it
+/// for every article.  On any I/O error the connection is re-established
+/// once; if reconnection also fails the remaining articles are counted as
+/// rejected.
 ///
 /// Returns `(accepted, rejected, duplicates, malformed)`.
 async fn process_chunk(
@@ -122,6 +128,9 @@ async fn process_chunk(
     let mut rejected = 0usize;
     let mut duplicates = 0usize;
     let mut malformed = 0usize;
+
+    // Establish the shared connection for this chunk.
+    let mut conn = connect_nntp(&addr).await;
 
     for path in &paths {
         let content = match tokio::fs::read(path).await {
@@ -151,17 +160,40 @@ async fn process_chunk(
             }
         };
 
-        match send_ihave(&addr, &msgid, &content).await {
-            SendResult::Accepted => {
+        // If there is no live connection, try to reconnect once.
+        if conn.is_none() {
+            conn = connect_nntp(&addr).await;
+        }
+
+        let result = match conn.as_mut() {
+            Some((reader, writer)) => {
+                send_ihave_on_conn(reader, writer, &msgid, &content).await
+            }
+            None => {
+                tracing::warn!("no connection to {addr}, counting {msgid} as rejected");
+                rejected += 1;
+                continue;
+            }
+        };
+
+        match result {
+            Ok(SendResult::Accepted) => {
                 tracing::debug!("accepted: {msgid}");
                 accepted += 1;
             }
-            SendResult::Duplicate => {
+            Ok(SendResult::Duplicate) => {
                 tracing::debug!("duplicate: {msgid}");
                 duplicates += 1;
             }
-            SendResult::Rejected => {
+            Ok(SendResult::Rejected) => {
                 tracing::info!("rejected: {msgid}");
+                rejected += 1;
+            }
+            Err(e) => {
+                // I/O error on the connection; drop it so the next article
+                // triggers a reconnect.
+                tracing::warn!("connection error sending {msgid}: {e}; will reconnect");
+                conn = None;
                 rejected += 1;
             }
         }
@@ -170,78 +202,86 @@ async fn process_chunk(
     (accepted, rejected, duplicates, malformed)
 }
 
-/// Open a TCP connection to `addr`, read the greeting, and send one article via IHAVE.
-async fn send_ihave(addr: &str, msgid: &str, article_bytes: &[u8]) -> SendResult {
+/// Open a TCP connection to `addr` and read the NNTP greeting.
+///
+/// Returns `Some((reader, writer))` on success, `None` on any failure.
+async fn connect_nntp(
+    addr: &str,
+) -> Option<(BufReader<OwnedReadHalf>, OwnedWriteHalf)> {
     let stream = match TcpStream::connect(addr).await {
         Ok(s) => s,
         Err(e) => {
             tracing::warn!("TCP connect to {addr} failed: {e}");
-            return SendResult::Rejected;
+            return None;
         }
     };
 
-    let (reader_half, mut writer) = stream.into_split();
+    let (reader_half, writer) = stream.into_split();
     let mut reader = BufReader::new(reader_half);
     let mut line = String::new();
 
     // Read greeting (200 or 201).
-    line.clear();
     if reader.read_line(&mut line).await.is_err() {
-        return SendResult::Rejected;
+        return None;
     }
     let code = crate::import::parse_nntp_response_code(&line);
     if code != 200 && code != 201 {
         tracing::warn!("unexpected greeting from {addr}: {}", line.trim());
-        return SendResult::Rejected;
+        return None;
     }
+
+    Some((reader, writer))
+}
+
+/// Send one article via IHAVE on an already-established connection.
+///
+/// Returns `Ok(SendResult)` on protocol success/failure, or `Err` if an I/O
+/// error occurs (meaning the connection should be discarded).
+async fn send_ihave_on_conn(
+    reader: &mut BufReader<OwnedReadHalf>,
+    writer: &mut OwnedWriteHalf,
+    msgid: &str,
+    article_bytes: &[u8],
+) -> Result<SendResult, std::io::Error> {
+    let mut line = String::new();
 
     // Send IHAVE <msgid>.
     let ihave_cmd = format!("IHAVE {msgid}\r\n");
-    if writer.write_all(ihave_cmd.as_bytes()).await.is_err() {
-        return SendResult::Rejected;
-    }
+    writer.write_all(ihave_cmd.as_bytes()).await?;
 
     // Read IHAVE response.
     line.clear();
-    if reader.read_line(&mut line).await.is_err() {
-        return SendResult::Rejected;
-    }
+    reader.read_line(&mut line).await?;
     let code = crate::import::parse_nntp_response_code(&line);
 
     match code {
-        435 => return SendResult::Duplicate,
+        435 => return Ok(SendResult::Duplicate),
         335 => {} // proceed to send article
         _ => {
             tracing::info!("IHAVE {msgid} got code {code}: {}", line.trim());
-            return SendResult::Rejected;
+            return Ok(SendResult::Rejected);
         }
     }
 
     // Send article with dot-stuffing, terminated by ".\r\n".
     let stuffed = stoa_core::util::nntp_dot_stuff(article_bytes);
-    if writer.write_all(&stuffed).await.is_err() {
-        return SendResult::Rejected;
-    }
-    if writer.write_all(b".\r\n").await.is_err() {
-        return SendResult::Rejected;
-    }
+    writer.write_all(&stuffed).await?;
+    writer.write_all(b".\r\n").await?;
 
     // Read final transfer response.
     line.clear();
-    if reader.read_line(&mut line).await.is_err() {
-        return SendResult::Rejected;
-    }
+    reader.read_line(&mut line).await?;
     let code = crate::import::parse_nntp_response_code(&line);
 
     match code {
-        235 => SendResult::Accepted,
+        235 => Ok(SendResult::Accepted),
         436 | 437 => {
             tracing::info!("transfer of {msgid} failed with code {code}");
-            SendResult::Rejected
+            Ok(SendResult::Rejected)
         }
         _ => {
             tracing::info!("unexpected final code {code} for {msgid}");
-            SendResult::Rejected
+            Ok(SendResult::Rejected)
         }
     }
 }
