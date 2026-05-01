@@ -90,6 +90,43 @@ pub async fn inbox_handler(
     }
 }
 
+/// Fetch the `inbox` URL from an ActivityPub actor document.
+///
+/// Returns the `inbox` field value from the fetched actor JSON.
+/// Falls back to `{actor_url}/inbox` if the fetch fails or the field is absent,
+/// logging a warning so operators know the fallback was used.
+async fn fetch_actor_inbox(http_client: &reqwest::Client, actor_url: &str) -> String {
+    match http_client
+        .get(actor_url)
+        .header("Accept", "application/activity+json, application/json")
+        .timeout(std::time::Duration::from_secs(5))
+        .send()
+        .await
+    {
+        Ok(resp) if resp.status().is_success() => {
+            match resp.json::<serde_json::Value>().await {
+                Ok(actor) => {
+                    if let Some(inbox) = actor["inbox"].as_str() {
+                        return inbox.to_string();
+                    }
+                    warn!(actor = %actor_url, "actor document has no inbox field; using fallback");
+                }
+                Err(e) => {
+                    warn!(actor = %actor_url, error = %e, "failed to parse actor JSON; using fallback inbox URL");
+                }
+            }
+        }
+        Ok(resp) => {
+            warn!(actor = %actor_url, status = %resp.status(), "actor fetch returned error; using fallback inbox URL");
+        }
+        Err(e) => {
+            warn!(actor = %actor_url, error = %e, "failed to fetch actor document; using fallback inbox URL");
+        }
+    }
+    // Fallback: derive inbox by appending /inbox (works for Mastodon-style actors).
+    format!("{}/inbox", actor_url)
+}
+
 async fn handle_follow(
     ap_state: &Arc<crate::activitypub::ActivityPubState>,
     base_url: &str,
@@ -103,11 +140,7 @@ async fn handle_follow(
             return StatusCode::BAD_REQUEST.into_response();
         }
     };
-    // NOTE: The correct implementation would fetch the actor document and read its
-    // inbox field. For now, we assume inbox is at {actor_url}/inbox, which works
-    // for Mastodon-style actors. A future hardening pass should fetch the actor
-    // document via the shared HTTP client.
-    let inbox_url = format!("{}/inbox", actor_url);
+    let inbox_url = fetch_actor_inbox(&ap_state.http_client, &actor_url).await;
 
     if let Err(e) = ap_state
         .follower_store

@@ -251,6 +251,12 @@ impl fmt::Display for StorageError {
 
 impl std::error::Error for StorageError {}
 
+impl From<sqlx::Error> for StorageError {
+    fn from(e: sqlx::Error) -> Self {
+        Self::Database(e.to_string())
+    }
+}
+
 // ── SigningError ──────────────────────────────────────────────────────────────
 
 /// Ed25519 signing and key management errors.

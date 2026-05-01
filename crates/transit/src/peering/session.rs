@@ -50,6 +50,12 @@ pub struct PeeringShared {
     /// Keyed by peer IP (not IP:port) so that multiple simultaneous connections
     /// from one host share a single budget — preventing N-connection burst
     /// multiplication.
+    ///
+    /// `std::sync::Mutex` (not `tokio::sync::Mutex`) is correct here: the lock
+    /// is acquired, `.check()` is called synchronously, and the guard drops
+    /// before any `.await` in the surrounding expression.  The critical section
+    /// is a single HashMap lookup and token-bucket arithmetic — never an I/O call
+    /// or any other await point.
     pub peer_rate_limiter: Arc<std::sync::Mutex<PeerRateLimiter>>,
     /// Transit SQLite pool for peer registry and blacklist lookups.
     pub transit_pool: Arc<sqlx::AnyPool>,

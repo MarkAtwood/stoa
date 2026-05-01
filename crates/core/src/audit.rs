@@ -4,11 +4,21 @@
 //! No UPDATE or DELETE ever runs against this table.
 
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use sqlx::AnyPool;
 
 use crate::error::StorageError;
+
+/// Maximum number of audit events buffered in the channel before backpressure.
+const AUDIT_CHANNEL_CAPACITY: usize = 1000;
+
+/// Maximum number of events written in a single batch flush.
+const AUDIT_BATCH_SIZE: usize = 100;
+
+/// Interval between forced batch flushes when the channel is quiet.
+const AUDIT_FLUSH_INTERVAL: Duration = Duration::from_secs(5);
 
 /// Running count of audit events dropped due to channel overflow or DB failure.
 ///
@@ -217,9 +227,16 @@ impl AuditLogger for AuditLoggerHandle {
 
 /// Audit logger that appends one JSON object per line to a file.
 ///
-/// The file is opened with `O_APPEND | O_CREAT` so multiple processes can
-/// append to the same log file without overwriting each other (on POSIX systems
-/// where `write(2)` is atomic for writes up to `PIPE_BUF` bytes).
+/// The file is opened with `O_APPEND | O_CREAT`.  Concurrent writers within
+/// this process are serialized by the inner `Mutex<File>`, which guarantees
+/// that each JSON line is written atomically from the application's perspective
+/// regardless of event size.
+///
+/// Note: POSIX `O_APPEND` only guarantees atomic `write(2)` calls up to
+/// `PIPE_BUF` bytes (≥ 512 on Linux, typically 4 096).  Events larger than
+/// this limit would not be atomic at the OS level.  The `Mutex` here ensures
+/// in-process serialization; if multiple independent processes write to the
+/// same file, OS-level atomicity is not guaranteed for large events.
 /// The file is never truncated or rotated by this implementation.
 pub struct JsonlFileLogger {
     file: std::sync::Mutex<std::fs::File>,
@@ -295,7 +312,7 @@ pub fn build_audit_logger(
 ) -> Result<std::sync::Arc<dyn AuditLogger>, String> {
     match config.backend {
         AuditBackend::Sqlite => {
-            let handle = start_audit_logger(pool.clone(), 100, std::time::Duration::from_secs(5));
+            let handle = start_audit_logger(pool.clone(), AUDIT_BATCH_SIZE, AUDIT_FLUSH_INTERVAL);
             Ok(std::sync::Arc::new(handle) as std::sync::Arc<dyn AuditLogger>)
         }
         AuditBackend::File => {
@@ -322,7 +339,7 @@ pub fn start_audit_logger(
     batch_size: usize,
     flush_interval: std::time::Duration,
 ) -> AuditLoggerHandle {
-    let (tx, rx) = tokio::sync::mpsc::channel::<AuditEvent>(1000);
+    let (tx, rx) = tokio::sync::mpsc::channel::<AuditEvent>(AUDIT_CHANNEL_CAPACITY);
     let join = tokio::spawn(audit_logger_task(pool, rx, batch_size, flush_interval));
     AuditLoggerHandle { tx, join }
 }
