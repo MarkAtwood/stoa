@@ -220,7 +220,7 @@ async fn do_post(
                     line.trim_end().to_string(),
                 ));
             }
-            let shift = attempt.min(63) as u32;
+            let shift = attempt.min(63);
             let backoff = Duration::from_millis(500u64.saturating_mul(1u64 << shift));
             warn!(
                 attempt,

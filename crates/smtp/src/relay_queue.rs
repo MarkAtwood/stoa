@@ -279,7 +279,7 @@ impl SmtpRelayQueue {
     /// atomically, avoiding per-drain-cycle directory scans.
     async fn init_dead_letter_count(&self) {
         let dead_dir = &self.dead_dir;
-        let count = Self::collect_dir_entries(&dead_dir)
+        let count = Self::collect_dir_entries(dead_dir)
             .await
             .into_iter()
             .filter(|e| e.path().extension().is_some_and(|x| x == "env"))

@@ -106,7 +106,7 @@ enum LoopExit {
         acceptor: Arc<TlsAcceptor>,
         tcp: TcpStream,
         server: Box<Server>,
-        ctx: SessionContext,
+        ctx: Box<SessionContext>,
     },
 }
 
@@ -161,7 +161,7 @@ pub async fn run_session_plain(
                     // Reuse the existing server (no greeting pending) with the
                     // new TLS stream.  Per RFC 9051 §6.2.1, no greeting is sent.
                     let tls_imap_stream = Stream::tls(TlsStreamEnum::Server(tls_stream));
-                    match run_command_loop(tls_imap_stream, server, ctx).await {
+                    match run_command_loop(tls_imap_stream, server, *ctx).await {
                         LoopExit::Done => {}
                         LoopExit::StartTlsRequested { .. } => {
                             warn!(peer = %peer, "unexpected STARTTLS exit after post-STARTTLS session");
@@ -332,7 +332,7 @@ async fn run_command_loop(
                                 acceptor,
                                 tcp,
                                 server,
-                                ctx,
+                                ctx: Box::new(ctx),
                             };
                         } else {
                             // tls_acceptor was None — STARTTLS not available.

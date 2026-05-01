@@ -18,6 +18,7 @@ use stoa_core::util::nntp_dot_stuff;
 /// type implements both [`AsyncRead`] and [`AsyncWrite`].  Using an enum here
 /// avoids the heap allocation that `Box<dyn AsyncRead + …>` requires.
 #[pin_project(project = TlsOrPlainProj)]
+#[allow(clippy::large_enum_variant)]
 enum TlsOrPlain {
     Plain(#[pin] TcpStream),
     Tls(#[pin] tokio_rustls::client::TlsStream<TcpStream>),
@@ -437,11 +438,6 @@ fn check_250(code: u16, line: &str, context: &str) -> Result<(), SmtpRelayError>
         ))),
     }
 }
-
-/// Perform dot-stuffing on article bytes per RFC 5321 §4.5.2.
-///
-/// Any line beginning with `.` gets an extra `.` prepended.
-/// The `\r\n.\r\n` DATA terminator is added by the caller.
 
 /// Parse one SMTP response line.
 ///
