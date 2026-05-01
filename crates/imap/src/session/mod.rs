@@ -4,7 +4,8 @@
 //!
 //! ```text
 //! connect
-//!   └─> NotAuthenticated  (greeting sent; LOGINDISABLED if no TLS)
+//!   └─> NotAuthenticated  (greeting sent; STARTTLS advertised if TLS acceptor available)
+//!           └─> [STARTTLS] ──> (TLS handshake) ──> NotAuthenticated (no greeting re-sent)
 //!           └─> [AUTH=PLAIN / AUTH=LOGIN] ──> Authenticated
 //!                   └─> [SELECT / EXAMINE]  ──> Selected(mailbox)
 //!                           └─> [CLOSE / EXPUNGE] ──> Authenticated
@@ -31,7 +32,7 @@ use imap_next::{
 };
 use sqlx::SqlitePool;
 use tokio::net::TcpStream;
-use tokio_rustls::{server::TlsStream, TlsStream as TlsStreamEnum};
+use tokio_rustls::{server::TlsStream, TlsAcceptor, TlsStream as TlsStreamEnum};
 use tracing::{debug, info, warn};
 
 use imap_types::extensions::enable::CapabilityEnable;
@@ -73,6 +74,9 @@ pub struct SessionContext {
     pub peer: SocketAddr,
     /// Whether the transport is TLS (IMAPS or post-STARTTLS).
     pub tls: bool,
+    /// TLS acceptor for STARTTLS upgrade on plain connections.
+    /// `None` when the session is already TLS or when no TLS is configured.
+    pub tls_acceptor: Option<Arc<TlsAcceptor>>,
     pub state: ImapState,
     /// In-progress multi-step authentication state.
     pub auth_progress: AuthProgress,
@@ -87,28 +91,89 @@ pub struct SessionContext {
     pub imap4rev2_enabled: bool,
 }
 
+/// Why the command loop exited.
+enum LoopExit {
+    /// Normal termination: LOGOUT, EOF, error, or idle timeout.
+    Done,
+    /// Client issued `STARTTLS`; the tagged OK has been flushed.
+    ///
+    /// The `server` state machine is intact (no greeting pending, all prior
+    /// responses flushed).  The caller must perform the TLS handshake using
+    /// `acceptor` on the raw TCP stream extracted from `stream`, then wrap the
+    /// resulting TLS stream as a new `Stream::tls` and continue the session by
+    /// passing the carried `server` and updated `ctx` to `run_command_loop`.
+    StartTlsRequested {
+        acceptor: Arc<TlsAcceptor>,
+        tcp: TcpStream,
+        server: Box<Server>,
+        ctx: SessionContext,
+    },
+}
+
 /// Entry point for a plain-text IMAP connection.
+///
+/// If `tls_acceptor` is `Some`, `STARTTLS` is advertised in `CAPABILITY`
+/// responses and the session upgrades to TLS in-place when the client issues
+/// `STARTTLS`.  If `None`, STARTTLS is not offered.
 pub async fn run_session_plain(
     stream: TcpStream,
     peer: SocketAddr,
     config: Arc<Config>,
     pool: Arc<SqlitePool>,
     credential_store: Arc<stoa_auth::CredentialStore>,
+    tls_acceptor: Option<Arc<TlsAcceptor>>,
 ) {
-    let imap_stream = Stream::insecure(stream);
     let ctx = SessionContext {
         pool,
         config,
         credential_store,
         peer,
         tls: false,
+        tls_acceptor,
         state: ImapState::NotAuthenticated,
         auth_progress: AuthProgress::None,
         idle_tag: None,
         auth_failures: 0,
         imap4rev2_enabled: false,
     };
-    run_session_inner(imap_stream, ctx).await;
+    let server = build_server(&ctx);
+    let imap_stream = Stream::insecure(stream);
+    match run_command_loop(imap_stream, server, ctx).await {
+        LoopExit::Done => {}
+        LoopExit::StartTlsRequested {
+            acceptor,
+            tcp,
+            server,
+            mut ctx,
+        } => {
+            info!(peer = %peer, "STARTTLS: performing TLS handshake");
+            match acceptor.accept(tcp).await {
+                Ok(tls_stream) => {
+                    // RFC 9051 §6.2.1: reset session state (no re-greeting).
+                    ctx.tls = true;
+                    ctx.tls_acceptor = None;
+                    ctx.state = ImapState::NotAuthenticated;
+                    ctx.auth_progress = AuthProgress::None;
+                    ctx.idle_tag = None;
+                    ctx.auth_failures = 0;
+                    ctx.imap4rev2_enabled = false;
+                    info!(peer = %peer, "STARTTLS: session resumed over TLS");
+                    // Reuse the existing server (no greeting pending) with the
+                    // new TLS stream.  Per RFC 9051 §6.2.1, no greeting is sent.
+                    let tls_imap_stream = Stream::tls(TlsStreamEnum::Server(tls_stream));
+                    match run_command_loop(tls_imap_stream, server, ctx).await {
+                        LoopExit::Done => {}
+                        LoopExit::StartTlsRequested { .. } => {
+                            warn!(peer = %peer, "unexpected STARTTLS exit after post-STARTTLS session");
+                        }
+                    }
+                }
+                Err(e) => {
+                    warn!(peer = %peer, "STARTTLS: TLS handshake failed: {e}");
+                }
+            }
+        }
+    }
 }
 
 /// Entry point for an implicit-TLS IMAPS connection.
@@ -119,36 +184,34 @@ pub async fn run_session_tls(
     pool: Arc<SqlitePool>,
     credential_store: Arc<stoa_auth::CredentialStore>,
 ) {
-    // Wrap server-side TlsStream into the enum variant that imap-next expects.
-    let imap_stream = Stream::tls(TlsStreamEnum::Server(stream));
     let ctx = SessionContext {
         pool,
         config,
         credential_store,
         peer,
         tls: true,
+        tls_acceptor: None, // already TLS; STARTTLS is rejected with BAD
         state: ImapState::NotAuthenticated,
         auth_progress: AuthProgress::None,
         idle_tag: None,
         auth_failures: 0,
         imap4rev2_enabled: false,
     };
-    run_session_inner(imap_stream, ctx).await;
+    let server = build_server(&ctx);
+    // Wrap server-side TlsStream into the enum variant that imap-next expects.
+    let imap_stream = Stream::tls(TlsStreamEnum::Server(stream));
+    match run_command_loop(imap_stream, server, ctx).await {
+        LoopExit::Done => {}
+        // STARTTLS is always rejected on implicit-TLS sessions (ctx.tls = true),
+        // so this arm is unreachable in correct operation.
+        LoopExit::StartTlsRequested { .. } => {
+            warn!(peer = %peer, "unexpected STARTTLS exit on implicit-TLS session");
+        }
+    }
 }
 
-/// Core event loop shared by plain and TLS sessions.
-///
-/// Drives the `imap-next` state machine until the session ends (LOGOUT or
-/// connection error).
-async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
-    let greeting = match Greeting::ok(None, "IMAP4rev1 stoa-imap server ready") {
-        Ok(g) => g,
-        Err(e) => {
-            warn!(peer = %ctx.peer, "failed to construct IMAP greeting: {e}");
-            return;
-        }
-    };
-    let mut options = Options::default();
+/// Build a fresh `Server` with a greeting and the appropriate options.
+fn build_server(ctx: &SessionContext) -> Box<Server> {
     // Clamp to u32::MAX - 1 so that max_command_size can always be set strictly larger
     // (imap-next requires max_literal_size < max_command_size, strict inequality).
     let max_lit = ctx
@@ -156,26 +219,42 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
         .limits
         .max_literal_bytes
         .min((u32::MAX - 1) as u64) as u32;
-    options.max_literal_size = max_lit;
-    // Cap command-line heap allocation.  The library requires
-    // max_literal_size < max_command_size, so clamp upward if necessary.
     let cmd_cap = ctx
         .config
         .limits
         .max_command_size_bytes
         .min(u32::MAX as u64) as u32;
+    let mut options = Options::default();
+    options.max_literal_size = max_lit;
     options.max_command_size = cmd_cap.max(max_lit.saturating_add(1));
-    let mut server = Server::new(options, greeting);
+    let greeting = Greeting::ok(None, "IMAP4rev1 stoa-imap server ready")
+        .expect("static greeting is valid");
+    Box::new(Server::new(options, greeting))
+}
 
+/// Core command dispatch loop.
+///
+/// Drives the `imap-next` state machine until the session ends (LOGOUT,
+/// connection error, idle timeout) or until a STARTTLS upgrade is requested.
+///
+/// When called for a post-STARTTLS session the `server` carries no pending
+/// greeting (the greeting was already sent and acknowledged on the plain leg).
+/// The loop handles `GreetingSent` as a no-op for the initial plain/TLS session
+/// and simply never sees it on the reused post-STARTTLS server.
+async fn run_command_loop(
+    mut stream: Stream,
+    mut server: Box<Server>,
+    mut ctx: SessionContext,
+) -> LoopExit {
     info!(peer = %ctx.peer, tls = ctx.tls, "IMAP session started");
 
     loop {
         let idle_timeout = Duration::from_secs(ctx.config.limits.idle_timeout_secs);
-        let event = match tokio::time::timeout(idle_timeout, stream.next(&mut server)).await {
+        let event = match tokio::time::timeout(idle_timeout, stream.next(&mut *server)).await {
             Ok(Ok(ev)) => ev,
             Ok(Err(e)) => {
                 debug!(peer = %ctx.peer, "IMAP session ended: {e}");
-                break;
+                return LoopExit::Done;
             }
             Err(_elapsed) => {
                 // RFC 3501 §5.4: server may close idle connections with BYE.
@@ -188,14 +267,12 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
                     Status::bye(None, "Idle timeout — connection closed")
                         .expect("static bye is valid"),
                 );
-                // Best-effort flush with a short deadline so a dead client
-                // cannot stall shutdown.
                 let _ = tokio::time::timeout(
                     Duration::from_secs(5),
                     drain_until(&mut stream, &mut server, bye),
                 )
                 .await;
-                break;
+                return LoopExit::Done;
             }
         };
 
@@ -214,12 +291,57 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
                 let tag = command.tag;
                 match command.body {
                     CommandBody::Capability => {
-                        server.enqueue_data(commands::capability_data(ctx.tls));
+                        let tls_available = ctx.tls_acceptor.is_some();
+                        server.enqueue_data(commands::capability_data(ctx.tls, tls_available));
                         server.enqueue_status(commands::capability_ok(tag));
                     }
 
                     CommandBody::Noop => {
                         server.enqueue_status(commands::noop_ok(tag));
+                    }
+
+                    // RFC 9051 §6.2.1: STARTTLS upgrades the plain connection to TLS.
+                    CommandBody::StartTLS => {
+                        if ctx.tls {
+                            // Already in TLS (IMAPS or post-STARTTLS).
+                            server.enqueue_status(
+                                Status::bad(Some(tag), None, "Already in TLS")
+                                    .expect("static bad"),
+                            );
+                        } else if !matches!(ctx.state, ImapState::NotAuthenticated) {
+                            // RFC 9051 §6.2.1: STARTTLS only valid in Not-Authenticated.
+                            server.enqueue_status(
+                                Status::bad(
+                                    Some(tag),
+                                    None,
+                                    "STARTTLS not permitted in authenticated state",
+                                )
+                                .expect("static bad"),
+                            );
+                        } else if let Some(acceptor) = ctx.tls_acceptor.take() {
+                            // Send tagged OK then flush it before handing off.
+                            let ok = server.enqueue_status(
+                                Status::ok(Some(tag), None, "Begin TLS negotiation now")
+                                    .expect("static ok"),
+                            );
+                            drain_until(&mut stream, &mut server, ok).await;
+                            info!(peer = %ctx.peer, "STARTTLS: OK sent, handing off to TLS");
+                            // Extract the raw TcpStream from the imap-next Stream.
+                            // The `expose_stream` feature enables `From<Stream> for TcpStream`.
+                            let tcp: TcpStream = stream.into();
+                            return LoopExit::StartTlsRequested {
+                                acceptor,
+                                tcp,
+                                server,
+                                ctx,
+                            };
+                        } else {
+                            // tls_acceptor was None — STARTTLS not available.
+                            server.enqueue_status(
+                                Status::bad(Some(tag), None, "STARTTLS not available")
+                                    .expect("static bad"),
+                            );
+                        }
                     }
 
                     CommandBody::Logout => {
@@ -231,7 +353,7 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
                         );
                         ctx.state = ImapState::Logout;
                         drain_until(&mut stream, &mut server, last).await;
-                        break;
+                        return LoopExit::Done;
                     }
 
                     CommandBody::Select { mailbox, .. } => match ctx.state {
@@ -686,11 +808,9 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
                 drain_until(&mut stream, &mut server, bye),
             )
             .await;
-            break;
+            return LoopExit::Done;
         }
     }
-
-    info!(peer = %ctx.peer, "IMAP session ended");
 }
 
 /// Drive the event loop until the response identified by `target` has been sent.
@@ -790,7 +910,7 @@ mod tests {
     // returns `ReceiveError::MessageTooLong`; `handle_receive_interrupt` maps
     // that to `Interrupt::Error(Error::CommandTooLong { discarded_bytes })`.
     // The library does NOT close the connection — it returns the error to the
-    // caller.  Our session loop (`run_session_inner`) treats any `Err` as a
+    // caller.  Our session loop (`run_command_loop`) treats any `Err` as a
     // terminal condition and breaks, so the connection is dropped.
     //
     // The library's own `Default` for `max_command_size` is

@@ -93,7 +93,7 @@ async fn smoke_greeting_capability_noop_logout() {
     let srv_store = test_store(&config);
     tokio::spawn(async move {
         let (stream, peer) = listener.accept().await.expect("accept");
-        run_session_plain(stream, peer, srv_config, srv_pool, srv_store).await;
+        run_session_plain(stream, peer, srv_config, srv_pool, srv_store, None).await;
     });
 
     // Connect a raw client.
@@ -163,7 +163,7 @@ async fn smoke_unknown_command_returns_bad() {
     let srv_store = test_store(&config);
     tokio::spawn(async move {
         let (stream, peer) = listener.accept().await.expect("accept");
-        run_session_plain(stream, peer, srv_config, srv_pool, srv_store).await;
+        run_session_plain(stream, peer, srv_config, srv_pool, srv_store, None).await;
     });
 
     let stream = TcpStream::connect(addr).await.expect("connect");
@@ -511,6 +511,249 @@ async fn smoke_enable_imap4rev2_is_idempotent() {
     wr.write_all(b"E004 LOGOUT\r\n")
         .await
         .expect("write LOGOUT");
+    let _ = read_line(&mut rd).await; // BYE
+    let _ = read_line(&mut rd).await; // OK
+}
+
+// ── STARTTLS tests ────────────────────────────────────────────────────────────
+
+/// RFC 9051 §6.2.1: on a plain connection with a TLS acceptor wired in,
+/// STARTTLS must:
+///   1. appear in the CAPABILITY response
+///   2. respond `tag OK Begin TLS negotiation now`
+///   3. complete a TLS handshake on the same socket
+///   4. allow AUTH=PLAIN on the upgraded session
+///
+/// Oracle: RFC 9051 §6.2.1, RFC 3501 §6.2.1.
+#[tokio::test]
+async fn starttls_upgrade_succeeds() {
+    let pool = test_pool().await;
+    let config = test_config();
+    let (acceptor, connector) = make_test_tls_pair();
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+    let addr = listener.local_addr().expect("local addr");
+
+    let srv_pool = Arc::clone(&pool);
+    let srv_config = Arc::clone(&config);
+    let srv_store = test_store(&config);
+    let srv_acceptor = Arc::new(acceptor);
+    tokio::spawn(async move {
+        let (stream, peer) = listener.accept().await.expect("accept");
+        run_session_plain(
+            stream,
+            peer,
+            srv_config,
+            srv_pool,
+            srv_store,
+            Some(srv_acceptor),
+        )
+        .await;
+    });
+
+    // Connect plain TCP.
+    let stream = TcpStream::connect(addr).await.expect("connect");
+    let (rd, mut wr) = stream.into_split();
+    let mut rd = BufReader::new(rd);
+
+    // Greeting.
+    let greeting = read_line(&mut rd).await;
+    assert!(greeting.starts_with("* OK"), "greeting: {greeting}");
+
+    // CAPABILITY before upgrade — STARTTLS must be present.
+    wr.write_all(b"S01 CAPABILITY\r\n").await.expect("write");
+    let cap_data = read_line(&mut rd).await;
+    assert!(
+        cap_data.contains("STARTTLS"),
+        "STARTTLS must be advertised on plain connection, got: {cap_data}"
+    );
+    assert!(
+        !cap_data.contains("AUTH=PLAIN"),
+        "AUTH=PLAIN must NOT be advertised before STARTTLS, got: {cap_data}"
+    );
+    let cap_ok = read_line(&mut rd).await;
+    assert!(cap_ok.starts_with("S01 OK"), "got: {cap_ok}");
+
+    // STARTTLS command.
+    wr.write_all(b"S02 STARTTLS\r\n").await.expect("write");
+    let starttls_ok = read_line(&mut rd).await;
+    assert!(
+        starttls_ok.starts_with("S02 OK"),
+        "STARTTLS must respond OK, got: {starttls_ok}"
+    );
+    assert!(
+        starttls_ok.contains("Begin TLS"),
+        "OK text must mention TLS negotiation, got: {starttls_ok}"
+    );
+
+    // Perform TLS handshake — reassemble the OwnedRead/WriteHalves into a
+    // TcpStream by connecting a fresh socket through the connector.
+    // Because we split the TcpStream into halves, we cannot unsplit here.
+    // Instead: reconnect through the TLS connector.
+    //
+    // The server session is now waiting for TLS; the TCP socket is the one
+    // we already have.  We must upgrade it in place by wrapping the reunited
+    // halves.  tokio::net::tcp::OwnedReadHalf + OwnedWriteHalf do not expose
+    // reunite without going through the original TcpStream — so we use
+    // tokio::io::join to create a combined stream and wrap it in TlsConnector.
+    //
+    // However, tokio_rustls::TlsConnector::connect requires AsyncRead + AsyncWrite,
+    // which the joined stream satisfies.
+    let joined = tokio::io::join(rd, wr);
+    let server_name = ServerName::try_from("localhost")
+        .expect("valid server name");
+    let tls = connector
+        .connect(server_name, joined)
+        .await
+        .expect("TLS handshake must succeed after STARTTLS OK");
+    let (rd, mut wr) = tokio::io::split(tls);
+    let mut rd = BufReader::new(rd);
+
+    // Post-upgrade CAPABILITY — AUTH=PLAIN must now be present.
+    wr.write_all(b"S03 CAPABILITY\r\n").await.expect("write");
+    let cap2_data = read_line(&mut rd).await;
+    assert!(
+        cap2_data.contains("AUTH=PLAIN"),
+        "AUTH=PLAIN must be advertised after STARTTLS upgrade, got: {cap2_data}"
+    );
+    assert!(
+        !cap2_data.contains("STARTTLS"),
+        "STARTTLS must NOT be advertised after upgrade, got: {cap2_data}"
+    );
+    let cap2_ok = read_line(&mut rd).await;
+    assert!(cap2_ok.starts_with("S03 OK"), "got: {cap2_ok}");
+
+    // Authenticate to confirm the session is fully functional post-upgrade.
+    authenticate_plain("S04", &mut rd, &mut wr).await;
+
+    // Clean shutdown.
+    wr.write_all(b"S05 LOGOUT\r\n").await.expect("write");
+    let _ = read_line(&mut rd).await; // BYE
+    let _ = read_line(&mut rd).await; // OK
+}
+
+/// RFC 9051 §6.2.1: on an implicit-TLS (IMAPS) connection, STARTTLS must
+/// be rejected with `BAD Already in TLS`.
+///
+/// Oracle: RFC 9051 §6.2.1 — "An IMAP server that is in the Selected state
+/// MUST NOT accept a STARTTLS command."  The standard also forbids STARTTLS
+/// when already in TLS.
+#[tokio::test]
+async fn starttls_rejected_when_already_tls() {
+    let pool = test_pool().await;
+    let config = test_config();
+    let (acceptor, connector) = make_test_tls_pair();
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+    let addr = listener.local_addr().expect("local addr");
+
+    let srv_pool = Arc::clone(&pool);
+    let srv_config = Arc::clone(&config);
+    let srv_store = test_store(&config);
+    tokio::spawn(async move {
+        let (tcp, peer) = listener.accept().await.expect("accept");
+        let tls = acceptor.accept(tcp).await.expect("TLS accept");
+        run_session_tls(tls, peer, srv_config, srv_pool, srv_store).await;
+    });
+
+    // Connect via implicit TLS.
+    let tcp = TcpStream::connect(addr).await.expect("connect");
+    let server_name = ServerName::try_from("localhost")
+        .expect("valid server name");
+    let tls = connector
+        .connect(server_name, tcp)
+        .await
+        .expect("TLS connect");
+    let (rd, mut wr) = tokio::io::split(tls);
+    let mut rd = BufReader::new(rd);
+
+    // Consume greeting.
+    let greeting = read_line(&mut rd).await;
+    assert!(greeting.starts_with("* OK"), "greeting: {greeting}");
+
+    // STARTTLS on an already-TLS session must return BAD.
+    wr.write_all(b"T01 STARTTLS\r\n").await.expect("write");
+    let bad = read_line(&mut rd).await;
+    assert!(
+        bad.starts_with("T01 BAD"),
+        "STARTTLS on implicit-TLS must return BAD, got: {bad}"
+    );
+    assert!(
+        bad.to_ascii_uppercase().contains("ALREADY"),
+        "BAD response must mention already-in-TLS, got: {bad}"
+    );
+
+    // Clean shutdown.
+    wr.write_all(b"T02 LOGOUT\r\n").await.expect("write");
+    let _ = read_line(&mut rd).await; // BYE
+    let _ = read_line(&mut rd).await; // OK
+}
+
+/// RFC 9051 §6.2.1: a second STARTTLS on the same session (after a
+/// successful upgrade) must be rejected with `BAD Already in TLS`.
+///
+/// Oracle: RFC 9051 §6.2.1 — the server resets state after STARTTLS; the
+/// upgraded session is in TLS and a further STARTTLS is forbidden.
+#[tokio::test]
+async fn double_starttls_rejected() {
+    let pool = test_pool().await;
+    let config = test_config();
+    let (acceptor, connector) = make_test_tls_pair();
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+    let addr = listener.local_addr().expect("local addr");
+
+    let srv_pool = Arc::clone(&pool);
+    let srv_config = Arc::clone(&config);
+    let srv_store = test_store(&config);
+    let srv_acceptor = Arc::new(acceptor);
+    tokio::spawn(async move {
+        let (stream, peer) = listener.accept().await.expect("accept");
+        run_session_plain(
+            stream,
+            peer,
+            srv_config,
+            srv_pool,
+            srv_store,
+            Some(srv_acceptor),
+        )
+        .await;
+    });
+
+    // Plain connection.
+    let stream = TcpStream::connect(addr).await.expect("connect");
+    let (rd, mut wr) = stream.into_split();
+    let mut rd = BufReader::new(rd);
+
+    // Greeting.
+    let _ = read_line(&mut rd).await;
+
+    // First STARTTLS — must succeed.
+    wr.write_all(b"D01 STARTTLS\r\n").await.expect("write");
+    let ok = read_line(&mut rd).await;
+    assert!(ok.starts_with("D01 OK"), "first STARTTLS must succeed, got: {ok}");
+
+    // Upgrade.
+    let joined = tokio::io::join(rd, wr);
+    let server_name = ServerName::try_from("localhost")
+        .expect("valid server name");
+    let tls = connector
+        .connect(server_name, joined)
+        .await
+        .expect("TLS handshake");
+    let (rd, mut wr) = tokio::io::split(tls);
+    let mut rd = BufReader::new(rd);
+
+    // Second STARTTLS on the upgraded session must return BAD.
+    wr.write_all(b"D02 STARTTLS\r\n").await.expect("write");
+    let bad = read_line(&mut rd).await;
+    assert!(
+        bad.starts_with("D02 BAD"),
+        "second STARTTLS must return BAD, got: {bad}"
+    );
+
+    // Clean shutdown.
+    wr.write_all(b"D03 LOGOUT\r\n").await.expect("write");
     let _ = read_line(&mut rd).await; // BYE
     let _ = read_line(&mut rd).await; // OK
 }

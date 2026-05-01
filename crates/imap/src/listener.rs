@@ -14,11 +14,15 @@ use crate::{config::Config, session::run_session_plain, session::run_session_tls
 /// (enforcing `config.limits.max_connections`) and is then spawned as a
 /// new tokio task calling [`run_session_plain`].  The permit is held for
 /// the lifetime of the session and released when the task exits.
+///
+/// `tls_acceptor`: when `Some`, STARTTLS is advertised and honoured on
+/// plain connections.  Pass `None` when no TLS cert/key is configured.
 pub async fn run_plain_listener(
     config: Arc<Config>,
     pool: Arc<sqlx::SqlitePool>,
     semaphore: Arc<Semaphore>,
     credential_store: Arc<stoa_auth::CredentialStore>,
+    tls_acceptor: Option<Arc<TlsAcceptor>>,
 ) {
     let listener = match TcpListener::bind(&config.listen.addr).await {
         Ok(l) => l,
@@ -43,9 +47,10 @@ pub async fn run_plain_listener(
                 let config = config.clone();
                 let pool = pool.clone();
                 let store = credential_store.clone();
+                let acceptor = tls_acceptor.clone();
                 tokio::spawn(async move {
                     let _permit = permit;
-                    run_session_plain(stream, peer, config, pool, store).await;
+                    run_session_plain(stream, peer, config, pool, store, acceptor).await;
                 });
             }
             Err(e) => {

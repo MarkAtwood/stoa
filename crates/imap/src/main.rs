@@ -164,7 +164,7 @@ async fn main() {
         };
 
     tokio::select! {
-        _ = run_plain_listener(config.clone(), pool, semaphore, credential_store) => {}
+        _ = run_plain_listener(config.clone(), pool, semaphore, credential_store, tls_acceptor.clone()) => {}
         _ = tls_future => {}
         _ = tokio::signal::ctrl_c() => {
             info!("received CTRL-C, shutting down");
