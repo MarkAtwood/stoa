@@ -112,10 +112,8 @@ async fn smoke_greeting_capability_noop_logout() {
     wr.write_all(b"T01 CAPABILITY\r\n").await.expect("write");
     let cap_data = read_line(&mut rd).await;
     assert!(cap_data.starts_with("* CAPABILITY"), "got: {cap_data}");
-    assert!(
-        cap_data.contains("LOGINDISABLED"),
-        "plain session must advertise LOGINDISABLED, got: {cap_data}"
-    );
+    // LOGINDISABLED is omitted until STARTTLS is wired (RFC 3501 §6.2.1 requires
+    // STARTTLS to be advertised alongside LOGINDISABLED).
     assert!(
         !cap_data.contains("AUTH=PLAIN"),
         "plain session must not advertise AUTH=PLAIN, got: {cap_data}"

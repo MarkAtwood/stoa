@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde_json::{json, Value};
 
-use crate::mailbox::types::{Mailbox, SpecialMailbox};
+use crate::mailbox::types::{Mailbox, SpecialMailbox, mailbox_id_for_news_root};
 
 /// Data about a newsgroup available to Mailbox/get.
 pub struct GroupInfo {
@@ -34,7 +34,13 @@ pub fn handle_mailbox_get(
         .iter()
         .map(|g| Mailbox::from_group(&g.name, g.total_emails, g.unread_emails, g.is_subscribed))
         .collect();
-    let all_mailboxes: Vec<Mailbox> = [special, newsgroup].concat();
+    // Include the virtual "News" root only when there are newsgroups to show.
+    let news_root: Vec<Mailbox> = if groups.is_empty() {
+        vec![]
+    } else {
+        vec![Mailbox::news_root()]
+    };
+    let all_mailboxes: Vec<Mailbox> = [special, news_root, newsgroup].concat();
 
     let (list, not_found) = match ids {
         None => (all_mailboxes, vec![]),
@@ -166,6 +172,7 @@ mod tests {
 
     #[test]
     fn handle_mailbox_get_special_folders_in_list() {
+        // 2 special + 1 News root + 1 newsgroup = 4
         let resp = handle_mailbox_get(
             &[inbox_special(), sent_special()],
             &[rust_group()],
@@ -173,7 +180,7 @@ mod tests {
             "0",
             "u_alice",
         );
-        assert_eq!(resp["list"].as_array().unwrap().len(), 3);
+        assert_eq!(resp["list"].as_array().unwrap().len(), 4);
     }
 
     #[test]
@@ -233,6 +240,7 @@ mod tests {
     // Preserved from original tests (adapted for new signature):
     #[test]
     fn get_all_returns_both() {
+        // 1 News root + 2 newsgroups = 3
         let resp = handle_mailbox_get(
             &[],
             &[
@@ -248,7 +256,7 @@ mod tests {
             "0",
             "u_test",
         );
-        assert_eq!(resp["list"].as_array().unwrap().len(), 2);
+        assert_eq!(resp["list"].as_array().unwrap().len(), 3);
     }
 
     #[test]
@@ -268,5 +276,50 @@ mod tests {
     fn state_string_is_passed_through() {
         let resp = handle_mailbox_get(&[], &[rust_group()], None, "99", "u_test");
         assert_eq!(resp["state"].as_str().unwrap(), "99");
+    }
+
+    #[test]
+    fn news_root_included_when_groups_present() {
+        use crate::mailbox::types::mailbox_id_for_news_root;
+
+        let resp = handle_mailbox_get(&[], &[rust_group()], None, "0", "u_test");
+        let list = resp["list"].as_array().unwrap();
+        let news_root = list
+            .iter()
+            .find(|e| e["name"].as_str() == Some("News"))
+            .expect("News root mailbox must be present when newsgroups are returned");
+        assert_eq!(
+            news_root["id"].as_str().unwrap(),
+            mailbox_id_for_news_root(),
+        );
+        assert!(
+            news_root["parentId"].is_null(),
+            "News root must have null parentId"
+        );
+    }
+
+    #[test]
+    fn news_root_absent_when_no_groups() {
+        let resp = handle_mailbox_get(&[inbox_special()], &[], None, "0", "u_test");
+        let list = resp["list"].as_array().unwrap();
+        let has_news_root = list.iter().any(|e| e["name"].as_str() == Some("News"));
+        assert!(!has_news_root, "News root must not appear when there are no newsgroups");
+    }
+
+    #[test]
+    fn newsgroup_parent_id_is_news_root() {
+        use crate::mailbox::types::mailbox_id_for_news_root;
+
+        let resp = handle_mailbox_get(&[], &[rust_group()], None, "0", "u_test");
+        let list = resp["list"].as_array().unwrap();
+        let ng = list
+            .iter()
+            .find(|e| e["name"].as_str() == Some("comp.lang.rust"))
+            .unwrap();
+        assert_eq!(
+            ng["parentId"].as_str().unwrap(),
+            mailbox_id_for_news_root(),
+            "newsgroup parentId must equal the News root id"
+        );
     }
 }

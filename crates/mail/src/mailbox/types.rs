@@ -141,7 +141,8 @@ pub struct Mailbox {
     pub id: String,
     /// Human-readable name (the newsgroup name).
     pub name: String,
-    /// Always null in stoa (flat hierarchy).
+    /// `None` for top-level mailboxes (e.g. the virtual "News" root);
+    /// `Some(news_root_id)` for newsgroup mailboxes.
     #[serde(rename = "parentId")]
     pub parent_id: Option<String>,
     /// JMAP role (e.g. "inbox" if configured, else null).
@@ -169,13 +170,51 @@ pub struct Mailbox {
 /// Algorithm: SHA-256 of UTF-8 group name bytes → first 16 bytes →
 /// base32-encode with no padding (uppercase, URL-safe A-Z2-7 alphabet).
 /// Result is always 26 characters.
+///
+/// The hash input is always the raw group name (e.g. `"comp.lang.rust"`),
+/// never the display path — this ensures ID stability if the naming
+/// convention changes.
 pub fn mailbox_id_for_group(group_name: &str) -> String {
     let digest = Sha256::digest(group_name.as_bytes());
     BASE32_NOPAD.encode(&digest[..16])
 }
 
+/// Derive the stable JMAP id for the virtual "News" root mailbox.
+///
+/// The sentinel `"__news_root__"` is a fixed string that will never collide
+/// with any real newsgroup name (group names do not contain underscores).
+/// Result is always 26 characters.
+pub fn mailbox_id_for_news_root() -> String {
+    let digest = Sha256::digest(b"__news_root__");
+    BASE32_NOPAD.encode(&digest[..16])
+}
+
 impl Mailbox {
+    /// Construct the virtual "News" root mailbox.
+    ///
+    /// This mailbox is not stored in the database; it is synthesised on every
+    /// response.  It is `\Noselect` and `\HasChildren` (JMAP has no exact
+    /// equivalent flags, but `role = None` and `parentId = None` convey the
+    /// hierarchy root).
+    pub fn news_root() -> Self {
+        Self {
+            id: mailbox_id_for_news_root(),
+            name: "News".to_string(),
+            parent_id: None,
+            role: None,
+            sort_order: 5,
+            total_emails: 0,
+            unread_emails: 0,
+            is_subscribed: false,
+            my_rights: MailboxRights::newsgroup_defaults(),
+        }
+    }
+
     /// Construct a Mailbox from a group name and article counts.
+    ///
+    /// The mailbox `name` is the raw group name (e.g. `"comp.lang.rust"`)
+    /// for display; `parentId` points to the virtual "News" root so JMAP
+    /// clients see the correct hierarchy.
     pub fn from_group(
         group_name: &str,
         total_emails: u32,
@@ -185,7 +224,7 @@ impl Mailbox {
         Self {
             id: mailbox_id_for_group(group_name),
             name: group_name.to_string(),
-            parent_id: None,
+            parent_id: Some(mailbox_id_for_news_root()),
             role: None,
             sort_order: 10,
             total_emails,
@@ -291,5 +330,44 @@ mod tests {
         let json = serde_json::to_string(&mb).unwrap();
         let back: Mailbox = serde_json::from_str(&json).unwrap();
         assert_eq!(back, mb);
+    }
+
+    #[test]
+    fn newsgroup_parent_id_is_news_root() {
+        // Oracle: mailbox_id_for_news_root() — SHA-256("__news_root__") first 16 bytes,
+        // base32-encoded without padding.
+        let mb = Mailbox::from_group("comp.lang.rust", 0, 0, false);
+        assert_eq!(
+            mb.parent_id,
+            Some(mailbox_id_for_news_root()),
+            "newsgroup mailbox parentId must point to the News root"
+        );
+    }
+
+    #[test]
+    fn news_root_mailbox_has_no_parent() {
+        let root = Mailbox::news_root();
+        assert_eq!(root.name, "News");
+        assert_eq!(root.parent_id, None);
+        assert_eq!(root.id, mailbox_id_for_news_root());
+    }
+
+    #[test]
+    fn news_root_id_is_stable() {
+        assert_eq!(mailbox_id_for_news_root(), mailbox_id_for_news_root());
+    }
+
+    #[test]
+    fn news_root_id_differs_from_any_group_id() {
+        let root_id = mailbox_id_for_news_root();
+        // News root sentinel "__news_root__" is not a valid group name, so no
+        // collision with real groups is expected.
+        for group in &["comp.lang.rust", "alt.test", "news.admin.announce"] {
+            assert_ne!(
+                mailbox_id_for_group(group),
+                root_id,
+                "news root id must not collide with group id for {group}"
+            );
+        }
     }
 }

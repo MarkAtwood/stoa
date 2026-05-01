@@ -1,7 +1,7 @@
 //! IMAP mailbox command handlers: SELECT, EXAMINE, LIST, STATUS.
 //!
-//! Newsgroups are exposed as IMAP mailboxes.  The hierarchy delimiter is `"."`
-//! (e.g., `comp.lang.rust`).
+//! Newsgroups are exposed as IMAP mailboxes under a `News/` prefix using
+//! `'/'` as the hierarchy delimiter (e.g., `News/comp.lang.rust`).
 //!
 //! Article-level data (EXISTS, UNSEEN counts) is stubbed at zero until the
 //! article sync layer is wired in (r8u.11 FETCH wave).
@@ -156,8 +156,9 @@ pub fn mailbox_flags(name: &str) -> Vec<FlagNameAttribute<'static>> {
 /// Handle `LIST <reference> <mailbox-wildcard>`.
 ///
 /// Returns one `Data::List` item per matching mailbox.
-/// Wildcard rules: `*` matches any sequence (including `.`);
-/// `%` matches any sequence that does not contain `.`.
+/// Newsgroups are exposed under the `News/` prefix.
+/// Wildcard rules: `*` matches any sequence (including `/`);
+/// `%` matches any sequence that does not contain `/`.
 pub async fn handle_list(
     pool: &SqlitePool,
     reference: &Mailbox<'static>,
@@ -167,7 +168,7 @@ pub async fn handle_list(
     let pattern = if prefix.is_empty() {
         wildcard.to_owned()
     } else {
-        format!("{prefix}.{wildcard}")
+        format!("{prefix}/{wildcard}")
     };
 
     let rows: Vec<(String,)> =
@@ -183,13 +184,17 @@ pub async fn handle_list(
         };
 
     rows.into_iter()
-        .filter(|(name,)| glob_match(&pattern, name))
-        .filter_map(|(name,)| {
-            let items = mailbox_flags(&name);
-            let mailbox = Mailbox::try_from(name).ok()?;
+        .filter_map(|(db_name,)| {
+            // Newsgroups stored in the DB without prefix; expose them under News/.
+            let imap_name = format!("News/{db_name}");
+            if !glob_match(&pattern, &imap_name) {
+                return None;
+            }
+            let items = mailbox_flags(&imap_name);
+            let mailbox = Mailbox::try_from(imap_name).ok()?;
             Some(Data::List {
                 items,
-                delimiter: Some(QuotedChar::unvalidated('.')),
+                delimiter: Some(QuotedChar::unvalidated('/')),
                 mailbox,
             })
         })
@@ -198,12 +203,12 @@ pub async fn handle_list(
 
 /// Handle `NAMESPACE` (RFC 2342).
 ///
-/// Returns one personal namespace with prefix `""` and delimiter `"."`.
+/// Returns one personal namespace with prefix `""` and delimiter `"/"`.
 /// Other-users and shared namespace lists are empty (NIL).
 pub fn handle_namespace() -> Data<'static> {
     let personal = vec![Namespace::new(
         IString::try_from("").expect("empty string is a valid IString"),
-        Some(QuotedChar::try_from('.').expect("dot is a valid QuotedChar")),
+        Some(QuotedChar::try_from('/').expect("slash is a valid QuotedChar")),
     )];
     Data::namespace(personal, vec![], vec![])
         .expect("valid namespace args produce valid Data::Namespace")
@@ -380,8 +385,8 @@ const MAX_GLOB_BYTES: usize = 1024;
 
 /// Match an IMAP LIST wildcard pattern against a mailbox name.
 ///
-/// `*` matches any sequence of characters including hierarchy separators (`.`).
-/// `%` matches any sequence of characters NOT including `.`.
+/// `*` matches any sequence of characters including hierarchy separators (`/`).
+/// `%` matches any sequence of characters NOT including `/`.
 ///
 /// Returns `false` if `pattern.len() + name.len() > MAX_GLOB_BYTES` to
 /// prevent time-DoS from pathologically long client-supplied patterns.
@@ -429,8 +434,8 @@ fn glob_bytes(pat: &[u8], s: &[u8]) -> bool {
                 b'*' => prev[j] || curr[j - 1],
                 b'%' => {
                     // % matches zero characters: prev[j]
-                    // % matches one non-'.' character: curr[j-1] (if s[j-1] != '.')
-                    prev[j] || (s[j - 1] != b'.' && curr[j - 1])
+                    // % matches one non-'/' character: curr[j-1] (if s[j-1] != '/')
+                    prev[j] || (s[j - 1] != b'/' && curr[j - 1])
                 }
                 p => prev[j - 1] && p == s[j - 1],
             };
@@ -448,27 +453,27 @@ mod tests {
 
     #[test]
     fn glob_star_matches_all() {
-        assert!(glob_match("*", "comp.lang.rust"));
-        assert!(glob_match("*", "alt.test"));
+        assert!(glob_match("*", "News/comp.lang.rust"));
+        assert!(glob_match("*", "News/alt.test"));
         assert!(glob_match("*", ""));
     }
 
     #[test]
     fn glob_percent_does_not_cross_hierarchy() {
-        assert!(glob_match("comp.%", "comp.lang"));
-        assert!(!glob_match("comp.%", "comp.lang.rust"));
+        assert!(glob_match("News/%", "News/comp.lang.rust"));
+        assert!(!glob_match("%", "News/comp.lang.rust"));
     }
 
     #[test]
     fn glob_star_crosses_hierarchy() {
-        assert!(glob_match("comp.*", "comp.lang.rust"));
-        assert!(glob_match("comp.*", "comp.lang"));
+        assert!(glob_match("News/*", "News/comp.lang.rust"));
+        assert!(glob_match("News/*", "News/comp.lang"));
     }
 
     #[test]
     fn glob_exact_match() {
-        assert!(glob_match("comp.lang.rust", "comp.lang.rust"));
-        assert!(!glob_match("comp.lang.rust", "comp.lang.c"));
+        assert!(glob_match("News/comp.lang.rust", "News/comp.lang.rust"));
+        assert!(!glob_match("News/comp.lang.rust", "News/comp.lang.c"));
     }
 
     #[test]
@@ -479,8 +484,8 @@ mod tests {
 
     #[test]
     fn glob_star_prefix() {
-        assert!(glob_match("comp.*", "comp.lang.rust"));
-        assert!(!glob_match("alt.*", "comp.lang.rust"));
+        assert!(glob_match("News/*", "News/comp.lang.rust"));
+        assert!(!glob_match("Other/*", "News/comp.lang.rust"));
     }
 
     #[test]
@@ -509,10 +514,10 @@ mod tests {
     }
 
     #[test]
-    fn glob_percent_with_dot_in_name_blocked() {
+    fn glob_percent_with_slash_in_name_blocked() {
         // % must not match across hierarchy separators.
-        assert!(!glob_match("comp.%", "comp.lang.rust"));
-        assert!(glob_match("comp.%", "comp.lang"));
+        assert!(!glob_match("%", "News/comp.lang.rust"));
+        assert!(glob_match("News/%", "News/comp.lang.rust"));
     }
 
     #[test]
@@ -621,11 +626,11 @@ mod tests {
         get_or_create_uidvalidity(&pool, "alt.test").await.unwrap();
 
         // With Mailbox::Inbox as reference the prefix is "INBOX", so the effective
-        // pattern is "INBOX.*" — none of our seeded mailboxes match.
+        // pattern is "INBOX/*" — none of our seeded newsgroup mailboxes match.
         let data = handle_list(&pool, &Mailbox::Inbox, "*").await;
         assert!(
             data.is_empty(),
-            "INBOX.* should not match any comp.* or alt.* entries"
+            "INBOX/* should not match any News/* entries"
         );
     }
 
@@ -721,82 +726,50 @@ mod tests {
         );
     }
 
-    /// LIST response for INBOX includes \Inbox flag in the Data::List items.
-    ///
-    /// Exercises the full path from handle_list through mailbox_flags.
-    /// Reference = Mailbox::Inbox so prefix = "INBOX" and pattern = "INBOX.*";
-    /// we seed "INBOX.Sent" to get a match, then verify its flags include \Sent.
-    /// A separate direct test of mailbox_flags("INBOX") covers the INBOX case.
+    /// Newsgroups are exposed as News/<group> entries with '/' delimiter.
+    /// Each entry must carry \HasNoChildren from mailbox_flags.
     #[tokio::test]
-    async fn handle_list_flags_appear_in_data_list_items() {
+    async fn handle_list_newsgroups_under_news_prefix() {
         let pool = make_pool().await;
-        // Seed a known special-use name that will match "INBOX.*" via glob.
-        // Use "INBOX.Sent" as a stand-in — its name includes "Sent" so we can
-        // verify handle_list propagates mailbox_flags output into Data::List.
-        // (The full INBOX/News/ flag logic is covered by the sync tests above.)
-        get_or_create_uidvalidity(&pool, "INBOX.Sent")
+        get_or_create_uidvalidity(&pool, "comp.lang.rust")
             .await
             .unwrap();
+        get_or_create_uidvalidity(&pool, "alt.test").await.unwrap();
 
-        let data = handle_list(&pool, &Mailbox::Inbox, "*").await;
-        assert!(
-            !data.is_empty(),
-            "handle_list must return at least one item when a matching mailbox exists"
-        );
-        // Every returned item must carry a non-empty items list (RFC 6154 compliance).
+        let reference = Mailbox::try_from("".to_owned()).unwrap_or(Mailbox::Inbox);
+        let data = handle_list(&pool, &reference, "*").await;
+        assert_eq!(data.len(), 2, "should return both newsgroups");
+
         for item in &data {
-            if let Data::List { items, .. } = item {
-                assert!(
-                    !items.is_empty(),
-                    "Data::List items must not be empty after RFC 6154 implementation"
+            if let Data::List {
+                delimiter,
+                mailbox,
+                items,
+            } = item
+            {
+                assert_eq!(
+                    *delimiter,
+                    Some(QuotedChar::unvalidated('/')),
+                    "delimiter must be '/'"
                 );
-            }
-        }
-    }
-
-    /// LIST response for News/ includes \HasChildren flag in the Data::List items.
-    ///
-    /// Seeds "News/" into imap_uid_validity and verifies that the returned
-    /// Data::List item carries \HasChildren (from mailbox_flags).
-    #[tokio::test]
-    async fn handle_list_news_container_includes_has_children() {
-        let pool = make_pool().await;
-        get_or_create_uidvalidity(&pool, "News/").await.unwrap();
-
-        // Use Inbox as reference so pattern = "INBOX.*" — won't match "News/".
-        // Use an explicit wildcard that will match "News/" directly by seeding a
-        // second entry to confirm the glob path. Actually, since Mailbox::Inbox
-        // produces prefix "INBOX" and pattern "INBOX.*", News/ won't match.
-        // We test the flag assignment directly via mailbox_flags (sync) and rely
-        // on handle_list_flags_appear_in_data_list_items for the async path.
-        // This test verifies mailbox_flags("News/") contains \HasChildren, which
-        // is the authoritative oracle for the LIST response content.
-        let flags = mailbox_flags("News/");
-        let flag_strs: Vec<String> = flags.iter().map(|f| format!("{f}")).collect();
-        assert!(
-            flag_strs.contains(&"\\HasChildren".to_owned()),
-            "LIST response for News/ must include \\HasChildren; got: {flag_strs:?}"
-        );
-        // Also verify handle_list propagates the flags when a match occurs.
-        // Seed "INBOX.News/" so it matches "INBOX.*" via handle_list.
-        get_or_create_uidvalidity(&pool, "INBOX.News/")
-            .await
-            .unwrap();
-        let data = handle_list(&pool, &Mailbox::Inbox, "*").await;
-        let news_item = data.iter().find(|d| {
-            if let Data::List { mailbox, .. } = d {
-                mailbox_name(mailbox) == "INBOX.News/"
+                let name = match mailbox {
+                    Mailbox::Inbox => "INBOX".to_owned(),
+                    Mailbox::Other(other) => {
+                        String::from_utf8_lossy(other.inner().as_ref()).into_owned()
+                    }
+                };
+                assert!(
+                    name.starts_with("News/"),
+                    "mailbox name must start with 'News/'; got: {name}"
+                );
+                let flag_strs: Vec<String> = items.iter().map(|f| format!("{f}")).collect();
+                assert!(
+                    flag_strs.contains(&"\\HasNoChildren".to_owned()),
+                    "News/* entries must carry \\HasNoChildren; got: {flag_strs:?}"
+                );
             } else {
-                false
+                panic!("expected Data::List");
             }
-        });
-        let news_item = news_item.expect("INBOX.News/ must appear in LIST * response");
-        if let Data::List { items, .. } = news_item {
-            let flag_strs: Vec<String> = items.iter().map(|f| format!("{f}")).collect();
-            assert!(
-                flag_strs.contains(&"\\HasChildren".to_owned()),
-                "LIST response for INBOX.News/ must include \\HasChildren; got: {flag_strs:?}"
-            );
         }
     }
 
@@ -805,12 +778,12 @@ mod tests {
     // Oracle: RFC 2342 §5.
     //
     // This server has exactly one personal namespace: prefix="" (empty string),
-    // delimiter='.' (the newsgroup hierarchy separator).  There are no
-    // "Other Users" namespaces and no "Shared" namespaces.
+    // delimiter='/' (the IMAP hierarchy separator for the News/ prefix).  There
+    // are no "Other Users" namespaces and no "Shared" namespaces.
     //
     // RFC 2342 §5 wire format:
-    //   * NAMESPACE (("" ".")) NIL NIL\r\n
-    //   personal ^^^^^^^^^^^^^ — one entry: empty prefix, dot delimiter
+    //   * NAMESPACE (("" "/")) NIL NIL\r\n
+    //   personal ^^^^^^^^^^^^^ — one entry: empty prefix, slash delimiter
     //   other    ^^^ — NIL (no other-users namespaces)
     //   shared       ^^^ — NIL (no shared namespaces)
     //
@@ -849,9 +822,9 @@ mod tests {
         );
     }
 
-    /// RFC 2342 §5: the personal namespace must use '.' as hierarchy delimiter.
+    /// Delimiter must be '/' — newsgroups live under `News/` prefix.
     #[test]
-    fn handle_namespace_personal_delimiter_is_dot() {
+    fn handle_namespace_personal_delimiter_is_slash() {
         use imap_next::imap_types::{core::QuotedChar, response::Data};
 
         let data: Data<'static> = handle_namespace();
@@ -859,11 +832,10 @@ mod tests {
             panic!("handle_namespace must return Data::Namespace");
         };
         let ns = &personal[0];
-        // Oracle: RFC 2342 §5 example uses "." as delimiter for NNTP groups.
         assert_eq!(
             ns.delimiter,
-            Some(QuotedChar::unvalidated('.')),
-            "personal namespace delimiter must be '.' (RFC 2342 §5)"
+            Some(QuotedChar::unvalidated('/')),
+            "personal namespace delimiter must be '/'"
         );
     }
 
@@ -887,13 +859,13 @@ mod tests {
         );
     }
 
-    /// RFC 2342 §5 wire encoding: a `Data::Namespace` with one personal
-    /// namespace (prefix="", delimiter='.') and no other/shared namespaces must
+    /// Wire encoding: a `Data::Namespace` with one personal namespace
+    /// (prefix="", delimiter='/') and no other/shared namespaces must
     /// encode to bytes containing "NAMESPACE" and two "NIL" tokens for the
     /// empty other and shared namespace lists.
     ///
-    /// Expected wire line (RFC 2342 §5):
-    ///   * NAMESPACE (("" ".")) NIL NIL\r\n
+    /// Expected wire line:
+    ///   * NAMESPACE (("" "/")) NIL NIL\r\n
     ///
     /// This test builds the value from scratch and does NOT call
     /// `handle_namespace()`, so it compiles before drrd.10 lands.
@@ -907,10 +879,10 @@ mod tests {
         };
 
         // Construct the exact Data value that handle_namespace() must return.
-        // Oracle: RFC 2342 §5 — personal prefix="" delimiter='.' other=NIL shared=NIL.
+        // personal prefix="" delimiter='/' other=NIL shared=NIL.
         let personal_ns = Namespace::new(
             IString::try_from("").expect("empty string is a valid IString"),
-            Some(QuotedChar::unvalidated('.')),
+            Some(QuotedChar::unvalidated('/')),
         );
         let data: Data<'static> = Data::namespace(
             vec![personal_ns],
@@ -939,6 +911,11 @@ mod tests {
         assert!(
             bytes.windows(2).any(|w| w == b"\"\""),
             "personal namespace prefix must encode as empty quoted string \"\\\"\\\"\"; got: {wire:?}"
+        );
+        // Delimiter must be '/' (slash).
+        assert!(
+            bytes.windows(3).any(|w| w == b"\"/\""),
+            "delimiter must encode as \"/\"; got: {wire:?}"
         );
         // Response line must end with CRLF (RFC 2342 §5 grammar).
         assert!(
