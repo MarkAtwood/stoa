@@ -16,6 +16,7 @@
 //! This prevents unbounded Prometheus label explosion.
 
 use sqlx::AnyPool;
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -24,18 +25,38 @@ pub const HIGH_CARDINALITY_LIMIT: usize = 500;
 
 /// Spawn-and-forget background task: samples per-group metrics every `interval`.
 pub async fn run_group_metrics_sampler(pool: Arc<AnyPool>, interval: Duration) {
+    let mut prev_groups: HashSet<String> = HashSet::new();
     let mut ticker = tokio::time::interval(interval);
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     loop {
         ticker.tick().await;
-        if let Err(e) = sample_group_metrics(&pool).await {
-            tracing::warn!("group metrics sampling failed: {e}");
+        match sample_group_metrics(&pool, &prev_groups).await {
+            Ok(current_groups) => {
+                prev_groups = current_groups;
+            }
+            Err(e) => {
+                tracing::warn!("group metrics sampling failed: {e}");
+            }
         }
     }
 }
 
-/// Run one sampling pass.  Exported for testing.
-pub async fn sample_group_metrics(pool: &AnyPool) -> Result<usize, String> {
+/// Run one sampling pass.
+///
+/// `prev_groups` is the set of group names seen in the previous tick.  Any
+/// group that was in `prev_groups` but is absent from the current query result
+/// has had all its articles removed (e.g. by GC); its Prometheus label is
+/// removed so it stops appearing in dashboards.
+///
+/// Returns the set of group names seen in this tick; the caller should pass
+/// that back in as `prev_groups` on the next tick.
+///
+/// Returns `Err` only on a database error; the high-cardinality guard returns
+/// `Ok(HashSet::new())` so the caller does not update `prev_groups`.
+pub async fn sample_group_metrics(
+    pool: &AnyPool,
+    prev_groups: &HashSet<String>,
+) -> Result<HashSet<String>, String> {
     // Single query for all three metrics; GROUP BY is O(articles) either way.
     let rows: Vec<(String, i64, i64, i64)> = sqlx::query_as(
         "SELECT group_name,
@@ -58,15 +79,13 @@ pub async fn sample_group_metrics(pool: &AnyPool) -> Result<usize, String> {
             limit = HIGH_CARDINALITY_LIMIT,
             "per-group metrics suppressed: active group count exceeds limit"
         );
-        return Ok(group_count);
+        // Return empty set: we did not set any gauges, so we cannot know which
+        // are stale.  The caller should not update prev_groups.
+        return Ok(HashSet::new());
     }
 
-    // Gauges are set only for groups present in the current query result.
-    // If a group is removed from the dataset (e.g. all its articles are
-    // GC'd), its gauge retains the last-known value until the process
-    // restarts.  To remove a stale label, call gauge.remove(label_values)
-    // after determining which groups have disappeared — deferred to a
-    // future improvement.
+    let current_groups: HashSet<String> = rows.iter().map(|(g, ..)| g.clone()).collect();
+
     for (group_name, count, total_bytes, last_at_ms) in &rows {
         crate::metrics::GROUP_LOG_ENTRIES_TOTAL
             .with_label_values(&[group_name])
@@ -82,7 +101,16 @@ pub async fn sample_group_metrics(pool: &AnyPool) -> Result<usize, String> {
             .set(*last_at_ms as f64 / 1000.0);
     }
 
-    Ok(group_count)
+    // Remove labels for groups that were present last tick but are gone now
+    // (all articles GC'd).  Ignoring errors: remove_label_values returns Err
+    // only when the label set was not registered, which is harmless here.
+    for gone in prev_groups.difference(&current_groups) {
+        let _ = crate::metrics::GROUP_LOG_ENTRIES_TOTAL.remove_label_values(&[gone]);
+        let _ = crate::metrics::GROUP_STORAGE_BYTES.remove_label_values(&[gone]);
+        let _ = crate::metrics::GROUP_LAST_ACTIVITY_TIMESTAMP.remove_label_values(&[gone]);
+    }
+
+    Ok(current_groups)
 }
 
 #[cfg(test)]
@@ -121,8 +149,8 @@ mod tests {
     #[tokio::test]
     async fn sample_empty_db_returns_zero_groups() {
         let (pool, _tmp) = make_pool().await;
-        let n = sample_group_metrics(&pool).await.unwrap();
-        assert_eq!(n, 0, "empty articles table should return 0 groups");
+        let groups = sample_group_metrics(&pool, &HashSet::new()).await.unwrap();
+        assert_eq!(groups.len(), 0, "empty articles table should return 0 groups");
     }
 
     #[tokio::test]
@@ -131,8 +159,8 @@ mod tests {
         insert_article(&pool, "<a@t>", "comp.lang.rust", 1_700_000_000_000, 1024).await;
         insert_article(&pool, "<b@t>", "comp.lang.rust", 1_700_000_001_000, 2048).await;
 
-        let n = sample_group_metrics(&pool).await.unwrap();
-        assert_eq!(n, 1);
+        let groups = sample_group_metrics(&pool, &HashSet::new()).await.unwrap();
+        assert_eq!(groups.len(), 1);
 
         let entries = crate::metrics::GROUP_LOG_ENTRIES_TOTAL
             .with_label_values(&["comp.lang.rust"])
@@ -160,8 +188,8 @@ mod tests {
         insert_article(&pool, "<c2@t>", "sci.math", 1_000_000_002_000, 256).await;
         insert_article(&pool, "<c3@t>", "sci.math", 1_000_000_004_000, 256).await;
 
-        let n = sample_group_metrics(&pool).await.unwrap();
-        assert_eq!(n, 2, "expected 2 distinct groups");
+        let groups = sample_group_metrics(&pool, &HashSet::new()).await.unwrap();
+        assert_eq!(groups.len(), 2, "expected 2 distinct groups");
 
         let alt_entries = crate::metrics::GROUP_LOG_ENTRIES_TOTAL
             .with_label_values(&["alt.test"])
@@ -187,8 +215,9 @@ mod tests {
             insert_article(&pool, &cid, &group, 1_000_000_000_000 + i as i64, 100).await;
         }
 
-        let n = sample_group_metrics(&pool).await.unwrap();
-        assert_eq!(n, n_groups, "returned group count must match inserts");
+        let groups = sample_group_metrics(&pool, &HashSet::new()).await.unwrap();
+        // Guard fires: returns empty set (no gauges set).
+        assert_eq!(groups.len(), 0, "guard must return empty set when cardinality exceeded");
 
         // Gauges for group "g.0" must NOT have been updated (guard suppressed).
         // They will be absent (0.0 default) because these are new label values.
@@ -199,5 +228,37 @@ mod tests {
             entries, 0.0,
             "gauge must not be set when cardinality guard fires"
         );
+    }
+
+    #[tokio::test]
+    async fn stale_gauge_removed_after_gc() {
+        let (pool, _tmp) = make_pool().await;
+        insert_article(&pool, "<d1@t>", "alt.gone", 1_000_000_000_000, 100).await;
+
+        // First tick: alt.gone is present.
+        let prev = sample_group_metrics(&pool, &HashSet::new()).await.unwrap();
+        assert!(prev.contains("alt.gone"));
+        assert_eq!(
+            crate::metrics::GROUP_LOG_ENTRIES_TOTAL
+                .with_label_values(&["alt.gone"])
+                .get(),
+            1.0
+        );
+
+        // Simulate GC: delete the article.
+        sqlx::query("DELETE FROM articles WHERE cid = '<d1@t>'")
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        // Second tick: alt.gone should be removed from gauges.
+        let current = sample_group_metrics(&pool, &prev).await.unwrap();
+        assert!(!current.contains("alt.gone"));
+
+        // The label should have been removed; with_label_values re-creates it at 0.
+        let after = crate::metrics::GROUP_LOG_ENTRIES_TOTAL
+            .with_label_values(&["alt.gone"])
+            .get();
+        assert_eq!(after, 0.0, "gauge for GC'd group must be removed (reads back as 0)");
     }
 }

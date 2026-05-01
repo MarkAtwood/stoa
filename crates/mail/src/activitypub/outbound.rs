@@ -102,6 +102,12 @@ pub struct DeliveryResult {
     pub status: Option<u16>,
 }
 
+/// Maximum number of concurrent outbound delivery tasks.
+///
+/// Caps the fan-out so a group with thousands of followers cannot exhaust
+/// file descriptors or saturate the network interface in a single burst.
+const MAX_CONCURRENT_DELIVERIES: usize = 50;
+
 /// Fan out a `Create{Note}` activity to all followers of `group_name`.
 ///
 /// Returns a vec of delivery results for observability.  Failures are also
@@ -135,7 +141,26 @@ pub async fn deliver_article(
         .to_string();
 
     let mut join_set: JoinSet<DeliveryResult> = JoinSet::new();
+    let mut results = Vec::with_capacity(followers.len().min(MAX_CONCURRENT_DELIVERIES));
+    let mut delivered = 0usize;
+    let mut failed = 0usize;
+
     for follower in followers {
+        // Bound concurrency: drain one completed task before spawning when at limit.
+        if join_set.len() >= MAX_CONCURRENT_DELIVERIES {
+            if let Some(res) = join_set.join_next().await {
+                match res {
+                    Ok(result) => {
+                        if result.success { delivered += 1; } else { failed += 1; }
+                        results.push(result);
+                    }
+                    Err(e) => {
+                        warn!(error = %e, "ActivityPub delivery task panicked");
+                        failed += 1;
+                    }
+                }
+            }
+        }
         let client = ap_state.http_client.clone();
         let key = ap_state.key.clone();
         let body = body.clone();
@@ -144,9 +169,6 @@ pub async fn deliver_article(
             .spawn(async move { deliver_one(&client, key.as_ref(), body, &follower, &date).await });
     }
 
-    let mut results = Vec::with_capacity(join_set.len());
-    let mut delivered = 0usize;
-    let mut failed = 0usize;
     while let Some(res) = join_set.join_next().await {
         match res {
             Ok(result) => {

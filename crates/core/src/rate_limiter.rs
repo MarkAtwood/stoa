@@ -52,6 +52,10 @@ impl RateLimiter {
 
     /// Returns true if the request is allowed, false if rate-limited.
     /// Always returns true when rpm == 0 (unlimited).
+    ///
+    /// Holds a `Mutex` for the duration of the call.  Every
+    /// `EVICT_INTERVAL` calls (or when `MAX_ENTRIES` is exceeded) the lock is
+    /// held for an additional O(n) eviction scan over all tracked IPs.
     pub fn check_and_consume(&self, ip: IpAddr) -> bool {
         if self.rpm == 0 {
             return true;
