@@ -184,6 +184,14 @@ pub struct OperatorConfig {
     /// cross-verified.  Set this for any production deployment.
     #[serde(default)]
     pub signing_key_path: Option<String>,
+    /// Email address for the `mail-complaints-to` field in the
+    /// `Injection-Info:` header (RFC 5536 §3.2.9).
+    ///
+    /// When set, every article injected via NNTP POST includes:
+    /// `Injection-Info: ...; mail-complaints-to="<address>"`.
+    /// Omit to suppress the field.
+    #[serde(default)]
+    pub mail_complaints_to: Option<String>,
 }
 
 /// Full-text search configuration (Tantivy-backed).
@@ -268,6 +276,12 @@ pub struct LimitsConfig {
     /// Default: 1000 ms.
     #[serde(default = "default_slow_command_threshold_ms")]
     pub slow_command_threshold_ms: u64,
+    /// Maximum allowed clock skew between the article's `Date:` header and
+    /// server time (seconds).  When set and the skew exceeds this threshold,
+    /// an `Injection-Date:` header is added with the server's current time
+    /// (RFC 5536 §3.2.3).  When absent, no `Injection-Date:` is ever added.
+    #[serde(default)]
+    pub max_clock_skew_secs: Option<u64>,
 }
 
 fn default_slow_command_threshold_ms() -> u64 {

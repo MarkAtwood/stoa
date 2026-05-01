@@ -1,4 +1,6 @@
 use stoa_core::InjectionSource;
+use std::time::{SystemTime, UNIX_EPOCH};
+use chrono::{DateTime, TimeZone, Utc};
 
 /// The header name prepended by the SMTP queue drain.
 const INJECTION_SOURCE_HEADER: &[u8] = b"X-Stoa-Injection-Source:";
@@ -146,6 +148,157 @@ pub fn prepend_path_header(article_bytes: &[u8], hostname: &str) -> Vec<u8> {
     }
     out.extend_from_slice(&article_bytes[header_end..]);
     out
+}
+
+/// Synthesize a `Message-ID:` header if none is present (RFC 5536 §3.1).
+///
+/// If the article already has a `Message-ID:` header, the article is returned
+/// unchanged.  Otherwise a header of the form
+/// `Message-ID: <YYYYMMDDHHMMSS.NNNNN.PID@hostname>\r\n`
+/// is inserted before the blank line separating headers from body.
+///
+/// `hostname` is the configured server hostname (same as used for `Path:`).
+pub fn inject_message_id(article_bytes: &[u8], hostname: &str) -> Vec<u8> {
+    let header_end = find_header_end(article_bytes);
+    // Check whether a Message-ID header already exists.
+    let mut i = 0;
+    while i < header_end {
+        let line_end = find_line_end(article_bytes, i, header_end);
+        let line = &article_bytes[i..line_end];
+        if line.len() >= 11 && line[..11].eq_ignore_ascii_case(b"message-id:") {
+            return article_bytes.to_vec();
+        }
+        i = skip_line_terminator(article_bytes, line_end);
+    }
+
+    // Synthesize a Message-ID from current time + process ID.
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default();
+    let secs = now.as_secs();
+    let subsec = now.subsec_micros();
+    let pid = std::process::id();
+
+    // Format: YYYYMMDDHHMMSS.MMMMMM.PID
+    let dt = format_utc_datetime(secs);
+    let local_part = format!("{dt}.{subsec:06}.{pid}");
+    let msgid_line = format!("Message-ID: <{local_part}@{hostname}>\r\n");
+
+    let mut out = Vec::with_capacity(article_bytes.len() + msgid_line.len());
+    out.extend_from_slice(&article_bytes[..header_end]);
+    out.extend_from_slice(msgid_line.as_bytes());
+    out.extend_from_slice(&article_bytes[header_end..]);
+    out
+}
+
+/// Add an `Injection-Info:` header (RFC 5536 §3.2.9).
+///
+/// Always inserts a fresh header before the blank line; any existing
+/// `Injection-Info:` left by the client is preserved (clients are not
+/// expected to include this header, but RFC 5536 does not prohibit it).
+///
+/// Format:
+/// ```text
+/// Injection-Info: posting-host="<client_ip>"[; posting-account="<username>"][; mail-complaints-to="<addr>"]
+/// ```
+///
+/// `username` is `Some` only when the session is authenticated.
+/// `mail_complaints_to` comes from `[operator] mail_complaints_to` in config.
+pub fn inject_injection_info(
+    article_bytes: &[u8],
+    client_ip: &str,
+    username: Option<&str>,
+    mail_complaints_to: Option<&str>,
+) -> Vec<u8> {
+    let mut value = format!("posting-host=\"{client_ip}\"");
+    if let Some(u) = username {
+        value.push_str(&format!("; posting-account=\"{u}\""));
+    }
+    if let Some(addr) = mail_complaints_to {
+        value.push_str(&format!("; mail-complaints-to=\"{addr}\""));
+    }
+    let header_line = format!("Injection-Info: {value}\r\n");
+
+    let header_end = find_header_end(article_bytes);
+    let mut out = Vec::with_capacity(article_bytes.len() + header_line.len());
+    out.extend_from_slice(&article_bytes[..header_end]);
+    out.extend_from_slice(header_line.as_bytes());
+    out.extend_from_slice(&article_bytes[header_end..]);
+    out
+}
+
+/// Add an `Injection-Date:` header (RFC 5536 §3.2.3) when needed.
+///
+/// When `max_clock_skew_secs` is `None`, this is a no-op.
+///
+/// When `max_clock_skew_secs` is `Some(limit)`:
+/// - If the article has no `Date:` header, `Injection-Date:` is added with
+///   the server's current UTC time.
+/// - If the article has a `Date:` header whose value deviates from server
+///   time by more than `limit` seconds, `Injection-Date:` is added with the
+///   server's current UTC time.
+/// - Otherwise the article is returned unchanged.
+///
+/// The `Date:` header is never removed or modified; `Injection-Date:` is
+/// purely additive.
+pub fn inject_injection_date(article_bytes: &[u8], max_clock_skew_secs: Option<u64>) -> Vec<u8> {
+    let limit = match max_clock_skew_secs {
+        Some(l) => l as i64,
+        None => return article_bytes.to_vec(),
+    };
+
+    let header_end = find_header_end(article_bytes);
+    let now_secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+
+    // Locate the Date: header value.
+    let mut date_parsed: Option<i64> = None;
+    let mut i = 0;
+    while i < header_end {
+        let line_end = find_line_end(article_bytes, i, header_end);
+        let line = &article_bytes[i..line_end];
+        if line.len() >= 5 && line[..5].eq_ignore_ascii_case(b"date:") {
+            if let Ok(s) = std::str::from_utf8(&line[5..]) {
+                date_parsed = mailparse::dateparse(s.trim()).ok();
+            }
+            break;
+        }
+        i = skip_line_terminator(article_bytes, line_end);
+    }
+
+    let needs_injection = match date_parsed {
+        None => true,
+        Some(ts) => (ts - now_secs).abs() > limit,
+    };
+
+    if !needs_injection {
+        return article_bytes.to_vec();
+    }
+
+    let injection_date = format_utc_rfc2822(now_secs);
+    let header_line = format!("Injection-Date: {injection_date}\r\n");
+
+    let mut out = Vec::with_capacity(article_bytes.len() + header_line.len());
+    out.extend_from_slice(&article_bytes[..header_end]);
+    out.extend_from_slice(header_line.as_bytes());
+    out.extend_from_slice(&article_bytes[header_end..]);
+    out
+}
+
+/// Format a Unix timestamp as `YYYYMMDDHHMMSS` (UTC, no separators).
+fn format_utc_datetime(secs: u64) -> String {
+    let dt: DateTime<Utc> = Utc
+        .timestamp_opt(secs as i64, 0)
+        .single()
+        .unwrap_or_else(Utc::now);
+    dt.format("%Y%m%d%H%M%S").to_string()
+}
+
+/// Format a Unix timestamp as RFC 2822 (e.g. `Mon, 20 Apr 2026 12:00:00 +0000`).
+fn format_utc_rfc2822(secs: i64) -> String {
+    stoa_core::util::epoch_to_rfc2822(secs)
 }
 
 /// Return the byte offset of the first blank line separator (`\r\n\r\n` or
@@ -409,6 +562,230 @@ mod tests {
         assert!(
             s.contains("Path: new.example.com!old.example.com\r\n"),
             "Path must be prepended case-insensitively: {s:?}"
+        );
+    }
+
+    // ── inject_message_id tests ───────────────────────────────────────────────
+
+    #[test]
+    fn message_id_synthesized_when_absent() {
+        // Article has no Message-ID header.
+        let article = format!(
+            "Newsgroups: comp.test\r\n\
+             From: user@example.com\r\n\
+             Subject: test\r\n\
+             \r\n\
+             body\r\n"
+        )
+        .into_bytes();
+        let result = inject_message_id(&article, "news.example.com");
+        let s = String::from_utf8(result).unwrap();
+        assert!(
+            s.to_ascii_lowercase().contains("message-id:"),
+            "Message-ID must be synthesized: {s:?}"
+        );
+        assert!(
+            s.contains("@news.example.com>"),
+            "Message-ID must use configured hostname: {s:?}"
+        );
+        assert!(s.contains("\r\n\r\n"), "blank-line separator must remain");
+        assert!(s.ends_with("body\r\n"), "body must be unchanged");
+    }
+
+    #[test]
+    fn message_id_unchanged_when_present() {
+        let article = make_article(None, "body\r\n");
+        // make_article adds Message-ID: <test@example.com>
+        let before = article.clone();
+        let result = inject_message_id(&article, "news.example.com");
+        assert_eq!(
+            result, before,
+            "article with existing Message-ID must be unchanged"
+        );
+    }
+
+    #[test]
+    fn message_id_case_insensitive_detection() {
+        // Lower-case header name must also be detected.
+        let article = format!(
+            "Newsgroups: comp.test\r\n\
+             message-id: <existing@old.example.com>\r\n\
+             From: user@example.com\r\n\
+             Subject: test\r\n\
+             \r\n\
+             body\r\n"
+        )
+        .into_bytes();
+        let before = article.clone();
+        let result = inject_message_id(&article, "news.example.com");
+        assert_eq!(
+            result, before,
+            "lower-case Message-ID must be detected and left unchanged"
+        );
+    }
+
+    // ── inject_injection_info tests ───────────────────────────────────────────
+
+    #[test]
+    fn injection_info_unauthenticated() {
+        let article = make_article(None, "body\r\n");
+        let result = inject_injection_info(&article, "192.0.2.1", None, None);
+        let s = String::from_utf8(result).unwrap();
+        assert!(
+            s.contains("Injection-Info: posting-host=\"192.0.2.1\"\r\n"),
+            "Injection-Info must contain posting-host: {s:?}"
+        );
+        assert!(
+            !s.contains("posting-account"),
+            "posting-account must not appear when unauthenticated: {s:?}"
+        );
+        assert!(
+            !s.contains("mail-complaints-to"),
+            "mail-complaints-to must not appear when unconfigured: {s:?}"
+        );
+    }
+
+    #[test]
+    fn injection_info_authenticated() {
+        let article = make_article(None, "body\r\n");
+        let result = inject_injection_info(&article, "192.0.2.1", Some("alice"), None);
+        let s = String::from_utf8(result).unwrap();
+        assert!(
+            s.contains("posting-account=\"alice\""),
+            "posting-account must appear when authenticated: {s:?}"
+        );
+    }
+
+    #[test]
+    fn injection_info_with_mail_complaints_to() {
+        let article = make_article(None, "body\r\n");
+        let result = inject_injection_info(
+            &article,
+            "192.0.2.1",
+            None,
+            Some("abuse@example.com"),
+        );
+        let s = String::from_utf8(result).unwrap();
+        assert!(
+            s.contains("mail-complaints-to=\"abuse@example.com\""),
+            "mail-complaints-to must appear when configured: {s:?}"
+        );
+    }
+
+    #[test]
+    fn injection_info_all_fields() {
+        let article = make_article(None, "body\r\n");
+        let result = inject_injection_info(
+            &article,
+            "10.0.0.1",
+            Some("bob"),
+            Some("abuse@news.example.com"),
+        );
+        let s = String::from_utf8(result).unwrap();
+        assert!(
+            s.contains("posting-host=\"10.0.0.1\""),
+            "posting-host present: {s:?}"
+        );
+        assert!(
+            s.contains("posting-account=\"bob\""),
+            "posting-account present: {s:?}"
+        );
+        assert!(
+            s.contains("mail-complaints-to=\"abuse@news.example.com\""),
+            "mail-complaints-to present: {s:?}"
+        );
+        assert!(s.contains("\r\n\r\n"), "blank-line separator must remain");
+    }
+
+    // ── inject_injection_date tests ───────────────────────────────────────────
+
+    #[test]
+    fn injection_date_noop_when_no_skew_limit() {
+        // Without a max_clock_skew_secs config, no Injection-Date is ever added.
+        let article = format!(
+            "Newsgroups: comp.test\r\n\
+             From: user@example.com\r\n\
+             Subject: test\r\n\
+             \r\n\
+             body\r\n"
+        )
+        .into_bytes();
+        let before = article.clone();
+        let result = inject_injection_date(&article, None);
+        assert_eq!(
+            result, before,
+            "no Injection-Date must be added when max_clock_skew_secs is None"
+        );
+    }
+
+    #[test]
+    fn injection_date_added_when_date_absent() {
+        // Article has no Date: header; with a skew limit, Injection-Date must be added.
+        let article = format!(
+            "Newsgroups: comp.test\r\n\
+             From: user@example.com\r\n\
+             Subject: test\r\n\
+             \r\n\
+             body\r\n"
+        )
+        .into_bytes();
+        let result = inject_injection_date(&article, Some(86400));
+        let s = String::from_utf8(result).unwrap();
+        assert!(
+            s.to_ascii_lowercase().contains("injection-date:"),
+            "Injection-Date must be added when Date is absent: {s:?}"
+        );
+        assert!(s.contains("\r\n\r\n"), "blank-line separator must remain");
+    }
+
+    #[test]
+    fn injection_date_not_added_when_date_within_skew() {
+        // Article Date is current-ish (within 1 hour); no Injection-Date needed.
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+        let date_str = stoa_core::util::epoch_to_rfc2822(now);
+        let article = format!(
+            "Newsgroups: comp.test\r\n\
+             From: user@example.com\r\n\
+             Subject: test\r\n\
+             Date: {date_str}\r\n\
+             \r\n\
+             body\r\n"
+        )
+        .into_bytes();
+        let before = article.clone();
+        let result = inject_injection_date(&article, Some(86400));
+        assert_eq!(
+            result, before,
+            "Injection-Date must not be added when Date is within skew limit"
+        );
+    }
+
+    #[test]
+    fn injection_date_added_when_date_outside_skew() {
+        // Article Date is far in the past (year 2000); must trigger Injection-Date.
+        let article = format!(
+            "Newsgroups: comp.test\r\n\
+             From: user@example.com\r\n\
+             Subject: test\r\n\
+             Date: Sat, 01 Jan 2000 00:00:00 +0000\r\n\
+             \r\n\
+             body\r\n"
+        )
+        .into_bytes();
+        let result = inject_injection_date(&article, Some(86400));
+        let s = String::from_utf8(result).unwrap();
+        assert!(
+            s.to_ascii_lowercase().contains("injection-date:"),
+            "Injection-Date must be added when Date is outside skew limit: {s:?}"
+        );
+        // Original Date: must still be present (Injection-Date is additive).
+        assert!(
+            s.contains("Date: Sat, 01 Jan 2000 00:00:00 +0000"),
+            "original Date: header must be preserved: {s:?}"
         );
     }
 }

@@ -15,7 +15,8 @@ use crate::{
     post::{
         find_header_boundary,
         injection::{
-            extract_injection_source, prepend_path_header, strip_server_synthesized_headers,
+            extract_injection_source, inject_injection_date, inject_injection_info,
+            inject_message_id, prepend_path_header, strip_server_synthesized_headers,
         },
         ipfs_write::{write_ipld_article_to_ipfs, IpfsBlockStore},
         log_append::append_to_groups,
@@ -915,6 +916,8 @@ where
                 stores,
                 config.limits.max_article_bytes,
                 ctx.is_drain_session,
+                &peer_addr.ip().to_string(),
+                ctx.authenticated_user.as_deref(),
             )
             .await;
             if let Some(logger) = &stores.audit_logger {
@@ -1036,6 +1039,8 @@ async fn run_post_pipeline(
     stores: &ServerStores,
     max_article_bytes: usize,
     is_drain_session: bool,
+    client_ip: &str,
+    authenticated_user: Option<&str>,
 ) -> (Response, Option<PostAuditMeta>) {
     // Step 1: Strip the X-Stoa-Injection-Source header so it is never stored
     // in IPFS or forwarded to peers.  Classification is always NntpPost in
@@ -1075,6 +1080,17 @@ async fn run_post_pipeline(
     // Step 1b: Inject the Path: header required by RFC 5536 §3.1.
     // Must happen before signing so the header is covered by the operator signature.
     let article_bytes = prepend_path_header(&article_bytes, &stores.path_hostname);
+    // Step 1c: Synthesize Message-ID if absent (RFC 5536 §3.1).
+    let article_bytes = inject_message_id(&article_bytes, &stores.path_hostname);
+    // Step 1d: Add Injection-Info header (RFC 5536 §3.2.9).
+    let article_bytes = inject_injection_info(
+        &article_bytes,
+        client_ip,
+        authenticated_user,
+        stores.mail_complaints_to.as_deref(),
+    );
+    // Step 1e: Add Injection-Date if Date is absent or skewed (RFC 5536 §3.2.3).
+    let article_bytes = inject_injection_date(&article_bytes, stores.max_clock_skew_secs);
     let article_bytes = article_bytes.as_slice();
 
     // Step 2: Validate headers.
@@ -2184,7 +2200,7 @@ mod tests {
         let article = minimal_article("comp.test", "Too Large", "<toolarge@test.example>");
 
         // Limit of 1 byte — any real article will exceed it.
-        let (resp, _) = run_post_pipeline(&article, &stores, 1, false).await;
+        let (resp, _) = run_post_pipeline(&article, &stores, 1, false, "127.0.0.1", None).await;
         assert_eq!(
             resp.code, 441,
             "POST pipeline must return 441 when article exceeds operator limit; got: {}",
@@ -2215,7 +2231,7 @@ mod tests {
         let article = minimal_article("comp.test", "Signature Verify", "<sigverify@test.example>");
 
         let (resp, _) =
-            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
+            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false, "127.0.0.1", None).await;
         assert_eq!(
             resp.code, 240,
             "POST pipeline must succeed; got: {}",
@@ -2261,7 +2277,7 @@ mod tests {
         let article = minimal_article("comp.test", "Integration Test", "<integ@test.example>");
 
         let (resp, _) =
-            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
+            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false, "127.0.0.1", None).await;
         assert_eq!(
             resp.code, 240,
             "POST pipeline must return 240; got: {}",
@@ -2290,7 +2306,7 @@ mod tests {
         let article = minimal_article("comp.test", "Path Test", "<pathtest@test.example>");
 
         let (resp, _) =
-            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
+            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false, "127.0.0.1", None).await;
         assert_eq!(resp.code, 240, "POST must succeed; got: {}", resp.text);
 
         let cid = stores
@@ -2322,7 +2338,7 @@ mod tests {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "By Number Test", "<bynumber@test.example>");
         let (post_resp, _) =
-            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
+            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false, "127.0.0.1", None).await;
         assert_eq!(post_resp.code, 240, "POST must succeed");
 
         let mut ctx = crate::session::context::SessionContext::new(
@@ -2354,7 +2370,7 @@ mod tests {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Head By Msgid", "<headmsgid@test.example>");
         let (post_resp, _) =
-            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
+            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false, "127.0.0.1", None).await;
         assert_eq!(post_resp.code, 240, "POST must succeed");
 
         let resp = lookup_head_by_msgid(&stores, "<headmsgid@test.example>").await;
@@ -2379,7 +2395,7 @@ mod tests {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Body By Msgid", "<bodymsgid@test.example>");
         let (post_resp, _) =
-            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
+            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false, "127.0.0.1", None).await;
         assert_eq!(post_resp.code, 240, "POST must succeed");
 
         let resp = lookup_body_by_msgid(&stores, "<bodymsgid@test.example>").await;
@@ -2408,7 +2424,7 @@ mod tests {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Stat Test", "<stattest@test.example>");
         let (post_resp, _) =
-            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false).await;
+            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false, "127.0.0.1", None).await;
         assert_eq!(post_resp.code, 240, "POST must succeed");
 
         let resp = stat_by_msgid(&stores, "<stattest@test.example>").await;

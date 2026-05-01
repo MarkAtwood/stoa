@@ -62,6 +62,13 @@ pub struct ServerStores {
     pub dkim_authenticator: Arc<MessageAuthenticator>,
     /// Hostname injected into the Path: header of POST articles (RFC 5536 §3.1).
     pub path_hostname: String,
+    /// Email address for the `mail-complaints-to` field in `Injection-Info:`
+    /// (RFC 5536 §3.2.9).  `None` when not configured.
+    pub mail_complaints_to: Option<String>,
+    /// Maximum allowed clock skew (seconds) between the article `Date:` and
+    /// server time before `Injection-Date:` is added (RFC 5536 §3.2.3).
+    /// `None` disables `Injection-Date:` injection entirely.
+    pub max_clock_skew_secs: Option<u64>,
     /// Async audit logger. None only in unit-test stores created by new_mem().
     pub audit_logger: Option<Arc<dyn AuditLogger>>,
     /// Per-IP authentication failure tracker for fail2ban-compatible lockout events.
@@ -169,6 +176,8 @@ impl ServerStores {
             verification_store: Arc::new(VerificationStore::new(verify_pool)),
             dkim_authenticator: Arc::new(dkim_authenticator),
             path_hostname: config.path_hostname.clone(),
+            mail_complaints_to: config.operator.mail_complaints_to.clone(),
+            max_clock_skew_secs: config.limits.max_clock_skew_secs,
             audit_logger: Some(audit_logger),
             auth_failure_tracker: Arc::new(std::sync::Mutex::new(AuthFailureTracker::new(
                 10,
@@ -238,6 +247,8 @@ impl ServerStores {
                     .expect("DKIM authenticator init must not fail"),
             ),
             path_hostname: "localhost".to_owned(),
+            mail_complaints_to: None,
+            max_clock_skew_secs: None,
             audit_logger: None,
             auth_failure_tracker: Arc::new(std::sync::Mutex::new(AuthFailureTracker::new(
                 10,
