@@ -99,7 +99,8 @@ async fn main() {
                         std::process::exit(1);
                     }
                 };
-                match stoa_tls::load_tls_server_config_with_key_bytes(cert, secret.as_bytes(), key) {
+                match stoa_tls::load_tls_server_config_with_key_bytes(cert, secret.as_bytes(), key)
+                {
                     Ok(c) => c,
                     Err(e) => {
                         error!("failed to load TLS configuration: {e}");
@@ -181,4 +182,3 @@ async fn sigterm() {
     let mut stream = signal(SignalKind::terminate()).expect("failed to install SIGTERM handler");
     stream.recv().await;
 }
-

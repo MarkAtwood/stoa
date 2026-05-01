@@ -77,7 +77,10 @@ async fn main() {
         }
     };
 
-    if let (Some(cert), Some(key)) = (config.tls.cert_path.as_deref(), config.tls.key_path.as_deref()) {
+    if let (Some(cert), Some(key)) = (
+        config.tls.cert_path.as_deref(),
+        config.tls.key_path.as_deref(),
+    ) {
         if key.starts_with("secretx:") {
             let store = match secretx::from_uri(key) {
                 Ok(s) => s,
@@ -103,7 +106,10 @@ async fn main() {
             eprintln!("error: failed to load TLS configuration: {e}");
             std::process::exit(1);
         }
-        info!(cert, "TLS certificate and key validated (HTTPS listener not yet active in v1)");
+        info!(
+            cert,
+            "TLS certificate and key validated (HTTPS listener not yet active in v1)"
+        );
     }
 
     if let Err(e) = stoa_mail::migrations::run_migrations(&config.database.url).await {

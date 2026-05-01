@@ -1,7 +1,7 @@
 # Research Report: 1c8.1 CredentialStore Extraction
 
 ## Source File
-- crates/reader/src/store/credentials.rs (233 lines)
+- crates/reader/src/store/credentials.rs (233 lines) — DELETED by usenet-ipfs-aubi; canonical impl is now stoa_auth::CredentialStore
 
 ## Public API
 - CredentialStore { entries: HashMap<String,String> }

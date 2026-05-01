@@ -122,7 +122,7 @@ git push
 git status  # must show "up to date with origin"
 ```
 
-During normal sessions, git commit and git push require explicit user approval. **Exception**: when running a review loop via `~/PROMPT-review-myoss.md` or `~/PROMPT-do-beads.md`, commits are permitted without asking after each quality-gate pass. Push to remote still requires explicit user confirmation.
+During normal sessions, git commit and git push require explicit user approval. **Exception**: when running a review loop via `~/PROMPT-review-myoss.md` or `~/PROMPT-do-beads.md`, commit immediately after each fix — do NOT ask for permission. Push to remote still requires explicit user confirmation.
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
 ## Beads Issue Tracker

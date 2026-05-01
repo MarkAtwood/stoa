@@ -258,8 +258,14 @@ impl std::fmt::Debug for DkimConfig {
 /// `Message-ID` are recommended.  `MIME-Version` ensures the MIME structure is
 /// covered.  All fields listed here must be present in outbound messages;
 /// `mail_auth` silently skips any absent field rather than erroring.
-pub const DKIM_SIGNED_HEADERS: &[&str] =
-    &["From", "To", "Subject", "Date", "Message-ID", "MIME-Version"];
+pub const DKIM_SIGNED_HEADERS: &[&str] = &[
+    "From",
+    "To",
+    "Subject",
+    "Date",
+    "Message-ID",
+    "MIME-Version",
+];
 
 /// Configuration for the durable NNTP injection queue and outbound SMTP relay.
 #[derive(Debug, Deserialize)]

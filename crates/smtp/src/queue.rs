@@ -123,14 +123,28 @@ fn inject_source_header(article_bytes: &[u8], source: InjectionSource) -> Vec<u8
 pub struct NntpQueue {
     queue_dir: PathBuf,
     notify: tokio::sync::Notify,
-    dkim_signer: Option<Arc<mail_auth::dkim::DkimSigner<mail_auth::common::crypto::Ed25519Key, mail_auth::dkim::Done>>>,
+    dkim_signer: Option<
+        Arc<
+            mail_auth::dkim::DkimSigner<
+                mail_auth::common::crypto::Ed25519Key,
+                mail_auth::dkim::Done,
+            >,
+        >,
+    >,
 }
 
 impl NntpQueue {
     /// Create a new queue rooted at `queue_dir`, creating the directory if absent.
     pub fn new(
         queue_dir: impl Into<PathBuf>,
-        dkim_signer: Option<Arc<mail_auth::dkim::DkimSigner<mail_auth::common::crypto::Ed25519Key, mail_auth::dkim::Done>>>,
+        dkim_signer: Option<
+            Arc<
+                mail_auth::dkim::DkimSigner<
+                    mail_auth::common::crypto::Ed25519Key,
+                    mail_auth::dkim::Done,
+                >,
+            >,
+        >,
     ) -> std::io::Result<Arc<Self>> {
         let queue_dir = queue_dir.into();
         std::fs::create_dir_all(&queue_dir)?;
@@ -202,7 +216,11 @@ impl NntpQueue {
                     // Remove any .msg.tmp or .env.tmp files left by a previous crash.
                     // These represent incomplete writes; the corresponding committed
                     // file was never created, so there is nothing to deliver.
-                    if path.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.ends_with(".msg.tmp") || n.ends_with(".env.tmp")) {
+                    if path
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .is_some_and(|n| n.ends_with(".msg.tmp") || n.ends_with(".env.tmp"))
+                    {
                         if let Err(e) = tokio::fs::remove_file(&path).await {
                             warn!(path = %path.display(), "nntp queue: failed to remove orphan tmp file: {e}");
                         } else {
@@ -252,7 +270,9 @@ impl NntpQueue {
                                     article
                                 };
                                 let message_id = extract_message_id(&article).unwrap_or_default();
-                                match nntp_client::post_article(nntp_config, &article, &message_id).await {
+                                match nntp_client::post_article(nntp_config, &article, &message_id)
+                                    .await
+                                {
                                     Ok(()) => {
                                         if let Err(e) = tokio::fs::remove_file(&path).await {
                                             warn!(
@@ -260,7 +280,8 @@ impl NntpQueue {
                                                 "nntp queue: failed to remove delivered file: {e}"
                                             );
                                         } else {
-                                            if let Err(e) = tokio::fs::remove_file(&env_path).await {
+                                            if let Err(e) = tokio::fs::remove_file(&env_path).await
+                                            {
                                                 warn!(
                                                     path = %env_path.display(),
                                                     "nntp queue: failed to remove delivered .env file: {e}"
@@ -302,8 +323,7 @@ mod tests {
     use stoa_core::InjectionSource;
 
     /// Build a DkimSigner using the RFC 8463 §A.2 test ed25519 keypair.
-    fn test_dkim_signer(
-    ) -> Arc<DkimSigner<Ed25519Key, mail_auth::dkim::Done>> {
+    fn test_dkim_signer() -> Arc<DkimSigner<Ed25519Key, mail_auth::dkim::Done>> {
         // RFC 8463 §A.2 test private key seed (base64 "nWGxne/9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A=").
         let seed: [u8; 32] = [
             0x9d, 0x61, 0xb1, 0x9d, 0xef, 0xfd, 0x5a, 0x60, 0xba, 0x84, 0x4a, 0xf4, 0x92, 0xec,
@@ -322,7 +342,14 @@ mod tests {
             DkimSigner::from_key(ed_key)
                 .domain("example.com")
                 .selector("test")
-                .headers(["From", "To", "Subject", "Date", "Message-ID", "MIME-Version"]),
+                .headers([
+                    "From",
+                    "To",
+                    "Subject",
+                    "Date",
+                    "Message-ID",
+                    "MIME-Version",
+                ]),
         )
     }
 
@@ -449,13 +476,19 @@ MIME-Version: 1.0\r\n\r\nHello\r\n";
     fn extract_message_id_present() {
         let article =
             b"From: a@b.com\r\nMessage-Id: <foo@bar.example>\r\nSubject: test\r\n\r\nbody\r\n";
-        assert_eq!(extract_message_id(article), Some("foo@bar.example".to_string()));
+        assert_eq!(
+            extract_message_id(article),
+            Some("foo@bar.example".to_string())
+        );
     }
 
     #[test]
     fn extract_message_id_case_insensitive() {
         let article = b"message-id: <lower@case.test>\r\nFrom: a@b.com\r\n\r\nbody\r\n";
-        assert_eq!(extract_message_id(article), Some("lower@case.test".to_string()));
+        assert_eq!(
+            extract_message_id(article),
+            Some("lower@case.test".to_string())
+        );
     }
 
     #[test]
@@ -467,6 +500,9 @@ MIME-Version: 1.0\r\n\r\nHello\r\n";
     #[test]
     fn extract_message_id_no_angle_brackets() {
         let article = b"Message-Id: plain@id.test\r\nFrom: a@b.com\r\n\r\nbody\r\n";
-        assert_eq!(extract_message_id(article), Some("plain@id.test".to_string()));
+        assert_eq!(
+            extract_message_id(article),
+            Some("plain@id.test".to_string())
+        );
     }
 }

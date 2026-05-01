@@ -793,9 +793,7 @@ impl Config {
             let pubkey_bytes = base64::engine::general_purpose::STANDARD
                 .decode(&dcfg.public_key_b64)
                 .map_err(|_| {
-                    ConfigError::Validation(
-                        "smtp_relay.dkim.public_key_b64: invalid base64".into(),
-                    )
+                    ConfigError::Validation("smtp_relay.dkim.public_key_b64: invalid base64".into())
                 })?;
             if pubkey_bytes.len() != 32 {
                 return Err(ConfigError::Validation(format!(

@@ -330,7 +330,6 @@ async fn make_disk_pool_with_verify_migrations(url: &str) -> Result<sqlx::AnyPoo
         .map_err(|e| format!("failed to open verify database '{url}': {e}"))
 }
 
-
 /// Load a 32-byte Ed25519 signing key from the given file path or secretx URI,
 /// or generate a fresh random key if no path is configured.
 ///

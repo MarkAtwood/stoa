@@ -238,7 +238,6 @@ pub async fn run_server(
     Ok(())
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
