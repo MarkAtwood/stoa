@@ -2387,7 +2387,10 @@ mod tests {
             username: "alice".to_string(),
             password: hash,
         }];
-        let credential_store = Arc::new(CredentialStore::from_credentials(&creds));
+        let credential_store = Arc::new(
+            CredentialStore::from_credentials(&creds)
+                .expect("test setup: valid bcrypt hash"),
+        );
 
         let config = test_config();
         let queue_dir = tempfile::tempdir().expect("tempdir");

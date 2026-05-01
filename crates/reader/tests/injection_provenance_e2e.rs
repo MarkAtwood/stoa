@@ -268,10 +268,13 @@ async fn authenticated_drain_smtp_list_id_is_local_only() {
 
     // Build stores and wire in the drain's credential store.
     let mut stores = ServerStores::new_mem().await;
-    stores.credential_store = Arc::new(CredentialStore::from_credentials(&[UserCredential {
-        username: DRAIN_USER.into(),
-        password: drain_hash.clone(),
-    }]));
+    stores.credential_store = Arc::new(
+        CredentialStore::from_credentials(&[UserCredential {
+            username: DRAIN_USER.into(),
+            password: drain_hash.clone(),
+        }])
+        .expect("test setup: valid bcrypt hash"),
+    );
     let stores = Arc::new(stores);
 
     let newsgroup = "comp.test.drain-local";

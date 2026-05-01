@@ -67,9 +67,10 @@ fn test_config() -> Arc<stoa_imap::config::Config> {
 }
 
 fn test_store(config: &stoa_imap::config::Config) -> Arc<stoa_auth::CredentialStore> {
-    Arc::new(stoa_auth::CredentialStore::from_credentials(
-        &config.auth.users,
-    ))
+    Arc::new(
+        stoa_auth::CredentialStore::from_credentials(&config.auth.users)
+            .expect("test setup: valid bcrypt hashes in config"),
+    )
 }
 
 /// Read one IMAP line, stripping CRLF.

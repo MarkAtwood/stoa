@@ -320,6 +320,7 @@ mod tests {
             })
             .collect();
         stoa_auth::CredentialStore::from_credentials(&creds)
+            .expect("test setup: all passwords are valid bcrypt hashes")
     }
 
     #[tokio::test]

@@ -218,11 +218,13 @@ async fn authinfo_rate_limiter_closes_after_max_failures() {
     let mut stores = ServerStores::new_mem().await;
     // Replace the empty store with one that has a known user — all wrong-password
     // checks will run real bcrypt verify (returning false) at low cost.
-    stores.credential_store =
-        std::sync::Arc::new(CredentialStore::from_credentials(&[UserCredential {
+    stores.credential_store = std::sync::Arc::new(
+        CredentialStore::from_credentials(&[UserCredential {
             username: "alice".to_string(),
             password: hash,
-        }]));
+        }])
+        .expect("test setup: valid bcrypt hash"),
+    );
     let stores = std::sync::Arc::new(stores);
 
     // Config with auth.required=false but users=[alice] — disables dev mode so

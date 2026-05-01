@@ -34,6 +34,7 @@ fn store_with_alice() -> CredentialStore {
         password: hash,
     }];
     CredentialStore::from_credentials(&users)
+        .expect("test setup: all passwords are valid bcrypt hashes")
 }
 
 // ---------------------------------------------------------------------------
@@ -137,7 +138,8 @@ async fn from_credentials_accepts_multiple_users() {
             password: hash_b,
         },
     ];
-    let store = CredentialStore::from_credentials(&users);
+    let store = CredentialStore::from_credentials(&users)
+        .expect("test setup: valid bcrypt hashes");
     assert!(
         store.check("user-a", "pass-a").await,
         "user-a must be accepted"
@@ -236,7 +238,8 @@ async fn merge_from_file_overrides_inline_credential() {
     let mut store = CredentialStore::from_credentials(&[UserCredential {
         username: "alice".to_string(),
         password: inline_hash,
-    }]);
+    }])
+    .expect("test setup: valid bcrypt hash");
 
     // File has alice at file-pass (overrides) + new user bob.
     let bob_hash = bcrypt::hash("bob-pass", 4).expect("bcrypt::hash");
@@ -292,7 +295,8 @@ async fn unknown_user_check_takes_bcrypt_time_not_microseconds() {
     let store = CredentialStore::from_credentials(&[UserCredential {
         username: "timing-user".to_string(),
         password: hash,
-    }]);
+    }])
+    .expect("test setup: valid bcrypt hash");
 
     let before = Instant::now();
     let result = store
@@ -315,7 +319,8 @@ async fn wrong_password_check_takes_bcrypt_time_not_microseconds() {
     let store = CredentialStore::from_credentials(&[UserCredential {
         username: "timing-user".to_string(),
         password: hash,
-    }]);
+    }])
+    .expect("test setup: valid bcrypt hash");
 
     let before = Instant::now();
     let result = store.check("timing-user", "wrong-password").await;

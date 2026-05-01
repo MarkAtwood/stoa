@@ -134,7 +134,8 @@ async fn drive(client_script: &[u8], is_tls: bool, config: Arc<Config>) -> Strin
     let server_task = tokio::spawn(async move {
         let (stream, peer) = listener.accept().await.expect("accept");
         let cred_store = Arc::new({
-            let mut s = stoa_auth::CredentialStore::from_credentials(&config2.auth.users);
+            let mut s = stoa_auth::CredentialStore::from_credentials(&config2.auth.users)
+                .expect("test setup: valid bcrypt hashes in config");
             if let Some(ref p) = config2.auth.credential_file {
                 let _ = s.merge_from_file(p);
             }

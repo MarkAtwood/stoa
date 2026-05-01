@@ -101,34 +101,21 @@ impl CredentialStore {
     /// bcrypt hash (not a plaintext password). Usernames are normalised to
     /// ASCII-lowercase.
     ///
-    /// # Preconditions
-    ///
-    /// All passwords must have been validated with [`looks_like_bcrypt_hash`]
-    /// (or an equivalent config validation call) before being passed here.
-    /// The standard startup path in each service binary (smtp, reader, mail)
-    /// calls its own `Config::validate()` before constructing a
-    /// `CredentialStore`, satisfying this requirement.
-    /// If you are calling this from a code path that bypasses config validation,
-    /// use [`CredentialStore::from_content`] or [`CredentialStore::from_file`]
-    /// instead — they return `Err` on invalid hashes rather than panicking.
-    ///
-    /// # Panics
-    ///
-    /// Panics if any `password` is not a recognised bcrypt hash (i.e. does not
-    /// start with `$2a$`, `$2b$`, `$2x$`, or `$2y$` with a cost of 4–31).
-    /// This is a fatal configuration error: a plaintext password would cause
-    /// `bcrypt::verify` to always return `false`, making authentication silently
-    /// fail for that user with no error at request time.
-    pub fn from_credentials(users: &[UserCredential]) -> Self {
+    /// Returns `Err(CredentialStoreError::BadHash)` if any `password` is not a
+    /// recognised bcrypt hash (i.e. does not start with `$2a$`, `$2b$`, `$2x$`,
+    /// or `$2y$` with a cost of 4–31 and a total length of at least 60).
+    /// This catches the common mistake of storing a plaintext password in
+    /// `[auth.users]`; a plaintext value would cause `bcrypt::verify` to always
+    /// return `false`, making authentication silently fail at request time.
+    pub fn from_credentials(
+        users: &[UserCredential],
+    ) -> Result<Self, CredentialStoreError> {
         for u in users {
             if !looks_like_bcrypt_hash(&u.password) {
-                panic!(
-                    "stoa-auth: password for user '{}' is not a valid bcrypt hash \
-                     (must start with $2a$, $2b$, $2x$, or $2y$ with a cost of 4–31 \
-                     and be at least 60 characters); \
-                     use `htpasswd -B -n {}` or `bcrypt::hash()` to generate a valid hash",
-                    u.username, u.username,
-                );
+                return Err(CredentialStoreError::BadHash {
+                    label: "inline users".to_string(),
+                    username: u.username.clone(),
+                });
             }
         }
         let entries: HashMap<String, String> = users
@@ -136,10 +123,10 @@ impl CredentialStore {
             .map(|u| (u.username.to_ascii_lowercase(), u.password.clone()))
             .collect();
         let dummy_hash = make_dummy_hash(&entries);
-        Self {
+        Ok(Self {
             entries,
             dummy_hash,
-        }
+        })
     }
 
     /// Return an empty `CredentialStore` (no users configured; all checks fail).
@@ -305,7 +292,7 @@ pub async fn build_credential_store(
     users: &[crate::config::UserCredential],
     credential_file: Option<&str>,
 ) -> Result<CredentialStore, BuildStoreError> {
-    let mut store = CredentialStore::from_credentials(users);
+    let mut store = CredentialStore::from_credentials(users)?;
     if let Some(path) = credential_file {
         if path.starts_with("secretx:") {
             let secret_store = secretx::from_uri(path).map_err(|e| {
@@ -394,12 +381,20 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "not a valid bcrypt hash")]
-    fn from_credentials_panics_on_plaintext_password() {
-        CredentialStore::from_credentials(&[UserCredential {
+    fn from_credentials_returns_err_for_plaintext_password() {
+        let result = CredentialStore::from_credentials(&[UserCredential {
             username: "alice".to_string(),
             password: "plaintextpassword".to_string(),
         }]);
+        assert!(
+            result.is_err(),
+            "from_credentials must return Err for plaintext password"
+        );
+        let msg = result.err().unwrap().to_string();
+        assert!(
+            msg.contains("not a valid bcrypt hash"),
+            "error must mention bcrypt hash requirement, got: {msg}"
+        );
     }
 
     #[test]
@@ -408,7 +403,8 @@ mod tests {
         let store = CredentialStore::from_credentials(&[UserCredential {
             username: "alice".to_string(),
             password: hash,
-        }]);
+        }])
+        .expect("from_credentials must succeed for valid bcrypt hash");
         assert!(store.entries.contains_key("alice"));
     }
 
@@ -521,7 +517,9 @@ mod tests {
             dummy_hash,
         };
         let content = format!("alice:{file_hash}\n");
-        store.merge_from_content("<test>", &content).unwrap();
+        store
+            .merge_from_content("<test>", &content)
+            .expect("merge_from_content must succeed for valid bcrypt hash");
         // The file version should now authenticate, not the inline one.
         assert!(
             store.check("alice", "file-pass").await,
