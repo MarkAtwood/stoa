@@ -510,20 +510,36 @@ async fn route_method(
                 .get_state(user_id, "Mailbox")
                 .await
                 .unwrap_or_else(|_| "0".to_string());
-            let new_state = jmap
-                .state_store
-                .bump_state(user_id, "Mailbox")
-                .await
-                .unwrap_or_else(|_| old_state.clone());
-            crate::mailbox::set::handle_mailbox_set(
+            let mut result = crate::mailbox::set::handle_mailbox_set(
                 &args,
                 user_id,
                 &jmap.subscription_store,
                 &jmap.article_numbers,
                 &old_state,
-                &new_state,
+                &old_state,
             )
-            .await
+            .await;
+            let any_created = result
+                .get("created")
+                .and_then(|v| v.as_object())
+                .map(|m| !m.is_empty())
+                .unwrap_or(false);
+            let any_destroyed = result
+                .get("destroyed")
+                .and_then(|v| v.as_array())
+                .map(|a| !a.is_empty())
+                .unwrap_or(false);
+            if any_created || any_destroyed {
+                let new_state = jmap
+                    .state_store
+                    .bump_state(user_id, "Mailbox")
+                    .await
+                    .unwrap_or_else(|_| old_state.clone());
+                if let Some(obj) = result.as_object_mut() {
+                    obj.insert("newState".to_string(), serde_json::Value::String(new_state));
+                }
+            }
+            result
         }
 
         "Mailbox/query" => {
@@ -652,6 +668,7 @@ async fn route_method(
                 Some(g) => g.clone(),
                 None => {
                     return json!({
+                        "accountId": canonical_account_id,
                         "ids": [],
                         "total": 0,
                         "queryState": email_state,
@@ -876,15 +893,27 @@ async fn route_method(
                 })
                 .unwrap_or_default();
 
-            // Collect all overview records from all groups so we can compute
-            // thread memberships across the full article corpus.
+            // Collect overview records to compute thread memberships.
+            //
+            // TODO(stoa-c4zlv.2): This scan is O(total articles across all
+            // groups).  A proper fix requires a dedicated thread-index table
+            // mapping (group, message_id) → thread_root.  Until then, cap the
+            // total entries scanned to avoid multi-second latency on large corpora.
+            const MAX_THREAD_SCAN: usize = 5000;
+
             let groups = match jmap.article_numbers.list_groups().await {
                 Ok(g) => g,
                 Err(e) => return json!({"error": e.to_string()}),
             };
 
             let mut entries: Vec<crate::thread::get::ThreadEntry> = Vec::new();
-            for (group_name, lo, hi) in &groups {
+            let requested_set: std::collections::HashSet<&str> =
+                requested_ids.iter().map(String::as_str).collect();
+            let mut found: std::collections::HashSet<String> =
+                std::collections::HashSet::new();
+            let mut total_scanned: usize = 0;
+
+            'outer: for (group_name, lo, hi) in &groups {
                 let records = match jmap.overview_store.query_range(group_name, *lo, *hi).await {
                     Ok(r) => r,
                     Err(_) => continue,
@@ -897,12 +926,27 @@ async fn route_method(
                     .unwrap_or_default();
                 for rec in &records {
                     if let Some(cid) = cid_map.get(&rec.article_number).copied() {
+                        let tid = crate::thread::get::thread_id_for(
+                            &rec.references,
+                            &rec.message_id,
+                        );
+                        if requested_set.contains(tid.as_str()) {
+                            found.insert(tid);
+                        }
                         entries.push(crate::thread::get::ThreadEntry {
                             email_id: cid.to_string(),
                             references: rec.references.clone(),
                             message_id: rec.message_id.clone(),
                         });
                     }
+                    total_scanned += 1;
+                    if total_scanned >= MAX_THREAD_SCAN {
+                        break 'outer;
+                    }
+                }
+                // Early exit: all requested threads found.
+                if found.len() == requested_set.len() {
+                    break;
                 }
             }
 
@@ -927,7 +971,20 @@ async fn route_method(
                 .get("sinceState")
                 .and_then(|v| v.as_str())
                 .unwrap_or("0");
-            let since_seq: i64 = since_state_str.parse().unwrap_or(0);
+            let since_seq: i64 = match since_state_str.parse() {
+                Ok(n) if n >= 0 => n,
+                _ => {
+                    let new_state = jmap
+                        .state_store
+                        .get_state(user_id, "Email")
+                        .await
+                        .unwrap_or_else(|_| "0".to_string());
+                    return json!({
+                        "type": "cannotCalculateChanges",
+                        "newState": new_state
+                    });
+                }
+            };
 
             let new_state = jmap
                 .state_store
@@ -1021,7 +1078,8 @@ async fn route_method(
         }
 
         // RFC 9404 §4.2: Blob/copy — in stoa, CIDs are global content addresses
-        // shared across all accounts, so every copy request trivially succeeds.
+        // shared across all accounts.  Validate that each blobId is a parseable
+        // CIDv1 before reporting success; garbage strings go to notCopied.
         "Blob/copy" => {
             let from_account_id = args
                 .get("fromAccountId")
@@ -1038,17 +1096,25 @@ async fn route_method(
                 })
                 .unwrap_or_default();
 
-            // CIDs are global — every blob is already accessible from any account.
-            let copied: serde_json::Map<String, Value> = blob_ids
-                .iter()
-                .map(|id| (id.clone(), Value::String(id.clone())))
-                .collect();
+            let mut copied: serde_json::Map<String, Value> = serde_json::Map::new();
+            let mut not_copied: serde_json::Map<String, Value> = serde_json::Map::new();
+            for id in &blob_ids {
+                if cid::Cid::try_from(id.as_str()).is_ok() {
+                    // Valid CID — globally accessible in stoa.
+                    copied.insert(id.clone(), Value::String(id.clone()));
+                } else {
+                    not_copied.insert(
+                        id.clone(),
+                        json!({"type": "blobNotFound", "description": "not a valid CID"}),
+                    );
+                }
+            }
 
             json!({
                 "fromAccountId": from_account_id,
                 "accountId": canonical_account_id,
                 "copied": copied,
-                "notCopied": {}
+                "notCopied": not_copied
             })
         }
 

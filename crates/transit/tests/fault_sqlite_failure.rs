@@ -108,6 +108,26 @@ impl LogStorage for FailingLogStorage {
     async fn tip_count(&self, group: &GroupName) -> Result<u64, StorageError> {
         self.inner.tip_count(group).await
     }
+
+    async fn insert_entry_and_advance_tips(
+        &self,
+        id: LogEntryId,
+        entry: LogEntry,
+        group: &GroupName,
+        parents_to_remove: &[LogEntryId],
+        new_tip: &LogEntryId,
+    ) -> Result<(), StorageError> {
+        let n = self.call_count.fetch_add(1, Ordering::SeqCst);
+        if n >= self.fail_after {
+            Err(StorageError::Database(
+                "simulated SQLite write failure".to_string(),
+            ))
+        } else {
+            self.inner
+                .insert_entry_and_advance_tips(id, entry, group, parents_to_remove, new_tip)
+                .await
+        }
+    }
 }
 
 // ── Test helpers ──────────────────────────────────────────────────────────────

@@ -126,20 +126,19 @@ pub async fn append<S: LogStorage>(
         parent_ids.push(parent_id);
     }
 
-    // insert_entry with UNIQUE constraint enforcement: if a concurrent caller
-    // won the race between our has_entry check and this insert, DuplicateEntry
-    // is returned — treat it as the idempotent success case (same as the
-    // has_entry fast-path above) without calling advance_tips again.
-    match storage.insert_entry(entry_id.clone(), entry).await {
+    // Atomically insert the entry and advance the tip set in a single
+    // operation.  SqliteLogStorage wraps both in one transaction, eliminating
+    // the crash window that would leave an orphaned log entry (stored but
+    // never a tip).  If a concurrent caller won the race, DuplicateEntry is
+    // returned — treat as the idempotent success case without re-advancing.
+    match storage
+        .insert_entry_and_advance_tips(entry_id.clone(), entry, group, &parent_ids, &entry_id)
+        .await
+    {
         Ok(()) => {}
         Err(StorageError::DuplicateEntry(_)) => return Ok(entry_id),
         Err(e) => return Err(AppendError::Storage(e)),
     }
-    // advance_tips atomically removes the entry's parents from the tip set and
-    // adds the new entry.  This preserves CRDT semantics: two concurrent
-    // appends that share the same parent both survive as tips rather than one
-    // overwriting the other.
-    storage.advance_tips(group, &parent_ids, &entry_id).await?;
 
     Ok(entry_id)
 }

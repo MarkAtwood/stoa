@@ -546,10 +546,34 @@ where
     // 2+3. Parse Message-ID and Newsgroups in a single header scan.
     let (message_id, group_name_strs) = parse_message_id_and_newsgroups(article_bytes)
         .ok_or_else(|| "missing Message-ID header".to_string())?;
-    msgid_map
-        .insert(&message_id, &cid)
-        .await
-        .map_err(|e| format!("msgid insert failed: {e}"))?;
+    match msgid_map.insert(&message_id, &cid).await {
+        Ok(()) => {}
+        Err(e) => {
+            // IPFS block was written but the DB insert failed.  Attempt to
+            // delete the block immediately to prevent a permanent storage
+            // leak — this block has no pinned_cids row so GC can never find it.
+            match ipfs.delete(&cid).await {
+                Ok(_) => {
+                    tracing::warn!(
+                        cid = %cid,
+                        msgid = %message_id,
+                        err = %e,
+                        "msgid_map insert failed; deleted orphaned IPFS block"
+                    );
+                }
+                Err(del_err) => {
+                    tracing::error!(
+                        cid = %cid,
+                        msgid = %message_id,
+                        insert_err = %e,
+                        delete_err = %del_err,
+                        "IPFS block orphaned: msgid_map insert failed and block delete also failed"
+                    );
+                }
+            }
+            return Err(format!("msgid insert failed: {e}"));
+        }
+    }
 
     // 3. Append a log entry to each valid group.
     // Each entry is a genesis entry (no parents) signed over canonical bytes:

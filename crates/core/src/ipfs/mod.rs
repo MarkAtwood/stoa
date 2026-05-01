@@ -161,9 +161,8 @@ impl KuboHttpClient {
 
     /// Retrieve a block from Kubo by CID.
     ///
-    /// Returns `None` if the block is not available locally in the Kubo node
-    /// (not pinned, not yet retrieved from the network). Returns `Err` on
-    /// network or Kubo API errors.
+    /// Returns `None` on HTTP 404 (block not present in the local Kubo store).
+    /// Returns `Err` on any other non-2xx status or network error.
     #[tracing::instrument(skip(self), fields(cid = %cid))]
     pub async fn block_get(&self, cid: &Cid) -> Result<Option<Vec<u8>>, KuboError> {
         let resp = self
@@ -173,14 +172,8 @@ impl KuboHttpClient {
             .send()
             .await?;
 
-        if resp.status().as_u16() == 500 {
-            // Kubo returns 500 when the block is not locally available.
-            // Distinguish "not found" from genuine errors by checking the body.
-            let body = resp.text().await.unwrap_or_default();
-            if body.contains("not found") || body.contains("blockstore") {
-                return Ok(None);
-            }
-            return Err(KuboError::Api(format!("block/get HTTP 500: {body}")));
+        if resp.status().as_u16() == 404 {
+            return Ok(None);
         }
 
         if !resp.status().is_success() {

@@ -99,6 +99,19 @@ impl LogStorage for MemLogStorage {
         let count = map.get(group.as_str()).map(|v| v.len() as u64).unwrap_or(0);
         Ok(count)
     }
+
+    async fn insert_entry_and_advance_tips(
+        &self,
+        id: LogEntryId,
+        entry: LogEntry,
+        group: &GroupName,
+        parents_to_remove: &[LogEntryId],
+        new_tip: &LogEntryId,
+    ) -> Result<(), StorageError> {
+        // In-memory: two separate calls (no crash to recover from).
+        self.insert_entry(id, entry).await?;
+        self.advance_tips(group, parents_to_remove, new_tip).await
+    }
 }
 
 #[cfg(test)]

@@ -342,7 +342,7 @@ pub async fn run_session<S>(
                 let mechanism_upper = args.to_ascii_uppercase();
                 if mechanism_upper == "PLAIN" || mechanism_upper.starts_with("PLAIN ") {
                     let initial_response = if args.len() > 5 { args[5..].trim() } else { "" };
-                    let b64 = if initial_response.is_empty() {
+                    let (b64, two_step) = if initial_response.is_empty() {
                         // Two-step: send empty challenge, read response.
                         if write_half.write_all(b"334 \r\n").await.is_err() {
                             break;
@@ -354,7 +354,9 @@ pub async fn run_session<S>(
                         )
                         .await
                         {
-                            CmdLine::Line(s) => s.trim_end_matches(['\r', '\n']).to_string(),
+                            CmdLine::Line(s) => {
+                                (s.trim_end_matches(['\r', '\n']).to_string(), true)
+                            }
                             _ => {
                                 let _ = write_half
                                     .write_all(b"535 5.7.8 Authentication credentials invalid\r\n")
@@ -363,8 +365,18 @@ pub async fn run_session<S>(
                             }
                         }
                     } else {
-                        initial_response.to_string()
+                        (initial_response.to_string(), false)
                     };
+                    if two_step && b64 == "*" {
+                        if write_half
+                            .write_all(b"501 5.7.0 Authentication exchange cancelled\r\n")
+                            .await
+                            .is_err()
+                        {
+                            break;
+                        }
+                        continue;
+                    }
                     match verify_sasl_plain(&credential_store, &b64).await {
                         Some(username) => {
                             info!(peer = %peer_addr, %username, "AUTH PLAIN succeeded");

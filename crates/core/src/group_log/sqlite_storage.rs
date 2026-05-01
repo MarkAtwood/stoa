@@ -262,6 +262,88 @@ impl LogStorage for SqliteLogStorage {
         Ok(())
     }
 
+    async fn insert_entry_and_advance_tips(
+        &self,
+        id: LogEntryId,
+        entry: LogEntry,
+        group: &GroupName,
+        parents_to_remove: &[LogEntryId],
+        new_tip: &LogEntryId,
+    ) -> Result<(), StorageError> {
+        let id_bytes = id.as_bytes().to_vec();
+        let article_cid_bytes = entry.article_cid.to_bytes();
+        let ts = i64::try_from(entry.hlc_timestamp).map_err(|_| {
+            StorageError::Database(format!(
+                "HLC timestamp {} exceeds i64::MAX — cannot store",
+                entry.hlc_timestamp
+            ))
+        })?;
+
+        let mut tx = self.pool.begin().await.map_err(db_err)?;
+
+        // INSERT entry — translate UNIQUE violation to DuplicateEntry.
+        let insert_result = sqlx::query(
+            "INSERT INTO log_entries (id, hlc_timestamp, article_cid, operator_signature)
+             VALUES (?, ?, ?, ?)",
+        )
+        .bind(&id_bytes)
+        .bind(ts)
+        .bind(&article_cid_bytes)
+        .bind(&entry.operator_signature)
+        .execute(&mut *tx)
+        .await;
+
+        match insert_result {
+            Ok(_) => {}
+            Err(sqlx::Error::Database(e)) if e.is_unique_violation() => {
+                return Err(StorageError::DuplicateEntry(id));
+            }
+            Err(e) => return Err(db_err(e)),
+        }
+
+        // INSERT parent edges.
+        for parent_cid in &entry.parent_cids {
+            let parent_bytes = parent_cid.to_bytes();
+            sqlx::query(
+                "INSERT INTO log_entry_parents (entry_id, parent_id) VALUES (?, ?)
+                 ON CONFLICT DO NOTHING",
+            )
+            .bind(&id_bytes)
+            .bind(&parent_bytes)
+            .execute(&mut *tx)
+            .await
+            .map_err(db_err)?;
+        }
+
+        // DELETE parent tips.
+        if !parents_to_remove.is_empty() {
+            let mut qb =
+                sqlx::QueryBuilder::new("DELETE FROM group_tips WHERE group_name = ");
+            qb.push_bind(group.as_str());
+            qb.push(" AND tip_id IN (");
+            let mut sep = qb.separated(", ");
+            for p in parents_to_remove {
+                sep.push_bind(p.as_bytes().to_vec());
+            }
+            sep.push_unseparated(")");
+            qb.build().execute(&mut *tx).await.map_err(db_err)?;
+        }
+
+        // INSERT new tip.
+        let new_tip_bytes = new_tip.as_bytes().to_vec();
+        sqlx::query(
+            "INSERT INTO group_tips (group_name, tip_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
+        )
+        .bind(group.as_str())
+        .bind(&new_tip_bytes)
+        .execute(&mut *tx)
+        .await
+        .map_err(db_err)?;
+
+        tx.commit().await.map_err(db_err)?;
+        Ok(())
+    }
+
     async fn tip_count(&self, group: &GroupName) -> Result<u64, StorageError> {
         let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM group_tips WHERE group_name = ?")
             .bind(group.as_str())

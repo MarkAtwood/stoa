@@ -68,6 +68,25 @@ pub trait LogStorage: Send + Sync {
         new_tip: &LogEntryId,
     ) -> impl Future<Output = Result<(), StorageError>> + Send;
 
+    /// Atomically insert an entry and advance the tip set in a single
+    /// operation.  This prevents the crash window between `insert_entry` and
+    /// `advance_tips` that would leave an orphaned log entry with no tip.
+    ///
+    /// Returns `StorageError::DuplicateEntry` if the entry already exists;
+    /// in that case the tip set is **not** modified.
+    ///
+    /// The default implementation calls `insert_entry` then `advance_tips`
+    /// sequentially (not crash-safe; acceptable for in-memory test storage).
+    /// SQL-backed implementations override this with a single transaction.
+    fn insert_entry_and_advance_tips(
+        &self,
+        id: LogEntryId,
+        entry: LogEntry,
+        group: &GroupName,
+        parents_to_remove: &[LogEntryId],
+        new_tip: &LogEntryId,
+    ) -> impl Future<Output = Result<(), StorageError>> + Send;
+
     /// Returns the number of DAG tip entries for the group, not total log
     /// entries. For a group with 1 000 entries branched into 2 concurrent tips
     /// this returns 2, not 1 000.

@@ -107,14 +107,24 @@ pub fn compile(script: &[u8]) -> Result<CompiledScript, String> {
 /// after the configured deadline, bounding worst-case CPU per untrusted script.
 /// Operators must set this to a reasonable value (e.g. 100 ms) when accepting
 /// scripts from untrusted sources.
+/// Maximum nesting depth for `if`/`elsif` blocks and `allof`/`anyof` test
+/// lists.  Matches the Dovecot Pigeonhole limit; prevents stack exhaustion
+/// on maliciously crafted scripts.
+const MAX_VALIDATE_DEPTH: usize = 32;
+
 fn validate_script(script: &form::Script) -> Result<(), String> {
     for stmt in script {
-        validate_stmt(stmt)?;
+        validate_stmt(stmt, 0)?;
     }
     Ok(())
 }
 
-fn validate_stmt(stmt: &form::Stmt) -> Result<(), String> {
+fn validate_stmt(stmt: &form::Stmt, depth: usize) -> Result<(), String> {
+    if depth >= MAX_VALIDATE_DEPTH {
+        return Err(format!(
+            "script nesting depth exceeds limit of {MAX_VALIDATE_DEPTH}"
+        ));
+    }
     // Scan the flat form list for Tag("comparator") followed by Str(name).
     // Also detect Tag("regex") and validate all Str patterns in the stmt.
     let mut has_regex_tag = false;
@@ -137,13 +147,13 @@ fn validate_stmt(stmt: &form::Stmt) -> Result<(), String> {
             form::Form::Block(stmts) => {
                 // Recurse into braced blocks.
                 for inner in stmts {
-                    validate_stmt(inner)?;
+                    validate_stmt(inner, depth + 1)?;
                 }
             }
             form::Form::TestList(tests) => {
                 // Recurse into parenthesised test lists.
                 for test in tests {
-                    validate_stmt(test)?;
+                    validate_stmt(test, depth + 1)?;
                 }
             }
             _ => {}
@@ -634,6 +644,38 @@ if header :matches "List-Id" "*<*>*" {
             actions,
             vec![SieveAction::FileInto("List/test.lists.example.com".into())],
             "capture variable ${{2}} must contain the list-id between < and >"
+        );
+    }
+
+    // ── depth limit ───────────────────────────────────────────────────────────
+
+    /// A script with 33 nested `if` blocks (one above the 32-level limit) must
+    /// be rejected with a depth error.  If the limit is not enforced, a
+    /// malicious operator-uploaded script of sufficient depth would exhaust
+    /// the thread stack during compile().
+    #[test]
+    fn deeply_nested_if_blocks_rejected() {
+        // Build: if header :contains "X" "y" { if header ... { ... } }
+        // repeated 33 times (MAX_VALIDATE_DEPTH + 1).
+        const DEPTH: usize = 33;
+        let mut script = String::new();
+        for _ in 0..DEPTH {
+            script.push_str(r#"if header :contains "Subject" "x" { "#);
+        }
+        script.push_str("keep;");
+        for _ in 0..DEPTH {
+            script.push_str(" }");
+        }
+
+        let result = compile(script.as_bytes());
+        assert!(
+            result.is_err(),
+            "script with {DEPTH} nesting levels must be rejected; got {result:?}"
+        );
+        let msg = result.unwrap_err();
+        assert!(
+            msg.contains("nesting depth"),
+            "error must mention nesting depth; got: {msg:?}"
         );
     }
 }

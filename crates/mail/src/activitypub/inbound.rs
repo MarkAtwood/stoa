@@ -242,12 +242,30 @@ pub async fn verify_http_signature(
         }
     }
 
-    // Slow path: fetch fresh key and update cache under write lock.
-    let pem = fetch_public_key(&key_id, http_client).await?;
-    {
+    // Slow path: acquire write lock and double-check before fetching.
+    // Holding the write lock during the fetch prevents O(concurrent requests)
+    // duplicate fetches on a cache miss (TOCTOU between read unlock and write
+    // lock).  Readers are blocked only for the duration of the HTTP call,
+    // which is rare (only on cache miss or TTL expiry).
+    let pem = {
         let mut cache = pub_key_cache.write().await;
-        cache.insert(key_id.clone(), (pem.clone(), Instant::now()));
-    }
+        if let Some((pem, fetched_at)) = cache.get(&key_id) {
+            if fetched_at.elapsed() < crate::activitypub::PUB_KEY_CACHE_TTL {
+                // A concurrent request already populated the cache.
+                pem.clone()
+            } else {
+                // Stale — fetch fresh while holding write lock.
+                let fresh = fetch_public_key(&key_id, http_client).await?;
+                cache.insert(key_id.clone(), (fresh.clone(), Instant::now()));
+                fresh
+            }
+        } else {
+            // Not in cache — fetch while holding write lock.
+            let fresh = fetch_public_key(&key_id, http_client).await?;
+            cache.insert(key_id.clone(), (fresh.clone(), Instant::now()));
+            fresh
+        }
+    };
     verify_rsa_sha256(&pem, &signed_string, &sig_b64)?;
 
     // Extract actor URL: the part of keyId before the fragment.

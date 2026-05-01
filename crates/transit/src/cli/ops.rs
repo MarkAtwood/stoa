@@ -19,9 +19,13 @@ type PinnedCidRow = (String, Option<String>, Option<i64>, Option<i64>);
 ///
 /// All counts are read directly from SQLite. If a table does not exist
 /// (first run before migrations), the count is reported as 0.
-pub async fn cmd_status(pool: &AnyPool, format: OutputFormat) -> Result<String, StorageError> {
+pub async fn cmd_status(
+    pool: &AnyPool,
+    core_pool: &AnyPool,
+    format: OutputFormat,
+) -> Result<String, StorageError> {
     let article_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM msgid_map")
-        .fetch_one(pool)
+        .fetch_one(core_pool)
         .await
         .unwrap_or(0);
 
@@ -259,10 +263,23 @@ mod tests {
         (pool, tmp)
     }
 
+    async fn make_core_pool() -> (AnyPool, tempfile::TempPath) {
+        let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+        let url = format!("sqlite://{}", tmp.to_str().unwrap());
+        stoa_core::migrations::run_migrations(&url).await.unwrap();
+        let pool = stoa_core::db_pool::try_open_any_pool(&url, 1)
+            .await
+            .unwrap();
+        (pool, tmp)
+    }
+
     #[tokio::test]
     async fn status_on_empty_db_table() {
-        let (pool, _tmp) = make_pool().await;
-        let result = cmd_status(&pool, OutputFormat::Table).await.unwrap();
+        let (transit_pool, _tmp) = make_pool().await;
+        let (core_pool, _core_tmp) = make_core_pool().await;
+        let result = cmd_status(&transit_pool, &core_pool, OutputFormat::Table)
+            .await
+            .unwrap();
         assert!(
             result.contains("peers") || result.contains("articles"),
             "status output: {result}"
@@ -271,8 +288,11 @@ mod tests {
 
     #[tokio::test]
     async fn status_on_empty_db_json() {
-        let (pool, _tmp) = make_pool().await;
-        let result = cmd_status(&pool, OutputFormat::Json).await.unwrap();
+        let (transit_pool, _tmp) = make_pool().await;
+        let (core_pool, _core_tmp) = make_core_pool().await;
+        let result = cmd_status(&transit_pool, &core_pool, OutputFormat::Json)
+            .await
+            .unwrap();
         let v: serde_json::Value = serde_json::from_str(&result).unwrap();
         assert_eq!(v["peers_active"], 0);
         assert_eq!(v["articles"], 0);

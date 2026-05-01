@@ -44,7 +44,14 @@ pub fn extract_did_sig(article_bytes: &[u8]) -> Option<String> {
 
     // Only search the header section.
     let header_bytes = header_section(article_bytes);
-    let text = String::from_utf8_lossy(header_bytes);
+    // If the header bytes are not valid UTF-8 (e.g. Latin-1 encoded From:
+    // header), there is no DID sig to extract.  Using from_utf8_lossy would
+    // silently insert U+FFFD replacement characters, which would corrupt the
+    // header value and cause a validly-signed article to fail verification.
+    let text = match std::str::from_utf8(header_bytes) {
+        Ok(s) => s,
+        Err(_) => return None,
+    };
 
     // Collect logical header lines by unfolding RFC 5322 continuations.
     let mut logical_lines: Vec<String> = Vec::new();
@@ -121,6 +128,16 @@ mod tests {
         let headers = b"From: a@b\r\nX-Stoa-DID-Sig: did:key:z6Mk\r\n abc123\r\nSubject: hi\r\n";
         let result = extract_did_sig(headers);
         assert_eq!(result, Some("did:key:z6Mk abc123".to_owned()));
+    }
+
+    #[test]
+    fn non_utf8_headers_return_none() {
+        // 0xFF is never valid in UTF-8.  If from_utf8_lossy were used it would
+        // insert U+FFFD replacement characters and could corrupt a DID sig
+        // value.  The correct behaviour is to return None — no verifiable sig.
+        let headers: &[u8] =
+            b"From: Ren\xe9 <rene@example.com>\r\nX-Stoa-DID-Sig: did:key:z6Mk...\r\n";
+        assert_eq!(extract_did_sig(headers), None);
     }
 
     #[test]
