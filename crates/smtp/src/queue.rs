@@ -9,7 +9,7 @@ use tracing::{info, warn};
 
 use mail_auth::common::headers::HeaderWriter;
 
-use crate::nntp_client::{self, NntpClientConfig};
+use crate::nntp_client::{self, NntpClientConfig, NntpClientError};
 
 static SEQ: AtomicU64 = AtomicU64::new(0);
 
@@ -307,6 +307,27 @@ impl NntpQueue {
                                                 );
                                             }
                                             info!("nntp queue: article delivered");
+                                        }
+                                    }
+                                    Err(NntpClientError::PermanentRejection(ref resp)) => {
+                                        warn!(
+                                            path = %path.display(),
+                                            message_id,
+                                            "nntp queue: article permanently rejected (437), \
+                                             removing: {resp}"
+                                        );
+                                        if let Err(e) = tokio::fs::remove_file(&path).await {
+                                            warn!(
+                                                path = %path.display(),
+                                                "nntp queue: failed to remove rejected file: {e}"
+                                            );
+                                        } else if let Err(e) =
+                                            tokio::fs::remove_file(&env_path).await
+                                        {
+                                            warn!(
+                                                path = %env_path.display(),
+                                                "nntp queue: failed to remove rejected .env file: {e}"
+                                            );
                                         }
                                     }
                                     Err(e) => {

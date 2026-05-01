@@ -9,6 +9,53 @@ use tracing::warn;
 
 const OPERATION_TIMEOUT: Duration = Duration::from_secs(30);
 
+/// Typed error for NNTP client operations.
+///
+/// Callers can match on the variant to distinguish permanent failures
+/// (which must not be retried) from transient ones and I/O errors.
+#[derive(Debug)]
+pub enum NntpClientError {
+    /// A network I/O error.
+    Io(std::io::Error),
+    /// The operation exceeded the 30-second timeout.
+    Timeout,
+    /// AUTHINFO USER/PASS was rejected by the server.
+    AuthFailed(String),
+    /// The server returned a 437 permanent rejection; do not retry this article.
+    PermanentRejection(String),
+    /// The server returned 436 and all retry attempts were exhausted.
+    TransientExhausted(String),
+    /// An unexpected or malformed server response.
+    Protocol(String),
+}
+
+impl std::fmt::Display for NntpClientError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NntpClientError::Io(e) => write!(f, "I/O error: {e}"),
+            NntpClientError::Timeout => write!(f, "operation timed out after 30 seconds"),
+            NntpClientError::AuthFailed(r) => write!(f, "NNTP authentication failed: {r}"),
+            NntpClientError::PermanentRejection(r) => {
+                write!(f, "NNTP 437 permanent rejection: {r}")
+            }
+            NntpClientError::TransientExhausted(r) => {
+                write!(f, "NNTP 436 transient failure, retries exhausted: {r}")
+            }
+            NntpClientError::Protocol(r) => write!(f, "NNTP protocol error: {r}"),
+        }
+    }
+}
+
+impl std::error::Error for NntpClientError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        if let NntpClientError::Io(e) = self {
+            Some(e)
+        } else {
+            None
+        }
+    }
+}
+
 /// Configuration for NNTP client connections.
 #[derive(Debug, Clone)]
 pub struct NntpClientConfig {
@@ -37,29 +84,29 @@ pub struct NntpClientConfig {
 /// 6. Verify with `ARTICLE <message_id>`, expect `220` (non-fatal warning on failure)
 /// 7. Send `QUIT`
 ///
-/// Returns `Ok(())` on success. Returns `Err(String)` on any protocol
-/// deviation, I/O error, or timeout.
+/// Returns `Ok(())` on success. Returns `Err(NntpClientError)` on any
+/// protocol deviation, I/O error, or timeout.
 pub async fn post_article(
     config: &NntpClientConfig,
     article_bytes: &[u8],
     message_id: &str,
-) -> Result<(), String> {
+) -> Result<(), NntpClientError> {
     timeout(
         OPERATION_TIMEOUT,
         do_post(config, article_bytes, message_id),
     )
     .await
-    .map_err(|_| "NNTP POST timed out after 30 seconds".to_string())?
+    .map_err(|_| NntpClientError::Timeout)?
 }
 
 async fn do_post(
     config: &NntpClientConfig,
     article_bytes: &[u8],
     message_id: &str,
-) -> Result<(), String> {
+) -> Result<(), NntpClientError> {
     let stream = TcpStream::connect(&config.addr)
         .await
-        .map_err(|e| format!("failed to connect to NNTP server {}: {e}", config.addr))?;
+        .map_err(NntpClientError::Io)?;
 
     let (reader_half, mut writer) = stream.into_split();
     let mut reader = BufReader::new(reader_half);
@@ -69,9 +116,9 @@ async fn do_post(
     reader
         .read_line(&mut line)
         .await
-        .map_err(|e| format!("failed to read NNTP greeting: {e}"))?;
+        .map_err(NntpClientError::Io)?;
     if !line.starts_with("200") {
-        return Err(format!("unexpected NNTP greeting: {}", line.trim_end()));
+        return Err(NntpClientError::Protocol(line.trim_end().to_string()));
     }
     line.clear();
 
@@ -80,14 +127,14 @@ async fn do_post(
         writer
             .write_all(format!("AUTHINFO USER {username}\r\n").as_bytes())
             .await
-            .map_err(|e| format!("failed to send AUTHINFO USER: {e}"))?;
+            .map_err(NntpClientError::Io)?;
 
         reader
             .read_line(&mut line)
             .await
-            .map_err(|e| format!("failed to read AUTHINFO USER response: {e}"))?;
+            .map_err(NntpClientError::Io)?;
         if !line.starts_with("381") {
-            return Err(format!("AUTHINFO USER failed: {}", line.trim_end()));
+            return Err(NntpClientError::AuthFailed(line.trim_end().to_string()));
         }
         line.clear();
 
@@ -97,24 +144,24 @@ async fn do_post(
         writer
             .write_all(b"AUTHINFO PASS ")
             .await
-            .map_err(|e| format!("failed to send AUTHINFO PASS: {e}"))?;
+            .map_err(NntpClientError::Io)?;
         writer
             .write_all(password.as_bytes())
             .await
-            .map_err(|_| "failed to send AUTHINFO PASS: write error".to_string())?;
+            .map_err(|_| NntpClientError::Io(std::io::Error::other("AUTHINFO PASS write error")))?;
         writer
             .write_all(b"\r\n")
             .await
-            .map_err(|e| format!("failed to send AUTHINFO PASS: {e}"))?;
+            .map_err(NntpClientError::Io)?;
 
         reader
             .read_line(&mut line)
             .await
-            .map_err(|e| format!("failed to read AUTHINFO PASS response: {e}"))?;
+            .map_err(NntpClientError::Io)?;
         if !line.starts_with("281") {
             // Include the server's response (does not contain the password) but
-            // never interpolate the password itself into this error string.
-            return Err(format!("AUTHINFO PASS failed: {}", line.trim_end()));
+            // never interpolate the password itself into this error.
+            return Err(NntpClientError::AuthFailed(line.trim_end().to_string()));
         }
         line.clear();
     }
@@ -127,15 +174,15 @@ async fn do_post(
         writer
             .write_all(b"POST\r\n")
             .await
-            .map_err(|e| format!("failed to send POST command: {e}"))?;
+            .map_err(NntpClientError::Io)?;
 
         // Read 340 (go ahead, send article)
         reader
             .read_line(&mut line)
             .await
-            .map_err(|e| format!("failed to read POST response: {e}"))?;
+            .map_err(NntpClientError::Io)?;
         if !line.starts_with("340") {
-            return Err(format!("NNTP server rejected POST: {}", line.trim_end()));
+            return Err(NntpClientError::Protocol(line.trim_end().to_string()));
         }
         line.clear();
 
@@ -143,39 +190,34 @@ async fn do_post(
         writer
             .write_all(&stuffed)
             .await
-            .map_err(|e| format!("failed to write article body: {e}"))?;
+            .map_err(NntpClientError::Io)?;
 
         // End-of-article marker
         writer
             .write_all(b"\r\n.\r\n")
             .await
-            .map_err(|e| format!("failed to write article terminator: {e}"))?;
+            .map_err(NntpClientError::Io)?;
 
-        writer
-            .flush()
-            .await
-            .map_err(|e| format!("failed to flush NNTP stream: {e}"))?;
+        writer.flush().await.map_err(NntpClientError::Io)?;
 
         // Read final response
         reader
             .read_line(&mut line)
             .await
-            .map_err(|e| format!("failed to read article-received response: {e}"))?;
+            .map_err(NntpClientError::Io)?;
 
         let code = line.get(..3).unwrap_or("");
         if code == "240" || code == "250" {
             break;
         } else if code == "437" {
-            return Err(format!(
-                "NNTP 437: article permanently rejected: {}",
-                line.trim_end()
+            return Err(NntpClientError::PermanentRejection(
+                line.trim_end().to_string(),
             ));
         } else if code == "436" {
             attempt += 1;
             if attempt >= config.max_retries {
-                return Err(format!(
-                    "NNTP 436: transient failure after {attempt} attempt(s): {}",
-                    line.trim_end()
+                return Err(NntpClientError::TransientExhausted(
+                    line.trim_end().to_string(),
                 ));
             }
             let shift = attempt.min(63) as u32;
@@ -189,7 +231,7 @@ async fn do_post(
             tokio::time::sleep(backoff).await;
             continue;
         } else {
-            return Err(format!("NNTP article not accepted: {}", line.trim_end()));
+            return Err(NntpClientError::Protocol(line.trim_end().to_string()));
         }
     }
 
@@ -197,13 +239,13 @@ async fn do_post(
     writer
         .write_all(format!("ARTICLE <{message_id}>\r\n").as_bytes())
         .await
-        .map_err(|e| format!("failed to send ARTICLE verify command: {e}"))?;
+        .map_err(NntpClientError::Io)?;
 
     line.clear();
     reader
         .read_line(&mut line)
         .await
-        .map_err(|e| format!("failed to read ARTICLE verify response: {e}"))?;
+        .map_err(NntpClientError::Io)?;
     if !line.starts_with("220") {
         warn!(
             message_id,
@@ -415,8 +457,10 @@ mod tests {
         let config = no_auth_config(addr);
         let msg = b"From: a@b.com\r\n\r\nbody\r\n";
         let result = post_article(&config, msg, "test@example.com").await;
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("440"), "expected 440 in error");
+        assert!(
+            matches!(result, Err(NntpClientError::Protocol(ref s)) if s.starts_with("440")),
+            "expected Protocol(440...), got: {result:?}"
+        );
     }
 
     #[tokio::test]
@@ -436,8 +480,10 @@ mod tests {
         let config = no_auth_config(addr);
         let msg = b"From: a@b.com\r\n\r\nbody\r\n";
         let result = post_article(&config, msg, "test@example.com").await;
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("502"));
+        assert!(
+            matches!(result, Err(NntpClientError::Protocol(ref s)) if s.starts_with("502")),
+            "expected Protocol(502...), got: {result:?}"
+        );
     }
 
     #[tokio::test]
@@ -456,8 +502,10 @@ mod tests {
         let config = no_auth_config(addr);
         let msg = b"From: a@b.com\r\nSubject: test\r\n\r\nbody\r\n";
         let result = post_article(&config, msg, "test@example.com").await;
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("441"));
+        assert!(
+            matches!(result, Err(NntpClientError::Protocol(ref s)) if s.starts_with("441")),
+            "expected Protocol(441...), got: {result:?}"
+        );
     }
 
     #[tokio::test]
@@ -504,9 +552,10 @@ mod tests {
         let config = no_auth_config(addr);
         let msg = b"From: a@b.com\r\nSubject: test\r\n\r\nbody\r\n";
         let result = post_article(&config, msg, "test@example.com").await;
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert!(err.contains("437"), "expected 437 in error, got: {err}");
+        assert!(
+            matches!(result, Err(NntpClientError::PermanentRejection(_))),
+            "expected PermanentRejection, got: {result:?}"
+        );
     }
 
     // --- 436 transient retry ---
@@ -620,9 +669,10 @@ mod tests {
         };
         let msg = b"From: a@b.com\r\nSubject: test\r\n\r\nbody\r\n";
         let result = post_article(&config, msg, "test@example.com").await;
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert!(err.contains("436"), "expected 436 in error, got: {err}");
+        assert!(
+            matches!(result, Err(NntpClientError::TransientExhausted(_))),
+            "expected TransientExhausted, got: {result:?}"
+        );
     }
 
     // --- AUTHINFO ---
@@ -750,9 +800,10 @@ mod tests {
         };
         let msg = b"From: a@b.com\r\n\r\nbody\r\n";
         let result = post_article(&config, msg, "mid@example.com").await;
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert!(err.contains("482"), "expected 482 in error, got: {err}");
+        assert!(
+            matches!(result, Err(NntpClientError::AuthFailed(_))),
+            "expected AuthFailed, got: {result:?}"
+        );
     }
 
     // --- ARTICLE verify non-fatal ---
