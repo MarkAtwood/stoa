@@ -9,7 +9,7 @@
 //!   Refer to newsgroup articles stored in IPFS.
 //!
 //! - **`smtp:` IDs**: Synthetic IDs of the form `smtp:{row_id}` where `row_id`
-//!   is a SQLite `AUTOINCREMENT` primary key from the `mailbox_messages` table.
+//!   is a SQLite `AUTOINCREMENT` primary key from the `messages` table.
 //!   **Local-only**: invalidated if the row is deleted or if the database is
 //!   rebuilt. Must not be compared to CID IDs, exposed to peer servers, or
 //!   treated as stable across database rebuilds.
