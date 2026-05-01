@@ -526,6 +526,7 @@ impl Default for PeeringConfig {
     }
 }
 
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum ConfigError {
     Io(String),

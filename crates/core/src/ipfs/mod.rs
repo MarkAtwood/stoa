@@ -10,6 +10,7 @@ use serde::Deserialize;
 
 // ── Error type ────────────────────────────────────────────────────────────────
 
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum KuboError {
     Http(reqwest::Error),

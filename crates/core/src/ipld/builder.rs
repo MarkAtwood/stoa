@@ -33,6 +33,7 @@ pub struct BuiltArticle {
 }
 
 /// Error returned by [`build_article`].
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum BuildError {
     CborEncode(String),

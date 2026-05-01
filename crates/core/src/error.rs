@@ -13,6 +13,7 @@ use crate::group_log::types::LogEntryId;
 ///
 /// Every function in this crate returns `Result<_, UsenetIpfsError>` or a
 /// typed sub-error that converts to this via `From`.
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum UsenetIpfsError {
     Storage(StorageError),
@@ -78,6 +79,7 @@ impl From<std::io::Error> for UsenetIpfsError {
 // ── ValidationError ──────────────────────────────────────────────────────────
 
 /// Input validation errors. Produced at system boundaries (wire, file, user input).
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum ValidationError {
     InvalidGroupName(String),
@@ -135,6 +137,7 @@ impl std::error::Error for ValidationError {}
 // ── ProtocolError ─────────────────────────────────────────────────────────────
 
 /// NNTP protocol-level errors. Each variant maps to an RFC 3977 response code.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum ProtocolError {
     UnknownCommand(String),
@@ -210,6 +213,7 @@ impl From<ValidationError> for ProtocolError {
 // ── StorageError ─────────────────────────────────────────────────────────────
 
 /// Storage layer errors covering SQLite and IPFS operations.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum StorageError {
     Database(String),
@@ -250,6 +254,7 @@ impl std::error::Error for StorageError {}
 // ── SigningError ──────────────────────────────────────────────────────────────
 
 /// Ed25519 signing and key management errors.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum SigningError {
     InvalidKeyMaterial(String),

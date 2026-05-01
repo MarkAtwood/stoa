@@ -16,6 +16,7 @@ use crate::group_log::verify::VerifiedEntry;
 const MAX_BACKFILL_ENTRIES: usize = 50_000;
 
 /// Error returned by [`backfill`].
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum BackfillError {
     /// A storage operation failed.

@@ -21,6 +21,12 @@ impl SigType {
     }
 }
 
+impl std::fmt::Display for SigType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 /// Outcome of verifying one signature on an article.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum VerifResult {
@@ -65,6 +71,19 @@ impl VerifResult {
     /// True when the signature positively verified.
     pub fn is_pass(&self) -> bool {
         matches!(self, VerifResult::Pass)
+    }
+}
+
+impl std::fmt::Display for VerifResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            VerifResult::Pass => f.write_str("pass"),
+            VerifResult::Fail { reason } => write!(f, "fail: {reason}"),
+            VerifResult::DnsError { domain, err } => write!(f, "dns-error ({domain}): {err}"),
+            VerifResult::NoKey => f.write_str("no-key"),
+            VerifResult::ParseError { reason } => write!(f, "parse-error: {reason}"),
+            VerifResult::Neutral { reason } => write!(f, "neutral: {reason}"),
+        }
     }
 }
 

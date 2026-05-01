@@ -44,6 +44,7 @@ use subtle::ConstantTimeEq;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 /// Errors that can occur during the peering authentication handshake.
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum PeeringAuthError {
     /// An I/O error occurred on the connection.

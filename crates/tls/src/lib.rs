@@ -11,6 +11,7 @@ use rustls::ServerConfig;
 use rustls_pemfile::{certs, private_key};
 
 /// Errors produced while loading TLS configuration from PEM files.
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum TlsError {
     /// Failed to open or parse the certificate file.

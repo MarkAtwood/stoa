@@ -69,6 +69,7 @@ fn default_drain_workers() -> u32 {
 // ── Errors ────────────────────────────────────────────────────────────────────
 
 /// Errors from staging operations.
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum StagingError {
     Db(sqlx::Error),

@@ -78,6 +78,7 @@ fn matches_wildmat_prefolded(name: &str, pattern_bytes: &[u8]) -> bool {
 }
 
 /// Error returned when a wildmat pattern or filter is invalid.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum WildmatError {
     /// The pattern slice passed to [`GroupFilter::new`] was empty (no patterns at all).

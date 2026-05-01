@@ -91,17 +91,17 @@ pub async fn verify_dkim_headers(
                     };
                 }
                 DkimResult::Neutral(err) => VerifResult::Neutral {
-                    reason: format!("{err:?}"),
+                    reason: format!("{err}"),
                 },
                 DkimResult::Fail(err) => VerifResult::Fail {
-                    reason: format!("{err:?}"),
+                    reason: format!("{err}"),
                 },
                 DkimResult::PermError(err) => VerifResult::Fail {
-                    reason: format!("perm-error: {err:?}"),
+                    reason: format!("perm-error: {err}"),
                 },
                 DkimResult::TempError(err) => VerifResult::DnsError {
                     domain: identity.clone().unwrap_or_default(),
-                    err: format!("{err:?}"),
+                    err: format!("{err}"),
                 },
             };
 

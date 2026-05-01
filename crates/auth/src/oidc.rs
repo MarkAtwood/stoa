@@ -268,6 +268,7 @@ fn rsa_decoding_key_and_alg(jwk: &Jwk) -> Result<(DecodingKey, Algorithm), OidcE
 // ── Error type ────────────────────────────────────────────────────────────────
 
 /// Errors returned by OIDC JWT validation.
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum OidcError {
     /// Configuration problem (missing field, malformed issuer URL, etc.).

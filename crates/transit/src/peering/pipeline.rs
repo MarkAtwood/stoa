@@ -29,6 +29,7 @@ use stoa_verify::VerificationStore;
 // ── IPFS abstraction ──────────────────────────────────────────────────────────
 
 /// Error returned by [`IpfsStore`] methods.
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum IpfsError {
     WriteFailed(String),

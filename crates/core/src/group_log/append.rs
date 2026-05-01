@@ -7,6 +7,7 @@ use crate::group_log::verify::VerifiedEntry;
 use multihash_codetable::{Code, MultihashDigest};
 
 /// Error returned by [`append`].
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum AppendError {
     /// A storage operation failed.

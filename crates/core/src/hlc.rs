@@ -14,6 +14,7 @@ pub struct HlcTimestamp {
 }
 
 /// Errors produced by [`HlcClock`] operations.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum HlcError {
     /// The observed peer timestamp exceeds the local wall clock by more than

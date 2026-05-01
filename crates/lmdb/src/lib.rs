@@ -86,6 +86,7 @@ impl Drop for PathGuard {
 /// Callers can match on `MapFull` or `ReadersFull` to handle those conditions
 /// differently (e.g. resize the map or back off and retry) rather than
 /// treating all failures as generic strings.
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum LmdbError {
     /// The LMDB map is full (`MDB_MAP_FULL`).  The environment must be

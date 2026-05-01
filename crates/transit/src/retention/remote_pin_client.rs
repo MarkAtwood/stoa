@@ -130,6 +130,7 @@ pub struct PinStatusResponse {
 // ---------------------------------------------------------------------------
 
 /// Error returned by [`RemotePinClient`] operations.
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum RemotePinError {
     /// HTTP transport error (connection refused, TLS error, etc.).

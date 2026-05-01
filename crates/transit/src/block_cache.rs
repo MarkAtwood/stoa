@@ -64,6 +64,7 @@ fn default_max_entries() -> u64 {
 
 /// Internal cache errors.  These are non-fatal: a cache miss or eviction
 /// failure degrades to a direct IPFS store call, not a hard error.
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum CacheError {
     Db(sqlx::Error),

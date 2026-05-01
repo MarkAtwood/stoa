@@ -13,6 +13,7 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 /// Error type for pin operations.
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum PinError {
     Unreachable(String),

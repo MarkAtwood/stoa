@@ -69,6 +69,7 @@ pub fn tip_hash(tips: &[Cid]) -> [u8; 32] {
 pub const MAX_PARENT_CIDS: usize = 100;
 
 /// Errors returned by [`verify_entry`].
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum VerifyError {
     Storage(StorageError),

@@ -5,6 +5,7 @@
 //! configured secret backend.
 
 /// Errors returned by [`resolve_secret_uri`].
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum SecretError {
     InvalidUri(String),

@@ -1,6 +1,7 @@
 use serde::Deserialize;
 
 /// Errors returned by [`PinPolicy::validate`].
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum PolicyValidationError {
     EmptyPolicy,
