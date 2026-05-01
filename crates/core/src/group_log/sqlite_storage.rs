@@ -213,16 +213,14 @@ impl LogStorage for SqliteLogStorage {
 
         if !tips.is_empty() {
             // Single bulk INSERT avoids O(T) round-trips for T tips.
-            // Both SQLite and PostgreSQL support multi-row VALUES.
-            let placeholders = tips.iter().map(|_| "(?, ?)").collect::<Vec<_>>().join(", ");
-            let sql = format!("INSERT INTO group_tips (group_name, tip_id) VALUES {placeholders}");
-            let tip_byte_vecs: Vec<Vec<u8>> =
-                tips.iter().map(|tip| tip.as_bytes().to_vec()).collect();
-            let mut q = sqlx::query(&sql);
-            for tip_bytes in &tip_byte_vecs {
-                q = q.bind(group.as_str()).bind(tip_bytes.as_slice());
-            }
-            q.execute(&mut *tx).await.map_err(db_err)?;
+            // QueryBuilder::push_values handles placeholder generation safely.
+            let mut qb = sqlx::QueryBuilder::new(
+                "INSERT INTO group_tips (group_name, tip_id) ",
+            );
+            qb.push_values(tips, |mut b, tip| {
+                b.push_bind(group.as_str()).push_bind(tip.as_bytes().to_vec());
+            });
+            qb.build().execute(&mut *tx).await.map_err(db_err)?;
         }
 
         tx.commit().await.map_err(db_err)?;
@@ -239,24 +237,19 @@ impl LogStorage for SqliteLogStorage {
         let group_name = group.as_str();
 
         if !parents_to_remove.is_empty() {
-            // Single bulk DELETE: WHERE tip_id IN (?, ?, ...) avoids O(P) round-trips.
-            let placeholders = parents_to_remove
-                .iter()
-                .map(|_| "?")
-                .collect::<Vec<_>>()
-                .join(", ");
-            let sql = format!(
-                "DELETE FROM group_tips WHERE group_name = ? AND tip_id IN ({placeholders})"
+            // Single bulk DELETE: WHERE tip_id IN (...) avoids O(P) round-trips.
+            // QueryBuilder handles placeholder generation safely.
+            let mut qb = sqlx::QueryBuilder::new(
+                "DELETE FROM group_tips WHERE group_name = ",
             );
-            let parent_byte_vecs: Vec<Vec<u8>> = parents_to_remove
-                .iter()
-                .map(|p| p.as_bytes().to_vec())
-                .collect();
-            let mut q = sqlx::query(&sql).bind(group_name);
-            for parent_bytes in &parent_byte_vecs {
-                q = q.bind(parent_bytes.as_slice());
+            qb.push_bind(group_name);
+            qb.push(" AND tip_id IN (");
+            let mut sep = qb.separated(", ");
+            for p in parents_to_remove {
+                sep.push_bind(p.as_bytes().to_vec());
             }
-            q.execute(&mut *tx).await.map_err(db_err)?;
+            sep.push_unseparated(")");
+            qb.build().execute(&mut *tx).await.map_err(db_err)?;
         }
 
         let new_tip_bytes = new_tip.as_bytes().to_vec();
