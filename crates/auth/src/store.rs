@@ -102,9 +102,10 @@ impl CredentialStore {
     /// # Preconditions
     ///
     /// All passwords must have been validated with [`looks_like_bcrypt_hash`]
-    /// (or an equivalent `Config::validate()` call) before being passed here.
-    /// The standard startup path in each service binary calls `Config::validate()`
-    /// before constructing a `CredentialStore`, satisfying this requirement.
+    /// (or an equivalent config validation call) before being passed here.
+    /// The standard startup path in each service binary (smtp, reader, mail)
+    /// calls its own `Config::validate()` before constructing a
+    /// `CredentialStore`, satisfying this requirement.
     /// If you are calling this from a code path that bypasses config validation,
     /// use [`CredentialStore::from_content`] or [`CredentialStore::from_file`]
     /// instead — they return `Err` on invalid hashes rather than panicking.

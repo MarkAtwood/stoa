@@ -2,6 +2,12 @@
 
 //! Sieve script evaluator (RFC 5228 + RFC 5229 variables extension).
 //!
+//! ## Single-user global Sieve architecture
+//!
+//! Global Sieve script (`_global` key) applies to all users on this server
+//! instance. Per-user scripts are stored under the user's key. The evaluator
+//! is stateless; scripts are loaded from the store on each evaluation.
+//!
 //! ## RFC 5228 — base Sieve
 //!
 //! Defines commands (`if`, `fileinto`, `reject`, `discard`, `keep`, `stop`,

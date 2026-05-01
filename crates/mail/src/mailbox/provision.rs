@@ -28,6 +28,10 @@ const SPECIAL_FOLDERS: &[(&str, &str, i32)] = &[
 /// Create the six RFC 6154 special-use mailboxes if they don't exist.
 /// Idempotent: INSERT OR IGNORE, re-running is a no-op.
 /// All six rows are written in a single batched statement.
+///
+/// This is a single-user server: all mailboxes are provisioned globally at
+/// startup, not per-user. The mailbox_id scheme uses SHA-256(role) rather
+/// than SHA-256(user_id||role).
 pub async fn provision_mailboxes(pool: &AnyPool) -> Result<(), sqlx::Error> {
     let mut qb: sqlx::QueryBuilder<sqlx::Any> = sqlx::QueryBuilder::new(
         "INSERT OR IGNORE INTO mailboxes (mailbox_id, role, name, sort_order) ",

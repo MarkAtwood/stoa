@@ -34,8 +34,11 @@ secretx = { workspace = true }
 subtle = "2"
 
 [features]
+# Enable AWS Secrets Manager backend for credential retrieval via secretx URIs.
 aws   = ["stoa-auth/aws"]
+# Enable Azure Key Vault backend for credential retrieval via secretx URIs.
 azure = ["stoa-auth/azure"]
+# Enable Google Cloud Secret Manager backend for credential retrieval via secretx URIs.
 gcp   = ["stoa-auth/gcp"]
 
 [dev-dependencies]

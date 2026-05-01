@@ -329,10 +329,14 @@ async fn get_metrics() -> Response {
         .into_response()
 }
 
-/// Returns `true` if `username` is the global script key.
+/// Returns `true` if `username` names a valid Sieve script namespace.
 ///
-/// In the single-user global delivery model the only valid username for Sieve
-/// script management is `crate::config::GLOBAL_SCRIPT_KEY`.  Any other identifier is rejected with 404.
+/// This server uses a single-user global delivery model: the only valid
+/// namespace for Sieve script management is `_global`
+/// (`crate::config::GLOBAL_SCRIPT_KEY`). Any other identifier is rejected
+/// with 404. The function is named `user_exists` to mirror conventional
+/// multi-user Sieve admin APIs, where each user has their own script namespace;
+/// here the sole "user" is the global script key.
 fn user_exists(_s: &AdminState, username: &str) -> bool {
     username.eq_ignore_ascii_case(crate::config::GLOBAL_SCRIPT_KEY)
 }

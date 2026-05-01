@@ -12,6 +12,9 @@ pub use stoa_auth::AuthConfig;
 /// The `user_sieve_scripts` table is keyed by `(username, script_name)`.
 /// In the single-user delivery model there are no per-user namespaces, so
 /// the global policy script is stored under this sentinel username.
+///
+/// `_global` is the reserved script key for the server-wide Sieve script
+/// that applies to all messages, regardless of recipient.
 pub const GLOBAL_SCRIPT_KEY: &str = "_global";
 
 #[derive(Debug, Deserialize)]
