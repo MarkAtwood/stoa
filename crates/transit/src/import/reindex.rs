@@ -65,7 +65,6 @@ pub async fn run_reindex<I>(
 where
     I: IntoIterator<Item = (Cid, Vec<u8>)>,
 {
-    ensure_msgid_map(pool).await?;
     let mut summary = ReindexSummary {
         dry_run: config.dry_run,
         ..Default::default()
@@ -125,20 +124,6 @@ where
         "reindex complete"
     );
     Ok(summary)
-}
-
-/// Ensure the msgid_map table exists (idempotent).
-async fn ensure_msgid_map(pool: &AnyPool) -> Result<(), StorageError> {
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS msgid_map (\
-            message_id TEXT PRIMARY KEY NOT NULL,\
-            cid TEXT NOT NULL\
-        )",
-    )
-    .execute(pool)
-    .await
-    .map_err(|e| StorageError::Database(e.to_string()))?;
-    Ok(())
 }
 
 /// Extract Message-ID from raw article bytes.

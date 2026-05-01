@@ -251,7 +251,10 @@ impl<P: PinClient> GcRunner<P> {
         }
 
         let elapsed_ms = start.elapsed().as_millis() as u64;
-        let completed_at_ms = now_ms + elapsed_ms;
+        let completed_at_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
         let completed_at = ms_to_datetime(completed_at_ms);
 
         self.metrics
