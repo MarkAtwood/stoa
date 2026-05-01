@@ -99,14 +99,16 @@ pub async fn run_backup_scheduler(
             }
         };
 
-        let delay_secs = (next - Utc::now()).num_seconds().max(0) as u64;
+        let delay = (next - Utc::now())
+            .to_std()
+            .unwrap_or(std::time::Duration::ZERO);
         info!(
             next = %next.format("%Y-%m-%dT%H:%M:%SZ"),
-            delay_secs,
+            delay_ms = delay.as_millis(),
             "backup scheduler: next backup scheduled"
         );
 
-        tokio::time::sleep(std::time::Duration::from_secs(delay_secs)).await;
+        tokio::time::sleep(delay).await;
 
         match crate::admin::backup_databases(&transit_pool, &core_pool, &dest_dir).await {
             Ok(paths) => {

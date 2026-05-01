@@ -244,11 +244,11 @@ async fn email_get_wrong_account_id_returns_account_not_found() {
         "error",
         "wrong accountId must produce an error invocation, got: {invocation}"
     );
-    // The error description must be accountNotFound (RFC 8621 §2).
-    let description = invocation[1]["description"].as_str().unwrap_or("");
+    // The error type must be accountNotFound (RFC 8621 §2).
+    let error_type = invocation[1]["type"].as_str().unwrap_or("");
     assert_eq!(
-        description, "accountNotFound",
-        "error description must be accountNotFound, got: {invocation}"
+        error_type, "accountNotFound",
+        "error type must be accountNotFound, got: {invocation}"
     );
 }
 
@@ -274,10 +274,10 @@ async fn mailbox_get_wrong_account_id_returns_account_not_found() {
         "error",
         "wrong accountId must produce an error invocation, got: {invocation}"
     );
-    let description = invocation[1]["description"].as_str().unwrap_or("");
+    let description = invocation[1]["type"].as_str().unwrap_or("");
     assert_eq!(
         description, "accountNotFound",
-        "error description must be accountNotFound, got: {invocation}"
+        "error type must be accountNotFound, got: {invocation}"
     );
 }
 
@@ -303,10 +303,10 @@ async fn email_query_wrong_account_id_returns_account_not_found() {
         "error",
         "wrong accountId must produce an error invocation, got: {invocation}"
     );
-    let description = invocation[1]["description"].as_str().unwrap_or("");
+    let description = invocation[1]["type"].as_str().unwrap_or("");
     assert_eq!(
         description, "accountNotFound",
-        "error description must be accountNotFound, got: {invocation}"
+        "error type must be accountNotFound, got: {invocation}"
     );
 }
 
@@ -334,10 +334,10 @@ async fn email_get_empty_account_id_returns_account_not_found() {
         "error",
         "empty accountId must produce an error invocation, got: {invocation}"
     );
-    let description = invocation[1]["description"].as_str().unwrap_or("");
+    let description = invocation[1]["type"].as_str().unwrap_or("");
     assert_eq!(
         description, "accountNotFound",
-        "error description must be accountNotFound, got: {invocation}"
+        "error type must be accountNotFound, got: {invocation}"
     );
 }
 

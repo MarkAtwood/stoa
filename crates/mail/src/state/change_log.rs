@@ -27,18 +27,20 @@ impl ChangeLogStore {
         item_ids: &[String],
         seq: i64,
     ) -> Result<(), sqlx::Error> {
-        for id in item_ids {
-            sqlx::query(
-                "INSERT OR IGNORE INTO jmap_change_log (user_id, seq, scope, item_id, change) \
-                 VALUES (?, ?, ?, ?, 'created')",
-            )
-            .bind(user_id)
-            .bind(seq)
-            .bind(scope)
-            .bind(id)
-            .execute(&self.pool)
-            .await?;
+        if item_ids.is_empty() {
+            return Ok(());
         }
+        let mut qb: sqlx::QueryBuilder<sqlx::Any> = sqlx::QueryBuilder::new(
+            "INSERT OR IGNORE INTO jmap_change_log (user_id, seq, scope, item_id, change) ",
+        );
+        qb.push_values(item_ids.iter(), |mut b, id| {
+            b.push_bind(user_id)
+                .push_bind(seq)
+                .push_bind(scope)
+                .push_bind(id.as_str())
+                .push_bind("created");
+        });
+        qb.build().execute(&self.pool).await?;
         Ok(())
     }
 

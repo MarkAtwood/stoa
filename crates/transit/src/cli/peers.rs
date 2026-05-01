@@ -146,7 +146,7 @@ pub async fn cmd_peer_blacklist(
     duration_secs: i64,
 ) -> Result<String, StorageError> {
     let blacklisted_until = now_ms + duration_secs * 1000;
-    sqlx::query(
+    let result = sqlx::query(
         "UPDATE peers SET blacklisted_until = ?, consecutive_failures = 20 WHERE peer_id = ?",
     )
     .bind(blacklisted_until)
@@ -154,6 +154,9 @@ pub async fn cmd_peer_blacklist(
     .execute(pool)
     .await
     .map_err(|e| StorageError::Database(e.to_string()))?;
+    if result.rows_affected() == 0 {
+        return Ok(format!("Peer '{peer_id}' not found.\n"));
+    }
     Ok(format!(
         "Peer '{peer_id}' blacklisted until {blacklisted_until} ms.\n"
     ))
