@@ -121,35 +121,11 @@ fn build_schema() -> (Schema, Fields) {
 /// Parse an RFC 2822 date string into a Unix timestamp.
 /// Returns 0 on any parse failure (non-fatal; article is still indexed).
 fn parse_date_to_ts(date_str: &str) -> u64 {
-    let trimmed = date_str.trim();
-    if trimmed.is_empty() {
-        return 0;
-    }
-
-    // Strip optional day-of-week prefix, e.g. "Mon, 01 Jan 2024 ..."
-    let s = if let Some(comma_pos) = trimmed.find(',') {
-        trimmed[comma_pos + 1..].trim()
-    } else {
-        trimmed
-    };
-
-    // Try RFC 2822 date-time formats (chrono).
-    let formats = [
-        "%d %b %Y %H:%M:%S %z",
-        "%d %b %Y %H:%M %z",
-        "%d %b %Y %T %z",
-    ];
-
-    for fmt in &formats {
-        if let Ok(dt) = chrono::DateTime::parse_from_str(s, fmt) {
-            let ts = dt.timestamp();
-            if ts > 0 {
-                return ts as u64;
-            }
-        }
-    }
-
-    0
+    chrono::DateTime::parse_from_rfc2822(date_str.trim())
+        .ok()
+        .map(|dt| dt.timestamp())
+        .filter(|&ts| ts > 0)
+        .unwrap_or(0) as u64
 }
 
 impl TantivySearchIndex {
