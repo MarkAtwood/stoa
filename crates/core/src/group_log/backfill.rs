@@ -130,9 +130,12 @@ where
             continue;
         }
 
-        if storage.has_entry(&entry_id).await? {
-            continue;
-        }
+        // Do NOT check has_entry here: checking then fetching is a TOCTOU race.
+        // A concurrent writer may insert between our has_entry check and our
+        // fetch, causing advance_tips to be skipped for that CID.  Instead we
+        // always fetch and attempt an unconditional insert; the DuplicateEntry
+        // arm below makes this idempotent.  The visited set above prevents
+        // re-fetching the same CID within this BFS traversal.
 
         visited.insert(key);
 
@@ -170,7 +173,13 @@ where
                 ))
             })?;
             let parent_id = LogEntryId::from_bytes(raw);
-            if !storage.has_entry(&parent_id).await? {
+            // Enqueue parent unconditionally; the visited-set check at the top
+            // of the BFS loop skips entries already processed in this session,
+            // and the DuplicateEntry handler makes storage inserts idempotent.
+            // A has_entry() check here would be a TOCTOU race: a concurrent
+            // writer could insert after the check but before we enqueue,
+            // causing us to skip fetching a parent we don't actually have.
+            if !visited.contains(parent_id.as_bytes()) {
                 queue.push_back(parent_id);
             }
         }

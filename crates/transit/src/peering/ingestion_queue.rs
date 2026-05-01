@@ -170,10 +170,14 @@ impl IngestionReceiver {
     /// Receive the next article. Returns `None` if all senders have dropped.
     pub async fn recv(&mut self) -> Option<QueuedArticle> {
         let article = self.rx.recv().await?;
-        self.metrics.depth_current.fetch_sub(1, Ordering::Relaxed);
+        // Use Release ordering so that the decrement is visible to any thread
+        // that subsequently loads with Acquire.  Relaxed is insufficient here:
+        // a concurrent sender that loads depth_current with Acquire must see the
+        // decremented value before deciding whether to accept a new article.
+        self.metrics.depth_current.fetch_sub(1, Ordering::Release);
         self.metrics
             .bytes_current
-            .fetch_sub(article.bytes.len() as u64, Ordering::Relaxed);
+            .fetch_sub(article.bytes.len() as u64, Ordering::Release);
         Some(article)
     }
 }
