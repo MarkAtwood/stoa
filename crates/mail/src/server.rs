@@ -26,6 +26,9 @@ use crate::{
     token_store::TokenStore,
 };
 
+/// v1 is a single-user system; every authenticated session maps to this user.
+const SINGLETON_USER_ID: i64 = 1;
+
 /// JMAP backing stores, wired together for the API handler.
 pub struct JmapStores {
     pub ipfs: Arc<dyn IpfsBlockStore>,
@@ -352,7 +355,7 @@ async fn jmap_api_handler(
         .await
         .ok()
         .flatten()
-        .unwrap_or(1);
+        .unwrap_or(SINGLETON_USER_ID);
 
     let mut method_responses = Vec::new();
 
