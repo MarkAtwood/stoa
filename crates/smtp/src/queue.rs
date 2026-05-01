@@ -95,12 +95,7 @@ pub(crate) fn header_section_end(bytes: &[u8]) -> usize {
         .windows(4)
         .position(|w| w == b"\r\n\r\n")
         .map(|p| p + 2)
-        .or_else(|| {
-            bytes
-                .windows(2)
-                .position(|w| w == b"\n\n")
-                .map(|p| p + 1)
-        })
+        .or_else(|| bytes.windows(2).position(|w| w == b"\n\n").map(|p| p + 1))
         .unwrap_or(bytes.len())
 }
 
@@ -117,20 +112,6 @@ pub(crate) fn strip_field_name<'a>(line: &'a [u8], field_name: &[u8]) -> Option<
     } else {
         None
     }
-}
-
-/// Prepend an `X-Stoa-Injection-Source:` header to `article_bytes`.
-///
-/// The header is prepended at the very start of the article (before all other
-/// headers).  NNTP articles begin directly with headers, so this is safe.
-/// The reader strips this header unconditionally and uses it for routing
-/// decisions.
-fn inject_source_header(article_bytes: &[u8], source: InjectionSource) -> Vec<u8> {
-    let header = format!("X-Stoa-Injection-Source: {source}\r\n");
-    let mut result = Vec::with_capacity(header.len() + article_bytes.len());
-    result.extend_from_slice(header.as_bytes());
-    result.extend_from_slice(article_bytes);
-    result
 }
 
 /// Durable filesystem-backed queue for outbound NNTP article delivery.
@@ -263,21 +244,45 @@ impl NntpQueue {
                         };
                         match tokio::fs::read(&path).await {
                             Ok(bytes) => {
-                                let article = inject_source_header(&bytes, injection_source);
-                                // DKIM-sign the article before injecting into NNTP.
-                                // If signing fails, defer this article (hold for retry on next cycle).
+                                // Build the final outbound article in a single allocation.
+                                //
+                                // When a DKIM signer is present:
+                                //   1. Pre-size the buffer with a generous DKIM header
+                                //      estimate so the later rotate_right fits without
+                                //      reallocation.
+                                //   2. Append the inject header and article body.
+                                //   3. Sign that slice (the content the DKIM header covers).
+                                //   4. Rotate the DKIM header bytes into the front — no
+                                //      second Vec, no second body copy.
+                                //
+                                // When no signer is present, skip steps 1/3/4 and size
+                                // the buffer exactly.
+                                const DKIM_HEADER_ESTIMATE: usize = 512;
+                                let inject_header =
+                                    format!("X-Stoa-Injection-Source: {injection_source}\r\n");
                                 let article = if let Some(signer) = &self.dkim_signer {
-                                    match signer.sign(&article) {
+                                    let mut buf = Vec::with_capacity(
+                                        DKIM_HEADER_ESTIMATE + inject_header.len() + bytes.len(),
+                                    );
+                                    buf.extend_from_slice(inject_header.as_bytes());
+                                    buf.extend_from_slice(&bytes);
+                                    // Sign the inject-header+body slice.
+                                    match signer.sign(&buf) {
                                         Ok(sig) => {
-                                            let header = sig.to_header();
-                                            let mut signed =
-                                                Vec::with_capacity(header.len() + article.len());
-                                            signed.extend_from_slice(header.as_bytes());
-                                            signed.extend_from_slice(&article);
-                                            signed
+                                            let dkim_hdr = sig.to_header();
+                                            let dkim_bytes = dkim_hdr.as_bytes();
+                                            // Prepend DKIM header by rotating into reserved space.
+                                            let body_len = buf.len();
+                                            buf.extend_from_slice(dkim_bytes);
+                                            buf.rotate_right(dkim_bytes.len());
+                                            debug_assert_eq!(
+                                                buf.len(),
+                                                dkim_bytes.len() + body_len
+                                            );
+                                            buf
                                         }
                                         Err(e) => {
-                                            let message_id = extract_message_id(&article);
+                                            let message_id = extract_message_id(&buf);
                                             warn!(
                                                 message_id = %message_id.unwrap_or_default(),
                                                 "DKIM signing failed, deferring article: {e}"
@@ -286,7 +291,11 @@ impl NntpQueue {
                                         }
                                     }
                                 } else {
-                                    article
+                                    let mut buf =
+                                        Vec::with_capacity(inject_header.len() + bytes.len());
+                                    buf.extend_from_slice(inject_header.as_bytes());
+                                    buf.extend_from_slice(&bytes);
+                                    buf
                                 };
                                 let message_id = extract_message_id(&article).unwrap_or_default();
                                 match nntp_client::post_article(nntp_config, &article, &message_id)
@@ -420,14 +429,23 @@ MIME-Version: 1.0\r\n\r\nHello\r\n";
 
     #[test]
     fn test_dkim_nntp_signing_absent() {
-        // With no signer, inject_source_header output is the same content
-        // (the DKIM branch is skipped entirely — verified by sign() never being called).
-        let article = inject_source_header(TEST_MSG, InjectionSource::SmtpSieve);
-        // Without a signer the article bytes pass through unchanged by the DKIM block.
-        // We confirm the article still starts with the injection header, not a DKIM header.
+        // Without a signer, the outbound article is inject-header + original bytes.
+        // Build the expected bytes the same way drain_once does in the no-signer branch.
+        let inject_header = format!(
+            "X-Stoa-Injection-Source: {}\r\n",
+            InjectionSource::SmtpSieve
+        );
+        let mut article = Vec::with_capacity(inject_header.len() + TEST_MSG.len());
+        article.extend_from_slice(inject_header.as_bytes());
+        article.extend_from_slice(TEST_MSG);
+        // The article starts with the injection header and contains no DKIM-Signature.
         assert!(
             article.starts_with(b"X-Stoa-Injection-Source:"),
             "non-DKIM path must not prepend DKIM-Signature"
+        );
+        assert!(
+            !article.windows(15).any(|w| w == b"DKIM-Signature:"),
+            "non-DKIM path must not contain DKIM-Signature header"
         );
     }
 

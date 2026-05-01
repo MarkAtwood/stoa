@@ -101,9 +101,9 @@ pub fn validate_newsgroup_name(name: &str) -> Result<(), String> {
     if name.is_empty() {
         return Err("newsgroup name is empty".to_string());
     }
-    let valid = name.chars().all(|c| {
-        c.is_ascii_lowercase() || c.is_ascii_digit() || c == '.' || c == '-' || c == '+'
-    });
+    let valid = name
+        .chars()
+        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '.' || c == '-' || c == '+');
     if !valid {
         return Err(format!(
             "newsgroup name contains invalid characters: {name:?}"
@@ -255,7 +255,10 @@ mod tests {
         // CR+LF in the newsgroup name is a header injection attempt.
         let injected = "comp.test\r\nBcc: attacker@evil.example";
         let err = validate_newsgroup_name(injected).unwrap_err();
-        assert!(err.contains("CR or LF"), "expected CR/LF message, got: {err}");
+        assert!(
+            err.contains("CR or LF"),
+            "expected CR/LF message, got: {err}"
+        );
     }
 
     #[test]

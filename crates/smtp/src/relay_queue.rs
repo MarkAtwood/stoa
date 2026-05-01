@@ -335,7 +335,7 @@ impl SmtpRelayQueue {
         crate::metrics::set_relay_queue_depth(env_files.len() as f64);
 
         crate::metrics::set_relay_dead_letter_depth(
-            self.dead_letter_count.load(Ordering::Relaxed) as f64,
+            self.dead_letter_count.load(Ordering::Relaxed) as f64
         );
 
         for env_path in env_files {

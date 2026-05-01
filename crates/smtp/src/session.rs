@@ -627,8 +627,7 @@ pub async fn run_session<S>(
                         ehlo_domain, client_ip, config.hostname, date_str
                     );
                     let received_bytes = received.into_bytes();
-                    let mut new_bytes =
-                        Vec::with_capacity(received_bytes.len() + raw_bytes.len());
+                    let mut new_bytes = Vec::with_capacity(received_bytes.len() + raw_bytes.len());
                     new_bytes.extend_from_slice(&received_bytes);
                     new_bytes.extend_from_slice(&raw_bytes);
                     raw_bytes = new_bytes;

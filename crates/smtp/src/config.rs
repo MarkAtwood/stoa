@@ -257,8 +257,9 @@ impl std::fmt::Debug for DkimConfig {
 /// The signer is constructed once at startup and shared via `Arc`.  All fields
 /// that influence the signature (domain, selector, signed headers) are baked in
 /// at construction time by `mail_auth::dkim::DkimSigner::from_key(…).domain(…)…`.
-pub type DkimSignerArc =
-    std::sync::Arc<mail_auth::dkim::DkimSigner<mail_auth::common::crypto::Ed25519Key, mail_auth::dkim::Done>>;
+pub type DkimSignerArc = std::sync::Arc<
+    mail_auth::dkim::DkimSigner<mail_auth::common::crypto::Ed25519Key, mail_auth::dkim::Done>,
+>;
 
 /// RFC 5322 header fields covered by the DKIM signature on all outbound messages.
 ///
