@@ -98,6 +98,13 @@ impl LogStorage for FailingLogStorage {
             .await
     }
 
+    async fn get_parent_cids(
+        &self,
+        id: &LogEntryId,
+    ) -> Result<Option<Vec<cid::Cid>>, StorageError> {
+        self.inner.get_parent_cids(id).await
+    }
+
     async fn tip_count(&self, group: &GroupName) -> Result<u64, StorageError> {
         self.inner.tip_count(group).await
     }
