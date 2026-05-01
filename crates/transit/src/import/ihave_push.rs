@@ -201,8 +201,8 @@ pub(crate) fn extract_message_id(content: &str) -> Option<String> {
             // Blank line = end of headers.
             break;
         }
-        if line.to_ascii_lowercase().starts_with("message-id:") {
-            let rest = line["message-id:".len()..].trim();
+        if line.get(..11).map_or(false, |h| h.eq_ignore_ascii_case("message-id:")) {
+            let rest = line[11..].trim();
             if rest.starts_with('<') && rest.contains('>') {
                 let end = rest.find('>').unwrap();
                 return Some(rest[..=end].to_string());

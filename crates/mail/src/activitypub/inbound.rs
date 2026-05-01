@@ -150,17 +150,41 @@ pub fn note_to_article(
 pub(super) fn decode_msgid_from_url(url: &str, base_url: &str, group_name: &str) -> String {
     let prefix = format!("{base_url}/ap/groups/{group_name}/articles/");
     if let Some(encoded) = url.strip_prefix(&prefix) {
-        encoded
-            .replace("%3C", "<")
-            .replace("%3c", "<")
-            .replace("%3E", ">")
-            .replace("%3e", ">")
-            .replace("%40", "@")
-            .replace("%2F", "/")
-            .replace("%20", " ")
+        percent_decode(encoded)
     } else {
         // Unknown URL format — use as-is wrapped in angle brackets.
         format!("<{url}>")
+    }
+}
+
+/// Percent-decode a URL-encoded string.
+///
+/// Converts any `%XX` sequence where `XX` is a valid hex pair into the
+/// corresponding byte value. Invalid sequences are passed through unchanged.
+fn percent_decode(s: &str) -> String {
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let (Some(hi), Some(lo)) = (hex_val(bytes[i + 1]), hex_val(bytes[i + 2])) {
+                out.push((hi << 4) | lo);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+fn hex_val(b: u8) -> Option<u8> {
+    match b {
+        b'0'..=b'9' => Some(b - b'0'),
+        b'a'..=b'f' => Some(b - b'a' + 10),
+        b'A'..=b'F' => Some(b - b'A' + 10),
+        _ => None,
     }
 }
 

@@ -84,7 +84,8 @@ pub async fn handle_keyword_update(
         let cid = match Cid::try_from(id.as_str()) {
             Ok(c) => c,
             Err(_) => {
-                not_updated.insert(id.clone(), json!({"type": "notFound"}));
+                // RFC 8621 §4.1.2: an unparseable id is invalidArguments, not notFound.
+                not_updated.insert(id.clone(), json!({"type": "invalidArguments", "description": "email id is not a valid CID"}));
                 continue;
             }
         };
