@@ -229,6 +229,7 @@ async fn nntp_conformance_via_nntplib() {
 
     let db_dir = tempfile::TempDir::new().expect("tempdir");
     let core_pool = make_core_pool(&db_dir).await;
+    let log_pool = core_pool.clone();
     let reader_pool = make_reader_pool(&db_dir).await;
 
     let now_ms = std::time::SystemTime::now()
@@ -239,7 +240,7 @@ async fn nntp_conformance_via_nntplib() {
     let stores = Arc::new(ServerStores {
         ipfs_store: Arc::new(MemIpfs::new()) as Arc<dyn IpfsBlockStore>,
         msgid_map: Arc::new(MsgIdMap::new(core_pool)),
-        log_storage: Arc::new(stoa_core::group_log::MemLogStorage::new()),
+        log_storage: Arc::new(stoa_core::group_log::SqliteLogStorage::new(log_pool)),
         article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
         overview_store: Arc::new(OverviewStore::new(reader_pool)),
         credential_store: Arc::new(CredentialStore::empty()),
@@ -491,7 +492,7 @@ async fn article_posted_writes_audit_row() {
     let stores = Arc::new(ServerStores {
         ipfs_store: Arc::new(MemIpfs::new()) as Arc<dyn IpfsBlockStore>,
         msgid_map: Arc::new(MsgIdMap::new(core_pool.clone())),
-        log_storage: Arc::new(stoa_core::group_log::MemLogStorage::new()),
+        log_storage: Arc::new(stoa_core::group_log::SqliteLogStorage::new(core_pool.clone())),
         article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
         overview_store: Arc::new(OverviewStore::new(reader_pool)),
         credential_store: Arc::new(CredentialStore::empty()),

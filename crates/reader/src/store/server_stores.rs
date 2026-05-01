@@ -11,7 +11,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use stoa_core::audit::{build_audit_logger, AuditLogger};
-use stoa_core::group_log::MemLogStorage;
+use stoa_core::group_log::SqliteLogStorage;
 use stoa_core::hlc::HlcClock;
 use stoa_core::msgid_map::MsgIdMap;
 use stoa_core::signing::{generate_signing_key, hlc_node_id, SigningKey};
@@ -36,7 +36,7 @@ use stoa_auth::CredentialStore;
 pub struct ServerStores {
     pub ipfs_store: Arc<dyn IpfsBlockStore>,
     pub msgid_map: Arc<MsgIdMap>,
-    pub log_storage: Arc<MemLogStorage>,
+    pub log_storage: Arc<SqliteLogStorage>,
     pub article_numbers: Arc<ArticleNumberStore>,
     pub overview_store: Arc<OverviewStore>,
     pub credential_store: Arc<CredentialStore>,
@@ -121,6 +121,7 @@ impl ServerStores {
         let reader_pool =
             make_disk_pool_with_reader_migrations(&config.database.reader_url).await?;
         let core_pool = make_disk_pool_with_core_migrations(&config.database.core_url).await?;
+        let log_pool = core_pool.clone();
         let audit_logger = build_audit_logger(&config.audit, &core_pool)
             .map_err(|e| format!("audit logger init failed: {e}"))?;
 
@@ -155,7 +156,7 @@ impl ServerStores {
         Ok(Self {
             ipfs_store,
             msgid_map: Arc::new(MsgIdMap::new(core_pool)),
-            log_storage: Arc::new(MemLogStorage::new()),
+            log_storage: Arc::new(SqliteLogStorage::new(log_pool)),
             article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
             overview_store: Arc::new(OverviewStore::new(reader_pool)),
             credential_store: Arc::new(
@@ -220,11 +221,12 @@ impl ServerStores {
         let signing_key = generate_signing_key();
         let node_id = hlc_node_id(&signing_key);
 
+        let log_pool = core_pool.clone();
         let verify_pool = make_pool_with_verify_migrations().await;
         Self {
             ipfs_store: Arc::new(MemIpfsStore::new()),
             msgid_map: Arc::new(MsgIdMap::new(core_pool)),
-            log_storage: Arc::new(MemLogStorage::new()),
+            log_storage: Arc::new(SqliteLogStorage::new(log_pool)),
             article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
             overview_store: Arc::new(OverviewStore::new(reader_pool)),
             credential_store: Arc::new(CredentialStore::empty()),

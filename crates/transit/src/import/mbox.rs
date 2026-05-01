@@ -212,12 +212,24 @@ pub async fn run_mbox_import(
 }
 
 /// Process a batch of parsed messages, sending each via IHAVE and updating the summary.
+///
+/// One TCP connection is established for the entire batch and reused across all
+/// articles.  On an I/O error mid-batch the connection is dropped and re-established
+/// for the next article to avoid failing the whole batch on a transient reset.
 async fn import_messages(
     messages: Vec<MboxMessage>,
     config: &MboxImportConfig,
     summary: &mut MboxImportSummary,
 ) {
+    use tokio::io::BufReader;
+    use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
+
     summary.total_messages += messages.len();
+
+    // Establish one connection per batch; reconnect only after an I/O error.
+    let mut conn: Option<(BufReader<OwnedReadHalf>, OwnedWriteHalf)> =
+        connect_nntp(&config.transit_addr).await;
+
     for (idx, msg) in messages.iter().enumerate() {
         // Determine the newsgroup.
         let group = match msg
@@ -242,11 +254,22 @@ async fn import_messages(
             }
         };
 
-        let send_result = match connect_nntp(&config.transit_addr).await {
+        // Take the connection from the slot; if gone (post I/O-error), reconnect once.
+        let current = match conn.take() {
+            Some(c) => Some(c),
+            None => connect_nntp(&config.transit_addr).await,
+        };
+
+        let send_result = match current {
             Some((mut reader, mut writer)) => {
                 match send_ihave_on_conn(&mut reader, &mut writer, msgid, &msg.raw).await {
-                    Ok(r) => r,
+                    Ok(r) => {
+                        // Return the healthy connection to the slot for the next article.
+                        conn = Some((reader, writer));
+                        r
+                    }
                     Err(e) => {
+                        // I/O error: drop connection; next article will reconnect.
                         tracing::warn!("I/O error sending {msgid}: {e}");
                         SendResult::Rejected
                     }
@@ -258,11 +281,7 @@ async fn import_messages(
             }
         };
         match send_result {
-            SendResult::Accepted => {
-                summary.imported += 1;
-            }
-            SendResult::Duplicate => {
-                // Already present — counts as imported for reporting purposes.
+            SendResult::Accepted | SendResult::Duplicate => {
                 summary.imported += 1;
             }
             SendResult::Rejected => {

@@ -11,8 +11,8 @@
 //!
 //! - The `none` algorithm is never accepted (`Validation::new` requires an explicit
 //!   algorithm, and `Algorithm::None` does not exist in the `jsonwebtoken` crate).
-//! - Only RSA algorithms (RS256, RS384, RS512, PS256, PS384, PS512) are supported.
-//!   EC (`kty=EC`) keys are rejected with `UnsupportedKeyType`.
+//! - RSA (RS256/RS384/RS512/PS256/PS384/PS512) and EC (ES256/ES384/ES512) algorithms
+//!   are supported.  Keys with any other `kty` are rejected with `UnsupportedKeyType`.
 //! - The JWT header `alg` is validated against the allowed algorithm(s) by
 //!   `jsonwebtoken::decode`; algorithm confusion attacks are therefore prevented.
 //! - `exp`, `iss`, and `aud` claims are always validated.
@@ -46,6 +46,11 @@ struct Jwk {
     rsa_n: Option<String>,
     #[serde(rename = "e")]
     rsa_e: Option<String>,
+    // EC public key components (base64url-encoded).
+    #[serde(rename = "x")]
+    ec_x: Option<String>,
+    #[serde(rename = "y")]
+    ec_y: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -184,7 +189,7 @@ impl ProviderValidator {
     }
 
     fn try_key(&self, token: &str, jwk: &Jwk) -> Result<String, OidcError> {
-        let (decoding_key, alg) = rsa_decoding_key_and_alg(jwk)?;
+        let (decoding_key, alg) = decoding_key_and_alg(jwk)?;
 
         let mut validation = Validation::new(alg);
         validation.set_audience(&[self.config.audience.as_str()]);
@@ -231,42 +236,63 @@ impl ProviderValidator {
 
 // ── Key extraction helpers ────────────────────────────────────────────────────
 
-/// Build an RSA `DecodingKey` and select the matching `Algorithm` from a JWK.
+/// Build a `DecodingKey` and select the matching `Algorithm` from a JWK.
 ///
-/// Returns `UnsupportedKeyType` for non-RSA keys (EC support is deferred).
-fn rsa_decoding_key_and_alg(jwk: &Jwk) -> Result<(DecodingKey, Algorithm), OidcError> {
-    if jwk.kty != "RSA" {
-        return Err(OidcError::UnsupportedKeyType(jwk.kty.clone()));
-    }
-    let n = jwk
-        .rsa_n
-        .as_deref()
-        .ok_or_else(|| OidcError::InvalidKey("RSA JWK missing 'n'".into()))?;
-    let e = jwk
-        .rsa_e
-        .as_deref()
-        .ok_or_else(|| OidcError::InvalidKey("RSA JWK missing 'e'".into()))?;
-    let key =
-        DecodingKey::from_rsa_components(n, e).map_err(|e| OidcError::InvalidKey(e.to_string()))?;
-
-    let alg = match jwk.alg.as_deref() {
-        Some("RS256") => Algorithm::RS256,
-        None => {
-            // DECISION: RS256 is the correct default for JWKs with kty=RSA and no alg field.
-            // RFC 7518 §3.3 defines RS256 as the baseline RSA signature algorithm.
-            // Providers that omit alg (e.g. some Azure AD JWKS endpoints) expect RS256.
-            tracing::debug!(key_id = ?jwk.kid, "JWK has no 'alg' field; defaulting to RS256 per RFC 7518 §3.3");
-            Algorithm::RS256
+/// Supports `kty=RSA` (RS256/RS384/RS512/PS256/PS384/PS512) and `kty=EC`
+/// (ES256/ES384/ES512).  Returns `UnsupportedKeyType` for all other `kty` values.
+fn decoding_key_and_alg(jwk: &Jwk) -> Result<(DecodingKey, Algorithm), OidcError> {
+    match jwk.kty.as_str() {
+        "RSA" => {
+            let n = jwk
+                .rsa_n
+                .as_deref()
+                .ok_or_else(|| OidcError::InvalidKey("RSA JWK missing 'n'".into()))?;
+            let e = jwk
+                .rsa_e
+                .as_deref()
+                .ok_or_else(|| OidcError::InvalidKey("RSA JWK missing 'e'".into()))?;
+            let key = DecodingKey::from_rsa_components(n, e)
+                .map_err(|e| OidcError::InvalidKey(e.to_string()))?;
+            let alg = match jwk.alg.as_deref() {
+                Some("RS256") | None => {
+                    // DECISION: RS256 is the correct default for JWKs with kty=RSA and no alg field.
+                    // RFC 7518 §3.3 defines RS256 as the baseline RSA signature algorithm.
+                    // Providers that omit alg (e.g. some Azure AD JWKS endpoints) expect RS256.
+                    if jwk.alg.is_none() {
+                        tracing::debug!(key_id = ?jwk.kid, "JWK has no 'alg' field; defaulting to RS256 per RFC 7518 §3.3");
+                    }
+                    Algorithm::RS256
+                }
+                Some("RS384") => Algorithm::RS384,
+                Some("RS512") => Algorithm::RS512,
+                Some("PS256") => Algorithm::PS256,
+                Some("PS384") => Algorithm::PS384,
+                Some("PS512") => Algorithm::PS512,
+                Some(other) => return Err(OidcError::UnsupportedAlgorithm(other.to_string())),
+            };
+            Ok((key, alg))
         }
-        Some("RS384") => Algorithm::RS384,
-        Some("RS512") => Algorithm::RS512,
-        Some("PS256") => Algorithm::PS256,
-        Some("PS384") => Algorithm::PS384,
-        Some("PS512") => Algorithm::PS512,
-        Some(other) => return Err(OidcError::UnsupportedAlgorithm(other.to_string())),
-    };
-
-    Ok((key, alg))
+        "EC" => {
+            let x = jwk
+                .ec_x
+                .as_deref()
+                .ok_or_else(|| OidcError::InvalidKey("EC JWK missing 'x'".into()))?;
+            let y = jwk
+                .ec_y
+                .as_deref()
+                .ok_or_else(|| OidcError::InvalidKey("EC JWK missing 'y'".into()))?;
+            let key = DecodingKey::from_ec_components(x, y)
+                .map_err(|e| OidcError::InvalidKey(e.to_string()))?;
+            let alg = match jwk.alg.as_deref() {
+                Some("ES256") | None => Algorithm::ES256,
+                Some("ES384") => Algorithm::ES384,
+                // ES512 is not implemented in the jsonwebtoken crate (see AlgorithmFamily::Ec).
+                Some(other) => return Err(OidcError::UnsupportedAlgorithm(other.to_string())),
+            };
+            Ok((key, alg))
+        }
+        _ => Err(OidcError::UnsupportedKeyType(jwk.kty.clone())),
+    }
 }
 
 // ── Error type ────────────────────────────────────────────────────────────────
@@ -287,7 +313,7 @@ pub enum OidcError {
     KeyNotFound,
     /// A required claim (e.g. `email`) was absent from the validated token.
     MissingClaim(String),
-    /// The JWK `kty` is not supported (only `"RSA"` is supported in v1).
+    /// The JWK `kty` is not supported (only `"RSA"` and `"EC"` are supported).
     UnsupportedKeyType(String),
     /// The JWK `alg` is not a recognised RSA algorithm.
     UnsupportedAlgorithm(String),
@@ -305,10 +331,7 @@ impl std::fmt::Display for OidcError {
             OidcError::KeyNotFound => write!(f, "OIDC key not found in JWKS"),
             OidcError::MissingClaim(s) => write!(f, "OIDC missing claim '{s}'"),
             OidcError::UnsupportedKeyType(s) => {
-                write!(
-                    f,
-                    "OIDC unsupported key type '{s}' (only RSA supported in v1)"
-                )
+                write!(f, "OIDC unsupported key type '{s}' (only RSA and EC supported)")
             }
             OidcError::UnsupportedAlgorithm(s) => {
                 write!(f, "OIDC unsupported algorithm '{s}'")
@@ -404,9 +427,11 @@ mod tests {
             alg: Some("RS256".into()),
             rsa_n: None,
             rsa_e: Some("AQAB".into()),
+            ec_x: None,
+            ec_y: None,
         };
         assert!(matches!(
-            rsa_decoding_key_and_alg(&jwk),
+            decoding_key_and_alg(&jwk),
             Err(OidcError::InvalidKey(_))
         ));
     }
@@ -421,16 +446,18 @@ mod tests {
             alg: Some("RS256".into()),
             rsa_n: Some("somemodulus".into()),
             rsa_e: None,
+            ec_x: None,
+            ec_y: None,
         };
         assert!(matches!(
-            rsa_decoding_key_and_alg(&jwk),
+            decoding_key_and_alg(&jwk),
             Err(OidcError::InvalidKey(_))
         ));
     }
 
-    /// EC keys must return `UnsupportedKeyType`.
+    /// EC keys without x/y components must return `InvalidKey`.
     #[test]
-    fn ec_key_returns_unsupported_key_type() {
+    fn ec_key_missing_components_returns_invalid_key() {
         let jwk = Jwk {
             kid: None,
             kty: "EC".into(),
@@ -438,9 +465,30 @@ mod tests {
             alg: Some("ES256".into()),
             rsa_n: None,
             rsa_e: None,
+            ec_x: None,
+            ec_y: None,
         };
         assert!(matches!(
-            rsa_decoding_key_and_alg(&jwk),
+            decoding_key_and_alg(&jwk),
+            Err(OidcError::InvalidKey(_))
+        ));
+    }
+
+    /// Keys with unsupported kty (e.g. oct/symmetric) must return `UnsupportedKeyType`.
+    #[test]
+    fn oct_key_returns_unsupported_key_type() {
+        let jwk = Jwk {
+            kid: None,
+            kty: "oct".into(),
+            key_use: Some("sig".into()),
+            alg: Some("HS256".into()),
+            rsa_n: None,
+            rsa_e: None,
+            ec_x: None,
+            ec_y: None,
+        };
+        assert!(matches!(
+            decoding_key_and_alg(&jwk),
             Err(OidcError::UnsupportedKeyType(_))
         ));
     }
@@ -455,9 +503,11 @@ mod tests {
             alg: Some("HS256".into()), // HMAC — not acceptable for OIDC
             rsa_n: Some("AQAB".into()),
             rsa_e: Some("AQAB".into()),
+            ec_x: None,
+            ec_y: None,
         };
         assert!(matches!(
-            rsa_decoding_key_and_alg(&jwk),
+            decoding_key_and_alg(&jwk),
             Err(OidcError::UnsupportedAlgorithm(_))
         ));
     }
@@ -474,8 +524,10 @@ mod tests {
             // (semantically invalid — tests alg selection only, not key validity).
             rsa_n: Some("0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbOpbISD08qNLyrdkt-bFTWhAI4vMQFh6WeZu0fM4lFd2NcRwr3XPksINHaQ-G_xBniIqbw0Ls1jF44-csFCur-kEgU8awapJzKnqDKgw".into()),
             rsa_e: Some("AQAB".into()),
+            ec_x: None,
+            ec_y: None,
         };
-        match rsa_decoding_key_and_alg(&jwk) {
+        match decoding_key_and_alg(&jwk) {
             Ok((_, alg)) => assert_eq!(alg, Algorithm::RS256),
             Err(OidcError::InvalidKey(_)) => {
                 // Key components may fail to parse — that's ok, test is about alg selection.

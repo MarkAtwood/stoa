@@ -232,6 +232,7 @@ async fn transit_reader_shared_store() {
     let shared_ipfs = Arc::new(SharedIpfs::new());
     let db_dir = tempfile::TempDir::new().expect("tempdir");
     let core_pool = make_core_pool(&db_dir).await;
+    let log_pool = core_pool.clone();
     let msgid_map = Arc::new(MsgIdMap::new(core_pool));
 
     let now_ms = std::time::SystemTime::now()
@@ -245,7 +246,7 @@ async fn transit_reader_shared_store() {
     let stores = Arc::new(ServerStores {
         ipfs_store: Arc::clone(&shared_ipfs) as Arc<dyn IpfsBlockStore>,
         msgid_map: Arc::clone(&msgid_map),
-        log_storage: Arc::new(stoa_core::group_log::MemLogStorage::new()),
+        log_storage: Arc::new(stoa_core::group_log::SqliteLogStorage::new(log_pool)),
         article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
         overview_store: Arc::new(OverviewStore::new(reader_pool)),
         credential_store: Arc::new(CredentialStore::empty()),

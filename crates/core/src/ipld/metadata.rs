@@ -24,60 +24,21 @@ pub fn compute_line_count(body_bytes: &[u8]) -> u64 {
 /// without parameters (e.g. "text/plain" from "text/plain; charset=utf-8").
 /// Returns "text/plain" if no Content-Type header is present (RFC 2045
 /// §5.2: default content type is text/plain; charset=us-ascii).
-/// Returns the value as-is (lowercased) if it cannot be parsed further.
+///
+/// Uses `mailparse` for header unfolding and RFC 2047 decoding, the same
+/// library used throughout the IPLD stack, to avoid a divergent bug surface.
 pub fn extract_content_type_summary(header_bytes: &[u8]) -> String {
-    // Convert to str lossy so we can work with lines. Header bytes are
-    // expected to be ASCII/UTF-8; invalid bytes are replaced with U+FFFD
-    // and will not match any Content-Type header name.
-    let header_str = String::from_utf8_lossy(header_bytes);
-
-    // Collect header lines, handling CRLF and bare LF.
-    let raw_lines: Vec<&str> = header_str.split('\n').collect();
-
-    // Unfold the Content-Type header: find the line starting with
-    // "content-type:" (case-insensitive), then collect any continuation
-    // lines (lines starting with whitespace).
-    let mut ct_value: Option<String> = None;
-    let mut in_ct = false;
-
-    for line in &raw_lines {
-        // Strip trailing CR if present (CRLF line endings).
-        let line = line.trim_end_matches('\r');
-
-        if in_ct {
-            // A continuation line begins with whitespace.
-            if line.starts_with(' ') || line.starts_with('\t') {
-                if let Some(ref mut v) = ct_value {
-                    v.push(' ');
-                    v.push_str(line.trim());
-                }
-                continue;
-            } else {
-                // Next header field; stop collecting.
-                break;
-            }
-        }
-
-        // Check if this line starts the Content-Type field.
-        if line.len() >= 13 && line[..13].eq_ignore_ascii_case("content-type:") {
-            let value = line[13..].trim().to_string();
-            ct_value = Some(value);
-            in_ct = true;
+    let (headers, _) = match mailparse::parse_headers(header_bytes) {
+        Ok(r) => r,
+        Err(_) => return "text/plain".to_string(),
+    };
+    for header in &headers {
+        if header.get_key().eq_ignore_ascii_case("content-type") {
+            let ct = mailparse::parse_content_type(&header.get_value());
+            return ct.mimetype;
         }
     }
-
-    match ct_value {
-        None => "text/plain".to_string(),
-        Some(value) => {
-            // Take the part before the first ';' (strips parameters).
-            let type_subtype = value.split(';').next().unwrap_or("").trim();
-            if type_subtype.is_empty() {
-                "text/plain".to_string()
-            } else {
-                type_subtype.to_lowercase()
-            }
-        }
-    }
+    "text/plain".to_string()
 }
 
 /// Compute the fields of ArticleMetadata that are derived from article bytes.
