@@ -208,6 +208,7 @@ pub async fn run_session<S>(
 
     let mut state = SessionState::Fresh;
     let mut authenticated_user: Option<String> = None;
+    let mut auth_failures: u8 = 0;
 
     loop {
         let line_buf = match read_command_line(
@@ -237,7 +238,11 @@ pub async fn run_session<S>(
 
         // Strip trailing CRLF or LF.
         let line = line_buf.trim_end_matches(['\r', '\n']);
-        debug!(peer = %peer_addr, cmd = %line, "received");
+        if line.to_ascii_uppercase().starts_with("AUTH ") {
+            debug!(peer = %peer_addr, cmd = "AUTH <redacted>", "received");
+        } else {
+            debug!(peer = %peer_addr, cmd = %line, "received");
+        }
 
         // Split verb from arguments (verb is the first whitespace-delimited token).
         let (verb, args) = match line.split_once(|c: char| c.is_ascii_whitespace()) {
@@ -360,6 +365,7 @@ pub async fn run_session<S>(
                     match verify_sasl_plain(&credential_store, &b64).await {
                         Some(username) => {
                             info!(peer = %peer_addr, %username, "AUTH PLAIN succeeded");
+                            auth_failures = 0;
                             authenticated_user = Some(username);
                             if write_half
                                 .write_all(b"235 2.7.0 Authentication successful\r\n")
@@ -370,7 +376,14 @@ pub async fn run_session<S>(
                             }
                         }
                         None => {
-                            warn!(peer = %peer_addr, "AUTH PLAIN failed");
+                            auth_failures += 1;
+                            warn!(peer = %peer_addr, auth_failures, "AUTH PLAIN failed");
+                            if auth_failures >= 3 {
+                                let _ = write_half
+                                    .write_all(b"535 5.7.8 Too many authentication failures\r\n")
+                                    .await;
+                                break;
+                            }
                             if write_half
                                 .write_all(b"535 5.7.8 Authentication credentials invalid\r\n")
                                 .await

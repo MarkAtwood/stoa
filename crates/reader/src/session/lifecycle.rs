@@ -336,7 +336,11 @@ where
         }
 
         let line = line_buf.trim_end_matches(['\r', '\n']);
-        debug!(peer = %peer_addr, cmd = %line, "received");
+        if line.to_ascii_uppercase().starts_with("AUTHINFO PASS ") {
+            debug!(peer = %peer_addr, cmd = "AUTHINFO PASS <redacted>", "received");
+        } else {
+            debug!(peer = %peer_addr, cmd = %line, "received");
+        }
 
         let cmd = match parse_command(line) {
             Ok(c) => c,
