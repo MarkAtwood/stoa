@@ -953,8 +953,8 @@ async fn sieve_delivery(
                         match insert_result {
                             Ok(_) => {
                                 let _ = sqlx::query(
-                                    "INSERT INTO state_version (scope, version) VALUES ('Email', 1) \
-                                     ON CONFLICT(scope) DO UPDATE SET version = version + 1",
+                                    "INSERT INTO state_version (user_id, scope, version) VALUES (1, 'Email', 1) \
+                                     ON CONFLICT(user_id, scope) DO UPDATE SET version = version + 1",
                                 )
                                 .execute(mp)
                                 .await;
