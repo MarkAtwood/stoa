@@ -224,7 +224,7 @@ async fn main() {
         let signer = mail_auth::dkim::DkimSigner::from_key(ed_key)
             .domain(dcfg.domain.as_str())
             .selector(dcfg.selector.as_str())
-            .headers(["From", "To", "Subject", "Date", "Message-ID", "MIME-Version"]);
+            .headers(stoa_smtp::config::DKIM_SIGNED_HEADERS.iter().copied());
         info!(domain = %dcfg.domain, selector = %dcfg.selector, "DKIM signing enabled");
         Some(Arc::new(signer))
     } else {

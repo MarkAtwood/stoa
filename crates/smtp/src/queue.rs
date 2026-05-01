@@ -195,78 +195,92 @@ impl NntpQueue {
                 return;
             }
         };
-        while let Ok(Some(entry)) = dir.next_entry().await {
-            let path = entry.path();
-            // Remove any .msg.tmp or .env.tmp files left by a previous crash.
-            // These represent incomplete writes; the corresponding committed
-            // file was never created, so there is nothing to deliver.
-            if path.to_str().is_some_and(|s| s.ends_with(".msg.tmp") || s.ends_with(".env.tmp")) {
-                if let Err(e) = tokio::fs::remove_file(&path).await {
-                    warn!(path = %path.display(), "nntp queue: failed to remove orphan tmp file: {e}");
-                } else {
-                    warn!(path = %path.display(), "nntp queue: removed orphan tmp file from previous crash");
-                }
-                continue;
-            }
-            if path.extension().is_some_and(|e| e == "msg") {
-                let env_path = path.with_extension("env");
-                let injection_source = match tokio::fs::read(&env_path).await {
-                    Ok(env_bytes) => serde_json::from_slice::<NntpEnvelope>(&env_bytes)
-                        .map(|e| e.injection_source)
-                        .unwrap_or_else(|_| stoa_core::default_injection_source()),
-                    Err(_) => stoa_core::default_injection_source(),
-                };
-                match tokio::fs::read(&path).await {
-                    Ok(bytes) => {
-                        let article = inject_source_header(&bytes, injection_source);
-                        // DKIM-sign the article before injecting into NNTP.
-                        // If signing fails, defer this article (hold for retry on next cycle).
-                        let article = if let Some(signer) = &self.dkim_signer {
-                            match signer.sign(&article) {
-                                Ok(sig) => {
-                                    let header = sig.to_header();
-                                    let mut signed =
-                                        Vec::with_capacity(header.len() + article.len());
-                                    signed.extend_from_slice(header.as_bytes());
-                                    signed.extend_from_slice(&article);
-                                    signed
-                                }
-                                Err(e) => {
-                                    let message_id = extract_message_id(&article);
-                                    warn!(
-                                        message_id = %message_id.unwrap_or_default(),
-                                        "DKIM signing failed, deferring article: {e}"
-                                    );
-                                    continue;
-                                }
-                            }
+        loop {
+            match dir.next_entry().await {
+                Ok(Some(entry)) => {
+                    let path = entry.path();
+                    // Remove any .msg.tmp or .env.tmp files left by a previous crash.
+                    // These represent incomplete writes; the corresponding committed
+                    // file was never created, so there is nothing to deliver.
+                    if path.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.ends_with(".msg.tmp") || n.ends_with(".env.tmp")) {
+                        if let Err(e) = tokio::fs::remove_file(&path).await {
+                            warn!(path = %path.display(), "nntp queue: failed to remove orphan tmp file: {e}");
                         } else {
-                            article
+                            warn!(path = %path.display(), "nntp queue: removed orphan tmp file from previous crash");
+                        }
+                        continue;
+                    }
+                    if path.extension().is_some_and(|e| e == "msg") {
+                        let env_path = path.with_extension("env");
+                        let injection_source = match tokio::fs::read(&env_path).await {
+                            Ok(env_bytes) => serde_json::from_slice::<NntpEnvelope>(&env_bytes)
+                                .map(|e| e.injection_source)
+                                .unwrap_or_else(|_| stoa_core::default_injection_source()),
+                            Err(_) => stoa_core::default_injection_source(),
                         };
-                        let message_id = extract_message_id(&article).unwrap_or_default();
-                        match nntp_client::post_article(nntp_config, &article, &message_id).await {
-                            Ok(()) => {
-                                if let Err(e) = tokio::fs::remove_file(&path).await {
-                                    warn!(
-                                        path = %path.display(),
-                                        "nntp queue: failed to remove delivered file: {e}"
-                                    );
+                        match tokio::fs::read(&path).await {
+                            Ok(bytes) => {
+                                let article = inject_source_header(&bytes, injection_source);
+                                // DKIM-sign the article before injecting into NNTP.
+                                // If signing fails, defer this article (hold for retry on next cycle).
+                                let article = if let Some(signer) = &self.dkim_signer {
+                                    match signer.sign(&article) {
+                                        Ok(sig) => {
+                                            let header = sig.to_header();
+                                            let mut signed =
+                                                Vec::with_capacity(header.len() + article.len());
+                                            signed.extend_from_slice(header.as_bytes());
+                                            signed.extend_from_slice(&article);
+                                            signed
+                                        }
+                                        Err(e) => {
+                                            let message_id = extract_message_id(&article);
+                                            warn!(
+                                                message_id = %message_id.unwrap_or_default(),
+                                                "DKIM signing failed, deferring article: {e}"
+                                            );
+                                            continue;
+                                        }
+                                    }
                                 } else {
-                                    let _ = tokio::fs::remove_file(&env_path).await;
-                                    info!("nntp queue: article delivered");
+                                    article
+                                };
+                                let message_id = extract_message_id(&article).unwrap_or_default();
+                                match nntp_client::post_article(nntp_config, &article, &message_id).await {
+                                    Ok(()) => {
+                                        if let Err(e) = tokio::fs::remove_file(&path).await {
+                                            warn!(
+                                                path = %path.display(),
+                                                "nntp queue: failed to remove delivered file: {e}"
+                                            );
+                                        } else {
+                                            if let Err(e) = tokio::fs::remove_file(&env_path).await {
+                                                warn!(
+                                                    path = %env_path.display(),
+                                                    "nntp queue: failed to remove delivered .env file: {e}"
+                                                );
+                                            }
+                                            info!("nntp queue: article delivered");
+                                        }
+                                    }
+                                    Err(e) => {
+                                        warn!(
+                                            path = %path.display(),
+                                            "nntp queue: delivery failed, will retry: {e}"
+                                        );
+                                    }
                                 }
                             }
                             Err(e) => {
-                                warn!(
-                                    path = %path.display(),
-                                    "nntp queue: delivery failed, will retry: {e}"
-                                );
+                                warn!(path = %path.display(), "nntp queue: failed to read file: {e}");
                             }
                         }
                     }
-                    Err(e) => {
-                        warn!(path = %path.display(), "nntp queue: failed to read file: {e}");
-                    }
+                }
+                Ok(None) => break,
+                Err(e) => {
+                    warn!(dir = %self.queue_dir.display(), "nntp queue: read_dir entry error: {e}");
+                    break;
                 }
             }
         }

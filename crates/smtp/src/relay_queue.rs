@@ -363,9 +363,8 @@ impl SmtpRelayQueue {
         }
 
         for env_path in env_files {
-            let stem = match env_path.file_stem().and_then(|s| s.to_str()) {
-                Some(s) => s.to_string(),
-                None => continue,
+            let Some(stem) = env_path.file_stem().and_then(|s| s.to_str()) else {
+                continue;
             };
             let msg_path = self.queue_dir.join(format!("{stem}.msg"));
 
@@ -449,7 +448,10 @@ impl SmtpRelayQueue {
                     let message_id = crate::queue::extract_message_id(article_bytes);
                     error!(message_id = %message_id.unwrap_or_default(), "DKIM signing failed, moving to dead-letter: {e}");
                     let dead_dir = self.queue_dir.join("dead");
-                    for path in [env_path, msg_path] {
+                    // Move .msg first: if the .env rename then fails, the drain finds
+                    // the orphaned .env, discovers .msg is absent (already in dead/),
+                    // and skips with a warning — visible but not permanently stranded.
+                    for path in [msg_path, env_path] {
                         if let Some(name) = path.file_name() {
                             let dead_path = dead_dir.join(name);
                             if let Err(mv_err) = tokio::fs::rename(path, &dead_path).await {
@@ -497,16 +499,24 @@ impl SmtpRelayQueue {
             }
             Err(e) => {
                 // Permanent failure: move to dead/ to prevent infinite retry.
+                // Only mark the peer down for auth/protocol failures, not per-message
+                // 5xx content rejections — a 5xx means the peer is healthy but declined
+                // this specific message; subsequent messages can be delivered immediately.
                 // The lock is never poisoned: no code panics while holding it.
-                self.health.lock().expect("health lock").mark_down(idx);
+                if e.marks_peer_down() {
+                    self.health.lock().expect("health lock").mark_down(idx);
+                    crate::metrics::set_relay_peer_up(&peer_cfg.host, false);
+                }
                 crate::metrics::inc_relay_failure(&peer_cfg.host, "permanent");
-                crate::metrics::set_relay_peer_up(&peer_cfg.host, false);
                 warn!(
                     peer = %peer_cfg.host_port(),
                     "relay queue: permanent delivery failure, moving to dead/: {e}"
                 );
                 let dead_dir = self.queue_dir.join("dead");
-                for path in [env_path, msg_path] {
+                // Move .msg first: if the .env rename then fails, the drain finds
+                // the orphaned .env, discovers .msg is absent (already in dead/),
+                // and skips with a warning — visible but not permanently stranded.
+                for path in [msg_path, env_path] {
                     if let Some(name) = path.file_name() {
                         let dead_path = dead_dir.join(name);
                         if let Err(mv_err) = tokio::fs::rename(path, &dead_path).await {

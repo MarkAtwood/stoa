@@ -252,6 +252,15 @@ impl std::fmt::Debug for DkimConfig {
     }
 }
 
+/// RFC 5322 header fields covered by the DKIM signature on all outbound messages.
+///
+/// Per RFC 6376 §5.4, `From` is mandatory.  `To`, `Subject`, `Date`, and
+/// `Message-ID` are recommended.  `MIME-Version` ensures the MIME structure is
+/// covered.  All fields listed here must be present in outbound messages;
+/// `mail_auth` silently skips any absent field rather than erroring.
+pub const DKIM_SIGNED_HEADERS: &[&str] =
+    &["From", "To", "Subject", "Date", "Message-ID", "MIME-Version"];
+
 /// Configuration for the durable NNTP injection queue and outbound SMTP relay.
 #[derive(Debug, Deserialize)]
 pub struct DeliveryConfig {

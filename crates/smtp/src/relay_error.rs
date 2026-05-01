@@ -3,9 +3,11 @@ use std::fmt;
 /// Typed error for outbound SMTP relay delivery.
 ///
 /// Variants drive retry policy:
-/// - Transient/Io → mark peer down, leave message in queue for retry
-/// - Permanent/AuthFailed/ProtocolError → mark peer down, move message to dead-letter
-/// - TlsHandshake → mark peer down, leave message in queue for retry (not permanent)
+/// - Transient/Io/TlsHandshake → mark peer down, leave message in queue for retry
+/// - Permanent → do NOT mark peer down, move message to dead-letter
+///   (5xx content rejection means the peer is healthy; subsequent messages can
+///   be delivered immediately without backoff)
+/// - AuthFailed/ProtocolError → mark peer down, move message to dead-letter
 #[derive(Debug)]
 pub enum SmtpRelayError {
     /// 4xx response from peer — temporary failure, retry with backoff.
@@ -39,6 +41,17 @@ impl SmtpRelayError {
                 | SmtpRelayError::AuthFailed
                 | SmtpRelayError::ProtocolError(_)
         )
+    }
+
+    /// Returns true if the peer itself should be marked down after this error.
+    ///
+    /// `Permanent` (5xx per-message rejection) does NOT mark the peer down: the
+    /// peer is reachable and functional; only this specific message was rejected.
+    /// Subsequent messages to the same peer can be delivered without a backoff
+    /// penalty.  All other error kinds indicate peer-level problems that warrant
+    /// backing off.
+    pub fn marks_peer_down(&self) -> bool {
+        !matches!(self, SmtpRelayError::Permanent(_))
     }
 }
 
@@ -125,6 +138,26 @@ mod tests {
         let display = format!("{}", e);
         assert!(!display.to_lowercase().contains("password"));
         assert!(!display.to_lowercase().contains("credentials"));
+    }
+
+    #[test]
+    fn permanent_does_not_mark_peer_down() {
+        // A 5xx content rejection means the peer is healthy — do not penalise it.
+        let e = SmtpRelayError::Permanent("550 user unknown".to_string());
+        assert!(!e.marks_peer_down());
+    }
+
+    #[test]
+    fn auth_failed_marks_peer_down() {
+        // Auth failure affects all future messages to this peer until creds are fixed.
+        let e = SmtpRelayError::AuthFailed;
+        assert!(e.marks_peer_down());
+    }
+
+    #[test]
+    fn transient_marks_peer_down() {
+        let e = SmtpRelayError::Transient("421 service unavailable".to_string());
+        assert!(e.marks_peer_down());
     }
 
     #[test]
