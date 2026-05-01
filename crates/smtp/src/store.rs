@@ -51,6 +51,14 @@ async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
     .execute(pool)
     .await?;
 
+    // Enforce at most one active script per user at the DB level.
+    sqlx::query(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_sieve_one_active
+         ON user_sieve_scripts (username) WHERE active = 1",
+    )
+    .execute(pool)
+    .await?;
+
     Ok(())
 }
 
@@ -67,6 +75,10 @@ pub async fn load_active_script(pool: &SqlitePool, username: &str) -> Option<Vec
 }
 
 /// Insert or replace a Sieve script for `username`.
+///
+/// When `active` is `true`, all other scripts for the same user are
+/// deactivated first inside a single transaction so that at most one
+/// script per user is ever marked active.
 pub async fn save_script(
     pool: &SqlitePool,
     username: &str,
@@ -74,6 +86,22 @@ pub async fn save_script(
     script_bytes: &[u8],
     active: bool,
 ) -> Result<(), sqlx::Error> {
+    let mut tx = pool.begin().await?;
+
+    if active {
+        // Deactivate every other script for this user before activating the
+        // new one.  This keeps the partial unique index on (username) WHERE
+        // active = 1 satisfied throughout the transaction.
+        sqlx::query(
+            "UPDATE user_sieve_scripts SET active = 0, updated_at = datetime('now')
+             WHERE username = ? AND script_name != ? AND active = 1",
+        )
+        .bind(username)
+        .bind(script_name)
+        .execute(&mut *tx)
+        .await?;
+    }
+
     sqlx::query(
         "INSERT INTO user_sieve_scripts (username, script_name, script_bytes, active)
          VALUES (?, ?, ?, ?)
@@ -86,8 +114,10 @@ pub async fn save_script(
     .bind(script_name)
     .bind(script_bytes)
     .bind(active as i64)
-    .execute(pool)
+    .execute(&mut *tx)
     .await?;
+
+    tx.commit().await?;
     Ok(())
 }
 
@@ -296,5 +326,41 @@ mod tests {
             .await
             .expect("save");
         assert!(load_active_script(&pool, "bob").await.is_none());
+    }
+
+    /// Saving a second script with active=true must deactivate the first.
+    /// At most one script per user may be active at any time.
+    #[tokio::test]
+    async fn save_script_active_deactivates_siblings() {
+        let pool = open(":memory:").await.expect("open");
+
+        // Save first script as active.
+        save_script(&pool, "carol", "script_a", b"keep;", true)
+            .await
+            .expect("save script_a");
+
+        // Save a second script as active — script_a must become inactive.
+        save_script(&pool, "carol", "script_b", b"discard;", true)
+            .await
+            .expect("save script_b");
+
+        // load_active_script must return exactly script_b's bytes.
+        let active = load_active_script(&pool, "carol")
+            .await
+            .expect("active script");
+        assert_eq!(active, b"discard;", "script_b must be the active script");
+
+        // list_scripts must show exactly one active entry.
+        let scripts = list_scripts(&pool, "carol").await.expect("list");
+        let active_count = scripts.iter().filter(|(_, a)| *a).count();
+        assert_eq!(active_count, 1, "exactly one script must be active");
+
+        // Verify script_a is now inactive.
+        let a_active = scripts
+            .iter()
+            .find(|(name, _)| name == "script_a")
+            .map(|(_, a)| *a)
+            .expect("script_a must still exist");
+        assert!(!a_active, "script_a must be deactivated");
     }
 }
