@@ -12,25 +12,28 @@ impl StateStore {
 
     /// Return the current state string for a scope.
     /// Returns "0" if the scope has never been written.
-    pub async fn get_state(&self, scope: &str) -> Result<String, sqlx::Error> {
-        let version: Option<i64> =
-            sqlx::query_scalar("SELECT version FROM state_version WHERE scope = ?")
-                .bind(scope)
-                .fetch_optional(&self.pool)
-                .await?;
+    pub async fn get_state(&self, user_id: i64, scope: &str) -> Result<String, sqlx::Error> {
+        let version: Option<i64> = sqlx::query_scalar(
+            "SELECT version FROM state_version WHERE user_id = ? AND scope = ?",
+        )
+        .bind(user_id)
+        .bind(scope)
+        .fetch_optional(&self.pool)
+        .await?;
         Ok(version.unwrap_or(0).to_string())
     }
 
     /// Increment the version for a scope and return the new state string.
-    pub async fn bump_state(&self, scope: &str) -> Result<String, sqlx::Error> {
+    pub async fn bump_state(&self, user_id: i64, scope: &str) -> Result<String, sqlx::Error> {
         sqlx::query(
-            "INSERT INTO state_version (scope, version) VALUES (?, 1)
-             ON CONFLICT(scope) DO UPDATE SET version = version + 1",
+            "INSERT INTO state_version (user_id, scope, version) VALUES (?, ?, 1)
+             ON CONFLICT(user_id, scope) DO UPDATE SET version = version + 1",
         )
+        .bind(user_id)
         .bind(scope)
         .execute(&self.pool)
         .await?;
-        self.get_state(scope).await
+        self.get_state(user_id, scope).await
     }
 }
 
@@ -53,15 +56,15 @@ mod tests {
     #[tokio::test]
     async fn initial_state_is_zero() {
         let (store, _tmp) = make_store().await;
-        let state = store.get_state("Mailbox").await.unwrap();
+        let state = store.get_state(1, "Mailbox").await.unwrap();
         assert_eq!(state, "0");
     }
 
     #[tokio::test]
     async fn bump_increments_state() {
         let (store, _tmp) = make_store().await;
-        let s1 = store.bump_state("Email").await.unwrap();
-        let s2 = store.bump_state("Email").await.unwrap();
+        let s1 = store.bump_state(1, "Email").await.unwrap();
+        let s2 = store.bump_state(1, "Email").await.unwrap();
         assert_ne!(s1, s2, "state must change after bump");
         assert!(!s1.is_empty());
         assert!(!s2.is_empty());
@@ -70,8 +73,16 @@ mod tests {
     #[tokio::test]
     async fn different_scopes_are_independent() {
         let (store, _tmp) = make_store().await;
-        store.bump_state("Mailbox").await.unwrap();
-        let email_state = store.get_state("Email").await.unwrap();
+        store.bump_state(1, "Mailbox").await.unwrap();
+        let email_state = store.get_state(1, "Email").await.unwrap();
         assert_eq!(email_state, "0", "Email scope must be independent");
+    }
+
+    #[tokio::test]
+    async fn different_users_are_independent() {
+        let (store, _tmp) = make_store().await;
+        store.bump_state(1, "Email").await.unwrap();
+        let state_u2 = store.get_state(2, "Email").await.unwrap();
+        assert_eq!(state_u2, "0", "user 2 must have its own independent state");
     }
 }

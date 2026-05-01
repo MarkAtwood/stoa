@@ -410,7 +410,7 @@ async fn jmap_api_handler(
 
     let session_state = jmap
         .state_store
-        .get_state("session")
+        .get_state(user_id, "session")
         .await
         .unwrap_or_else(|_| "0".to_string());
 
@@ -489,7 +489,7 @@ async fn route_method(
                 });
             let state = jmap
                 .state_store
-                .get_state("Mailbox")
+                .get_state(user_id, "Mailbox")
                 .await
                 .unwrap_or_else(|_| "0".to_string());
             crate::mailbox::get::handle_mailbox_get(
@@ -504,12 +504,12 @@ async fn route_method(
         "Mailbox/set" => {
             let old_state = jmap
                 .state_store
-                .get_state("Mailbox")
+                .get_state(user_id, "Mailbox")
                 .await
                 .unwrap_or_else(|_| "0".to_string());
             let new_state = jmap
                 .state_store
-                .bump_state("Mailbox")
+                .bump_state(user_id, "Mailbox")
                 .await
                 .unwrap_or_else(|_| old_state.clone());
             crate::mailbox::set::handle_mailbox_set(
@@ -556,7 +556,7 @@ async fn route_method(
             let sort = args.get("sort");
             let state = jmap
                 .state_store
-                .get_state("Mailbox")
+                .get_state(user_id, "Mailbox")
                 .await
                 .unwrap_or_else(|_| "0".to_string());
             crate::mailbox::query::handle_mailbox_query(&group_infos, filter, sort, &state, canonical_account_id)
@@ -570,7 +570,7 @@ async fn route_method(
 
             let email_state = jmap
                 .state_store
-                .get_state("Email")
+                .get_state(user_id, "Email")
                 .await
                 .unwrap_or_else(|_| "0".to_string());
 
@@ -742,7 +742,7 @@ async fn route_method(
             }
             let email_state = jmap
                 .state_store
-                .get_state("Email")
+                .get_state(user_id, "Email")
                 .await
                 .unwrap_or_else(|_| "0".to_string());
             crate::email::get::handle_email_get(
@@ -759,7 +759,7 @@ async fn route_method(
         "Email/set" => {
             let old_state = jmap
                 .state_store
-                .get_state("Email")
+                .get_state(user_id, "Email")
                 .await
                 .unwrap_or_else(|_| "0".to_string());
 
@@ -820,7 +820,7 @@ async fn route_method(
             // Set real oldState/newState; bump state if any write succeeded.
             let new_state = if any_changed {
                 jmap.state_store
-                    .bump_state("Email")
+                    .bump_state(user_id, "Email")
                     .await
                     .unwrap_or_else(|_| old_state.clone())
             } else {
@@ -841,7 +841,7 @@ async fn route_method(
                     let new_seq: i64 = new_state.parse().unwrap_or(0);
                     if let Err(e) = jmap
                         .change_log
-                        .record_created("Email", &new_cid_ids, new_seq)
+                        .record_created(user_id, "Email", &new_cid_ids, new_seq)
                         .await
                     {
                         tracing::warn!("change_log.record_created failed: {e}");
@@ -893,7 +893,7 @@ async fn route_method(
 
             let thread_state = jmap
                 .state_store
-                .get_state("Thread")
+                .get_state(user_id, "Thread")
                 .await
                 .unwrap_or_else(|_| "0".to_string());
 
@@ -911,11 +911,11 @@ async fn route_method(
 
             let new_state = jmap
                 .state_store
-                .get_state("Email")
+                .get_state(user_id, "Email")
                 .await
                 .unwrap_or_else(|_| "0".to_string());
 
-            let created = match jmap.change_log.query_since("Email", since_seq).await {
+            let created = match jmap.change_log.query_since(user_id, "Email", since_seq).await {
                 Ok(ids) => ids,
                 Err(e) => return json!({"error": e.to_string()}),
             };
@@ -934,7 +934,7 @@ async fn route_method(
         "Mailbox/changes" => {
             let new_state = jmap
                 .state_store
-                .get_state("Mailbox")
+                .get_state(user_id, "Mailbox")
                 .await
                 .unwrap_or_else(|_| "0".to_string());
             // Mailboxes are NNTP groups; membership changes are not tracked in
