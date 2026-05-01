@@ -143,11 +143,21 @@ impl NntpQueue {
 
     /// Enqueue article bytes for NNTP delivery.
     ///
-    /// Both the `.msg` payload and the `.env` sidecar are written atomically
-    /// (write-to-tmp, then rename).  A crash between the two renames leaves a
-    /// `.msg` without an `.env`; the startup scan in `drain_once` removes the
-    /// leftover `.env.tmp` and the normal drain skips `.msg` files that have
-    /// no paired `.env`.
+    /// Write order is load-bearing for crash safety.  The drain loop enumerates
+    /// `.msg` files; `.env` must therefore exist before `.msg` goes live.
+    ///
+    /// 1. Write body to `<stem>.msg.tmp`
+    /// 2. Write envelope to `<stem>.env.tmp`, rename to `<stem>.env` (committed)
+    /// 3. Rename `<stem>.msg.tmp` → `<stem>.msg` (now visible to drain)
+    ///
+    /// A crash after step 3 but before step 3 completes leaves a `.msg.tmp`
+    /// which is cleaned up by `drain_once` at startup — safe to delete because
+    /// the corresponding `.msg` was never promoted.
+    ///
+    /// A crash between steps 2 and 3 leaves a `.env` with no `.msg`.  The drain
+    /// skips it (reads `.msg` which does not exist yet and moves on).  On the
+    /// next startup the `.msg.tmp` cleanup handles any leftover tmp file.
+    ///
     /// Returns `Err` if the write fails; callers should respond with a 452
     /// transient error so the sending MTA will retry.
     pub async fn enqueue(
@@ -160,12 +170,15 @@ impl NntpQueue {
         let msg_dst = self.queue_dir.join(format!("{stem}.msg"));
         let env_tmp = self.queue_dir.join(format!("{stem}.env.tmp"));
         let env_dst = self.queue_dir.join(format!("{stem}.env"));
+        // Step 1: write body to tmp.
         tokio::fs::write(&msg_tmp, article_bytes).await?;
-        tokio::fs::rename(&msg_tmp, &msg_dst).await?;
+        // Step 2: commit envelope — must be visible before .msg goes live.
         let env = NntpEnvelope { injection_source };
         let env_json = serde_json::to_vec(&env).map_err(std::io::Error::other)?;
         tokio::fs::write(&env_tmp, &env_json).await?;
         tokio::fs::rename(&env_tmp, &env_dst).await?;
+        // Step 3: promote body — drain can now see this entry.
+        tokio::fs::rename(&msg_tmp, &msg_dst).await?;
         self.notify.notify_one();
         Ok(())
     }
