@@ -128,7 +128,7 @@ fn check_date(headers: &HashMap<String, Vec<String>>) -> Result<(), Response> {
 
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .expect("system clock before epoch")
+        .map_err(|_| Response::new(441, "System clock is before Unix epoch"))?
         .as_secs() as i64;
 
     let delta = (ts - now).abs();
@@ -356,7 +356,26 @@ mod tests {
         );
     }
 
-    // ── 8. Valid Message-ID with angle brackets ───────────────────────────────
+    // ── 8. Date far in the future returns Err, not panic ─────────────────────
+    //
+    // Regression test for zmn9.33: check_date must return Err on extreme dates,
+    // not panic.  We call check_date directly with a header map so we can supply
+    // a fixed date string without touching SystemTime::now().  A date in the year
+    // 2525 is far outside the ±24 h window on any real system clock; it either
+    // fails the range check or the parse step — either way, the function must
+    // return Err(441) rather than panicking.
+    #[test]
+    fn check_date_far_future_returns_err() {
+        let mut headers: HashMap<String, Vec<String>> = HashMap::new();
+        headers.insert(
+            "date".to_string(),
+            vec!["Mon, 01 Jan 2525 00:00:00 +0000".to_string()],
+        );
+        let err = check_date(&headers).unwrap_err();
+        assert_eq!(err.code, 441);
+    }
+
+    // ── 9. Valid Message-ID with angle brackets ───────────────────────────────
 
     #[test]
     fn valid_message_id_with_angle_brackets() {
