@@ -217,7 +217,9 @@ impl AuditLoggerHandle {
     /// before this call are guaranteed to have been written to SQLite.
     pub async fn shutdown(self) {
         drop(self.tx);
-        let _ = self.join.await;
+        if let Err(e) = self.join.await {
+            tracing::error!("audit logger task panicked during shutdown: {e}");
+        }
     }
 }
 

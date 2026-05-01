@@ -14,8 +14,10 @@ use sha2::{Digest, Sha256};
 
 use crate::types::{ArticleVerification, SigType, VerifResult};
 
-#[cfg(test)]
-const SIG_HEADER: &str = "X-Stoa-Sig";
+/// Header name without colon, available for external use (e.g. test harnesses
+/// that construct signed articles).
+#[allow(dead_code)]
+pub(crate) const SIG_HEADER: &str = "X-Stoa-Sig";
 const SIG_HEADER_PREFIX: &str = "X-Stoa-Sig:";
 
 /// Try to verify `X-Stoa-Sig` in `article_bytes` against each key in

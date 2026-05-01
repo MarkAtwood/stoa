@@ -1,9 +1,9 @@
-/// Compute byte_count for OVER/XOVER output from verbatim body bytes.
+/// Return the number of bytes in `body_bytes`.
 ///
-/// Per RFC 3977 §8.5.2, the `:bytes` field counts the total number of
-/// octets in the article (header + body). For our purposes we compute
-/// this from body_bytes.len() (the header byte count is accounted for
-/// by the caller).
+/// Used by [`compute_metadata`] to build the `:bytes` field in OVER/XOVER
+/// output.  Per RFC 3977 §8.5.2, `:bytes` counts the total article size
+/// (header + body); `compute_metadata` adds the header byte count separately
+/// before storing the result.
 pub fn compute_byte_count(body_bytes: &[u8]) -> u64 {
     u64::try_from(body_bytes.len()).expect("usize fits in u64 on all supported platforms")
 }
