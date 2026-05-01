@@ -149,7 +149,7 @@ pub fn stat_article(
                 None => ctx.selected_group.as_ref().and_then(|sg| sg.article_number),
             };
             match number {
-                Some(n) if gd.article_numbers.contains(&n) => {
+                Some(n) if gd.article_numbers.binary_search(&n).is_ok() => {
                     Response::article_exists(n, &format!("<{n}@placeholder>"))
                 }
                 _ => Response::no_article_with_number(),
