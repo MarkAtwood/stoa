@@ -111,19 +111,27 @@ pub fn note_to_article(
     // Strip HTML tags from content for plaintext body.
     let body = strip_html(&content);
 
-    let mut article = String::new();
-    article.push_str(&format!("From: {from}\r\n"));
-    article.push_str(&format!("Newsgroups: {group_name}\r\n"));
-    article.push_str(&format!("Subject: {subject}\r\n"));
-    article.push_str(&format!("Message-ID: {message_id}\r\n"));
+    // Strip CR and LF from all attacker-controlled values before embedding
+    // them in RFC 5322 header field values.  A value containing \r or \n
+    // would allow injection of arbitrary headers into the generated article.
+    let safe_from = from.replace(['\r', '\n'], "");
+    let safe_group_name = group_name.replace(['\r', '\n'], "");
+    let safe_subject = subject.replace(['\r', '\n'], "");
     let date = if published.is_empty() {
         Utc::now().format("%a, %d %b %Y %H:%M:%S +0000").to_string()
     } else {
-        published.clone()
+        published.replace(['\r', '\n'], "")
     };
+
+    let mut article = String::new();
+    article.push_str(&format!("From: {safe_from}\r\n"));
+    article.push_str(&format!("Newsgroups: {safe_group_name}\r\n"));
+    article.push_str(&format!("Subject: {safe_subject}\r\n"));
+    article.push_str(&format!("Message-ID: {message_id}\r\n"));
     article.push_str(&format!("Date: {date}\r\n"));
     if let Some(ref irt) = in_reply_to {
-        article.push_str(&format!("In-Reply-To: {irt}\r\n"));
+        let safe_irt = irt.replace(['\r', '\n'], "");
+        article.push_str(&format!("In-Reply-To: {safe_irt}\r\n"));
     }
     article.push_str("X-ActivityPub: inbound\r\n");
     article.push_str("\r\n");
@@ -248,14 +256,41 @@ pub async fn verify_http_signature(
 }
 
 /// Parse a named parameter from a `Signature:` header value.
+///
+/// Uses a quoted-string-aware tokenizer: commas inside double-quoted values
+/// are treated as literal characters, not field separators.  This handles
+/// values such as `headers="(request-target) host, date"` correctly.
 fn parse_sig_param(header: &str, name: &str) -> Option<String> {
-    for part in header.split(',') {
-        let part = part.trim();
-        if let Some(rest) = part.strip_prefix(&format!("{name}=")) {
+    for token in split_sig_params(header) {
+        let token = token.trim();
+        if let Some(rest) = token.strip_prefix(&format!("{name}=")) {
             return Some(rest.trim_matches('"').to_string());
         }
     }
     None
+}
+
+/// Split a `Signature:` header value on commas that are outside double-quoted
+/// strings.  Characters inside `"..."` are never treated as separators.
+fn split_sig_params(header: &str) -> Vec<&str> {
+    let mut parts = Vec::new();
+    let mut in_quotes = false;
+    let mut start = 0;
+    let bytes = header.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'"' => in_quotes = !in_quotes,
+            b',' if !in_quotes => {
+                parts.push(&header[start..i]);
+                start = i + 1;
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    parts.push(&header[start..]);
+    parts
 }
 
 /// Fetch and extract the RSA public key PEM from an ActivityPub actor document.
@@ -496,5 +531,42 @@ mod tests {
             .record_if_new("https://mastodon.social/activities/xyz")
             .await
             .unwrap());
+    }
+
+    // ── parse_sig_param ──────────────────────────────────────────────────────
+
+    #[test]
+    fn parse_sig_param_simple() {
+        let header =
+            r#"keyId="https://example.com/key",algorithm="rsa-sha256",signature="abc123""#;
+        assert_eq!(
+            parse_sig_param(header, "keyId"),
+            Some("https://example.com/key".to_string())
+        );
+        assert_eq!(
+            parse_sig_param(header, "algorithm"),
+            Some("rsa-sha256".to_string())
+        );
+        assert_eq!(
+            parse_sig_param(header, "signature"),
+            Some("abc123".to_string())
+        );
+        assert_eq!(parse_sig_param(header, "missing"), None);
+    }
+
+    #[test]
+    fn parse_sig_param_comma_inside_quoted_value() {
+        // A comma inside a quoted string must NOT be treated as a separator.
+        let header = r#"keyId="https://example.com/key",headers="(request-target) host, date",signature="xyz""#;
+        assert_eq!(
+            parse_sig_param(header, "headers"),
+            Some("(request-target) host, date".to_string()),
+            "comma inside quoted headers value must not split the token"
+        );
+        assert_eq!(
+            parse_sig_param(header, "signature"),
+            Some("xyz".to_string()),
+            "token after quoted-comma value must still be found"
+        );
     }
 }

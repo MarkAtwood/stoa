@@ -1001,10 +1001,15 @@ async fn sieve_delivery(
                         warn!(peer = %peer_addr, %folder, "deliver to folder failed: {e}");
                     }
                 } else {
+                    // No database configured for non-newsgroup folder delivery.
+                    // Silently discarding here would be data loss; return a
+                    // temporary failure so the sending MTA retries once the
+                    // operator has configured a mail store.
                     warn!(
                         peer = %peer_addr, %folder,
-                        "Sieve FileInto: no database configured, message not stored"
+                        "Sieve FileInto: no database configured, returning transient error"
                     );
+                    return SieveOutcome::TransientError;
                 }
             }
             stoa_sieve_native::SieveAction::Discard => {

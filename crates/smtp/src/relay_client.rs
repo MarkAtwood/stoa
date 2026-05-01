@@ -124,21 +124,38 @@ async fn run_smtp_session(
     let mut line = String::new();
 
     // 1. Read server greeting — expect 220.
-    read_line(reader, &mut line).await?;
-    let (code, _cont, _text) = parse_smtp_line(&line)?;
-    match code {
-        220 => {}
-        400..=499 => {
-            return Err(SmtpRelayError::Transient(format!(
-                "greeting {code}: {}",
-                line.trim_end()
-            )))
+    // RFC 5321 §4.2: a server MAY send a multi-line greeting (220-text\r\n …
+    // 220 text\r\n).  Drain all continuation lines (code + '-') before
+    // treating the final line (code + ' ') as the definitive response.
+    // Failing to drain leaves banner lines in the buffer where they would be
+    // misinterpreted as responses to subsequent commands.
+    loop {
+        read_line(reader, &mut line).await?;
+        let (code, cont, _text) = parse_smtp_line(&line)?;
+        if cont {
+            // Still in the multi-line greeting; keep reading.
+            if code != 220 {
+                return Err(SmtpRelayError::Permanent(format!(
+                    "unexpected greeting code {code} in continuation: {}",
+                    line.trim_end()
+                )));
+            }
+            continue;
         }
-        _ => {
-            return Err(SmtpRelayError::Permanent(format!(
-                "greeting {code}: {}",
-                line.trim_end()
-            )))
+        match code {
+            220 => break,
+            400..=499 => {
+                return Err(SmtpRelayError::Transient(format!(
+                    "greeting {code}: {}",
+                    line.trim_end()
+                )))
+            }
+            _ => {
+                return Err(SmtpRelayError::Permanent(format!(
+                    "greeting {code}: {}",
+                    line.trim_end()
+                )))
+            }
         }
     }
 
@@ -235,9 +252,22 @@ async fn run_smtp_session(
     }
 
     // 4. MAIL FROM
-    // Strip any CR/LF from the address to prevent command injection.
-    let safe_from = envelope.mail_from.replace(['\r', '\n'], "");
-    let mail_from_cmd = format!("MAIL FROM:<{safe_from}>\r\n");
+    // Validate the address before interpolating it into MAIL FROM:<...>.
+    // Angle brackets are not valid inside an RFC 5321 mailbox address; their
+    // presence would prematurely close the angle-bracket argument and allow
+    // SMTP command injection (e.g. "> RCPT TO:attacker@evil.com\r\n").
+    // CR and LF are also rejected for belt-and-suspenders.
+    if envelope.mail_from.contains('\r')
+        || envelope.mail_from.contains('\n')
+        || envelope.mail_from.contains('<')
+        || envelope.mail_from.contains('>')
+    {
+        return Err(SmtpRelayError::Permanent(format!(
+            "MAIL FROM address contains invalid character: {:?}",
+            envelope.mail_from
+        )));
+    }
+    let mail_from_cmd = format!("MAIL FROM:<{}>\r\n", envelope.mail_from);
     writer
         .write_all(mail_from_cmd.as_bytes())
         .await
