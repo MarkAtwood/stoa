@@ -4,7 +4,7 @@ use tokio::net::TcpListener;
 use tracing::{error, info};
 
 use stoa_smtp::{
-    config::{Config, LogFormat},
+    config::{Config, DkimSignerArc, LogFormat},
     nntp_client::NntpClientConfig,
     queue::NntpQueue,
     server::run_server,
@@ -196,7 +196,7 @@ async fn main() {
     );
 
     // Resolve DKIM signing key from delivery.dkim config.
-    let dkim_signer: Option<stoa_smtp::config::DkimSignerArc> = if let Some(ref dcfg) = config.delivery.dkim {
+    let dkim_signer: Option<DkimSignerArc> = if let Some(ref dcfg) = config.delivery.dkim {
         use base64::Engine as _;
         use zeroize::Zeroize as _;
         let mut seed = match base64::engine::general_purpose::STANDARD.decode(&dcfg.key_seed_b64) {
