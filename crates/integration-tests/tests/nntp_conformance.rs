@@ -26,12 +26,13 @@ use stoa_core::{
     hlc::HlcClock,
     msgid_map::MsgIdMap,
 };
+use stoa_auth::ClientCertStore;
 use stoa_reader::{
     auth_limiter::{AuthFailureTracker, DEFAULT_MAX_ENTRIES},
     post::ipfs_write::{IpfsBlockStore, IpfsWriteError},
     session::lifecycle::{run_session, ListenerKind},
     store::{
-        article_numbers::ArticleNumberStore, client_cert_store::ClientCertStore,
+        article_numbers::ArticleNumberStore,
         overview::OverviewStore, server_stores::ServerStores,
     },
 };
@@ -263,6 +264,8 @@ async fn nntp_conformance_via_nntplib() {
             DEFAULT_MAX_ENTRIES,
         ))),
         oidc_store: None,
+        mail_complaints_to: None,
+        max_clock_skew_secs: None,
     });
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -511,6 +514,8 @@ async fn article_posted_writes_audit_row() {
             DEFAULT_MAX_ENTRIES,
         ))),
         oidc_store: None,
+        mail_complaints_to: None,
+        max_clock_skew_secs: None,
     });
 
     let config = Arc::new(reader_config("127.0.0.1:0"));

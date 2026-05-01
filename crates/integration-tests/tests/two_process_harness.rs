@@ -250,7 +250,7 @@ async fn transit_reader_shared_store() {
         overview_store: Arc::new(OverviewStore::new(reader_pool)),
         credential_store: Arc::new(CredentialStore::empty()),
         client_cert_store: Arc::new(
-            stoa_reader::store::client_cert_store::ClientCertStore::empty(),
+            stoa_auth::ClientCertStore::empty(),
         ),
         trusted_issuer_store: Arc::new(stoa_auth::TrustedIssuerStore::empty()),
         clock: Arc::new(Mutex::new(HlcClock::new([0x01u8; 8], now_ms))),
@@ -271,6 +271,8 @@ async fn transit_reader_shared_store() {
             DEFAULT_MAX_ENTRIES,
         ))),
         oidc_store: None,
+        mail_complaints_to: None,
+        max_clock_skew_secs: None,
     });
 
     // ── Transit stores ────────────────────────────────────────────────────────
