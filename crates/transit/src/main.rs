@@ -390,17 +390,48 @@ struct PipelineArgs<'a> {
     pin_service_filters: &'a [(String, GroupPolicy)],
 }
 
+/// Outcome of a `run_pipeline_and_notify` call.
+enum PipelineOutcome {
+    /// Pipeline succeeded; article was written to IPFS and recorded.
+    Success,
+    /// Pipeline failed with a permanent error (invalid article format, signing
+    /// self-check failure).  Retrying will never succeed; the staging row must
+    /// be purged immediately.
+    PermanentFailure,
+    /// Pipeline failed with a transient error (IPFS unavailable, DB lock).
+    /// The staging row should be kept for retry, subject to a max-retry limit.
+    TransientFailure,
+}
+
+/// Classify a `run_pipeline` error string into permanent vs transient.
+///
+/// The error strings are defined in `peering/pipeline.rs`; they are stable
+/// internal constants, not user-visible messages.
+fn classify_pipeline_error(msg: &str) -> PipelineOutcome {
+    // Permanent: article-level defects that cannot be fixed by retrying.
+    if msg.contains("missing Message-ID header")
+        || msg.contains("log entry signature self-check failed")
+    {
+        return PipelineOutcome::PermanentFailure;
+    }
+    // Everything else (IPFS write failed, msgid insert failed, articles table
+    // insert failed, DB contention) is treated as transient.
+    PipelineOutcome::TransientFailure
+}
+
 /// Run `run_pipeline`, emit structured telemetry, and drive post-success hooks
 /// (IPNS publish + remote pin enqueue).  Common to the ingestion drain and the
 /// staging drain; the only difference is the success log message.
 ///
-/// Returns `true` on success, `false` on pipeline error (already logged).
+/// Returns a [`PipelineOutcome`] so the staging drain can distinguish
+/// permanent failures (purge the row immediately) from transient ones (retain
+/// for retry).
 async fn run_pipeline_and_notify(
     bytes: &[u8],
     message_id: &str,
     success_label: &'static str,
     args: &PipelineArgs<'_>,
-) -> bool {
+) -> PipelineOutcome {
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
@@ -434,11 +465,11 @@ async fn run_pipeline_and_notify(
             );
             publish_ipns_tip(&result, args.ipns_tx);
             enqueue_pin_jobs(&result, args.pin_service_filters, args.transit_pool).await;
-            true
+            PipelineOutcome::Success
         }
         Err(e) => {
             warn!(msgid = %message_id, "pipeline failed: {e}");
-            false
+            classify_pipeline_error(&e)
         }
     }
 }
@@ -1118,22 +1149,71 @@ async fn main() {
                             ipns_tx: &ipns_tx_drain,
                             pin_service_filters: &pin_service_filters,
                         };
-                        let success = run_pipeline_and_notify(
+                        // Maximum transient-failure retries before the article
+                        // is treated as permanently broken and purged.
+                        const MAX_STAGING_RETRIES: i64 = 10;
+
+                        match run_pipeline_and_notify(
                             &article.bytes,
                             &article.message_id,
                             "staged article ingested",
                             &pipeline_args,
                         )
-                        .await;
-                        if success {
-                            if let Err(e) = staging.complete(&article).await {
+                        .await
+                        {
+                            PipelineOutcome::Success => {
+                                if let Err(e) = staging.complete(&article).await {
+                                    warn!(
+                                        msgid = %article.message_id,
+                                        "could not complete staging record: {e}"
+                                    );
+                                }
+                            }
+                            PipelineOutcome::PermanentFailure => {
                                 warn!(
                                     msgid = %article.message_id,
-                                    "could not complete staging record: {e}"
+                                    "permanent pipeline failure; purging staging row"
                                 );
+                                if let Err(e) = staging.purge(&article).await {
+                                    warn!(
+                                        msgid = %article.message_id,
+                                        "could not purge staging record: {e}"
+                                    );
+                                }
+                            }
+                            PipelineOutcome::TransientFailure => {
+                                match staging.increment_retry_count(&article).await {
+                                    Ok(new_count) if new_count >= MAX_STAGING_RETRIES => {
+                                        warn!(
+                                            msgid = %article.message_id,
+                                            retry_count = new_count,
+                                            "transient failure exceeded max retries; \
+                                             purging staging row"
+                                        );
+                                        if let Err(e) = staging.purge(&article).await {
+                                            warn!(
+                                                msgid = %article.message_id,
+                                                "could not purge staging record: {e}"
+                                            );
+                                        }
+                                    }
+                                    Ok(new_count) => {
+                                        warn!(
+                                            msgid = %article.message_id,
+                                            retry_count = new_count,
+                                            "transient failure; will retry"
+                                        );
+                                    }
+                                    Err(e) => {
+                                        warn!(
+                                            msgid = %article.message_id,
+                                            "could not increment retry count: {e}; \
+                                             article remains claimed until next restart"
+                                        );
+                                    }
+                                }
                             }
                         }
-                        // On failure, leave the row in place; it will be retried on next drain_one().
                     }
                     Err(e) => {
                         warn!("staging drain error: {e}");
@@ -1304,7 +1384,14 @@ async fn main() {
             None
         };
 
-        start_gc_scheduler(runner, Duration::from_secs(3600), candidates_fn, gc_lock).await;
+        start_gc_scheduler(
+            runner,
+            Duration::from_secs(3600),
+            candidates_fn,
+            gc_lock,
+            Some((*transit_pool).clone()),
+        )
+        .await;
         info!(interval_secs = 3600, "GC scheduler started");
     }
 
