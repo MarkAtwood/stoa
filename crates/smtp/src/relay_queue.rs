@@ -389,8 +389,20 @@ impl SmtpRelayQueue {
             let article_bytes = match tokio::fs::read(&msg_path).await {
                 Ok(b) => b,
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                    // .msg is missing; .env may be a leftover — skip both.
-                    warn!(path = %msg_path.display(), "relay queue: .msg file missing, skipping");
+                    // .msg is missing; .env is orphaned (already delivered and
+                    // .msg was removed, but .env removal failed).  Remove it
+                    // now to prevent it accumulating and re-emitting this
+                    // warning on every drain cycle.
+                    warn!(
+                        env = %env_path.display(),
+                        "relay queue: orphaned .env (no matching .msg), removing"
+                    );
+                    if let Err(rm_err) = tokio::fs::remove_file(&env_path).await {
+                        warn!(
+                            env = %env_path.display(),
+                            "relay queue: failed to remove orphaned .env: {rm_err}"
+                        );
+                    }
                     continue;
                 }
                 Err(e) => {
@@ -486,8 +498,10 @@ impl SmtpRelayQueue {
                 self.health.lock().expect("health lock").mark_up(idx);
                 crate::metrics::inc_relay_success(&peer_cfg.host);
                 crate::metrics::set_relay_peer_up(&peer_cfg.host, true);
-                // Remove both files; log warnings on failure but do not abort.
-                for path in [env_path, msg_path] {
+                // Remove .msg first, then .env.  If .env removal fails, the
+                // orphaned .env will be detected by drain_once on the next
+                // cycle (no matching .msg) and cleaned up there.
+                for path in [msg_path, env_path] {
                     if let Err(e) = tokio::fs::remove_file(path).await {
                         warn!(
                             path = %path.display(),

@@ -590,6 +590,17 @@ impl Config {
                     "dkim.selector must not be empty".into(),
                 ));
             }
+            let pubkey_bytes = base64::engine::general_purpose::STANDARD
+                .decode(&dcfg.public_key_b64)
+                .map_err(|_| {
+                    ConfigError::Validation("dkim.public_key_b64: invalid base64".into())
+                })?;
+            if pubkey_bytes.len() != 32 {
+                return Err(ConfigError::Validation(format!(
+                    "dkim.public_key_b64: must decode to 32 bytes, got {}",
+                    pubkey_bytes.len()
+                )));
+            }
             if !dcfg.key_seed_b64.starts_with("secretx:") {
                 let mut seed_bytes = base64::engine::general_purpose::STANDARD
                     .decode(&dcfg.key_seed_b64)
@@ -605,18 +616,19 @@ impl Config {
                         got
                     )));
                 }
+                // Validate that seed and public key form a matching Ed25519 keypair.
+                // A mismatched pair produces invalid DKIM signatures that remote
+                // MTAs reject — catch this at config validation time.
+                if let Err(e) = mail_auth::common::crypto::Ed25519Key::from_seed_and_public_key(
+                    &seed_bytes,
+                    &pubkey_bytes,
+                ) {
+                    seed_bytes.zeroize();
+                    return Err(ConfigError::Validation(format!(
+                        "dkim: seed and public_key_b64 do not form a valid Ed25519 keypair: {e}"
+                    )));
+                }
                 seed_bytes.zeroize();
-            }
-            let pubkey_bytes = base64::engine::general_purpose::STANDARD
-                .decode(&dcfg.public_key_b64)
-                .map_err(|_| {
-                    ConfigError::Validation("dkim.public_key_b64: invalid base64".into())
-                })?;
-            if pubkey_bytes.len() != 32 {
-                return Err(ConfigError::Validation(format!(
-                    "dkim.public_key_b64: must decode to 32 bytes, got {}",
-                    pubkey_bytes.len()
-                )));
             }
         }
         Ok(())
