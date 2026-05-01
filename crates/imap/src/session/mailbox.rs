@@ -178,7 +178,7 @@ pub async fn handle_list(
     let db_prefix: Option<String> = {
         let news_part = pattern.strip_prefix("News/").unwrap_or("");
         let end = news_part
-            .find(|c| c == '*' || c == '%')
+            .find(['*', '%'])
             .unwrap_or(news_part.len());
         if end > 0 {
             Some(format!("{}%", &news_part[..end]))

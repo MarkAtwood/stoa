@@ -195,7 +195,7 @@ impl<P: PinClient> GcRunner<P> {
         let exec_candidates: Vec<GcExecutorCandidate> = candidates
             .iter()
             .map(|c| GcExecutorCandidate {
-                cid: c.cid.clone(),
+                cid: c.cid,
                 group_name: c.group.clone(),
                 ingested_at_ms: c.ingested_at_ms,
                 byte_count: c.byte_count,

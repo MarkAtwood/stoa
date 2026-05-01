@@ -227,7 +227,7 @@ impl BlockCache {
         let mut total_bytes = initial_bytes as u64;
 
         // Fast path: nothing to evict.
-        if count + 1 <= self.config.max_entries
+        if count < self.config.max_entries
             && total_bytes + incoming_bytes <= self.config.max_bytes
         {
             return Ok(());
