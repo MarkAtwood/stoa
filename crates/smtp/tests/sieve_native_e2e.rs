@@ -156,6 +156,7 @@ async fn drive(
             cred_store,
             queue2,
             None,
+            std::sync::Arc::new(stoa_smtp::dns_cache::DnsCache::new()),
             pool,
             None,
             None,

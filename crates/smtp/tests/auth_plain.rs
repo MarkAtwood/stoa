@@ -148,6 +148,7 @@ async fn drive(client_script: &[u8], is_tls: bool, config: Arc<Config>) -> Strin
             cred_store,
             queue2,
             None,
+            std::sync::Arc::new(stoa_smtp::dns_cache::DnsCache::new()),
             None,
             None,
             None,

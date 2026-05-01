@@ -1,11 +1,14 @@
 use std::net::IpAddr;
 
 use mail_auth::{
+    Parameters,
     dmarc::{verify::DmarcParameters, Policy},
     spf::verify::SpfParameters,
     AuthenticatedMessage, AuthenticationResults, DmarcResult, MessageAuthenticator,
 };
 use tracing::debug;
+
+use crate::dns_cache::DnsCache;
 
 /// The result of running the inbound authentication pipeline on one message.
 #[derive(Debug)]
@@ -27,6 +30,7 @@ pub struct InboundAuthResult {
 /// produce a result, not a rejection.
 pub async fn verify_inbound(
     authenticator: &MessageAuthenticator,
+    cache: &DnsCache,
     raw_message: &[u8],
     client_ip: IpAddr,
     ehlo_domain: &str,
@@ -43,16 +47,32 @@ pub async fn verify_inbound(
     };
 
     // DKIM: verify all DKIM-Signature headers present in the message.
-    let dkim_results = authenticator.verify_dkim(&msg).await;
+    let dkim_results = authenticator
+        .verify_dkim(
+            Parameters::new(&msg)
+                .with_txt_cache(&cache.txt)
+                .with_mx_cache(&cache.mx)
+                .with_ipv4_cache(&cache.ipv4)
+                .with_ipv6_cache(&cache.ipv6)
+                .with_ptr_cache(&cache.ptr),
+        )
+        .await;
 
     // SPF: check MAIL FROM identity against the connecting IP.
     let spf_result = authenticator
-        .verify_spf(SpfParameters::verify_mail_from(
-            client_ip,
-            ehlo_domain,
-            hostname,
-            mail_from,
-        ))
+        .verify_spf(
+            Parameters::new(SpfParameters::verify_mail_from(
+                client_ip,
+                ehlo_domain,
+                hostname,
+                mail_from,
+            ))
+            .with_txt_cache(&cache.txt)
+            .with_mx_cache(&cache.mx)
+            .with_ipv4_cache(&cache.ipv4)
+            .with_ipv6_cache(&cache.ipv6)
+            .with_ptr_cache(&cache.ptr),
+        )
         .await;
 
     // DMARC: check From: domain against SPF and DKIM results.
@@ -61,16 +81,32 @@ pub async fn verify_inbound(
         .map(|(_, d)| d)
         .unwrap_or(ehlo_domain);
     let dmarc_result: mail_auth::DmarcOutput = authenticator
-        .verify_dmarc(DmarcParameters::new(
-            &msg,
-            &dkim_results,
-            rfc5321_domain,
-            &spf_result,
-        ))
+        .verify_dmarc(
+            Parameters::new(DmarcParameters::new(
+                &msg,
+                &dkim_results,
+                rfc5321_domain,
+                &spf_result,
+            ))
+            .with_txt_cache(&cache.txt)
+            .with_mx_cache(&cache.mx)
+            .with_ipv4_cache(&cache.ipv4)
+            .with_ipv6_cache(&cache.ipv6)
+            .with_ptr_cache(&cache.ptr),
+        )
         .await;
 
     // ARC: validate forwarded-mail chain for mailing lists.
-    let arc_result = authenticator.verify_arc(&msg).await;
+    let arc_result = authenticator
+        .verify_arc(
+            Parameters::new(&msg)
+                .with_txt_cache(&cache.txt)
+                .with_mx_cache(&cache.mx)
+                .with_ipv4_cache(&cache.ipv4)
+                .with_ipv6_cache(&cache.ipv6)
+                .with_ptr_cache(&cache.ptr),
+        )
+        .await;
 
     // Determine whether DMARC mandates rejection.
     // We only reject when policy=reject AND both SPF and DKIM fail — a passing
@@ -105,6 +141,7 @@ pub async fn verify_inbound(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::dns_cache::DnsCache;
     use std::net::Ipv4Addr;
 
     // Build a minimal RFC 5322 message with no DKIM signatures and a From
@@ -132,9 +169,11 @@ mod tests {
     #[tokio::test]
     async fn plain_message_never_rejected() {
         let auth = make_auth();
+        let cache = DnsCache::new();
         let msg = simple_message();
         let result = verify_inbound(
             &auth,
+            &cache,
             &msg,
             IpAddr::V4(Ipv4Addr::LOCALHOST),
             "client.example.com",
@@ -158,9 +197,11 @@ mod tests {
     #[tokio::test]
     async fn unparseable_message_returns_permerror() {
         let auth = make_auth();
+        let cache = DnsCache::new();
         // A zero-length message cannot be parsed.
         let result = verify_inbound(
             &auth,
+            &cache,
             b"",
             IpAddr::V4(Ipv4Addr::LOCALHOST),
             "client.example.com",

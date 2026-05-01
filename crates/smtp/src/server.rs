@@ -8,6 +8,7 @@ use tokio::sync::Semaphore;
 use tracing::{debug, error, info, warn};
 
 use crate::config::Config;
+use crate::dns_cache::DnsCache;
 use crate::queue::NntpQueue;
 use crate::session::{run_session, SieveCache};
 use crate::tls::{accept_tls, TlsAcceptor};
@@ -88,6 +89,11 @@ pub async fn run_server(
             }
         }
     };
+
+    // DNS record cache shared across all SMTP sessions.  One instance per
+    // server process; entries are keyed by domain/IP and expire on first
+    // read after their TTL.
+    let dns_cache = Arc::new(DnsCache::new());
 
     // Build the credential store once at startup and share it across sessions.
     // credential_file may be a filesystem path or a secretx: URI.
@@ -184,6 +190,7 @@ pub async fn run_server(
         let config = config.clone();
         let nntp_queue = Arc::clone(&nntp_queue);
         let auth = auth.clone();
+        let dns_cache_clone = Arc::clone(&dns_cache);
         let pool = pool.clone();
         let mail_pool_clone = mail_pool.clone();
         let cache = sieve_cache.clone();
@@ -204,6 +211,7 @@ pub async fn run_server(
                         cred_store,
                         nntp_queue,
                         auth,
+                        dns_cache_clone,
                         pool,
                         mail_pool_clone,
                         cache,
@@ -225,6 +233,7 @@ pub async fn run_server(
                         cred_store,
                         nntp_queue,
                         auth,
+                        dns_cache_clone,
                         pool,
                         mail_pool_clone,
                         cache,

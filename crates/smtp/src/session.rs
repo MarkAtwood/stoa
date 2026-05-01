@@ -6,6 +6,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use base64::Engine as _;
 use mail_auth::MessageAuthenticator;
 use sqlx::SqlitePool;
+
+use crate::dns_cache::DnsCache;
 use stoa_auth::CredentialStore;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::Mutex;
@@ -164,6 +166,7 @@ pub async fn run_session<S>(
     credential_store: Arc<CredentialStore>,
     nntp_queue: Arc<NntpQueue>,
     auth: Option<Arc<MessageAuthenticator>>,
+    dns_cache: Arc<DnsCache>,
     pool: Option<SqlitePool>,
     mail_pool: Option<SqlitePool>,
     sieve_cache: Option<SieveCache>,
@@ -575,6 +578,7 @@ pub async fn run_session<S>(
                 if let Some(ref authenticator) = auth {
                     let result = verify_inbound(
                         authenticator,
+                        &dns_cache,
                         &raw_bytes,
                         client_ip,
                         &ehlo_domain,
@@ -1362,6 +1366,7 @@ mod tests {
                 credential_store,
                 queue2,
                 None,
+                Arc::new(crate::dns_cache::DnsCache::new()),
                 pool,
                 None,
                 None,
@@ -1542,6 +1547,7 @@ mod tests {
                 credential_store,
                 queue2,
                 Some(auth2),
+                Arc::new(crate::dns_cache::DnsCache::new()),
                 Some(pool2),
                 None,
                 None,
@@ -2107,6 +2113,7 @@ mod tests {
                 credential_store,
                 queue2,
                 None,
+                Arc::new(crate::dns_cache::DnsCache::new()),
                 None,
                 None,
                 None,
@@ -2392,6 +2399,7 @@ mod tests {
                 store2,
                 queue2,
                 None,
+                Arc::new(crate::dns_cache::DnsCache::new()),
                 None,
                 None,
                 None,

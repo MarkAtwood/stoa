@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod config;
+pub mod dns_cache;
 pub mod metrics;
 pub mod nntp_client;
 pub mod queue;
