@@ -382,6 +382,43 @@ impl StagingStore {
         Ok(())
     }
 
+    /// Remove the staging file and its DB row after a permanent pipeline
+    /// failure.  Called when the article can never be processed successfully
+    /// (e.g. missing Message-ID, signing self-check failure).
+    ///
+    /// Identical cleanup logic to [`complete`](Self::complete) but named
+    /// separately to make the failure path explicit at call sites.
+    pub async fn purge(&self, article: &StagedArticle) -> Result<(), StagingError> {
+        if let Err(e) = fs::remove_file(&article.file_path).await {
+            warn!(id = %article.id, "could not remove staging file on purge: {e}");
+        }
+        sqlx::query("DELETE FROM transit_staging WHERE id = ?")
+            .bind(&article.id)
+            .execute(&*self.pool)
+            .await?;
+        Ok(())
+    }
+
+    /// Increment the `retry_count` for a transiently-failed article and reset
+    /// `claimed_at` to `NULL` so the row becomes eligible for the next drain
+    /// pass.
+    ///
+    /// Returns the new `retry_count` so the caller can compare it against the
+    /// configured maximum and call [`purge`](Self::purge) when the limit is
+    /// reached.
+    pub async fn increment_retry_count(&self, article: &StagedArticle) -> Result<i64, StagingError> {
+        let row: (i64,) = sqlx::query_as(
+            "UPDATE transit_staging \
+             SET retry_count = retry_count + 1, claimed_at = NULL \
+             WHERE id = ? \
+             RETURNING retry_count",
+        )
+        .bind(&article.id)
+        .fetch_one(&*self.pool)
+        .await?;
+        Ok(row.0)
+    }
+
     /// Return the number of articles currently in the staging table.
     ///
     /// Used at startup to log how many articles survived the previous run and
@@ -639,5 +676,59 @@ mod tests {
         );
         let deleted = store.cleanup_orphaned_files().await.unwrap();
         assert_eq!(deleted, 0);
+    }
+
+    /// purge removes the staging file and DB row on permanent failure.
+    #[tokio::test]
+    async fn purge_removes_file_and_row() {
+        let dir = tempfile::tempdir().unwrap();
+        let (pool, _tmp) = make_pool().await;
+        let store = StagingStore::new(staging_config(dir.path().to_str().unwrap()), pool.clone());
+
+        store.try_stage("<purge@test>", b"bytes").await.unwrap();
+        let article = store.drain_one().await.unwrap().unwrap();
+        let path = article.file_path.clone();
+
+        store.purge(&article).await.unwrap();
+
+        assert!(
+            !std::path::Path::new(&path).exists(),
+            "staging file must be deleted after purge"
+        );
+        let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM transit_staging")
+            .fetch_one(&*pool)
+            .await
+            .unwrap();
+        assert_eq!(count, 0, "DB row must be deleted after purge");
+    }
+
+    /// increment_retry_count increments the counter and resets claimed_at so
+    /// the article can be re-drained.
+    #[tokio::test]
+    async fn increment_retry_count_resets_claim_and_increments() {
+        let dir = tempfile::tempdir().unwrap();
+        let (pool, _tmp) = make_pool().await;
+        let store = StagingStore::new(staging_config(dir.path().to_str().unwrap()), pool.clone());
+
+        store.try_stage("<retry@test>", b"bytes").await.unwrap();
+        let article = store.drain_one().await.unwrap().unwrap();
+
+        // Article is now claimed; second drain_one must return None.
+        assert!(store.drain_one().await.unwrap().is_none());
+
+        let new_count = store.increment_retry_count(&article).await.unwrap();
+        assert_eq!(new_count, 1, "retry_count must be 1 after first increment");
+
+        // claimed_at has been cleared; article is drainable again.
+        let re = store.drain_one().await.unwrap();
+        assert!(
+            re.is_some(),
+            "article must be re-drainable after increment_retry_count"
+        );
+
+        // Second increment gives 2.
+        let article2 = re.unwrap();
+        let new_count2 = store.increment_retry_count(&article2).await.unwrap();
+        assert_eq!(new_count2, 2, "retry_count must be 2 after second increment");
     }
 }
