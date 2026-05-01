@@ -29,38 +29,50 @@ impl MsgIdMap {
     /// - If it exists with the same CID: return `Ok(())` (idempotent).
     /// - If it exists with a different CID: return `Err(StorageError::Database(...))`.
     ///
-    /// Uses `ON CONFLICT DO NOTHING` so concurrent callers with the same
-    /// `(message_id, cid)` pair (e.g. two IHAVE sessions for the same article)
-    /// are both handled without a UNIQUE constraint error.
+    /// The INSERT and the collision-check SELECT run inside a single transaction
+    /// so that a concurrent `delete_by_cid` cannot remove the row between the
+    /// two statements (TOCTOU).  Once the INSERT acquires a write lock, any
+    /// concurrent DELETE blocks until the transaction completes.
     pub async fn insert(&self, message_id: &str, cid: &Cid) -> Result<(), StorageError> {
         let cid_bytes = cid.to_bytes();
 
-        // Atomic insert: if message_id already exists the row is left unchanged
-        // and rows_affected() returns 0.  This avoids the SELECT→INSERT TOCTOU
-        // where two concurrent callers both see no row, then one fails with a
-        // UNIQUE constraint violation.
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|e| StorageError::Database(e.to_string()))?;
+
         let result = sqlx::query(
             "INSERT INTO msgid_map (message_id, cid) VALUES (?, ?) ON CONFLICT DO NOTHING",
         )
         .bind(message_id)
         .bind(&cid_bytes)
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(|e| StorageError::Database(e.to_string()))?;
 
         if result.rows_affected() == 1 {
             // We inserted the row — no collision possible.
+            tx.commit()
+                .await
+                .map_err(|e| StorageError::Database(e.to_string()))?;
             return Ok(());
         }
 
-        // Row already existed (INSERT was a no-op).  Fetch the stored CID to
-        // decide between idempotent same-CID and a genuine collision.
+        // Row already existed (INSERT was a no-op).  Fetch the stored CID
+        // within the same transaction to decide between idempotent same-CID
+        // and a genuine collision.  The write lock held by the INSERT prevents
+        // a concurrent delete_by_cid from racing between these two statements.
         let stored_bytes: Vec<u8> =
             sqlx::query_scalar("SELECT cid FROM msgid_map WHERE message_id = ?")
                 .bind(message_id)
-                .fetch_one(&self.pool)
+                .fetch_one(&mut *tx)
                 .await
                 .map_err(|e| StorageError::Database(e.to_string()))?;
+
+        tx.commit()
+            .await
+            .map_err(|e| StorageError::Database(e.to_string()))?;
 
         if stored_bytes == cid_bytes {
             Ok(())
