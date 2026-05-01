@@ -196,42 +196,25 @@ impl SmtpRelayQueue {
     /// corresponding committed file, so deletion (not quarantine) is correct.
     /// Errors during removal are logged and the scan continues.
     async fn cleanup_tmp_files(&self) {
-        let mut dir = match tokio::fs::read_dir(&self.queue_dir).await {
-            Ok(d) => d,
-            Err(e) => {
-                warn!(dir = %self.queue_dir.display(), "relay queue: startup tmp scan read_dir failed: {e}");
-                return;
+        for entry in Self::collect_dir_entries(&self.queue_dir).await {
+            let path = entry.path();
+            let file_name = match path.file_name().and_then(|n| n.to_str()) {
+                Some(n) => n,
+                None => continue,
+            };
+            if !(file_name.ends_with(".msg.tmp") || file_name.ends_with(".env.tmp")) {
+                continue;
             }
-        };
-
-        loop {
-            match dir.next_entry().await {
-                Ok(Some(entry)) => {
-                    let path = entry.path();
-                    let file_name = match path.file_name().and_then(|n| n.to_str()) {
-                        Some(n) => n,
-                        None => continue,
-                    };
-                    if !(file_name.ends_with(".msg.tmp") || file_name.ends_with(".env.tmp")) {
-                        continue;
-                    }
-                    if let Err(e) = tokio::fs::remove_file(&path).await {
-                        warn!(
-                            path = %path.display(),
-                            "relay queue: failed to remove orphan tmp file: {e}"
-                        );
-                    } else {
-                        warn!(
-                            path = %path.display(),
-                            "relay queue: removed orphan tmp file from previous crash"
-                        );
-                    }
-                }
-                Ok(None) => break,
-                Err(e) => {
-                    warn!(dir = %self.queue_dir.display(), "relay queue: read_dir entry error: {e}");
-                    break;
-                }
+            if let Err(e) = tokio::fs::remove_file(&path).await {
+                warn!(
+                    path = %path.display(),
+                    "relay queue: failed to remove orphan tmp file: {e}"
+                );
+            } else {
+                info!(
+                    path = %path.display(),
+                    "relay queue: removed orphan tmp file from previous crash"
+                );
             }
         }
     }
@@ -243,57 +226,40 @@ impl SmtpRelayQueue {
     /// Files are moved rather than deleted so the operator can inspect them.
     /// Errors during the move are logged and the scan continues.
     async fn cleanup_orphan_msg_files(&self) {
-        let mut dir = match tokio::fs::read_dir(&self.queue_dir).await {
-            Ok(d) => d,
-            Err(e) => {
-                warn!(dir = %self.queue_dir.display(), "relay queue: startup scan read_dir failed: {e}");
-                return;
-            }
-        };
-
         let dead_dir = self.queue_dir.join("dead");
 
-        loop {
-            match dir.next_entry().await {
-                Ok(Some(entry)) => {
-                    let path = entry.path();
-                    // Only consider plain `.msg` files, not `.msg.tmp`.
-                    if path.extension().is_none_or(|e| e != "msg") {
-                        continue;
-                    }
-                    let env_path = path.with_extension("env");
-                    match tokio::fs::metadata(&env_path).await {
-                        Ok(_) => {
-                            // Paired .env exists — not an orphan.
-                        }
-                        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+        for entry in Self::collect_dir_entries(&self.queue_dir).await {
+            let path = entry.path();
+            // Only consider plain `.msg` files, not `.msg.tmp`.
+            if path.extension().is_none_or(|e| e != "msg") {
+                continue;
+            }
+            let env_path = path.with_extension("env");
+            match tokio::fs::metadata(&env_path).await {
+                Ok(_) => {
+                    // Paired .env exists — not an orphan.
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                    warn!(
+                        path = %path.display(),
+                        "relay queue: orphan .msg with no .env (crash remnant), moving to dead/"
+                    );
+                    if let Some(name) = path.file_name() {
+                        let dead_path = dead_dir.join(name);
+                        if let Err(mv_err) = tokio::fs::rename(&path, &dead_path).await {
                             warn!(
                                 path = %path.display(),
-                                "relay queue: orphan .msg with no .env (crash remnant), moving to dead/"
-                            );
-                            if let Some(name) = path.file_name() {
-                                let dead_path = dead_dir.join(name);
-                                if let Err(mv_err) = tokio::fs::rename(&path, &dead_path).await {
-                                    warn!(
-                                        path = %path.display(),
-                                        dead = %dead_path.display(),
-                                        "relay queue: failed to move orphan .msg to dead/: {mv_err}"
-                                    );
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            warn!(
-                                path = %env_path.display(),
-                                "relay queue: could not stat .env for orphan check: {e}"
+                                dead = %dead_path.display(),
+                                "relay queue: failed to move orphan .msg to dead/: {mv_err}"
                             );
                         }
                     }
                 }
-                Ok(None) => break,
                 Err(e) => {
-                    warn!(dir = %self.queue_dir.display(), "relay queue: read_dir entry error: {e}");
-                    break;
+                    warn!(
+                        path = %env_path.display(),
+                        "relay queue: could not stat .env for orphan check: {e}"
+                    );
                 }
             }
         }
@@ -306,29 +272,12 @@ impl SmtpRelayQueue {
     /// atomically, avoiding per-drain-cycle directory scans.
     async fn init_dead_letter_count(&self) {
         let dead_dir = self.queue_dir.join("dead");
-        match tokio::fs::read_dir(&dead_dir).await {
-            Ok(mut rd) => {
-                let mut count = 0u64;
-                loop {
-                    match rd.next_entry().await {
-                        Ok(Some(e)) => {
-                            if e.path().extension().is_some_and(|x| x == "env") {
-                                count += 1;
-                            }
-                        }
-                        Ok(None) => break,
-                        Err(e) => {
-                            warn!(dir = %dead_dir.display(), "relay queue: dead/ scan error: {e}");
-                            break;
-                        }
-                    }
-                }
-                self.dead_letter_count.store(count, Ordering::Relaxed);
-            }
-            Err(e) => {
-                warn!(dir = %dead_dir.display(), "relay queue: failed to count dead/ at startup: {e}");
-            }
-        }
+        let count = Self::collect_dir_entries(&dead_dir)
+            .await
+            .into_iter()
+            .filter(|e| e.path().extension().is_some_and(|x| x == "env"))
+            .count() as u64;
+        self.dead_letter_count.store(count, Ordering::Relaxed);
     }
 
     /// Expose the peer health state for metrics collection.
@@ -345,32 +294,40 @@ impl SmtpRelayQueue {
         self.drain_once().await;
     }
 
-    async fn drain_once(&self) {
-        let mut env_files: Vec<PathBuf> = Vec::new();
-
-        let mut dir = match tokio::fs::read_dir(&self.queue_dir).await {
+    /// Collect all directory entries from `dir` into a `Vec`.
+    ///
+    /// Returns an empty vec if `read_dir` fails (error is logged as a warning).
+    /// Per-entry errors are logged as warnings and skipped; the scan always
+    /// completes over the remaining entries rather than aborting early.
+    async fn collect_dir_entries(dir: &std::path::Path) -> Vec<tokio::fs::DirEntry> {
+        let mut rd = match tokio::fs::read_dir(dir).await {
             Ok(d) => d,
             Err(e) => {
-                warn!(dir = %self.queue_dir.display(), "relay queue: read_dir failed: {e}");
-                return;
+                warn!(dir = %dir.display(), "relay queue: read_dir failed: {e}");
+                return Vec::new();
             }
         };
-
+        let mut entries = Vec::new();
         loop {
-            match dir.next_entry().await {
-                Ok(Some(entry)) => {
-                    let path = entry.path();
-                    if path.extension().is_some_and(|e| e == "env") {
-                        env_files.push(path);
-                    }
-                }
+            match rd.next_entry().await {
+                Ok(Some(entry)) => entries.push(entry),
                 Ok(None) => break,
                 Err(e) => {
-                    warn!(dir = %self.queue_dir.display(), "relay queue: read_dir entry error: {e}");
-                    break;
+                    warn!(dir = %dir.display(), "relay queue: read_dir entry error: {e}");
+                    // continue scanning — one unreadable entry must not abort the whole scan
                 }
             }
         }
+        entries
+    }
+
+    async fn drain_once(&self) {
+        let mut env_files: Vec<PathBuf> = Self::collect_dir_entries(&self.queue_dir)
+            .await
+            .into_iter()
+            .map(|e| e.path())
+            .filter(|p| p.extension().is_some_and(|e| e == "env"))
+            .collect();
 
         // Sort by filename for FIFO order (timestamp-prefixed names sort chronologically).
         env_files.sort();
