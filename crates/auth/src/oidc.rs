@@ -271,6 +271,8 @@ fn rsa_decoding_key_and_alg(jwk: &Jwk) -> Result<(DecodingKey, Algorithm), OidcE
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum OidcError {
+    /// All configured providers rejected the token; inner string lists per-provider reasons.
+    AllProvidersFailed(String),
     /// Configuration problem (missing field, malformed issuer URL, etc.).
     Config(String),
     /// The JWT failed signature, expiry, issuer, or audience validation.
@@ -292,6 +294,7 @@ pub enum OidcError {
 impl std::fmt::Display for OidcError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            OidcError::AllProvidersFailed(s) => write!(f, "OIDC: {s}"),
             OidcError::Config(s) => write!(f, "OIDC config: {s}"),
             OidcError::InvalidToken(s) => write!(f, "OIDC invalid token: {s}"),
             OidcError::InvalidKey(s) => write!(f, "OIDC invalid key: {s}"),
@@ -362,7 +365,7 @@ impl OidcStore {
                 Err(e) => errors.push(e.to_string()),
             }
         }
-        Err(OidcError::Config(format!(
+        Err(OidcError::AllProvidersFailed(format!(
             "all providers rejected the token: [{}]",
             errors.join("; ")
         )))

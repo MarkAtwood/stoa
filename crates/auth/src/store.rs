@@ -7,6 +7,8 @@
 use std::collections::HashMap;
 use std::path::Path;
 
+use tracing::warn;
+
 use crate::config::UserCredential;
 
 /// Error returned by `CredentialStore` file and content loading methods.
@@ -271,7 +273,10 @@ impl CredentialStore {
             bcrypt::verify(password.as_str(), &hash).unwrap_or(false)
         })
         .await
-        .unwrap_or(false)
+        .unwrap_or_else(|_| {
+            warn!("credential check: spawn_blocking panicked (bcrypt verifier crashed); treating as auth failure");
+            false
+        })
     }
 }
 
