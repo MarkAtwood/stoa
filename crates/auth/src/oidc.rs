@@ -18,7 +18,7 @@
 //! - `exp`, `iss`, and `aud` claims are always validated.
 
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use jsonwebtoken::{Algorithm, DecodingKey, Validation};
 use serde::Deserialize;
@@ -198,6 +198,22 @@ impl ProviderValidator {
             .map_err(|e| OidcError::InvalidToken(e.to_string()))?;
 
         let claims = &data.claims;
+
+        // Validate nbf (not-before) claim: reject tokens used before their
+        // not-before time.  RFC 7519 §4.1.5 makes nbf optional; when present
+        // it must be a numeric timestamp and now >= nbf must hold.
+        if let Some(nbf) = claims.get("nbf").and_then(|v| v.as_i64()) {
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs() as i64;
+            if now < nbf {
+                return Err(OidcError::InvalidToken(format!(
+                    "token not yet valid: nbf={nbf} now={now}"
+                )));
+            }
+        }
+
         let username = claims
             .get(&self.config.username_claim)
             .and_then(|v| v.as_str())

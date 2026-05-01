@@ -62,7 +62,12 @@ pub fn thread_id_for(references: &str, message_id: &str) -> String {
 /// `state` is the current JMAP Thread state string.
 ///
 /// Returns a JMAP `GetResponse` value.
-pub fn handle_thread_get(entries: &[ThreadEntry], requested_ids: &[&str], state: &str) -> Value {
+pub fn handle_thread_get(
+    entries: &[ThreadEntry],
+    requested_ids: &[&str],
+    state: &str,
+    account_id: &str,
+) -> Value {
     use std::collections::HashMap;
 
     // Group email IDs by thread ID.
@@ -91,7 +96,7 @@ pub fn handle_thread_get(entries: &[ThreadEntry], requested_ids: &[&str], state:
     }
 
     json!({
-        "accountId": null,
+        "accountId": account_id,
         "state": state,
         "list": list,
         "notFound": not_found,
@@ -150,7 +155,7 @@ mod tests {
             references: String::new(),
             message_id: "<root@example.com>".to_string(),
         }];
-        let resp = handle_thread_get(&entries, &["<root@example.com>"], "0");
+        let resp = handle_thread_get(&entries, &["<root@example.com>"], "0", "test");
         let list = resp["list"].as_array().unwrap();
         assert_eq!(list.len(), 1);
         assert_eq!(list[0]["id"].as_str().unwrap(), "<root@example.com>");
@@ -173,7 +178,7 @@ mod tests {
                 message_id: "<reply@example.com>".to_string(),
             },
         ];
-        let resp = handle_thread_get(&entries, &["<root@example.com>"], "0");
+        let resp = handle_thread_get(&entries, &["<root@example.com>"], "0", "test");
         let list = resp["list"].as_array().unwrap();
         assert_eq!(list.len(), 1);
         let email_ids = list[0]["emailIds"].as_array().unwrap();
@@ -187,7 +192,7 @@ mod tests {
     #[test]
     fn thread_not_found_goes_into_not_found() {
         let entries: Vec<ThreadEntry> = vec![];
-        let resp = handle_thread_get(&entries, &["<missing@example.com>"], "0");
+        let resp = handle_thread_get(&entries, &["<missing@example.com>"], "0", "test");
         let not_found = resp["notFound"].as_array().unwrap();
         assert_eq!(not_found.len(), 1);
         assert_eq!(not_found[0].as_str().unwrap(), "<missing@example.com>");
@@ -196,7 +201,7 @@ mod tests {
     #[test]
     fn state_string_is_passed_through() {
         let entries: Vec<ThreadEntry> = vec![];
-        let resp = handle_thread_get(&entries, &[], "42");
+        let resp = handle_thread_get(&entries, &[], "42", "test");
         assert_eq!(resp["state"].as_str().unwrap(), "42");
     }
 }

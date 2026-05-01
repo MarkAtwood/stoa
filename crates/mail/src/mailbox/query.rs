@@ -14,6 +14,7 @@ pub fn handle_mailbox_query(
     filter: Option<&Value>,
     _sort: Option<&Value>,
     state: &str,
+    account_id: &str,
 ) -> Value {
     let mut filtered: Vec<&GroupInfo> = groups.iter().collect();
 
@@ -34,7 +35,7 @@ pub fn handle_mailbox_query(
     let total = ids.len() as u64;
 
     json!({
-        "accountId": null,
+        "accountId": account_id,
         "queryState": state,
         "canCalculateChanges": false,
         "position": 0,
@@ -67,7 +68,7 @@ mod tests {
 
     #[test]
     fn query_no_filter_returns_all_sorted() {
-        let resp = handle_mailbox_query(&sample_groups(), None, None, "0");
+        let resp = handle_mailbox_query(&sample_groups(), None, None, "0", "test");
         let ids = resp["ids"].as_array().unwrap();
         assert_eq!(ids.len(), 2);
         // sorted: alt.test < comp.lang.rust
@@ -81,7 +82,7 @@ mod tests {
     #[test]
     fn query_filter_subscribed() {
         let filter = json!({"isSubscribed": true});
-        let resp = handle_mailbox_query(&sample_groups(), Some(&filter), None, "0");
+        let resp = handle_mailbox_query(&sample_groups(), Some(&filter), None, "0", "test");
         let ids = resp["ids"].as_array().unwrap();
         assert_eq!(ids.len(), 1);
         assert_eq!(
@@ -93,7 +94,7 @@ mod tests {
     #[test]
     fn query_filter_unsubscribed() {
         let filter = json!({"isSubscribed": false});
-        let resp = handle_mailbox_query(&sample_groups(), Some(&filter), None, "0");
+        let resp = handle_mailbox_query(&sample_groups(), Some(&filter), None, "0", "test");
         let ids = resp["ids"].as_array().unwrap();
         assert_eq!(ids.len(), 1);
         assert_eq!(ids[0].as_str().unwrap(), mailbox_id_for_group("alt.test"));
@@ -101,13 +102,13 @@ mod tests {
 
     #[test]
     fn query_returns_correct_total() {
-        let resp = handle_mailbox_query(&sample_groups(), None, None, "0");
+        let resp = handle_mailbox_query(&sample_groups(), None, None, "0", "test");
         assert_eq!(resp["total"].as_u64().unwrap(), 2);
     }
 
     #[test]
     fn state_string_is_passed_through() {
-        let resp = handle_mailbox_query(&sample_groups(), None, None, "7");
+        let resp = handle_mailbox_query(&sample_groups(), None, None, "7", "test");
         assert_eq!(resp["queryState"].as_str().unwrap(), "7");
     }
 }

@@ -231,7 +231,7 @@ async fn create_one_email(
 
     let article = format!(
         "Newsgroups: {}\r\nFrom: {}\r\nSubject: {}\r\nDate: {}\r\nMessage-ID: {}\r\n\r\n{}",
-        newsgroups.join(","),
+        newsgroups.join(", "),
         from_email,
         subject,
         date_str,

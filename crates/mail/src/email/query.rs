@@ -59,6 +59,7 @@ pub fn handle_email_query(
     limit: Option<u64>,
     state: &str,
     text_search_results: Option<std::collections::HashSet<String>>,
+    account_id: &str,
 ) -> Value {
     let mut filtered: Vec<&EmailOverviewEntry> = entries.iter().collect();
 
@@ -110,7 +111,7 @@ pub fn handle_email_query(
         .collect();
 
     json!({
-        "accountId": null,
+        "accountId": account_id,
         "queryState": state,
         "canCalculateChanges": false,
         "position": position,
@@ -160,7 +161,7 @@ mod tests {
     #[test]
     fn no_filter_returns_all_sorted_desc() {
         let entries = make_entries();
-        let resp = handle_email_query(&entries, None, 0, None, "0", None);
+        let resp = handle_email_query(&entries, None, 0, None, "0", None, "test");
         let ids = resp["ids"].as_array().unwrap();
         assert_eq!(ids.len(), 3);
         // Newest first: article-c (2026-04-03) > article-b (2026-04-02) > article-a (2026-04-01)
@@ -172,7 +173,7 @@ mod tests {
     fn filter_by_subject_substring() {
         let entries = make_entries();
         let filter = json!({"subject": "rust"});
-        let resp = handle_email_query(&entries, Some(&filter), 0, None, "0", None);
+        let resp = handle_email_query(&entries, Some(&filter), 0, None, "0", None, "test");
         let ids = resp["ids"].as_array().unwrap();
         assert_eq!(
             ids.len(),
@@ -185,7 +186,7 @@ mod tests {
     fn filter_by_from() {
         let entries = make_entries();
         let filter = json!({"from": "bob"});
-        let resp = handle_email_query(&entries, Some(&filter), 0, None, "0", None);
+        let resp = handle_email_query(&entries, Some(&filter), 0, None, "0", None, "test");
         let ids = resp["ids"].as_array().unwrap();
         assert_eq!(ids.len(), 1);
         assert_eq!(ids[0].as_str().unwrap(), test_cid(b"article-b").to_string());
@@ -195,7 +196,7 @@ mod tests {
     fn filter_after_date() {
         let entries = make_entries();
         let filter = json!({"after": "2026-04-01T20:00:00Z"});
-        let resp = handle_email_query(&entries, Some(&filter), 0, None, "0", None);
+        let resp = handle_email_query(&entries, Some(&filter), 0, None, "0", None, "test");
         let ids = resp["ids"].as_array().unwrap();
         assert_eq!(
             ids.len(),
@@ -208,7 +209,7 @@ mod tests {
     fn filter_before_date() {
         let entries = make_entries();
         let filter = json!({"before": "2026-04-02T20:00:00Z"});
-        let resp = handle_email_query(&entries, Some(&filter), 0, None, "0", None);
+        let resp = handle_email_query(&entries, Some(&filter), 0, None, "0", None, "test");
         let ids = resp["ids"].as_array().unwrap();
         assert_eq!(
             ids.len(),
@@ -256,7 +257,7 @@ mod tests {
 
         // after: 2024-06-01 (RFC 3339 as used in JMAP filter) — should keep b and c only.
         let filter = json!({"after": "2024-06-01T00:00:00Z"});
-        let resp = handle_email_query(&entries, Some(&filter), 0, None, "0", None);
+        let resp = handle_email_query(&entries, Some(&filter), 0, None, "0", None, "test");
         let ids = resp["ids"].as_array().unwrap();
         assert_eq!(
             ids.len(),
@@ -274,7 +275,7 @@ mod tests {
 
         // before: 2024-06-30 — should keep a and b only.
         let filter2 = json!({"before": "2024-06-30T00:00:00Z"});
-        let resp2 = handle_email_query(&entries, Some(&filter2), 0, None, "0", None);
+        let resp2 = handle_email_query(&entries, Some(&filter2), 0, None, "0", None, "test");
         let ids2 = resp2["ids"].as_array().unwrap();
         assert_eq!(
             ids2.len(),
@@ -314,7 +315,7 @@ mod tests {
                 byte_count: 200,
             },
         ];
-        let resp = handle_email_query(&entries, None, 0, None, "0", None);
+        let resp = handle_email_query(&entries, None, 0, None, "0", None, "test");
         let ids = resp["ids"].as_array().unwrap();
         // tz-b (18:00 UTC) is later than tz-a (18:00 UTC)... wait
         // 23:00+05:00 = 23:00 - 5:00 = 18:00 UTC
@@ -330,14 +331,14 @@ mod tests {
     #[test]
     fn state_string_is_passed_through() {
         let entries = make_entries();
-        let resp = handle_email_query(&entries, None, 0, None, "42", None);
+        let resp = handle_email_query(&entries, None, 0, None, "42", None, "test");
         assert_eq!(resp["queryState"].as_str().unwrap(), "42");
     }
 
     #[test]
     fn pagination_position_and_limit() {
         let entries = make_entries();
-        let resp = handle_email_query(&entries, None, 1, Some(1), "0", None);
+        let resp = handle_email_query(&entries, None, 1, Some(1), "0", None, "test");
         let ids = resp["ids"].as_array().unwrap();
         assert_eq!(ids.len(), 1, "limit=1 should return exactly 1 item");
         assert_eq!(
@@ -350,7 +351,7 @@ mod tests {
     #[test]
     fn empty_result() {
         let entries: Vec<EmailOverviewEntry> = vec![];
-        let resp = handle_email_query(&entries, None, 0, None, "0", None);
+        let resp = handle_email_query(&entries, None, 0, None, "0", None, "test");
         let ids = resp["ids"].as_array().unwrap();
         assert!(ids.is_empty());
         assert_eq!(resp["total"].as_u64().unwrap(), 0);
@@ -362,7 +363,7 @@ mod tests {
         // Simulate: search index returned only article-b's message-id.
         let matched: std::collections::HashSet<String> =
             ["<article-b@example.com>".to_string()].into();
-        let resp = handle_email_query(&entries, None, 0, None, "0", Some(matched));
+        let resp = handle_email_query(&entries, None, 0, None, "0", Some(matched), "test");
         let ids = resp["ids"].as_array().unwrap();
         assert_eq!(
             ids.len(),
@@ -376,7 +377,7 @@ mod tests {
     fn text_search_empty_set_returns_no_results() {
         let entries = make_entries();
         let matched: std::collections::HashSet<String> = std::collections::HashSet::new();
-        let resp = handle_email_query(&entries, None, 0, None, "0", Some(matched));
+        let resp = handle_email_query(&entries, None, 0, None, "0", Some(matched), "test");
         let ids = resp["ids"].as_array().unwrap();
         assert!(
             ids.is_empty(),
@@ -396,7 +397,7 @@ mod tests {
         ]
         .into();
         let filter = json!({"subject": "great"});
-        let resp = handle_email_query(&entries, Some(&filter), 0, None, "0", Some(matched));
+        let resp = handle_email_query(&entries, Some(&filter), 0, None, "0", Some(matched), "test");
         let ids = resp["ids"].as_array().unwrap();
         assert_eq!(
             ids.len(),
@@ -418,7 +419,7 @@ mod tests {
     fn limit_u64_max_is_capped_to_max_fetch_limit() {
         let entries = make_entries(); // 3 entries
                                       // Pass u64::MAX as the limit — this is the boundary case from the bug report.
-        let resp = handle_email_query(&entries, None, 0, Some(u64::MAX), "0", None);
+        let resp = handle_email_query(&entries, None, 0, Some(u64::MAX), "0", None, "test");
         let ids = resp["ids"].as_array().unwrap();
         // 3 < MAX_FETCH_LIMIT, so all 3 entries are returned (cap does not truncate).
         assert_eq!(
@@ -427,7 +428,7 @@ mod tests {
             "u64::MAX limit must be capped; with only 3 entries all should be returned"
         );
         // Also verify that a limit explicitly equal to MAX_FETCH_LIMIT is accepted.
-        let resp2 = handle_email_query(&entries, None, 0, Some(MAX_FETCH_LIMIT), "0", None);
+        let resp2 = handle_email_query(&entries, None, 0, Some(MAX_FETCH_LIMIT), "0", None, "test");
         let ids2 = resp2["ids"].as_array().unwrap();
         assert_eq!(
             ids2.len(),
@@ -435,7 +436,7 @@ mod tests {
             "limit equal to MAX_FETCH_LIMIT must return all available entries"
         );
         // And a limit exceeding MAX_FETCH_LIMIT is silently capped (not rejected).
-        let resp3 = handle_email_query(&entries, None, 0, Some(MAX_FETCH_LIMIT + 1), "0", None);
+        let resp3 = handle_email_query(&entries, None, 0, Some(MAX_FETCH_LIMIT + 1), "0", None, "test");
         let ids3 = resp3["ids"].as_array().unwrap();
         assert_eq!(
             ids3.len(),

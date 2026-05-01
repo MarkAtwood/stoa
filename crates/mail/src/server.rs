@@ -511,6 +511,13 @@ async fn route_method(
         }
 
         "Mailbox/query" => {
+            let subscribed: std::collections::HashSet<String> = jmap
+                .subscription_store
+                .list_subscribed(1)
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .collect();
             let groups = match jmap.article_numbers.list_groups().await {
                 Ok(g) => g,
                 Err(e) => return json!({"error": e.to_string()}),
@@ -523,11 +530,12 @@ async fn route_method(
                     } else {
                         (hi - lo + 1).min(u32::MAX as u64) as u32
                     };
+                    let is_subscribed = subscribed.contains(&name);
                     crate::mailbox::get::GroupInfo {
                         name,
                         total_emails,
                         unread_emails: 0,
-                        is_subscribed: false,
+                        is_subscribed,
                     }
                 })
                 .collect();
@@ -538,7 +546,7 @@ async fn route_method(
                 .get_state("Mailbox")
                 .await
                 .unwrap_or_else(|_| "0".to_string());
-            crate::mailbox::query::handle_mailbox_query(&group_infos, filter, sort, &state)
+            crate::mailbox::query::handle_mailbox_query(&group_infos, filter, sort, &state, canonical_account_id)
         }
 
         "Email/query" => {
@@ -695,6 +703,7 @@ async fn route_method(
                 limit,
                 &email_state,
                 text_results,
+                canonical_account_id,
             )
         }
 
@@ -750,8 +759,16 @@ async fn route_method(
 
             // Handle keyword updates.
             if let Some(update_map) = args.get("update").and_then(|v| v.as_object()) {
-                let (updated, not_updated) =
+                let (mut updated, not_updated) =
                     crate::email::set::handle_keyword_update(update_map, 1, &jmap.user_flags).await;
+                // An id must not appear in both updated and notUpdated.
+                // handle_email_set may have already placed an id in notUpdated
+                // (e.g. for a mailboxIds conflict); remove those from updated here.
+                if let Some(already_not_updated) = result["notUpdated"].as_object() {
+                    for id in already_not_updated.keys() {
+                        updated.remove(id);
+                    }
+                }
                 if !updated.is_empty() {
                     any_changed = true;
                     result["updated"] = Value::Object(updated);
@@ -868,7 +885,7 @@ async fn route_method(
                 .unwrap_or_else(|_| "0".to_string());
 
             let id_refs: Vec<&str> = requested_ids.iter().map(|s| s.as_str()).collect();
-            crate::thread::get::handle_thread_get(&entries, &id_refs, &thread_state)
+            crate::thread::get::handle_thread_get(&entries, &id_refs, &thread_state, canonical_account_id)
         }
 
         // RFC 8620 §5.2 — /changes methods for incremental sync.
