@@ -123,7 +123,10 @@ fn parse_email_addrs(value: &str) -> Vec<String> {
             })
             .filter(|addr| addr.contains('@'))
             .collect(),
-        Err(_) => Vec::new(),
+        Err(e) => {
+            tracing::warn!("smtp relay: failed to parse address header {value:?}: {e}");
+            Vec::new()
+        }
     }
 }
 

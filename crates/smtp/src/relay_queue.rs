@@ -55,14 +55,7 @@ pub struct SmtpRelayQueue {
     queue_dir: PathBuf,
     notify: tokio::sync::Notify,
     health: Arc<Mutex<PeerHealthState>>,
-    dkim_signer: Option<
-        Arc<
-            mail_auth::dkim::DkimSigner<
-                mail_auth::common::crypto::Ed25519Key,
-                mail_auth::dkim::Done,
-            >,
-        >,
-    >,
+    dkim_signer: Option<crate::config::DkimSignerArc>,
 }
 
 impl SmtpRelayQueue {
@@ -75,14 +68,7 @@ impl SmtpRelayQueue {
         queue_dir: impl Into<PathBuf>,
         peers: Vec<crate::config::SmtpRelayPeerConfig>,
         down_backoff: Duration,
-        dkim_signer: Option<
-            Arc<
-                mail_auth::dkim::DkimSigner<
-                    mail_auth::common::crypto::Ed25519Key,
-                    mail_auth::dkim::Done,
-                >,
-            >,
-        >,
+        dkim_signer: Option<crate::config::DkimSignerArc>,
     ) -> std::io::Result<Arc<Self>> {
         let queue_dir = queue_dir.into();
         std::fs::create_dir_all(&queue_dir)?;

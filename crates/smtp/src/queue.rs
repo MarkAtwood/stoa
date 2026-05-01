@@ -123,28 +123,14 @@ fn inject_source_header(article_bytes: &[u8], source: InjectionSource) -> Vec<u8
 pub struct NntpQueue {
     queue_dir: PathBuf,
     notify: tokio::sync::Notify,
-    dkim_signer: Option<
-        Arc<
-            mail_auth::dkim::DkimSigner<
-                mail_auth::common::crypto::Ed25519Key,
-                mail_auth::dkim::Done,
-            >,
-        >,
-    >,
+    dkim_signer: Option<crate::config::DkimSignerArc>,
 }
 
 impl NntpQueue {
     /// Create a new queue rooted at `queue_dir`, creating the directory if absent.
     pub fn new(
         queue_dir: impl Into<PathBuf>,
-        dkim_signer: Option<
-            Arc<
-                mail_auth::dkim::DkimSigner<
-                    mail_auth::common::crypto::Ed25519Key,
-                    mail_auth::dkim::Done,
-                >,
-            >,
-        >,
+        dkim_signer: Option<crate::config::DkimSignerArc>,
     ) -> std::io::Result<Arc<Self>> {
         let queue_dir = queue_dir.into();
         std::fs::create_dir_all(&queue_dir)?;

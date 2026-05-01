@@ -196,14 +196,7 @@ async fn main() {
     );
 
     // Resolve DKIM signing key from delivery.dkim config.
-    let dkim_signer: Option<
-        Arc<
-            mail_auth::dkim::DkimSigner<
-                mail_auth::common::crypto::Ed25519Key,
-                mail_auth::dkim::Done,
-            >,
-        >,
-    > = if let Some(ref dcfg) = config.delivery.dkim {
+    let dkim_signer: Option<stoa_smtp::config::DkimSignerArc> = if let Some(ref dcfg) = config.delivery.dkim {
         use base64::Engine as _;
         use zeroize::Zeroize as _;
         let mut seed = match base64::engine::general_purpose::STANDARD.decode(&dcfg.key_seed_b64) {
