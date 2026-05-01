@@ -138,9 +138,11 @@ pub enum Overwrite {
 /// Write a raw 32-byte signing key seed to `path` with mode 0600.
 ///
 /// - If `path` already exists and `overwrite` is `Overwrite::NoOverwrite`, returns `Err`.
+///   The existence check is atomic: `O_CREAT | O_EXCL` is used so that a
+///   concurrent writer cannot slip through between a stat and an open (TOCTOU).
+/// - If `overwrite` is `Overwrite::Force`, bytes are written to a sibling temp
+///   file then renamed into place atomically.
 /// - On non-Unix platforms, the mode 0600 step is skipped (best effort).
-/// - The write is atomic: bytes are written to a sibling temp file then
-///   renamed into place, so a crash mid-write never leaves a partial key.
 pub fn write_signing_key(
     key: &SigningKey,
     path: &std::path::Path,
@@ -148,17 +150,51 @@ pub fn write_signing_key(
 ) -> Result<(), SigningError> {
     use std::io::Write;
 
-    if overwrite == Overwrite::NoOverwrite && path.exists() {
-        return Err(SigningError::Io(format!(
-            "signing key file '{}' already exists; use --force to overwrite",
-            path.display()
-        )));
+    if overwrite == Overwrite::NoOverwrite {
+        // Use create_new(true) — O_CREAT | O_EXCL — so the "does not exist yet"
+        // check and the file creation are a single atomic kernel operation.
+        // Any concurrent writer will cause one of them to get AlreadyExists,
+        // which we map to the standard "already exists" error rather than
+        // silently overwriting.
+        #[cfg(unix)]
+        let open_result = {
+            use std::os::unix::fs::OpenOptionsExt;
+            std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .mode(0o600)
+                .open(path)
+        };
+        #[cfg(not(unix))]
+        let open_result = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(path);
+
+        match open_result {
+            Ok(mut f) => {
+                f.write_all(&key.to_bytes())
+                    .map_err(|e| SigningError::Io(format!("cannot write key file: {e}")))?;
+                return Ok(());
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+                return Err(SigningError::Io(format!(
+                    "signing key file '{}' already exists; use --force to overwrite",
+                    path.display()
+                )));
+            }
+            Err(e) => {
+                return Err(SigningError::Io(format!(
+                    "cannot create key file '{}': {e}",
+                    path.display()
+                )));
+            }
+        }
     }
 
-    // Determine parent directory for the temp file.
+    // Overwrite::Force path: write to a sibling temp file then rename atomically.
     let parent = path.parent().unwrap_or_else(|| std::path::Path::new("."));
 
-    // Use tempfile::NamedTempFile for atomic rename-safe temp file (unique per call).
     let mut tmp = tempfile::NamedTempFile::new_in(parent).map_err(|e| {
         SigningError::Io(format!(
             "cannot create temp key file in '{}': {e}",

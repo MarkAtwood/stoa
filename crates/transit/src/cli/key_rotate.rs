@@ -121,14 +121,31 @@ pub fn cmd_key_rotate(
         node_id,
     );
 
-    // Sign the article bytes with the old key.  The signature is produced but
-    // the wiring into the full ingestion pipeline is deferred to a later epic.
-    // Callers that need the signature can call signing_key.sign(&article_bytes)
-    // directly; we return the article bytes which are the durable artifact.
+    // Sign the article bytes with the old key and attach the signature as an
+    // X-Stoa-Sig header (base64url-no-pad encoded) immediately before the
+    // header/body separator.  This matches the format expected by
+    // stoa_verify::x_sig::verify_x_sig.
+    use base64::Engine as _;
     use ed25519_dalek::Signer;
-    let _signature = old_signing_key.sign(&article_bytes);
+    let signature = old_signing_key.sign(&article_bytes);
+    let sig_value =
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(signature.to_bytes());
+    let sig_line = format!("X-Stoa-Sig: {sig_value}\r\n");
 
-    Ok((article_bytes, old_fingerprint, new_fingerprint))
+    // Insert the sig header just before the blank line that separates headers
+    // from body.  The article built by build_rotation_article always has
+    // \r\n\r\n as the separator.
+    let insert_at = article_bytes
+        .windows(4)
+        .position(|w| w == b"\r\n\r\n")
+        .map(|p| p + 2) // point at the second \r\n (the blank line itself)
+        .unwrap_or(article_bytes.len());
+    let mut signed_bytes = Vec::with_capacity(article_bytes.len() + sig_line.len());
+    signed_bytes.extend_from_slice(&article_bytes[..insert_at]);
+    signed_bytes.extend_from_slice(sig_line.as_bytes());
+    signed_bytes.extend_from_slice(&article_bytes[insert_at..]);
+
+    Ok((signed_bytes, old_fingerprint, new_fingerprint))
 }
 
 // ── PEM helpers ──────────────────────────────────────────────────────────────

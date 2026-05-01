@@ -717,9 +717,16 @@ fn extract_header<'a>(article_bytes: &'a [u8], name: &str) -> Option<&'a str> {
 ///
 /// Returns `None` if `Message-ID` is absent. `Newsgroups` defaults to an
 /// empty list when the header is missing.
+///
+/// Handles RFC 5322 §2.2.3 header folding: continuation lines that begin
+/// with SP or HTAB are appended to the current header value.
 fn parse_message_id_and_newsgroups(article_bytes: &[u8]) -> Option<(String, Vec<String>)> {
     let mut message_id: Option<String> = None;
     let mut newsgroups_val: Option<String> = None;
+
+    // Which header is currently being accumulated: 0 = none, 1 = Message-ID,
+    // 2 = Newsgroups.
+    let mut current: u8 = 0;
 
     for line in article_bytes.split(|&b| b == b'\n') {
         let trimmed = if line.last() == Some(&b'\r') {
@@ -730,6 +737,34 @@ fn parse_message_id_and_newsgroups(article_bytes: &[u8]) -> Option<(String, Vec<
         if trimmed.is_empty() {
             break;
         }
+
+        // RFC 5322 §2.2.3: a line beginning with SP or HTAB is a continuation
+        // of the previous header field value.
+        if trimmed.first().is_some_and(|&b| b == b' ' || b == b'\t') {
+            let Ok(cont) = std::str::from_utf8(trimmed) else {
+                current = 0;
+                continue;
+            };
+            match current {
+                1 => {
+                    if let Some(ref mut v) = message_id {
+                        v.push_str(cont.trim());
+                    }
+                }
+                2 => {
+                    if let Some(ref mut v) = newsgroups_val {
+                        v.push(',');
+                        v.push_str(cont.trim());
+                    }
+                }
+                _ => {}
+            }
+            continue;
+        }
+
+        // Not a continuation line — reset current header tracking.
+        current = 0;
+
         let s = match std::str::from_utf8(trimmed) {
             Ok(s) => s,
             Err(_) => continue,
@@ -739,11 +774,13 @@ fn parse_message_id_and_newsgroups(article_bytes: &[u8]) -> Option<(String, Vec<
         if message_id.is_none() && s.len() >= MID.len() && s[..MID.len()].eq_ignore_ascii_case(MID)
         {
             message_id = Some(s[MID.len()..].trim().to_owned());
+            current = 1;
         } else if newsgroups_val.is_none()
             && s.len() >= NG.len()
             && s[..NG.len()].eq_ignore_ascii_case(NG)
         {
             newsgroups_val = Some(s[NG.len()..].trim().to_owned());
+            current = 2;
         }
         if message_id.is_some() && newsgroups_val.is_some() {
             break;
