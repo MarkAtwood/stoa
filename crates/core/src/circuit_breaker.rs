@@ -216,7 +216,9 @@ mod tests {
         CircuitBreaker::new(CircuitBreakerConfig {
             failure_threshold: 3,
             window: Duration::from_secs(60),
-            probe_interval: Duration::from_millis(1),
+            // Large probe_interval so tests that check Open state cannot
+            // accidentally transition to HalfOpen during assertion.
+            probe_interval: Duration::from_secs(3600),
         })
     }
 

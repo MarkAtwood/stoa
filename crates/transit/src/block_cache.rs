@@ -183,8 +183,10 @@ impl BlockCache {
             ))
         })?;
 
-        fs::write(&file_path, bytes).await?;
-
+        // Insert the DB row first.  If the file write subsequently fails we
+        // delete the row; a DB row with a missing file is a cache miss
+        // (recoverable), whereas a file with no DB row is an orphan that leaks
+        // disk space indefinitely.
         let now = unix_millis();
         sqlx::query(
             "INSERT INTO transit_block_cache \
@@ -197,6 +199,15 @@ impl BlockCache {
         .bind(now)
         .execute(&*self.pool)
         .await?;
+
+        if let Err(e) = fs::write(&file_path, bytes).await {
+            // Clean up the DB row so we don't advertise a file that doesn't exist.
+            let _ = sqlx::query("DELETE FROM transit_block_cache WHERE cid = ?")
+                .bind(&cid_str)
+                .execute(&*self.pool)
+                .await;
+            return Err(CacheError::Io(e));
+        }
 
         Ok(())
     }
