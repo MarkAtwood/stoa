@@ -706,6 +706,7 @@ mod tests {
                 post(activate_script),
             )
             .route("/admin/sieve/check", post(check_script))
+            .route("/metrics", get(get_metrics))
             .layer(middleware::from_fn_with_state(
                 state.clone(),
                 require_bearer_token,

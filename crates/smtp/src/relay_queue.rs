@@ -56,6 +56,9 @@ pub struct SmtpRelayQueue {
     notify: tokio::sync::Notify,
     health: Arc<Mutex<PeerHealthState>>,
     dkim_signer: Option<crate::config::DkimSignerArc>,
+    /// Count of files currently in the `dead/` subdirectory (env-file units).
+    /// Incremented on each move-to-dead; initialized from disk once at startup.
+    dead_letter_count: AtomicU64,
 }
 
 impl SmtpRelayQueue {
@@ -102,6 +105,7 @@ impl SmtpRelayQueue {
             notify: tokio::sync::Notify::new(),
             health,
             dkim_signer,
+            dead_letter_count: AtomicU64::new(0),
         }))
     }
 
@@ -173,6 +177,7 @@ impl SmtpRelayQueue {
         tokio::spawn(async move {
             self.cleanup_tmp_files().await;
             self.cleanup_orphan_msg_files().await;
+            self.init_dead_letter_count().await;
             loop {
                 self.drain_once().await;
                 tokio::select! {
@@ -294,6 +299,38 @@ impl SmtpRelayQueue {
         }
     }
 
+    /// Count `.env` files in the `dead/` directory and initialize `dead_letter_count`.
+    ///
+    /// Called once at startup after the orphan-cleanup scan so the counter
+    /// starts accurate.  After this, every move to dead/ increments the counter
+    /// atomically, avoiding per-drain-cycle directory scans.
+    async fn init_dead_letter_count(&self) {
+        let dead_dir = self.queue_dir.join("dead");
+        match tokio::fs::read_dir(&dead_dir).await {
+            Ok(mut rd) => {
+                let mut count = 0u64;
+                loop {
+                    match rd.next_entry().await {
+                        Ok(Some(e)) => {
+                            if e.path().extension().is_some_and(|x| x == "env") {
+                                count += 1;
+                            }
+                        }
+                        Ok(None) => break,
+                        Err(e) => {
+                            warn!(dir = %dead_dir.display(), "relay queue: dead/ scan error: {e}");
+                            break;
+                        }
+                    }
+                }
+                self.dead_letter_count.store(count, Ordering::Relaxed);
+            }
+            Err(e) => {
+                warn!(dir = %dead_dir.display(), "relay queue: failed to count dead/ at startup: {e}");
+            }
+        }
+    }
+
     /// Expose the peer health state for metrics collection.
     pub fn health(&self) -> &Arc<Mutex<PeerHealthState>> {
         &self.health
@@ -340,30 +377,9 @@ impl SmtpRelayQueue {
 
         crate::metrics::set_relay_queue_depth(env_files.len() as f64);
 
-        let dead_dir = self.queue_dir.join("dead");
-        match tokio::fs::read_dir(&dead_dir).await {
-            Ok(mut rd) => {
-                let mut dead_count = 0usize;
-                loop {
-                    match rd.next_entry().await {
-                        Ok(Some(entry)) => {
-                            if entry.path().extension().is_some_and(|x| x == "env") {
-                                dead_count += 1;
-                            }
-                        }
-                        Ok(None) => break,
-                        Err(e) => {
-                            warn!(dir = %dead_dir.display(), "relay queue: read_dir entry error: {e}");
-                            break;
-                        }
-                    }
-                }
-                crate::metrics::set_relay_dead_letter_depth(dead_count as f64);
-            }
-            Err(e) => {
-                warn!(dir = %dead_dir.display(), "relay queue: failed to read dead/ dir for metrics: {e}");
-            }
-        }
+        crate::metrics::set_relay_dead_letter_depth(
+            self.dead_letter_count.load(Ordering::Relaxed) as f64,
+        );
 
         for env_path in env_files {
             let Some(stem) = env_path.file_stem().and_then(|s| s.to_str()) else {
@@ -435,6 +451,7 @@ impl SmtpRelayQueue {
                 }
             }
         }
+        self.dead_letter_count.fetch_add(1, Ordering::Relaxed);
     }
 
     async fn try_deliver_one(

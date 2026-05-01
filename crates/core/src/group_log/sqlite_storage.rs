@@ -138,11 +138,12 @@ impl LogStorage for SqliteLogStorage {
 
     async fn has_entry(&self, id: &LogEntryId) -> Result<bool, StorageError> {
         let id_bytes = id.as_bytes().to_vec();
-        let row: Option<(Vec<u8>,)> = sqlx::query_as("SELECT id FROM log_entries WHERE id = ?")
-            .bind(&id_bytes)
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(db_err)?;
+        let row: Option<(i64,)> =
+            sqlx::query_as("SELECT 1 FROM log_entries WHERE id = ? LIMIT 1")
+                .bind(&id_bytes)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(db_err)?;
         Ok(row.is_some())
     }
 
