@@ -248,13 +248,8 @@ mod tests {
     use crate::retention::pin_client::MemPinClient;
     use crate::retention::policy::{PinAction, PinRule};
     use sqlx::AnyPool;
-    use std::sync::atomic::{AtomicUsize, Ordering};
-
-    static DB_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
     async fn make_pool() -> (AnyPool, tempfile::TempPath) {
-        let n = DB_COUNTER.fetch_add(1, Ordering::Relaxed);
-        let _ = n;
         let tmp = tempfile::NamedTempFile::new().unwrap().into_temp_path();
         let url = format!("sqlite://{}", tmp.to_str().unwrap());
         crate::migrations::run_migrations(&url).await.unwrap();

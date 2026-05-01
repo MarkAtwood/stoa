@@ -196,6 +196,10 @@ async fn main() {
     );
 
     // Resolve DKIM signing key from delivery.dkim config.
+    //
+    // DKIM signing is deferred to drain-time (not enqueue-time) so the signer
+    // key is never written to disk as part of the queued envelope; the queue
+    // stores raw article bytes and signs only when delivering.
     let dkim_signer: Option<DkimSignerArc> = if let Some(ref dcfg) = config.delivery.dkim {
         use base64::Engine as _;
         use zeroize::Zeroize as _;

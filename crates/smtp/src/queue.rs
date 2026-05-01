@@ -283,9 +283,14 @@ impl NntpQueue {
                                         }
                                         Err(e) => {
                                             let message_id = extract_message_id(&buf);
+                                            // DKIM signing failure is permanent (deterministic
+                                            // Ed25519 key — if signing fails, it will always
+                                            // fail). Article is held in queue for operator
+                                            // intervention; no dead-letter path exists for
+                                            // NntpQueue.
                                             warn!(
                                                 message_id = %message_id.unwrap_or_default(),
-                                                "DKIM signing failed, deferring article: {e}"
+                                                "DKIM signing failed, holding for operator intervention: {e}"
                                             );
                                             continue;
                                         }

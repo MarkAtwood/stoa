@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use std::path::Path;
+use stoa_auth::looks_like_bcrypt_hash;
 
 // Re-export stoa_auth::UserCredential so AuthConfig::users (Vec<UserCredential>)
 // resolves to the same type that stoa_auth::CredentialStore::from_credentials()
@@ -285,8 +286,6 @@ fn default_max_article_bytes() -> usize {
     // Match DEFAULT_MAX_ARTICLE_BYTES in crates/reader/src/session/commands/post.rs.
     1_048_576
 }
-
-use stoa_auth::looks_like_bcrypt_hash;
 
 #[derive(Debug, Deserialize)]
 pub struct AuthConfig {
