@@ -385,7 +385,6 @@ async fn flush_buffer(pool: &AnyPool, buffer: &mut Vec<AuditEvent>) {
         }
     };
 
-    let mut failed_count: u64 = 0;
     for event in buffer.iter() {
         let event_type = event.event_type();
         let event_json = event.to_json();
@@ -399,11 +398,14 @@ async fn flush_buffer(pool: &AnyPool, buffer: &mut Vec<AuditEvent>) {
         .await
         {
             tracing::error!("audit logger: insert failed: {e}");
-            failed_count += 1;
         }
     }
 
     if let Err(e) = tx.commit().await {
+        // Count all buffered events as dropped exactly once here.
+        // Per-INSERT failures within the transaction are not counted separately
+        // because the entire transaction is rolled back on commit failure,
+        // so all events in the buffer are lost regardless of individual INSERT outcomes.
         let count = buffer.len() as u64;
         let total = AUDIT_EVENTS_DROPPED.fetch_add(count, Ordering::Relaxed) + count;
         tracing::error!(
@@ -413,15 +415,6 @@ async fn flush_buffer(pool: &AnyPool, buffer: &mut Vec<AuditEvent>) {
         );
         buffer.clear();
         return;
-    }
-
-    if failed_count > 0 {
-        let total = AUDIT_EVENTS_DROPPED.fetch_add(failed_count, Ordering::Relaxed) + failed_count;
-        tracing::error!(
-            audit_events_dropped_total = total,
-            dropped_this_flush = failed_count,
-            "audit logger: {failed_count} insert(s) failed during flush; events dropped"
-        );
     }
 
     buffer.clear();
