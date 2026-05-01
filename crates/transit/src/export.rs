@@ -51,6 +51,11 @@ pub async fn build_export_car(
 
         match ipfs.get_raw(&cid).await {
             Ok(Some(data)) => {
+                // Articles are exported newest-first so recent content appears
+                // early in the CAR stream.  The single CAR root is the
+                // most-recently-ingested article whose block is available in
+                // IPFS.  This is a v1 simplification — a future version may
+                // use an explicit manifest CID as root.
                 if roots.is_empty() {
                     roots.push(cid);
                 }

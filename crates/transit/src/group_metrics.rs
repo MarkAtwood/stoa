@@ -61,6 +61,12 @@ pub async fn sample_group_metrics(pool: &AnyPool) -> Result<usize, String> {
         return Ok(group_count);
     }
 
+    // Gauges are set only for groups present in the current query result.
+    // If a group is removed from the dataset (e.g. all its articles are
+    // GC'd), its gauge retains the last-known value until the process
+    // restarts.  To remove a stale label, call gauge.remove(label_values)
+    // after determining which groups have disappeared — deferred to a
+    // future improvement.
     for (group_name, count, total_bytes, last_at_ms) in &rows {
         crate::metrics::GROUP_LOG_ENTRIES_TOTAL
             .with_label_values(&[group_name])
