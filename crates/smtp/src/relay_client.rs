@@ -1,14 +1,67 @@
+use std::io;
+use std::pin::Pin;
 use std::sync::Arc;
+use std::task::{Context, Poll};
 use std::time::Duration;
 
 use base64::Engine as _;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use pin_project::pin_project;
+use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader, ReadBuf};
 use tokio::net::TcpStream;
 use tokio::time::timeout;
 
 use crate::config::SmtpRelayPeerConfig;
 use crate::relay_error::SmtpRelayError;
 use stoa_core::util::nntp_dot_stuff;
+
+/// Wraps either a plain TCP stream or a TLS stream so that a single concrete
+/// type implements both [`AsyncRead`] and [`AsyncWrite`].  Using an enum here
+/// avoids the heap allocation that `Box<dyn AsyncRead + …>` requires.
+#[pin_project(project = TlsOrPlainProj)]
+enum TlsOrPlain {
+    Plain(#[pin] TcpStream),
+    Tls(#[pin] tokio_rustls::client::TlsStream<TcpStream>),
+}
+
+impl AsyncRead for TlsOrPlain {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        match self.project() {
+            TlsOrPlainProj::Plain(s) => s.poll_read(cx, buf),
+            TlsOrPlainProj::Tls(s) => s.poll_read(cx, buf),
+        }
+    }
+}
+
+impl AsyncWrite for TlsOrPlain {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        match self.project() {
+            TlsOrPlainProj::Plain(s) => s.poll_write(cx, buf),
+            TlsOrPlainProj::Tls(s) => s.poll_write(cx, buf),
+        }
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        match self.project() {
+            TlsOrPlainProj::Plain(s) => s.poll_flush(cx),
+            TlsOrPlainProj::Tls(s) => s.poll_flush(cx),
+        }
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        match self.project() {
+            TlsOrPlainProj::Plain(s) => s.poll_shutdown(cx),
+            TlsOrPlainProj::Tls(s) => s.poll_shutdown(cx),
+        }
+    }
+}
 
 const OPERATION_TIMEOUT: Duration = Duration::from_secs(30);
 /// RFC 5321 §4.5.3.1.5 — maximum reply line length is 512 octets including CRLF.
@@ -56,23 +109,16 @@ async fn do_deliver(
         .await
         .map_err(SmtpRelayError::Io)?;
 
-    // Box up read/write halves so the protocol loop is stream-type-agnostic.
-    let (rd, wr): (
-        Box<dyn tokio::io::AsyncRead + Unpin + Send>,
-        Box<dyn tokio::io::AsyncWrite + Unpin + Send>,
-    ) = if peer.tls {
-        let tls_stream = tls_wrap(tcp, &peer.host).await?;
-        let (r, w) = tokio::io::split(tls_stream);
-        (Box::new(r), Box::new(w))
+    let stream: TlsOrPlain = if peer.tls {
+        TlsOrPlain::Tls(tls_wrap(tcp, &peer.host).await?)
     } else {
-        let (r, w) = tokio::io::split(tcp);
-        (Box::new(r), Box::new(w))
+        TlsOrPlain::Plain(tcp)
     };
 
+    let (rd, mut wr) = tokio::io::split(stream);
     let mut reader = BufReader::new(rd);
-    let mut writer = wr;
 
-    run_smtp_session(&mut reader, &mut writer, peer, envelope, article_bytes).await
+    run_smtp_session(&mut reader, &mut wr, peer, envelope, article_bytes).await
 }
 
 /// Shared TLS client config built once per process.
@@ -118,8 +164,8 @@ async fn tls_wrap(
 
 /// Run the SMTP session over already-established reader/writer halves.
 async fn run_smtp_session(
-    reader: &mut BufReader<Box<dyn tokio::io::AsyncRead + Unpin + Send>>,
-    writer: &mut Box<dyn tokio::io::AsyncWrite + Unpin + Send>,
+    reader: &mut BufReader<tokio::io::ReadHalf<TlsOrPlain>>,
+    writer: &mut tokio::io::WriteHalf<TlsOrPlain>,
     peer: &SmtpRelayPeerConfig,
     envelope: &RelayEnvelope,
     article_bytes: &[u8],
@@ -357,7 +403,7 @@ async fn run_smtp_session(
 
 /// Read one line from the SMTP server, enforcing the RFC 5321 line-length limit.
 async fn read_line(
-    reader: &mut BufReader<Box<dyn tokio::io::AsyncRead + Unpin + Send>>,
+    reader: &mut BufReader<tokio::io::ReadHalf<TlsOrPlain>>,
     line: &mut String,
 ) -> Result<(), SmtpRelayError> {
     line.clear();
