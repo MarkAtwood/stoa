@@ -151,14 +151,20 @@ where
         }
 
         match storage.insert_entry(entry_id.clone(), entry.clone()).await {
-            Ok(()) => {}
+            Ok(()) => {
+                fetched_count += 1;
+            }
             // Concurrent insert beat us: treat as idempotent success.
+            // Do NOT count as fetched — the entry was not newly stored.
             Err(StorageError::DuplicateEntry(_)) => {}
             Err(e) => return Err(BackfillError::Storage(e)),
         }
-        fetched_count += 1;
 
-        if fetched_count >= MAX_BACKFILL_ENTRIES {
+        // Use visited.len() for the truncation guard (not fetched_count) so
+        // that DuplicateEntry collisions count toward the BFS visit budget.
+        // This prevents an adversarial peer from bypassing the limit by serving
+        // entries that are already present locally.
+        if visited.len() >= MAX_BACKFILL_ENTRIES {
             return Err(BackfillError::Truncated {
                 fetched: fetched_count,
             });
@@ -455,6 +461,50 @@ mod tests {
                 "entry {label} must be in local storage"
             );
         }
+    }
+
+    // ── backfill_count_excludes_duplicate_entries ─────────────────────────────
+    //
+    //  When a concurrent writer has already inserted some entries into local
+    //  storage, backfill encounters DuplicateEntry for those entries.  The
+    //  returned count must only reflect entries actually newly inserted, not
+    //  the number of BFS visits.
+
+    #[tokio::test]
+    async fn backfill_count_excludes_duplicate_entries() {
+        // Remote has a chain: 0 → 1 → 2 → 3 → 4
+        let (remote, ids) = make_chain(5).await;
+        let local = MemLogStorage::new();
+
+        // Pre-populate local with entries 2 and 3 (simulating a concurrent writer).
+        for i in [2usize, 3usize] {
+            let entry = remote
+                .get_entry(&ids[i])
+                .await
+                .unwrap()
+                .expect("entry exists in remote");
+            local
+                .insert_entry(ids[i].clone(), entry)
+                .await
+                .expect("pre-insert");
+        }
+
+        let tip_id = ids[4].clone();
+        let count = backfill(&local, &test_group(), tip_id, |id| {
+            let r = &remote;
+            async move {
+                r.get_entry(&id)
+                    .await
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| format!("entry not found: {id}"))
+                    .map(VerifiedEntry::new_for_test)
+            }
+        })
+        .await
+        .expect("backfill should succeed");
+
+        // Entries 0, 1, and 4 were newly inserted; 2 and 3 were DuplicateEntry.
+        assert_eq!(count, 3, "count must exclude DuplicateEntry collisions");
     }
 
     // ── backfill_fetch_failure ────────────────────────────────────────────────
