@@ -168,17 +168,33 @@ pub async fn recent_audit_events(
 /// down, but does NOT wait for it to complete.  Call `shutdown().await` when
 /// you need to guarantee all events have been persisted before proceeding.
 pub struct AuditLoggerHandle {
-    tx: tokio::sync::mpsc::Sender<AuditEvent>,
+    tx: tokio::sync::mpsc::Sender<(i64, AuditEvent)>,
     join: tokio::task::JoinHandle<()>,
 }
 
 impl AuditLoggerHandle {
     /// Send an audit event. Returns even if the buffer is full (event is dropped).
     /// Non-blocking: never blocks the caller.
+    ///
+    /// The event timestamp is captured here at send time so that events retain
+    /// their actual occurrence time regardless of how long they sit in the
+    /// channel before being flushed to the database.
     pub fn log(&self, event: AuditEvent) {
-        match self.tx.try_send(event) {
+        // Capture wall-clock time now, before the event enters the channel.
+        // Using try_from avoids the silent truncation of `as i64`; in the
+        // astronomically unlikely case that millis exceed i64::MAX (year 2262)
+        // we saturate to i64::MAX rather than wrap to a negative value.
+        let occurred_at_ms = i64::try_from(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis(),
+        )
+        .unwrap_or(i64::MAX);
+
+        match self.tx.try_send((occurred_at_ms, event)) {
             Ok(()) => {}
-            Err(tokio::sync::mpsc::error::TrySendError::Full(dropped)) => {
+            Err(tokio::sync::mpsc::error::TrySendError::Full((_, dropped))) => {
                 let total = AUDIT_EVENTS_DROPPED.fetch_add(1, Ordering::Relaxed) + 1;
                 tracing::warn!(
                     event_type = dropped.event_type(),
@@ -339,18 +355,19 @@ pub fn start_audit_logger(
     batch_size: usize,
     flush_interval: std::time::Duration,
 ) -> AuditLoggerHandle {
-    let (tx, rx) = tokio::sync::mpsc::channel::<AuditEvent>(AUDIT_CHANNEL_CAPACITY);
+    let (tx, rx) =
+        tokio::sync::mpsc::channel::<(i64, AuditEvent)>(AUDIT_CHANNEL_CAPACITY);
     let join = tokio::spawn(audit_logger_task(pool, rx, batch_size, flush_interval));
     AuditLoggerHandle { tx, join }
 }
 
 async fn audit_logger_task(
     pool: AnyPool,
-    mut rx: tokio::sync::mpsc::Receiver<AuditEvent>,
+    mut rx: tokio::sync::mpsc::Receiver<(i64, AuditEvent)>,
     batch_size: usize,
     flush_interval: std::time::Duration,
 ) {
-    let mut buffer: Vec<AuditEvent> = Vec::with_capacity(batch_size);
+    let mut buffer: Vec<(i64, AuditEvent)> = Vec::with_capacity(batch_size);
     let mut interval = tokio::time::interval(flush_interval);
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
@@ -381,12 +398,7 @@ async fn audit_logger_task(
     }
 }
 
-async fn flush_buffer(pool: &AnyPool, buffer: &mut Vec<AuditEvent>) {
-    let now_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as i64;
-
+async fn flush_buffer(pool: &AnyPool, buffer: &mut Vec<(i64, AuditEvent)>) {
     let mut tx = match pool.begin().await {
         Ok(t) => t,
         Err(e) => {
@@ -402,13 +414,13 @@ async fn flush_buffer(pool: &AnyPool, buffer: &mut Vec<AuditEvent>) {
         }
     };
 
-    for event in buffer.iter() {
+    for (occurred_at_ms, event) in buffer.iter() {
         let event_type = event.event_type();
         let event_json = event.to_json();
         if let Err(e) = sqlx::query(
             "INSERT INTO audit_log (timestamp_ms, event_type, event_json) VALUES (?, ?, ?)",
         )
-        .bind(now_ms)
+        .bind(occurred_at_ms)
         .bind(event_type)
         .bind(&event_json)
         .execute(&mut *tx)
@@ -647,19 +659,12 @@ mod tests {
         let before = dropped_event_count();
 
         // Build a buffer of 3 events and call flush_buffer directly.
+        // Use fixed timestamps (1/2/3 ms) — the exact values don't matter for
+        // this test; we're only verifying that the dropped counter increments.
         let mut buffer = vec![
-            AuditEvent::GcRun {
-                articles_unpinned: 1,
-                group_name: "comp.test".to_string(),
-            },
-            AuditEvent::GcRun {
-                articles_unpinned: 2,
-                group_name: "comp.test".to_string(),
-            },
-            AuditEvent::GcRun {
-                articles_unpinned: 3,
-                group_name: "comp.test".to_string(),
-            },
+            (1i64, AuditEvent::GcRun { articles_unpinned: 1, group_name: "comp.test".to_string() }),
+            (2i64, AuditEvent::GcRun { articles_unpinned: 2, group_name: "comp.test".to_string() }),
+            (3i64, AuditEvent::GcRun { articles_unpinned: 3, group_name: "comp.test".to_string() }),
         ];
 
         flush_buffer(&pool, &mut buffer).await;

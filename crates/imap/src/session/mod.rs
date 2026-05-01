@@ -21,6 +21,7 @@ use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use imap_next::{
     imap_types::{
+        auth::AuthenticateData,
         command::CommandBody,
         core::Tag,
         response::{
@@ -741,6 +742,10 @@ async fn run_command_loop(
             }
 
             Event::AuthenticateDataReceived { authenticate_data } => {
+                // RFC 9051 §9.1: a client-initiated cancel ('*') must not be
+                // counted as a failed authentication attempt.  Distinguish
+                // cancel from credential rejection before consuming the value.
+                let is_cancel = matches!(authenticate_data, AuthenticateData::Cancel);
                 if let Some(username) = auth::handle_authenticate_data(
                     &mut server,
                     &ctx.credential_store,
@@ -751,13 +756,14 @@ async fn run_command_loop(
                 {
                     ctx.auth_failures = 0;
                     ctx.state = ImapState::Authenticated { username };
-                } else {
-                    // Failure: cancelled by client or bad credentials.
+                } else if !is_cancel {
+                    // Bad credentials — count toward the lockout threshold.
                     ctx.auth_failures += 1;
                     if ctx.auth_failures >= MAX_AUTH_FAILURES {
                         should_disconnect = true;
                     }
                 }
+                // Client-initiated cancel: no failure counted (RFC 9051 §9.1).
             }
 
             Event::IdleCommandReceived { tag } => match ctx.state {

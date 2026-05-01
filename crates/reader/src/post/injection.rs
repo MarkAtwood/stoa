@@ -1,6 +1,13 @@
 use chrono::{DateTime, TimeZone, Utc};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 use stoa_core::InjectionSource;
+
+/// Process-global counter for Message-ID uniqueness.  Starts at 1; incremented
+/// by `fetch_add` on every call to `inject_message_id`.  Using a counter rather
+/// than sub-second time avoids collisions when two POST requests arrive within
+/// the same microsecond (which `subsec_micros()` cannot distinguish).
+static MSG_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 /// The header name prepended by the SMTP queue drain.
 const INJECTION_SOURCE_HEADER: &[u8] = b"X-Stoa-Injection-Source:";
@@ -171,17 +178,20 @@ pub fn inject_message_id(article_bytes: &[u8], hostname: &str) -> Vec<u8> {
         i = skip_line_terminator(article_bytes, line_end);
     }
 
-    // Synthesize a Message-ID from current time + process ID.
+    // Synthesize a Message-ID from current time + process ID + monotonic counter.
+    // The counter is the source of uniqueness: PID is constant within a process
+    // and subsec_micros() wraps every second, so two POSTs in the same microsecond
+    // would collide without it.
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default();
     let secs = now.as_secs();
-    let subsec = now.subsec_micros();
     let pid = std::process::id();
+    let seq = MSG_ID_COUNTER.fetch_add(1, Ordering::Relaxed);
 
-    // Format: YYYYMMDDHHMMSS.MMMMMM.PID
+    // Format: YYYYMMDDHHMMSS.SEQNUM.PID
     let dt = format_utc_datetime(secs);
-    let local_part = format!("{dt}.{subsec:06}.{pid}");
+    let local_part = format!("{dt}.{seq}.{pid}");
     let msgid_line = format!("Message-ID: <{local_part}@{hostname}>\r\n");
 
     let mut out = Vec::with_capacity(article_bytes.len() + msgid_line.len());

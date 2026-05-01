@@ -113,7 +113,7 @@ pub async fn run_suck_pull(
     let mut summary = SuckPullSummary::default();
 
     for group in &config.groups {
-        let fetched_before = summary.fetched;
+        let mut attempted_this_group: usize = 0;
         let since = match config.since_override {
             Some(ts) => ts,
             None => read_cursor(pool, group).await?.unwrap_or(default_since),
@@ -185,44 +185,59 @@ pub async fn run_suck_pull(
                                 Ok(()) => {
                                     tracing::debug!("suck_pull: enqueued {msgid}");
                                     summary.fetched += 1;
+                                    attempted_this_group += 1;
                                 }
                                 Err(e) => {
                                     tracing::warn!(
                                         "suck_pull: ingestion queue rejected {msgid}: {e}"
                                     );
                                     summary.failed += 1;
+                                    attempted_this_group += 1;
                                 }
                             }
                         }
                         IngestResult::Duplicate => {
                             tracing::debug!("suck_pull: duplicate {msgid}");
                             summary.skipped_duplicate += 1;
+                            attempted_this_group += 1;
                         }
                         IngestResult::Rejected(reason) => {
                             tracing::warn!("suck_pull: rejected {msgid}: {reason}");
                             summary.failed += 1;
+                            attempted_this_group += 1;
                         }
                         IngestResult::TransientError(reason) => {
                             tracing::warn!("suck_pull: transient error checking {msgid}: {reason}");
                             summary.failed += 1;
+                            // Transient: do not count toward attempted_this_group
+                            // so the cursor is not advanced past this article.
                         }
                     }
                 }
                 FetchResult::NotFound => {
                     tracing::debug!("suck_pull: not found (430) {msgid}");
                     summary.skipped_duplicate += 1;
+                    attempted_this_group += 1;
                 }
                 FetchResult::Failed => {
                     tracing::warn!("suck_pull: failed to fetch {msgid}");
                     summary.failed += 1;
+                    // Network failure: do not count toward attempted_this_group
+                    // so the cursor is not advanced past an article we couldn't
+                    // even retrieve.
                 }
             }
         }
 
-        // Only advance the cursor when at least one article was successfully
-        // fetched.  Advancing on zero fetches silently shrinks the NEWNEWS
-        // window and can cause articles to be missed on a subsequent run.
-        if summary.fetched > fetched_before {
+        // Advance the cursor whenever we made a definitive attempt on at least
+        // one article (accepted, rejected, duplicate, or 430-not-found).
+        // Transient failures (network errors, TransientError from check_ingest)
+        // do not count so we retry those articles on the next run.
+        // This prevents an infinite loop when a permanently-invalid article
+        // sits at the current cursor position: previously the cursor only
+        // advanced on successful fetches, so all-rejected batches would be
+        // retried indefinitely.
+        if attempted_this_group > 0 {
             update_cursor(pool, group, now_unix).await?;
         }
     }

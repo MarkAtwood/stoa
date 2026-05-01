@@ -972,25 +972,27 @@ pub(crate) async fn build_stats_json(
 }
 
 pub(crate) async fn build_log_tip_json(pool: &AnyPool, group: &str) -> Option<String> {
-    let row: Option<(Option<i64>, Option<String>)> =
-        sqlx::query_as("SELECT MAX(sequence_number), cid FROM group_log WHERE group_name = ?")
-            .bind(group)
-            .fetch_optional(pool)
-            .await
-            .ok()
-            .flatten();
+    // Fetch the row with the highest sequence_number explicitly.
+    // SELECT MAX(sequence_number), cid is wrong: SQLite returns an arbitrary
+    // row's cid when mixing a bare aggregate (MAX) with a non-aggregated column.
+    let row: Option<(i64, String)> = sqlx::query_as(
+        "SELECT sequence_number, cid FROM group_log WHERE group_name = ? \
+         ORDER BY sequence_number DESC LIMIT 1",
+    )
+    .bind(group)
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten();
 
-    match row {
-        Some((Some(seq), Some(cid))) => Some(
-            serde_json::json!({
-                "group": group,
-                "tip_cid": cid,
-                "entry_count": seq,
-            })
-            .to_string(),
-        ),
-        _ => None,
-    }
+    row.map(|(seq, cid)| {
+        serde_json::json!({
+            "group": group,
+            "tip_cid": cid,
+            "entry_count": seq,
+        })
+        .to_string()
+    })
 }
 
 /// Build JSON stats for `GET /pinning/remote`.

@@ -18,10 +18,11 @@
 //! ## Canonical CID (codec 0x55, raw)
 //!
 //! The *canonical CID* is a CIDv1 SHA-256 of the **deterministic canonical
-//! bytes** of an article — specifically the concatenation of the wire header
-//! bytes and the dot-unstuffed body bytes.  Because these bytes are fixed for
-//! a given article, the canonical CID is stable across ingest paths and
-//! independent of any IPLD encoding.
+//! bytes** of an article — specifically `SHA-256(len(header_bytes) as u32
+//! big-endian ++ header_bytes ++ body_bytes)`.  The 4-byte length prefix
+//! disambiguates the header/body split, preventing split-ambiguity collisions.
+//! Because these bytes are fixed for a given article, the canonical CID is
+//! stable across ingest paths and independent of any IPLD encoding.
 //!
 //! **Uses:**
 //! - Key in the `message_id → CID` deduplication map (`msgid_map`).
@@ -54,7 +55,7 @@
 //! | Property | Canonical CID | Root CID |
 //! |---|---|---|
 //! | Codec | 0x55 (raw) | 0x71 (DAG-CBOR) |
-//! | Content hashed | wire header ++ body bytes | DAG-CBOR ArticleRootNode |
+//! | Content hashed | len(header) ++ header ++ body bytes | DAG-CBOR ArticleRootNode |
 //! | IPFS address? | No | Yes |
 //! | Map key / dedup? | Yes | No |
 //! | Stable across ingests? | Yes | No (HLC differs) |
@@ -66,9 +67,20 @@ use crate::ipld::codec::CODEC_RAW;
 
 /// Compute the canonical CID (CIDv1 SHA-256, codec 0x55 raw) for an article.
 ///
-/// The canonical CID is derived from the raw wire bytes of the article —
-/// header bytes concatenated with body bytes — with no IPLD encoding applied.
-/// It is stable across ingest paths and is the correct key to use in the
+/// The canonical CID is derived from the raw wire bytes of the article using
+/// a length-prefixed encoding that unambiguously identifies the header/body
+/// split.  The bytes hashed are:
+///
+/// ```text
+/// SHA-256(len(header_bytes) as u32 big-endian ++ header_bytes ++ body_bytes)
+/// ```
+///
+/// Prepending the 4-byte header length prevents split-ambiguity collisions:
+/// two articles whose `header_bytes ++ body_bytes` concatenations are
+/// identical but whose header/body splits differ will hash to different
+/// values and therefore receive different canonical CIDs.
+///
+/// The CID is stable across ingest paths and is the correct key to use in the
 /// `message_id → CID` deduplication map.
 ///
 /// See the [module-level documentation](self) for the distinction between the
@@ -78,7 +90,10 @@ use crate::ipld::codec::CODEC_RAW;
 /// - `header_bytes`: verbatim RFC 5536 wire header bytes
 /// - `body_bytes`: dot-unstuffed NNTP body bytes
 pub fn cid_for_article(header_bytes: &[u8], body_bytes: &[u8]) -> Cid {
-    let mut combined = Vec::with_capacity(header_bytes.len() + body_bytes.len());
+    let header_len = u32::try_from(header_bytes.len())
+        .expect("header_bytes length must fit in u32");
+    let mut combined = Vec::with_capacity(4 + header_bytes.len() + body_bytes.len());
+    combined.extend_from_slice(&header_len.to_be_bytes());
     combined.extend_from_slice(header_bytes);
     combined.extend_from_slice(body_bytes);
     let digest = Code::Sha2_256.digest(&combined);
@@ -132,5 +147,13 @@ mod tests {
         let cid = cid_for_article(b"Subject: Test\r\n", b"text\r\n");
         // SHA-256 multihash code is 0x12.
         assert_eq!(cid.hash().code(), 0x12u64);
+    }
+
+    #[test]
+    fn no_length_extension_collision() {
+        // header1="AB", body1="C" vs header2="A", body2="BC" — same concat, different split.
+        let cid1 = cid_for_article(b"AB", b"C");
+        let cid2 = cid_for_article(b"A", b"BC");
+        assert_ne!(cid1, cid2, "different header/body splits must produce different CIDs");
     }
 }

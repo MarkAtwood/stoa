@@ -125,7 +125,7 @@ impl From<heed::Error> for LmdbError {
 ///
 /// Keys are raw CID bytes (`Cid::to_bytes()`); values are raw block bytes.
 /// Uses a single named database (`"blocks"`) inside the LMDB environment.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct LmdbBlockDb {
     env: Env,
     db: BlocksDb,

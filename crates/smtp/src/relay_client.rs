@@ -335,13 +335,12 @@ async fn run_smtp_session(
         // presence indicates a malformed or injected value that would
         // prematurely terminate the angle-bracket argument and allow SMTP
         // command injection.  CR/LF are also stripped for belt-and-suspenders.
-        if addr.contains('>') || addr.contains('<') {
+        if addr.contains('>') || addr.contains('<') || addr.contains('\r') || addr.contains('\n') {
             return Err(SmtpRelayError::Permanent(format!(
                 "recipient address contains invalid character: {addr:?}"
             )));
         }
-        let safe_addr = addr.replace(['\r', '\n'], "");
-        let rcpt_cmd = format!("RCPT TO:<{safe_addr}>\r\n");
+        let rcpt_cmd = format!("RCPT TO:<{addr}>\r\n");
         writer
             .write_all(rcpt_cmd.as_bytes())
             .await
