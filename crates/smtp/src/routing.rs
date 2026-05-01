@@ -115,17 +115,51 @@ pub fn synthesize_message_id(hostname: &str) -> String {
     format!("<{timestamp_ms}.{pid:x}{seq:016x}@{hostname}>")
 }
 
+/// Validate a newsgroup name for use in an RFC 5322 header value.
+///
+/// A valid newsgroup name consists of one or more dot-separated components,
+/// each containing only ASCII lowercase letters, digits, hyphens, or plus
+/// signs.  The name must not contain CR or LF characters (which would enable
+/// header injection).
+///
+/// Returns `Ok(())` if the name is acceptable, or an error string describing
+/// the violation.
+pub fn validate_newsgroup_name(name: &str) -> Result<(), String> {
+    if name.contains('\r') || name.contains('\n') {
+        return Err(format!(
+            "newsgroup name contains CR or LF (header injection attempt): {name:?}"
+        ));
+    }
+    if name.is_empty() {
+        return Err("newsgroup name is empty".to_string());
+    }
+    let valid = name.chars().all(|c| {
+        c.is_ascii_lowercase() || c.is_ascii_digit() || c == '.' || c == '-' || c == '+'
+    });
+    if !valid {
+        return Err(format!(
+            "newsgroup name contains invalid characters: {name:?}"
+        ));
+    }
+    Ok(())
+}
+
 /// Synthesize a `Newsgroups:` header into raw article bytes.
 ///
 /// Prepends `"Newsgroups: <newsgroup>\r\n"` at the front of the message.
 /// Callers must ensure the message does not already have a `Newsgroups:`
 /// header; use [`has_newsgroups_header`] to check first.
-pub fn add_newsgroups_header(raw_message: &[u8], newsgroup: &str) -> Vec<u8> {
+///
+/// Returns `Err` if `newsgroup` fails [`validate_newsgroup_name`] — in
+/// particular if it contains CR or LF characters that would enable header
+/// injection.
+pub fn add_newsgroups_header(raw_message: &[u8], newsgroup: &str) -> Result<Vec<u8>, String> {
+    validate_newsgroup_name(newsgroup)?;
     let header = format!("Newsgroups: {newsgroup}\r\n");
     let mut result = Vec::with_capacity(header.len() + raw_message.len());
     result.extend_from_slice(header.as_bytes());
     result.extend_from_slice(raw_message);
-    result
+    Ok(result)
 }
 
 #[cfg(test)]
@@ -233,12 +267,57 @@ mod tests {
         );
     }
 
+    // --- validate_newsgroup_name ---
+
+    #[test]
+    fn validate_newsgroup_name_valid() {
+        assert!(validate_newsgroup_name("comp.lang.rust").is_ok());
+        assert!(validate_newsgroup_name("misc.test").is_ok());
+        assert!(validate_newsgroup_name("alt.binaries.test+extra").is_ok());
+        assert!(validate_newsgroup_name("sci.math-research").is_ok());
+    }
+
+    #[test]
+    fn validate_newsgroup_name_rejects_empty() {
+        assert!(validate_newsgroup_name("").is_err());
+    }
+
+    #[test]
+    fn validate_newsgroup_name_rejects_crlf_injection() {
+        // CR+LF in the newsgroup name is a header injection attempt.
+        let injected = "comp.test\r\nBcc: attacker@evil.example";
+        let err = validate_newsgroup_name(injected).unwrap_err();
+        assert!(err.contains("CR or LF"), "expected CR/LF message, got: {err}");
+    }
+
+    #[test]
+    fn validate_newsgroup_name_rejects_lf_only() {
+        let injected = "comp.test\nBcc: attacker@evil.example";
+        assert!(validate_newsgroup_name(injected).is_err());
+    }
+
+    #[test]
+    fn validate_newsgroup_name_rejects_cr_only() {
+        let injected = "comp.test\rBcc: attacker@evil.example";
+        assert!(validate_newsgroup_name(injected).is_err());
+    }
+
+    #[test]
+    fn validate_newsgroup_name_rejects_uppercase() {
+        assert!(validate_newsgroup_name("Comp.Lang.Rust").is_err());
+    }
+
+    #[test]
+    fn validate_newsgroup_name_rejects_spaces() {
+        assert!(validate_newsgroup_name("comp.lang rust").is_err());
+    }
+
     // --- add_newsgroups_header ---
 
     #[test]
     fn add_newsgroups_header_prepends() {
         let msg = b"From: a@b.com\r\n\r\nbody\r\n";
-        let result = add_newsgroups_header(msg, "comp.lang.rust");
+        let result = add_newsgroups_header(msg, "comp.lang.rust").unwrap();
         assert!(result.starts_with(b"Newsgroups: comp.lang.rust\r\n"));
         assert!(result.ends_with(b"From: a@b.com\r\n\r\nbody\r\n"));
     }
@@ -247,8 +326,20 @@ mod tests {
     fn add_newsgroups_header_correct_length() {
         let msg = b"Subject: test\r\n\r\nbody";
         let header = b"Newsgroups: misc.test\r\n";
-        let result = add_newsgroups_header(msg, "misc.test");
+        let result = add_newsgroups_header(msg, "misc.test").unwrap();
         assert_eq!(result.len(), header.len() + msg.len());
+    }
+
+    #[test]
+    fn add_newsgroups_header_rejects_crlf_injection() {
+        // A newsgroup name containing CRLF must be rejected, not silently embedded.
+        let msg = b"From: a@b.com\r\n\r\nbody\r\n";
+        let injected = "comp.test\r\nBcc: attacker@evil.example";
+        let err = add_newsgroups_header(msg, injected).unwrap_err();
+        assert!(
+            err.contains("CR or LF"),
+            "expected header-injection error, got: {err}"
+        );
     }
 
     // --- has_message_id_header ---

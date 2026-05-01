@@ -969,17 +969,23 @@ async fn sieve_delivery(
             }
             stoa_sieve_native::SieveAction::FileInto(folder) => {
                 if let Some(newsgroup) = folder.strip_prefix("newsgroup:") {
-                    let (article, injection_source) = if routing::has_newsgroups_header(raw_bytes) {
-                        (raw_bytes.to_vec(), InjectionSource::SmtpNewsgroups)
+                    let article_result = if routing::has_newsgroups_header(raw_bytes) {
+                        Ok((raw_bytes.to_vec(), InjectionSource::SmtpNewsgroups))
                     } else {
-                        (
-                            routing::add_newsgroups_header(raw_bytes, newsgroup),
-                            InjectionSource::SmtpSieve,
-                        )
+                        routing::add_newsgroups_header(raw_bytes, newsgroup)
+                            .map(|a| (a, InjectionSource::SmtpSieve))
                     };
-                    if let Err(e) = nntp_queue.enqueue(&article, injection_source).await {
-                        warn!(peer = %peer_addr, %newsgroup, "NNTP queue write failed: {e}");
-                        nntp_queue_error = true;
+                    match article_result {
+                        Err(e) => {
+                            warn!(peer = %peer_addr, %newsgroup, "rejecting article: invalid newsgroup name: {e}");
+                            nntp_queue_error = true;
+                        }
+                        Ok((article, injection_source)) => {
+                            if let Err(e) = nntp_queue.enqueue(&article, injection_source).await {
+                                warn!(peer = %peer_addr, %newsgroup, "NNTP queue write failed: {e}");
+                                nntp_queue_error = true;
+                            }
+                        }
                     }
                 } else if let Some(db_pool) = pool {
                     if let Err(e) = store::deliver(
