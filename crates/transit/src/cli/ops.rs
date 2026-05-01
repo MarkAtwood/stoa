@@ -8,6 +8,7 @@ use sqlx::AnyPool;
 use stoa_core::error::StorageError;
 
 use crate::cli::peers::OutputFormat;
+use crate::retention::pin_client::PinClient;
 use crate::retention::policy::{ArticleMeta, PinPolicy};
 
 /// Row returned by the pinned-CIDs + articles LEFT JOIN in [`cmd_gc_run`].
@@ -107,8 +108,18 @@ pub async fn cmd_unpin(pool: &AnyPool, cid_str: &str) -> Result<String, StorageE
 /// row (e.g. manually pinned entries) are evaluated with group="unknown",
 /// size=0, age=0 and a warning is emitted once.
 ///
+/// For each CID that should be GC'd the function:
+/// 1. Calls `pin_client.unpin()` (404 / already-unpinned is tolerated).
+/// 2. Deletes the row from `articles` so the CID is no longer offered as a
+///    future GC candidate.
+/// 3. Deletes the row from `pinned_cids`.
+///
 /// Returns a summary string of the form `"gc-run: {scanned} scanned, {unpinned} unpinned\n"`.
-pub async fn cmd_gc_run(pool: &AnyPool, policy: &PinPolicy) -> Result<String, StorageError> {
+pub async fn cmd_gc_run(
+    pool: &AnyPool,
+    policy: &PinPolicy,
+    pin_client: &dyn PinClient,
+) -> Result<String, StorageError> {
     ensure_pinned_cids_table(pool).await?;
 
     // Each row: (cid, group_name?, ingested_at_ms?, byte_count?)
@@ -157,11 +168,38 @@ pub async fn cmd_gc_run(pool: &AnyPool, policy: &PinPolicy) -> Result<String, St
         };
 
         if !policy.should_pin(&meta) {
+            let cid = match cid_str.parse::<cid::Cid>() {
+                Ok(c) => c,
+                Err(e) => {
+                    tracing::warn!(cid = %cid_str, "gc-run: invalid CID in pinned_cids, skipping: {e}");
+                    continue;
+                }
+            };
+
+            // Step 1: Unpin from IPFS. A 404 / already-unpinned is not an
+            // error — the block may have been evicted already.
+            if let Err(e) = pin_client.unpin(&cid).await {
+                tracing::warn!(cid = %cid_str, "gc-run: IPFS unpin failed, skipping: {e}");
+                continue;
+            }
+
+            // Step 2: Remove from articles table so the CID is no longer
+            // offered as a GC candidate on subsequent runs.
+            if let Err(e) = sqlx::query("DELETE FROM articles WHERE cid = ?")
+                .bind(cid_str)
+                .execute(pool)
+                .await
+            {
+                tracing::warn!(cid = %cid_str, "gc-run: failed to delete articles row: {e}");
+            }
+
+            // Step 3: Remove from pinned_cids.
             sqlx::query("DELETE FROM pinned_cids WHERE cid = ?")
                 .bind(cid_str)
                 .execute(pool)
                 .await
                 .map_err(|e| StorageError::Database(e.to_string()))?;
+
             unpinned += 1;
         }
     }
@@ -207,6 +245,7 @@ fn now_ms() -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::retention::pin_client::MemPinClient;
     use crate::retention::policy::{PinAction, PinRule};
     use sqlx::AnyPool;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -284,7 +323,8 @@ mod tests {
     async fn gc_run_empty() {
         let (pool, _tmp) = make_pool().await;
         let policy = PinPolicy::new(vec![]);
-        let result = cmd_gc_run(&pool, &policy).await.unwrap();
+        let pin_client = MemPinClient::new();
+        let result = cmd_gc_run(&pool, &policy, &pin_client).await.unwrap();
         assert!(result.contains("gc-run"), "gc result: {result}");
         assert!(
             result.contains("0 scanned"),
@@ -298,8 +338,9 @@ mod tests {
         let cid_str = "bafyreigdmqpykrgxyaxtlafqpqhzrfegdmqivsfeq7clzqya3oqpjzxnkm";
         cmd_pin(&pool, cid_str).await.unwrap();
 
+        let pin_client = MemPinClient::new();
         let policy = PinPolicy::new(vec![]);
-        let result = cmd_gc_run(&pool, &policy).await.unwrap();
+        let result = cmd_gc_run(&pool, &policy, &pin_client).await.unwrap();
         assert!(
             result.contains("1 scanned"),
             "should be 1 scanned: {result}"
@@ -316,13 +357,14 @@ mod tests {
         let cid_str = "bafyreigdmqpykrgxyaxtlafqpqhzrfegdmqivsfeq7clzqya3oqpjzxnkm";
         cmd_pin(&pool, cid_str).await.unwrap();
 
+        let pin_client = MemPinClient::new();
         let policy = PinPolicy::new(vec![PinRule {
             groups: "all".to_string(),
             max_age_days: None,
             max_article_bytes: None,
             action: PinAction::Pin,
         }]);
-        let result = cmd_gc_run(&pool, &policy).await.unwrap();
+        let result = cmd_gc_run(&pool, &policy, &pin_client).await.unwrap();
         assert!(
             result.contains("1 scanned"),
             "should be 1 scanned: {result}"

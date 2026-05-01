@@ -109,6 +109,12 @@ pub struct GcRunner<P: PinClient> {
     report_dir: Option<String>,
     /// Last completed GC report.  Shared with the admin endpoint.
     last_report: Arc<tokio::sync::RwLock<Option<crate::retention::gc_report::GcReport>>>,
+    /// Transit database pool for DB cleanup and audit logging after GC.
+    /// `None` in test-only contexts where no database is available.
+    transit_pool: Option<AnyPool>,
+    /// Core database pool for msgid_map cleanup after GC.
+    /// `None` in test-only contexts where no database is available.
+    core_pool: Option<AnyPool>,
 }
 
 impl<P: PinClient> GcRunner<P> {
@@ -119,12 +125,22 @@ impl<P: PinClient> GcRunner<P> {
             metrics,
             report_dir: None,
             last_report: Arc::new(tokio::sync::RwLock::new(None)),
+            transit_pool: None,
+            core_pool: None,
         }
     }
 
     /// Configure the report directory and return `self` (builder pattern).
     pub fn with_report_dir(mut self, dir: Option<String>) -> Self {
         self.report_dir = dir;
+        self
+    }
+
+    /// Wire in the database pools so `run_once` can delete DB rows and write
+    /// audit records for every GC'd article.
+    pub fn with_pools(mut self, transit_pool: AnyPool, core_pool: AnyPool) -> Self {
+        self.transit_pool = Some(transit_pool);
+        self.core_pool = Some(core_pool);
         self
     }
 
@@ -196,6 +212,7 @@ impl<P: PinClient> GcRunner<P> {
             if !self.policy.should_pin(&meta) {
                 match self.pin_client.unpin(&candidate.cid).await {
                     Ok(()) => {
+                        let cid_str = candidate.cid.to_string();
                         tracing::info!(
                             cid = %candidate.cid,
                             group = %candidate.group,
@@ -204,22 +221,32 @@ impl<P: PinClient> GcRunner<P> {
                         unpinned += 1;
                         bytes_reclaimed += candidate.byte_count as u64;
 
-                        // Delete the articles row so this CID is not
-                        // re-selected as a GC candidate on the next run
-                        // (zmn9.31). This runs inside the advisory-lock
-                        // window (zmn9.38).
-                        if let Some(pool) = transit_pool {
-                            let cid_str = candidate.cid.to_string();
+                        // Remove from DB and write audit record when pools are
+                        // available (production path; absent only in unit tests).
+                        if let Some(ref transit_pool) = self.transit_pool {
                             if let Err(e) =
                                 sqlx::query("DELETE FROM articles WHERE cid = ?")
                                     .bind(&cid_str)
-                                    .execute(pool)
+                                    .execute(transit_pool)
                                     .await
                             {
                                 tracing::warn!(
-                                    cid = %candidate.cid,
+                                    cid = %cid_str,
                                     "GC: failed to delete articles row: {e}"
                                 );
+                            }
+
+                            if let Some(ref core_pool) = self.core_pool {
+                                let msgid_map =
+                                    stoa_core::msgid_map::MsgIdMap::new(core_pool.clone());
+                                if let Err(e) =
+                                    msgid_map.delete_by_cid(&candidate.cid).await
+                                {
+                                    tracing::warn!(
+                                        cid = %cid_str,
+                                        "GC: failed to delete msgid_map row: {e}"
+                                    );
+                                }
                             }
                             let record = GcAuditRecord {
                                 cid: cid_str,
@@ -228,8 +255,9 @@ impl<P: PinClient> GcRunner<P> {
                                 gc_at_ms: now_ms,
                                 reason: "no_matching_rule".to_string(),
                             };
-                            if let Err(e) = append_audit_record(pool, &record).await {
-                                tracing::warn!(
+                            if let Err(e) =
+                                append_audit_record(transit_pool, &record).await
+                            {                                tracing::warn!(
                                     cid = %candidate.cid,
                                     "GC: failed to write audit record: {e}"
                                 );

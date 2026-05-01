@@ -53,10 +53,23 @@ pub async fn select_gc_candidates(
 ) -> Result<Vec<GcArticleRecord>, StorageError> {
     let cutoff_ms = now_ms.saturating_sub(grace_period_ms) as i64;
 
+    // Ensure the pinned_cids table exists so the NOT IN subquery never fails
+    // on a database that has never had a pin operation.
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS pinned_cids (\
+            cid TEXT PRIMARY KEY NOT NULL, \
+            pinned_at_ms INTEGER NOT NULL\
+        )",
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| StorageError::Database(e.to_string()))?;
+
     let rows: Vec<(String, String, i64, i64)> = sqlx::query_as(
         "SELECT cid, group_name, ingested_at_ms, byte_count
          FROM articles
-         WHERE ingested_at_ms < ?",
+         WHERE ingested_at_ms < ?
+           AND cid NOT IN (SELECT cid FROM pinned_cids)",
     )
     .bind(cutoff_ms)
     .fetch_all(pool)
@@ -191,6 +204,46 @@ mod tests {
             .await
             .expect("query");
         assert_eq!(result.len(), 0, "pinned articles must not be GC candidates");
+    }
+
+    async fn insert_pinned_cid(pool: &AnyPool, cid: &Cid) {
+        let cid_str = cid.to_string();
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS pinned_cids (\
+                cid TEXT PRIMARY KEY NOT NULL, \
+                pinned_at_ms INTEGER NOT NULL\
+            )",
+        )
+        .execute(pool)
+        .await
+        .expect("create pinned_cids");
+        sqlx::query("INSERT INTO pinned_cids (cid, pinned_at_ms) VALUES (?, 0)")
+            .bind(cid_str)
+            .execute(pool)
+            .await
+            .expect("insert pinned_cid");
+    }
+
+    #[tokio::test]
+    async fn gc_candidates_db_pinned_excluded() {
+        let (pool, _tmp) = make_pool().await;
+        let old_ms = NOW_MS - GRACE_MS * 2;
+        let pinned_cid = make_cid(b"pinned");
+        let free_cid = make_cid(b"free");
+
+        insert_article(&pool, &pinned_cid, "comp.lang.rust", old_ms as i64, 512).await;
+        insert_article(&pool, &free_cid, "comp.lang.rust", old_ms as i64, 512).await;
+        insert_pinned_cid(&pool, &pinned_cid).await;
+
+        let policy = PinPolicy::new(vec![]);
+        let result = select_gc_candidates(&pool, &policy, NOW_MS, GRACE_MS)
+            .await
+            .expect("query");
+        assert_eq!(result.len(), 1, "only the non-pinned article must be returned");
+        assert_eq!(
+            result[0].cid, free_cid,
+            "the returned candidate must be the unpinned CID"
+        );
     }
 
     #[tokio::test]
