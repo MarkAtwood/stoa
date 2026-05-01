@@ -554,4 +554,86 @@ mod tests {
         let actions = evaluate(&script, &make_msg("test"), "", "");
         assert_eq!(actions, vec![SieveAction::Reject("${reason}".into())]);
     }
+
+    // -----------------------------------------------------------------------
+    // RFC 5229 :matches capture variable tests (List-Id routing script)
+    // -----------------------------------------------------------------------
+
+    /// Default List-Id routing script routes a message with a `List-Id:` header
+    /// to `List/<extracted-id>`.
+    ///
+    /// The script uses `header :matches` with `"*<*>*"` to capture the list
+    /// identifier between `<` and `>`, then constructs the mailbox name via `${2}`.
+    ///
+    /// Test vector: `List-Id: <rust-users.lists.rust-lang.org>` routes to
+    /// `List/rust-users.lists.rust-lang.org`.  The oracle for this test vector
+    /// is the cross-validation suite in `tests/cross_validate.rs` which runs
+    /// the same script through the `stoa-sieve` (sieve-rs) oracle.
+    #[test]
+    fn default_list_routing_script_routes_list_id_to_list_mailbox() {
+        let script_src = br#"require ["fileinto", "variables"];
+
+if header :matches "List-Id" "*<*>*" {
+    set "list_id" "${2}";
+    fileinto "List/${list_id}";
+    stop;
+}
+"#;
+        let script = compile(script_src).unwrap();
+        let msg = b"From: sender@example.com\r\nList-Id: <rust-users.lists.rust-lang.org>\r\nSubject: test\r\n\r\nBody.\r\n";
+        let actions = evaluate(&script, msg, "", "recip@example.com");
+        assert_eq!(
+            actions,
+            vec![SieveAction::FileInto(
+                "List/rust-users.lists.rust-lang.org".into()
+            )],
+            "message with List-Id must be routed to List/<list-id>"
+        );
+    }
+
+    /// Default List-Id routing script falls through to implicit Keep (INBOX)
+    /// when no `List-Id:` header is present.
+    #[test]
+    fn default_list_routing_script_no_list_id_keeps_to_inbox() {
+        let script_src = br#"require ["fileinto", "variables"];
+
+if header :matches "List-Id" "*<*>*" {
+    set "list_id" "${2}";
+    fileinto "List/${list_id}";
+    stop;
+}
+"#;
+        let script = compile(script_src).unwrap();
+        let msg = b"From: sender@example.com\r\nSubject: regular message\r\n\r\nBody.\r\n";
+        let actions = evaluate(&script, msg, "", "recip@example.com");
+        assert_eq!(
+            actions,
+            vec![SieveAction::Keep],
+            "message without List-Id must fall through to implicit Keep (INBOX)"
+        );
+    }
+
+    /// `:matches` capture groups (`${1}`, `${2}`, ...) are set after a successful
+    /// match when the `variables` extension is required (RFC 5229 §4).
+    ///
+    /// Pattern `"*<*>*"` has three `*` wildcards: ${1}=prefix, ${2}=inner,
+    /// ${3}=suffix.  Direct use of `${2}` in `fileinto` (without an explicit
+    /// `set`) must also work.
+    #[test]
+    fn matches_capture_variables_direct_use_in_fileinto() {
+        let script_src = br#"require ["fileinto", "variables"];
+if header :matches "List-Id" "*<*>*" {
+    fileinto "List/${2}";
+    stop;
+}
+"#;
+        let script = compile(script_src).unwrap();
+        let msg = b"From: sender@example.com\r\nList-Id: Test List <test.lists.example.com>\r\nSubject: test\r\n\r\nBody.\r\n";
+        let actions = evaluate(&script, msg, "", "");
+        assert_eq!(
+            actions,
+            vec![SieveAction::FileInto("List/test.lists.example.com".into())],
+            "capture variable ${{2}} must contain the list-id between < and >"
+        );
+    }
 }

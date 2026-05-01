@@ -433,13 +433,78 @@ fn str_contains(haystack: &str, needle: &str, casemap: bool) -> bool {
 /// Sieve glob matching (RFC 5228 §2.7.1).
 /// `*` = zero or more chars, `?` = exactly one char, `\*`/`\?` = literals.
 fn str_matches_glob(value: &str, pattern: &str, casemap: bool) -> bool {
-    let regex_pat = sieve_glob_to_regex(pattern);
+    let (regex_pat, _) = sieve_glob_to_regex_capturing(pattern);
     str_matches_regex_pat(value, &regex_pat, casemap)
 }
 
-/// Convert a Sieve glob pattern to an anchored regex string.
-fn sieve_glob_to_regex(pattern: &str) -> String {
+/// Sieve glob match with RFC 5229 §4 capture variable extraction.
+///
+/// When the match succeeds and `vars` is `Some`, populates `${0}` (whole
+/// match) and `${1}`, `${2}`, ... (one per `*` wildcard, in order) in the
+/// given map.  `?` wildcards do not produce capture groups (RFC 5229 §4
+/// assigns numbered captures only to `*`).
+///
+/// Returns `true` when the pattern matches `value`.
+fn str_matches_glob_captures(
+    value: &str,
+    pattern: &str,
+    casemap: bool,
+    vars: Option<&mut HashMap<String, String>>,
+) -> bool {
+    let (regex_pat, star_count) = sieve_glob_to_regex_capturing(pattern);
+    REGEX_CACHE.with(|cache| {
+        let mut cache = cache.borrow_mut();
+        let key = (regex_pat.clone(), casemap);
+        if cache.get(&key).is_none() {
+            let pat = if casemap {
+                format!("(?i){regex_pat}")
+            } else {
+                regex_pat.clone()
+            };
+            match fancy_regex::Regex::new(&pat) {
+                Ok(re) => {
+                    cache.put(key.clone(), re);
+                }
+                Err(err) => {
+                    warn!(pattern = %pat, "Sieve :matches compile error: {err}");
+                    return false;
+                }
+            }
+        }
+        let re = cache.get(&key).expect("just inserted");
+        match re.captures(value) {
+            Ok(Some(caps)) => {
+                if let Some(v) = vars {
+                    v.insert(
+                        "0".to_string(),
+                        caps.get(0).map(|m| m.as_str()).unwrap_or("").to_string(),
+                    );
+                    for i in 1..=star_count {
+                        let captured = caps.get(i).map(|m| m.as_str()).unwrap_or("");
+                        v.insert(i.to_string(), captured.to_string());
+                    }
+                }
+                true
+            }
+            Ok(None) => false,
+            Err(e) => {
+                warn!(pattern = %regex_pat, "Sieve :matches execution error: {e}");
+                false
+            }
+        }
+    })
+}
+
+/// Convert a Sieve glob pattern to an anchored capturing regex string.
+///
+/// Each `*` wildcard becomes a capturing group `(.*)` so RFC 5229 §4
+/// numbered variables can be populated on match.  `?` is not captured.
+///
+/// Returns `(regex_string, star_count)` where `star_count` is the number
+/// of `*` wildcards (= number of capture groups, excluding group 0).
+fn sieve_glob_to_regex_capturing(pattern: &str) -> (String, usize) {
     let mut out = String::from("(?s)\\A");
+    let mut star_count: usize = 0;
     let mut buf = [0u8; 4];
     let mut chars = pattern.chars().peekable();
     while let Some(ch) = chars.next() {
@@ -458,13 +523,16 @@ fn sieve_glob_to_regex(pattern: &str) -> String {
                     out.push_str(&fancy_regex::escape("\\"));
                 }
             }
-            '*' => out.push_str(".*"),
+            '*' => {
+                star_count += 1;
+                out.push_str("(.*)");
+            }
             '?' => out.push('.'),
             other => out.push_str(&fancy_regex::escape(other.encode_utf8(&mut buf))),
         }
     }
     out.push_str("\\z");
-    out
+    (out, star_count)
 }
 
 /// Match `value` against a regex extension pattern (anchored to whole value).
@@ -549,18 +617,24 @@ fn collect_one_string_list<'a>(forms: &[&'a Form]) -> Vec<&'a str> {
 // Individual test implementations
 // ---------------------------------------------------------------------------
 
-fn eval_header_test(forms: &[Form], ctx: &Ctx<'_>) -> bool {
+fn eval_header_test(forms: &[Form], ctx: &mut Ctx<'_>) -> bool {
     let refs: Vec<&Form> = forms.iter().collect();
     let (mt, after_mt) = extract_match_type(&refs);
     let (cmp, after_cmp) = extract_comparator(&after_mt);
     let casemap = cmp == Comparator::AsciiCasemap;
     let (field_names, keys) = collect_two_string_lists(&after_cmp);
 
-    for (hdr_name, hdr_value) in &ctx.headers {
+    for (hdr_name, hdr_value) in &ctx.headers.clone() {
         for fname in &field_names {
             if hdr_name.eq_ignore_ascii_case(fname) {
                 for key in &keys {
-                    if apply_match(hdr_value, key, mt, casemap) {
+                    if mt == MatchType::Matches && ctx.variables_enabled {
+                        let mut captures: HashMap<String, String> = HashMap::new();
+                        if str_matches_glob_captures(hdr_value, key, casemap, Some(&mut captures)) {
+                            ctx.variables.extend(captures);
+                            return true;
+                        }
+                    } else if apply_match(hdr_value, key, mt, casemap) {
                         return true;
                     }
                 }
@@ -570,7 +644,7 @@ fn eval_header_test(forms: &[Form], ctx: &Ctx<'_>) -> bool {
     false
 }
 
-fn eval_address_test(forms: &[Form], ctx: &Ctx<'_>) -> bool {
+fn eval_address_test(forms: &[Form], ctx: &mut Ctx<'_>) -> bool {
     let refs: Vec<&Form> = forms.iter().collect();
     let (mt, after_mt) = extract_match_type(&refs);
     let (cmp, after_cmp) = extract_comparator(&after_mt);
@@ -593,7 +667,7 @@ fn eval_address_test(forms: &[Form], ctx: &Ctx<'_>) -> bool {
     false
 }
 
-fn eval_envelope_test(forms: &[Form], ctx: &Ctx<'_>) -> bool {
+fn eval_envelope_test(forms: &[Form], ctx: &mut Ctx<'_>) -> bool {
     let refs: Vec<&Form> = forms.iter().collect();
     let (mt, after_mt) = extract_match_type(&refs);
     let (cmp, after_cmp) = extract_comparator(&after_mt);
@@ -779,19 +853,20 @@ fn apply_set_modifiers(value: String, modifiers: &[&str]) -> String {
 mod tests {
     use super::*;
 
-    // ── sieve_glob_to_regex: regex string output ─────────────────────────────
+    // ── sieve_glob_to_regex_capturing: regex string output ───────────────────
 
-    /// The `*` wildcard must emit `.*` in the regex.
+    /// The `*` wildcard must emit `(.*)` in the capturing regex.
     #[test]
     fn glob_star_emits_dot_star() {
-        let re = sieve_glob_to_regex("foo*bar");
+        let (re, count) = sieve_glob_to_regex_capturing("foo*bar");
         assert!(re.contains(".*"), "star must expand to .* in regex: {re:?}");
+        assert_eq!(count, 1, "one * must produce one capture group");
     }
 
     /// The `?` wildcard must emit `.` (any single char) in the regex.
     #[test]
     fn glob_question_emits_dot() {
-        let re = sieve_glob_to_regex("fo?");
+        let (re, _) = sieve_glob_to_regex_capturing("fo?");
         // Should contain a bare "." but NOT ".*" for the ? position.
         assert!(re.contains('.'), "? must emit a dot in regex: {re:?}");
     }
@@ -801,7 +876,7 @@ mod tests {
     /// wildcards; all other characters are literals.
     #[test]
     fn glob_literal_dot_escaped() {
-        let re = sieve_glob_to_regex("a.b");
+        let (re, _) = sieve_glob_to_regex_capturing("a.b");
         // fancy_regex::escape(".") yields "\.", which we expect to appear.
         assert!(
             re.contains("\\."),

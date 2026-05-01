@@ -2,6 +2,20 @@ use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::SqlitePool;
 use std::str::FromStr;
 
+/// Default global Sieve script installed at first startup.
+///
+/// Routes messages with a `List-Id:` header to `List/<list-id>` mailboxes
+/// using RFC 5229 `:matches` capture groups.  Messages without `List-Id:`
+/// fall through to the RFC 5228 implicit keep (INBOX).
+pub const DEFAULT_GLOBAL_SIEVE_SCRIPT: &str = "\
+require [\"fileinto\", \"variables\"];\n\
+\n\
+if header :matches \"List-Id\" \"*<*>*\" {\n\
+    set \"list_id\" \"${2}\";\n\
+    fileinto \"List/${list_id}\";\n\
+    stop;\n\
+}\n";
+
 /// Open (or create) the SQLite database at `path` and run migrations.
 /// Pass `":memory:"` for an ephemeral in-process database.
 pub async fn open(path: &str) -> Result<SqlitePool, sqlx::Error> {
@@ -233,6 +247,34 @@ pub async fn set_active(
     Ok(true)
 }
 
+/// Install the default global Sieve script if no active script exists yet.
+///
+/// Idempotent: does nothing when an active script is already stored under
+/// `GLOBAL_SCRIPT_KEY`.  An operator who has uploaded a custom script via
+/// the admin API will have an active row, so this function will skip
+/// installation and preserve their script.
+pub async fn provision_global_sieve(pool: &SqlitePool) -> Result<(), sqlx::Error> {
+    let already_active: Option<i64> = sqlx::query_scalar(
+        "SELECT 1 FROM user_sieve_scripts WHERE username = ? AND active = 1 LIMIT 1",
+    )
+    .bind(crate::config::GLOBAL_SCRIPT_KEY)
+    .fetch_optional(pool)
+    .await?;
+
+    if already_active.is_some() {
+        return Ok(());
+    }
+
+    save_script(
+        pool,
+        crate::config::GLOBAL_SCRIPT_KEY,
+        "default",
+        DEFAULT_GLOBAL_SIEVE_SCRIPT.as_bytes(),
+        true,
+    )
+    .await
+}
+
 /// Count messages in a specific mailbox.
 #[cfg(test)]
 pub async fn count_messages(pool: &SqlitePool, username: &str, mailbox: &str) -> i64 {
@@ -285,6 +327,63 @@ pub async fn get_first_envelope_from(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn provision_global_sieve_installs_default_script() {
+        let pool = open(":memory:").await.expect("open");
+        provision_global_sieve(&pool).await.expect("provision");
+
+        let script = load_active_script(&pool, crate::config::GLOBAL_SCRIPT_KEY)
+            .await
+            .expect("active script must exist after provisioning");
+        let src = std::str::from_utf8(&script).expect("utf-8");
+        assert!(
+            src.contains("List-Id"),
+            "default script must contain List-Id routing: {src}"
+        );
+        assert!(
+            src.contains("fileinto"),
+            "default script must use fileinto: {src}"
+        );
+    }
+
+    #[tokio::test]
+    async fn provision_global_sieve_is_idempotent() {
+        let pool = open(":memory:").await.expect("open");
+        provision_global_sieve(&pool).await.expect("first provision");
+        provision_global_sieve(&pool).await.expect("second provision");
+
+        let scripts = list_scripts(&pool, crate::config::GLOBAL_SCRIPT_KEY)
+            .await
+            .unwrap();
+        let active_count = scripts.iter().filter(|(_, a)| *a).count();
+        assert_eq!(active_count, 1, "exactly one script must be active");
+    }
+
+    #[tokio::test]
+    async fn provision_global_sieve_does_not_overwrite_existing_active_script() {
+        let pool = open(":memory:").await.expect("open");
+        save_script(
+            &pool,
+            crate::config::GLOBAL_SCRIPT_KEY,
+            "custom",
+            b"discard;",
+            true,
+        )
+        .await
+        .expect("save custom script");
+
+        provision_global_sieve(&pool).await.expect("provision after custom");
+
+        let script = load_active_script(&pool, crate::config::GLOBAL_SCRIPT_KEY)
+            .await
+            .expect("active script");
+        assert_eq!(
+            script,
+            b"discard;",
+            "provision must not overwrite an existing active script"
+        );
+    }
 
     #[tokio::test]
     async fn open_memory_and_deliver() {

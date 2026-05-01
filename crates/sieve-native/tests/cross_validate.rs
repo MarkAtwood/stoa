@@ -155,3 +155,49 @@ fn rfc5228_appendix_example() {
     cross_check(script, &make_msg("Sieve is cool"), "", "");
     cross_check(script, &make_msg("Something else"), "", "");
 }
+
+// ── Default List-Id routing script cross-validation ──────────────────────────
+
+fn make_list_msg(list_id: &str) -> Vec<u8> {
+    format!(
+        "From: sender@example.com\r\nList-Id: <{list_id}>\r\nSubject: list post\r\n\r\nBody.\r\n"
+    )
+    .into_bytes()
+}
+
+/// Cross-check: `List-Id:` present routes to `List/<list-id>`.
+///
+/// Oracle: stoa-sieve (sieve-rs) evaluates the same script against the same
+/// message and must produce the same `FileInto("List/rust-users.lists.rust-lang.org")`.
+#[test]
+fn default_list_routing_with_list_id() {
+    let script = br#"require ["fileinto", "variables"];
+
+if header :matches "List-Id" "*<*>*" {
+    set "list_id" "${2}";
+    fileinto "List/${list_id}";
+    stop;
+}
+"#;
+    cross_check(
+        script,
+        &make_list_msg("rust-users.lists.rust-lang.org"),
+        "",
+        "recip@example.com",
+    );
+}
+
+/// Cross-check: no `List-Id:` header → implicit Keep (INBOX).
+#[test]
+fn default_list_routing_without_list_id() {
+    let script = br#"require ["fileinto", "variables"];
+
+if header :matches "List-Id" "*<*>*" {
+    set "list_id" "${2}";
+    fileinto "List/${list_id}";
+    stop;
+}
+"#;
+    let non_list_msg = b"From: sender@example.com\r\nSubject: normal message\r\n\r\nBody.\r\n";
+    cross_check(script, non_list_msg, "", "recip@example.com");
+}

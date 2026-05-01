@@ -187,6 +187,15 @@ async fn main() {
         }
     };
 
+    // Install the default global Sieve script (List-Id routing) on first
+    // startup.  Idempotent: skipped when an active script already exists.
+    if let Some(ref p) = pool {
+        if let Err(e) = store::provision_global_sieve(p).await {
+            error!("failed to provision default Sieve script: {e}");
+            std::process::exit(1);
+        }
+    }
+
     info!(
         port_25 = %config.listen.port_25,
         port_587 = %config.listen.port_587,
