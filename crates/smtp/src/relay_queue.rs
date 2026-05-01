@@ -26,6 +26,9 @@ fn unique_id() -> String {
 }
 
 /// JSON envelope stored alongside each queued article.
+///
+/// Fields `mail_from` and `rcpt_to` contain email addresses (PII). Do not
+/// log these fields at a level that persists to disk in production deployments.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct EnvelopeFile {
     mail_from: String,
@@ -53,6 +56,7 @@ struct EnvelopeFile {
 /// previous crash — no messages are lost across restarts.
 pub struct SmtpRelayQueue {
     queue_dir: PathBuf,
+    dead_dir: PathBuf,
     notify: tokio::sync::Notify,
     health: Arc<Mutex<PeerHealthState>>,
     dkim_signer: Option<crate::config::DkimSignerArc>,
@@ -74,8 +78,9 @@ impl SmtpRelayQueue {
         dkim_signer: Option<crate::config::DkimSignerArc>,
     ) -> std::io::Result<Arc<Self>> {
         let queue_dir = queue_dir.into();
+        let dead_dir = queue_dir.join("dead");
         std::fs::create_dir_all(&queue_dir)?;
-        std::fs::create_dir_all(queue_dir.join("dead"))?;
+        std::fs::create_dir_all(&dead_dir)?;
 
         // Validate that both directories are writable at startup.
         let sentinel = queue_dir.join(".write_test");
@@ -87,13 +92,13 @@ impl SmtpRelayQueue {
         })?;
         let _ = std::fs::remove_file(&sentinel);
 
-        let dead_sentinel = queue_dir.join("dead").join(".write_test");
+        let dead_sentinel = dead_dir.join(".write_test");
         std::fs::write(&dead_sentinel, b"").map_err(|e| {
             std::io::Error::new(
                 e.kind(),
                 format!(
                     "relay queue dead-letter dir {:?} is not writable: {e}",
-                    queue_dir.join("dead")
+                    dead_dir
                 ),
             )
         })?;
@@ -102,6 +107,7 @@ impl SmtpRelayQueue {
         let health = Arc::new(Mutex::new(PeerHealthState::new(peers, down_backoff)));
         Ok(Arc::new(Self {
             queue_dir,
+            dead_dir,
             notify: tokio::sync::Notify::new(),
             health,
             dkim_signer,
@@ -119,9 +125,10 @@ impl SmtpRelayQueue {
     /// if `.env` is absent, the drain skips the entry.
     ///
     /// Crash between the two renames: `.msg` exists, `.env` does not.  The
-    /// drain skips this `.msg` (no `.env` partner).  On the next startup the
-    /// `cleanup_orphan_msg_files` scan moves it to `dead/` for operator
-    /// inspection.  No orphaned data accumulates indefinitely.
+    /// drain only scans `.env` files, so a `.msg` without an `.env` partner is
+    /// invisible to it.  On the next startup `cleanup_orphan_msg_files` detects
+    /// the orphan and moves it to `dead/` for operator inspection.  No orphaned
+    /// data accumulates indefinitely.
     ///
     /// If the order were reversed (`.env` first), a crash would leave a `.env`
     /// without its `.msg`, causing the drain to read a non-existent payload.
@@ -188,7 +195,7 @@ impl SmtpRelayQueue {
         });
     }
 
-    /// Remove any `.msg.tmp` or `.env.tmp` files left in the queue directory.
+    /// Remove any `.tmp` files left in the queue directory.
     ///
     /// Called once at startup before `cleanup_orphan_msg_files`.  Tmp files
     /// represent incomplete atomic writes — the rename that would have promoted
@@ -226,7 +233,7 @@ impl SmtpRelayQueue {
     /// Files are moved rather than deleted so the operator can inspect them.
     /// Errors during the move are logged and the scan continues.
     async fn cleanup_orphan_msg_files(&self) {
-        let dead_dir = self.queue_dir.join("dead");
+        let dead_dir = &self.dead_dir;
 
         for entry in Self::collect_dir_entries(&self.queue_dir).await {
             let path = entry.path();
@@ -271,7 +278,7 @@ impl SmtpRelayQueue {
     /// starts accurate.  After this, every move to dead/ increments the counter
     /// atomically, avoiding per-drain-cycle directory scans.
     async fn init_dead_letter_count(&self) {
-        let dead_dir = self.queue_dir.join("dead");
+        let dead_dir = &self.dead_dir;
         let count = Self::collect_dir_entries(&dead_dir)
             .await
             .into_iter()
@@ -395,7 +402,7 @@ impl SmtpRelayQueue {
     /// `.env` is still visible to `drain_once` — it will warn "msg missing,
     /// skipping" rather than permanently strand the `.msg`.
     async fn move_to_dead_letter(&self, msg_path: &std::path::Path, env_path: &std::path::Path) {
-        let dead_dir = self.queue_dir.join("dead");
+        let dead_dir = &self.dead_dir;
         for path in [msg_path, env_path] {
             if let Some(name) = path.file_name() {
                 let dead_path = dead_dir.join(name);
