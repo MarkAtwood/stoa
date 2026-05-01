@@ -10,10 +10,16 @@ use imap_next::imap_types::{
 
 /// Build the server capability list.
 ///
-/// Before TLS: advertise `LOGINDISABLED` (no plaintext auth on insecure channel).
+/// Before TLS: plain LOGIN is permitted (developer/loopback use-case for v1).
 /// After TLS: advertise `AUTH=PLAIN`, `AUTH=LOGIN`, `IDLE`, `UIDPLUS`, `MOVE`.
 ///
 /// `IMAP4rev1` is always first per RFC 3501 §7.2.1.
+///
+/// Note: LOGINDISABLED is intentionally absent on the plain port because STARTTLS
+/// is not yet implemented. RFC 3501 §6.2.1 requires STARTTLS to be offered when
+/// LOGINDISABLED is advertised; advertising LOGINDISABLED without STARTTLS leaves
+/// plain-port clients unable to authenticate.
+/// TODO: re-add LOGINDISABLED and implement STARTTLS (stoa-19f17fab)
 pub fn capability_list(tls: bool) -> Vec1<Capability<'static>> {
     let mut caps: Vec<Capability<'static>> = vec![Capability::Imap4Rev1];
     if tls {
@@ -25,8 +31,6 @@ pub fn capability_list(tls: bool) -> Vec1<Capability<'static>> {
         // SASL-IR (RFC 4959): client may include initial response in AUTHENTICATE;
         // we already handle CommandAuthenticateReceived.initial_response.
         caps.push(Capability::SaslIr);
-    } else {
-        caps.push(Capability::LoginDisabled);
     }
     // These extensions are not TLS-dependent.
     caps.push(Capability::Enable);
@@ -63,15 +67,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn capability_list_plain_includes_logindisabled() {
+    fn capability_list_plain_omits_logindisabled() {
+        // LOGINDISABLED must NOT appear on the plain port while STARTTLS is absent.
+        // RFC 3501 §6.2.1: LOGINDISABLED requires STARTTLS to be offered; without
+        // it clients can never authenticate. See stoa-19f17fab for the STARTTLS epic.
         let caps = capability_list(false);
         assert!(
             caps.as_ref().contains(&Capability::Imap4Rev1),
             "IMAP4rev1 must always be present"
         );
         assert!(
-            caps.as_ref().contains(&Capability::LoginDisabled),
-            "LOGINDISABLED must be present without TLS"
+            !caps.as_ref().contains(&Capability::LoginDisabled),
+            "LOGINDISABLED must not be present on plain port until STARTTLS is implemented"
         );
         assert!(
             !caps
