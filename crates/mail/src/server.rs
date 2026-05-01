@@ -343,6 +343,17 @@ async fn jmap_api_handler(
     let is_operator = state.auth_config.is_operator(&username);
     let server_start = state.start_time;
 
+    // Look up the numeric user_id from the users table.  In dev mode
+    // (username == "anonymous") or if the user row does not exist yet,
+    // fall back to 1 (v1 single-user default).
+    let user_id: i64 = sqlx::query_scalar("SELECT id FROM users WHERE username = ?")
+        .bind(&username)
+        .fetch_optional(&*jmap.mail_pool)
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(1);
+
     let mut method_responses = Vec::new();
 
     for crate::jmap::types::Invocation(method, args, call_id) in request.method_calls {
@@ -354,6 +365,7 @@ async fn jmap_api_handler(
             &canonical_account_id,
             server_start,
             is_operator,
+            user_id,
         )
         .await;
         let elapsed = t0.elapsed().as_secs_f64();
@@ -424,6 +436,7 @@ async fn route_method(
     canonical_account_id: &str,
     server_start: std::time::Instant,
     is_operator: bool,
+    user_id: i64,
 ) -> Value {
     // RFC 8621 §2: every method call carries an accountId.  If it is present
     // and does not match the authenticated principal's account, return
@@ -442,7 +455,7 @@ async fn route_method(
         "Mailbox/get" => {
             let subscribed: std::collections::HashSet<String> = jmap
                 .subscription_store
-                .list_subscribed(1)
+                .list_subscribed(user_id)
                 .await
                 .unwrap_or_default()
                 .into_iter()
@@ -501,7 +514,7 @@ async fn route_method(
                 .unwrap_or_else(|_| old_state.clone());
             crate::mailbox::set::handle_mailbox_set(
                 &args,
-                1,
+                user_id,
                 &jmap.subscription_store,
                 &jmap.article_numbers,
                 &old_state,
@@ -513,7 +526,7 @@ async fn route_method(
         "Mailbox/query" => {
             let subscribed: std::collections::HashSet<String> = jmap
                 .subscription_store
-                .list_subscribed(1)
+                .list_subscribed(user_id)
                 .await
                 .unwrap_or_default()
                 .into_iter()
@@ -760,7 +773,7 @@ async fn route_method(
             // Handle keyword updates.
             if let Some(update_map) = args.get("update").and_then(|v| v.as_object()) {
                 let (mut updated, not_updated) =
-                    crate::email::set::handle_keyword_update(update_map, 1, &jmap.user_flags).await;
+                    crate::email::set::handle_keyword_update(update_map, user_id, &jmap.user_flags).await;
                 // An id must not appear in both updated and notUpdated.
                 // handle_email_set may have already placed an id in notUpdated
                 // (e.g. for a mailboxIds conflict); remove those from updated here.

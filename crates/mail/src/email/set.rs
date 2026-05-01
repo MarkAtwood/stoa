@@ -179,14 +179,21 @@ async fn create_one_email(
             .unwrap_or("(no subject)"),
     );
 
-    let from_email = strip_crlf(
-        obj.get("from")
-            .and_then(|v| v.as_array())
-            .and_then(|arr| arr.first())
-            .and_then(|addr| addr.get("email"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("unknown@example.com"),
-    );
+    let from_raw = obj
+        .get("from")
+        .and_then(|v| v.as_array())
+        .and_then(|arr| arr.first())
+        .and_then(|addr| addr.get("email"))
+        .and_then(|v| v.as_str());
+    let from_email = match from_raw {
+        Some(s) => strip_crlf(s),
+        None => {
+            return Err(
+                r#"{"type":"invalidProperties","properties":["from"],"description":"from is required"}"#
+                    .to_string(),
+            )
+        }
+    };
 
     // JMAP mailboxIds keys are opaque identifiers (SHA-256/base32), not
     // newsgroup names.  Resolve each ID to its group name via the reverse map
@@ -226,7 +233,8 @@ async fn create_one_email(
 
     let now = chrono::Utc::now();
     let timestamp_ms = now.timestamp_millis();
-    let message_id = format!("<jmap-{timestamp_ms}@stoa.local>");
+    let random_component: u64 = rand::random();
+    let message_id = format!("<jmap-{timestamp_ms}.{random_component:016x}@stoa.local>");
     let date_str = now.to_rfc2822();
 
     let article = format!(

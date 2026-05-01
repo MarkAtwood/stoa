@@ -110,11 +110,18 @@ async fn fetch_smtp_emails_batch(row_ids: &[i64], pool: &sqlx::AnyPool) -> HashM
     }
     sep.push_unseparated(")");
 
-    qb.build_query_as::<(i64, Vec<u8>, String, String)>()
+    match qb
+        .build_query_as::<(i64, Vec<u8>, String, String)>()
         .fetch_all(pool)
         .await
-        .unwrap_or_default()
-        .into_iter()
+    {
+        Ok(rows) => rows,
+        Err(e) => {
+            tracing::error!("fetch_smtp_emails_batch: DB query failed: {e}");
+            return HashMap::new();
+        }
+    }
+    .into_iter()
         .map(|(id, raw, mailbox_id, received_at)| {
             let smtp_id = format!("smtp:{id}");
             (

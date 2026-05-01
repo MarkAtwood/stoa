@@ -50,6 +50,8 @@ pub enum ErrorType {
     Singleton,
     RequestTooLarge,
     StateMismatch,
+    UnknownMethod,
+    AccountNotFound,
     #[serde(other)]
     Other,
 }
@@ -66,8 +68,8 @@ pub struct MethodError {
 impl MethodError {
     pub fn unknown_method() -> Self {
         Self {
-            error_type: ErrorType::Other,
-            description: Some("unknownMethod".to_string()),
+            error_type: ErrorType::UnknownMethod,
+            description: None,
         }
     }
 
@@ -94,8 +96,8 @@ impl MethodError {
 
     pub fn account_not_found() -> Self {
         Self {
-            error_type: ErrorType::Other,
-            description: Some("accountNotFound".to_string()),
+            error_type: ErrorType::AccountNotFound,
+            description: None,
         }
     }
 

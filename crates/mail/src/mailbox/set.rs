@@ -91,7 +91,14 @@ pub async fn handle_mailbox_set(
         for id_val in destroy_arr {
             let id = match id_val.as_str() {
                 Some(s) => s,
-                None => continue,
+                None => {
+                    // Non-string IDs are invalid; report them in notDestroyed.
+                    not_destroyed.insert(
+                        id_val.to_string(),
+                        json!({"type": "invalidArguments", "description": "id must be a string"}),
+                    );
+                    continue;
+                }
             };
             match id_to_name.get(id) {
                 Some(group_name) => {
