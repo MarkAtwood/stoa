@@ -109,6 +109,12 @@ impl IpfsStore for FsStore {
     ///
     /// If `max_bytes` was configured and the current directory total would
     /// exceed it, returns `IpfsError::WriteFailed`.
+    ///
+    /// **Soft-cap race under concurrent writers**: the cap check and the write
+    /// are not atomic.  Two concurrent `put_raw` calls for *different* CIDs
+    /// can both pass the cap check before either write completes, causing a
+    /// small overshoot.  This is intentional — `max_bytes` is a soft cap, not
+    /// a hard guarantee.  Use a dedicated quota layer if hard limits are needed.
     async fn put_raw(&self, data: &[u8]) -> Result<Cid, IpfsError> {
         let path = Arc::clone(&self.path);
         let data = data.to_vec();

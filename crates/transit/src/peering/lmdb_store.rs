@@ -54,10 +54,10 @@ impl IpfsStore for LmdbStore {
         let cid_bytes = cid.to_bytes();
         task::spawn_blocking(move || {
             db.get(&cid_bytes)
-                .map_err(|e| IpfsError::WriteFailed(e.to_string()))
+                .map_err(|e| IpfsError::ReadFailed(e.to_string()))
         })
         .await
-        .map_err(|e| IpfsError::WriteFailed(e.to_string()))?
+        .map_err(|e| IpfsError::ReadFailed(e.to_string()))?
     }
 
     /// Remove `cid` from LMDB.

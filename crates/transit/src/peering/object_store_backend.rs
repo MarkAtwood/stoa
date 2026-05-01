@@ -78,6 +78,11 @@ impl ObjectStoreBackend {
 
 #[async_trait]
 impl IpfsStore for ObjectStoreBackend {
+    /// Write `data` to the object store.
+    ///
+    /// Unconditionally issues a PUT to the backing store (S3/Azure/GCS).
+    /// Callers should deduplicate via `msgid_map` before calling this method
+    /// to avoid unnecessary API calls for already-stored articles.
     async fn put_raw(&self, data: &[u8]) -> Result<Cid, IpfsError> {
         let digest = Code::Sha2_256.digest(data);
         let cid = Cid::new_v1(0x55, digest);
