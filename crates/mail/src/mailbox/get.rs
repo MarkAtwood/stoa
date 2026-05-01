@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde_json::{json, Value};
 
-use crate::mailbox::types::{Mailbox, SpecialMailbox, mailbox_id_for_news_root};
+use crate::mailbox::types::{Mailbox, SpecialMailbox};
 
 /// Data about a newsgroup available to Mailbox/get.
 pub struct GroupInfo {
