@@ -989,12 +989,14 @@ port_587 = "0.0.0.0:587"
 
     #[test]
     fn test_dkim_config_valid() {
+        // RFC 8463 §A.2 test vectors: seed "nWGxne/9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A="
+        // public key "11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=" — these are a matched pair.
         let toml = minimal_toml_with_dkim(
             r#"[delivery.dkim]
 domain = "example.com"
 selector = "mail"
-key_seed_b64 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-public_key_b64 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=""#,
+key_seed_b64 = "nWGxne/9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A="
+public_key_b64 = "11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=""#,
         );
         let f = write_toml(&toml);
         Config::from_file(f.path()).expect("valid dkim config should pass validation");
