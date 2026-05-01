@@ -103,6 +103,7 @@ pub async fn blob_download(
     Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "message/rfc822")
+        .header(header::CONTENT_LENGTH, message.len())
         .body(Body::from(message))
         .unwrap()
 }

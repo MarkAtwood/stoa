@@ -7,9 +7,11 @@
 //!
 //! The tracker is bounded: at most `max_entries` unique IPs are held in memory.
 //! When the table is full, the entry with the oldest window-start timestamp is
-//! evicted to make room for the new IP.
+//! evicted to make room for the new IP.  Eviction uses a min-heap with lazy
+//! deletion for O(log n) amortized cost.
 
-use std::collections::HashMap;
+use std::cmp::Reverse;
+use std::collections::{BinaryHeap, HashMap};
 use std::net::IpAddr;
 use std::time::{Duration, Instant};
 
@@ -24,6 +26,12 @@ pub const DEFAULT_MAX_ENTRIES: usize = 10_000;
 pub struct AuthFailureTracker {
     /// Per-IP state: (failure_count_in_window, window_start).
     entries: HashMap<IpAddr, (u32, Instant)>,
+    /// Min-heap of (window_start, ip) for O(log n) oldest-first eviction.
+    ///
+    /// May contain stale entries: removed IPs (`record_success`) or IPs whose
+    /// window has reset (heap timestamp < current entry timestamp).  Lazy
+    /// deletion skips stale heap entries during eviction.
+    eviction_heap: BinaryHeap<Reverse<(Instant, IpAddr)>>,
     max_entries: usize,
     /// Number of failures within `window` that triggers a lockout signal.
     threshold: u32,
@@ -40,6 +48,7 @@ impl AuthFailureTracker {
     pub fn new(threshold: u32, window: Duration, max_entries: usize) -> Self {
         Self {
             entries: HashMap::with_capacity(max_entries.min(256)),
+            eviction_heap: BinaryHeap::new(),
             max_entries,
             threshold,
             window,
@@ -58,30 +67,44 @@ impl AuthFailureTracker {
             if now.duration_since(entry.1) > self.window {
                 // Window expired; start a new one with this failure.
                 *entry = (1, now);
+                // Push updated timestamp; old heap entry becomes stale (lazy delete).
+                self.eviction_heap.push(Reverse((now, ip)));
                 return 1 == self.threshold;
             }
             entry.0 += 1;
             return entry.0 == self.threshold;
         }
 
-        // New IP: evict oldest entry if at capacity.
+        // New IP: evict oldest live entry if at capacity.
         if self.entries.len() >= self.max_entries {
-            if let Some(oldest) = self
-                .entries
-                .iter()
-                .min_by_key(|(_, (_, t))| *t)
-                .map(|(ip, _)| *ip)
-            {
-                self.entries.remove(&oldest);
+            // Pop heap entries until we find one that matches a live map entry.
+            loop {
+                match self.eviction_heap.pop() {
+                    None => break,
+                    Some(Reverse((ts, victim_ip))) => {
+                        if let Some((_, entry_ts)) = self.entries.get(&victim_ip) {
+                            if *entry_ts == ts {
+                                // Live entry with matching timestamp — evict it.
+                                self.entries.remove(&victim_ip);
+                                break;
+                            }
+                            // Stale: timestamp updated (window reset) — skip.
+                        }
+                        // Stale: entry was removed via record_success — skip.
+                    }
+                }
             }
         }
 
         self.entries.insert(ip, (1, now));
+        self.eviction_heap.push(Reverse((now, ip)));
         1 == self.threshold
     }
 
     /// Record a successful authentication from `ip`, resetting its failure count.
     pub fn record_success(&mut self, ip: IpAddr) {
+        // Removing from the HashMap is sufficient.  The eviction_heap entry
+        // becomes stale and will be skipped during the next eviction pass.
         self.entries.remove(&ip);
     }
 
@@ -169,7 +192,7 @@ mod tests {
     }
 
     #[test]
-    fn evicts_oldest_when_at_capacity() {
+    fn evicts_when_at_capacity() {
         let mut tracker = AuthFailureTracker::new(100, Duration::from_secs(60), 3);
         // Fill capacity with 3 distinct IPs.
         tracker.record_failure(ip("10.0.0.1"));

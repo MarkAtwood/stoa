@@ -346,16 +346,31 @@ async fn jmap_api_handler(
     let is_operator = state.auth_config.is_operator(&username);
     let server_start = state.start_time;
 
-    // Look up the numeric user_id from the users table.  In dev mode
-    // (username == "anonymous") or if the user row does not exist yet,
-    // fall back to 1 (v1 single-user default).
-    let user_id: i64 = sqlx::query_scalar("SELECT id FROM users WHERE username = ?")
+    // Look up the numeric user_id from the users table.
+    let user_id: i64 = match sqlx::query_scalar("SELECT id FROM users WHERE username = ?")
         .bind(&username)
         .fetch_optional(&*jmap.mail_pool)
         .await
-        .ok()
-        .flatten()
-        .unwrap_or(SINGLETON_USER_ID);
+    {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            if username != "anonymous" {
+                tracing::warn!(
+                    username = %username,
+                    "JMAP: user not found in users table; falling back to singleton user_id"
+                );
+            }
+            SINGLETON_USER_ID
+        }
+        Err(e) => {
+            tracing::warn!(
+                username = %username,
+                error = %e,
+                "JMAP: users table lookup failed; falling back to singleton user_id"
+            );
+            SINGLETON_USER_ID
+        }
+    };
 
     let mut method_responses = Vec::new();
 

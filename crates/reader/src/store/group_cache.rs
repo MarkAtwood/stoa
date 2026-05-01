@@ -24,6 +24,13 @@ struct CacheEntry {
     inserted_at: Instant,
 }
 
+/// Hard cap on the number of entries in the cache.
+///
+/// When inserting at capacity, expired entries are pruned first.  If still at
+/// capacity after pruning, the oldest entry (smallest `inserted_at`) is evicted.
+/// Prevents unbounded memory growth when a server handles many distinct groups.
+const MAX_CACHE_ENTRIES: usize = 10_000;
+
 /// In-memory TTL cache for group metadata.
 pub struct GroupMetadataCache {
     entries: RwLock<HashMap<String, CacheEntry>>,
@@ -57,8 +64,26 @@ impl GroupMetadataCache {
     }
 
     /// Insert or update metadata for a group.
+    ///
+    /// Enforces [`MAX_CACHE_ENTRIES`]: if the cache is at capacity, expired
+    /// entries are pruned first; if still at capacity, the oldest entry is
+    /// evicted to make room.
     pub async fn insert(&self, metadata: GroupMetadata) {
         let mut entries = self.entries.write().await;
+        if entries.len() >= MAX_CACHE_ENTRIES && !entries.contains_key(&metadata.name) {
+            let now = Instant::now();
+            let ttl = self.ttl;
+            entries.retain(|_, e| now.duration_since(e.inserted_at) < ttl);
+            if entries.len() >= MAX_CACHE_ENTRIES {
+                let oldest_key = entries
+                    .iter()
+                    .min_by_key(|(_, e)| e.inserted_at)
+                    .map(|(k, _)| k.clone());
+                if let Some(k) = oldest_key {
+                    entries.remove(&k);
+                }
+            }
+        }
         entries.insert(
             metadata.name.clone(),
             CacheEntry {

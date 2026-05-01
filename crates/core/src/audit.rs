@@ -414,19 +414,30 @@ async fn flush_buffer(pool: &AnyPool, buffer: &mut Vec<(i64, AuditEvent)>) {
         }
     };
 
-    for (occurred_at_ms, event) in buffer.iter() {
-        let event_type = event.event_type();
-        let event_json = event.to_json();
-        if let Err(e) = sqlx::query(
-            "INSERT INTO audit_log (timestamp_ms, event_type, event_json) VALUES (?, ?, ?)",
-        )
-        .bind(occurred_at_ms)
-        .bind(event_type)
-        .bind(&event_json)
-        .execute(&mut *tx)
-        .await
-        {
-            tracing::error!("audit logger: insert failed: {e}");
+    // Bulk INSERT all buffered events.  Each row needs 3 bind parameters
+    // (timestamp_ms, event_type, event_json); SQLite's default
+    // SQLITE_MAX_VARIABLE_NUMBER is 999 on old versions, so chunk at 333 rows
+    // (333 × 3 = 999) to stay within the limit on any SQLite build.
+    const CHUNK_SIZE: usize = 333;
+    for chunk in buffer.chunks(CHUNK_SIZE) {
+        let placeholders = chunk
+            .iter()
+            .map(|_| "(?, ?, ?)")
+            .collect::<Vec<_>>()
+            .join(", ");
+        let sql = format!(
+            "INSERT INTO audit_log (timestamp_ms, event_type, event_json) VALUES {}",
+            placeholders
+        );
+        let mut q = sqlx::query(&sql);
+        for (occurred_at_ms, event) in chunk {
+            q = q
+                .bind(occurred_at_ms)
+                .bind(event.event_type())
+                .bind(event.to_json());
+        }
+        if let Err(e) = q.execute(&mut *tx).await {
+            tracing::error!("audit logger: bulk insert failed: {e}");
         }
     }
 
