@@ -264,7 +264,7 @@ async fn transit_reader_shared_store() {
         ),
         path_hostname: "localhost".to_string(),
         audit_logger: None,
-        auth_failure_tracker: Arc::new(std::sync::Mutex::new(AuthFailureTracker::new(
+        auth_failure_tracker: Arc::new(tokio::sync::Mutex::new(AuthFailureTracker::new(
             10,
             std::time::Duration::from_secs(60),
             DEFAULT_MAX_ENTRIES,

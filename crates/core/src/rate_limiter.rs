@@ -43,7 +43,9 @@ impl RateLimiter {
             rpm,
             state: Mutex::new(Inner {
                 map: HashMap::new(),
-                call_count: 0,
+                // Start at 1 so the first call does not trigger an eviction
+                // scan over an empty map (0 % EVICT_INTERVAL == 0 is true).
+                call_count: 1,
             }),
         }
     }

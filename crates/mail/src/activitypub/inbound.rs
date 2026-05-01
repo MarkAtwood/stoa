@@ -444,17 +444,36 @@ fn verify_rsa_sha256(pub_key_pem: &str, signed_string: &str, sig_b64: &str) -> R
 
 /// Remove HTML tags and decode basic entities to get plaintext.
 fn strip_html(html: &str) -> String {
+    // Only block-level tags produce a newline; inline tags (strong, em, a, etc.) do not.
+    const BLOCK_TAGS: &[&str] = &[
+        "p", "div", "br", "h1", "h2", "h3", "h4", "h5", "h6",
+        "li", "ul", "ol", "blockquote", "pre", "hr", "tr", "td", "th",
+    ];
+
     let mut out = String::with_capacity(html.len());
     let mut in_tag = false;
+    let mut tag_buf = String::new();
     for ch in html.chars() {
         match ch {
-            '<' => in_tag = true,
+            '<' => {
+                in_tag = true;
+                tag_buf.clear();
+            }
             '>' => {
                 in_tag = false;
-                out.push('\n'); // newline after block elements
+                // Strip leading '/' for closing tags, then take the tag name.
+                let name = tag_buf.trim_start_matches('/')
+                    .split_ascii_whitespace()
+                    .next()
+                    .unwrap_or("")
+                    .to_ascii_lowercase();
+                if BLOCK_TAGS.contains(&name.as_str()) {
+                    out.push('\n');
+                }
+                tag_buf.clear();
             }
-            _ if !in_tag => out.push(ch),
-            _ => {}
+            _ if in_tag => tag_buf.push(ch),
+            _ => out.push(ch),
         }
     }
     // Decode basic HTML entities.

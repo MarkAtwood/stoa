@@ -199,8 +199,14 @@ where
     );
     write_res?;
     read_res?;
-    let their_pubkey_bytes: [u8; 32] = in_frame[..32].try_into().unwrap();
-    let their_sig_bytes: [u8; 64] = in_frame[32..].try_into().unwrap();
+    // in_frame is [u8; 96]: first 32 bytes = public key, last 64 bytes = signature.
+    // These slices are exactly the right length by construction; try_into cannot fail.
+    let their_pubkey_bytes: [u8; 32] = in_frame[..32]
+        .try_into()
+        .expect("infallible: in_frame[..32] is exactly 32 bytes");
+    let their_sig_bytes: [u8; 64] = in_frame[32..]
+        .try_into()
+        .expect("infallible: in_frame[32..] is exactly 64 bytes");
 
     // DECISION (rbe3.28): constant-time lookup prevents timing oracle.
     // Using `==` or an early-exit find() would leak the Hamming distance to

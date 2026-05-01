@@ -674,9 +674,7 @@ where
                         remote_ip = %peer_ip,
                         username = %username,
                     );
-                    if let Ok(mut tracker) = stores.auth_failure_tracker.lock() {
-                        tracker.record_success(peer_ip);
-                    }
+                    stores.auth_failure_tracker.lock().await.record_success(peer_ip);
                     ctx.state = SessionState::Active;
                     ctx.is_drain_session = config
                         .auth
@@ -696,11 +694,7 @@ where
                         username = %username,
                         reason = "bad_password",
                     );
-                    let lockout = stores
-                        .auth_failure_tracker
-                        .lock()
-                        .map(|mut t| t.record_failure(peer_ip))
-                        .unwrap_or(false);
+                    let lockout = stores.auth_failure_tracker.lock().await.record_failure(peer_ip);
                     if lockout {
                         // Stable structured log field (fail2ban-compatible): event=auth_lockout.
                         warn!(
@@ -775,9 +769,7 @@ where
                             remote_ip = %peer_ip,
                             username = %username,
                         );
-                        if let Ok(mut tracker) = stores.auth_failure_tracker.lock() {
-                            tracker.record_success(peer_ip);
-                        }
+                        stores.auth_failure_tracker.lock().await.record_success(peer_ip);
                         if let Some(logger) = &stores.audit_logger {
                             logger.log(AuditEvent::AuthAttempt {
                                 peer_addr: peer_addr.to_string(),
@@ -800,11 +792,7 @@ where
                             reason = "oauthbearer_jwt_invalid",
                             "OAUTHBEARER: {e}",
                         );
-                        let lockout = stores
-                            .auth_failure_tracker
-                            .lock()
-                            .map(|mut t| t.record_failure(peer_ip))
-                            .unwrap_or(false);
+                        let lockout = stores.auth_failure_tracker.lock().await.record_failure(peer_ip);
                         if lockout {
                             warn!(
                                 event = "auth_lockout",

@@ -316,13 +316,16 @@ async fn handle_create(
 
     // Deduplication key: activity id → note id → SHA-256 of activity JSON.
     // Dedup always fires regardless of which fields are present.
+    // Dedup priority: activity id → note id → SHA-256 of the Note object.
+    // Hashing the Note (not the full Create wrapper) ensures re-deliveries of
+    // the same Note in different wrapper activities are correctly deduplicated.
     let dedup_key = if !activity_id.is_empty() {
         activity_id.clone()
     } else if !note_id.is_empty() {
         note_id.clone()
     } else {
-        let json_bytes = serde_json::to_vec(activity).unwrap_or_default();
-        let hash = Sha256::digest(&json_bytes);
+        let note_bytes = serde_json::to_vec(&activity["object"]).unwrap_or_default();
+        let hash = Sha256::digest(&note_bytes);
         format!("sha256:{}", HEXLOWER.encode(&hash))
     };
 

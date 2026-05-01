@@ -10,14 +10,18 @@
 
 use serde_json::{json, Value};
 
+use stoa_core::article::GroupName;
+
 use crate::{mailbox::types::mailbox_id_for_group, state::subscriptions::SubscriptionStore};
 use stoa_reader::store::article_numbers::ArticleNumberStore;
 
-/// Returns `true` when `name` looks like a newsgroup name.
+/// Returns `true` when `name` is a valid newsgroup name.
 ///
-/// A newsgroup name must contain at least one dot and no whitespace.
+/// Requires at least one dot (newsgroup names are hierarchical) and delegates
+/// full character-level validation to `GroupName::new` for consistency with
+/// the rest of the stack.
 fn is_newsgroup_name(name: &str) -> bool {
-    !name.is_empty() && name.contains('.') && !name.chars().any(|c| c.is_whitespace())
+    name.contains('.') && GroupName::new(name).is_ok()
 }
 
 /// Handle a Mailbox/set request.

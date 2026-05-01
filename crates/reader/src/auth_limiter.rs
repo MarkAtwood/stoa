@@ -19,7 +19,7 @@ pub const DEFAULT_MAX_ENTRIES: usize = 10_000;
 /// Tracks per-IP authentication failure counts within a sliding window.
 ///
 /// Constructed once at startup and shared across NNTP sessions via
-/// `Arc<std::sync::Mutex<AuthFailureTracker>>`.
+/// `Arc<tokio::sync::Mutex<AuthFailureTracker>>`.
 #[derive(Debug)]
 pub struct AuthFailureTracker {
     /// Per-IP state: (failure_count_in_window, window_start).

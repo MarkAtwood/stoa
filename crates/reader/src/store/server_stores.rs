@@ -72,7 +72,7 @@ pub struct ServerStores {
     /// Async audit logger. None only in unit-test stores created by new_mem().
     pub audit_logger: Option<Arc<dyn AuditLogger>>,
     /// Per-IP authentication failure tracker for fail2ban-compatible lockout events.
-    pub auth_failure_tracker: Arc<std::sync::Mutex<AuthFailureTracker>>,
+    pub auth_failure_tracker: Arc<tokio::sync::Mutex<AuthFailureTracker>>,
     /// OIDC JWT validator for SASL OAUTHBEARER (RFC 7628).
     /// `None` when no `[[auth.oidc_providers]]` entries are configured.
     pub oidc_store: Option<Arc<OidcStore>>,
@@ -181,7 +181,7 @@ impl ServerStores {
             mail_complaints_to: config.operator.mail_complaints_to.clone(),
             max_clock_skew_secs: config.limits.max_clock_skew_secs,
             audit_logger: Some(audit_logger),
-            auth_failure_tracker: Arc::new(std::sync::Mutex::new(AuthFailureTracker::new(
+            auth_failure_tracker: Arc::new(tokio::sync::Mutex::new(AuthFailureTracker::new(
                 10,
                 std::time::Duration::from_secs(60),
                 DEFAULT_MAX_ENTRIES,
@@ -247,13 +247,14 @@ impl ServerStores {
             verification_store: Arc::new(VerificationStore::new(verify_pool)),
             dkim_authenticator: Arc::new(
                 MessageAuthenticator::new_cloudflare_tls()
-                    .expect("DKIM authenticator init must not fail"),
+                    .or_else(|_| MessageAuthenticator::new_system_conf())
+                    .expect("DKIM authenticator init failed"),
             ),
             path_hostname: "localhost".to_owned(),
             mail_complaints_to: None,
             max_clock_skew_secs: None,
             audit_logger: None,
-            auth_failure_tracker: Arc::new(std::sync::Mutex::new(AuthFailureTracker::new(
+            auth_failure_tracker: Arc::new(tokio::sync::Mutex::new(AuthFailureTracker::new(
                 10,
                 std::time::Duration::from_secs(60),
                 DEFAULT_MAX_ENTRIES,

@@ -258,7 +258,7 @@ async fn nntp_conformance_via_nntplib() {
         ),
         path_hostname: "localhost".to_string(),
         audit_logger: None,
-        auth_failure_tracker: Arc::new(std::sync::Mutex::new(AuthFailureTracker::new(
+        auth_failure_tracker: Arc::new(tokio::sync::Mutex::new(AuthFailureTracker::new(
             10,
             std::time::Duration::from_secs(60),
             DEFAULT_MAX_ENTRIES,
@@ -402,7 +402,7 @@ async fn auth_lockout_triggered_after_threshold_failures() {
     stores.credential_store = Arc::new(
         CredentialStore::from_content("test", &format!("testuser:{TEST_BCRYPT_HASH}\n")).unwrap(),
     );
-    *stores.auth_failure_tracker.lock().unwrap() =
+    *stores.auth_failure_tracker.lock().await =
         AuthFailureTracker::new(3, Duration::from_secs(60), 100);
     let stores = Arc::new(stores);
 
@@ -449,11 +449,7 @@ async fn auth_lockout_triggered_after_threshold_failures() {
 
     // Verify the tracker recorded all 3 failures for 127.0.0.1.
     let peer_ip: std::net::IpAddr = "127.0.0.1".parse().unwrap();
-    let count = stores
-        .auth_failure_tracker
-        .lock()
-        .unwrap()
-        .failure_count(peer_ip);
+    let count = stores.auth_failure_tracker.lock().await.failure_count(peer_ip);
     assert_eq!(
         count, 3,
         "auth_failure_tracker must record 3 failures for 127.0.0.1; got {count}"
@@ -508,7 +504,7 @@ async fn article_posted_writes_audit_row() {
         ),
         path_hostname: "localhost".to_string(),
         audit_logger: Some(audit_logger),
-        auth_failure_tracker: Arc::new(std::sync::Mutex::new(AuthFailureTracker::new(
+        auth_failure_tracker: Arc::new(tokio::sync::Mutex::new(AuthFailureTracker::new(
             10,
             Duration::from_secs(60),
             DEFAULT_MAX_ENTRIES,
