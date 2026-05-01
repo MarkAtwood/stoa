@@ -383,18 +383,38 @@ pub async fn build_block_store(
 /// Write a signed article to IPFS and record the Message-ID → CID mapping.
 ///
 /// Steps:
-/// 1. Write block to IPFS via `ipfs_store.put_raw(article_bytes)`.
+/// 1. Check `msgid_map` for `message_id` — return `Err(441)` if already known
+///    (duplicate). This gate prevents concurrent ingestion from writing orphaned
+///    IPFS blocks when `msgid_map.insert` would hit ON CONFLICT DO NOTHING.
+/// 2. Write block to IPFS via `ipfs_store.put_raw(article_bytes)`.
 ///    The returned CID is CIDv1 RAW SHA2-256 of `article_bytes`.
-/// 2. Insert `(message_id, cid)` into `msgid_map` (idempotent).
-/// 3. Return `Ok(cid)` on success.
-/// 4. Return `Err(441 response)` if the IPFS write fails; `msgid_map` is
-///    **not** updated in that case.
+/// 3. Insert `(message_id, cid)` into `msgid_map`.
+/// 4. Return `Ok(cid)` on success.
 pub async fn write_article_to_ipfs(
     ipfs_store: &dyn IpfsBlockStore,
     msgid_map: &MsgIdMap,
     article_bytes: &[u8],
     message_id: &str,
 ) -> Result<Cid, Response> {
+    // Dedup check BEFORE IPFS write: two concurrent ingestions for the same
+    // article would otherwise both write to IPFS; the second insert would hit
+    // ON CONFLICT DO NOTHING and leave an orphaned IPFS block.
+    match msgid_map.lookup_by_msgid(message_id).await {
+        Ok(Some(_)) => {
+            return Err(Response::new(
+                441,
+                "Duplicate article: Message-ID already known",
+            ))
+        }
+        Ok(None) => {}
+        Err(e) => {
+            return Err(Response::new(
+                500,
+                format!("Internal error: storage lookup failed: {e}"),
+            ))
+        }
+    }
+
     let cid = ipfs_store
         .put_raw(article_bytes)
         .await
@@ -417,11 +437,12 @@ pub async fn write_article_to_ipfs(
 /// [`verify_entry`].
 ///
 /// Steps:
-/// 1. Split `article_bytes` into header and body sections.
-/// 2. Call [`build_article`] to produce the IPLD block set.
-/// 3. Store every block via `ipfs_store.put_block(cid, data)`.
-/// 4. Insert `(message_id, root_cid)` into `msgid_map` (idempotent).
-/// 5. Return `Ok(root_cid)` on success.
+/// 1. Check `msgid_map` for `message_id` — return `Err(441)` if already known.
+/// 2. Split `article_bytes` into header and body sections.
+/// 3. Call [`build_article`] to produce the IPLD block set.
+/// 4. Store every block via `ipfs_store.put_block(cid, data)`.
+/// 5. Insert `(message_id, root_cid)` into `msgid_map`.
+/// 6. Return `Ok(root_cid)` on success.
 pub async fn write_ipld_article_to_ipfs(
     ipfs_store: &dyn IpfsBlockStore,
     msgid_map: &MsgIdMap,
@@ -430,6 +451,25 @@ pub async fn write_ipld_article_to_ipfs(
     newsgroups: Vec<String>,
     hlc_timestamp: u64,
 ) -> Result<Cid, Response> {
+    // Dedup check BEFORE IPFS writes: concurrent ingestions for the same
+    // article would otherwise both write blocks to IPFS; the second
+    // msgid_map.insert would hit ON CONFLICT DO NOTHING and leave orphaned blocks.
+    match msgid_map.lookup_by_msgid(message_id).await {
+        Ok(Some(_)) => {
+            return Err(Response::new(
+                441,
+                "Duplicate article: Message-ID already known",
+            ))
+        }
+        Ok(None) => {}
+        Err(e) => {
+            return Err(Response::new(
+                500,
+                format!("Internal error: storage lookup failed: {e}"),
+            ))
+        }
+    }
+
     // Split header and body.
     let (header_bytes, body_bytes) = split_header_body(article_bytes);
 

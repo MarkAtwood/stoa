@@ -91,8 +91,19 @@ async fn do_post(
         }
         line.clear();
 
+        // Write AUTHINFO PASS in three separate writes to avoid constructing a
+        // String that contains the password (which could be captured in error
+        // messages or logs).
         writer
-            .write_all(format!("AUTHINFO PASS {password}\r\n").as_bytes())
+            .write_all(b"AUTHINFO PASS ")
+            .await
+            .map_err(|e| format!("failed to send AUTHINFO PASS: {e}"))?;
+        writer
+            .write_all(password.as_bytes())
+            .await
+            .map_err(|_| "failed to send AUTHINFO PASS: write error".to_string())?;
+        writer
+            .write_all(b"\r\n")
             .await
             .map_err(|e| format!("failed to send AUTHINFO PASS: {e}"))?;
 
@@ -101,6 +112,8 @@ async fn do_post(
             .await
             .map_err(|e| format!("failed to read AUTHINFO PASS response: {e}"))?;
         if !line.starts_with("281") {
+            // Include the server's response (does not contain the password) but
+            // never interpolate the password itself into this error string.
             return Err(format!("AUTHINFO PASS failed: {}", line.trim_end()));
         }
         line.clear();
@@ -165,7 +178,8 @@ async fn do_post(
                     line.trim_end()
                 ));
             }
-            let backoff = Duration::from_millis(500u64 * (1u64 << attempt));
+            let shift = attempt.min(63) as u32;
+            let backoff = Duration::from_millis(500u64.saturating_mul(1u64 << shift));
             warn!(
                 attempt,
                 backoff_ms = backoff.as_millis(),
