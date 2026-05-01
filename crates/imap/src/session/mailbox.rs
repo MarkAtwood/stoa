@@ -269,7 +269,8 @@ pub async fn get_or_create_uidvalidity(
     let uidvalidity = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
-        .as_secs() as u32;
+        .as_secs()
+        .min(u64::from(u32::MAX)) as u32;
     let uidvalidity = uidvalidity.max(1);
 
     sqlx::query(

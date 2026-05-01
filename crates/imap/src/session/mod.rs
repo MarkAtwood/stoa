@@ -475,7 +475,7 @@ async fn run_session_inner(mut stream: Stream, mut ctx: SessionContext) {
                     // silently ignored per RFC 5161 §3.2.
                     CommandBody::Enable { capabilities } => {
                         match ctx.state {
-                            ImapState::Authenticated { .. } => {
+                            ImapState::Authenticated { .. } | ImapState::Selected { .. } => {
                                 let mut newly_enabled: Vec<CapabilityEnable<'static>> = vec![];
                                 for cap in capabilities.as_ref() {
                                     // WORKAROUND: CapabilityEnable has no Imap4Rev2 variant;
