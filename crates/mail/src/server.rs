@@ -1,4 +1,4 @@
-use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Instant};
+use std::{net::SocketAddr, sync::Arc, time::Instant};
 
 use axum::{
     extract::{DefaultBodyLimit, Extension, Request, State},
@@ -657,13 +657,16 @@ async fn route_method(
                 Err(e) => return json!({"error": e.to_string()}),
             };
 
+            let numbers: Vec<u64> = records.iter().map(|r| r.article_number).collect();
+            let cid_map = jmap
+                .article_numbers
+                .lookup_cids_batch(&group_name, &numbers)
+                .await
+                .unwrap_or_default();
+
             let mut entries = Vec::new();
             for rec in &records {
-                if let Ok(Some(cid)) = jmap
-                    .article_numbers
-                    .lookup_cid(&group_name, rec.article_number)
-                    .await
-                {
+                if let Some(cid) = cid_map.get(&rec.article_number).copied() {
                     entries.push(crate::email::query::EmailOverviewEntry {
                         cid,
                         message_id: rec.message_id.clone(),
@@ -876,12 +879,14 @@ async fn route_method(
                     Ok(r) => r,
                     Err(_) => continue,
                 };
+                let numbers: Vec<u64> = records.iter().map(|r| r.article_number).collect();
+                let cid_map = jmap
+                    .article_numbers
+                    .lookup_cids_batch(group_name, &numbers)
+                    .await
+                    .unwrap_or_default();
                 for rec in &records {
-                    if let Ok(Some(cid)) = jmap
-                        .article_numbers
-                        .lookup_cid(group_name, rec.article_number)
-                        .await
-                    {
+                    if let Some(cid) = cid_map.get(&rec.article_number).copied() {
                         entries.push(crate::thread::get::ThreadEntry {
                             email_id: cid.to_string(),
                             references: rec.references.clone(),
@@ -1050,22 +1055,8 @@ async fn route_method(
                 .unwrap_or("")
                 .to_string();
 
-            // Build CID-bytes → (group, article_num) reverse map when needed.
-            let cid_map: HashMap<Vec<u8>, (String, u64)> =
-                if !text_query.is_empty() && jmap.search_index.is_some() {
-                    match jmap.article_numbers.list_all_articles().await {
-                        Ok(arts) => arts
-                            .into_iter()
-                            .map(|(g, n, c)| (c.to_bytes(), (g, n)))
-                            .collect(),
-                        Err(e) => {
-                            tracing::warn!("SearchSnippet/get: list_all_articles failed: {e}");
-                            HashMap::new()
-                        }
-                    }
-                } else {
-                    HashMap::new()
-                };
+            // Reverse-lookup: resolve each emailId CID to (group, article_num) on demand.
+            // Avoids loading all articles into memory — each lookup is a single indexed query.
 
             let mut list: Vec<Value> = Vec::new();
             let mut not_found: Vec<String> = Vec::new();
@@ -1083,10 +1074,16 @@ async fn route_method(
                     if text_query.is_empty() || jmap.search_index.is_none() {
                         // No text query or no index — return null snippets.
                         (None, None)
-                    } else if let Some((group, num)) = cid_map.get(&cid.to_bytes()) {
+                    } else if let Some((group, num)) = jmap
+                        .article_numbers
+                        .lookup_by_cid(&cid)
+                        .await
+                        .ok()
+                        .flatten()
+                    {
                         let subject_text = jmap
                             .overview_store
-                            .query_by_number(group, *num)
+                            .query_by_number(&group, num)
                             .await
                             .ok()
                             .flatten()

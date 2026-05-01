@@ -152,6 +152,61 @@ impl ArticleNumberStore {
 
     /// Return the `(low, high)` article number range for a group.
     ///
+    /// Batch-lookup CIDs for a slice of article numbers in one query.
+    ///
+    /// Returns a `HashMap<article_number, CID>` containing only the numbers that
+    /// were found. Numbers not in the store are silently absent from the map.
+    /// Replaces N sequential `lookup_cid` calls with a single IN-clause query.
+    pub async fn lookup_cids_batch(
+        &self,
+        group: &str,
+        numbers: &[u64],
+    ) -> Result<std::collections::HashMap<u64, Cid>, sqlx::Error> {
+        if numbers.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+
+        let mut qb = sqlx::QueryBuilder::new(
+            "SELECT article_number, cid FROM article_numbers WHERE group_name = ",
+        );
+        qb.push_bind(group);
+        qb.push(" AND article_number IN (");
+        let mut sep = qb.separated(", ");
+        for &n in numbers {
+            sep.push_bind(n as i64);
+        }
+        sep.push_unseparated(")");
+
+        let rows: Vec<(i64, Vec<u8>)> = qb.build_query_as().fetch_all(&self.pool).await?;
+        let mut map = std::collections::HashMap::with_capacity(rows.len());
+        for (num, cid_bytes) in rows {
+            let cid = Cid::try_from(cid_bytes.as_slice())
+                .map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
+            map.insert(num as u64, cid);
+        }
+        Ok(map)
+    }
+
+    /// Reverse-lookup the group name and article number for a given CID.
+    ///
+    /// Used by SearchSnippet/get to map email IDs (CID strings) back to
+    /// their overview-store location without loading all articles into memory.
+    pub async fn lookup_by_cid(
+        &self,
+        cid: &Cid,
+    ) -> Result<Option<(String, u64)>, sqlx::Error> {
+        let cid_bytes = cid.to_bytes();
+
+        let row: Option<(String, i64)> = sqlx::query_as(
+            "SELECT group_name, article_number FROM article_numbers WHERE cid = ? LIMIT 1",
+        )
+        .bind(cid_bytes)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|(g, n)| (g, n as u64)))
+    }
+
     /// Returns `(1, 0)` for an empty group (RFC 3977 convention: `low > high`
     /// means empty).
     pub async fn group_range(&self, group: &str) -> Result<(u64, u64), sqlx::Error> {

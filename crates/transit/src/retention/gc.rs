@@ -174,12 +174,7 @@ impl<P: PinClient> GcRunner<P> {
     /// Returns the count of articles unpinned in this run.
     ///
     /// [`GcReport`]: crate::retention::gc_report::GcReport
-    pub async fn run_once(
-        &self,
-        candidates: &[GcCandidate],
-        now_ms: u64,
-        transit_pool: Option<&AnyPool>,
-    ) -> u64 {
+    pub async fn run_once(&self, candidates: &[GcCandidate], now_ms: u64) -> u64 {
         use crate::retention::gc_report::{ms_to_datetime, new_run_id, GcReport, GcReportError};
 
         let started_at = ms_to_datetime(now_ms);
@@ -359,15 +354,11 @@ impl<P: PinClient> GcRunner<P> {
 /// `gc_lock`: when `Some(pool)` (PostgreSQL deployments), each run is
 /// guarded by a `pg_try_advisory_lock`.  If the lock is held by another
 /// instance the run is skipped with a debug log.  For SQLite pass `None`.
-///
-/// `transit_pool`: when `Some`, the articles-table row for each unpinned
-/// CID is deleted inside the advisory-lock window (fixes zmn9.31 and zmn9.38).
 pub async fn start_gc_scheduler<P, F, Fut>(
     runner: GcRunner<P>,
     interval: Duration,
     candidates_fn: F,
     gc_lock: Option<AnyPool>,
-    transit_pool: Option<AnyPool>,
 ) where
     P: PinClient + 'static,
     F: Fn() -> Fut + Send + 'static,
@@ -393,7 +384,7 @@ pub async fn start_gc_scheduler<P, F, Fut>(
             // The advisory lock is held for the entire run_once call,
             // including the articles-table cleanup inside it (zmn9.38).
             runner
-                .run_once(&candidates, now_ms, transit_pool.as_ref())
+                .run_once(&candidates, now_ms)
                 .await;
 
             // Only release the lock after all cleanup is complete (zmn9.38).
@@ -457,7 +448,7 @@ mod tests {
         // Policy: only pin sci.math. All 5 are comp.lang.rust → all unpinned.
         let metrics = GcMetrics::new();
         let runner = GcRunner::new(pin_client, pin_sci_math(), metrics.clone());
-        let unpinned = runner.run_once(&candidates, NOW_MS, None).await;
+        let unpinned = runner.run_once(&candidates, NOW_MS).await;
 
         assert_eq!(unpinned, 5, "all 5 should be unpinned");
         assert_eq!(
@@ -482,7 +473,7 @@ mod tests {
 
         let metrics = GcMetrics::new();
         let runner = GcRunner::new(pin_client, pin_sci_math(), metrics.clone());
-        let unpinned = runner.run_once(&candidates, NOW_MS, None).await;
+        let unpinned = runner.run_once(&candidates, NOW_MS).await;
 
         assert_eq!(
             unpinned, 3,
@@ -502,7 +493,7 @@ mod tests {
 
         let metrics = GcMetrics::new();
         let runner = GcRunner::new(pin_client, pin_all(), metrics.clone());
-        let unpinned = runner.run_once(&candidates, NOW_MS, None).await;
+        let unpinned = runner.run_once(&candidates, NOW_MS).await;
 
         assert_eq!(unpinned, 0, "pin all means nothing is unpinned");
     }
@@ -540,7 +531,7 @@ mod tests {
             "report must be None before first run"
         );
 
-        runner.run_once(&candidates, NOW_MS, None).await;
+        runner.run_once(&candidates, NOW_MS).await;
 
         let report = handle.read().await;
         let report = report.as_ref().expect("report must be Some after run");
@@ -569,7 +560,7 @@ mod tests {
         let runner = GcRunner::new(pin_client, pin_sci_math(), metrics);
         let handle = runner.last_report_handle();
 
-        runner.run_once(&candidates, NOW_MS, None).await;
+        runner.run_once(&candidates, NOW_MS).await;
 
         let report = handle.read().await;
         let report = report
@@ -597,7 +588,7 @@ mod tests {
         let runner =
             GcRunner::new(pin_client, pin_sci_math(), metrics).with_report_dir(Some(dir.clone()));
 
-        runner.run_once(&candidates, NOW_MS, None).await;
+        runner.run_once(&candidates, NOW_MS).await;
 
         let mut entries = tokio::fs::read_dir(&dir).await.expect("readdir");
         let entry = entries

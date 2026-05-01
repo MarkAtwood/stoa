@@ -7,11 +7,6 @@ use std::{
 use mail_auth::MessageAuthenticator;
 use rand_core::OsRng;
 
-/// Maximum pipeline attempts before a staged article is dead-lettered.
-///
-/// After this many consecutive failures the staging row is deleted with a
-/// warning log so that a permanently broken article does not block the drain.
-const MAX_PIPELINE_ATTEMPTS: u32 = 5;
 use stoa_core::{
     audit::{start_audit_logger, AuditLogger},
     group_log::SqliteLogStorage,
@@ -1222,33 +1217,6 @@ async fn main() {
                                     }
                                 }
                             }
-                        } else {
-                            // Increment attempt_count; dead-letter the row when the
-                            // maximum is reached to prevent infinite retry loops.
-                            let new_count: i64 = sqlx::query_scalar(
-                                "UPDATE transit_staging \
-                                 SET attempt_count = attempt_count + 1 \
-                                 WHERE id = ? \
-                                 RETURNING attempt_count",
-                            )
-                            .bind(&article.id)
-                            .fetch_one(&*transit_pool_drain)
-                            .await
-                            .unwrap_or(0);
-
-                            if new_count >= MAX_PIPELINE_ATTEMPTS as i64 {
-                                warn!(
-                                    msgid = %article.message_id,
-                                    attempts = new_count,
-                                    "staging: pipeline failed too many times, dead-lettering article"
-                                );
-                                if let Err(e) = staging.complete(&article).await {
-                                    warn!(
-                                        msgid = %article.message_id,
-                                        "staging: could not remove dead-letter row: {e}"
-                                    );
-                                }
-                            }
                         }
                     }
                     Err(e) => {
@@ -1425,14 +1393,8 @@ async fn main() {
             None
         };
 
-        start_gc_scheduler(
-            runner,
-            Duration::from_secs(3600),
-            candidates_fn,
-            gc_lock,
-            Some((*transit_pool).clone()),
-        )
-        .await;
+        start_gc_scheduler(runner, Duration::from_secs(3600), candidates_fn, gc_lock)
+            .await;
         info!(interval_secs = 3600, "GC scheduler started");
     }
 
