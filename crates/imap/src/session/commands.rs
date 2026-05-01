@@ -42,6 +42,13 @@ pub fn capability_list(tls: bool) -> Vec1<Capability<'static>> {
         Capability::try_from("IMAP4rev2").expect("IMAP4rev2 is a valid IMAP atom and cannot fail"),
     );
     caps.push(Capability::Namespace);
+    // RFC 6154: SPECIAL-USE advertises that LIST responses carry \Inbox, \Sent,
+    // \Drafts, \Trash, \Junk, \Archive, \HasChildren, \HasNoChildren, and
+    // \Noselect attributes on provisioned mailboxes.
+    caps.push(
+        Capability::try_from("SPECIAL-USE")
+            .expect("SPECIAL-USE is a valid IMAP atom and cannot fail"),
+    );
     Vec1::try_from(caps).expect("capability list always has at least one element")
 }
 
@@ -105,6 +112,13 @@ mod tests {
             caps.as_ref().contains(&Capability::Namespace),
             "NAMESPACE must always be present"
         );
+        assert!(
+            caps.as_ref().contains(
+                &Capability::try_from("SPECIAL-USE")
+                    .expect("SPECIAL-USE is a valid IMAP atom and cannot fail")
+            ),
+            "SPECIAL-USE must always be present (RFC 6154)"
+        );
     }
 
     #[test]
@@ -158,6 +172,13 @@ mod tests {
         assert!(
             caps.as_ref().contains(&Capability::Namespace),
             "NAMESPACE must always be present"
+        );
+        assert!(
+            caps.as_ref().contains(
+                &Capability::try_from("SPECIAL-USE")
+                    .expect("SPECIAL-USE is a valid IMAP atom and cannot fail")
+            ),
+            "SPECIAL-USE must always be present (RFC 6154)"
         );
     }
 
