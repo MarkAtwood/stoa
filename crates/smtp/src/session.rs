@@ -311,16 +311,14 @@ pub async fn run_session<S>(
                 // connection.  On cleartext sessions reject with 534 to
                 // prevent credentials from being sent in the clear.
                 if !is_tls {
-                    if write_half
+                    // RFC 4954 §4: after 534 the client MUST NOT retry on
+                    // this connection; close so it reconnects over TLS.
+                    let _ = write_half
                         .write_all(
                             b"534 5.7.9 Encryption required for requested authentication mechanism\r\n",
                         )
-                        .await
-                        .is_err()
-                    {
-                        break;
-                    }
-                    continue;
+                        .await;
+                    break;
                 }
                 if authenticated_user.is_some() {
                     if write_half
@@ -710,6 +708,18 @@ pub async fn run_session<S>(
             }
 
             "RSET" => {
+                // RFC 5321 §4.1.1.5: RSET is only valid after EHLO/HELO.
+                // Sending RSET before greeting is a bad command sequence.
+                if matches!(state, SessionState::Fresh) {
+                    if write_half
+                        .write_all(b"503 Bad sequence of commands\r\n")
+                        .await
+                        .is_err()
+                    {
+                        break;
+                    }
+                    continue;
+                }
                 if write_half.write_all(b"250 OK\r\n").await.is_err() {
                     break;
                 }

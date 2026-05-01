@@ -83,6 +83,7 @@ impl IpnsPublisher {
             if now_ms.saturating_sub(self.last_publish_ms) >= self.republish_interval_ms {
                 if self.can_publish().await {
                     self.update_and_publish().await;
+                    self.release_lock().await;
                     self.last_publish_ms = now_ms;
                 } else {
                     debug!(group = %event.group, "IPNS publish skipped (advisory lock held by another instance)");
@@ -109,6 +110,25 @@ impl IpnsPublisher {
             .fetch_one(pool)
             .await
             .unwrap_or(false)
+    }
+
+    /// Release the PostgreSQL advisory lock acquired by `can_publish`.
+    ///
+    /// Must be called after each successful publish so the lock does not
+    /// accumulate across publish cycles.  No-op when `pg_lock` is `None`.
+    async fn release_lock(&self) {
+        let pool = match &self.pg_lock {
+            Some(p) => p,
+            None => return,
+        };
+        if let Err(e) =
+            sqlx::query("SELECT pg_advisory_unlock(?)")
+                .bind(IPNS_ADVISORY_LOCK_ID)
+                .execute(pool)
+                .await
+        {
+            warn!("IPNS publisher: failed to release advisory lock: {e}");
+        }
     }
 
     /// Build the JSON index, store it as an IPFS block in Kubo, then publish IPNS.
@@ -153,10 +173,14 @@ pub fn build_index_json(groups: &BTreeMap<String, Cid>) -> Vec<u8> {
             out.push(',');
         }
         first = false;
-        // JSON-encode group name (may contain dots; no special chars in newsgroup names)
-        out.push('"');
-        out.push_str(group);
-        out.push_str(r#"":""#);
+        // JSON-encode the group name via serde_json so that any unexpected
+        // special characters (from a peer that bypassed GroupName validation)
+        // produce valid JSON rather than a corrupt byte sequence.
+        // For well-formed newsgroup names this produces identical output to
+        // the naive push_str approach.
+        let key = serde_json::to_string(group.as_str()).expect("str always serializes");
+        out.push_str(&key);
+        out.push_str(r#":""#);
         out.push_str(&cid.to_string());
         out.push('"');
     }

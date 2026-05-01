@@ -141,8 +141,11 @@ async fn run_admin_server(config: Arc<Config>, pool: SqlitePool, sieve_cache: Si
         sieve_cache,
     };
 
-    // Protected admin routes: bearer-token middleware applied to this sub-router.
-    let protected = Router::new()
+    // All routes are protected by the bearer-token middleware when a token is
+    // configured.  This includes /metrics: even though metrics expose no user
+    // data, they reveal internal counters that could aid targeted attacks, and
+    // the admin API already requires a token for all other endpoints.
+    let app = Router::new()
         .route("/admin/sieve/{username}", get(list_scripts))
         .route("/admin/sieve/{username}/{name}", get(get_script))
         .route("/admin/sieve/{username}/{name}", put(put_script))
@@ -152,16 +155,12 @@ async fn run_admin_server(config: Arc<Config>, pool: SqlitePool, sieve_cache: Si
             post(activate_script),
         )
         .route("/admin/sieve/check", post(check_script))
+        .route("/metrics", get(get_metrics))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             require_bearer_token,
         ))
         .with_state(state);
-
-    // /metrics is public: Prometheus metrics expose no user data.
-    let app = Router::new()
-        .route("/metrics", get(get_metrics))
-        .merge(protected);
 
     if let Err(e) = axum::serve(listener, app).await {
         // Log the error but do not panic — a panic in a spawned task is caught
@@ -308,9 +307,9 @@ async fn check_script(State(s): State<AdminState>, body: Bytes) -> Response {
 /// GET /metrics
 ///
 /// Returns all registered Prometheus metrics in the standard text exposition
-/// format (Content-Type: text/plain; version=0.0.4).  This route requires no
-/// authentication: Prometheus metrics contain aggregate counters and reveal no
-/// user data.
+/// format (Content-Type: text/plain; version=0.0.4).  This route is protected
+/// by the bearer-token middleware (same as all other admin endpoints) when a
+/// token is configured; unauthenticated when no token is set.
 async fn get_metrics() -> Response {
     let encoder = TextEncoder::new();
     let metric_families = prometheus::gather();
@@ -958,23 +957,35 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn metrics_endpoint_no_auth_required_even_with_bearer_token_app() {
-        // /metrics must bypass bearer-token middleware.
+    async fn metrics_endpoint_requires_auth_when_bearer_token_configured() {
+        // /metrics is protected by the bearer-token middleware when a token is set.
         let app = app_with_token("secret").await;
-        // app_with_token returns only the protected sub-router without /metrics;
-        // build the full router as run_admin_server does.
-        let app_with_metrics = Router::new().route("/metrics", get(get_metrics)).merge(app);
 
+        // Without Authorization header: expect 401.
         let req = Request::builder()
             .method(Method::GET)
             .uri("/metrics")
             .body(Body::empty())
             .unwrap();
-        let resp = app_with_metrics.oneshot(req).await.unwrap();
+        let resp = app.clone().oneshot(req).await.unwrap();
+        assert_eq!(
+            resp.status(),
+            StatusCode::UNAUTHORIZED,
+            "/metrics must return 401 without Authorization header when token configured"
+        );
+
+        // With correct token: expect 200.
+        let req = Request::builder()
+            .method(Method::GET)
+            .uri("/metrics")
+            .header("Authorization", "Bearer secret")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
         assert_eq!(
             resp.status(),
             StatusCode::OK,
-            "/metrics must return 200 without Authorization header"
+            "/metrics must return 200 with correct Authorization header"
         );
     }
 }

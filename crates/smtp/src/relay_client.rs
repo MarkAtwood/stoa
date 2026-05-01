@@ -84,9 +84,11 @@ static TLS_CLIENT_CONFIG: std::sync::LazyLock<Arc<rustls::ClientConfig>> =
     std::sync::LazyLock::new(|| {
         static ONCE: std::sync::OnceLock<()> = std::sync::OnceLock::new();
         ONCE.get_or_init(|| {
-            rustls::crypto::ring::default_provider()
-                .install_default()
-                .unwrap_or(());
+            if let Err(e) = rustls::crypto::ring::default_provider().install_default() {
+                // Only fails if a provider was already installed — not fatal,
+                // but indicates a programming mistake (double-init).
+                tracing::warn!("rustls crypto provider already installed: {e:?}");
+            }
         });
         let mut root_store = rustls::RootCertStore::empty();
         root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());

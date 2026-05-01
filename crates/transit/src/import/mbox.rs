@@ -335,8 +335,16 @@ async fn mbox_send_ihave(addr: &str, msgid: &str, article_bytes: &[u8]) -> Ihave
 
     match code {
         235 => IhaveSendResult::Accepted,
+        436 => {
+            tracing::info!("transfer of {msgid} failed with 436 (transient — server busy)");
+            IhaveSendResult::Failed
+        }
+        437 => {
+            tracing::info!("transfer of {msgid} rejected with 437 (permanent — article refused)");
+            IhaveSendResult::Failed
+        }
         _ => {
-            tracing::info!("transfer of {msgid} failed with code {code}");
+            tracing::info!("transfer of {msgid} failed with unexpected code {code}");
             IhaveSendResult::Failed
         }
     }
