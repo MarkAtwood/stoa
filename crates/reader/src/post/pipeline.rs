@@ -25,7 +25,15 @@ impl Default for PostPipelineConfig {
 /// Returns `Err(441 response)` if the message-id is already known (duplicate),
 /// `Ok(())` if the message-id has not been seen before.
 ///
-/// This check MUST happen before any signing or IPFS write.
+/// # Dedup architecture
+///
+/// This is the **authoritative** dedup gate and MUST be called before any
+/// signing or IPFS write.  `ipfs_write::write_article_to_ipfs` contains a
+/// second identical lookup that acts as a **defensive backstop** against a
+/// concurrent-request race (two POST requests that both pass this gate before
+/// either commits).  Both checks must be kept: removing this one leaves no
+/// early rejection for non-concurrent duplicates; removing the one in
+/// `ipfs_write` opens a small race window for concurrent requests.
 pub async fn check_duplicate_msgid(msgid_map: &MsgIdMap, message_id: &str) -> Result<(), Response> {
     match msgid_map.lookup_by_msgid(message_id).await {
         Ok(Some(_)) => Err(Response::new(

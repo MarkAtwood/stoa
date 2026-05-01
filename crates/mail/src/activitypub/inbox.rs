@@ -288,6 +288,29 @@ async fn handle_create(
     use data_encoding::HEXLOWER;
     use sha2::{Digest, Sha256};
 
+    // Only followers may inject content.  A valid HTTP Signature confirms key
+    // ownership but not whether the actor is a follower of this group.
+    let actor_url = activity["actor"].as_str().unwrap_or("");
+    if actor_url.is_empty() {
+        warn!(group = %group_name, "ActivityPub Create: missing actor field");
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    match ap_state.follower_store.is_follower(group_name, actor_url).await {
+        Ok(true) => {}
+        Ok(false) => {
+            warn!(
+                group = %group_name,
+                actor = %actor_url,
+                "ActivityPub Create rejected: actor is not a follower"
+            );
+            return StatusCode::FORBIDDEN.into_response();
+        }
+        Err(e) => {
+            warn!(group = %group_name, error = %e, "ActivityPub Create: follower lookup failed");
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    }
+
     let activity_id = activity["id"].as_str().unwrap_or("").to_string();
     let note_id = activity["object"]["id"].as_str().unwrap_or("").to_string();
 

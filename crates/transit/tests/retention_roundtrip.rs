@@ -93,6 +93,7 @@ async fn gc_roundtrip_13_unpinned_7_pinned() {
                 cid,
                 group_name: group.to_string(),
                 ingested_at_ms: now_ms - 86_400_000 * 30,
+                byte_count: 512,
                 gc_reason: GcReason::NoMatchingRule,
             });
         }
@@ -111,6 +112,7 @@ async fn gc_roundtrip_13_unpinned_7_pinned() {
                 cid,
                 group_name: group.to_string(),
                 ingested_at_ms: now_ms - 86_400_000 * 30,
+                byte_count: 512,
                 gc_reason: GcReason::NoMatchingRule,
             });
         }
@@ -119,9 +121,15 @@ async fn gc_roundtrip_13_unpinned_7_pinned() {
     // All 13 comp.lang.rust articles should be GC candidates
     assert_eq!(candidates.len(), 13, "expected 13 GC candidates");
 
-    let result = run_gc_executor(&candidates, &pin_client, &transit_pool, &core_pool, now_ms)
-        .await
-        .unwrap();
+    let result = run_gc_executor(
+        &candidates,
+        &pin_client,
+        Some(&transit_pool),
+        Some(&core_pool),
+        now_ms,
+    )
+    .await
+    .unwrap();
     assert_eq!(result.unpinned, 13, "should unpin 13");
     assert_eq!(result.failed, 0, "no failures expected");
 
@@ -166,6 +174,7 @@ async fn gc_roundtrip_pin_all_produces_no_candidates() {
                     cid: make_cid(&[100 + i]),
                     group_name: group.to_string(),
                     ingested_at_ms: 0,
+                    byte_count: 512,
                     gc_reason: GcReason::NoMatchingRule,
                 })
             }
@@ -174,9 +183,15 @@ async fn gc_roundtrip_pin_all_produces_no_candidates() {
 
     assert_eq!(candidates.len(), 0, "pin-all should produce 0 candidates");
 
-    let result = run_gc_executor(&candidates, &pin_client, &transit_pool, &core_pool, now_ms)
-        .await
-        .unwrap();
+    let result = run_gc_executor(
+        &candidates,
+        &pin_client,
+        Some(&transit_pool),
+        Some(&core_pool),
+        now_ms,
+    )
+    .await
+    .unwrap();
     assert_eq!(result.unpinned, 0);
 
     let audit_count = count_audit_records(&transit_pool).await.unwrap();

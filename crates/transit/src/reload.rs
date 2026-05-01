@@ -36,6 +36,9 @@ pub struct ReloadableState {
     prev_trusted_peer_hexes: RwLock<Vec<String>>,
     /// Previous log level string (for change detection; not applied at runtime).
     prev_log_level: RwLock<String>,
+    /// Serializes concurrent reloads: only one reload may compute a diff and
+    /// apply changes at a time, preventing TOCTOU races on the prev_* fields.
+    reload_mutex: tokio::sync::Mutex<()>,
 }
 
 /// Result of a config reload attempt.
@@ -64,6 +67,7 @@ impl ReloadableState {
             prev_group_names: RwLock::new(group_names),
             prev_trusted_peer_hexes: RwLock::new(trusted_peer_hexes),
             prev_log_level: RwLock::new(log_level),
+            reload_mutex: tokio::sync::Mutex::new(()),
         })
     }
 
@@ -77,6 +81,9 @@ impl ReloadableState {
     /// On config file parse error the current state is left unchanged and
     /// the error is returned in `errors`.
     pub async fn do_reload(&self) -> ReloadResult {
+        // Serialize concurrent reloads so that read-then-write sequences on
+        // prev_* fields are atomic from the perspective of other callers.
+        let _reload_guard = self.reload_mutex.lock().await;
         let new_config = match Config::from_file(&self.config_path) {
             Ok(c) => c,
             Err(e) => {

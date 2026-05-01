@@ -201,13 +201,17 @@ impl ProviderValidator {
 
         // Validate nbf (not-before) claim: reject tokens used before their
         // not-before time.  RFC 7519 §4.1.5 makes nbf optional; when present
-        // it must be a numeric timestamp and now >= nbf must hold.
+        // it must be a numeric timestamp and now + leeway >= nbf must hold.
+        // A 60-second clock-skew tolerance is applied (conventional; matches
+        // the jsonwebtoken crate's default leeway) to avoid false rejections
+        // when the issuer's clock is slightly ahead of the server's clock.
+        const NBF_LEEWAY_SECS: i64 = 60;
         if let Some(nbf) = claims.get("nbf").and_then(|v| v.as_i64()) {
             let now = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_secs() as i64;
-            if now < nbf {
+            if now + NBF_LEEWAY_SECS < nbf {
                 return Err(OidcError::InvalidToken(format!(
                     "token not yet valid: nbf={nbf} now={now}"
                 )));

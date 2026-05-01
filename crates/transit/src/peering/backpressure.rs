@@ -46,21 +46,31 @@ impl IpfsLatencyMonitor {
     ///
     /// Updates the EMA and re-evaluates the backpressure state.
     pub fn record_latency_ms(&self, latency_ms: f64) {
-        // Update EMA.
-        let prev_bits = self.ema_ms_bits.load(Ordering::Relaxed);
-        let prev = f64::from_bits(prev_bits);
         let count = self.sample_count.fetch_add(1, Ordering::Relaxed);
 
-        // For the first sample, initialize EMA = sample directly.
-        let new_ema = if count == 0 {
-            latency_ms
-        } else {
-            EMA_ALPHA * latency_ms + (1.0 - EMA_ALPHA) * prev
+        // Update EMA using a compare-and-swap loop to avoid the lost-update
+        // race that would occur if two callers both load the same prev value,
+        // compute their new EMA independently, and each store — one update
+        // would be silently discarded.
+        let new_ema = loop {
+            let prev_bits = self.ema_ms_bits.load(Ordering::Relaxed);
+            let prev = f64::from_bits(prev_bits);
+            // For the first sample (count == 0), initialize EMA = sample directly.
+            let candidate = if count == 0 {
+                latency_ms
+            } else {
+                EMA_ALPHA * latency_ms + (1.0 - EMA_ALPHA) * prev
+            };
+            match self.ema_ms_bits.compare_exchange_weak(
+                prev_bits,
+                f64::to_bits(candidate),
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) => break candidate,
+                Err(_) => continue,
+            }
         };
-
-        // Store as f64 bits in AtomicU64.
-        self.ema_ms_bits
-            .store(f64::to_bits(new_ema), Ordering::Relaxed);
 
         // Update backpressure state.
         let was_active = self.active.load(Ordering::Relaxed);

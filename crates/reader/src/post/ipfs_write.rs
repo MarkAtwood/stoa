@@ -396,9 +396,10 @@ pub async fn write_article_to_ipfs(
     article_bytes: &[u8],
     message_id: &str,
 ) -> Result<Cid, Response> {
-    // Dedup check BEFORE IPFS write: two concurrent ingestions for the same
-    // article would otherwise both write to IPFS; the second insert would hit
-    // ON CONFLICT DO NOTHING and leave an orphaned IPFS block.
+    // Defensive backstop dedup: rejects a duplicate that slipped past the
+    // primary gate (post::pipeline::check_duplicate_msgid) in a concurrent
+    // POST race.  Do NOT remove this check; see the doc on check_duplicate_msgid
+    // for the full two-level dedup architecture.
     match msgid_map.lookup_by_msgid(message_id).await {
         Ok(Some(_)) => {
             return Err(Response::new(
@@ -451,9 +452,8 @@ pub async fn write_ipld_article_to_ipfs(
     newsgroups: Vec<String>,
     hlc_timestamp: u64,
 ) -> Result<Cid, Response> {
-    // Dedup check BEFORE IPFS writes: concurrent ingestions for the same
-    // article would otherwise both write blocks to IPFS; the second
-    // msgid_map.insert would hit ON CONFLICT DO NOTHING and leave orphaned blocks.
+    // Defensive backstop dedup: same rationale as the lookup in
+    // write_article_to_ipfs above; see post::pipeline::check_duplicate_msgid.
     match msgid_map.lookup_by_msgid(message_id).await {
         Ok(Some(_)) => {
             return Err(Response::new(

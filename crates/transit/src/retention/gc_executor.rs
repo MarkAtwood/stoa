@@ -29,7 +29,15 @@ pub struct GcExecutorCandidate {
     pub cid: Cid,
     pub group_name: String,
     pub ingested_at_ms: u64,
+    pub byte_count: usize,
     pub gc_reason: GcReason,
+}
+
+/// A failed-unpin record from a GC executor run.
+#[derive(Debug)]
+pub struct GcExecutorError {
+    pub cid: String,
+    pub reason: String,
 }
 
 /// GC executor result.
@@ -37,6 +45,8 @@ pub struct GcExecutorCandidate {
 pub struct GcExecutorResult {
     pub unpinned: usize,
     pub failed: usize,
+    pub bytes_reclaimed: u64,
+    pub errors: Vec<GcExecutorError>,
 }
 
 /// Run GC: unpin each candidate, delete its DB records, and write an audit
@@ -48,51 +58,63 @@ pub struct GcExecutorResult {
 /// - `msgid_map` (core pool): allows the same Message-ID to be re-ingested
 ///   from another peer after the content has been pruned.
 ///
+/// `transit_pool` and `core_pool` may be `None` in unit-test contexts where no
+/// database is available; in that case the DB cleanup steps are skipped.
+///
 /// Deletion failures are logged as warnings but do not abort the GC run.
 /// Failed unpins are counted but also do not abort the run.
 pub async fn run_gc_executor<P: PinClient>(
     candidates: &[GcExecutorCandidate],
     pin_client: &P,
-    transit_pool: &AnyPool,
-    core_pool: &AnyPool,
+    transit_pool: Option<&AnyPool>,
+    core_pool: Option<&AnyPool>,
     now_ms: u64,
 ) -> Result<GcExecutorResult, StorageError> {
-    let msgid_map = MsgIdMap::new(core_pool.clone());
+    let msgid_map = core_pool.map(|p| MsgIdMap::new(p.clone()));
     let mut result = GcExecutorResult::default();
     for candidate in candidates {
         match pin_client.unpin(&candidate.cid).await {
             Ok(()) => {
-                // Remove from the articles table so the CID is no longer
-                // offered as a GC candidate on the next run.
                 let cid_str = candidate.cid.to_string();
-                if let Err(e) = sqlx::query("DELETE FROM articles WHERE cid = ?")
-                    .bind(&cid_str)
-                    .execute(transit_pool)
-                    .await
-                {
-                    tracing::warn!(cid = %candidate.cid, "GC: failed to delete articles row: {e}");
-                }
+                if let Some(tp) = transit_pool {
+                    // Remove from the articles table so the CID is no longer
+                    // offered as a GC candidate on the next run.
+                    if let Err(e) = sqlx::query("DELETE FROM articles WHERE cid = ?")
+                        .bind(&cid_str)
+                        .execute(tp)
+                        .await
+                    {
+                        tracing::warn!(cid = %candidate.cid, "GC: failed to delete articles row: {e}");
+                    }
 
-                // Remove from msgid_map so the message-id can be re-ingested.
-                if let Err(e) = msgid_map.delete_by_cid(&candidate.cid).await {
-                    tracing::warn!(cid = %candidate.cid, "GC: failed to delete msgid_map row: {e}");
-                }
+                    // Remove from msgid_map so the message-id can be re-ingested.
+                    if let Some(ref mm) = msgid_map {
+                        if let Err(e) = mm.delete_by_cid(&candidate.cid).await {
+                            tracing::warn!(cid = %candidate.cid, "GC: failed to delete msgid_map row: {e}");
+                        }
+                    }
 
-                let record = GcAuditRecord {
-                    cid: cid_str,
-                    group_name: candidate.group_name.clone(),
-                    ingested_at_ms: candidate.ingested_at_ms,
-                    gc_at_ms: now_ms,
-                    reason: candidate.gc_reason.to_string(),
-                };
-                if let Err(e) = append_audit_record(transit_pool, &record).await {
-                    tracing::warn!(cid = %candidate.cid, "GC: failed to write audit record: {e}");
+                    let record = GcAuditRecord {
+                        cid: cid_str,
+                        group_name: candidate.group_name.clone(),
+                        ingested_at_ms: candidate.ingested_at_ms,
+                        gc_at_ms: now_ms,
+                        reason: candidate.gc_reason.to_string(),
+                    };
+                    if let Err(e) = append_audit_record(tp, &record).await {
+                        tracing::warn!(cid = %candidate.cid, "GC: failed to write audit record: {e}");
+                    }
                 }
                 result.unpinned += 1;
+                result.bytes_reclaimed += candidate.byte_count as u64;
             }
             Err(e) => {
                 tracing::warn!(cid = %candidate.cid, "GC unpin failed: {e}");
                 result.failed += 1;
+                result.errors.push(GcExecutorError {
+                    cid: candidate.cid.to_string(),
+                    reason: e.to_string(),
+                });
             }
         }
     }
@@ -145,6 +167,7 @@ mod tests {
                     cid: cid.clone(),
                     group_name: "comp.lang.rust".to_string(),
                     ingested_at_ms: now_ms - 86_400_000,
+                    byte_count: 1024,
                     gc_reason: GcReason::NoMatchingRule,
                 }
             })
@@ -167,11 +190,18 @@ mod tests {
             pin_client.pin(&c.cid).await.unwrap();
         }
 
-        let result = run_gc_executor(&candidates, &pin_client, &transit_pool, &core_pool, now_ms)
-            .await
-            .unwrap();
+        let result = run_gc_executor(
+            &candidates,
+            &pin_client,
+            Some(&transit_pool),
+            Some(&core_pool),
+            now_ms,
+        )
+        .await
+        .unwrap();
         assert_eq!(result.unpinned, 10);
         assert_eq!(result.failed, 0);
+        assert_eq!(result.bytes_reclaimed, 10 * 1024);
 
         let audit_count = count_audit_records(&transit_pool).await.unwrap();
         assert_eq!(audit_count, 10, "should have 10 audit records");
@@ -197,14 +227,22 @@ mod tests {
             cid,
             group_name: "alt.test".to_string(),
             ingested_at_ms: 0,
+            byte_count: 512,
             gc_reason: GcReason::NoMatchingRule,
         }];
 
-        let result = run_gc_executor(&candidates, &pin_client, &transit_pool, &core_pool, 0)
-            .await
-            .unwrap();
+        let result = run_gc_executor(
+            &candidates,
+            &pin_client,
+            Some(&transit_pool),
+            Some(&core_pool),
+            0,
+        )
+        .await
+        .unwrap();
         assert_eq!(result.failed, 1);
         assert_eq!(result.unpinned, 0);
+        assert_eq!(result.errors.len(), 1);
 
         let audit_count = count_audit_records(&transit_pool).await.unwrap();
         assert_eq!(audit_count, 0, "failed unpins should not be audited");
@@ -215,7 +253,7 @@ mod tests {
         let (transit_pool, _tmp1) = make_transit_pool().await;
         let (core_pool, _tmp2) = make_core_pool().await;
         let pin_client = MemPinClient::new();
-        let result = run_gc_executor(&[], &pin_client, &transit_pool, &core_pool, 0)
+        let result = run_gc_executor(&[], &pin_client, Some(&transit_pool), Some(&core_pool), 0)
             .await
             .unwrap();
         assert_eq!(result.unpinned, 0);

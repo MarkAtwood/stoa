@@ -3,6 +3,14 @@
 //! After an article passes `check_ingest`, `run_pipeline` writes it to IPFS,
 //! records the Message-ID → CID mapping, and appends to each group log.
 
+/// Error-string prefix emitted when an article is missing its Message-ID header.
+/// Used by `main::classify_pipeline_error` to distinguish permanent failures.
+pub const ERR_MISSING_MESSAGE_ID: &str = "missing Message-ID header";
+
+/// Error-string prefix emitted when a group-log signature self-check fails.
+/// Used by `main::classify_pipeline_error` to distinguish permanent failures.
+pub const ERR_SIGNATURE_SELF_CHECK_FAILED: &str = "log entry signature self-check failed";
+
 use super::lmdb_store::LmdbStore;
 use async_trait::async_trait;
 use cid::Cid;
@@ -545,7 +553,7 @@ where
 
     // 2+3. Parse Message-ID and Newsgroups in a single header scan.
     let (message_id, group_name_strs) = parse_message_id_and_newsgroups(article_bytes)
-        .ok_or_else(|| "missing Message-ID header".to_string())?;
+        .ok_or_else(|| ERR_MISSING_MESSAGE_ID.to_string())?;
     match msgid_map.insert(&message_id, &cid).await {
         Ok(()) => {}
         Err(e) => {
@@ -634,7 +642,7 @@ where
                     .with_label_values(&[group_name_str.as_str(), "signature_error"])
                     .inc();
                 return Err(format!(
-                    "log entry signature self-check failed for {group_name_str}: {e}"
+                    "{ERR_SIGNATURE_SELF_CHECK_FAILED} for {group_name_str}: {e}"
                 ));
             }
         };
@@ -676,7 +684,11 @@ where
     // full grace period regardless of the article timestamp.
     {
         let cid_str = cid.to_string();
-        let primary_group = group_name_strs.first().map(String::as_str).unwrap_or("");
+        // Store all newsgroups comma-separated so the GC policy can evaluate
+        // each group independently (ArticleMeta::group splits on commas).
+        // DO UPDATE so a later arrival with additional cross-post groups
+        // replaces the stored list rather than silently keeping the first.
+        let all_groups = group_name_strs.join(",");
         let ingested_at_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
@@ -684,10 +696,11 @@ where
         let byte_count = article_bytes.len() as i64;
         sqlx::query(
             "INSERT INTO articles (cid, group_name, ingested_at_ms, byte_count) \
-             VALUES (?, ?, ?, ?) ON CONFLICT (cid) DO NOTHING",
+             VALUES (?, ?, ?, ?) \
+             ON CONFLICT (cid) DO UPDATE SET group_name = excluded.group_name",
         )
         .bind(&cid_str)
-        .bind(primary_group)
+        .bind(&all_groups)
         .bind(ingested_at_ms)
         .bind(byte_count)
         .execute(pool)

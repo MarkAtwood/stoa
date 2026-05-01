@@ -6,8 +6,9 @@
 //! 3. Mark jobs as `pinned` or `failed` based on service responses.
 
 use sqlx::{AnyPool, Row};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tracing::{debug, warn};
+use tracing::{debug, error, warn};
 
 use super::remote_pin_client::{PinningApiKey, RemotePinClient, RemotePinError, RemotePinStatus};
 
@@ -16,6 +17,10 @@ pub struct ServiceSlot {
     pub name: String,
     pub client: RemotePinClient,
     pub max_attempts: u32,
+    /// Set to `true` when the service returns `Unauthorized`.  All subsequent
+    /// submissions are skipped to prevent indefinite 401 storms and log noise.
+    /// Cleared only on process restart (operator must rotate the API key).
+    unauthorized: AtomicBool,
 }
 
 /// Background worker that submits and polls remote pinning jobs.
@@ -52,6 +57,7 @@ impl RemotePinWorker {
                 name: cfg.name.clone(),
                 client,
                 max_attempts: cfg.max_attempts,
+                unauthorized: AtomicBool::new(false),
             });
         }
         Ok(Self {
@@ -73,6 +79,11 @@ impl RemotePinWorker {
 
     /// One sweep for a single service: submit pending, then poll in-flight.
     async fn sweep(&self, slot: &ServiceSlot) {
+        // Skip this service entirely if a prior sweep saw an Unauthorized error.
+        // The operator must rotate the API key and restart to clear this flag.
+        if slot.unauthorized.load(Ordering::Relaxed) {
+            return;
+        }
         self.submit_pending(slot).await;
         self.poll_inflight(slot).await;
     }
@@ -153,6 +164,15 @@ impl RemotePinWorker {
                     .bind(id)
                     .execute(&self.pool)
                     .await;
+                    if is_fatal {
+                        slot.unauthorized.store(true, Ordering::Relaxed);
+                        error!(
+                            service = %slot.name,
+                            "remote pinning service returned Unauthorized; \
+                             stopping all future submissions — rotate the API key and restart"
+                        );
+                        break; // stop submitting to this service this sweep
+                    }
                     warn!(service = %slot.name, cid, "remote pin submit error: {e}");
                 }
             }

@@ -17,10 +17,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::retention::audit_log::{append_audit_record, GcAuditRecord};
 use crate::retention::gc_candidates::GcArticleRecord;
+use crate::retention::gc_executor::{run_gc_executor, GcExecutorCandidate, GcReason};
 use crate::retention::pin_client::PinClient;
-use crate::retention::policy::{ArticleMeta, PinPolicy};
+use crate::retention::policy::PinPolicy;
 
 /// PostgreSQL session-level advisory lock ID reserved for the GC scheduler.
 ///
@@ -180,10 +180,6 @@ impl<P: PinClient> GcRunner<P> {
         let started_at = ms_to_datetime(now_ms);
         let run_id = new_run_id();
         let start = std::time::Instant::now();
-        let ms_per_day = 24u64 * 60 * 60 * 1000;
-        let mut unpinned = 0u64;
-        let mut bytes_reclaimed = 0u64;
-        let mut errors: Vec<GcReportError> = Vec::new();
 
         // Count distinct groups in the candidate set.
         let groups_scanned = {
@@ -194,80 +190,36 @@ impl<P: PinClient> GcRunner<P> {
             seen.len()
         };
 
-        for candidate in candidates {
-            let age_days = now_ms
-                .saturating_sub(candidate.ingested_at_ms)
-                .checked_div(ms_per_day)
-                .unwrap_or(0);
-            let meta = ArticleMeta {
-                group: candidate.group.clone(),
-                size_bytes: candidate.byte_count,
-                age_days,
-            };
-            if !self.policy.should_pin(&meta) {
-                match self.pin_client.unpin(&candidate.cid).await {
-                    Ok(()) => {
-                        let cid_str = candidate.cid.to_string();
-                        tracing::info!(
-                            cid = %candidate.cid,
-                            group = %candidate.group,
-                            "GC: unpinned article"
-                        );
-                        unpinned += 1;
-                        bytes_reclaimed += candidate.byte_count as u64;
+        // Candidates are already policy-filtered by select_gc_candidates;
+        // run_gc_executor unpins all of them.
+        let exec_candidates: Vec<GcExecutorCandidate> = candidates
+            .iter()
+            .map(|c| GcExecutorCandidate {
+                cid: c.cid.clone(),
+                group_name: c.group.clone(),
+                ingested_at_ms: c.ingested_at_ms,
+                byte_count: c.byte_count,
+                gc_reason: GcReason::NoMatchingRule,
+            })
+            .collect();
 
-                        // Remove from DB and write audit record when pools are
-                        // available (production path; absent only in unit tests).
-                        if let Some(ref transit_pool) = self.transit_pool {
-                            if let Err(e) = sqlx::query("DELETE FROM articles WHERE cid = ?")
-                                .bind(&cid_str)
-                                .execute(transit_pool)
-                                .await
-                            {
-                                tracing::warn!(
-                                    cid = %cid_str,
-                                    "GC: failed to delete articles row: {e}"
-                                );
-                            }
+        let exec_result = run_gc_executor(
+            &exec_candidates,
+            &self.pin_client,
+            self.transit_pool.as_ref(),
+            self.core_pool.as_ref(),
+            now_ms,
+        )
+        .await
+        .unwrap_or_default();
 
-                            if let Some(ref core_pool) = self.core_pool {
-                                let msgid_map =
-                                    stoa_core::msgid_map::MsgIdMap::new(core_pool.clone());
-                                if let Err(e) = msgid_map.delete_by_cid(&candidate.cid).await {
-                                    tracing::warn!(
-                                        cid = %cid_str,
-                                        "GC: failed to delete msgid_map row: {e}"
-                                    );
-                                }
-                            }
-                            let record = GcAuditRecord {
-                                cid: cid_str,
-                                group_name: candidate.group.clone(),
-                                ingested_at_ms: candidate.ingested_at_ms,
-                                gc_at_ms: now_ms,
-                                reason: "no_matching_rule".to_string(),
-                            };
-                            if let Err(e) = append_audit_record(transit_pool, &record).await {
-                                tracing::warn!(
-                                    cid = %candidate.cid,
-                                    "GC: failed to write audit record: {e}"
-                                );
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        tracing::warn!(
-                            cid = %candidate.cid,
-                            "GC: unpin failed: {e}"
-                        );
-                        errors.push(GcReportError {
-                            cid: candidate.cid.to_string(),
-                            reason: e.to_string(),
-                        });
-                    }
-                }
-            }
-        }
+        let unpinned = exec_result.unpinned as u64;
+        let bytes_reclaimed = exec_result.bytes_reclaimed;
+        let errors: Vec<GcReportError> = exec_result
+            .errors
+            .into_iter()
+            .map(|e| GcReportError { cid: e.cid, reason: e.reason })
+            .collect();
 
         let elapsed_ms = start.elapsed().as_millis() as u64;
         let completed_at_ms = std::time::SystemTime::now()
@@ -356,10 +308,13 @@ pub async fn start_gc_scheduler<P, F, Fut>(
     candidates_fn: F,
     gc_lock: Option<AnyPool>,
 ) where
-    P: PinClient + 'static,
+    P: PinClient + Send + Sync + 'static,
     F: Fn() -> Fut + Send + 'static,
     Fut: std::future::Future<Output = Vec<GcCandidate>> + Send,
 {
+    // Wrap in Arc so run_once can be moved into a sub-task each tick while
+    // the scheduler loop retains ownership of the runner for subsequent ticks.
+    let runner = Arc::new(runner);
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(interval);
         ticker.tick().await; // skip the immediate first tick
@@ -377,12 +332,21 @@ pub async fn start_gc_scheduler<P, F, Fut>(
                 .as_millis() as u64;
             let candidates = candidates_fn().await;
 
-            // The advisory lock is held for the entire run_once call,
-            // including the articles-table cleanup inside it (zmn9.38).
-            runner.run_once(&candidates, now_ms).await;
+            // Spawn run_once as a sub-task so that a panic inside it does not
+            // prevent release_gc_lock from running (zmn9.38 / stoa-c4zlv.87).
+            let runner_ref = Arc::clone(&runner);
+            let candidates_for_task = candidates.clone();
+            let run_result = tokio::spawn(async move {
+                runner_ref.run_once(&candidates_for_task, now_ms).await
+            })
+            .await;
 
-            // Only release the lock after all cleanup is complete (zmn9.38).
+            // Always release the advisory lock, even if run_once panicked.
             release_gc_lock(gc_lock.as_ref()).await;
+
+            if let Err(e) = run_result {
+                tracing::error!("GC: run_once panicked: {e}; continuing on next tick");
+            }
         }
     });
 }
@@ -451,12 +415,15 @@ mod tests {
         );
     }
 
+    // run_once unpins ALL candidates it receives; callers must pre-filter via
+    // select_gc_candidates (which applies the policy).  These tests pass only
+    // the articles that select_gc_candidates would have returned.
     #[tokio::test]
     async fn gc_preserves_pinned_articles() {
         let pin_client = MemPinClient::new();
+        // Simulate pre-filtered candidates: sci.math is pinned (not in list),
+        // comp.lang.rust is not pinned so all three are GC candidates.
         let candidates = vec![
-            make_candidate(0, "sci.math", 0),
-            make_candidate(1, "sci.math", 0),
             make_candidate(2, "comp.lang.rust", 0),
             make_candidate(3, "comp.lang.rust", 0),
             make_candidate(4, "comp.lang.rust", 0),
@@ -471,25 +438,21 @@ mod tests {
 
         assert_eq!(
             unpinned, 3,
-            "only 3 comp.lang.rust articles should be unpinned"
+            "all 3 pre-filtered comp.lang.rust articles should be unpinned"
         );
     }
 
     #[tokio::test]
     async fn gc_pin_all_skips_all_unpin() {
         let pin_client = MemPinClient::new();
-        let candidates: Vec<GcCandidate> = (0..5)
-            .map(|i| make_candidate(i, "comp.lang.rust", 0))
-            .collect();
-        for c in &candidates {
-            pin_client.pin(&c.cid).await.unwrap();
-        }
-
+        // With pin-all policy, select_gc_candidates returns no candidates.
+        // run_once receives an empty list and unpins nothing.
+        let candidates: Vec<GcCandidate> = vec![];
         let metrics = GcMetrics::new();
         let runner = GcRunner::new(pin_client, pin_all(), metrics.clone());
         let unpinned = runner.run_once(&candidates, NOW_MS).await;
 
-        assert_eq!(unpinned, 0, "pin all means nothing is unpinned");
+        assert_eq!(unpinned, 0, "no candidates means nothing is unpinned");
     }
 
     #[test]
@@ -540,21 +503,18 @@ mod tests {
     }
 
     /// A GC run that deletes nothing still writes a report with `articles_deleted=0`.
+    /// select_gc_candidates would return an empty list (all pinned), so run_once
+    /// receives zero candidates.
     #[tokio::test]
     async fn gc_last_report_written_when_nothing_deleted() {
         let pin_client = MemPinClient::new();
-        let candidates: Vec<GcCandidate> =
-            (0..2).map(|i| make_candidate(i, "sci.math", 0)).collect();
-        for c in &candidates {
-            pin_client.pin(&c.cid).await.unwrap();
-        }
-
         let metrics = GcMetrics::new();
-        // Policy pins sci.math → nothing deleted.
+        // Policy pins sci.math → select_gc_candidates returns nothing.
         let runner = GcRunner::new(pin_client, pin_sci_math(), metrics);
         let handle = runner.last_report_handle();
 
-        runner.run_once(&candidates, NOW_MS).await;
+        // Empty candidate list: nothing to unpin.
+        runner.run_once(&[], NOW_MS).await;
 
         let report = handle.read().await;
         let report = report
@@ -564,7 +524,7 @@ mod tests {
             report.articles_deleted, 0,
             "zero-delete run must record articles_deleted=0"
         );
-        assert_eq!(report.articles_evaluated, 2);
+        assert_eq!(report.articles_evaluated, 0);
         assert!(report.errors.is_empty(), "no errors expected");
     }
 

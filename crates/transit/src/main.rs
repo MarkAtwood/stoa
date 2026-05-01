@@ -23,7 +23,7 @@ use stoa_transit::{
         auth::parse_trusted_peer_keys,
         blacklist::BlacklistConfig,
         ingestion_queue::ingestion_queue,
-        pipeline::{run_pipeline, IpfsStore, PipelineCtx},
+        pipeline::{run_pipeline, IpfsStore, PipelineCtx, ERR_MISSING_MESSAGE_ID, ERR_SIGNATURE_SELF_CHECK_FAILED},
         rate_limit::{ExhaustionAction, PeerRateLimiter},
         session::{run_peering_session, PeeringShared},
     },
@@ -410,9 +410,9 @@ enum PipelineOutcome {
 /// internal constants, not user-visible messages.
 fn classify_pipeline_error(msg: &str) -> PipelineOutcome {
     // Permanent: article-level defects that cannot be fixed by retrying.
-    if msg.contains("missing Message-ID header")
-        || msg.contains("log entry signature self-check failed")
-    {
+    // The constants are defined in peering/pipeline.rs; matching here will
+    // break at compile time if the strings ever change.
+    if msg.contains(ERR_MISSING_MESSAGE_ID) || msg.contains(ERR_SIGNATURE_SELF_CHECK_FAILED) {
         return PipelineOutcome::PermanentFailure;
     }
     // Everything else (IPFS write failed, msgid insert failed, articles table
