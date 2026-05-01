@@ -995,7 +995,10 @@ async fn main() {
             ExhaustionAction::Respond431,
         ))),
         transit_pool: Arc::clone(&transit_pool),
-        blacklist_config: BlacklistConfig::default(),
+        blacklist_config: BlacklistConfig {
+            failure_threshold: config.peering.blacklist_failure_threshold,
+            duration_secs: config.peering.blacklist_duration_secs,
+        },
         trusted_keys: Arc::clone(&reload_state.trusted_keys),
         tls_acceptor,
         staging: staging_store.clone(),

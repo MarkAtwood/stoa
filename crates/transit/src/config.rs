@@ -492,6 +492,20 @@ pub struct PeeringConfig {
     /// signal before forcing exit.  Default: 30.
     #[serde(default)]
     pub drain_timeout_secs: Option<u64>,
+    /// Number of consecutive failures before a peer is blacklisted. Default: 10.
+    #[serde(default = "default_blacklist_failure_threshold")]
+    pub blacklist_failure_threshold: i64,
+    /// How long to blacklist a peer in seconds. Default: 3600 (1 hour).
+    #[serde(default = "default_blacklist_duration_secs")]
+    pub blacklist_duration_secs: i64,
+}
+
+fn default_blacklist_failure_threshold() -> i64 {
+    10
+}
+
+fn default_blacklist_duration_secs() -> i64 {
+    3600
 }
 
 fn default_ingestion_queue_capacity() -> usize {
@@ -522,6 +536,8 @@ impl Default for PeeringConfig {
             rate_limit_burst: default_rate_limit_burst(),
             trusted_peers: Vec::new(),
             drain_timeout_secs: None,
+            blacklist_failure_threshold: default_blacklist_failure_threshold(),
+            blacklist_duration_secs: default_blacklist_duration_secs(),
         }
     }
 }
