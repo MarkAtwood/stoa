@@ -187,7 +187,16 @@ async fn create_one_email(
         .and_then(|addr| addr.get("email"))
         .and_then(|v| v.as_str());
     let from_email = match from_raw {
-        Some(s) => strip_crlf(s),
+        Some(s) => {
+            let stripped = strip_crlf(s);
+            if !is_valid_addr_spec(&stripped) {
+                return Err(
+                    r#"{"type":"invalidProperties","properties":["from"],"description":"from must be a valid ASCII email address"}"#
+                        .to_string(),
+                );
+            }
+            stripped
+        }
         None => {
             return Err(
                 r#"{"type":"invalidProperties","properties":["from"],"description":"from is required"}"#
@@ -272,6 +281,30 @@ async fn create_one_email(
 ///
 /// Accepts `None` gracefully (returns empty vec).  Skips entries without a
 /// valid `email` string containing `@`.
+/// Validate that `email` is a safe ASCII addr-spec for use in a raw RFC 5322
+/// From header field.
+///
+/// Checks: exactly one `@`, non-empty local and domain parts, no whitespace,
+/// no ASCII control characters, no non-ASCII (which would require RFC 2047
+/// encoding).  This is intentionally conservative — JMAP `email` fields
+/// should already be well-formed addr-specs.
+fn is_valid_addr_spec(email: &str) -> bool {
+    let mut at_count = 0u32;
+    for c in email.chars() {
+        if c.is_ascii_control() || c.is_whitespace() || !c.is_ascii() {
+            return false;
+        }
+        if c == '@' {
+            at_count += 1;
+        }
+    }
+    if at_count != 1 {
+        return false;
+    }
+    let at_idx = email.find('@').unwrap();
+    !email[..at_idx].is_empty() && !email[at_idx + 1..].is_empty()
+}
+
 /// Remove CR (`\r`) and LF (`\n`) from a string to prevent CRLF injection
 /// into RFC 5322 header fields constructed via `format!`.
 fn strip_crlf(s: &str) -> String {
@@ -672,5 +705,53 @@ mod tests {
     fn extract_email_addrs_none_returns_empty() {
         let addrs = extract_email_addrs(None);
         assert!(addrs.is_empty());
+    }
+
+    // --- Tests for is_valid_addr_spec ---
+
+    #[test]
+    fn addr_spec_valid_simple() {
+        assert!(is_valid_addr_spec("user@example.com"));
+    }
+
+    #[test]
+    fn addr_spec_valid_subdomain() {
+        assert!(is_valid_addr_spec("u.s+er@mail.example.org"));
+    }
+
+    #[test]
+    fn addr_spec_rejects_no_at() {
+        assert!(!is_valid_addr_spec("notanemail"));
+    }
+
+    #[test]
+    fn addr_spec_rejects_multiple_at() {
+        assert!(!is_valid_addr_spec("a@b@c.com"));
+    }
+
+    #[test]
+    fn addr_spec_rejects_whitespace() {
+        assert!(!is_valid_addr_spec("user name@example.com"));
+        assert!(!is_valid_addr_spec("user@ex ample.com"));
+    }
+
+    #[test]
+    fn addr_spec_rejects_non_ascii() {
+        assert!(!is_valid_addr_spec("üser@example.com"));
+    }
+
+    #[test]
+    fn addr_spec_rejects_empty_local() {
+        assert!(!is_valid_addr_spec("@example.com"));
+    }
+
+    #[test]
+    fn addr_spec_rejects_empty_domain() {
+        assert!(!is_valid_addr_spec("user@"));
+    }
+
+    #[test]
+    fn addr_spec_rejects_control_char() {
+        assert!(!is_valid_addr_spec("use\x07r@example.com"));
     }
 }
