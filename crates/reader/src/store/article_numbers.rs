@@ -191,10 +191,7 @@ impl ArticleNumberStore {
     ///
     /// Used by SearchSnippet/get to map email IDs (CID strings) back to
     /// their overview-store location without loading all articles into memory.
-    pub async fn lookup_by_cid(
-        &self,
-        cid: &Cid,
-    ) -> Result<Option<(String, u64)>, sqlx::Error> {
+    pub async fn lookup_by_cid(&self, cid: &Cid) -> Result<Option<(String, u64)>, sqlx::Error> {
         let cid_bytes = cid.to_bytes();
 
         let row: Option<(String, i64)> = sqlx::query_as(

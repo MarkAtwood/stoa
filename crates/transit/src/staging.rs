@@ -407,7 +407,10 @@ impl StagingStore {
     /// Returns the new `retry_count` so the caller can compare it against the
     /// configured maximum and call [`purge`](Self::purge) when the limit is
     /// reached.
-    pub async fn increment_retry_count(&self, article: &StagedArticle) -> Result<i64, StagingError> {
+    pub async fn increment_retry_count(
+        &self,
+        article: &StagedArticle,
+    ) -> Result<i64, StagingError> {
         let row: (i64,) = sqlx::query_as(
             "UPDATE transit_staging \
              SET retry_count = retry_count + 1, claimed_at = NULL \
@@ -730,6 +733,9 @@ mod tests {
         // Second increment gives 2.
         let article2 = re.unwrap();
         let new_count2 = store.increment_retry_count(&article2).await.unwrap();
-        assert_eq!(new_count2, 2, "retry_count must be 2 after second increment");
+        assert_eq!(
+            new_count2, 2,
+            "retry_count must be 2 after second increment"
+        );
     }
 }

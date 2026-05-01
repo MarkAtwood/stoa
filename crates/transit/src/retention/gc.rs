@@ -219,11 +219,10 @@ impl<P: PinClient> GcRunner<P> {
                         // Remove from DB and write audit record when pools are
                         // available (production path; absent only in unit tests).
                         if let Some(ref transit_pool) = self.transit_pool {
-                            if let Err(e) =
-                                sqlx::query("DELETE FROM articles WHERE cid = ?")
-                                    .bind(&cid_str)
-                                    .execute(transit_pool)
-                                    .await
+                            if let Err(e) = sqlx::query("DELETE FROM articles WHERE cid = ?")
+                                .bind(&cid_str)
+                                .execute(transit_pool)
+                                .await
                             {
                                 tracing::warn!(
                                     cid = %cid_str,
@@ -234,9 +233,7 @@ impl<P: PinClient> GcRunner<P> {
                             if let Some(ref core_pool) = self.core_pool {
                                 let msgid_map =
                                     stoa_core::msgid_map::MsgIdMap::new(core_pool.clone());
-                                if let Err(e) =
-                                    msgid_map.delete_by_cid(&candidate.cid).await
-                                {
+                                if let Err(e) = msgid_map.delete_by_cid(&candidate.cid).await {
                                     tracing::warn!(
                                         cid = %cid_str,
                                         "GC: failed to delete msgid_map row: {e}"
@@ -250,9 +247,8 @@ impl<P: PinClient> GcRunner<P> {
                                 gc_at_ms: now_ms,
                                 reason: "no_matching_rule".to_string(),
                             };
-                            if let Err(e) =
-                                append_audit_record(transit_pool, &record).await
-                            {                                tracing::warn!(
+                            if let Err(e) = append_audit_record(transit_pool, &record).await {
+                                tracing::warn!(
                                     cid = %candidate.cid,
                                     "GC: failed to write audit record: {e}"
                                 );
@@ -383,9 +379,7 @@ pub async fn start_gc_scheduler<P, F, Fut>(
 
             // The advisory lock is held for the entire run_once call,
             // including the articles-table cleanup inside it (zmn9.38).
-            runner
-                .run_once(&candidates, now_ms)
-                .await;
+            runner.run_once(&candidates, now_ms).await;
 
             // Only release the lock after all cleanup is complete (zmn9.38).
             release_gc_lock(gc_lock.as_ref()).await;

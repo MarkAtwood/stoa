@@ -350,8 +350,12 @@ mod tests {
     #[tokio::test]
     async fn provision_global_sieve_is_idempotent() {
         let pool = open(":memory:").await.expect("open");
-        provision_global_sieve(&pool).await.expect("first provision");
-        provision_global_sieve(&pool).await.expect("second provision");
+        provision_global_sieve(&pool)
+            .await
+            .expect("first provision");
+        provision_global_sieve(&pool)
+            .await
+            .expect("second provision");
 
         let scripts = list_scripts(&pool, crate::config::GLOBAL_SCRIPT_KEY)
             .await
@@ -373,14 +377,15 @@ mod tests {
         .await
         .expect("save custom script");
 
-        provision_global_sieve(&pool).await.expect("provision after custom");
+        provision_global_sieve(&pool)
+            .await
+            .expect("provision after custom");
 
         let script = load_active_script(&pool, crate::config::GLOBAL_SCRIPT_KEY)
             .await
             .expect("active script");
         assert_eq!(
-            script,
-            b"discard;",
+            script, b"discard;",
             "provision must not overwrite an existing active script"
         );
     }

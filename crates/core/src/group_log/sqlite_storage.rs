@@ -138,12 +138,11 @@ impl LogStorage for SqliteLogStorage {
 
     async fn has_entry(&self, id: &LogEntryId) -> Result<bool, StorageError> {
         let id_bytes = id.as_bytes().to_vec();
-        let row: Option<(i64,)> =
-            sqlx::query_as("SELECT 1 FROM log_entries WHERE id = ? LIMIT 1")
-                .bind(&id_bytes)
-                .fetch_optional(&self.pool)
-                .await
-                .map_err(db_err)?;
+        let row: Option<(i64,)> = sqlx::query_as("SELECT 1 FROM log_entries WHERE id = ? LIMIT 1")
+            .bind(&id_bytes)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(db_err)?;
         Ok(row.is_some())
     }
 
@@ -214,11 +213,10 @@ impl LogStorage for SqliteLogStorage {
         if !tips.is_empty() {
             // Single bulk INSERT avoids O(T) round-trips for T tips.
             // QueryBuilder::push_values handles placeholder generation safely.
-            let mut qb = sqlx::QueryBuilder::new(
-                "INSERT INTO group_tips (group_name, tip_id) ",
-            );
+            let mut qb = sqlx::QueryBuilder::new("INSERT INTO group_tips (group_name, tip_id) ");
             qb.push_values(tips, |mut b, tip| {
-                b.push_bind(group.as_str()).push_bind(tip.as_bytes().to_vec());
+                b.push_bind(group.as_str())
+                    .push_bind(tip.as_bytes().to_vec());
             });
             qb.build().execute(&mut *tx).await.map_err(db_err)?;
         }
@@ -239,9 +237,7 @@ impl LogStorage for SqliteLogStorage {
         if !parents_to_remove.is_empty() {
             // Single bulk DELETE: WHERE tip_id IN (...) avoids O(P) round-trips.
             // QueryBuilder handles placeholder generation safely.
-            let mut qb = sqlx::QueryBuilder::new(
-                "DELETE FROM group_tips WHERE group_name = ",
-            );
+            let mut qb = sqlx::QueryBuilder::new("DELETE FROM group_tips WHERE group_name = ");
             qb.push_bind(group_name);
             qb.push(" AND tip_id IN (");
             let mut sep = qb.separated(", ");

@@ -8,7 +8,7 @@ use std::path::Path;
 use std::time::Instant;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
-use crate::import::{SendResult, connect_nntp, send_ihave_on_conn};
+use crate::import::{connect_nntp, send_ihave_on_conn, SendResult};
 
 /// A single parsed mbox message.
 #[derive(Debug)]

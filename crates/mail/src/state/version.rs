@@ -13,13 +13,12 @@ impl StateStore {
     /// Return the current state string for a scope.
     /// Returns "0" if the scope has never been written.
     pub async fn get_state(&self, user_id: i64, scope: &str) -> Result<String, sqlx::Error> {
-        let version: Option<i64> = sqlx::query_scalar(
-            "SELECT version FROM state_version WHERE user_id = ? AND scope = ?",
-        )
-        .bind(user_id)
-        .bind(scope)
-        .fetch_optional(&self.pool)
-        .await?;
+        let version: Option<i64> =
+            sqlx::query_scalar("SELECT version FROM state_version WHERE user_id = ? AND scope = ?")
+                .bind(user_id)
+                .bind(scope)
+                .fetch_optional(&self.pool)
+                .await?;
         Ok(version.unwrap_or(0).to_string())
     }
 

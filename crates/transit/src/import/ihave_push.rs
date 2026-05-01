@@ -38,7 +38,7 @@ pub struct IhaveImportConfig {
     pub parallel: usize,
 }
 
-use crate::import::{SendResult, connect_nntp, send_ihave_on_conn};
+use crate::import::{connect_nntp, send_ihave_on_conn, SendResult};
 
 /// Run the IHAVE bulk import from `article_dir`.
 ///
@@ -157,9 +157,7 @@ async fn process_chunk(
         }
 
         let result = match conn.as_mut() {
-            Some((reader, writer)) => {
-                send_ihave_on_conn(reader, writer, &msgid, &content).await
-            }
+            Some((reader, writer)) => send_ihave_on_conn(reader, writer, &msgid, &content).await,
             None => {
                 tracing::warn!("no connection to {addr}, counting {msgid} as rejected");
                 rejected += 1;

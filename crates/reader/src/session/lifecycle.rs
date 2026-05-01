@@ -2230,8 +2230,15 @@ mod tests {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Signature Verify", "<sigverify@test.example>");
 
-        let (resp, _) =
-            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false, "127.0.0.1", None).await;
+        let (resp, _) = run_post_pipeline(
+            &article,
+            &stores,
+            DEFAULT_MAX_ARTICLE_BYTES,
+            false,
+            "127.0.0.1",
+            None,
+        )
+        .await;
         assert_eq!(
             resp.code, 240,
             "POST pipeline must succeed; got: {}",
@@ -2276,8 +2283,15 @@ mod tests {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Integration Test", "<integ@test.example>");
 
-        let (resp, _) =
-            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false, "127.0.0.1", None).await;
+        let (resp, _) = run_post_pipeline(
+            &article,
+            &stores,
+            DEFAULT_MAX_ARTICLE_BYTES,
+            false,
+            "127.0.0.1",
+            None,
+        )
+        .await;
         assert_eq!(
             resp.code, 240,
             "POST pipeline must return 240; got: {}",
@@ -2305,8 +2319,15 @@ mod tests {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Path Test", "<pathtest@test.example>");
 
-        let (resp, _) =
-            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false, "127.0.0.1", None).await;
+        let (resp, _) = run_post_pipeline(
+            &article,
+            &stores,
+            DEFAULT_MAX_ARTICLE_BYTES,
+            false,
+            "127.0.0.1",
+            None,
+        )
+        .await;
         assert_eq!(resp.code, 240, "POST must succeed; got: {}", resp.text);
 
         let cid = stores
@@ -2337,8 +2358,15 @@ mod tests {
     async fn article_by_number_returns_220() {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "By Number Test", "<bynumber@test.example>");
-        let (post_resp, _) =
-            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false, "127.0.0.1", None).await;
+        let (post_resp, _) = run_post_pipeline(
+            &article,
+            &stores,
+            DEFAULT_MAX_ARTICLE_BYTES,
+            false,
+            "127.0.0.1",
+            None,
+        )
+        .await;
         assert_eq!(post_resp.code, 240, "POST must succeed");
 
         let mut ctx = crate::session::context::SessionContext::new(
@@ -2369,8 +2397,15 @@ mod tests {
     async fn head_by_msgid_returns_221() {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Head By Msgid", "<headmsgid@test.example>");
-        let (post_resp, _) =
-            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false, "127.0.0.1", None).await;
+        let (post_resp, _) = run_post_pipeline(
+            &article,
+            &stores,
+            DEFAULT_MAX_ARTICLE_BYTES,
+            false,
+            "127.0.0.1",
+            None,
+        )
+        .await;
         assert_eq!(post_resp.code, 240, "POST must succeed");
 
         let resp = lookup_head_by_msgid(&stores, "<headmsgid@test.example>").await;
@@ -2394,8 +2429,15 @@ mod tests {
     async fn body_by_msgid_returns_222() {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Body By Msgid", "<bodymsgid@test.example>");
-        let (post_resp, _) =
-            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false, "127.0.0.1", None).await;
+        let (post_resp, _) = run_post_pipeline(
+            &article,
+            &stores,
+            DEFAULT_MAX_ARTICLE_BYTES,
+            false,
+            "127.0.0.1",
+            None,
+        )
+        .await;
         assert_eq!(post_resp.code, 240, "POST must succeed");
 
         let resp = lookup_body_by_msgid(&stores, "<bodymsgid@test.example>").await;
@@ -2423,8 +2465,15 @@ mod tests {
     async fn stat_by_msgid_known_returns_223() {
         let stores = ServerStores::new_mem().await;
         let article = minimal_article("comp.test", "Stat Test", "<stattest@test.example>");
-        let (post_resp, _) =
-            run_post_pipeline(&article, &stores, DEFAULT_MAX_ARTICLE_BYTES, false, "127.0.0.1", None).await;
+        let (post_resp, _) = run_post_pipeline(
+            &article,
+            &stores,
+            DEFAULT_MAX_ARTICLE_BYTES,
+            false,
+            "127.0.0.1",
+            None,
+        )
+        .await;
         assert_eq!(post_resp.code, 240, "POST must succeed");
 
         let resp = stat_by_msgid(&stores, "<stattest@test.example>").await;
@@ -2705,7 +2754,10 @@ api_url = "http://127.0.0.1:5001"
     }
 
     /// Run the command loop on a byte-slice input, returning the collected output.
-    async fn run_loop_bytes(input: &[u8], ctx: &mut crate::session::context::SessionContext) -> Vec<u8> {
+    async fn run_loop_bytes(
+        input: &[u8],
+        ctx: &mut crate::session::context::SessionContext,
+    ) -> Vec<u8> {
         use std::sync::Arc;
         use tokio::io::BufReader;
         let stores = Arc::new(ServerStores::new_mem().await);
@@ -2727,7 +2779,10 @@ api_url = "http://127.0.0.1:5001"
         let peer: std::net::SocketAddr = "127.0.0.1:9999".parse().unwrap();
         // auth_required=true → SessionState::Authenticating
         let mut ctx = crate::session::context::SessionContext::new(peer, true, true, false);
-        assert_eq!(ctx.state, crate::session::state::SessionState::Authenticating);
+        assert_eq!(
+            ctx.state,
+            crate::session::state::SessionState::Authenticating
+        );
 
         let input = b"ARTICLE <test@example.com>\r\nQUIT\r\n";
         let out = run_loop_bytes(input, &mut ctx).await;

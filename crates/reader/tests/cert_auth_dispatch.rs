@@ -30,8 +30,8 @@
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-use stoa_auth::TrustedIssuerStore;
 use stoa_auth::ClientCertStore;
+use stoa_auth::TrustedIssuerStore;
 use stoa_reader::{
     config::{AuthConfig, ClientCertEntry},
     session::{command::Command, context::SessionContext, dispatch::dispatch, state::SessionState},

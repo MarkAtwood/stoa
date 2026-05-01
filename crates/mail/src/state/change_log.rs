@@ -139,7 +139,11 @@ mod tests {
             .unwrap();
 
         let alice_items = store.query_since(1, "Email", 0).await.unwrap();
-        assert_eq!(alice_items, vec!["alice_cid"], "alice must not see bob's mail");
+        assert_eq!(
+            alice_items,
+            vec!["alice_cid"],
+            "alice must not see bob's mail"
+        );
 
         let bob_items = store.query_since(2, "Email", 0).await.unwrap();
         assert_eq!(bob_items, vec!["bob_cid"], "bob must not see alice's mail");

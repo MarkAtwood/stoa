@@ -600,8 +600,7 @@ async fn starttls_upgrade_succeeds() {
     // However, tokio_rustls::TlsConnector::connect requires AsyncRead + AsyncWrite,
     // which the joined stream satisfies.
     let joined = tokio::io::join(rd, wr);
-    let server_name = ServerName::try_from("localhost")
-        .expect("valid server name");
+    let server_name = ServerName::try_from("localhost").expect("valid server name");
     let tls = connector
         .connect(server_name, joined)
         .await
@@ -658,8 +657,7 @@ async fn starttls_rejected_when_already_tls() {
 
     // Connect via implicit TLS.
     let tcp = TcpStream::connect(addr).await.expect("connect");
-    let server_name = ServerName::try_from("localhost")
-        .expect("valid server name");
+    let server_name = ServerName::try_from("localhost").expect("valid server name");
     let tls = connector
         .connect(server_name, tcp)
         .await
@@ -731,12 +729,14 @@ async fn double_starttls_rejected() {
     // First STARTTLS — must succeed.
     wr.write_all(b"D01 STARTTLS\r\n").await.expect("write");
     let ok = read_line(&mut rd).await;
-    assert!(ok.starts_with("D01 OK"), "first STARTTLS must succeed, got: {ok}");
+    assert!(
+        ok.starts_with("D01 OK"),
+        "first STARTTLS must succeed, got: {ok}"
+    );
 
     // Upgrade.
     let joined = tokio::io::join(rd, wr);
-    let server_name = ServerName::try_from("localhost")
-        .expect("valid server name");
+    let server_name = ServerName::try_from("localhost").expect("valid server name");
     let tls = connector
         .connect(server_name, joined)
         .await

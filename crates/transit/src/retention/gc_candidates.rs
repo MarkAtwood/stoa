@@ -239,7 +239,11 @@ mod tests {
         let result = select_gc_candidates(&pool, &policy, NOW_MS, GRACE_MS)
             .await
             .expect("query");
-        assert_eq!(result.len(), 1, "only the non-pinned article must be returned");
+        assert_eq!(
+            result.len(),
+            1,
+            "only the non-pinned article must be returned"
+        );
         assert_eq!(
             result[0].cid, free_cid,
             "the returned candidate must be the unpinned CID"

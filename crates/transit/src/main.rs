@@ -1393,8 +1393,7 @@ async fn main() {
             None
         };
 
-        start_gc_scheduler(runner, Duration::from_secs(3600), candidates_fn, gc_lock)
-            .await;
+        start_gc_scheduler(runner, Duration::from_secs(3600), candidates_fn, gc_lock).await;
         info!(interval_secs = 3600, "GC scheduler started");
     }
 

@@ -537,8 +537,7 @@ mod tests {
 
     #[test]
     fn parse_sig_param_simple() {
-        let header =
-            r#"keyId="https://example.com/key",algorithm="rsa-sha256",signature="abc123""#;
+        let header = r#"keyId="https://example.com/key",algorithm="rsa-sha256",signature="abc123""#;
         assert_eq!(
             parse_sig_param(header, "keyId"),
             Some("https://example.com/key".to_string())

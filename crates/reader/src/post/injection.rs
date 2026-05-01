@@ -1,6 +1,6 @@
-use stoa_core::InjectionSource;
-use std::time::{SystemTime, UNIX_EPOCH};
 use chrono::{DateTime, TimeZone, Utc};
+use std::time::{SystemTime, UNIX_EPOCH};
+use stoa_core::InjectionSource;
 
 /// The header name prepended by the SMTP queue drain.
 const INJECTION_SOURCE_HEADER: &[u8] = b"X-Stoa-Injection-Source:";
@@ -659,12 +659,7 @@ mod tests {
     #[test]
     fn injection_info_with_mail_complaints_to() {
         let article = make_article(None, "body\r\n");
-        let result = inject_injection_info(
-            &article,
-            "192.0.2.1",
-            None,
-            Some("abuse@example.com"),
-        );
+        let result = inject_injection_info(&article, "192.0.2.1", None, Some("abuse@example.com"));
         let s = String::from_utf8(result).unwrap();
         assert!(
             s.contains("mail-complaints-to=\"abuse@example.com\""),

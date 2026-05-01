@@ -217,11 +217,10 @@ impl BlockCache {
     async fn evict_for(&self, incoming_bytes: u64) -> Result<(), CacheError> {
         // Read count and total size once; maintain running totals locally so
         // we avoid a full-table COUNT(*)/SUM scan on every loop iteration.
-        let (initial_count, initial_bytes): (i64, i64) = sqlx::query_as(
-            "SELECT COUNT(*), COALESCE(SUM(byte_size), 0) FROM transit_block_cache",
-        )
-        .fetch_one(&*self.pool)
-        .await?;
+        let (initial_count, initial_bytes): (i64, i64) =
+            sqlx::query_as("SELECT COUNT(*), COALESCE(SUM(byte_size), 0) FROM transit_block_cache")
+                .fetch_one(&*self.pool)
+                .await?;
 
         let mut count = initial_count as u64;
         let mut total_bytes = initial_bytes as u64;

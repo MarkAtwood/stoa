@@ -103,19 +103,17 @@ async fn fetch_actor_inbox(http_client: &reqwest::Client, actor_url: &str) -> St
         .send()
         .await
     {
-        Ok(resp) if resp.status().is_success() => {
-            match resp.json::<serde_json::Value>().await {
-                Ok(actor) => {
-                    if let Some(inbox) = actor["inbox"].as_str() {
-                        return inbox.to_string();
-                    }
-                    warn!(actor = %actor_url, "actor document has no inbox field; using fallback");
+        Ok(resp) if resp.status().is_success() => match resp.json::<serde_json::Value>().await {
+            Ok(actor) => {
+                if let Some(inbox) = actor["inbox"].as_str() {
+                    return inbox.to_string();
                 }
-                Err(e) => {
-                    warn!(actor = %actor_url, error = %e, "failed to parse actor JSON; using fallback inbox URL");
-                }
+                warn!(actor = %actor_url, "actor document has no inbox field; using fallback");
             }
-        }
+            Err(e) => {
+                warn!(actor = %actor_url, error = %e, "failed to parse actor JSON; using fallback inbox URL");
+            }
+        },
         Ok(resp) => {
             warn!(actor = %actor_url, status = %resp.status(), "actor fetch returned error; using fallback inbox URL");
         }

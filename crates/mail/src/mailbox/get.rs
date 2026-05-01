@@ -303,7 +303,10 @@ mod tests {
         let resp = handle_mailbox_get(&[inbox_special()], &[], None, "0", "u_test");
         let list = resp["list"].as_array().unwrap();
         let has_news_root = list.iter().any(|e| e["name"].as_str() == Some("News"));
-        assert!(!has_news_root, "News root must not appear when there are no newsgroups");
+        assert!(
+            !has_news_root,
+            "News root must not appear when there are no newsgroups"
+        );
     }
 
     #[test]

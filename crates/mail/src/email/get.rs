@@ -122,14 +122,14 @@ async fn fetch_smtp_emails_batch(row_ids: &[i64], pool: &sqlx::AnyPool) -> HashM
         }
     }
     .into_iter()
-        .map(|(id, raw, mailbox_id, received_at)| {
-            let smtp_id = format!("smtp:{id}");
-            (
-                id,
-                Email::from_smtp_message(&smtp_id, &raw, &mailbox_id, &received_at),
-            )
-        })
-        .collect()
+    .map(|(id, raw, mailbox_id, received_at)| {
+        let smtp_id = format!("smtp:{id}");
+        (
+            id,
+            Email::from_smtp_message(&smtp_id, &raw, &mailbox_id, &received_at),
+        )
+    })
+    .collect()
 }
 
 async fn fetch_email(id: &str, ipfs: &dyn IpfsBlockStore) -> Result<Option<Email>, String> {

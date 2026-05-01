@@ -121,11 +121,10 @@ impl IpnsPublisher {
             Some(p) => p,
             None => return,
         };
-        if let Err(e) =
-            sqlx::query("SELECT pg_advisory_unlock(?)")
-                .bind(IPNS_ADVISORY_LOCK_ID)
-                .execute(pool)
-                .await
+        if let Err(e) = sqlx::query("SELECT pg_advisory_unlock(?)")
+            .bind(IPNS_ADVISORY_LOCK_ID)
+            .execute(pool)
+            .await
         {
             warn!("IPNS publisher: failed to release advisory lock: {e}");
         }

@@ -562,7 +562,13 @@ async fn route_method(
                 .get_state(user_id, "Mailbox")
                 .await
                 .unwrap_or_else(|_| "0".to_string());
-            crate::mailbox::query::handle_mailbox_query(&group_infos, filter, sort, &state, canonical_account_id)
+            crate::mailbox::query::handle_mailbox_query(
+                &group_infos,
+                filter,
+                sort,
+                &state,
+                canonical_account_id,
+            )
         }
 
         "Email/query" => {
@@ -779,7 +785,8 @@ async fn route_method(
             // Handle keyword updates.
             if let Some(update_map) = args.get("update").and_then(|v| v.as_object()) {
                 let (mut updated, not_updated) =
-                    crate::email::set::handle_keyword_update(update_map, user_id, &jmap.user_flags).await;
+                    crate::email::set::handle_keyword_update(update_map, user_id, &jmap.user_flags)
+                        .await;
                 // An id must not appear in both updated and notUpdated.
                 // handle_email_set may have already placed an id in notUpdated
                 // (e.g. for a mailboxIds conflict); remove those from updated here.
@@ -906,7 +913,12 @@ async fn route_method(
                 .unwrap_or_else(|_| "0".to_string());
 
             let id_refs: Vec<&str> = requested_ids.iter().map(|s| s.as_str()).collect();
-            crate::thread::get::handle_thread_get(&entries, &id_refs, &thread_state, canonical_account_id)
+            crate::thread::get::handle_thread_get(
+                &entries,
+                &id_refs,
+                &thread_state,
+                canonical_account_id,
+            )
         }
 
         // RFC 8620 §5.2 — /changes methods for incremental sync.
@@ -923,7 +935,11 @@ async fn route_method(
                 .await
                 .unwrap_or_else(|_| "0".to_string());
 
-            let created = match jmap.change_log.query_since(user_id, "Email", since_seq).await {
+            let created = match jmap
+                .change_log
+                .query_since(user_id, "Email", since_seq)
+                .await
+            {
                 Ok(ids) => ids,
                 Err(e) => return json!({"error": e.to_string()}),
             };

@@ -7,7 +7,7 @@ use std::{
     time::Instant,
 };
 
-use mail_auth::{MX, ResolverCache, Txt};
+use mail_auth::{ResolverCache, Txt, MX};
 
 /// A single DNS record cache bucket: maps keys to `(value, valid_until)` pairs.
 ///

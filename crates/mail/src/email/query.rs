@@ -436,7 +436,15 @@ mod tests {
             "limit equal to MAX_FETCH_LIMIT must return all available entries"
         );
         // And a limit exceeding MAX_FETCH_LIMIT is silently capped (not rejected).
-        let resp3 = handle_email_query(&entries, None, 0, Some(MAX_FETCH_LIMIT + 1), "0", None, "test");
+        let resp3 = handle_email_query(
+            &entries,
+            None,
+            0,
+            Some(MAX_FETCH_LIMIT + 1),
+            "0",
+            None,
+            "test",
+        );
         let ids3 = resp3["ids"].as_array().unwrap();
         assert_eq!(
             ids3.len(),

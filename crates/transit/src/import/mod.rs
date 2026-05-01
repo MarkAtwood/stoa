@@ -27,9 +27,7 @@ pub(crate) enum SendResult {
 /// Open a TCP connection to `addr` and read the NNTP greeting.
 ///
 /// Returns `Some((reader, writer))` on success, `None` on any failure.
-pub(crate) async fn connect_nntp(
-    addr: &str,
-) -> Option<(BufReader<OwnedReadHalf>, OwnedWriteHalf)> {
+pub(crate) async fn connect_nntp(addr: &str) -> Option<(BufReader<OwnedReadHalf>, OwnedWriteHalf)> {
     let stream = match TcpStream::connect(addr).await {
         Ok(s) => s,
         Err(e) => {

@@ -227,8 +227,8 @@ fn build_server(ctx: &SessionContext) -> Box<Server> {
     let mut options = Options::default();
     options.max_literal_size = max_lit;
     options.max_command_size = cmd_cap.max(max_lit.saturating_add(1));
-    let greeting = Greeting::ok(None, "IMAP4rev1 stoa-imap server ready")
-        .expect("static greeting is valid");
+    let greeting =
+        Greeting::ok(None, "IMAP4rev1 stoa-imap server ready").expect("static greeting is valid");
     Box::new(Server::new(options, greeting))
 }
 
@@ -305,8 +305,7 @@ async fn run_command_loop(
                         if ctx.tls {
                             // Already in TLS (IMAPS or post-STARTTLS).
                             server.enqueue_status(
-                                Status::bad(Some(tag), None, "Already in TLS")
-                                    .expect("static bad"),
+                                Status::bad(Some(tag), None, "Already in TLS").expect("static bad"),
                             );
                         } else if !matches!(ctx.state, ImapState::NotAuthenticated) {
                             // RFC 9051 §6.2.1: STARTTLS only valid in Not-Authenticated.

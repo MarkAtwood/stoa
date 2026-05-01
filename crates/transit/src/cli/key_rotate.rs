@@ -128,8 +128,7 @@ pub fn cmd_key_rotate(
     use base64::Engine as _;
     use ed25519_dalek::Signer;
     let signature = old_signing_key.sign(&article_bytes);
-    let sig_value =
-        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(signature.to_bytes());
+    let sig_value = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(signature.to_bytes());
     let sig_line = format!("X-Stoa-Sig: {sig_value}\r\n");
 
     // Insert the sig header just before the blank line that separates headers
