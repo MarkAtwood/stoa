@@ -349,6 +349,22 @@ where
             }
         };
 
+        // Auth gate: if not yet authenticated, let dispatch() enforce the state
+        // machine.  All data commands return 480 Authentication Required there.
+        // Without this gate the pre-dispatch match below would execute article
+        // lookups for unauthenticated clients (zmn9.23).
+        if ctx.state == SessionState::Authenticating {
+            let resp = dispatch(
+                ctx,
+                cmd,
+                &config.auth,
+                &stores.client_cert_store,
+                &stores.trusted_issuer_store,
+            );
+            send!(resp);
+            continue;
+        }
+
         // Route commands that need async store access before dispatch, or that
         // require special handling (STARTTLS, AUTHINFO PASS).  All other commands
         // fall through to the synchronous `dispatch` function at the end of the loop.
@@ -372,12 +388,19 @@ where
                 continue;
             }
             Command::Article(None) => {
-                let n = match ctx.selected_group.as_ref().and_then(|sg| sg.article_number) {
-                    Some(n) => n,
+                let sg = match ctx.selected_group.as_ref() {
+                    None => {
+                        send!(Response::no_newsgroup_selected());
+                        continue;
+                    }
+                    Some(sg) => sg,
+                };
+                let n = match sg.article_number {
                     None => {
                         send!(Response::new(420, "Current article number is invalid"));
                         continue;
                     }
+                    Some(n) => n,
                 };
                 let resp = match lookup_article_content_by_number(stores, ctx, n).await {
                     Ok(content) => article_response(&content),
@@ -391,6 +414,11 @@ where
                 send!(resp);
                 continue;
             }
+            Command::Head(Some(ArticleRef::Cid(cid_str))) => {
+                let resp = lookup_head_by_cid(stores, cid_str).await;
+                send!(resp);
+                continue;
+            }
             Command::Head(Some(ArticleRef::Number(n))) => {
                 let resp = match lookup_article_content_by_number(stores, ctx, *n).await {
                     Ok(content) => head_response(&content),
@@ -400,12 +428,19 @@ where
                 continue;
             }
             Command::Head(None) => {
-                let n = match ctx.selected_group.as_ref().and_then(|sg| sg.article_number) {
-                    Some(n) => n,
+                let sg = match ctx.selected_group.as_ref() {
+                    None => {
+                        send!(Response::no_newsgroup_selected());
+                        continue;
+                    }
+                    Some(sg) => sg,
+                };
+                let n = match sg.article_number {
                     None => {
                         send!(Response::new(420, "Current article number is invalid"));
                         continue;
                     }
+                    Some(n) => n,
                 };
                 let resp = match lookup_article_content_by_number(stores, ctx, n).await {
                     Ok(content) => head_response(&content),
@@ -419,6 +454,11 @@ where
                 send!(resp);
                 continue;
             }
+            Command::Body(Some(ArticleRef::Cid(cid_str))) => {
+                let resp = lookup_body_by_cid(stores, cid_str).await;
+                send!(resp);
+                continue;
+            }
             Command::Body(Some(ArticleRef::Number(n))) => {
                 let resp = match lookup_article_content_by_number(stores, ctx, *n).await {
                     Ok(content) => body_response(&content),
@@ -428,12 +468,19 @@ where
                 continue;
             }
             Command::Body(None) => {
-                let n = match ctx.selected_group.as_ref().and_then(|sg| sg.article_number) {
-                    Some(n) => n,
+                let sg = match ctx.selected_group.as_ref() {
+                    None => {
+                        send!(Response::no_newsgroup_selected());
+                        continue;
+                    }
+                    Some(sg) => sg,
+                };
+                let n = match sg.article_number {
                     None => {
                         send!(Response::new(420, "Current article number is invalid"));
                         continue;
                     }
+                    Some(n) => n,
                 };
                 let resp = match lookup_article_content_by_number(stores, ctx, n).await {
                     Ok(content) => body_response(&content),
@@ -453,12 +500,19 @@ where
                 continue;
             }
             Command::Stat(None) => {
-                let n = match ctx.selected_group.as_ref().and_then(|sg| sg.article_number) {
-                    Some(n) => n,
+                let sg = match ctx.selected_group.as_ref() {
+                    None => {
+                        send!(Response::no_newsgroup_selected());
+                        continue;
+                    }
+                    Some(sg) => sg,
+                };
+                let n = match sg.article_number {
                     None => {
                         send!(Response::new(420, "Current article number is invalid"));
                         continue;
                     }
+                    Some(n) => n,
                 };
                 let resp = match lookup_article_content_by_number(stores, ctx, n).await {
                     Ok(content) => {
@@ -471,6 +525,11 @@ where
             }
             Command::Stat(Some(ArticleRef::MessageId(msgid))) => {
                 let resp = stat_by_msgid(stores, msgid).await;
+                send!(resp);
+                continue;
+            }
+            Command::Stat(Some(ArticleRef::Cid(cid_str))) => {
+                let resp = stat_by_cid(stores, cid_str).await;
                 send!(resp);
                 continue;
             }
@@ -1868,25 +1927,28 @@ async fn handle_hdr_live(
     hdr_response(&hdr_records)
 }
 
-/// ARTICLE cid:<cid>: fetch an article directly by its IPFS CID.
+/// Fetch article content by CID, returning `Err(Response)` on failure.
 ///
-/// Returns 501 for an unparseable CID, 430 if the block is not found,
-/// or 220 with the article on success.
-async fn lookup_article_by_cid(stores: &ServerStores, cid_str: &str) -> Response {
+/// Shared scaffold for ARTICLE/HEAD/BODY/STAT cid: variants.
+/// Returns 501 for an unparseable CID, 430 if the block is not found.
+async fn fetch_article_content_by_cid(
+    stores: &ServerStores,
+    cid_str: &str,
+) -> Result<ArticleContent, Response> {
     let cid: Cid = match cid_str.parse() {
         Ok(c) => c,
-        Err(_) => return Response::syntax_error(),
+        Err(_) => return Err(Response::syntax_error()),
     };
     let wire_bytes = match fetch_article_wire_bytes(stores.ipfs_store.as_ref(), &cid).await {
         Ok(b) => b,
-        Err(_) => return Response::no_article_with_message_id(),
+        Err(_) => return Err(Response::no_article_with_message_id()),
     };
     let (header_bytes, body_bytes) = split_article(&wire_bytes);
     let headers_str = String::from_utf8_lossy(&header_bytes);
     let message_id = extract_header_value(&headers_str, "Message-ID").unwrap_or_default();
 
     // Look up DID signature verification result from the overview index.
-    // Silently omit the header on lookup error — do not fail the ARTICLE command.
+    // Silently omit the header on lookup error — do not fail the command.
     let did_sig_valid = stores
         .overview_store
         .query_by_msgid(&message_id)
@@ -1902,7 +1964,7 @@ async fn lookup_article_by_cid(stores: &ServerStores, cid_str: &str) -> Response
         .await
         .unwrap_or_default();
 
-    let content = ArticleContent {
+    Ok(ArticleContent {
         article_number: 0,
         message_id,
         header_bytes,
@@ -1910,8 +1972,42 @@ async fn lookup_article_by_cid(stores: &ServerStores, cid_str: &str) -> Response
         cid: Some(cid),
         did_sig_valid,
         verifications,
-    };
-    article_response(&content)
+    })
+}
+
+/// ARTICLE cid:<cid>: fetch an article directly by its IPFS CID.
+///
+/// Returns 501 for an unparseable CID, 430 if the block is not found,
+/// or 220 with the article on success.
+async fn lookup_article_by_cid(stores: &ServerStores, cid_str: &str) -> Response {
+    match fetch_article_content_by_cid(stores, cid_str).await {
+        Ok(content) => article_response(&content),
+        Err(r) => r,
+    }
+}
+
+/// HEAD cid:<cid>: return headers only for the article at the given CID.
+async fn lookup_head_by_cid(stores: &ServerStores, cid_str: &str) -> Response {
+    match fetch_article_content_by_cid(stores, cid_str).await {
+        Ok(content) => head_response(&content),
+        Err(r) => r,
+    }
+}
+
+/// BODY cid:<cid>: return body only for the article at the given CID.
+async fn lookup_body_by_cid(stores: &ServerStores, cid_str: &str) -> Response {
+    match fetch_article_content_by_cid(stores, cid_str).await {
+        Ok(content) => body_response(&content),
+        Err(r) => r,
+    }
+}
+
+/// STAT cid:<cid>: check article existence by CID, returning 223 or 430.
+async fn stat_by_cid(stores: &ServerStores, cid_str: &str) -> Response {
+    match fetch_article_content_by_cid(stores, cid_str).await {
+        Ok(content) => Response::article_exists(0, &content.message_id),
+        Err(r) => r,
+    }
 }
 
 /// Escape characters that have special meaning in Tantivy's query parser.
@@ -2563,6 +2659,118 @@ mod tests {
             result.as_deref(),
             Some("<abc@example.com>"),
             "value must not bleed into the next header; got: {result:?}"
+        );
+    }
+
+    // ── zmn9.23 / zmn9.25: auth gate and 412 vs 420 regression tests ─────────
+
+    /// Build a minimal Config for use in command-loop tests.
+    fn minimal_config() -> crate::config::Config {
+        let toml = r#"
+[listen]
+addr = "127.0.0.1:11990"
+
+[limits]
+command_timeout_secs = 5
+
+[auth]
+required = true
+
+[tls]
+
+[ipfs]
+api_url = "http://127.0.0.1:5001"
+"#;
+        toml::from_str(toml).expect("minimal_config: TOML must parse")
+    }
+
+    /// Run the command loop on a byte-slice input, returning the collected output.
+    async fn run_loop_bytes(input: &[u8], ctx: &mut crate::session::context::SessionContext) -> Vec<u8> {
+        use std::sync::Arc;
+        use tokio::io::BufReader;
+        let stores = Arc::new(ServerStores::new_mem().await);
+        let config = minimal_config();
+        let peer: std::net::SocketAddr = "127.0.0.1:9999".parse().unwrap();
+        let mut output: Vec<u8> = Vec::new();
+        let mut reader = BufReader::new(std::io::Cursor::new(input.to_vec()));
+        run_command_loop(&mut reader, &mut output, ctx, peer, &config, &stores).await;
+        output
+    }
+
+    /// RFC 3977 §7.1.1 / zmn9.23: an unauthenticated client that issues ARTICLE
+    /// with a MessageId must receive 480 (Authentication Required), not 430.
+    ///
+    /// Before the fix, the pre-dispatch match in run_command_loop would call
+    /// lookup_article_by_msgid and return 430 without checking auth state.
+    #[tokio::test]
+    async fn article_msgid_while_authenticating_returns_480() {
+        let peer: std::net::SocketAddr = "127.0.0.1:9999".parse().unwrap();
+        // auth_required=true → SessionState::Authenticating
+        let mut ctx = crate::session::context::SessionContext::new(peer, true, true, false);
+        assert_eq!(ctx.state, crate::session::state::SessionState::Authenticating);
+
+        let input = b"ARTICLE <test@example.com>\r\nQUIT\r\n";
+        let out = run_loop_bytes(input, &mut ctx).await;
+        let output_str = String::from_utf8_lossy(&out);
+        let code: u16 = output_str
+            .split_whitespace()
+            .next()
+            .and_then(|s| s.parse().ok())
+            .expect("must produce a numeric response code");
+        assert_eq!(
+            code, 480,
+            "unauthenticated ARTICLE <msgid> must return 480, got {code}; output: {output_str}"
+        );
+    }
+
+    /// RFC 3977 §8.1 / zmn9.25: ARTICLE with no argument when no group is
+    /// selected must return 412 (No newsgroup selected), not 420.
+    ///
+    /// 420 means "current article number is invalid" (group selected but NEXT/LAST
+    /// exhausted the list).  412 is the correct code when no group was ever selected.
+    #[tokio::test]
+    async fn article_no_arg_without_group_returns_412() {
+        let peer: std::net::SocketAddr = "127.0.0.1:9999".parse().unwrap();
+        // auth_required=false → SessionState::Active, no group selected
+        let mut ctx = crate::session::context::SessionContext::new(peer, false, true, false);
+        assert_eq!(ctx.state, crate::session::state::SessionState::Active);
+        assert!(ctx.selected_group.is_none());
+
+        let input = b"ARTICLE\r\nQUIT\r\n";
+        let out = run_loop_bytes(input, &mut ctx).await;
+        let output_str = String::from_utf8_lossy(&out);
+        let code: u16 = output_str
+            .split_whitespace()
+            .next()
+            .and_then(|s| s.parse().ok())
+            .expect("must produce a numeric response code");
+        assert_eq!(
+            code, 412,
+            "ARTICLE with no arg and no group must return 412, got {code}; output: {output_str}"
+        );
+    }
+
+    /// RFC 3977 §8.2 / zmn9.25: HEAD with no argument when no group is selected
+    /// must return 412 (No newsgroup selected), not 420.
+    #[tokio::test]
+    async fn head_no_arg_without_group_returns_412() {
+        let peer: std::net::SocketAddr = "127.0.0.1:9999".parse().unwrap();
+        // auth_required=false → SessionState::Active, no group selected
+        let mut ctx = crate::session::context::SessionContext::new(peer, false, true, false);
+        assert_eq!(ctx.state, crate::session::state::SessionState::Active);
+        assert!(ctx.selected_group.is_none());
+
+        let input = b"HEAD\r\nQUIT\r\n";
+        let out = run_loop_bytes(input, &mut ctx).await;
+        let output_str = String::from_utf8_lossy(&out);
+        let code: u16 = output_str
+            .split_whitespace()
+            .next()
+            .and_then(|s| s.parse().ok())
+            .expect("must produce a numeric response code");
+        assert_eq!(
+            code, 412,
+            "HEAD with no arg and no group must return 412, got {code}; output: {output_str}"
         );
     }
 }
