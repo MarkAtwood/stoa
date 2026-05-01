@@ -18,7 +18,7 @@ use stoa_reader::session::{
         list::{list_active, list_newsgroups, newgroups, newnews, GroupInfo},
         post::complete_post,
     },
-    context::SessionContext,
+    context::{SessionContext, SessionFlags},
     response::Response,
 };
 
@@ -29,7 +29,7 @@ fn peer_addr() -> SocketAddr {
 }
 
 fn active_ctx() -> SessionContext {
-    SessionContext::new(peer_addr(), false, true, false)
+    SessionContext::new(peer_addr(), SessionFlags { auth_required: false, posting_allowed: true, tls_active: false })
 }
 
 fn make_group(name: &str, numbers: Vec<u64>) -> GroupData {

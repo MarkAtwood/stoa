@@ -136,9 +136,10 @@ impl ServerStores {
 
         let trusted_issuer_store = TrustedIssuerStore::from_config(&config.auth.trusted_issuers)?;
 
-        let smtp_relay_queue = build_smtp_relay_queue(&config.smtp_relay)
-            .await
-            .map_err(|e| format!("smtp relay queue init failed: {e}"))?;
+        let smtp_relay_queue =
+            build_smtp_relay_queue(&config.smtp_relay, &config.path_hostname)
+                .await
+                .map_err(|e| format!("smtp relay queue init failed: {e}"))?;
 
         let verify_pool =
             make_disk_pool_with_verify_migrations(&config.database.verify_url).await?;
@@ -384,6 +385,7 @@ async fn load_or_generate_signing_key(path: Option<&str>) -> Result<SigningKey, 
 /// cannot be created or the DKIM key is malformed.
 async fn build_smtp_relay_queue(
     cfg: &crate::config::SmtpRelayConfig,
+    local_hostname: &str,
 ) -> Result<Option<Arc<SmtpRelayQueue>>, String> {
     let queue_dir = match cfg.queue_dir.as_deref() {
         Some(d) if !d.is_empty() => d,
@@ -424,7 +426,8 @@ async fn build_smtp_relay_queue(
         None
     };
 
-    let queue = SmtpRelayQueue::new(queue_dir, cfg.peers.clone(), down_backoff, dkim_signer)
-        .map_err(|e| e.to_string())?;
+    let queue =
+        SmtpRelayQueue::new(queue_dir, cfg.peers.clone(), down_backoff, dkim_signer, local_hostname)
+            .map_err(|e| e.to_string())?;
     Ok(Some(queue))
 }

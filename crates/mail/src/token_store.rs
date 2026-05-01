@@ -90,8 +90,8 @@ impl TokenStore {
             .expect("system time before UNIX epoch")
             .as_secs() as i64;
 
-        let row: Option<(String,)> = sqlx::query_as(
-            "SELECT username FROM bearer_tokens
+        let row: Option<(Vec<u8>, String)> = sqlx::query_as(
+            "SELECT token_hash, username FROM bearer_tokens
              WHERE token_hash = ?
                AND (expires_at IS NULL OR expires_at > ?)",
         )
@@ -100,7 +100,14 @@ impl TokenStore {
         .fetch_optional(self.pool.as_ref())
         .await?;
 
-        Ok(row.map(|(username,)| username))
+        Ok(row.and_then(|(stored_hash, username)| {
+            use subtle::ConstantTimeEq as _;
+            if stored_hash.as_slice().ct_eq(hash.as_slice()).into() {
+                Some(username)
+            } else {
+                None
+            }
+        }))
     }
 
     /// List all tokens for a user.  The raw token and hash are not included.

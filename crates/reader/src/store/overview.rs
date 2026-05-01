@@ -214,6 +214,55 @@ impl OverviewStore {
             })
             .collect())
     }
+
+    /// Return Message-IDs of articles in groups matching `wildmat` whose RFC 2822
+    /// `Date:` header parses to a Unix timestamp strictly greater than
+    /// `since_unix_secs`.
+    ///
+    /// Articles whose `date_header` cannot be parsed are excluded (conservative:
+    /// avoids returning very old articles the client already has).
+    ///
+    /// This performs a full scan of the `overview` table filtered by wildmat-
+    /// matched group names; it is only called for NEWNEWS which is inherently
+    /// infrequent (incremental sync check).
+    pub async fn message_ids_since(
+        &self,
+        wildmat: &str,
+        since_unix_secs: u64,
+    ) -> Result<Vec<String>, sqlx::Error> {
+        use stoa_core::wildmat::matches_wildmat;
+
+        #[derive(sqlx::FromRow)]
+        struct Row {
+            group_name: String,
+            message_id: String,
+            date_header: String,
+        }
+
+        let rows: Vec<Row> = sqlx::query_as(
+            "SELECT group_name, message_id, date_header FROM overview WHERE message_id != ''",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        let since_i64 = since_unix_secs as i64;
+        let mut out = Vec::new();
+        for row in rows {
+            if !matches_wildmat(&row.group_name, wildmat) {
+                continue;
+            }
+            let ts = chrono::DateTime::parse_from_rfc2822(row.date_header.trim())
+                .ok()
+                .map(|dt| dt.timestamp())
+                .unwrap_or(0);
+            if ts > since_i64 {
+                out.push(row.message_id);
+            }
+        }
+        out.sort_unstable();
+        out.dedup();
+        Ok(out)
+    }
 }
 
 /// Replace tab, CR, and LF with a space to prevent corruption of

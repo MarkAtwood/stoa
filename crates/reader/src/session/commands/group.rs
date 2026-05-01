@@ -161,14 +161,13 @@ pub fn stat_article(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::session::context::SessionFlags;
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
     fn make_ctx() -> SessionContext {
         SessionContext::new(
             SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 1234),
-            false,
-            true,
-            false,
+            SessionFlags { auth_required: false, posting_allowed: true, tls_active: false },
         )
     }
 

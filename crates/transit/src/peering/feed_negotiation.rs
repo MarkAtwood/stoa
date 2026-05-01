@@ -5,18 +5,34 @@
 //! IHAVE/TAKETHIS is only forwarded to peers that serve the group.
 
 use sqlx::{AnyPool, QueryBuilder};
+use stoa_core::article::GroupName;
 use stoa_core::error::StorageError;
 
 /// Record the full group list served by a peer (replaces previous entry).
 ///
 /// Deletes all previous `peer_groups` rows for `peer_id`, then inserts
 /// the new list. Wrapped in a transaction for atomicity.
+///
+/// Invalid group names (those that fail RFC 3977 format validation) are
+/// silently skipped with a warning log. This prevents an attacker-controlled
+/// peer from injecting arbitrary strings into the `peer_groups` table.
 pub async fn update_peer_groups(
     pool: &AnyPool,
     peer_id: &str,
     groups: &[&str],
     now_ms: i64,
 ) -> Result<(), StorageError> {
+    let valid_groups: Vec<&str> = groups
+        .iter()
+        .filter_map(|&g| match GroupName::new(g.to_owned()) {
+            Ok(_) => Some(g),
+            Err(_) => {
+                tracing::warn!(peer_id, group = g, "skipping invalid group name from peer");
+                None
+            }
+        })
+        .collect();
+
     let mut tx = pool
         .begin()
         .await
@@ -28,10 +44,10 @@ pub async fn update_peer_groups(
         .await
         .map_err(|e| StorageError::Database(e.to_string()))?;
 
-    if !groups.is_empty() {
+    if !valid_groups.is_empty() {
         let mut qb: QueryBuilder<sqlx::Any> =
             QueryBuilder::new("INSERT INTO peer_groups (peer_id, group_name, updated_at) ");
-        qb.push_values(groups.iter(), |mut b, group| {
+        qb.push_values(valid_groups.iter(), |mut b, group| {
             b.push_bind(peer_id).push_bind(*group).push_bind(now_ms);
         });
         qb.build()
@@ -208,5 +224,36 @@ mod tests {
         let (pool, _tmp) = make_pool().await;
         let result = groups_for_peer(&pool, "unknown").await.unwrap();
         assert!(result.is_empty());
+    }
+
+    // ── invalid group names are rejected ─────────────────────────────────────
+    //
+    // An attacker-controlled peer can advertise arbitrary strings as group
+    // names.  update_peer_groups must filter them out so only RFC 3977-valid
+    // names reach the database.
+
+    #[tokio::test]
+    async fn invalid_group_names_are_rejected() {
+        let (pool, _tmp) = make_pool().await;
+        insert_peer(&pool, "peer1").await;
+
+        // Mix of valid and invalid names.
+        let groups = &[
+            "comp.lang.rust",        // valid
+            "../etc/passwd",         // path traversal
+            "comp..invalid",         // double dot
+            "",                      // empty
+            "1starts.with.digit",    // component starts with digit
+            "sci.math",              // valid
+        ];
+        update_peer_groups(&pool, "peer1", groups, NOW)
+            .await
+            .unwrap();
+
+        let result = groups_for_peer(&pool, "peer1").await.unwrap();
+        // Only the two valid names must be stored.
+        assert_eq!(result.len(), 2, "expected exactly 2 valid groups, got {result:?}");
+        assert!(result.contains(&"comp.lang.rust".to_string()));
+        assert!(result.contains(&"sci.math".to_string()));
     }
 }

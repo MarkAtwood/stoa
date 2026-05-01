@@ -134,10 +134,7 @@ pub(crate) fn extract_message_id_bytes(raw: &[u8]) -> Option<String> {
         if line.is_empty() {
             break;
         }
-        if let Some(rest) = line
-            .strip_prefix("Message-ID:")
-            .or_else(|| line.strip_prefix("Message-Id:"))
-        {
+        if let Some(rest) = line.get(..11).filter(|p| p.eq_ignore_ascii_case("message-id:")).map(|_| &line[11..]) {
             let id = rest.trim();
             if !id.is_empty() {
                 return Some(id.to_string());

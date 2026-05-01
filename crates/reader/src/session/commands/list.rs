@@ -1,6 +1,23 @@
 use crate::session::response::Response;
 use stoa_core::wildmat::matches_wildmat;
 
+/// Parse an NNTP `yyyymmdd hhmmss` date+time pair into a Unix timestamp (seconds).
+///
+/// Returns `0` on any parse failure so callers can fall back to conservative
+/// behaviour (return all results) rather than hard-erroring on a malformed
+/// client timestamp.
+pub fn parse_nntp_datetime(date: &str, time: &str) -> u64 {
+    if date.len() != 8 || time.len() != 6 {
+        return 0;
+    }
+    let combined = format!("{}{}", date, time);
+    chrono::NaiveDateTime::parse_from_str(&combined, "%Y%m%d%H%M%S")
+        .ok()
+        .map(|dt| dt.and_utc().timestamp())
+        .filter(|&ts| ts > 0)
+        .unwrap_or(0) as u64
+}
+
 /// Information about a single newsgroup, passed to LIST handlers.
 #[derive(Debug, Clone)]
 pub struct GroupInfo {

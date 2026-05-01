@@ -38,7 +38,7 @@ use crate::{
             over::over_response,
             post::{complete_post, read_dot_terminated},
         },
-        context::SessionContext,
+        context::{SessionContext, SessionFlags},
         dispatch::dispatch,
         response::Response,
         state::SessionState,
@@ -162,7 +162,7 @@ async fn run_plain_session(
 
     let auth_required = config.auth.required;
     let posting_allowed = !config.read_only;
-    let mut ctx = SessionContext::new(peer_addr, auth_required, posting_allowed, false);
+    let mut ctx = SessionContext::new(peer_addr, SessionFlags { auth_required, posting_allowed, tls_active: false });
     ctx.starttls_available = tls_acceptor.is_some();
     load_known_groups(&stores, &mut ctx).await;
 
@@ -258,7 +258,7 @@ async fn run_session_post_starttls<S>(
 
     let auth_required = config.auth.required;
     let posting_allowed = !config.read_only;
-    let mut ctx = SessionContext::new(peer_addr, auth_required, posting_allowed, true);
+    let mut ctx = SessionContext::new(peer_addr, SessionFlags { auth_required, posting_allowed, tls_active: true });
     ctx.starttls_available = false; // already TLS; no further upgrade
     ctx.client_cert_fingerprint = client_cert_fingerprint;
     ctx.client_cert_der = client_cert_der;
@@ -575,6 +575,15 @@ where
             }
             Command::List(ListSubcommand::Active) => {
                 let resp = handle_list_active_live(stores, ctx).await;
+                send!(resp);
+                continue;
+            }
+            Command::Newnews {
+                wildmat,
+                ref date,
+                ref time,
+            } => {
+                let resp = handle_newnews_live(stores, wildmat, date, time).await;
                 send!(resp);
                 continue;
             }
@@ -972,7 +981,7 @@ async fn run_session_io<S>(
 
     let auth_required = config.auth.required;
     let posting_allowed = !config.read_only;
-    let mut ctx = SessionContext::new(peer_addr, auth_required, posting_allowed, is_tls);
+    let mut ctx = SessionContext::new(peer_addr, SessionFlags { auth_required, posting_allowed, tls_active: is_tls });
     ctx.client_cert_fingerprint = client_cert_fingerprint;
     ctx.client_cert_der = client_cert_der;
     load_known_groups(&stores, &mut ctx).await;
@@ -1786,6 +1795,32 @@ async fn handle_list_active_live(stores: &ServerStores, _ctx: &SessionContext) -
     Response::list_active(body)
 }
 
+/// NEWNEWS wildmat date time: return Message-IDs of articles newer than timestamp.
+///
+/// Queries the overview index for message IDs in groups matching `wildmat`
+/// whose Date header is strictly after the parsed NNTP timestamp. Articles
+/// with unparseable Date headers are excluded (conservative).
+async fn handle_newnews_live(
+    stores: &ServerStores,
+    wildmat: &str,
+    date: &str,
+    time: &str,
+) -> Response {
+    use crate::session::commands::list::parse_nntp_datetime;
+    let since_ts = parse_nntp_datetime(date, time);
+    match stores
+        .overview_store
+        .message_ids_since(wildmat, since_ts)
+        .await
+    {
+        Ok(ids) => Response::newnews(ids),
+        Err(e) => {
+            warn!("NEWNEWS store query error: {e}");
+            Response::program_fault()
+        }
+    }
+}
+
 /// OVER/XOVER [range]: serve overview records from the SQLite overview index.
 async fn handle_over_live(
     stores: &ServerStores,
@@ -2371,9 +2406,7 @@ mod tests {
 
         let mut ctx = crate::session::context::SessionContext::new(
             "127.0.0.1:1234".parse().unwrap(),
-            false,
-            true,
-            false,
+            crate::session::context::SessionFlags { auth_required: false, posting_allowed: true, tls_active: false },
         );
         ctx.selected_group = Some(crate::session::context::SelectedGroup {
             name: stoa_core::article::GroupName::new("comp.test").unwrap(),
@@ -2501,9 +2534,7 @@ mod tests {
         let stores = ServerStores::new_mem().await;
         let mut ctx = crate::session::context::SessionContext::new(
             "127.0.0.1:1234".parse().unwrap(),
-            false,
-            true,
-            false,
+            crate::session::context::SessionFlags { auth_required: false, posting_allowed: true, tls_active: false },
         );
         ctx.selected_group = Some(crate::session::context::SelectedGroup {
             name: stoa_core::article::GroupName::new("comp.test").unwrap(),
@@ -2525,9 +2556,7 @@ mod tests {
         let stores = ServerStores::new_mem().await;
         let ctx = crate::session::context::SessionContext::new(
             "127.0.0.1:1234".parse().unwrap(),
-            false,
-            true,
-            false,
+            crate::session::context::SessionFlags { auth_required: false, posting_allowed: true, tls_active: false },
         );
         let resp = handle_nntp_search(&stores, &ctx, &SearchKey::Subject, "hello").await;
         assert!(
@@ -2560,9 +2589,7 @@ mod tests {
         let stores = ServerStores::new_mem_no_search().await;
         let mut ctx = crate::session::context::SessionContext::new(
             "127.0.0.1:1234".parse().unwrap(),
-            false,
-            true,
-            false,
+            crate::session::context::SessionFlags { auth_required: false, posting_allowed: true, tls_active: false },
         );
         ctx.selected_group = Some(crate::session::context::SelectedGroup {
             name: stoa_core::article::GroupName::new("misc.test").unwrap(),
@@ -2600,9 +2627,7 @@ mod tests {
         let stores = ServerStores::new_mem_no_search().await;
         let mut ctx = crate::session::context::SessionContext::new(
             "127.0.0.1:1234".parse().unwrap(),
-            false,
-            true,
-            false,
+            crate::session::context::SessionFlags { auth_required: false, posting_allowed: true, tls_active: false },
         );
         ctx.selected_group = Some(crate::session::context::SelectedGroup {
             name: stoa_core::article::GroupName::new("misc.test").unwrap(),
@@ -2628,9 +2653,7 @@ mod tests {
         let stores = ServerStores::new_mem().await;
         let mut ctx = crate::session::context::SessionContext::new(
             "127.0.0.1:1234".parse().unwrap(),
-            false,
-            true,
-            false,
+            crate::session::context::SessionFlags { auth_required: false, posting_allowed: true, tls_active: false },
         );
         ctx.selected_group = Some(crate::session::context::SelectedGroup {
             name: stoa_core::article::GroupName::new("misc.test").unwrap(),
@@ -2658,9 +2681,7 @@ mod tests {
         let stores = ServerStores::new_mem().await;
         let mut ctx = crate::session::context::SessionContext::new(
             "127.0.0.1:1234".parse().unwrap(),
-            false,
-            true,
-            false,
+            crate::session::context::SessionFlags { auth_required: false, posting_allowed: true, tls_active: false },
         );
         ctx.selected_group = Some(crate::session::context::SelectedGroup {
             name: stoa_core::article::GroupName::new("misc.test").unwrap(),
@@ -2778,7 +2799,7 @@ api_url = "http://127.0.0.1:5001"
     async fn article_msgid_while_authenticating_returns_480() {
         let peer: std::net::SocketAddr = "127.0.0.1:9999".parse().unwrap();
         // auth_required=true → SessionState::Authenticating
-        let mut ctx = crate::session::context::SessionContext::new(peer, true, true, false);
+        let mut ctx = crate::session::context::SessionContext::new(peer, crate::session::context::SessionFlags { auth_required: true, posting_allowed: true, tls_active: false });
         assert_eq!(
             ctx.state,
             crate::session::state::SessionState::Authenticating
@@ -2807,7 +2828,7 @@ api_url = "http://127.0.0.1:5001"
     async fn article_no_arg_without_group_returns_412() {
         let peer: std::net::SocketAddr = "127.0.0.1:9999".parse().unwrap();
         // auth_required=false → SessionState::Active, no group selected
-        let mut ctx = crate::session::context::SessionContext::new(peer, false, true, false);
+        let mut ctx = crate::session::context::SessionContext::new(peer, crate::session::context::SessionFlags { auth_required: false, posting_allowed: true, tls_active: false });
         assert_eq!(ctx.state, crate::session::state::SessionState::Active);
         assert!(ctx.selected_group.is_none());
 
@@ -2831,7 +2852,7 @@ api_url = "http://127.0.0.1:5001"
     async fn head_no_arg_without_group_returns_412() {
         let peer: std::net::SocketAddr = "127.0.0.1:9999".parse().unwrap();
         // auth_required=false → SessionState::Active, no group selected
-        let mut ctx = crate::session::context::SessionContext::new(peer, false, true, false);
+        let mut ctx = crate::session::context::SessionContext::new(peer, crate::session::context::SessionFlags { auth_required: false, posting_allowed: true, tls_active: false });
         assert_eq!(ctx.state, crate::session::state::SessionState::Active);
         assert!(ctx.selected_group.is_none());
 

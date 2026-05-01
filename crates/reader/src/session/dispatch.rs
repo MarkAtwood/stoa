@@ -4,7 +4,10 @@ use crate::{
     config::AuthConfig,
     session::{
         command::{ArticleRef, Command, ListSubcommand, OverArg},
-        commands::list::{list_active, list_newsgroups, list_overview_fmt, newgroups, newnews},
+        commands::list::{
+            list_active, list_newsgroups, list_overview_fmt, newgroups, newnews,
+            parse_nntp_datetime,
+        },
         context::{SelectedGroup, SessionContext},
         response::Response,
         state::SessionState,
@@ -168,7 +171,10 @@ pub fn dispatch(
             ListSubcommand::Newsgroups => list_newsgroups(&ctx.known_groups, None),
             ListSubcommand::OverviewFmt => list_overview_fmt(),
         },
-        Command::Newgroups { .. } => newgroups(&ctx.known_groups, 0),
+        Command::Newgroups { ref date, ref time } => {
+            let since_ts = parse_nntp_datetime(date, time);
+            newgroups(&ctx.known_groups, since_ts)
+        }
         Command::Newnews { wildmat, .. } => newnews(&ctx.known_groups, 0, Some(&wildmat)),
         Command::Article(arg) | Command::Head(arg) | Command::Body(arg) | Command::Stat(arg) => {
             match arg {
@@ -243,7 +249,7 @@ mod tests {
     use super::*;
     use crate::{
         config::{AuthConfig, UserCredential},
-        session::{command::Command, context::SessionContext, state::SessionState},
+        session::{command::Command, context::{SessionContext, SessionFlags}, state::SessionState},
     };
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
@@ -272,15 +278,15 @@ mod tests {
     }
 
     fn ctx_authenticating() -> SessionContext {
-        SessionContext::new(test_addr(), true, true, false)
+        SessionContext::new(test_addr(), SessionFlags { auth_required: true, posting_allowed: true, tls_active: false })
     }
 
     fn ctx_active() -> SessionContext {
-        SessionContext::new(test_addr(), false, true, false)
+        SessionContext::new(test_addr(), SessionFlags { auth_required: false, posting_allowed: true, tls_active: false })
     }
 
     fn ctx_group_selected() -> SessionContext {
-        let mut ctx = SessionContext::new(test_addr(), false, true, false);
+        let mut ctx = SessionContext::new(test_addr(), SessionFlags { auth_required: false, posting_allowed: true, tls_active: false });
         ctx.known_groups
             .push(crate::session::commands::list::GroupInfo {
                 name: "comp.lang.rust".into(),
@@ -367,7 +373,7 @@ mod tests {
 
     #[test]
     fn test_post_not_permitted() {
-        let mut ctx = SessionContext::new(test_addr(), false, false, false);
+        let mut ctx = SessionContext::new(test_addr(), SessionFlags { auth_required: false, posting_allowed: false, tls_active: false });
         let resp = dispatch(
             &mut ctx,
             Command::Post,
@@ -462,7 +468,7 @@ mod tests {
 
     #[test]
     fn test_capabilities_posting_not_allowed_excludes_post() {
-        let mut ctx = SessionContext::new(test_addr(), false, false, false);
+        let mut ctx = SessionContext::new(test_addr(), SessionFlags { auth_required: false, posting_allowed: false, tls_active: false });
         let resp = dispatch(
             &mut ctx,
             Command::Capabilities,
@@ -488,7 +494,7 @@ mod tests {
 
     #[test]
     fn test_mode_reader_posting_not_allowed_returns_201() {
-        let mut ctx = SessionContext::new(test_addr(), false, false, false);
+        let mut ctx = SessionContext::new(test_addr(), SessionFlags { auth_required: false, posting_allowed: false, tls_active: false });
         let resp = dispatch(
             &mut ctx,
             Command::ModeReader,
@@ -515,7 +521,7 @@ mod tests {
     #[test]
     fn starttls_always_returns_502() {
         // STARTTLS is not supported — implicit TLS (NNTPS port 563) is used instead.
-        let mut ctx = SessionContext::new(test_addr(), false, true, false);
+        let mut ctx = SessionContext::new(test_addr(), SessionFlags { auth_required: false, posting_allowed: true, tls_active: false });
         let resp = dispatch(
             &mut ctx,
             Command::StartTls,
@@ -542,7 +548,7 @@ mod tests {
             oidc_providers: vec![],
             drain_username: None,
         };
-        let mut ctx = SessionContext::new(test_addr(), false, true, false);
+        let mut ctx = SessionContext::new(test_addr(), SessionFlags { auth_required: false, posting_allowed: true, tls_active: false });
         let resp = dispatch(
             &mut ctx,
             Command::AuthinfoUser("alice".into()),
@@ -560,7 +566,7 @@ mod tests {
     fn capabilities_omits_starttls_when_not_available() {
         // STARTTLS is not advertised when starttls_available=false (no TLS configured).
         for tls_active in [false, true] {
-            let mut ctx = SessionContext::new(test_addr(), false, true, tls_active);
+            let mut ctx = SessionContext::new(test_addr(), SessionFlags { auth_required: false, posting_allowed: true, tls_active });
             // starttls_available defaults to false
             let resp = dispatch(
                 &mut ctx,
@@ -579,7 +585,7 @@ mod tests {
     #[test]
     fn capabilities_includes_starttls_on_plain_when_available() {
         // STARTTLS appears in CAPABILITIES on a plain connection when TLS is configured.
-        let mut ctx = SessionContext::new(test_addr(), false, true, false);
+        let mut ctx = SessionContext::new(test_addr(), SessionFlags { auth_required: false, posting_allowed: true, tls_active: false });
         ctx.starttls_available = true;
         let resp = dispatch(
             &mut ctx,
@@ -598,7 +604,7 @@ mod tests {
     fn capabilities_omits_starttls_after_tls_upgrade() {
         // STARTTLS must NOT appear in CAPABILITIES after TLS is active, even if
         // starttls_available is true (RFC 4642: cannot upgrade twice).
-        let mut ctx = SessionContext::new(test_addr(), false, true, true);
+        let mut ctx = SessionContext::new(test_addr(), SessionFlags { auth_required: false, posting_allowed: true, tls_active: true });
         ctx.starttls_available = true;
         let resp = dispatch(
             &mut ctx,

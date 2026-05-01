@@ -184,6 +184,7 @@ async fn happy_path_article_delivered_queue_empty() {
         vec![test_peer(port)],
         Duration::from_secs(300),
         None,
+        "test.example.com",
     )
     .unwrap();
 
@@ -253,6 +254,7 @@ async fn transient_failure_leaves_message_in_queue() {
         vec![test_peer(port)],
         Duration::from_secs(300),
         None,
+        "test.example.com",
     )
     .unwrap();
 
@@ -291,6 +293,7 @@ async fn permanent_failure_moves_to_dead() {
         vec![test_peer(port)],
         Duration::from_secs(300),
         None,
+        "test.example.com",
     )
     .unwrap();
 
@@ -341,6 +344,7 @@ async fn round_robin_two_peers_each_gets_one() {
         vec![test_peer(port1), test_peer(port2)],
         Duration::from_secs(300),
         None,
+        "test.example.com",
     )
     .unwrap();
 

@@ -108,13 +108,24 @@ impl PeerRateLimiter {
     ///
     /// Evicts fully-refilled buckets every EVICT_INTERVAL calls to amortize
     /// the O(n) retain cost across many articles from many peers.
+    ///
+    /// Returns `None` (allow) if the peer address cannot be parsed, rather
+    /// than falling back to 0.0.0.0 which would conflate all bad-address peers
+    /// into a single shared bucket. An unparseable address is logged as a
+    /// warning.
     pub fn check(&mut self, peer_addr: &str) -> Option<RateLimitResult> {
         use std::net::{IpAddr, SocketAddr};
-        let ip: IpAddr = peer_addr
+        let ip: IpAddr = match peer_addr
             .parse::<SocketAddr>()
             .map(|sa| sa.ip())
             .or_else(|_| peer_addr.parse::<IpAddr>())
-            .unwrap_or(IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED));
+        {
+            Ok(ip) => ip,
+            Err(_) => {
+                tracing::warn!(peer_addr, "rate limiter: unparseable peer address, skipping");
+                return None;
+            }
+        };
         let rate = self.rate;
         let capacity = self.capacity;
         let action = self.action;
@@ -135,13 +146,19 @@ impl PeerRateLimiter {
     }
 
     /// Remove the bucket for a peer (e.g. on disconnect).
+    ///
+    /// If the peer address cannot be parsed no bucket will exist to remove;
+    /// this is a no-op in that case (consistent with `check` not inserting one).
     pub fn remove_peer(&mut self, peer_addr: &str) {
         use std::net::{IpAddr, SocketAddr};
-        let ip: IpAddr = peer_addr
+        let ip: IpAddr = match peer_addr
             .parse::<SocketAddr>()
             .map(|sa| sa.ip())
             .or_else(|_| peer_addr.parse::<IpAddr>())
-            .unwrap_or(IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED));
+        {
+            Ok(ip) => ip,
+            Err(_) => return,
+        };
         self.buckets.remove(&ip);
     }
 }

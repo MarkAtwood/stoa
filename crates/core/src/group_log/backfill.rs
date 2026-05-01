@@ -112,14 +112,38 @@ where
     Fut: std::future::Future<Output = Result<VerifiedEntry, String>>,
 {
     if storage.has_entry(&want_id).await? {
+        // The entry is already present locally.  Verify it is also a current
+        // tip; if not, advance the tip set so that consumers see it as
+        // reachable.  Without this check a caller can believe it is fully
+        // synced while tips remain stale (the entry exists but is not
+        // advertised as a DAG frontier).
+        let tips = storage.list_tips(group).await?;
+        let want_key = *want_id.as_bytes();
+        let already_tip = tips.iter().any(|t| *t.as_bytes() == want_key);
+        if !already_tip {
+            // Retrieve the entry's parents so advance_tips can retire them.
+            let parent_ids = if let Some(entry) = storage.get_entry(&want_id).await? {
+                parent_ids_from_entry(&entry)
+            } else {
+                // Entry disappeared between has_entry and get_entry (race).
+                // Fall through to BFS path by returning without advancing tips.
+                return Ok(0);
+            };
+            storage
+                .advance_tips(group, &parent_ids, &want_id)
+                .await?;
+        }
         return Ok(0);
     }
 
     let mut visited: HashSet<[u8; 32]> = HashSet::new();
     let mut queue: VecDeque<LogEntryId> = VecDeque::new();
     let mut fetched_count: usize = 0;
-    // Captured from the first BFS iteration (which always processes want_id).
-    // Used to advance the tip set after the BFS completes.
+    // Captured from the first BFS iteration.  The queue starts with exactly
+    // want_id and nothing else, so the first pop_front always yields want_id.
+    // The debug assertion below enforces this invariant explicitly so that any
+    // future refactor that adds pre-queued entries fails fast rather than
+    // silently capturing the wrong entry's parents.
     let mut want_parent_ids: Option<Vec<LogEntryId>> = None;
 
     queue.push_back(want_id.clone());
@@ -145,8 +169,16 @@ where
             .map_err(BackfillError::FetchFailed)?;
         let entry = verified.into_inner();
 
-        // Capture want_id's parent IDs on the first (guaranteed) fetch of want_id.
+        // Capture want_id's parent IDs on the first fetch.
+        // Assert that the first entry dequeued is always want_id: the queue
+        // starts with only want_id, so this fires on the very first iteration.
+        // This guards against ordering bugs introduced by future refactors.
         if want_parent_ids.is_none() {
+            debug_assert_eq!(
+                *entry_id.as_bytes(),
+                *want_id.as_bytes(),
+                "backfill BFS invariant violated: first dequeued entry must be want_id"
+            );
             want_parent_ids = Some(parent_ids_from_entry(&entry));
         }
 
@@ -629,5 +661,67 @@ mod tests {
             }
             other => panic!("expected BackfillError::Truncated, got {other:?}"),
         }
+    }
+
+    // ── backfill_advances_tip_when_entry_present_but_not_tip ──────────────────
+    //
+    // If want_id is already in local storage but is NOT in the current tip set,
+    // backfill must advance the tip set so that consumers see it as reachable.
+    // This exercises the Bug 4 fix: the old code returned Ok(0) without
+    // touching tips, leaving the caller believing it was fully synced while
+    // the tip set pointed at a stale ancestor.
+
+    #[tokio::test]
+    async fn backfill_advances_tip_when_entry_present_but_not_tip() {
+        let local = MemLogStorage::new();
+        let group = test_group();
+
+        // Build a two-entry chain: parent → child.
+        let parent_id = make_entry_id(b"stale-tip-parent");
+        let child_id = make_entry_id(b"stale-tip-child");
+
+        let parent_entry = make_entry(1_000, b"art-parent", vec![]);
+        let child_entry = make_entry(
+            2_000,
+            b"art-child",
+            vec![entry_id_to_cid(&parent_id)],
+        );
+
+        local
+            .insert_entry(parent_id.clone(), parent_entry)
+            .await
+            .unwrap();
+        local
+            .insert_entry(child_id.clone(), child_entry)
+            .await
+            .unwrap();
+
+        // Manually set the tip to parent only — child is present but not a tip.
+        local
+            .set_tips(&group, &[parent_id.clone()])
+            .await
+            .unwrap();
+
+        // Backfill for child_id: it's already present so no fetch calls.
+        let count = backfill(&local, &group, child_id.clone(), |_id| async move {
+            Err::<VerifiedEntry, _>("fetch must not be called".to_string())
+        })
+        .await
+        .expect("backfill should succeed");
+
+        assert_eq!(count, 0, "no new entries fetched");
+
+        // The tip set must now include child_id and must not include parent_id
+        // (parent was retired by advance_tips).
+        let tips = local.list_tips(&group).await.unwrap();
+        let tip_keys: Vec<[u8; 32]> = tips.iter().map(|t| *t.as_bytes()).collect();
+        assert!(
+            tip_keys.contains(child_id.as_bytes()),
+            "child_id must be a tip after backfill"
+        );
+        assert!(
+            !tip_keys.contains(parent_id.as_bytes()),
+            "parent_id must be retired from tips after backfill"
+        );
     }
 }

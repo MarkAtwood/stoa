@@ -337,8 +337,11 @@ async fn get_metrics() -> Response {
 /// with 404. The function is named `user_exists` to mirror conventional
 /// multi-user Sieve admin APIs, where each user has their own script namespace;
 /// here the sole "user" is the global script key.
-fn user_exists(_s: &AdminState, username: &str) -> bool {
-    username.eq_ignore_ascii_case(crate::config::GLOBAL_SCRIPT_KEY)
+fn user_exists(s: &AdminState, username: &str) -> bool {
+    if username.eq_ignore_ascii_case(crate::config::GLOBAL_SCRIPT_KEY) {
+        return true;
+    }
+    s.config.auth.users.iter().any(|u| u.username == username)
 }
 
 #[cfg(test)]

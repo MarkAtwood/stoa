@@ -36,7 +36,7 @@ impl FollowerStore {
         sqlx::query(
             "INSERT INTO activitypub_followers (group_name, actor_url, inbox_url, followed_at)
              VALUES (?, ?, ?, ?)
-             ON CONFLICT(group_name, actor_url) DO UPDATE SET inbox_url = excluded.inbox_url",
+             ON CONFLICT(group_name, actor_url) DO UPDATE SET inbox_url = excluded.inbox_url, followed_at = excluded.followed_at",
         )
         .bind(group_name)
         .bind(actor_url)

@@ -19,6 +19,9 @@ use serde_json::Value;
 use std::sync::Arc;
 use tracing::{info, warn};
 
+/// Maximum response body size for actor document fetches (64 KiB).
+const ACTOR_FETCH_MAX_BYTES: usize = 64 * 1024;
+
 use crate::server::AppState;
 
 /// POST `/ap/groups/{group_name}/inbox`
@@ -95,6 +98,9 @@ pub async fn inbox_handler(
 /// Returns the `inbox` field value from the fetched actor JSON.
 /// Falls back to `{actor_url}/inbox` if the fetch fails or the field is absent,
 /// logging a warning so operators know the fallback was used.
+///
+/// Enforces a [`ACTOR_FETCH_MAX_BYTES`] body size cap to prevent a malicious
+/// actor server from exhausting memory with an oversized response.
 async fn fetch_actor_inbox(http_client: &reqwest::Client, actor_url: &str) -> String {
     match http_client
         .get(actor_url)
@@ -103,17 +109,48 @@ async fn fetch_actor_inbox(http_client: &reqwest::Client, actor_url: &str) -> St
         .send()
         .await
     {
-        Ok(resp) if resp.status().is_success() => match resp.json::<serde_json::Value>().await {
-            Ok(actor) => {
-                if let Some(inbox) = actor["inbox"].as_str() {
-                    return inbox.to_string();
+        Ok(resp) if resp.status().is_success() => {
+            // Reject up front if the server advertises a body larger than our cap.
+            if resp
+                .content_length()
+                .map(|n| n > ACTOR_FETCH_MAX_BYTES as u64)
+                .unwrap_or(false)
+            {
+                warn!(
+                    actor = %actor_url,
+                    "actor document Content-Length exceeds {ACTOR_FETCH_MAX_BYTES} bytes; using fallback inbox URL"
+                );
+                return format!("{}/inbox", actor_url);
+            }
+
+            // Fetch body with a hard cap so a lying server cannot OOM us.
+            let buf = match resp.bytes().await {
+                Ok(b) => b,
+                Err(e) => {
+                    warn!(actor = %actor_url, error = %e, "error reading actor response body; using fallback inbox URL");
+                    return format!("{}/inbox", actor_url);
                 }
-                warn!(actor = %actor_url, "actor document has no inbox field; using fallback");
+            };
+            if buf.len() > ACTOR_FETCH_MAX_BYTES {
+                warn!(
+                    actor = %actor_url,
+                    "actor document body exceeded {ACTOR_FETCH_MAX_BYTES} bytes; using fallback inbox URL"
+                );
+                return format!("{}/inbox", actor_url);
             }
-            Err(e) => {
-                warn!(actor = %actor_url, error = %e, "failed to parse actor JSON; using fallback inbox URL");
+
+            match serde_json::from_slice::<serde_json::Value>(&buf) {
+                Ok(actor) => {
+                    if let Some(inbox) = actor["inbox"].as_str() {
+                        return inbox.to_string();
+                    }
+                    warn!(actor = %actor_url, "actor document has no inbox field; using fallback");
+                }
+                Err(e) => {
+                    warn!(actor = %actor_url, error = %e, "failed to parse actor JSON; using fallback inbox URL");
+                }
             }
-        },
+        }
         Ok(resp) => {
             warn!(actor = %actor_url, status = %resp.status(), "actor fetch returned error; using fallback inbox URL");
         }
@@ -226,14 +263,7 @@ async fn deliver_accept(
         .header("Host", &host);
 
     if let Some(key) = &ap_state.key {
-        match key.sign_post(&host, &path, &date, &body) {
-            Ok(sig_header) => {
-                req = req.header("Signature", sig_header);
-            }
-            Err(e) => {
-                warn!(error = %e, "failed to sign Accept delivery");
-            }
-        }
+        req = req.header("Signature", key.sign_post(&host, &path, &date, &body));
     }
 
     match req.body(body).send().await {

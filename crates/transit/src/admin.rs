@@ -1087,13 +1087,86 @@ pub(crate) async fn build_peers_json(pool: &AnyPool, now_ms: i64) -> Result<Stri
     Ok(serde_json::to_string(&peers).unwrap_or_else(|_| "[]".to_string()))
 }
 
+/// Returns `true` if `ip` falls within any address range that must not be
+/// reachable from the admin ping endpoint.
+///
+/// Blocked ranges:
+/// - Loopback: 127.0.0.0/8, ::1
+/// - Unspecified: 0.0.0.0, ::
+/// - Link-local: 169.254.0.0/16, fe80::/10
+/// - Private (RFC 1918): 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+/// - Private (RFC 4193): fc00::/7
+fn is_blocked_ip(ip: std::net::IpAddr) -> bool {
+    use std::net::{IpAddr, Ipv4Addr};
+    match ip {
+        IpAddr::V4(v4) => {
+            let o = v4.octets();
+            v4.is_loopback()          // 127.0.0.0/8
+            || v4.is_unspecified()    // 0.0.0.0
+            || v4.is_link_local()     // 169.254.0.0/16
+            || o[0] == 10             // 10.0.0.0/8
+            || (o[0] == 172 && (o[1] & 0xf0) == 16)  // 172.16.0.0/12
+            || (o[0] == 192 && o[1] == 168)           // 192.168.0.0/16
+            || v4 == Ipv4Addr::BROADCAST              // 255.255.255.255
+        }
+        IpAddr::V6(v6) => {
+            let s = v6.segments();
+            v6.is_loopback()          // ::1
+            || v6.is_unspecified()    // ::
+            // Link-local: fe80::/10
+            || (s[0] & 0xffc0) == 0xfe80
+            // Unique local: fc00::/7 (includes fd00::/8)
+            || (s[0] & 0xfe00) == 0xfc00
+            // IPv4-mapped: ::ffff:0:0/96 — check the embedded IPv4 address.
+            || matches!(v6.to_ipv4_mapped(), Some(v4) if is_blocked_ip(IpAddr::V4(v4)))
+        }
+    }
+}
+
 /// Attempt a TCP connection to `address` and measure round-trip latency.
 ///
 /// Returns `(reachable, latency_ms)`.  A 5-second timeout applies; on timeout
 /// or connection refused, `reachable` is `false` and `latency_ms` is `None`.
+///
+/// Rejects addresses that resolve to loopback, link-local, private, or
+/// unspecified ranges to prevent SSRF from the admin endpoint.
 async fn ping_peer(address: &str) -> (bool, Option<u64>) {
+    use std::net::ToSocketAddrs;
     use std::time::Instant;
+
     const PING_TIMEOUT: Duration = Duration::from_secs(5);
+
+    // Resolve the address synchronously (DNS) before connecting.  We must
+    // validate the resolved IPs rather than the raw string because a hostname
+    // could resolve to a private address.
+    //
+    // `ToSocketAddrs` is blocking; run it on a blocking thread so we don't
+    // stall the async runtime.
+    let address_owned = address.to_string();
+    let addrs = match tokio::task::spawn_blocking(move || {
+        address_owned
+            .to_socket_addrs()
+            .map(|iter| iter.collect::<Vec<_>>())
+    })
+    .await
+    {
+        Ok(Ok(addrs)) => addrs,
+        _ => return (false, None),
+    };
+
+    // All resolved addresses must pass the blocklist check.
+    for socket_addr in &addrs {
+        if is_blocked_ip(socket_addr.ip()) {
+            tracing::warn!(
+                address = %address,
+                ip = %socket_addr.ip(),
+                "admin /ping: blocked SSRF attempt to private/loopback address"
+            );
+            return (false, None);
+        }
+    }
+
+    // Connect to the first resolved address (standard behavior).
     let start = Instant::now();
     match tokio::time::timeout(PING_TIMEOUT, tokio::net::TcpStream::connect(address)).await {
         Ok(Ok(_stream)) => {

@@ -5594,6 +5594,7 @@ dependencies = [
  "stoa-reader",
  "stoa-smtp",
  "stoa-tls",
+ "subtle",
  "tempfile",
  "tokio",
  "tokio-rustls 0.26.4",

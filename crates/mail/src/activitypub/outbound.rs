@@ -185,14 +185,7 @@ async fn deliver_one(
         .header("Host", &host);
 
     if let Some(k) = key {
-        match k.sign_post(&host, &path, date, &body) {
-            Ok(sig) => {
-                req = req.header("Signature", sig);
-            }
-            Err(e) => {
-                warn!(inbox = %follower.inbox_url, error = %e, "failed to sign activity delivery");
-            }
-        }
+        req = req.header("Signature", k.sign_post(&host, &path, date, &body));
     }
 
     match req.body(body).send().await {

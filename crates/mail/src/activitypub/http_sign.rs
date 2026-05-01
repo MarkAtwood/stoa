@@ -94,13 +94,7 @@ impl RsaActorKey {
     /// # Returns
     ///
     /// The full value for the `Signature:` header, ready to set directly.
-    pub fn sign_post(
-        &self,
-        host: &str,
-        path: &str,
-        date: &str,
-        body: &[u8],
-    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    pub fn sign_post(&self, host: &str, path: &str, date: &str, body: &[u8]) -> String {
         let digest = {
             let hash = Sha256::digest(body);
             format!("SHA-256={}", BASE64.encode(&hash))
@@ -109,10 +103,10 @@ impl RsaActorKey {
             format!("(request-target): post {path}\nhost: {host}\ndate: {date}\ndigest: {digest}");
         let sig_bytes = self.signing_key.sign(signed_string.as_bytes()).to_bytes();
         let sig_b64 = BASE64.encode(&sig_bytes);
-        Ok(format!(
+        format!(
             r#"keyId="{}",algorithm="rsa-sha256",headers="(request-target) host date digest",signature="{}""#,
             self.key_id, sig_b64
-        ))
+        )
     }
 }
 
@@ -140,14 +134,12 @@ mod tests {
     #[test]
     fn sign_post_produces_signature_header() {
         let key = RsaActorKey::generate("https://example.com/ap/groups/test#main-key").unwrap();
-        let sig = key
-            .sign_post(
-                "mastodon.social",
-                "/users/alice/inbox",
-                "Thu, 27 Apr 2026 12:00:00 GMT",
-                b"{\"type\":\"Create\"}",
-            )
-            .unwrap();
+        let sig = key.sign_post(
+            "mastodon.social",
+            "/users/alice/inbox",
+            "Thu, 27 Apr 2026 12:00:00 GMT",
+            b"{\"type\":\"Create\"}",
+        );
         assert!(sig.contains("keyId="), "sig: {sig}");
         assert!(sig.contains("algorithm=\"rsa-sha256\""), "sig: {sig}");
         assert!(sig.contains("signature="), "sig: {sig}");

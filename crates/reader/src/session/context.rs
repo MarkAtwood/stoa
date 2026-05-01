@@ -91,31 +91,39 @@ pub struct SessionContext {
 /// Maximum consecutive AUTHINFO PASS failures before the connection is dropped.
 pub const MAX_AUTH_FAILURES: u32 = 5;
 
+/// Named boolean flags for `SessionContext::new`.
+///
+/// Replacing three adjacent `bool` parameters removes call-site ambiguity —
+/// the field names serve as self-documenting labels at every construction site.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SessionFlags {
+    /// If `true`, start in `Authenticating` state and require credentials
+    /// before any newsreading commands are accepted.
+    pub auth_required: bool,
+    /// If `true`, the `POST` command is available on this connection.
+    pub posting_allowed: bool,
+    /// If `true`, the connection is already TLS-protected (NNTPS implicit TLS
+    /// or a completed STARTTLS upgrade).
+    pub tls_active: bool,
+}
+
 impl SessionContext {
     /// Create a new session context for an incoming connection.
-    ///
-    /// `auth_required`: if true, start in Authenticating state.
-    /// `tls_active`: true for NNTPS (implicit TLS) connections.
-    pub fn new(
-        peer_addr: SocketAddr,
-        auth_required: bool,
-        posting_allowed: bool,
-        tls_active: bool,
-    ) -> Self {
+    pub fn new(peer_addr: SocketAddr, flags: SessionFlags) -> Self {
         Self {
-            state: if auth_required {
+            state: if flags.auth_required {
                 SessionState::Authenticating
             } else {
                 SessionState::Active
             },
             authenticated_user: None,
-            tls_active,
+            tls_active: flags.tls_active,
             client_cert_fingerprint: None,
             client_cert_der: None,
             pending_auth_user: None,
             selected_group: None,
             peer_addr,
-            posting_allowed,
+            posting_allowed: flags.posting_allowed,
             known_groups: vec![],
             auth_failure_count: 0,
             is_drain_session: false,
@@ -135,35 +143,35 @@ mod tests {
 
     #[test]
     fn test_initial_state_auth_required() {
-        let ctx = SessionContext::new(test_addr(), true, true, false);
+        let ctx = SessionContext::new(test_addr(), SessionFlags { auth_required: true, posting_allowed: true, tls_active: false });
         assert_eq!(ctx.state, SessionState::Authenticating);
     }
 
     #[test]
     fn test_initial_state_no_auth() {
-        let ctx = SessionContext::new(test_addr(), false, true, false);
+        let ctx = SessionContext::new(test_addr(), SessionFlags { auth_required: false, posting_allowed: true, tls_active: false });
         assert_eq!(ctx.state, SessionState::Active);
     }
 
     #[test]
     fn test_initial_no_group() {
-        let ctx = SessionContext::new(test_addr(), false, true, false);
+        let ctx = SessionContext::new(test_addr(), SessionFlags { auth_required: false, posting_allowed: true, tls_active: false });
         assert!(ctx.selected_group.is_none());
     }
 
     #[test]
     fn test_posting_allowed_flag() {
-        let ctx_allowed = SessionContext::new(test_addr(), false, true, false);
+        let ctx_allowed = SessionContext::new(test_addr(), SessionFlags { auth_required: false, posting_allowed: true, tls_active: false });
         assert!(ctx_allowed.posting_allowed);
-        let ctx_denied = SessionContext::new(test_addr(), false, false, false);
+        let ctx_denied = SessionContext::new(test_addr(), SessionFlags { auth_required: false, posting_allowed: false, tls_active: false });
         assert!(!ctx_denied.posting_allowed);
     }
 
     #[test]
     fn test_tls_active_flag() {
-        let ctx_plain = SessionContext::new(test_addr(), false, true, false);
+        let ctx_plain = SessionContext::new(test_addr(), SessionFlags { auth_required: false, posting_allowed: true, tls_active: false });
         assert!(!ctx_plain.tls_active);
-        let ctx_tls = SessionContext::new(test_addr(), false, true, true);
+        let ctx_tls = SessionContext::new(test_addr(), SessionFlags { auth_required: false, posting_allowed: true, tls_active: true });
         assert!(ctx_tls.tls_active);
     }
 }

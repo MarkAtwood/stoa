@@ -34,7 +34,7 @@ use stoa_auth::ClientCertStore;
 use stoa_auth::TrustedIssuerStore;
 use stoa_reader::{
     config::{AuthConfig, ClientCertEntry},
-    session::{command::Command, context::SessionContext, dispatch::dispatch, state::SessionState},
+    session::{command::Command, context::{SessionContext, SessionFlags}, dispatch::dispatch, state::SessionState},
 };
 
 // ---------------------------------------------------------------------------
@@ -87,14 +87,14 @@ fn entry(fp: &str, username: &str) -> ClientCertEntry {
 /// Produce a TLS SessionContext where the peer presented a client certificate
 /// with the given SHA-256 fingerprint.
 fn ctx_tls_with_cert(cert_fingerprint: &str, auth_required: bool) -> SessionContext {
-    let mut ctx = SessionContext::new(test_addr(), auth_required, true, true);
+    let mut ctx = SessionContext::new(test_addr(), SessionFlags { auth_required, posting_allowed: true, tls_active: true });
     ctx.client_cert_fingerprint = Some(cert_fingerprint.to_string());
     ctx
 }
 
 /// Produce a TLS SessionContext with no client certificate presented.
 fn ctx_tls_no_cert(auth_required: bool) -> SessionContext {
-    SessionContext::new(test_addr(), auth_required, true, true)
+    SessionContext::new(test_addr(), SessionFlags { auth_required, posting_allowed: true, tls_active: true })
 }
 
 fn cert_store_with_alice() -> ClientCertStore {
@@ -368,7 +368,7 @@ fn empty_cert_store_disables_cert_bypass() {
 /// not 281.
 #[test]
 fn cert_bypass_does_not_apply_on_plain_connection_with_required_auth() {
-    let mut ctx = SessionContext::new(test_addr(), true, true, false);
+    let mut ctx = SessionContext::new(test_addr(), SessionFlags { auth_required: true, posting_allowed: true, tls_active: false });
     ctx.client_cert_fingerprint = Some(ALICE_CERT_FINGERPRINT.to_string());
     let cert_store = cert_store_with_alice();
     let auth = AuthConfig {

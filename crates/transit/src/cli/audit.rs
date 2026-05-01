@@ -57,8 +57,18 @@ pub async fn cmd_audit_export(
                 serde_json::Value::Number((*ts_ms).into()),
             );
         }
-        output.push_str(&serde_json::to_string(&obj).expect("re-serialization must not fail"));
-        output.push('\n');
+        match serde_json::to_string(&obj) {
+            Ok(line) => {
+                output.push_str(&line);
+                output.push('\n');
+            }
+            Err(e) => {
+                tracing::warn!(
+                    timestamp_ms = ts_ms,
+                    "audit export: skipping row with non-serializable value: {e}"
+                );
+            }
+        }
     }
     Ok(output)
 }

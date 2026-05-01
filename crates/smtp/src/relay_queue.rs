@@ -60,6 +60,8 @@ pub struct SmtpRelayQueue {
     notify: tokio::sync::Notify,
     health: Arc<Mutex<PeerHealthState>>,
     dkim_signer: Option<crate::config::DkimSignerArc>,
+    /// FQDN sent in the EHLO command (RFC 5321 §4.1.1.1).
+    local_hostname: String,
     /// Count of files currently in the `dead/` subdirectory (env-file units).
     /// Incremented on each move-to-dead; initialized from disk once at startup.
     dead_letter_count: AtomicU64,
@@ -71,11 +73,16 @@ impl SmtpRelayQueue {
     ///
     /// `down_backoff` controls how long a peer stays in the down state before
     /// being retried by [`PeerHealthState::select_peer`].
+    ///
+    /// `local_hostname` is the FQDN placed in the EHLO command (RFC 5321
+    /// §4.1.1.1).  Pass `config.hostname`.  An empty string falls back to
+    /// `"localhost"` inside the SMTP session.
     pub fn new(
         queue_dir: impl Into<PathBuf>,
         peers: Vec<crate::config::SmtpRelayPeerConfig>,
         down_backoff: Duration,
         dkim_signer: Option<crate::config::DkimSignerArc>,
+        local_hostname: impl Into<String>,
     ) -> std::io::Result<Arc<Self>> {
         let queue_dir = queue_dir.into();
         let dead_dir = queue_dir.join("dead");
@@ -111,6 +118,7 @@ impl SmtpRelayQueue {
             notify: tokio::sync::Notify::new(),
             health,
             dkim_signer,
+            local_hostname: local_hostname.into(),
             dead_letter_count: AtomicU64::new(0),
         }))
     }
@@ -473,7 +481,14 @@ impl SmtpRelayQueue {
 
         crate::metrics::inc_relay_attempt(&peer_cfg.host);
 
-        match deliver_via_relay(&peer_cfg, &relay_envelope, article_bytes_to_send).await {
+        match deliver_via_relay(
+            &peer_cfg,
+            &relay_envelope,
+            article_bytes_to_send,
+            &self.local_hostname,
+        )
+        .await
+        {
             Ok(()) => {
                 // The lock is never poisoned: no code panics while holding it.
                 self.health.lock().expect("health lock").mark_up(idx);
@@ -547,6 +562,7 @@ mod tests {
             vec![],
             Duration::from_secs(300),
             None,
+            "",
         )
         .expect("new");
 
@@ -575,6 +591,7 @@ mod tests {
             vec![make_peer("smtp.example.com")],
             Duration::from_secs(300),
             None,
+            "",
         )
         .expect("new");
 
@@ -607,6 +624,7 @@ mod tests {
             vec![make_peer("smtp.example.com")],
             Duration::from_secs(300),
             None,
+            "",
         )
         .expect("new");
 
@@ -627,7 +645,7 @@ mod tests {
     async fn new_creates_queue_dir_and_dead_subdir() {
         let parent = tempfile::tempdir().expect("tempdir");
         let queue_dir = parent.path().join("sub").join("relay-queue");
-        SmtpRelayQueue::new(queue_dir.clone(), vec![], Duration::from_secs(300), None)
+        SmtpRelayQueue::new(queue_dir.clone(), vec![], Duration::from_secs(300), None, "")
             .expect("new should create dirs");
         assert!(queue_dir.is_dir(), "queue_dir should exist");
         assert!(queue_dir.join("dead").is_dir(), "dead/ subdir should exist");
@@ -641,6 +659,7 @@ mod tests {
             vec![make_peer("smtp.example.com")],
             Duration::from_secs(300),
             None,
+            "",
         )
         .expect("new");
 
@@ -676,6 +695,7 @@ mod tests {
             vec![make_peer("smtp.example.com")],
             Duration::from_secs(300),
             None,
+            "",
         )
         .expect("new");
 
@@ -714,6 +734,7 @@ mod tests {
             vec![],
             Duration::from_secs(300),
             None,
+            "",
         )
         .expect("new");
 
@@ -748,6 +769,7 @@ mod tests {
             vec![],
             Duration::from_secs(300),
             None,
+            "",
         )
         .expect("new");
 
@@ -783,7 +805,8 @@ mod tests {
         std::fs::set_permissions(&queue_dir, std::fs::Permissions::from_mode(0o555))
             .expect("set permissions");
 
-        let result = SmtpRelayQueue::new(queue_dir.clone(), vec![], Duration::from_secs(300), None);
+        let result =
+            SmtpRelayQueue::new(queue_dir.clone(), vec![], Duration::from_secs(300), None, "");
 
         // Restore write permission so tempdir cleanup can remove the directory.
         let _ = std::fs::set_permissions(&queue_dir, std::fs::Permissions::from_mode(0o755));
@@ -845,6 +868,7 @@ mod tests {
             vec![make_peer("smtp.example.com")],
             Duration::from_secs(300),
             None,
+            "",
         )
         .expect("new");
 

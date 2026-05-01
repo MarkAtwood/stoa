@@ -311,6 +311,13 @@ fn split_sig_params(header: &str) -> Vec<&str> {
     parts
 }
 
+/// Maximum response body size for actor document fetches (64 KiB).
+///
+/// ActivityPub actor documents are small JSON objects; 64 KiB is generous.
+/// Rejecting larger responses prevents a malicious actor server from
+/// exhausting server memory by returning a gigabyte-sized response body.
+const ACTOR_FETCH_MAX_BYTES: usize = 64 * 1024;
+
 /// Fetch and extract the RSA public key PEM from an ActivityPub actor document.
 async fn fetch_public_key(key_id: &str, http_client: &reqwest::Client) -> Result<String, String> {
     let actor_url = key_id.split('#').next().unwrap_or(key_id);
@@ -326,9 +333,29 @@ async fn fetch_public_key(key_id: &str, http_client: &reqwest::Client) -> Result
         return Err(format!("actor fetch returned {}", resp.status()));
     }
 
-    let actor: Value = resp
-        .json()
+    // Reject up front if the server advertises a body larger than our cap.
+    if resp
+        .content_length()
+        .map(|n| n > ACTOR_FETCH_MAX_BYTES as u64)
+        .unwrap_or(false)
+    {
+        return Err(format!(
+            "actor document too large (Content-Length exceeds {ACTOR_FETCH_MAX_BYTES} bytes)"
+        ));
+    }
+
+    // Fetch body with a hard cap so a lying server cannot OOM us.
+    let buf = resp
+        .bytes()
         .await
+        .map_err(|e| format!("error reading actor response body: {e}"))?;
+    if buf.len() > ACTOR_FETCH_MAX_BYTES {
+        return Err(format!(
+            "actor document body exceeded {ACTOR_FETCH_MAX_BYTES} bytes; aborting fetch"
+        ));
+    }
+
+    let actor: Value = serde_json::from_slice(&buf)
         .map_err(|e| format!("failed to parse actor JSON: {e}"))?;
 
     let pem = actor["publicKey"]["publicKeyPem"]

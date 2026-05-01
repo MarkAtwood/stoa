@@ -79,32 +79,41 @@ pub struct RelayEnvelope {
 ///
 /// Wraps [`do_deliver`] with a 30-second overall timeout.
 ///
+/// `local_hostname` is used as the EHLO domain (RFC 5321 §4.1.1.1).  Pass the
+/// operator-configured `config.hostname`; a bare label is rejected by many
+/// servers.  An empty string falls back to `"localhost"`.
+///
 /// Returns [`SmtpRelayError::Permanent`] immediately if `envelope.rcpt_to` is
 /// empty; RFC 5321 §3.3 requires at least one RCPT TO before DATA.
 pub async fn deliver_via_relay(
     peer: &SmtpRelayPeerConfig,
     envelope: &RelayEnvelope,
     article_bytes: &[u8],
+    local_hostname: &str,
 ) -> Result<(), SmtpRelayError> {
     if envelope.rcpt_to.is_empty() {
         return Err(SmtpRelayError::Permanent(
             "no recipients in envelope".to_string(),
         ));
     }
-    timeout(OPERATION_TIMEOUT, do_deliver(peer, envelope, article_bytes))
-        .await
-        .map_err(|_| {
-            SmtpRelayError::Io(std::io::Error::new(
-                std::io::ErrorKind::TimedOut,
-                "SMTP relay delivery timed out after 30 seconds",
-            ))
-        })?
+    timeout(
+        OPERATION_TIMEOUT,
+        do_deliver(peer, envelope, article_bytes, local_hostname),
+    )
+    .await
+    .map_err(|_| {
+        SmtpRelayError::Io(std::io::Error::new(
+            std::io::ErrorKind::TimedOut,
+            "SMTP relay delivery timed out after 30 seconds",
+        ))
+    })?
 }
 
 async fn do_deliver(
     peer: &SmtpRelayPeerConfig,
     envelope: &RelayEnvelope,
     article_bytes: &[u8],
+    local_hostname: &str,
 ) -> Result<(), SmtpRelayError> {
     let tcp = TcpStream::connect(peer.host_port())
         .await
@@ -119,7 +128,15 @@ async fn do_deliver(
     let (rd, mut wr) = tokio::io::split(stream);
     let mut reader = BufReader::new(rd);
 
-    run_smtp_session(&mut reader, &mut wr, peer, envelope, article_bytes).await
+    run_smtp_session(
+        &mut reader,
+        &mut wr,
+        peer,
+        envelope,
+        article_bytes,
+        local_hostname,
+    )
+    .await
 }
 
 /// Shared TLS client config built once per process.
@@ -170,6 +187,7 @@ async fn run_smtp_session(
     peer: &SmtpRelayPeerConfig,
     envelope: &RelayEnvelope,
     article_bytes: &[u8],
+    local_hostname: &str,
 ) -> Result<(), SmtpRelayError> {
     let mut line = String::new();
 
@@ -209,9 +227,16 @@ async fn run_smtp_session(
         }
     }
 
-    // 2. EHLO
+    // 2. EHLO — RFC 5321 §4.1.1.1 requires an FQDN; use the operator-configured
+    // hostname.  Fall back to "localhost" if the caller passes an empty string.
+    let ehlo_domain = if local_hostname.is_empty() {
+        "localhost"
+    } else {
+        local_hostname
+    };
+    let ehlo_cmd = format!("EHLO {ehlo_domain}\r\n");
     writer
-        .write_all(b"EHLO stoa-relay\r\n")
+        .write_all(ehlo_cmd.as_bytes())
         .await
         .map_err(SmtpRelayError::Io)?;
 
@@ -675,7 +700,7 @@ mod tests {
         let article =
             b"From: from@example.com\r\nTo: to@example.com\r\nSubject: test\r\n\r\nHello\r\n";
 
-        let result = deliver_via_relay(&peer, &envelope, article).await;
+        let result = deliver_via_relay(&peer, &envelope, article, "test.example.com").await;
         assert!(result.is_ok(), "delivery failed: {:?}", result.err());
 
         server.await.unwrap();
@@ -721,7 +746,7 @@ mod tests {
         };
         let article = b"From: from@example.com\r\nSubject: test\r\n\r\nBody\r\n";
 
-        let result = deliver_via_relay(&peer, &envelope, article).await;
+        let result = deliver_via_relay(&peer, &envelope, article, "test.example.com").await;
         assert!(
             matches!(&result, Err(SmtpRelayError::Permanent(m)) if m.contains("refusing")),
             "expected Permanent(refusing...), got: {:?}",
@@ -767,7 +792,8 @@ mod tests {
             rcpt_to: vec!["t@example.com".to_string()],
         };
 
-        let result = deliver_via_relay(&peer, &envelope, b"body\r\n").await;
+        let result =
+            deliver_via_relay(&peer, &envelope, b"body\r\n", "test.example.com").await;
         assert!(
             matches!(&result, Err(SmtpRelayError::Permanent(m)) if m.contains("refusing")),
             "expected Permanent(refusing...), got: {:?}",
@@ -809,7 +835,8 @@ mod tests {
             rcpt_to: vec!["t@example.com".to_string()],
         };
 
-        let result = deliver_via_relay(&peer, &envelope, b"body\r\n").await;
+        let result =
+            deliver_via_relay(&peer, &envelope, b"body\r\n", "test.example.com").await;
         assert!(
             matches!(result, Err(SmtpRelayError::Permanent(_))),
             "expected Permanent, got: {:?}",
@@ -853,7 +880,8 @@ mod tests {
             rcpt_to: vec!["t@example.com".to_string()],
         };
 
-        let result = deliver_via_relay(&peer, &envelope, b"body\r\n").await;
+        let result =
+            deliver_via_relay(&peer, &envelope, b"body\r\n", "test.example.com").await;
         assert!(
             matches!(result, Err(SmtpRelayError::Transient(_))),
             "expected Transient, got: {:?}",
@@ -947,7 +975,7 @@ mod tests {
         // Article with a dot-line that must be stuffed per RFC 5321 §4.5.2.
         let article = b"Subject: test\r\n\r\nnormal line\r\n.signature\r\n";
 
-        let result = deliver_via_relay(&peer, &envelope, article).await;
+        let result = deliver_via_relay(&peer, &envelope, article, "test.example.com").await;
         assert!(result.is_ok(), "delivery failed: {:?}", result.err());
 
         server.await.unwrap();
@@ -969,7 +997,7 @@ mod tests {
             mail_from: "from@example.com".to_string(),
             rcpt_to: vec![],
         };
-        let result = deliver_via_relay(&peer, &envelope, b"article").await;
+        let result = deliver_via_relay(&peer, &envelope, b"article", "test.example.com").await;
         assert!(
             matches!(result, Err(SmtpRelayError::Permanent(_))),
             "expected Permanent error for empty rcpt_to, got: {:?}",

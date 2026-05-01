@@ -233,6 +233,7 @@ mod tests {
             vec![],
             std::time::Duration::from_secs(300),
             None,
+            "test.example.com",
         )
         .expect("queue");
 
@@ -263,6 +264,7 @@ mod tests {
             vec![peer],
             std::time::Duration::from_secs(300),
             None,
+            "test.example.com",
         )
         .expect("queue2");
 
@@ -291,6 +293,7 @@ mod tests {
             vec![peer],
             std::time::Duration::from_secs(300),
             None,
+            "test.example.com",
         )
         .expect("queue");
 
