@@ -2,6 +2,9 @@
 //! store and IPFS for articles that were not directly POSTed through this
 //! reader (e.g. articles received via transit propagation).
 
+use std::collections::HashSet;
+
+use cid::Cid;
 use tracing::warn;
 
 use crate::post::ipfs_write::IpfsBlockStore;
@@ -10,69 +13,124 @@ use crate::store::{
     overview::{extract_overview, OverviewStore},
 };
 
+/// Batch size for the backfill loop.  Each iteration issues one SQL query and
+/// up to `BATCH_SIZE` IPFS fetches.  Larger values reduce DB round-trips but
+/// increase peak memory during the backfill pass.
+const BATCH_SIZE: i64 = 500;
+
 /// Populate the overview index for any `(group, article_number)` pair that
 /// exists in `article_numbers` but is absent from `overview_store`.
 ///
-/// For each missing pair, the article bytes are fetched from `ipfs_store`,
-/// the 7 RFC 3977 overview fields are extracted, and the record is inserted.
+/// Uses a LEFT JOIN to find missing records without loading all articles into
+/// memory and without a per-article overview query (fixes stoa-c4zlv.70 and
+/// stoa-c4zlv.67).  Both tables live in the same SQLite database (reader_pool).
 ///
-/// Failures to fetch or extract are logged as warnings; the function
-/// continues processing remaining articles and returns the count that were
-/// successfully backfilled.
+/// Articles that repeatedly fail IPFS fetch are skipped after the first
+/// failure to prevent an infinite loop.  Failures are logged as warnings.
+/// Returns the count of successfully backfilled records.
 pub async fn backfill_overview(
     article_numbers: &ArticleNumberStore,
     overview_store: &OverviewStore,
     ipfs_store: &dyn IpfsBlockStore,
 ) -> usize {
-    let all_articles = match article_numbers.list_all_articles().await {
-        Ok(v) => v,
-        Err(e) => {
-            warn!("backfill_overview: failed to list articles: {e}");
-            return 0;
-        }
-    };
+    let pool = article_numbers.pool();
+    // Track permanently-failed (group, article_number) pairs so we don't
+    // loop forever if IPFS can't serve a block.
+    let mut failed: HashSet<(String, i64)> = HashSet::new();
+    let mut total_backfilled = 0usize;
 
-    let mut count = 0usize;
-
-    for (group, article_number, cid) in &all_articles {
-        // Check if overview already has this record.
-        let existing = overview_store
-            .query_range(group, *article_number, *article_number)
-            .await;
-        match existing {
-            Ok(rows) if !rows.is_empty() => continue,
-            Err(e) => {
-                warn!("backfill_overview: query_range failed for {group}/{article_number}: {e}");
-                continue;
-            }
-            Ok(_) => {} // empty — needs backfill
+    loop {
+        #[derive(sqlx::FromRow)]
+        struct Row {
+            group_name: String,
+            article_number: i64,
+            cid: Vec<u8>,
         }
 
-        // Fetch raw article bytes from IPFS.
-        let raw_bytes = match ipfs_store.get_raw(cid).await {
+        // One query finds the next batch of articles missing from overview.
+        // As records are inserted, they no longer appear here, so OFFSET=0
+        // always returns the next unprocessed batch.
+        let batch: Vec<Row> = match sqlx::query_as(
+            "SELECT an.group_name, an.article_number, an.cid \
+             FROM article_numbers an \
+             LEFT JOIN overview o \
+                 ON o.group_name = an.group_name \
+                 AND o.article_number = an.article_number \
+             WHERE o.article_number IS NULL \
+             ORDER BY an.group_name, an.article_number \
+             LIMIT ?",
+        )
+        .bind(BATCH_SIZE)
+        .fetch_all(pool)
+        .await
+        {
             Ok(b) => b,
             Err(e) => {
-                warn!(
-                    "backfill_overview: IPFS fetch failed for {group}/{article_number} cid={cid}: {e}"
-                );
-                continue;
+                warn!("backfill_overview: failed to query missing articles: {e}");
+                break;
             }
         };
 
-        // Split headers from body and extract overview fields.
-        let (header_bytes, body_bytes) = split_at_blank_line(&raw_bytes);
-        let mut record = extract_overview(&header_bytes, &body_bytes);
-        record.article_number = *article_number;
-
-        if let Err(e) = overview_store.insert(group, &record).await {
-            warn!("backfill_overview: insert failed for {group}/{article_number}: {e}");
-            continue;
+        if batch.is_empty() {
+            break;
         }
 
-        count += 1;
+        let mut progress = false;
+        for row in &batch {
+            let key = (row.group_name.clone(), row.article_number);
+            if failed.contains(&key) {
+                continue;
+            }
+
+            let cid = match Cid::try_from(row.cid.as_slice()) {
+                Ok(c) => c,
+                Err(e) => {
+                    warn!(
+                        "backfill_overview: invalid CID bytes for {}/{}: {e}",
+                        row.group_name, row.article_number
+                    );
+                    failed.insert(key);
+                    continue;
+                }
+            };
+
+            let raw_bytes = match ipfs_store.get_raw(&cid).await {
+                Ok(b) => b,
+                Err(e) => {
+                    warn!(
+                        "backfill_overview: IPFS fetch failed for {}/{} cid={cid}: {e}",
+                        row.group_name, row.article_number
+                    );
+                    failed.insert(key);
+                    continue;
+                }
+            };
+
+            let (header_bytes, body_bytes) = split_at_blank_line(&raw_bytes);
+            let mut record = extract_overview(&header_bytes, &body_bytes);
+            record.article_number = row.article_number as u64;
+
+            if let Err(e) = overview_store.insert(&row.group_name, &record).await {
+                warn!(
+                    "backfill_overview: insert failed for {}/{}: {e}",
+                    row.group_name, row.article_number
+                );
+                failed.insert(key);
+                continue;
+            }
+
+            total_backfilled += 1;
+            progress = true;
+        }
+
+        // If no progress was made (all articles in this batch have already
+        // failed), there is nothing left we can do.
+        if !progress {
+            break;
+        }
     }
 
-    count
+    total_backfilled
 }
 
 /// Split raw article bytes at the blank-line separator.

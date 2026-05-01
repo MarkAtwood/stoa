@@ -101,7 +101,7 @@ pub fn handle_email_query(
 
     let total = with_ts.len() as u64;
 
-    let start = position as usize;
+    let start = usize::try_from(position).unwrap_or(usize::MAX);
     let capped_limit = limit.unwrap_or(MAX_FETCH_LIMIT).min(MAX_FETCH_LIMIT) as usize;
     let page: Vec<Value> = with_ts
         .iter()

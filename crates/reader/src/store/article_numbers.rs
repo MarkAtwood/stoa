@@ -18,6 +18,15 @@ impl ArticleNumberStore {
         Self { pool }
     }
 
+    /// Return a reference to the underlying pool.
+    ///
+    /// Exposed for `backfill_overview`, which runs a JOIN across the
+    /// `article_numbers` and `overview` tables — both live in the same
+    /// SQLite database (reader_pool).
+    pub fn pool(&self) -> &sqlx::AnyPool {
+        &self.pool
+    }
+
     /// Assign a sequential article number to a CID within a group.
     ///
     /// Idempotent: if `(group, cid)` already has a number, return it.
