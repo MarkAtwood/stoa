@@ -216,7 +216,13 @@ impl NntpQueue {
                             Ok(env_bytes) => serde_json::from_slice::<NntpEnvelope>(&env_bytes)
                                 .map(|e| e.injection_source)
                                 .unwrap_or_else(|_| stoa_core::default_injection_source()),
-                            Err(_) => stoa_core::default_injection_source(),
+                            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                                stoa_core::default_injection_source()
+                            }
+                            Err(e) => {
+                                warn!(path = %env_path.display(), "nntp queue: failed to read .env file: {e}, using default injection source");
+                                stoa_core::default_injection_source()
+                            }
                         };
                         match tokio::fs::read(&path).await {
                             Ok(bytes) => {

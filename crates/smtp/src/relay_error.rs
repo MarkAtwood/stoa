@@ -8,6 +8,7 @@ use std::fmt;
 ///   (5xx content rejection means the peer is healthy; subsequent messages can
 ///   be delivered immediately without backoff)
 /// - AuthFailed/ProtocolError → mark peer down, move message to dead-letter
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum SmtpRelayError {
     /// 4xx response from peer — temporary failure, retry with backoff.
