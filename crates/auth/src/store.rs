@@ -488,8 +488,7 @@ mod tests {
         let hash = bcrypt::hash("pass", 4).unwrap();
         let content = format!(":{hash}\n");
         let result = CredentialStore::from_content("<test>", &content);
-        assert!(result.is_err());
-        let err = result.err().unwrap();
+        let err = result.unwrap_err();
         assert!(
             matches!(err, CredentialStoreError::EmptyUsername { .. }),
             "expected EmptyUsername, got: {err:?}"

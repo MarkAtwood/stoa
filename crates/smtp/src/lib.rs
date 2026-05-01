@@ -14,6 +14,9 @@ pub mod sieve_admin;
 pub mod store;
 pub mod tls;
 
+#[cfg(test)]
+pub mod test_support;
+
 pub use relay_client::{deliver_via_relay, RelayEnvelope};
 pub use relay_error::SmtpRelayError;
 pub use relay_health::PeerHealthState;

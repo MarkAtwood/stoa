@@ -366,41 +366,8 @@ impl NntpQueue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mail_auth::common::crypto::Ed25519Key;
     use mail_auth::common::headers::HeaderWriter;
-    use mail_auth::dkim::DkimSigner;
     use stoa_core::InjectionSource;
-
-    /// Build a DkimSigner using the RFC 8463 §A.2 test ed25519 keypair.
-    fn test_dkim_signer() -> Arc<DkimSigner<Ed25519Key, mail_auth::dkim::Done>> {
-        // RFC 8463 §A.2 test private key seed (base64 "nWGxne/9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A=").
-        let seed: [u8; 32] = [
-            0x9d, 0x61, 0xb1, 0x9d, 0xef, 0xfd, 0x5a, 0x60, 0xba, 0x84, 0x4a, 0xf4, 0x92, 0xec,
-            0x2c, 0xc4, 0x44, 0x49, 0xc5, 0x69, 0x7b, 0x32, 0x69, 0x19, 0x70, 0x3b, 0xac, 0x03,
-            0x1c, 0xae, 0x7f, 0x60,
-        ];
-        // RFC 8463 §A.2 test public key (base64 "11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=").
-        let pubkey: [u8; 32] = [
-            0xd7, 0x5a, 0x98, 0x01, 0x82, 0xb1, 0x0a, 0xb7, 0xd5, 0x4b, 0xfe, 0xd3, 0xc9, 0x64,
-            0x07, 0x3a, 0x0e, 0xe1, 0x72, 0xf3, 0xda, 0xa6, 0x23, 0x25, 0xaf, 0x02, 0x1a, 0x68,
-            0xf7, 0x07, 0x51, 0x1a,
-        ];
-        let ed_key = Ed25519Key::from_seed_and_public_key(&seed, &pubkey)
-            .expect("valid RFC 8463 test keypair");
-        Arc::new(
-            DkimSigner::from_key(ed_key)
-                .domain("example.com")
-                .selector("test")
-                .headers([
-                    "From",
-                    "To",
-                    "Subject",
-                    "Date",
-                    "Message-ID",
-                    "MIME-Version",
-                ]),
-        )
-    }
 
     const TEST_MSG: &[u8] =
         b"From: sender@example.com\r\nTo: recip@example.com\r\nSubject: Test\r\n\
@@ -409,7 +376,7 @@ MIME-Version: 1.0\r\n\r\nHello\r\n";
 
     #[test]
     fn test_dkim_nntp_signing_prepends_header() {
-        let signer = test_dkim_signer();
+        let signer = crate::test_support::test_rfc8463_signer();
         let sig = signer.sign(TEST_MSG).expect("sign");
         let header = sig.to_header();
         assert!(
@@ -451,7 +418,7 @@ MIME-Version: 1.0\r\n\r\nHello\r\n";
 
     #[test]
     fn test_dkim_no_body_length_tag() {
-        let signer = test_dkim_signer();
+        let signer = crate::test_support::test_rfc8463_signer();
         let sig = signer.sign(TEST_MSG).expect("sign");
         let header = sig.to_header();
         assert!(

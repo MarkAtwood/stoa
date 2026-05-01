@@ -276,6 +276,22 @@ pub const DKIM_SIGNED_HEADERS: &[&str] = &[
     "MIME-Version",
 ];
 
+/// Build a [`DkimSignerArc`] from a pre-constructed `Ed25519Key` and DKIM config.
+///
+/// Extracts domain, selector, and signed headers from `cfg`.  The `ed_key` must
+/// already have been derived from the config's seed and public key.
+pub fn build_dkim_signer_arc(
+    cfg: &DkimConfig,
+    ed_key: mail_auth::common::crypto::Ed25519Key,
+) -> DkimSignerArc {
+    std::sync::Arc::new(
+        mail_auth::dkim::DkimSigner::from_key(ed_key)
+            .domain(cfg.domain.as_str())
+            .selector(cfg.selector.as_str())
+            .headers(DKIM_SIGNED_HEADERS.iter().copied()),
+    )
+}
+
 /// Configuration for the durable NNTP injection queue and outbound SMTP relay.
 #[derive(Debug, Deserialize)]
 pub struct DeliveryConfig {

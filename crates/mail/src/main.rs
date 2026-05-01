@@ -5,7 +5,7 @@ use stoa_mail::{
     server::AppState,
     token_store::TokenStore,
 };
-use tracing::info;
+use tracing::{info, warn};
 
 fn parse_args() -> PathBuf {
     let mut args = std::env::args().skip(1);
@@ -63,6 +63,14 @@ async fn main() {
     };
 
     info!(listen_addr = %addr, "stoa-mail starting");
+
+    if config.auth.is_dev_mode() && !config.auth.operator_usernames.is_empty() {
+        warn!(
+            "auth.operator_usernames is set but no credentials are configured \
+             (auth is in dev-mode); operator role designations have no effect in \
+             dev-mode — add [[auth.users]] or auth.credential_file to enable authentication"
+        );
+    }
 
     let credential_store = match stoa_auth::build_credential_store(
         &config.auth.users,

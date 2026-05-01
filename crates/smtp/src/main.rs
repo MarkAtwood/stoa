@@ -222,12 +222,8 @@ async fn main() {
                 }
             };
         seed.zeroize();
-        let signer = mail_auth::dkim::DkimSigner::from_key(ed_key)
-            .domain(dcfg.domain.as_str())
-            .selector(dcfg.selector.as_str())
-            .headers(stoa_smtp::config::DKIM_SIGNED_HEADERS.iter().copied());
         info!(domain = %dcfg.domain, selector = %dcfg.selector, "DKIM signing enabled");
-        Some(Arc::new(signer))
+        Some(stoa_smtp::config::build_dkim_signer_arc(dcfg, ed_key))
     } else {
         None
     };
