@@ -122,6 +122,10 @@ pub struct SmtpRelayConfig {
     /// before being retried.  Defaults to 300.
     #[serde(default = "SmtpRelayConfig::default_peer_down_secs")]
     pub peer_down_secs: u64,
+    /// Optional DKIM signing configuration for outbound SMTP relay messages.
+    /// When absent, relayed messages are not DKIM-signed.
+    #[serde(default)]
+    pub dkim: Option<stoa_smtp::config::DkimConfig>,
 }
 
 impl SmtpRelayConfig {
@@ -444,9 +448,9 @@ pub enum ConfigError {
 impl std::fmt::Display for ConfigError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ConfigError::Io(msg) => write!(f, "I/O error: {}", msg),
-            ConfigError::Parse(msg) => write!(f, "parse error: {}", msg),
-            ConfigError::Validation(msg) => write!(f, "validation error: {}", msg),
+            ConfigError::Io(msg) => write!(f, "I/O error: {msg}"),
+            ConfigError::Parse(msg) => write!(f, "parse error: {msg}"),
+            ConfigError::Validation(msg) => write!(f, "validation error: {msg}"),
         }
     }
 }
@@ -752,6 +756,51 @@ impl Config {
                 return Err(ConfigError::Validation(format!(
                     "auth.users['{}']: password is not a valid bcrypt hash (cost must be 4–31)",
                     cred.username
+                )));
+            }
+        }
+        if let Some(dcfg) = &self.smtp_relay.dkim {
+            use base64::Engine as _;
+            if dcfg.domain.is_empty() {
+                return Err(ConfigError::Validation(
+                    "smtp_relay.dkim.domain must not be empty".into(),
+                ));
+            }
+            if dcfg.selector.is_empty() {
+                return Err(ConfigError::Validation(
+                    "smtp_relay.dkim.selector must not be empty".into(),
+                ));
+            }
+            if !dcfg.key_seed_b64.starts_with("secretx:") {
+                let mut seed_bytes = base64::engine::general_purpose::STANDARD
+                    .decode(&dcfg.key_seed_b64)
+                    .map_err(|_| {
+                        ConfigError::Validation(
+                            "smtp_relay.dkim.key_seed_b64: invalid base64".into(),
+                        )
+                    })?;
+                use zeroize::Zeroize as _;
+                if seed_bytes.len() != 32 {
+                    let got = seed_bytes.len();
+                    seed_bytes.zeroize();
+                    return Err(ConfigError::Validation(format!(
+                        "smtp_relay.dkim.key_seed_b64: must decode to 32 bytes, got {}",
+                        got
+                    )));
+                }
+                seed_bytes.zeroize();
+            }
+            let pubkey_bytes = base64::engine::general_purpose::STANDARD
+                .decode(&dcfg.public_key_b64)
+                .map_err(|_| {
+                    ConfigError::Validation(
+                        "smtp_relay.dkim.public_key_b64: invalid base64".into(),
+                    )
+                })?;
+            if pubkey_bytes.len() != 32 {
+                return Err(ConfigError::Validation(format!(
+                    "smtp_relay.dkim.public_key_b64: must decode to 32 bytes, got {}",
+                    pubkey_bytes.len()
                 )));
             }
         }

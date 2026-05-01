@@ -6,7 +6,6 @@ use std::time::{Duration, SystemTime};
 use mail_auth::common::headers::HeaderWriter;
 use tracing::{error, info, warn};
 
-use crate::config::SmtpRelayPeerConfig;
 use crate::relay_client::{deliver_via_relay, RelayEnvelope};
 use crate::relay_health::PeerHealthState;
 
@@ -27,7 +26,7 @@ fn unique_id() -> String {
 }
 
 /// JSON envelope stored alongside each queued article.
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct EnvelopeFile {
     mail_from: String,
     rcpt_to: Vec<String>,
@@ -53,7 +52,6 @@ pub struct SmtpRelayQueue {
     queue_dir: PathBuf,
     notify: tokio::sync::Notify,
     health: Arc<Mutex<PeerHealthState>>,
-    peers: Vec<SmtpRelayPeerConfig>,
     dkim_signer: Option<Arc<mail_auth::dkim::DkimSigner<mail_auth::common::crypto::Ed25519Key, mail_auth::dkim::Done>>>,
 }
 
@@ -65,7 +63,7 @@ impl SmtpRelayQueue {
     /// being retried by [`PeerHealthState::select_peer`].
     pub fn new(
         queue_dir: impl Into<PathBuf>,
-        peers: Vec<SmtpRelayPeerConfig>,
+        peers: Vec<crate::config::SmtpRelayPeerConfig>,
         down_backoff: Duration,
         dkim_signer: Option<Arc<mail_auth::dkim::DkimSigner<mail_auth::common::crypto::Ed25519Key, mail_auth::dkim::Done>>>,
     ) -> std::io::Result<Arc<Self>> {
@@ -95,15 +93,11 @@ impl SmtpRelayQueue {
         })?;
         let _ = std::fs::remove_file(&dead_sentinel);
 
-        let health = Arc::new(Mutex::new(PeerHealthState::new(
-            peers.clone(),
-            down_backoff,
-        )));
+        let health = Arc::new(Mutex::new(PeerHealthState::new(peers, down_backoff)));
         Ok(Arc::new(Self {
             queue_dir,
             notify: tokio::sync::Notify::new(),
             health,
-            peers,
             dkim_signer,
         }))
     }
@@ -118,8 +112,9 @@ impl SmtpRelayQueue {
     /// if `.env` is absent, the drain skips the entry.
     ///
     /// Crash between the two renames: `.msg` exists, `.env` does not.  The
-    /// drain skips this `.msg` (no `.env` partner) and the file is retried on
-    /// the next startup scan.  No orphaned data accumulates indefinitely.
+    /// drain skips this `.msg` (no `.env` partner).  On the next startup the
+    /// `cleanup_orphan_msg_files` scan moves it to `dead/` for operator
+    /// inspection.  No orphaned data accumulates indefinitely.
     ///
     /// If the order were reversed (`.env` first), a crash would leave a `.env`
     /// without its `.msg`, causing the drain to read a non-existent payload.
@@ -131,7 +126,8 @@ impl SmtpRelayQueue {
         mail_from: &str,
         rcpt_to: &[&str],
     ) -> std::io::Result<()> {
-        if self.peers.is_empty() || rcpt_to.is_empty() {
+        // The lock is never poisoned: no code panics while holding it.
+        if self.health.lock().expect("health lock").is_empty() || rcpt_to.is_empty() {
             return Ok(());
         }
 
@@ -148,8 +144,7 @@ impl SmtpRelayQueue {
             mail_from: mail_from.to_string(),
             rcpt_to: rcpt_to.iter().map(|s| s.to_string()).collect(),
         };
-        let env_bytes = serde_json::to_vec(&env)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
+        let env_bytes = serde_json::to_vec(&env).map_err(std::io::Error::other)?;
         let env_tmp = self.queue_dir.join(format!("{id}.env.tmp"));
         let env_dst = self.queue_dir.join(format!("{id}.env"));
         tokio::fs::write(&env_tmp, &env_bytes).await?;
@@ -161,11 +156,20 @@ impl SmtpRelayQueue {
 
     /// Start the background drain task.
     ///
-    /// Scans the queue directory immediately on startup (crash recovery), then
-    /// wakes again on each new enqueue notification or after `retry_interval`,
+    /// Runs two one-time startup scans before entering the delivery loop:
+    /// 1. `cleanup_tmp_files` — removes any `.msg.tmp` or `.env.tmp` files left
+    ///    by a crash mid-enqueue.  These are always safe to delete: the atomic
+    ///    rename that would have promoted them to committed files never ran.
+    /// 2. `cleanup_orphan_msg_files` — moves any `.msg` files without a matching
+    ///    `.env` (crash between the two renames) to `dead/` for operator inspection.
+    ///
+    /// Then scans the queue directory on startup (crash recovery) and wakes
+    /// again on each new enqueue notification or after `retry_interval`,
     /// whichever comes first.
     pub fn start_drain(self: Arc<Self>, retry_interval: Duration) {
         tokio::spawn(async move {
+            self.cleanup_tmp_files().await;
+            self.cleanup_orphan_msg_files().await;
             loop {
                 self.drain_once().await;
                 tokio::select! {
@@ -174,6 +178,117 @@ impl SmtpRelayQueue {
                 }
             }
         });
+    }
+
+    /// Remove any `.msg.tmp` or `.env.tmp` files left in the queue directory.
+    ///
+    /// Called once at startup before `cleanup_orphan_msg_files`.  Tmp files
+    /// represent incomplete atomic writes — the rename that would have promoted
+    /// them to committed `.msg` / `.env` files never executed.  There is no
+    /// corresponding committed file, so deletion (not quarantine) is correct.
+    /// Errors during removal are logged and the scan continues.
+    async fn cleanup_tmp_files(&self) {
+        let mut dir = match tokio::fs::read_dir(&self.queue_dir).await {
+            Ok(d) => d,
+            Err(e) => {
+                warn!(dir = %self.queue_dir.display(), "relay queue: startup tmp scan read_dir failed: {e}");
+                return;
+            }
+        };
+
+        loop {
+            match dir.next_entry().await {
+                Ok(Some(entry)) => {
+                    let path = entry.path();
+                    let file_name = match path.file_name().and_then(|n| n.to_str()) {
+                        Some(n) => n,
+                        None => continue,
+                    };
+                    if !(file_name.ends_with(".msg.tmp") || file_name.ends_with(".env.tmp")) {
+                        continue;
+                    }
+                    if let Err(e) = tokio::fs::remove_file(&path).await {
+                        warn!(
+                            path = %path.display(),
+                            "relay queue: failed to remove orphan tmp file: {e}"
+                        );
+                    } else {
+                        warn!(
+                            path = %path.display(),
+                            "relay queue: removed orphan tmp file from previous crash"
+                        );
+                    }
+                }
+                Ok(None) => break,
+                Err(e) => {
+                    warn!(dir = %self.queue_dir.display(), "relay queue: read_dir entry error: {e}");
+                    break;
+                }
+            }
+        }
+    }
+
+    /// Move any `.msg` files that lack a corresponding `.env` to `dead/`.
+    ///
+    /// Called once at startup to handle crash remnants from a previous run
+    /// where the `.msg` rename completed but the `.env` rename did not.
+    /// Files are moved rather than deleted so the operator can inspect them.
+    /// Errors during the move are logged and the scan continues.
+    async fn cleanup_orphan_msg_files(&self) {
+        let mut dir = match tokio::fs::read_dir(&self.queue_dir).await {
+            Ok(d) => d,
+            Err(e) => {
+                warn!(dir = %self.queue_dir.display(), "relay queue: startup scan read_dir failed: {e}");
+                return;
+            }
+        };
+
+        let dead_dir = self.queue_dir.join("dead");
+
+        loop {
+            match dir.next_entry().await {
+                Ok(Some(entry)) => {
+                    let path = entry.path();
+                    // Only consider plain `.msg` files, not `.msg.tmp`.
+                    if !path.extension().is_some_and(|e| e == "msg") {
+                        continue;
+                    }
+                    let env_path = path.with_extension("env");
+                    match tokio::fs::metadata(&env_path).await {
+                        Ok(_) => {
+                            // Paired .env exists — not an orphan.
+                        }
+                        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                            warn!(
+                                path = %path.display(),
+                                "relay queue: orphan .msg with no .env (crash remnant), moving to dead/"
+                            );
+                            if let Some(name) = path.file_name() {
+                                let dead_path = dead_dir.join(name);
+                                if let Err(mv_err) = tokio::fs::rename(&path, &dead_path).await {
+                                    warn!(
+                                        path = %path.display(),
+                                        dead = %dead_path.display(),
+                                        "relay queue: failed to move orphan .msg to dead/: {mv_err}"
+                                    );
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            warn!(
+                                path = %env_path.display(),
+                                "relay queue: could not stat .env for orphan check: {e}"
+                            );
+                        }
+                    }
+                }
+                Ok(None) => break,
+                Err(e) => {
+                    warn!(dir = %self.queue_dir.display(), "relay queue: read_dir entry error: {e}");
+                    break;
+                }
+            }
+        }
     }
 
     /// Expose the peer health state for metrics collection.
@@ -201,10 +316,19 @@ impl SmtpRelayQueue {
             }
         };
 
-        while let Ok(Some(entry)) = dir.next_entry().await {
-            let path = entry.path();
-            if path.extension().is_some_and(|e| e == "env") {
-                env_files.push(path);
+        loop {
+            match dir.next_entry().await {
+                Ok(Some(entry)) => {
+                    let path = entry.path();
+                    if path.extension().is_some_and(|e| e == "env") {
+                        env_files.push(path);
+                    }
+                }
+                Ok(None) => break,
+                Err(e) => {
+                    warn!(dir = %self.queue_dir.display(), "relay queue: read_dir entry error: {e}");
+                    break;
+                }
             }
         }
 
@@ -214,14 +338,28 @@ impl SmtpRelayQueue {
         crate::metrics::set_relay_queue_depth(env_files.len() as f64);
 
         let dead_dir = self.queue_dir.join("dead");
-        if let Ok(mut rd) = tokio::fs::read_dir(&dead_dir).await {
-            let mut dead_count: f64 = 0.0;
-            while let Ok(Some(entry)) = rd.next_entry().await {
-                if entry.path().extension().is_some_and(|e| e == "env") {
-                    dead_count += 1.0;
+        match tokio::fs::read_dir(&dead_dir).await {
+            Ok(mut rd) => {
+                let mut dead_count = 0usize;
+                loop {
+                    match rd.next_entry().await {
+                        Ok(Some(entry)) => {
+                            if entry.path().extension().is_some_and(|x| x == "env") {
+                                dead_count += 1;
+                            }
+                        }
+                        Ok(None) => break,
+                        Err(e) => {
+                            warn!(dir = %dead_dir.display(), "relay queue: read_dir entry error: {e}");
+                            break;
+                        }
+                    }
                 }
+                crate::metrics::set_relay_dead_letter_depth(dead_count as f64);
             }
-            crate::metrics::set_relay_dead_letter_depth(dead_count);
+            Err(e) => {
+                warn!(dir = %dead_dir.display(), "relay queue: failed to read dead/ dir for metrics: {e}");
+            }
         }
 
         for env_path in env_files {
@@ -273,6 +411,7 @@ impl SmtpRelayQueue {
     ) {
         // Select peer and record attempt atomically — hold lock briefly, drop before async call.
         let (idx, peer_cfg) = {
+            // The lock is never poisoned: no code panics while holding it.
             let mut health = self.health.lock().expect("health lock");
             match health.select_peer() {
                 Some((idx, cfg)) => {
@@ -308,7 +447,7 @@ impl SmtpRelayQueue {
                 }
                 Err(e) => {
                     let message_id = crate::queue::extract_message_id(article_bytes);
-                    error!(message_id = %message_id, "DKIM signing failed, moving to dead-letter: {e}");
+                    error!(message_id = %message_id.unwrap_or_default(), "DKIM signing failed, moving to dead-letter: {e}");
                     let dead_dir = self.queue_dir.join("dead");
                     for path in [env_path, msg_path] {
                         if let Some(name) = path.file_name() {
@@ -331,6 +470,7 @@ impl SmtpRelayQueue {
 
         match deliver_via_relay(&peer_cfg, &relay_envelope, article_bytes_to_send).await {
             Ok(()) => {
+                // The lock is never poisoned: no code panics while holding it.
                 self.health.lock().expect("health lock").mark_up(idx);
                 crate::metrics::inc_relay_success(&peer_cfg.host);
                 crate::metrics::set_relay_peer_up(&peer_cfg.host, true);
@@ -346,6 +486,7 @@ impl SmtpRelayQueue {
                 info!(peer = %peer_cfg.host_port(), "relay queue: article delivered");
             }
             Err(e) if e.is_transient() => {
+                // The lock is never poisoned: no code panics while holding it.
                 self.health.lock().expect("health lock").mark_down(idx);
                 crate::metrics::inc_relay_failure(&peer_cfg.host, "transient");
                 crate::metrics::set_relay_peer_up(&peer_cfg.host, false);
@@ -356,6 +497,7 @@ impl SmtpRelayQueue {
             }
             Err(e) => {
                 // Permanent failure: move to dead/ to prevent infinite retry.
+                // The lock is never poisoned: no code panics while holding it.
                 self.health.lock().expect("health lock").mark_down(idx);
                 crate::metrics::inc_relay_failure(&peer_cfg.host, "permanent");
                 crate::metrics::set_relay_peer_up(&peer_cfg.host, false);
@@ -472,7 +614,7 @@ mod tests {
         let tmp_count = std::fs::read_dir(dir.path())
             .expect("read_dir")
             .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension().map_or(false, |x| x == "tmp"))
+            .filter(|e| e.path().extension().is_some_and(|x| x == "tmp"))
             .count();
         assert_eq!(tmp_count, 0, "no .tmp files should remain after enqueue");
     }
@@ -510,7 +652,7 @@ mod tests {
         let env_file = std::fs::read_dir(dir.path())
             .expect("read_dir")
             .filter_map(|e| e.ok())
-            .find(|e| e.path().extension().map_or(false, |x| x == "env"))
+            .find(|e| e.path().extension().is_some_and(|x| x == "env"))
             .expect("env file should exist");
 
         let contents = std::fs::read(env_file.path()).expect("read env file");
@@ -545,15 +687,82 @@ mod tests {
         let env_count = std::fs::read_dir(dir.path())
             .expect("read_dir")
             .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension().map_or(false, |x| x == "env"))
+            .filter(|e| e.path().extension().is_some_and(|x| x == "env"))
             .count();
         let msg_count = std::fs::read_dir(dir.path())
             .expect("read_dir")
             .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension().map_or(false, |x| x == "msg"))
+            .filter(|e| e.path().extension().is_some_and(|x| x == "msg"))
             .count();
         assert_eq!(env_count, 2, "expected 2 .env files");
         assert_eq!(msg_count, 2, "expected 2 .msg files");
+    }
+
+    // Oracle: filesystem invariant — a .msg file with no paired .env is a
+    // crash remnant.  start_drain() must move it to dead/ before processing
+    // any normal queue entries.  Verified by checking the dead/ directory
+    // contents after a short wait.
+    #[tokio::test]
+    async fn startup_scan_moves_orphan_msg_to_dead() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let queue = SmtpRelayQueue::new(
+            dir.path().to_path_buf(),
+            vec![],
+            Duration::from_secs(300),
+            None,
+        )
+        .expect("new");
+
+        // Write a .msg with no corresponding .env (simulates a mid-enqueue crash).
+        let orphan_msg = dir.path().join("00000000000000000001.msg");
+        std::fs::write(&orphan_msg, b"crash remnant").expect("write orphan msg");
+
+        // Invoke the cleanup method directly (avoids spawning a background task
+        // and waiting on timing).
+        queue.cleanup_orphan_msg_files().await;
+
+        assert!(
+            !orphan_msg.exists(),
+            "orphan .msg should have been moved out of the queue dir"
+        );
+        let dead_path = dir.path().join("dead").join("00000000000000000001.msg");
+        assert!(
+            dead_path.exists(),
+            "orphan .msg should be in dead/ after startup scan"
+        );
+    }
+
+    // Oracle: filesystem invariant — .msg.tmp and .env.tmp files are incomplete
+    // atomic writes that were never promoted to committed files.  cleanup_tmp_files
+    // must delete them on startup; no corresponding committed file was ever created
+    // so deletion (not quarantine) is correct.
+    #[tokio::test]
+    async fn startup_scan_removes_tmp_files() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let queue = SmtpRelayQueue::new(
+            dir.path().to_path_buf(),
+            vec![],
+            Duration::from_secs(300),
+            None,
+        )
+        .expect("new");
+
+        // Place tmp files that simulate mid-enqueue crashes.
+        let msg_tmp = dir.path().join("00000000000000000001.msg.tmp");
+        let env_tmp = dir.path().join("00000000000000000001.env.tmp");
+        std::fs::write(&msg_tmp, b"partial msg write").expect("write msg.tmp");
+        std::fs::write(&env_tmp, b"partial env write").expect("write env.tmp");
+
+        queue.cleanup_tmp_files().await;
+
+        assert!(
+            !msg_tmp.exists(),
+            ".msg.tmp should be removed by cleanup_tmp_files"
+        );
+        assert!(
+            !env_tmp.exists(),
+            ".env.tmp should be removed by cleanup_tmp_files"
+        );
     }
 
     // Oracle: filesystem permission semantics — creating a queue rooted in a
@@ -648,24 +857,6 @@ mod tests {
         );
     }
 
-    // Oracle: when dkim_signer is None the article bytes must be delivered
-    // unchanged (the else branch of the signing block is a no-op pass-through).
-    #[test]
-    fn test_relay_dkim_signing_absent() {
-        let article_bytes: &[u8] = b"From: a@example.com\r\n\r\nBody.\r\n";
-        // Simulate the else branch: no signer present.
-        let signer: Option<Arc<mail_auth::dkim::DkimSigner<mail_auth::common::crypto::Ed25519Key, mail_auth::dkim::Done>>> = None;
-        let bytes_to_send: &[u8] = if signer.is_some() {
-            panic!("signer should be None in this test");
-        } else {
-            article_bytes
-        };
-        assert_eq!(
-            bytes_to_send, article_bytes,
-            "without a DKIM signer the article bytes must be passed through unmodified"
-        );
-    }
-
     // Oracle: RFC 5321 §3.3 — enqueue with empty rcpt_to must be a no-op;
     // the caller has already filtered to only valid email recipients.
     #[tokio::test]
@@ -687,7 +878,7 @@ mod tests {
         let env_count = std::fs::read_dir(dir.path())
             .expect("read_dir")
             .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension().map_or(false, |x| x == "env"))
+            .filter(|e| e.path().extension().is_some_and(|x| x == "env"))
             .count();
         assert_eq!(
             env_count, 0,

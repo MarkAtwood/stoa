@@ -130,6 +130,7 @@ impl ServerStores {
         let trusted_issuer_store = TrustedIssuerStore::from_config(&config.auth.trusted_issuers)?;
 
         let smtp_relay_queue = build_smtp_relay_queue(&config.smtp_relay)
+            .await
             .map_err(|e| format!("smtp relay queue init failed: {e}"))?;
 
         let verify_pool =
@@ -370,10 +371,10 @@ async fn load_or_generate_signing_key(path: Option<&str>) -> Result<SigningKey, 
 ///
 /// Returns `None` when `queue_dir` is absent or `peers` is empty — both
 /// conditions disable relay.  Returns `Err` only if the queue directory
-/// cannot be created.
-fn build_smtp_relay_queue(
+/// cannot be created or the DKIM key is malformed.
+async fn build_smtp_relay_queue(
     cfg: &crate::config::SmtpRelayConfig,
-) -> std::io::Result<Option<Arc<SmtpRelayQueue>>> {
+) -> Result<Option<Arc<SmtpRelayQueue>>, String> {
     let queue_dir = match cfg.queue_dir.as_deref() {
         Some(d) if !d.is_empty() => d,
         _ => return Ok(None),
@@ -382,6 +383,42 @@ fn build_smtp_relay_queue(
         return Ok(None);
     }
     let down_backoff = std::time::Duration::from_secs(cfg.peer_down_secs);
-    let queue = SmtpRelayQueue::new(queue_dir, cfg.peers.clone(), down_backoff, None)?;
+
+    let dkim_signer = if let Some(dcfg) = &cfg.dkim {
+        use base64::Engine as _;
+        use zeroize::Zeroize as _;
+        let resolved_seed = stoa_core::secret::resolve_secret_uri(
+            Some(dcfg.key_seed_b64.clone()),
+            "smtp_relay.dkim.key_seed_b64",
+        )
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "smtp_relay.dkim.key_seed_b64: resolved to empty".to_string())?;
+        let mut seed = base64::engine::general_purpose::STANDARD
+            .decode(&resolved_seed)
+            .map_err(|e| format!("smtp_relay.dkim.key_seed_b64: invalid base64: {e}"))?;
+        let pubkey = base64::engine::general_purpose::STANDARD
+            .decode(&dcfg.public_key_b64)
+            .map_err(|e| format!("smtp_relay.dkim.public_key_b64: invalid base64: {e}"))?;
+        let ed_key =
+            mail_auth::common::crypto::Ed25519Key::from_seed_and_public_key(&seed, &pubkey)
+                .map_err(|e| format!("smtp_relay.dkim: failed to construct Ed25519 key: {e}"))?;
+        seed.zeroize();
+        let signer = mail_auth::dkim::DkimSigner::from_key(ed_key)
+            .domain(dcfg.domain.as_str())
+            .selector(dcfg.selector.as_str())
+            .headers(["From", "To", "Subject", "Date", "Message-ID", "MIME-Version"]);
+        tracing::info!(
+            domain = %dcfg.domain,
+            selector = %dcfg.selector,
+            "smtp relay DKIM signing enabled"
+        );
+        Some(Arc::new(signer))
+    } else {
+        None
+    };
+
+    let queue = SmtpRelayQueue::new(queue_dir, cfg.peers.clone(), down_backoff, dkim_signer)
+        .map_err(|e| e.to_string())?;
     Ok(Some(queue))
 }

@@ -233,7 +233,7 @@ fn default_peer_down_secs() -> u64 {
 ///
 /// `key_seed_b64` is the base64-encoded 32-byte Ed25519 seed (private key material).
 /// It is intentionally redacted from `Debug` output.
-#[derive(Clone, serde::Deserialize, serde::Serialize, Default)]
+#[derive(Clone, serde::Deserialize, serde::Serialize)]
 pub struct DkimConfig {
     pub domain: String,
     pub selector: String,
@@ -468,9 +468,9 @@ pub enum ConfigError {
 impl std::fmt::Display for ConfigError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ConfigError::Io(msg) => write!(f, "I/O error: {}", msg),
-            ConfigError::Parse(msg) => write!(f, "parse error: {}", msg),
-            ConfigError::Validation(msg) => write!(f, "validation error: {}", msg),
+            ConfigError::Io(msg) => write!(f, "I/O error: {msg}"),
+            ConfigError::Parse(msg) => write!(f, "parse error: {msg}"),
+            ConfigError::Validation(msg) => write!(f, "validation error: {msg}"),
         }
     }
 }
@@ -567,20 +567,23 @@ impl Config {
                     "dkim.selector must not be empty".into(),
                 ));
             }
-            let mut seed_bytes = base64::engine::general_purpose::STANDARD
-                .decode(&dcfg.key_seed_b64)
-                .map_err(|_| {
-                    ConfigError::Validation("dkim.key_seed_b64: invalid base64".into())
-                })?;
-            if seed_bytes.len() != 32 {
-                let got = seed_bytes.len();
-                zeroize::Zeroize::zeroize(&mut seed_bytes);
-                return Err(ConfigError::Validation(format!(
-                    "dkim.key_seed_b64: must decode to 32 bytes, got {}",
-                    got
-                )));
+            if !dcfg.key_seed_b64.starts_with("secretx:") {
+                let mut seed_bytes = base64::engine::general_purpose::STANDARD
+                    .decode(&dcfg.key_seed_b64)
+                    .map_err(|_| {
+                        ConfigError::Validation("dkim.key_seed_b64: invalid base64".into())
+                    })?;
+                use zeroize::Zeroize as _;
+                if seed_bytes.len() != 32 {
+                    let got = seed_bytes.len();
+                    seed_bytes.zeroize();
+                    return Err(ConfigError::Validation(format!(
+                        "dkim.key_seed_b64: must decode to 32 bytes, got {}",
+                        got
+                    )));
+                }
+                seed_bytes.zeroize();
             }
-            zeroize::Zeroize::zeroize(&mut seed_bytes);
             let pubkey_bytes = base64::engine::general_purpose::STANDARD
                 .decode(&dcfg.public_key_b64)
                 .map_err(|_| {
@@ -1024,5 +1027,26 @@ public_key_b64 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=""#,
         let f = write_toml(&toml);
         let cfg = Config::from_file(f.path()).expect("absent dkim should pass validation");
         assert!(cfg.delivery.dkim.is_none());
+    }
+
+    // ── T: secretx URI for key_seed_b64 skips base64 validation ──────────
+    //
+    // Oracle: a `secretx:` prefix must bypass the base64/length check so that
+    // the server can load its config before secretx resolution runs.  The
+    // value is intentionally a well-formed secretx URI whose payload cannot
+    // be resolved at test time; validation must still return Ok because the
+    // seed check is deferred to post-resolution startup.
+    #[test]
+    fn test_dkim_config_secretx_seed_skips_validation() {
+        let toml = minimal_toml_with_dkim(
+            r#"[delivery.dkim]
+domain = "example.com"
+selector = "mail"
+key_seed_b64 = "secretx:file:///dev/null"
+public_key_b64 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=""#,
+        );
+        let f = write_toml(&toml);
+        Config::from_file(f.path())
+            .expect("secretx URI for key_seed_b64 must pass config validation");
     }
 }

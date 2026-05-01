@@ -14,17 +14,17 @@ use stoa_smtp::{
 };
 
 fn parse_args() -> PathBuf {
-    let args: Vec<String> = std::env::args().collect();
-    let mut i = 1;
-    while i < args.len() {
-        if args[i] == "--config" {
-            if let Some(path) = args.get(i + 1) {
-                return PathBuf::from(path);
+    let mut args = std::env::args().skip(1);
+    for arg in args.by_ref() {
+        if arg == "--config" {
+            match args.next() {
+                Some(path) => return PathBuf::from(path),
+                None => {
+                    eprintln!("error: --config requires a path argument");
+                    std::process::exit(1);
+                }
             }
-            eprintln!("error: --config requires a path argument");
-            std::process::exit(1);
         }
-        i += 1;
     }
     eprintln!("error: --config <path> is required");
     std::process::exit(1);
@@ -156,6 +156,24 @@ async fn main() {
             std::process::exit(1);
         });
     }
+    if let Some(ref mut dcfg) = config.delivery.dkim {
+        dcfg.key_seed_b64 = match stoa_core::secret::resolve_secret_uri(
+            Some(dcfg.key_seed_b64.clone()),
+            "delivery.dkim.key_seed_b64",
+        )
+        .await
+        {
+            Ok(Some(v)) => v,
+            Ok(None) => {
+                eprintln!("error: delivery.dkim.key_seed_b64 is empty after secretx resolution");
+                std::process::exit(1);
+            }
+            Err(e) => {
+                eprintln!("{e}");
+                std::process::exit(1);
+            }
+        };
+    }
 
     // Open the Sieve delivery database for global script evaluation.
     let pool = match store::open(&config.database.path).await {
@@ -214,7 +232,7 @@ async fn main() {
     };
 
     // Create the durable NNTP queue and start the drain task.
-    let nntp_queue = match NntpQueue::new(&config.delivery.queue_dir, dkim_signer.clone()) {
+    let nntp_queue = match NntpQueue::new(&config.delivery.queue_dir, dkim_signer) {
         Ok(q) => q,
         Err(e) => {
             error!(

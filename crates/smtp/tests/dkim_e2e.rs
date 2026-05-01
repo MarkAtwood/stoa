@@ -90,45 +90,6 @@ fn test_e2e_nntp_dkim_header_prepended() {
     );
 }
 
-// Oracle: same RFC 6376 §3.5 properties, verified for the relay signing path.
-//
-// relay_queue.rs try_deliver_one uses the same signer.sign(article_bytes) ->
-// sig.to_header() -> prepend pattern.  This test confirms the same structural
-// invariants hold for the relay code path.
-#[test]
-fn test_e2e_relay_dkim_header_prepended() {
-    let signer = test_rfc8463_signer();
-    let sig = signer.sign(TEST_MESSAGE).expect("sign must succeed with RFC 8463 test key");
-    let header = sig.to_header();
-
-    assert!(
-        header.starts_with("DKIM-Signature:"),
-        "relay path: DKIM-Signature header must begin with 'DKIM-Signature:', got: {header:?}"
-    );
-    assert!(
-        header.contains("a=ed25519-sha256"),
-        "relay path: DKIM-Signature must carry 'a=ed25519-sha256', got: {header:?}"
-    );
-    assert!(
-        !header.contains("l="),
-        "relay path: DKIM-Signature must NOT contain body length tag 'l=', got: {header:?}"
-    );
-
-    let mut signed = Vec::with_capacity(header.len() + TEST_MESSAGE.len());
-    signed.extend_from_slice(header.as_bytes());
-    signed.extend_from_slice(TEST_MESSAGE);
-
-    assert!(
-        signed.starts_with(b"DKIM-Signature:"),
-        "relay path: prepended message must begin with DKIM-Signature header bytes"
-    );
-    assert_eq!(
-        &signed[header.len()..],
-        TEST_MESSAGE,
-        "relay path: original article bytes must follow the DKIM-Signature header unchanged"
-    );
-}
-
 // Oracle: mail_auth::AuthenticatedMessage::parse must recognise the prepended
 // DKIM-Signature header and report exactly one parsed DKIM signature header.
 //
@@ -137,7 +98,7 @@ fn test_e2e_relay_dkim_header_prepended() {
 // Structural validity of the header is sufficient to confirm the signing path
 // produces well-formed output.
 #[test]
-fn test_e2e_dkim_signature_cryptographically_valid() {
+fn test_e2e_dkim_signature_parses_structurally() {
     let signer = test_rfc8463_signer();
     let sig = signer.sign(TEST_MESSAGE).expect("sign must succeed");
     let header = sig.to_header();
@@ -170,31 +131,5 @@ fn test_e2e_dkim_signature_cryptographically_valid() {
         "parsed DKIM-Signature must be structurally valid (no parse error), \
          got: {:?}",
         parsed.dkim_headers[0].header
-    );
-}
-
-// Oracle: when no DkimSigner is configured (the None branch in both drain
-// paths), article bytes must pass through to the transport layer unchanged.
-// This test directly exercises the else-branch logic without instantiating a
-// signer.
-#[test]
-fn test_e2e_no_dkim_signer_passthrough() {
-    let signer: Option<Arc<DkimSigner<Ed25519Key, mail_auth::dkim::Done>>> = None;
-
-    // Simulate the None branch from drain_once / try_deliver_one:
-    //   let article_to_send = if let Some(s) = &signer { sign(...) } else { article };
-    let article_to_send: &[u8] = if signer.is_some() {
-        panic!("signer must be None in this test");
-    } else {
-        TEST_MESSAGE
-    };
-
-    assert_eq!(
-        article_to_send, TEST_MESSAGE,
-        "without a DkimSigner the article bytes must be passed through unmodified"
-    );
-    assert!(
-        !article_to_send.starts_with(b"DKIM-Signature:"),
-        "unsigned article must not start with DKIM-Signature header"
     );
 }

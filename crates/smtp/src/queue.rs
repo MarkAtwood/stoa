@@ -41,9 +41,9 @@ struct NntpEnvelope {
 ///
 /// Scans the header section (up to the blank line) for a line whose field name
 /// is `message-id` (case-insensitive).  Returns the bare message-id token
-/// (stripped of surrounding `<>` and whitespace) if found, or an empty string
-/// if not present.
-pub(crate) fn extract_message_id(bytes: &[u8]) -> String {
+/// (stripped of surrounding `<>` and whitespace) if found, or `None` if the
+/// header is absent.
+pub(crate) fn extract_message_id(bytes: &[u8]) -> Option<String> {
     let header_end = find_header_end(bytes);
     let headers = &bytes[..header_end];
 
@@ -52,13 +52,15 @@ pub(crate) fn extract_message_id(bytes: &[u8]) -> String {
         if let Some(rest) = strip_field_name(line, b"message-id") {
             let value = std::str::from_utf8(rest).unwrap_or("").trim();
             // Strip enclosing angle brackets if present.
-            return value
-                .trim_start_matches('<')
-                .trim_end_matches('>')
-                .to_string();
+            return Some(
+                value
+                    .trim_start_matches('<')
+                    .trim_end_matches('>')
+                    .to_string(),
+            );
         }
     }
-    String::new()
+    None
 }
 
 /// Return the byte offset of the end of the header section (the blank line
@@ -141,8 +143,11 @@ impl NntpQueue {
 
     /// Enqueue article bytes for NNTP delivery.
     ///
-    /// Writes atomically: first to a `.tmp` file, then renames to `.msg`.
-    /// Also writes a `<stem>.env` JSON sidecar recording the injection source.
+    /// Both the `.msg` payload and the `.env` sidecar are written atomically
+    /// (write-to-tmp, then rename).  A crash between the two renames leaves a
+    /// `.msg` without an `.env`; the startup scan in `drain_once` removes the
+    /// leftover `.env.tmp` and the normal drain skips `.msg` files that have
+    /// no paired `.env`.
     /// Returns `Err` if the write fails; callers should respond with a 452
     /// transient error so the sending MTA will retry.
     pub async fn enqueue(
@@ -151,14 +156,16 @@ impl NntpQueue {
         injection_source: InjectionSource,
     ) -> std::io::Result<()> {
         let stem = unique_stem();
-        let tmp_path = self.queue_dir.join(format!("{stem}.msg.tmp"));
-        let dst_path = self.queue_dir.join(format!("{stem}.msg"));
-        let env_path = self.queue_dir.join(format!("{stem}.env"));
-        tokio::fs::write(&tmp_path, article_bytes).await?;
-        tokio::fs::rename(&tmp_path, &dst_path).await?;
+        let msg_tmp = self.queue_dir.join(format!("{stem}.msg.tmp"));
+        let msg_dst = self.queue_dir.join(format!("{stem}.msg"));
+        let env_tmp = self.queue_dir.join(format!("{stem}.env.tmp"));
+        let env_dst = self.queue_dir.join(format!("{stem}.env"));
+        tokio::fs::write(&msg_tmp, article_bytes).await?;
+        tokio::fs::rename(&msg_tmp, &msg_dst).await?;
         let env = NntpEnvelope { injection_source };
         let env_json = serde_json::to_vec(&env).map_err(std::io::Error::other)?;
-        tokio::fs::write(&env_path, &env_json).await?;
+        tokio::fs::write(&env_tmp, &env_json).await?;
+        tokio::fs::rename(&env_tmp, &env_dst).await?;
         self.notify.notify_one();
         Ok(())
     }
@@ -190,14 +197,14 @@ impl NntpQueue {
         };
         while let Ok(Some(entry)) = dir.next_entry().await {
             let path = entry.path();
-            // Remove any .msg.tmp files left by a previous crash.  These
-            // represent incomplete writes; the corresponding .msg file was
-            // never created, so there is nothing to deliver.
-            if path.to_str().is_some_and(|s| s.ends_with(".msg.tmp")) {
+            // Remove any .msg.tmp or .env.tmp files left by a previous crash.
+            // These represent incomplete writes; the corresponding committed
+            // file was never created, so there is nothing to deliver.
+            if path.to_str().is_some_and(|s| s.ends_with(".msg.tmp") || s.ends_with(".env.tmp")) {
                 if let Err(e) = tokio::fs::remove_file(&path).await {
-                    warn!(path = %path.display(), "nntp queue: failed to remove orphan .msg.tmp: {e}");
+                    warn!(path = %path.display(), "nntp queue: failed to remove orphan tmp file: {e}");
                 } else {
-                    warn!(path = %path.display(), "nntp queue: removed orphan .msg.tmp from previous crash");
+                    warn!(path = %path.display(), "nntp queue: removed orphan tmp file from previous crash");
                 }
                 continue;
             }
@@ -227,7 +234,7 @@ impl NntpQueue {
                                 Err(e) => {
                                     let message_id = extract_message_id(&article);
                                     warn!(
-                                        message_id = %message_id,
+                                        message_id = %message_id.unwrap_or_default(),
                                         "DKIM signing failed, deferring article: {e}"
                                     );
                                     continue;
@@ -236,7 +243,7 @@ impl NntpQueue {
                         } else {
                             article
                         };
-                        let message_id = extract_message_id(&article);
+                        let message_id = extract_message_id(&article).unwrap_or_default();
                         match nntp_client::post_article(nntp_config, &article, &message_id).await {
                             Ok(()) => {
                                 if let Err(e) = tokio::fs::remove_file(&path).await {
@@ -360,7 +367,7 @@ MIME-Version: 1.0\r\n\r\nHello\r\n";
         let files: Vec<_> = std::fs::read_dir(dir.path())
             .expect("read_dir")
             .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension().map_or(false, |x| x == "msg"))
+            .filter(|e| e.path().extension().is_some_and(|x| x == "msg"))
             .collect();
         assert_eq!(files.len(), 1, "expected exactly one .msg file");
         let contents = std::fs::read(files[0].path()).expect("read file");
@@ -383,7 +390,7 @@ MIME-Version: 1.0\r\n\r\nHello\r\n";
         let count = std::fs::read_dir(dir.path())
             .expect("read_dir")
             .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension().map_or(false, |x| x == "msg"))
+            .filter(|e| e.path().extension().is_some_and(|x| x == "msg"))
             .count();
         assert_eq!(count, 2, "expected two distinct .msg files");
     }
@@ -400,7 +407,7 @@ MIME-Version: 1.0\r\n\r\nHello\r\n";
         let tmp_count = std::fs::read_dir(dir.path())
             .expect("read_dir")
             .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension().map_or(false, |x| x == "tmp"))
+            .filter(|e| e.path().extension().is_some_and(|x| x == "tmp"))
             .count();
         assert_eq!(tmp_count, 0, "no .tmp files should remain after enqueue");
     }
@@ -422,24 +429,24 @@ MIME-Version: 1.0\r\n\r\nHello\r\n";
     fn extract_message_id_present() {
         let article =
             b"From: a@b.com\r\nMessage-Id: <foo@bar.example>\r\nSubject: test\r\n\r\nbody\r\n";
-        assert_eq!(extract_message_id(article), "foo@bar.example");
+        assert_eq!(extract_message_id(article), Some("foo@bar.example".to_string()));
     }
 
     #[test]
     fn extract_message_id_case_insensitive() {
         let article = b"message-id: <lower@case.test>\r\nFrom: a@b.com\r\n\r\nbody\r\n";
-        assert_eq!(extract_message_id(article), "lower@case.test");
+        assert_eq!(extract_message_id(article), Some("lower@case.test".to_string()));
     }
 
     #[test]
     fn extract_message_id_missing() {
         let article = b"From: a@b.com\r\nSubject: no mid\r\n\r\nbody\r\n";
-        assert_eq!(extract_message_id(article), "");
+        assert_eq!(extract_message_id(article), None);
     }
 
     #[test]
     fn extract_message_id_no_angle_brackets() {
         let article = b"Message-Id: plain@id.test\r\nFrom: a@b.com\r\n\r\nbody\r\n";
-        assert_eq!(extract_message_id(article), "plain@id.test");
+        assert_eq!(extract_message_id(article), Some("plain@id.test".to_string()));
     }
 }

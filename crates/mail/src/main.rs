@@ -8,17 +8,17 @@ use stoa_mail::{
 use tracing::info;
 
 fn parse_args() -> PathBuf {
-    let args: Vec<String> = std::env::args().collect();
-    let mut i = 1;
-    while i < args.len() {
-        if args[i] == "--config" {
-            if let Some(path) = args.get(i + 1) {
-                return PathBuf::from(path);
+    let mut args = std::env::args().skip(1);
+    for arg in args.by_ref() {
+        if arg == "--config" {
+            match args.next() {
+                Some(path) => return PathBuf::from(path),
+                None => {
+                    eprintln!("error: --config requires a path argument");
+                    std::process::exit(1);
+                }
             }
-            eprintln!("error: --config requires a path argument");
-            std::process::exit(1);
         }
-        i += 1;
     }
     eprintln!("error: --config <path> is required");
     std::process::exit(1);

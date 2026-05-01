@@ -26,6 +26,7 @@ stoa-tls = { path = "../tls" }
 stoa-verify = { path = "../verify" }
 mail-auth = "0.8"
 base64 = "0.22"
+zeroize = "1"
 sqlx = { version = "0.8", features = ["sqlite", "postgres", "any", "runtime-tokio-rustls", "macros", "migrate"] }
 cid = { version = "0.11", features = ["serde-codec"] }
 serde_json = "1"
