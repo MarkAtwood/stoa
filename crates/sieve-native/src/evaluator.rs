@@ -623,16 +623,20 @@ fn eval_header_test(forms: &[Form], ctx: &mut Ctx<'_>) -> bool {
     let (cmp, after_cmp) = extract_comparator(&after_mt);
     let casemap = cmp == Comparator::AsciiCasemap;
     let (field_names, keys) = collect_two_string_lists(&after_cmp);
+    let variables_enabled = ctx.variables_enabled;
 
-    for (hdr_name, hdr_value) in &ctx.headers.clone() {
+    // Collect captures into a local map first so the immutable borrow of
+    // ctx.headers and the mutable borrow of ctx.variables do not overlap.
+    let mut pending_captures: Option<HashMap<String, String>> = None;
+    'search: for (hdr_name, hdr_value) in &ctx.headers {
         for fname in &field_names {
             if hdr_name.eq_ignore_ascii_case(fname) {
                 for key in &keys {
-                    if mt == MatchType::Matches && ctx.variables_enabled {
+                    if mt == MatchType::Matches && variables_enabled {
                         let mut captures: HashMap<String, String> = HashMap::new();
                         if str_matches_glob_captures(hdr_value, key, casemap, Some(&mut captures)) {
-                            ctx.variables.extend(captures);
-                            return true;
+                            pending_captures = Some(captures);
+                            break 'search;
                         }
                     } else if apply_match(hdr_value, key, mt, casemap) {
                         return true;
@@ -641,7 +645,13 @@ fn eval_header_test(forms: &[Form], ctx: &mut Ctx<'_>) -> bool {
             }
         }
     }
-    false
+
+    if let Some(captures) = pending_captures {
+        ctx.variables.extend(captures);
+        true
+    } else {
+        false
+    }
 }
 
 fn eval_address_test(forms: &[Form], ctx: &mut Ctx<'_>) -> bool {

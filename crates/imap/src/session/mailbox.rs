@@ -171,17 +171,51 @@ pub async fn handle_list(
         format!("{prefix}/{wildcard}")
     };
 
-    let rows: Vec<(String,)> =
-        match sqlx::query_as("SELECT mailbox FROM imap_uid_validity ORDER BY mailbox")
+    // Optimise: if the IMAP pattern has a literal DB prefix (e.g. "News/comp."
+    // → DB prefix "comp."), push a LIKE filter to the query so we only
+    // fetch matching rows.  The Rust-level glob_match is still applied
+    // afterwards to enforce exact wildcard semantics.
+    let db_prefix: Option<String> = {
+        let news_part = pattern.strip_prefix("News/").unwrap_or("");
+        let end = news_part
+            .find(|c| c == '*' || c == '%')
+            .unwrap_or(news_part.len());
+        if end > 0 {
+            Some(format!("{}%", &news_part[..end]))
+        } else {
+            None
+        }
+    };
+
+    let rows: Vec<(String,)> = match db_prefix {
+        Some(like_pat) => {
+            match sqlx::query_as(
+                "SELECT mailbox FROM imap_uid_validity WHERE mailbox LIKE ? ORDER BY mailbox",
+            )
+            .bind(like_pat)
             .fetch_all(pool)
             .await
-        {
-            Ok(r) => r,
-            Err(e) => {
-                debug!("DB error in LIST: {e}");
-                return vec![];
+            {
+                Ok(r) => r,
+                Err(e) => {
+                    debug!("DB error in LIST: {e}");
+                    return vec![];
+                }
             }
-        };
+        }
+        None => {
+            match sqlx::query_as("SELECT mailbox FROM imap_uid_validity ORDER BY mailbox")
+                .fetch_all(pool)
+                .await
+            {
+                Ok(r) => r,
+                Err(e) => {
+                    debug!("DB error in LIST: {e}");
+                    return vec![];
+                }
+            }
+        }
+    };
 
     rows.into_iter()
         .filter_map(|(db_name,)| {
