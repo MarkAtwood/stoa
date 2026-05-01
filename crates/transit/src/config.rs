@@ -853,6 +853,13 @@ impl Config {
         // Validate GC cron schedule.
         validate_cron_schedule(&self.gc.schedule)
             .map_err(|e| ConfigError::Validation(format!("gc.schedule: {e}")))?;
+        if self.gc.max_age_days > 36_500 {
+            return Err(ConfigError::Validation(format!(
+                "gc.max_age_days ({}) exceeds 36500 (100 years); \
+                 values this large overflow the millisecond grace window",
+                self.gc.max_age_days
+            )));
+        }
 
         // Validate backup cron schedule if set.
         if let Some(sched) = &self.backup.schedule {

@@ -54,6 +54,10 @@ pub struct Config {
     /// OpenTelemetry observability configuration.  Omit for Prometheus-only mode.
     #[serde(default)]
     pub telemetry: stoa_core::telemetry::TelemetryConfig,
+    /// When true, the server sends 201 in the greeting and rejects POST with 440.
+    /// Default: false (posting allowed).
+    #[serde(default)]
+    pub read_only: bool,
 }
 
 /// Database URL configuration for the reader daemon.

@@ -160,7 +160,7 @@ async fn run_plain_session(
     }
 
     let auth_required = config.auth.required;
-    let posting_allowed = true;
+    let posting_allowed = !config.read_only;
     let mut ctx = SessionContext::new(peer_addr, auth_required, posting_allowed, false);
     ctx.starttls_available = tls_acceptor.is_some();
     load_known_groups(&stores, &mut ctx).await;
@@ -256,7 +256,7 @@ async fn run_session_post_starttls<S>(
     info!(peer = %peer_addr, "STARTTLS: session resumed over TLS");
 
     let auth_required = config.auth.required;
-    let posting_allowed = true;
+    let posting_allowed = !config.read_only;
     let mut ctx = SessionContext::new(peer_addr, auth_required, posting_allowed, true);
     ctx.starttls_available = false; // already TLS; no further upgrade
     ctx.client_cert_fingerprint = client_cert_fingerprint;
@@ -964,7 +964,7 @@ async fn run_session_io<S>(
     let start = std::time::Instant::now();
 
     let auth_required = config.auth.required;
-    let posting_allowed = true;
+    let posting_allowed = !config.read_only;
     let mut ctx = SessionContext::new(peer_addr, auth_required, posting_allowed, is_tls);
     ctx.client_cert_fingerprint = client_cert_fingerprint;
     ctx.client_cert_der = client_cert_der;
