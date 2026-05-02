@@ -434,6 +434,7 @@ async fn build_smtp_relay_queue(
         down_backoff,
         dkim_signer,
         local_hostname,
+        None,
     )
     .map_err(|e| e.to_string())?;
     Ok(Some(queue))

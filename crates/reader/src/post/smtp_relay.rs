@@ -80,7 +80,7 @@ pub async fn maybe_enqueue_smtp_relay(
     let mail_from = extract_mail_from(article_bytes);
     let rcpts: Vec<&str> = recipients.iter().map(String::as_str).collect();
 
-    if let Err(e) = queue.enqueue(article_bytes, &mail_from, &rcpts).await {
+    if let Err(e) = queue.enqueue(article_bytes, &mail_from, &rcpts, false).await {
         tracing::warn!("smtp relay enqueue failed: {e}");
         stoa_smtp::metrics::inc_relay_enqueue_failure();
     }
@@ -234,6 +234,7 @@ mod tests {
             std::time::Duration::from_secs(300),
             None,
             "test.example.com",
+            None,
         )
         .expect("queue");
 
@@ -265,6 +266,7 @@ mod tests {
             std::time::Duration::from_secs(300),
             None,
             "test.example.com",
+            None,
         )
         .expect("queue2");
 
@@ -294,6 +296,7 @@ mod tests {
             std::time::Duration::from_secs(300),
             None,
             "test.example.com",
+            None,
         )
         .expect("queue");
 

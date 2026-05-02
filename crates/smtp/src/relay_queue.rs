@@ -6,7 +6,7 @@ use std::time::{Duration, SystemTime};
 use mail_auth::common::headers::HeaderWriter;
 use tracing::{error, info, warn};
 
-use crate::relay_client::{deliver_via_relay, RelayEnvelope};
+use crate::relay_client::{deliver_via_relay, MtaStsEnforcer, RelayEnvelope};
 use crate::relay_health::PeerHealthState;
 
 // Seeded once at startup with the current time in nanoseconds so IDs sort
@@ -70,6 +70,9 @@ pub struct SmtpRelayQueue {
     /// Count of files currently in the `dead/` subdirectory (env-file units).
     /// Incremented on each move-to-dead; initialized from disk once at startup.
     dead_letter_count: AtomicU64,
+    /// MTA-STS policy enforcer.  `None` disables enforcement (RFC 8461 §2:
+    /// policy fetch failures MUST NOT block delivery, so `None` is safe).
+    mta_sts_enforcer: Option<Arc<MtaStsEnforcer>>,
 }
 
 impl SmtpRelayQueue {
@@ -88,6 +91,7 @@ impl SmtpRelayQueue {
         down_backoff: Duration,
         dkim_signer: Option<crate::config::DkimSignerArc>,
         local_hostname: impl Into<String>,
+        mta_sts_enforcer: Option<Arc<MtaStsEnforcer>>,
     ) -> std::io::Result<Arc<Self>> {
         let queue_dir = queue_dir.into();
         let dead_dir = queue_dir.join("dead");
@@ -125,6 +129,7 @@ impl SmtpRelayQueue {
             dkim_signer,
             local_hostname: local_hostname.into(),
             dead_letter_count: AtomicU64::new(0),
+            mta_sts_enforcer,
         }))
     }
 
@@ -494,7 +499,7 @@ impl SmtpRelayQueue {
             &relay_envelope,
             article_bytes_to_send,
             &self.local_hostname,
-            None,
+            self.mta_sts_enforcer.as_deref(),
         )
         .await
         {
@@ -572,6 +577,7 @@ mod tests {
             Duration::from_secs(300),
             None,
             "",
+            None,
         )
         .expect("new");
 
@@ -601,6 +607,7 @@ mod tests {
             Duration::from_secs(300),
             None,
             "",
+            None,
         )
         .expect("new");
 
@@ -634,6 +641,7 @@ mod tests {
             Duration::from_secs(300),
             None,
             "",
+            None,
         )
         .expect("new");
 
@@ -660,6 +668,7 @@ mod tests {
             Duration::from_secs(300),
             None,
             "",
+            None,
         )
         .expect("new should create dirs");
         assert!(queue_dir.is_dir(), "queue_dir should exist");
@@ -675,6 +684,7 @@ mod tests {
             Duration::from_secs(300),
             None,
             "",
+            None,
         )
         .expect("new");
 
@@ -715,6 +725,7 @@ mod tests {
             Duration::from_secs(300),
             None,
             "",
+            None,
         )
         .expect("new");
 
@@ -752,6 +763,7 @@ mod tests {
             Duration::from_secs(300),
             None,
             "",
+            None,
         )
         .expect("new");
 
@@ -791,6 +803,7 @@ mod tests {
             Duration::from_secs(300),
             None,
             "",
+            None,
         )
         .expect("new");
 
@@ -826,6 +839,7 @@ mod tests {
             Duration::from_secs(300),
             None,
             "",
+            None,
         )
         .expect("new");
 
@@ -867,6 +881,7 @@ mod tests {
             Duration::from_secs(300),
             None,
             "",
+            None,
         );
 
         // Restore write permission so tempdir cleanup can remove the directory.
@@ -930,6 +945,7 @@ mod tests {
             Duration::from_secs(300),
             None,
             "",
+            None,
         )
         .expect("new");
 

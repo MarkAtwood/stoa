@@ -185,6 +185,7 @@ async fn happy_path_article_delivered_queue_empty() {
         Duration::from_secs(300),
         None,
         "test.example.com",
+        None,
     )
     .unwrap();
 
@@ -255,6 +256,7 @@ async fn transient_failure_leaves_message_in_queue() {
         Duration::from_secs(300),
         None,
         "test.example.com",
+        None,
     )
     .unwrap();
 
@@ -294,6 +296,7 @@ async fn permanent_failure_moves_to_dead() {
         Duration::from_secs(300),
         None,
         "test.example.com",
+        None,
     )
     .unwrap();
 
@@ -345,6 +348,7 @@ async fn round_robin_two_peers_each_gets_one() {
         Duration::from_secs(300),
         None,
         "test.example.com",
+        None,
     )
     .unwrap();
 
