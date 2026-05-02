@@ -33,6 +33,11 @@ fn unique_id() -> String {
 struct EnvelopeFile {
     mail_from: String,
     rcpt_to: Vec<String>,
+    /// RFC 8689: if `true`, the upstream sender required TLS on every hop.
+    /// Envelope files written before this field was added deserialize with the
+    /// safe default of `false` (no TLS requirement) rather than failing.
+    #[serde(default)]
+    require_tls: bool,
 }
 
 /// Durable filesystem-backed queue for outbound SMTP relay delivery.
@@ -147,6 +152,7 @@ impl SmtpRelayQueue {
         article_bytes: &[u8],
         mail_from: &str,
         rcpt_to: &[&str],
+        require_tls: bool,
     ) -> std::io::Result<()> {
         // The lock is never poisoned: no code panics while holding it.
         if self.health.lock().expect("health lock").is_empty() || rcpt_to.is_empty() {
@@ -165,6 +171,7 @@ impl SmtpRelayQueue {
         let env = EnvelopeFile {
             mail_from: mail_from.to_string(),
             rcpt_to: rcpt_to.iter().map(|s| s.to_string()).collect(),
+            require_tls,
         };
         let env_bytes = serde_json::to_vec(&env).map_err(std::io::Error::other)?;
         let env_tmp = self.queue_dir.join(format!("{id}.env.tmp"));
@@ -452,7 +459,7 @@ impl SmtpRelayQueue {
         let relay_envelope = RelayEnvelope {
             mail_from: envelope.mail_from.clone(),
             rcpt_to: envelope.rcpt_to.clone(),
-            require_tls: false,
+            require_tls: envelope.require_tls,
         };
 
         // DKIM-sign the article before SMTP relay delivery.
@@ -569,7 +576,7 @@ mod tests {
         .expect("new");
 
         queue
-            .enqueue(b"article", "from@example.com", &["to@example.com"])
+            .enqueue(b"article", "from@example.com", &["to@example.com"], false)
             .await
             .expect("enqueue");
 
@@ -598,7 +605,7 @@ mod tests {
         .expect("new");
 
         queue
-            .enqueue(b"article bytes", "from@example.com", &["to@example.com"])
+            .enqueue(b"article bytes", "from@example.com", &["to@example.com"], false)
             .await
             .expect("enqueue");
 
@@ -631,7 +638,7 @@ mod tests {
         .expect("new");
 
         queue
-            .enqueue(b"data", "from@example.com", &["to@example.com"])
+            .enqueue(b"data", "from@example.com", &["to@example.com"], false)
             .await
             .expect("enqueue");
 
@@ -676,6 +683,7 @@ mod tests {
                 b"article bytes",
                 "sender@example.com",
                 &["rcpt1@example.com", "rcpt2@example.com"],
+                false,
             )
             .await
             .expect("enqueue");
@@ -693,6 +701,46 @@ mod tests {
             parsed.rcpt_to,
             vec!["rcpt1@example.com", "rcpt2@example.com"]
         );
+        assert!(!parsed.require_tls, "require_tls should be false when not set");
+    }
+
+    // Oracle: RFC 8689 — require_tls=true must survive the queue round-trip so
+    // the drain loop can enforce TLS when building the RelayEnvelope.
+    #[tokio::test]
+    async fn enqueue_require_tls_true_persisted_in_envelope() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let queue = SmtpRelayQueue::new(
+            dir.path().to_path_buf(),
+            vec![make_peer("smtp.example.com")],
+            Duration::from_secs(300),
+            None,
+            "",
+        )
+        .expect("new");
+
+        queue
+            .enqueue(b"article", "from@example.com", &["to@example.com"], true)
+            .await
+            .expect("enqueue");
+
+        let env_file = std::fs::read_dir(dir.path())
+            .expect("read_dir")
+            .filter_map(|e| e.ok())
+            .find(|e| e.path().extension().is_some_and(|x| x == "env"))
+            .expect("env file should exist");
+
+        let contents = std::fs::read(env_file.path()).expect("read env file");
+        let parsed: EnvelopeFile = serde_json::from_slice(&contents).expect("parse JSON");
+        assert!(parsed.require_tls, "require_tls=true must be persisted in the envelope file");
+    }
+
+    // Oracle: envelope files written before the require_tls field was added
+    // must deserialize with require_tls=false rather than returning a parse error.
+    #[tokio::test]
+    async fn enqueue_envelope_without_require_tls_deserializes_as_false() {
+        let json = r#"{"mail_from":"from@example.com","rcpt_to":["to@example.com"]}"#;
+        let parsed: EnvelopeFile = serde_json::from_str(json).expect("legacy envelope must parse");
+        assert!(!parsed.require_tls, "missing require_tls field should default to false");
     }
 
     #[tokio::test]
@@ -708,11 +756,11 @@ mod tests {
         .expect("new");
 
         queue
-            .enqueue(b"article one", "from@example.com", &["to@example.com"])
+            .enqueue(b"article one", "from@example.com", &["to@example.com"], false)
             .await
             .expect("enqueue 1");
         queue
-            .enqueue(b"article two", "from@example.com", &["to@example.com"])
+            .enqueue(b"article two", "from@example.com", &["to@example.com"], false)
             .await
             .expect("enqueue 2");
 
@@ -886,7 +934,7 @@ mod tests {
         .expect("new");
 
         queue
-            .enqueue(b"article", "from@example.com", &[])
+            .enqueue(b"article", "from@example.com", &[], false)
             .await
             .expect("enqueue with empty rcpt_to should not fail");
 

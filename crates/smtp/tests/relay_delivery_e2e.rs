@@ -191,7 +191,7 @@ async fn happy_path_article_delivered_queue_empty() {
     let article =
         b"From: alice@example.com\r\nTo: bob@example.com\r\nSubject: Test\r\n\r\nHello\r\n";
     queue
-        .enqueue(article, "alice@example.com", &["bob@example.com"])
+        .enqueue(article, "alice@example.com", &["bob@example.com"], false)
         .await
         .unwrap();
 
@@ -260,7 +260,7 @@ async fn transient_failure_leaves_message_in_queue() {
 
     let article = b"From: a@example.com\r\nTo: b@example.com\r\nSubject: T\r\n\r\nBody\r\n";
     queue
-        .enqueue(article, "a@example.com", &["b@example.com"])
+        .enqueue(article, "a@example.com", &["b@example.com"], false)
         .await
         .unwrap();
 
@@ -299,7 +299,7 @@ async fn permanent_failure_moves_to_dead() {
 
     let article = b"From: a@example.com\r\nTo: b@example.com\r\nSubject: T\r\n\r\nBody\r\n";
     queue
-        .enqueue(article, "a@example.com", &["b@example.com"])
+        .enqueue(article, "a@example.com", &["b@example.com"], false)
         .await
         .unwrap();
 
@@ -350,11 +350,11 @@ async fn round_robin_two_peers_each_gets_one() {
 
     let article = b"From: a@example.com\r\nTo: b@example.com\r\nSubject: T\r\n\r\nBody\r\n";
     queue
-        .enqueue(article, "a@example.com", &["b@example.com"])
+        .enqueue(article, "a@example.com", &["b@example.com"], false)
         .await
         .unwrap();
     queue
-        .enqueue(article, "a@example.com", &["b@example.com"])
+        .enqueue(article, "a@example.com", &["b@example.com"], false)
         .await
         .unwrap();
 
