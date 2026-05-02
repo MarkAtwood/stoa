@@ -31,9 +31,9 @@ struct CachedStsEntry {
 /// In-memory MTA-STS policy cache and enforcement for outbound relay.
 ///
 /// One instance is created at startup and shared via `Arc`.  Each call to
-/// [`MtaStsEnforcer::enforce_for_delivery`] performs a DNS lookup, consults the
-/// in-memory cache, fetches the policy over HTTPS if needed, and then applies
-/// the enforcement rules from RFC 8461 §4.
+/// [`MtaStsEnforcer::enforce_for_delivery`] checks the in-memory cache first;
+/// on a cache miss it performs a DNS TXT lookup and HTTPS policy fetch, then
+/// applies the enforcement rules from RFC 8461 §4.
 ///
 /// On any DNS or fetch error the enforcer logs a warning and allows delivery to
 /// proceed — RFC 8461 §2 says policy fetch failures MUST NOT block delivery.
@@ -44,12 +44,12 @@ pub struct MtaStsEnforcer {
 }
 
 impl MtaStsEnforcer {
-    pub fn new(fetch_timeout_ms: u64, max_body_bytes: usize) -> Arc<Self> {
-        Arc::new(Self {
+    pub fn new(fetch_timeout_ms: u64, max_body_bytes: usize) -> Self {
+        Self {
             cache: Mutex::new(HashMap::new()),
             fetch_timeout_ms,
             max_body_bytes,
-        })
+        }
     }
 
     /// Apply MTA-STS enforcement for a single delivery attempt.
@@ -252,7 +252,7 @@ pub struct RelayEnvelope {
 /// servers.  An empty string falls back to `"localhost"`.
 ///
 /// `mta_sts` — optional MTA-STS enforcer.  When `Some`, MTA-STS policy is
-/// checked for the first recipient's domain before connecting.  Pass `None`
+/// checked for every unique recipient domain before connecting.  Pass `None`
 /// to skip enforcement (e.g. when MTA-STS checking is disabled in config).
 ///
 /// Returns [`SmtpRelayError::Permanent`] immediately if `envelope.rcpt_to` is
