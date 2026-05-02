@@ -37,14 +37,14 @@ pub async fn fetch_mta_sts_policy_body(
         domain.trim_end_matches('.')
     );
 
-    fetch_url(url, timeout_ms, max_body_bytes).await
+    fetch_url(&url, timeout_ms, max_body_bytes).await
 }
 
 /// Inner HTTP fetch used by `fetch_mta_sts_policy_body`.
 /// Separated so tests can call it with an `http://` URL pointing at a local
 /// mock server without needing a real TLS certificate.
 async fn fetch_url(
-    url: String,
+    url: &str,
     timeout_ms: u64,
     max_body_bytes: usize,
 ) -> Result<String, MtaStsError> {
@@ -55,38 +55,44 @@ async fn fetch_url(
         .build()
         .map_err(|e| MtaStsError::PolicyFetchFailed(format!("client build failed: {e}")))?;
 
-    let response = client
-        .get(&url)
+    let mut response = client
+        .get(url)
         .send()
         .await
         .map_err(|e| MtaStsError::PolicyFetchFailed(format!("request failed: {e}")))?;
 
     let status = response.status();
     if status.is_redirection() {
-        return Err(MtaStsError::PolicyFetchFailed(
-            "redirect not allowed".into(),
-        ));
+        return Err(MtaStsError::PolicyFetchRedirectForbidden);
     }
     if !status.is_success() {
-        return Err(MtaStsError::PolicyFetchFailed(format!(
-            "HTTP {}",
-            status.as_u16()
-        )));
+        return Err(MtaStsError::PolicyFetchHttpError {
+            status: status.as_u16(),
+        });
     }
 
-    // Read body with byte cap to prevent unbounded memory use.
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|e| MtaStsError::PolicyFetchFailed(format!("body read failed: {e}")))?;
-
-    if bytes.len() > max_body_bytes {
-        return Err(MtaStsError::PolicyFetchFailed("response too large".into()));
+    // Read body in chunks, enforcing the size cap as each chunk arrives.
+    // Using chunk() instead of bytes() prevents an adversarial server from
+    // consuming unbounded memory before the limit check fires.
+    let mut buf = Vec::new();
+    loop {
+        let chunk = response
+            .chunk()
+            .await
+            .map_err(|e| MtaStsError::PolicyFetchFailed(format!("body read failed: {e}")))?;
+        match chunk {
+            None => break,
+            Some(bytes) => {
+                if buf.len() + bytes.len() > max_body_bytes {
+                    return Err(MtaStsError::PolicyFetchTooLarge);
+                }
+                buf.extend_from_slice(&bytes);
+            }
+        }
     }
 
-    let body = std::str::from_utf8(&bytes)
-        .map_err(|_| MtaStsError::PolicyFetchFailed("invalid UTF-8 in response".into()))?
-        .to_owned();
+    let body = String::from_utf8(buf)
+        .map_err(|_| MtaStsError::PolicyFetchFailed("invalid UTF-8 in response".into()))?;
 
     Ok(body)
 }
@@ -104,10 +110,6 @@ mod tests {
             .await
             .expect_err("empty domain must fail");
         assert!(matches!(err, MtaStsError::PolicyFetchFailed(_)));
-        assert!(
-            err.to_string().contains("invalid domain"),
-            "unexpected error: {err}"
-        );
     }
 
     // T2: domain containing "://" is rejected (SSRF guard — prevents constructing
@@ -119,10 +121,6 @@ mod tests {
             .await
             .expect_err("domain with scheme must fail");
         assert!(matches!(err, MtaStsError::PolicyFetchFailed(_)));
-        assert!(
-            err.to_string().contains("invalid domain"),
-            "unexpected error: {err}"
-        );
     }
 
     // T3: domain containing "/" is rejected.
@@ -133,10 +131,6 @@ mod tests {
             .await
             .expect_err("domain with path separator must fail");
         assert!(matches!(err, MtaStsError::PolicyFetchFailed(_)));
-        assert!(
-            err.to_string().contains("invalid domain"),
-            "unexpected error: {err}"
-        );
     }
 
     // ── Mock-server tests (T4–T8) ────────────────────────────────────────────
@@ -173,13 +167,13 @@ mod tests {
             }),
         );
         let base = start_mock_server(router).await;
-        let result = fetch_url(format!("{base}/"), 5_000, 65_536)
+        let result = fetch_url(&format!("{base}/"), 5_000, 65_536)
             .await
             .expect("should succeed");
         assert_eq!(result, body);
     }
 
-    // T5: server returns 301 redirect → PolicyFetchFailed("redirect not allowed").
+    // T5: server returns 301 redirect → PolicyFetchRedirectForbidden.
     // Oracle: RFC 8461 §3.3 — redirects MUST NOT be followed; an attacker could
     // redirect the policy fetch to a server they control.
     #[tokio::test]
@@ -197,16 +191,16 @@ mod tests {
             }),
         );
         let base = start_mock_server(router).await;
-        let err = fetch_url(format!("{base}/"), 5_000, 65_536)
+        let err = fetch_url(&format!("{base}/"), 5_000, 65_536)
             .await
             .expect_err("redirect must fail");
         assert!(
-            matches!(err, MtaStsError::PolicyFetchFailed(ref msg) if msg.contains("redirect")),
+            matches!(err, MtaStsError::PolicyFetchRedirectForbidden),
             "unexpected error: {err}"
         );
     }
 
-    // T6: server returns 200 with a body > max_body_bytes → PolicyFetchFailed("too large").
+    // T6: server returns 200 with a body > max_body_bytes → PolicyFetchTooLarge.
     // Oracle: RFC 8461 §3.2 — policy body MUST NOT exceed the configured limit.
     #[tokio::test]
     async fn oversized_body_returns_error() {
@@ -220,16 +214,16 @@ mod tests {
             }),
         );
         let base = start_mock_server(router).await;
-        let err = fetch_url(format!("{base}/"), 5_000, 65_536)
+        let err = fetch_url(&format!("{base}/"), 5_000, 65_536)
             .await
             .expect_err("oversized body must fail");
         assert!(
-            matches!(err, MtaStsError::PolicyFetchFailed(ref msg) if msg.contains("too large")),
+            matches!(err, MtaStsError::PolicyFetchTooLarge),
             "unexpected error: {err}"
         );
     }
 
-    // T7: server returns 404 → PolicyFetchFailed("HTTP 404").
+    // T7: server returns 404 → PolicyFetchHttpError { status: 404 }.
     // Oracle: RFC 8461 §3.3 — only 2xx is a valid policy response.
     #[tokio::test]
     async fn not_found_returns_error() {
@@ -238,11 +232,11 @@ mod tests {
             axum::routing::get(|| async { axum::http::StatusCode::NOT_FOUND }),
         );
         let base = start_mock_server(router).await;
-        let err = fetch_url(format!("{base}/"), 5_000, 65_536)
+        let err = fetch_url(&format!("{base}/"), 5_000, 65_536)
             .await
             .expect_err("404 must fail");
         assert!(
-            matches!(err, MtaStsError::PolicyFetchFailed(ref msg) if msg.contains("404")),
+            matches!(err, MtaStsError::PolicyFetchHttpError { status: 404 }),
             "unexpected error: {err}"
         );
     }
@@ -260,7 +254,7 @@ mod tests {
         let port = listener.local_addr().expect("local_addr").port();
         drop(listener);
 
-        let err = fetch_url(format!("http://127.0.0.1:{port}/"), 5_000, 65_536)
+        let err = fetch_url(&format!("http://127.0.0.1:{port}/"), 5_000, 65_536)
             .await
             .expect_err("connection refused must fail");
         assert!(

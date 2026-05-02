@@ -6,20 +6,30 @@ use std::fmt;
 pub enum MtaStsError {
     /// No `_mta-sts.<domain>` TXT record found.
     DnsTxtNotFound,
-    /// TXT record found but failed validation (wrong version, bad id, multiple records).
-    DnsTxtInvalid(String),
-    /// HTTPS fetch of policy file failed (network, cert, redirect, timeout, size).
+    /// DNS/network failure while resolving or querying `_mta-sts.<domain>`.
+    DnsLookupFailed(String),
+    /// Multiple STSv1 TXT records found; RFC 8461 §3.1 requires exactly one.
+    DnsTxtMultipleRecords,
+    /// TXT record is missing the required `id=` field.
+    DnsTxtMissingId,
+    /// TXT record `id=` value exceeds 32 characters.
+    DnsTxtIdTooLong,
+    /// TXT record `id=` value contains non-alphanumeric characters.
+    DnsTxtIdInvalid,
+    /// HTTPS fetch of policy file failed (network, cert, timeout, or other I/O error).
     PolicyFetchFailed(String),
+    /// Policy fetch returned a redirect response; RFC 8461 §3.3 forbids following redirects.
+    PolicyFetchRedirectForbidden,
+    /// Policy fetch returned a non-2xx HTTP status code.
+    PolicyFetchHttpError { status: u16 },
+    /// Policy fetch response body exceeded the configured size limit.
+    PolicyFetchTooLarge,
     /// Policy file body failed to parse (missing field, bad value, oversized body).
     PolicyParseFailed(String),
     /// Cached policy_id does not match the current DNS TXT record id.
     PolicyIdMismatch { cached: String, dns: String },
     /// Connecting MX hostname does not match any pattern in the policy.
     MxNotMatched { mx: String },
-    /// Next-hop MTA did not advertise REQUIRETLS but REQUIRETLS was required.
-    TlsRequiredNotAdvertised,
-    /// TLS certificate validation failed on outbound connection.
-    TlsCertInvalid(String),
 }
 
 impl fmt::Display for MtaStsError {
@@ -28,11 +38,38 @@ impl fmt::Display for MtaStsError {
             MtaStsError::DnsTxtNotFound => {
                 write!(f, "MTA-STS: no TXT record found")
             }
-            MtaStsError::DnsTxtInvalid(msg) => {
-                write!(f, "MTA-STS: invalid TXT record: {}", msg)
+            MtaStsError::DnsLookupFailed(msg) => {
+                write!(f, "MTA-STS: DNS lookup failed: {}", msg)
+            }
+            MtaStsError::DnsTxtMultipleRecords => {
+                write!(f, "MTA-STS: multiple STSv1 TXT records found")
+            }
+            MtaStsError::DnsTxtMissingId => {
+                write!(f, "MTA-STS: TXT record missing id= field")
+            }
+            MtaStsError::DnsTxtIdTooLong => {
+                write!(f, "MTA-STS: TXT record id= exceeds 32 characters")
+            }
+            MtaStsError::DnsTxtIdInvalid => {
+                write!(
+                    f,
+                    "MTA-STS: TXT record id= contains non-alphanumeric characters"
+                )
             }
             MtaStsError::PolicyFetchFailed(msg) => {
                 write!(f, "MTA-STS: policy fetch failed: {}", msg)
+            }
+            MtaStsError::PolicyFetchRedirectForbidden => {
+                write!(
+                    f,
+                    "MTA-STS: policy fetch redirect not allowed (RFC 8461 §3.3)"
+                )
+            }
+            MtaStsError::PolicyFetchHttpError { status } => {
+                write!(f, "MTA-STS: policy fetch HTTP {}", status)
+            }
+            MtaStsError::PolicyFetchTooLarge => {
+                write!(f, "MTA-STS: policy fetch response body too large")
             }
             MtaStsError::PolicyParseFailed(msg) => {
                 write!(f, "MTA-STS: policy parse error: {}", msg)
@@ -46,12 +83,6 @@ impl fmt::Display for MtaStsError {
             }
             MtaStsError::MxNotMatched { mx } => {
                 write!(f, "MTA-STS: MX hostname '{}' not in policy", mx)
-            }
-            MtaStsError::TlsRequiredNotAdvertised => {
-                write!(f, "MTA-STS: REQUIRETLS not advertised by remote MTA")
-            }
-            MtaStsError::TlsCertInvalid(msg) => {
-                write!(f, "MTA-STS: TLS certificate invalid: {}", msg)
             }
         }
     }

@@ -12,6 +12,8 @@ use tokio::net::TcpStream;
 use tokio::time::timeout;
 use tracing::warn;
 
+use hickory_resolver::TokioResolver;
+
 use crate::config::{MtaStsMode, SmtpRelayPeerConfig};
 use crate::mta_sts_dns::lookup_mta_sts_txt;
 use crate::mta_sts_fetcher::fetch_mta_sts_policy_body;
@@ -38,6 +40,7 @@ struct CachedStsEntry {
 /// On any DNS or fetch error the enforcer logs a warning and allows delivery to
 /// proceed — RFC 8461 §2 says policy fetch failures MUST NOT block delivery.
 pub struct MtaStsEnforcer {
+    resolver: TokioResolver,
     cache: Mutex<HashMap<String, (CachedStsEntry, Instant)>>,
     fetch_timeout_ms: u64,
     max_body_bytes: usize,
@@ -45,7 +48,11 @@ pub struct MtaStsEnforcer {
 
 impl MtaStsEnforcer {
     pub fn new(fetch_timeout_ms: u64, max_body_bytes: usize) -> Self {
+        let resolver = TokioResolver::builder_tokio()
+            .expect("TokioResolver init failed")
+            .build();
         Self {
+            resolver,
             cache: Mutex::new(HashMap::new()),
             fetch_timeout_ms,
             max_body_bytes,
@@ -68,6 +75,10 @@ impl MtaStsEnforcer {
     ) -> Result<(), SmtpRelayError> {
         // Step 1: Check in-memory cache. A fresh entry is used directly;
         // this also lets tests pre-seed the cache without live DNS/HTTPS.
+        //
+        // SAFETY: std::sync::Mutex is safe here because the guard is dropped
+        // at the end of the block, before any .await point.  Do not hold the
+        // guard across an await — that would deadlock a Tokio worker thread.
         let cached = {
             let guard = self.cache.lock().expect("mta_sts cache lock");
             guard
@@ -81,7 +92,7 @@ impl MtaStsEnforcer {
             None => {
                 // Step 2: Cache miss — DNS TXT lookup for _mta-sts.<domain>.
                 // We only need to confirm a record exists before fetching the HTTPS policy.
-                let _txt = match lookup_mta_sts_txt(rcpt_domain).await {
+                let _txt = match lookup_mta_sts_txt(&self.resolver, rcpt_domain).await {
                     Ok(Some(r)) => r,
                     Ok(None) => return Ok(()),
                     Err(e) => {
@@ -118,6 +129,7 @@ impl MtaStsEnforcer {
                     mode: policy.mode.clone(),
                     mx_patterns: policy.mx_patterns.clone(),
                 };
+                // SAFETY: guard dropped immediately after insert — no await follows.
                 self.cache
                     .lock()
                     .expect("mta_sts cache lock")
@@ -472,20 +484,10 @@ async fn run_smtp_session(
 
     // 3. REQUIRETLS check (RFC 8689 §5).
     //
-    // When the message envelope has require_tls=true the remote MTA MUST have
-    // advertised REQUIRETLS in its EHLO response AND the connection MUST be
-    // over TLS.  If either condition is not met we fail permanently — RFC 8689
-    // says the message "SHOULD NOT be relayed to a server that does not
-    // support REQUIRETLS".  We treat "should not" as "must not" to avoid
-    // silently stripping a sender's TLS requirement.
+    // The pre-connect guard in do_deliver already ensured peer.tls=true when
+    // require_tls=true, so the only remaining check here is that the remote MTA
+    // advertised REQUIRETLS in its EHLO response.
     if envelope.require_tls {
-        if !peer.tls {
-            return Err(SmtpRelayError::Permanent(
-                "REQUIRETLS requested but relay.tls is false; \
-                 refusing to relay a REQUIRETLS message over a plaintext connection"
-                    .to_string(),
-            ));
-        }
         let advertises_requiretls = extensions.iter().any(|e| e == "REQUIRETLS");
         if !advertises_requiretls {
             return Err(SmtpRelayError::Permanent(
@@ -666,7 +668,10 @@ async fn read_line(
 ) -> Result<(), SmtpRelayError> {
     line.clear();
     reader.read_line(line).await.map_err(SmtpRelayError::Io)?;
-    if line.len() >= MAX_SMTP_LINE {
+    // RFC 5321 §4.5.3.1.5: reply line limit is 512 bytes including CRLF.
+    // read_line includes the trailing '\n', so a valid 512-byte line has
+    // len() == 512.  Use > (not >=) to accept the maximum valid length.
+    if line.len() > MAX_SMTP_LINE {
         return Err(SmtpRelayError::ProtocolError(format!(
             "server response line exceeds {} bytes",
             MAX_SMTP_LINE

@@ -14,14 +14,13 @@ pub struct MtaStsTxtRecord {
 ///
 /// Returns `Ok(None)` if no STSv1 record exists.
 /// Returns `Ok(Some(record))` if exactly one valid STSv1 record is found.
-/// Returns `Err(MtaStsError::DnsTxtInvalid)` if the record is malformed or
-/// if multiple STSv1 records are present.
-pub async fn lookup_mta_sts_txt(domain: &str) -> Result<Option<MtaStsTxtRecord>, MtaStsError> {
+/// Returns `Err(MtaStsError::DnsTxtMultipleRecords)` if multiple STSv1 records are present.
+/// Returns `Err(MtaStsError::DnsTxtMissingId / DnsTxtIdTooLong / DnsTxtIdInvalid)` if malformed.
+pub async fn lookup_mta_sts_txt(
+    resolver: &TokioResolver,
+    domain: &str,
+) -> Result<Option<MtaStsTxtRecord>, MtaStsError> {
     let name = format!("_mta-sts.{}.", domain.trim_end_matches('.'));
-
-    let resolver = TokioResolver::builder_tokio()
-        .map_err(|e| MtaStsError::DnsTxtInvalid(format!("resolver init failed: {e}")))?
-        .build();
 
     let txt_lookup = match resolver.txt_lookup(name.as_str()).await {
         Ok(lookup) => lookup,
@@ -29,7 +28,9 @@ pub async fn lookup_mta_sts_txt(domain: &str) -> Result<Option<MtaStsTxtRecord>,
             if matches!(e.kind(), ProtoErrorKind::NoRecordsFound { .. }) {
                 return Ok(None);
             }
-            return Err(MtaStsError::DnsTxtInvalid(format!("DNS lookup failed: {e}")));
+            return Err(MtaStsError::DnsLookupFailed(format!(
+                "DNS lookup failed: {e}"
+            )));
         }
     };
 
@@ -53,9 +54,7 @@ pub async fn lookup_mta_sts_txt(domain: &str) -> Result<Option<MtaStsTxtRecord>,
         0 => return Ok(None),
         1 => {}
         _ => {
-            return Err(MtaStsError::DnsTxtInvalid(
-                "multiple STSv1 TXT records".into(),
-            ));
+            return Err(MtaStsError::DnsTxtMultipleRecords);
         }
     }
 
@@ -73,16 +72,16 @@ pub async fn lookup_mta_sts_txt(domain: &str) -> Result<Option<MtaStsTxtRecord>,
     let id = match policy_id {
         Some(id) => id,
         None => {
-            return Err(MtaStsError::DnsTxtInvalid("missing id field".into()));
+            return Err(MtaStsError::DnsTxtMissingId);
         }
     };
 
     if id.len() > 32 {
-        return Err(MtaStsError::DnsTxtInvalid("id too long".into()));
+        return Err(MtaStsError::DnsTxtIdTooLong);
     }
 
     if !id.chars().all(|c| c.is_ascii_alphanumeric()) {
-        return Err(MtaStsError::DnsTxtInvalid("invalid id chars".into()));
+        return Err(MtaStsError::DnsTxtIdInvalid);
     }
 
     Ok(Some(MtaStsTxtRecord { policy_id: id }))
@@ -111,16 +110,16 @@ mod tests {
         let id = match policy_id {
             Some(id) => id,
             None => {
-                return Err(MtaStsError::DnsTxtInvalid("missing id field".into()));
+                return Err(MtaStsError::DnsTxtMissingId);
             }
         };
 
         if id.len() > 32 {
-            return Err(MtaStsError::DnsTxtInvalid("id too long".into()));
+            return Err(MtaStsError::DnsTxtIdTooLong);
         }
 
         if !id.chars().all(|c| c.is_ascii_alphanumeric()) {
-            return Err(MtaStsError::DnsTxtInvalid("invalid id chars".into()));
+            return Err(MtaStsError::DnsTxtIdInvalid);
         }
 
         Ok(Some(MtaStsTxtRecord { policy_id: id }))
@@ -145,33 +144,31 @@ mod tests {
         assert!(result.is_none());
     }
 
-    // T3: record missing the id field returns DnsTxtInvalid.
+    // T3: record missing the id field returns DnsTxtMissingId.
     // Oracle: RFC 8461 §3.1 — id field is REQUIRED.
     #[test]
     fn parse_missing_id_returns_error() {
         let err = parse_sts_record("v=STSv1").expect_err("should error on missing id");
-        assert!(matches!(err, MtaStsError::DnsTxtInvalid(ref msg) if msg.contains("missing id")));
+        assert!(matches!(err, MtaStsError::DnsTxtMissingId));
     }
 
-    // T4: id longer than 32 characters returns DnsTxtInvalid.
+    // T4: id longer than 32 characters returns DnsTxtIdTooLong.
     // Oracle: RFC 8461 §3.1 — "id" value MUST be 1..32 chars.
     #[test]
     fn parse_id_too_long_returns_error() {
         let long_id = "A".repeat(33);
         let text = format!("v=STSv1; id={long_id}");
         let err = parse_sts_record(&text).expect_err("should error on long id");
-        assert!(matches!(err, MtaStsError::DnsTxtInvalid(ref msg) if msg.contains("id too long")));
+        assert!(matches!(err, MtaStsError::DnsTxtIdTooLong));
     }
 
-    // T5: id with non-alphanumeric characters returns DnsTxtInvalid.
+    // T5: id with non-alphanumeric characters returns DnsTxtIdInvalid.
     // Oracle: RFC 8461 §3.1 — id MUST match [a-zA-Z0-9]{1,32}.
     #[test]
     fn parse_invalid_id_chars_returns_error() {
         let err =
             parse_sts_record("v=STSv1; id=bad-id!").expect_err("should error on invalid id chars");
-        assert!(
-            matches!(err, MtaStsError::DnsTxtInvalid(ref msg) if msg.contains("invalid id chars"))
-        );
+        assert!(matches!(err, MtaStsError::DnsTxtIdInvalid));
     }
 
     // T6: id of exactly 32 alphanumeric chars is accepted.
@@ -197,9 +194,7 @@ mod tests {
         match sts.len() {
             0 => Ok(None),
             1 => parse_sts_record(sts[0]),
-            _ => Err(MtaStsError::DnsTxtInvalid(
-                "multiple STSv1 TXT records".into(),
-            )),
+            _ => Err(MtaStsError::DnsTxtMultipleRecords),
         }
     }
 
@@ -230,7 +225,7 @@ mod tests {
         assert_eq!(rec.policy_id, "20160831085359Z");
     }
 
-    // T10: multiple STSv1 records → DnsTxtInvalid (RFC 8461 §3.1 — ambiguous).
+    // T10: multiple STSv1 records → DnsTxtMultipleRecords (RFC 8461 §3.1 — ambiguous).
     // Oracle: "If multiple TXT records for _mta-sts are returned by the DNS,
     // the MTA MUST treat this as a misconfiguration" (RFC 8461 §3.1).
     #[test]
@@ -239,7 +234,7 @@ mod tests {
             select_sts_record(&["v=STSv1; id=20160831085359Z", "v=STSv1; id=20171001000000Z"])
                 .expect_err("multiple STSv1 records must error");
         assert!(
-            matches!(err, MtaStsError::DnsTxtInvalid(ref msg) if msg.contains("multiple")),
+            matches!(err, MtaStsError::DnsTxtMultipleRecords),
             "unexpected error: {err}"
         );
     }

@@ -346,10 +346,11 @@ pub fn render_mta_sts_policy(
 
 /// Serve `/.well-known/mta-sts.txt` for hosted domains (RFC 8461 §3.3).
 ///
-/// Extracts the `Host` header, strips any port suffix, matches it
-/// case-insensitively against `state.mta_sts_domains`, and returns the
-/// rendered policy body with `Content-Type: text/plain`.  Returns 404 for
-/// unknown domains.
+/// Sending MTAs fetch `https://mta-sts.<domain>/.well-known/mta-sts.txt`, so
+/// the `Host` header will be `mta-sts.<domain>`.  This handler strips the port
+/// suffix (if any) and the `mta-sts.` subdomain prefix, then matches the base
+/// domain case-insensitively against `state.mta_sts_domains`.  Returns 404
+/// for unknown domains.
 async fn mta_sts_handler(
     headers: HeaderMap,
     State(state): State<Arc<AppState>>,
@@ -361,10 +362,15 @@ async fn mta_sts_handler(
     // Strip port suffix using rsplit_once so IPv6 literals like [::1]:443
     // are handled correctly: rsplit_once(':') on "[::1]:443" gives ("[::1]", "443").
     // Plain "host:port" and bare "host" also work correctly.
-    let domain = raw_host
+    let host_no_port = raw_host
         .rsplit_once(':')
         .map_or(raw_host, |(host, _port)| host)
         .to_lowercase();
+    // RFC 8461 §3.3: the policy URL is always https://mta-sts.<domain>/...
+    // Strip the "mta-sts." prefix to extract the base domain for config lookup.
+    let domain = host_no_port
+        .strip_prefix("mta-sts.")
+        .unwrap_or(&host_no_port);
 
     match state
         .mta_sts_domains
@@ -2971,6 +2977,7 @@ mod tests {
     // Oracle: hand-written expected body per RFC 8461 §3.2 format; SHA-256 of
     // body pre-computed with Python's hashlib.sha256 (independent of the
     // implementation).
+    // Host header uses the mta-sts. subdomain as a real sending MTA would.
     #[tokio::test]
     async fn mta_sts_handler_enforce_returns_200_with_correct_body() {
         use stoa_smtp::config::{MtaStsDomainConfig, MtaStsMode};
@@ -2986,7 +2993,7 @@ mod tests {
 
         let resp = reqwest::Client::new()
             .get(format!("http://{addr}/.well-known/mta-sts.txt"))
-            .header("Host", "example.com")
+            .header("Host", "mta-sts.example.com")
             .send()
             .await
             .expect("request must succeed");
@@ -3022,7 +3029,7 @@ mod tests {
 
         let resp = reqwest::Client::new()
             .get(format!("http://{addr}/.well-known/mta-sts.txt"))
-            .header("Host", "example.com")
+            .header("Host", "mta-sts.example.com")
             .send()
             .await
             .expect("request must succeed");
@@ -3044,10 +3051,7 @@ mod tests {
         let domain_config = MtaStsDomainConfig {
             domain: "example.com".to_string(),
             mode: MtaStsMode::Enforce,
-            mx_patterns: vec![
-                "mx1.example.com".to_string(),
-                "mx2.example.com".to_string(),
-            ],
+            mx_patterns: vec!["mx1.example.com".to_string(), "mx2.example.com".to_string()],
             max_age_secs: 86400,
         };
         let (state, _tmp) = mta_sts_state(vec![domain_config]).await;
@@ -3055,7 +3059,7 @@ mod tests {
 
         let resp = reqwest::Client::new()
             .get(format!("http://{addr}/.well-known/mta-sts.txt"))
-            .header("Host", "example.com")
+            .header("Host", "mta-sts.example.com")
             .send()
             .await
             .expect("request must succeed");
@@ -3100,7 +3104,7 @@ mod tests {
 
         let resp = reqwest::Client::new()
             .get(format!("http://{addr}/.well-known/mta-sts.txt"))
-            .header("Host", "unknown.example.com")
+            .header("Host", "mta-sts.unknown.example.com")
             .send()
             .await
             .expect("request must succeed");
@@ -3110,7 +3114,7 @@ mod tests {
 
     // T6: Host header matching is case-insensitive.
     // Oracle: RFC 4343 — DNS labels are case-insensitive; domain matching must
-    // follow the same rule so that "EXAMPLE.COM" matches "example.com".
+    // follow the same rule so that "MTA-STS.EXAMPLE.COM" matches "example.com".
     #[tokio::test]
     async fn mta_sts_handler_host_case_insensitive() {
         use stoa_smtp::config::{MtaStsDomainConfig, MtaStsMode};
@@ -3126,15 +3130,19 @@ mod tests {
 
         let resp = reqwest::Client::new()
             .get(format!("http://{addr}/.well-known/mta-sts.txt"))
-            .header("Host", "example.com")
+            .header("Host", "MTA-STS.EXAMPLE.COM")
             .send()
             .await
             .expect("request must succeed");
 
-        assert_eq!(resp.status(), 200, "case-insensitive host match must return 200");
+        assert_eq!(
+            resp.status(),
+            200,
+            "case-insensitive host match must return 200"
+        );
     }
 
-    // T7: Host header with port suffix → domain part used for matching.
+    // T7: Host header with port suffix → port stripped, mta-sts. prefix stripped, domain matched.
     // Oracle: HTTP/1.1 Host header may include port (RFC 7230 §5.4); port must
     // be stripped before comparing against configured domains.
     #[tokio::test]
@@ -3152,7 +3160,7 @@ mod tests {
 
         let resp = reqwest::Client::new()
             .get(format!("http://{addr}/.well-known/mta-sts.txt"))
-            .header("Host", "example.com:443")
+            .header("Host", "mta-sts.example.com:443")
             .send()
             .await
             .expect("request must succeed");
