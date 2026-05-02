@@ -24,13 +24,27 @@ use stoa_core::util::nntp_dot_stuff;
 
 // ─── MTA-STS enforcement ──────────────────────────────────────────────────────
 
+/// Whether the outbound relay connection is TLS-encrypted.
+///
+/// Passed to [`MtaStsEnforcer::enforce_for_delivery`] so that MTA-STS
+/// enforcement can verify the connection is encrypted before permitting
+/// `enforce`-mode delivery (RFC 8461 §4.2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PeerTlsStatus {
+    /// The relay connection is TLS-encrypted.
+    Connected,
+    /// The relay connection is plaintext (no TLS).
+    Plain,
+}
+
 /// Cached policy entry used by `MtaStsEnforcer`.
 struct CachedStsEntry {
     /// The `id=` from the DNS TXT record at the time this policy was fetched.
     /// Used to detect RFC 8461 §4.1 policy rotation (id= change forces re-fetch).
     policy_id: String,
     mode: MtaStsMode,
-    mx_patterns: Vec<String>,
+    /// Shared behind `Arc` so cache-hit paths clone the pointer, not the vec.
+    mx_patterns: Arc<Vec<String>>,
 }
 
 /// In-memory MTA-STS policy cache and enforcement for outbound relay.
@@ -42,6 +56,14 @@ struct CachedStsEntry {
 ///
 /// On any DNS or fetch error the enforcer logs a warning and allows delivery to
 /// proceed — RFC 8461 §2 says policy fetch failures MUST NOT block delivery.
+///
+/// # Cache persistence
+///
+/// The cache is in-memory only and is **not** persisted to disk.  On process
+/// restart all cached policies are discarded; the first outbound delivery to
+/// each domain after restart triggers a live DNS + HTTPS policy fetch.  Under
+/// high restart frequency this creates additional load on remote policy servers
+/// and adds latency on the first post-restart delivery to each domain.
 pub struct MtaStsEnforcer {
     resolver: TokioResolver,
     http_client: reqwest::Client,
@@ -53,14 +75,14 @@ pub struct MtaStsEnforcer {
 impl MtaStsEnforcer {
     pub fn new(fetch_timeout_ms: u64, max_body_bytes: usize) -> Result<Self, crate::MtaStsError> {
         let resolver = TokioResolver::builder_tokio()
-            .map_err(|e| crate::MtaStsError::DnsLookupFailed(format!("resolver init failed: {e}")))?
+            .map_err(|e| crate::MtaStsError::DnsLookupFailed { message: format!("resolver init failed: {e}") })?
             .build();
         // reqwest::Client holds a connection pool; build once and reuse.
         let http_client = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
             .build()
             .map_err(|e| {
-                crate::MtaStsError::PolicyFetchFailed(format!("HTTP client init failed: {e}"))
+                crate::MtaStsError::PolicyFetchFailed { message: format!("HTTP client init failed: {e}") }
             })?;
         Ok(Self {
             resolver,
@@ -75,7 +97,7 @@ impl MtaStsEnforcer {
     ///
     /// `rcpt_domain` — the domain part of the recipient address (e.g. `"example.com"`).
     /// `peer_host`   — the hostname of the relay peer (matched against MX patterns).
-    /// `peer_tls`    — whether the relay connection is TLS-protected.
+    /// `peer_tls`    — TLS status of the relay connection.
     ///
     /// Returns `Ok(())` when delivery is allowed, `Err(Permanent(...))` when
     /// the enforce policy blocks delivery.
@@ -83,7 +105,7 @@ impl MtaStsEnforcer {
         &self,
         rcpt_domain: &str,
         peer_host: &str,
-        peer_tls: bool,
+        peer_tls: PeerTlsStatus,
     ) -> Result<(), SmtpRelayError> {
         // Step 1: Check the in-memory cache.
         //
@@ -147,7 +169,7 @@ impl MtaStsEnforcer {
         match mode {
             MtaStsMode::None => Ok(()),
             MtaStsMode::Testing => {
-                if !peer_tls {
+                if peer_tls == PeerTlsStatus::Plain {
                     warn!("MTA-STS testing: TLS not enabled for peer {peer_host} to {rcpt_domain}");
                 } else if !check_mx_against_policy(peer_host, &mx_patterns) {
                     warn!("MTA-STS testing: peer {peer_host} not in MX policy for {rcpt_domain}");
@@ -155,7 +177,7 @@ impl MtaStsEnforcer {
                 Ok(())
             }
             MtaStsMode::Enforce => {
-                if !peer_tls {
+                if peer_tls == PeerTlsStatus::Plain {
                     return Err(SmtpRelayError::Permanent(format!(
                         "MTA-STS enforce: TLS required for {rcpt_domain} but relay is plaintext"
                     )));
@@ -179,7 +201,7 @@ impl MtaStsEnforcer {
         &self,
         rcpt_domain: &str,
         txt: &crate::MtaStsTxtRecord,
-    ) -> Option<(MtaStsMode, Vec<String>)> {
+    ) -> Option<(MtaStsMode, Arc<Vec<String>>)> {
         let body = match fetch_mta_sts_policy_body(
             &self.http_client,
             rcpt_domain,
@@ -208,18 +230,19 @@ impl MtaStsEnforcer {
         // re-fetch on every delivery — a remote-controlled amplification risk.
         let effective_age = (policy.max_age as u64).max(60);
         let valid_until = Instant::now() + Duration::from_secs(effective_age);
+        let mx_arc = Arc::new(policy.mx_patterns);
         let entry = CachedStsEntry {
             policy_id: txt.policy_id.clone(),
             mode: policy.mode, // MtaStsMode is Copy
-            mx_patterns: policy.mx_patterns.clone(),
+            mx_patterns: mx_arc.clone(),
         };
-        // SAFETY: guard dropped immediately after insert — no await follows.
+        // NOTE: guard dropped immediately after insert — no await follows.
         self.cache
             .lock()
             .unwrap_or_else(|p| p.into_inner())
             .insert(rcpt_domain.to_owned(), (entry, valid_until));
 
-        Some((policy.mode, policy.mx_patterns))
+        Some((policy.mode, mx_arc))
     }
 
     /// Seed the cache directly (test helper only).
@@ -236,7 +259,7 @@ impl MtaStsEnforcer {
         let entry = CachedStsEntry {
             policy_id: policy_id.to_owned(),
             mode,
-            mx_patterns,
+            mx_patterns: Arc::new(mx_patterns),
         };
         self.cache
             .lock()
@@ -381,12 +404,17 @@ async fn do_deliver(
     // TCP connect so a policy violation in enforce mode never touches the peer.
     // Deduplicate domains to avoid redundant DNS/cache lookups.
     if let Some(enforcer) = mta_sts {
+        let tls_status = if peer.tls {
+            PeerTlsStatus::Connected
+        } else {
+            PeerTlsStatus::Plain
+        };
         let mut seen = std::collections::HashSet::new();
         for rcpt in &envelope.rcpt_to {
             if let Some(domain) = recipient_domain(rcpt) {
                 if seen.insert(domain) {
                     enforcer
-                        .enforce_for_delivery(domain, &peer.host, peer.tls)
+                        .enforce_for_delivery(domain, &peer.host, tls_status)
                         .await?;
                 }
             }
@@ -1473,7 +1501,7 @@ mod tests {
         // though the peer is not in the policy.  We verify this by calling
         // enforce_for_delivery directly (no live server needed).
         let result = enforcer
-            .enforce_for_delivery("example.com", "evil.attacker.com", true)
+            .enforce_for_delivery("example.com", "evil.attacker.com", PeerTlsStatus::Connected)
             .await;
         assert!(
             result.is_ok(),

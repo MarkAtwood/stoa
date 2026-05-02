@@ -131,11 +131,35 @@ pub struct SmtpRelayConfig {
     /// When absent, relayed messages are not DKIM-signed.
     #[serde(default)]
     pub dkim: Option<stoa_smtp::config::DkimConfig>,
+    /// Whether MTA-STS enforcement (RFC 8461) is enabled for outbound delivery.
+    ///
+    /// When `true`, before each delivery attempt the enforcer looks up the
+    /// recipient domain's MTA-STS policy and blocks plaintext or MX-mismatched
+    /// connections when the policy mode is `enforce`.  Policy fetch failures
+    /// are non-blocking per RFC 8461 §2.  Default: `false`.
+    #[serde(default)]
+    pub mta_sts_enabled: bool,
+    /// Connect+read timeout in milliseconds for HTTPS policy fetch.
+    /// Default: 10000 (10 s).
+    #[serde(default = "SmtpRelayConfig::default_mta_sts_fetch_timeout_ms")]
+    pub mta_sts_fetch_timeout_ms: u64,
+    /// Maximum policy body size in bytes accepted from remote servers.
+    /// Default: 65536 (64 KiB).
+    #[serde(default = "SmtpRelayConfig::default_mta_sts_max_policy_body_bytes")]
+    pub mta_sts_max_policy_body_bytes: usize,
 }
 
 impl SmtpRelayConfig {
     fn default_peer_down_secs() -> u64 {
         300
+    }
+
+    fn default_mta_sts_fetch_timeout_ms() -> u64 {
+        10_000
+    }
+
+    fn default_mta_sts_max_policy_body_bytes() -> usize {
+        65_536
     }
 }
 

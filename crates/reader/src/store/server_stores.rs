@@ -428,13 +428,31 @@ async fn build_smtp_relay_queue(
         None
     };
 
+    let mta_sts_enforcer = if cfg.mta_sts_enabled {
+        match stoa_smtp::MtaStsEnforcer::new(
+            cfg.mta_sts_fetch_timeout_ms,
+            cfg.mta_sts_max_policy_body_bytes,
+        ) {
+            Ok(e) => {
+                tracing::info!("MTA-STS outbound enforcement enabled");
+                Some(Arc::new(e))
+            }
+            Err(e) => {
+                tracing::warn!("MTA-STS enforcer init failed: {e}; MTA-STS disabled");
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     let queue = SmtpRelayQueue::new(
         queue_dir,
         cfg.peers.clone(),
         down_backoff,
         dkim_signer,
         local_hostname,
-        None,
+        mta_sts_enforcer,
     )
     .map_err(|e| e.to_string())?;
     Ok(Some(queue))

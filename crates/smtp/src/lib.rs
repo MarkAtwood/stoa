@@ -29,7 +29,7 @@ pub use mta_sts_error::MtaStsError;
 pub use mta_sts_fetcher::fetch_mta_sts_policy_body;
 pub use mta_sts_mx::{check_mx_against_policy, mx_matches_pattern};
 pub use mta_sts_policy::{parse_mta_sts_policy, MtaStsPolicy};
-pub use relay_client::{deliver_via_relay, RelayEnvelope};
+pub use relay_client::{deliver_via_relay, MtaStsEnforcer, PeerTlsStatus, RelayEnvelope};
 pub use relay_error::SmtpRelayError;
 pub use relay_health::PeerHealthState;
 pub use relay_queue::SmtpRelayQueue;

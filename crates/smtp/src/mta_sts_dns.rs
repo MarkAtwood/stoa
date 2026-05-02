@@ -4,7 +4,7 @@ use hickory_resolver::TokioResolver;
 use crate::MtaStsError;
 
 /// The parsed content of a valid `_mta-sts.<domain>` TXT record.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MtaStsTxtRecord {
     /// The `id=` value extracted from the TXT record (≤32 alphanumeric chars).
     pub policy_id: String,
@@ -28,7 +28,7 @@ pub async fn lookup_mta_sts_txt(
             if matches!(e.kind(), ProtoErrorKind::NoRecordsFound { .. }) {
                 return Ok(None);
             }
-            return Err(MtaStsError::DnsLookupFailed(format!("{e}")));
+            return Err(MtaStsError::DnsLookupFailed { message: format!("{e}") });
         }
     };
 

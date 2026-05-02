@@ -42,7 +42,7 @@ pub async fn fetch_mta_sts_policy_body(
         || domain.contains('[')
         || domain.contains(']')
     {
-        return Err(MtaStsError::PolicyFetchFailed("invalid domain".into()));
+        return Err(MtaStsError::PolicyFetchFailed { message: "invalid domain".into() });
     }
 
     let url = format!(
@@ -67,7 +67,7 @@ async fn fetch_url(
         .timeout(Duration::from_millis(timeout_ms))
         .send()
         .await
-        .map_err(|e| MtaStsError::PolicyFetchFailed(format!("request failed: {e}")))?;
+        .map_err(|e| MtaStsError::PolicyFetchFailed { message: format!("request failed: {e}") })?;
 
     let status = response.status();
     if status.is_redirection() {
@@ -87,7 +87,7 @@ async fn fetch_url(
         let chunk = response
             .chunk()
             .await
-            .map_err(|e| MtaStsError::PolicyFetchFailed(format!("body read failed: {e}")))?;
+            .map_err(|e| MtaStsError::PolicyFetchFailed { message: format!("body read failed: {e}") })?;
         match chunk {
             None => break,
             Some(bytes) => {
@@ -100,7 +100,7 @@ async fn fetch_url(
     }
 
     let body = String::from_utf8(buf)
-        .map_err(|_| MtaStsError::PolicyFetchFailed("invalid UTF-8 in response".into()))?;
+        .map_err(|_| MtaStsError::PolicyFetchFailed { message: "invalid UTF-8 in response".into() })?;
 
     Ok(body)
 }
@@ -124,7 +124,7 @@ mod tests {
         let err = fetch_mta_sts_policy_body(&test_client(), "", 5_000, 65_536)
             .await
             .expect_err("empty domain must fail");
-        assert!(matches!(err, MtaStsError::PolicyFetchFailed(_)));
+        assert!(matches!(err, MtaStsError::PolicyFetchFailed { .. }));
     }
 
     // T2: domain containing "://" is rejected (SSRF guard — prevents constructing
@@ -135,7 +135,7 @@ mod tests {
         let err = fetch_mta_sts_policy_body(&test_client(), "https://evil.com", 5_000, 65_536)
             .await
             .expect_err("domain with scheme must fail");
-        assert!(matches!(err, MtaStsError::PolicyFetchFailed(_)));
+        assert!(matches!(err, MtaStsError::PolicyFetchFailed { .. }));
     }
 
     // T3: domain containing "/" is rejected.
@@ -145,7 +145,7 @@ mod tests {
         let err = fetch_mta_sts_policy_body(&test_client(), "example.com/evil", 5_000, 65_536)
             .await
             .expect_err("domain with path separator must fail");
-        assert!(matches!(err, MtaStsError::PolicyFetchFailed(_)));
+        assert!(matches!(err, MtaStsError::PolicyFetchFailed { .. }));
     }
 
     // T4 (domain guard): domain containing "@" is rejected.
@@ -156,7 +156,7 @@ mod tests {
         let err = fetch_mta_sts_policy_body(&test_client(), "evil.com@target.com", 5_000, 65_536)
             .await
             .expect_err("domain with @ must fail");
-        assert!(matches!(err, MtaStsError::PolicyFetchFailed(_)));
+        assert!(matches!(err, MtaStsError::PolicyFetchFailed { .. }));
     }
 
     // T4b: domain containing "#" is rejected.
@@ -168,7 +168,7 @@ mod tests {
         let err = fetch_mta_sts_policy_body(&test_client(), "example.com#evil", 5_000, 65_536)
             .await
             .expect_err("domain with # must fail");
-        assert!(matches!(err, MtaStsError::PolicyFetchFailed(_)));
+        assert!(matches!(err, MtaStsError::PolicyFetchFailed { .. }));
     }
 
     // T4c: domain containing "?" is rejected.
@@ -178,7 +178,7 @@ mod tests {
         let err = fetch_mta_sts_policy_body(&test_client(), "example.com?q=evil", 5_000, 65_536)
             .await
             .expect_err("domain with ? must fail");
-        assert!(matches!(err, MtaStsError::PolicyFetchFailed(_)));
+        assert!(matches!(err, MtaStsError::PolicyFetchFailed { .. }));
     }
 
     // T4d: domain containing "[" is rejected.
@@ -189,7 +189,7 @@ mod tests {
         let err = fetch_mta_sts_policy_body(&test_client(), "example.com[evil]", 5_000, 65_536)
             .await
             .expect_err("domain with [ must fail");
-        assert!(matches!(err, MtaStsError::PolicyFetchFailed(_)));
+        assert!(matches!(err, MtaStsError::PolicyFetchFailed { .. }));
     }
 
     // ── Mock-server tests (T5–T9) ────────────────────────────────────────────
@@ -322,7 +322,7 @@ mod tests {
         .await
         .expect_err("connection refused must fail");
         assert!(
-            matches!(err, MtaStsError::PolicyFetchFailed(_)),
+            matches!(err, MtaStsError::PolicyFetchFailed { .. }),
             "unexpected error: {err}"
         );
     }

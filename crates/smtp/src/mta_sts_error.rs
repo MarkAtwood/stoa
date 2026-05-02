@@ -5,7 +5,7 @@ use std::fmt;
 #[non_exhaustive]
 pub enum MtaStsError {
     /// DNS/network failure while resolving or querying `_mta-sts.<domain>`.
-    DnsLookupFailed(String),
+    DnsLookupFailed { message: String },
     /// Multiple STSv1 TXT records found; RFC 8461 §3.1 requires exactly one.
     DnsTxtMultipleRecords,
     /// TXT record is missing the required `id=` field.
@@ -15,7 +15,7 @@ pub enum MtaStsError {
     /// TXT record `id=` value contains non-alphanumeric characters.
     DnsTxtIdInvalid,
     /// HTTPS fetch of policy file failed (network, cert, timeout, or other I/O error).
-    PolicyFetchFailed(String),
+    PolicyFetchFailed { message: String },
     /// Policy fetch returned a redirect response; RFC 8461 §3.3 forbids following redirects.
     PolicyFetchRedirectForbidden,
     /// Policy fetch returned a non-2xx HTTP status code.
@@ -23,7 +23,7 @@ pub enum MtaStsError {
     /// Policy fetch response body exceeded the configured size limit.
     PolicyFetchTooLarge,
     /// Policy file body failed to parse (missing field, bad value, oversized body).
-    PolicyParseFailed(String),
+    PolicyParseFailed { message: String },
     /// Cached policy_id does not match the current DNS TXT record id.
     PolicyIdMismatch { cached: String, dns: String },
     /// Connecting MX hostname does not match any pattern in the policy.
@@ -33,8 +33,8 @@ pub enum MtaStsError {
 impl fmt::Display for MtaStsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MtaStsError::DnsLookupFailed(msg) => {
-                write!(f, "MTA-STS: DNS lookup failed: {}", msg)
+            MtaStsError::DnsLookupFailed { message } => {
+                write!(f, "MTA-STS: DNS lookup failed: {}", message)
             }
             MtaStsError::DnsTxtMultipleRecords => {
                 write!(f, "MTA-STS: multiple STSv1 TXT records found")
@@ -51,8 +51,8 @@ impl fmt::Display for MtaStsError {
                     "MTA-STS: TXT record id= contains non-alphanumeric characters"
                 )
             }
-            MtaStsError::PolicyFetchFailed(msg) => {
-                write!(f, "MTA-STS: policy fetch failed: {}", msg)
+            MtaStsError::PolicyFetchFailed { message } => {
+                write!(f, "MTA-STS: policy fetch failed: {}", message)
             }
             MtaStsError::PolicyFetchRedirectForbidden => {
                 write!(
@@ -66,8 +66,8 @@ impl fmt::Display for MtaStsError {
             MtaStsError::PolicyFetchTooLarge => {
                 write!(f, "MTA-STS: policy fetch response body too large")
             }
-            MtaStsError::PolicyParseFailed(msg) => {
-                write!(f, "MTA-STS: policy parse error: {}", msg)
+            MtaStsError::PolicyParseFailed { message } => {
+                write!(f, "MTA-STS: policy parse error: {}", message)
             }
             MtaStsError::PolicyIdMismatch { cached, dns } => {
                 write!(
