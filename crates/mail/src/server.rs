@@ -313,15 +313,9 @@ async fn well_known_jmap() -> impl IntoResponse {
     )
 }
 
-/// Render an MTA-STS policy body and derive its policy-id.
-///
-/// Returns `(body, policy_id)` where `body` is the RFC 8461 §3.2 policy text
-/// and `policy_id` is the first 32 hex characters of the SHA-256 of the body,
-/// satisfying the ≤32-char limit from RFC 8461 §3.3.
-pub fn render_mta_sts_policy(
-    domain_config: &stoa_smtp::config::MtaStsDomainConfig,
-) -> (String, String) {
-    use sha2::Digest as _;
+/// Build the RFC 8461 §3.2 policy body (CRLF line endings) for `domain_config`.
+fn build_mta_sts_policy_body(domain_config: &stoa_smtp::config::MtaStsDomainConfig) -> String {
+    use std::fmt::Write as _;
     use stoa_smtp::config::MtaStsMode;
 
     let mode_str = match domain_config.mode {
@@ -331,12 +325,26 @@ pub fn render_mta_sts_policy(
     };
 
     // RFC 8461 §3.2: policy body MUST use CRLF line endings.
+    // write! on String is infallible; unwrap() is safe.
     let mut body = format!("version: STSv1\r\nmode: {mode_str}\r\n");
     for pattern in &domain_config.mx_patterns {
-        body.push_str(&format!("mx: {pattern}\r\n"));
+        write!(body, "mx: {pattern}\r\n").unwrap();
     }
-    body.push_str(&format!("max_age: {}\r\n", domain_config.max_age_secs));
+    write!(body, "max_age: {}\r\n", domain_config.max_age_secs).unwrap();
+    body
+}
 
+/// Render an MTA-STS policy body and derive its policy-id.
+///
+/// Returns `(body, policy_id)` where `body` is the RFC 8461 §3.2 policy text
+/// and `policy_id` is the first 32 hex characters of the SHA-256 of the body,
+/// satisfying the ≤32-char limit from RFC 8461 §3.3.
+pub fn render_mta_sts_policy(
+    domain_config: &stoa_smtp::config::MtaStsDomainConfig,
+) -> (String, String) {
+    use sha2::Digest as _;
+
+    let body = build_mta_sts_policy_body(domain_config);
     let digest = sha2::Sha256::digest(body.as_bytes());
     let hex_full = data_encoding::HEXLOWER.encode(&digest);
     let policy_id = hex_full[..32].to_owned();
@@ -367,15 +375,23 @@ async fn mta_sts_handler(
         .map_or(raw_host, |(host, _port)| host)
         .to_lowercase();
     // RFC 8461 §3.3: the policy URL is always https://mta-sts.<domain>/...
-    // Strip the "mta-sts." prefix to extract the base domain for config lookup.
-    let domain = host_no_port
-        .strip_prefix("mta-sts.")
-        .unwrap_or(&host_no_port);
+    // Requests without the "mta-sts." subdomain prefix are not legitimate
+    // policy fetches and must return 404.
+    let domain = match host_no_port.strip_prefix("mta-sts.") {
+        Some(d) => d,
+        None => {
+            return (
+                StatusCode::NOT_FOUND,
+                [(header::CONTENT_TYPE, "text/plain")],
+                String::new(),
+            );
+        }
+    };
 
     match state
         .mta_sts_domains
         .iter()
-        .find(|d| d.domain.to_lowercase() == domain)
+        .find(|d| d.domain.eq_ignore_ascii_case(domain))
     {
         None => (
             StatusCode::NOT_FOUND,
@@ -383,7 +399,7 @@ async fn mta_sts_handler(
             String::new(),
         ),
         Some(domain_config) => {
-            let (body, _policy_id) = render_mta_sts_policy(domain_config);
+            let body = build_mta_sts_policy_body(domain_config);
             (StatusCode::OK, [(header::CONTENT_TYPE, "text/plain")], body)
         }
     }
@@ -3110,6 +3126,37 @@ mod tests {
             .expect("request must succeed");
 
         assert_eq!(resp.status(), 404);
+    }
+
+    // T5b: Host header without "mta-sts." prefix → 404 (not a valid policy fetch).
+    // Oracle: RFC 8461 §3.3 — the policy URL is always https://mta-sts.<domain>/...
+    // A request with Host: example.com (no mta-sts. prefix) is not a legitimate
+    // policy fetch and must not return 200.
+    #[tokio::test]
+    async fn mta_sts_handler_missing_mta_sts_prefix_returns_404() {
+        use stoa_smtp::config::{MtaStsDomainConfig, MtaStsMode};
+
+        let domain_config = MtaStsDomainConfig {
+            domain: "example.com".to_string(),
+            mode: MtaStsMode::Enforce,
+            mx_patterns: vec!["mail.example.com".to_string()],
+            max_age_secs: 86400,
+        };
+        let (state, _tmp) = mta_sts_state(vec![domain_config]).await;
+        let addr = spawn_server(state).await;
+
+        let resp = reqwest::Client::new()
+            .get(format!("http://{addr}/.well-known/mta-sts.txt"))
+            .header("Host", "example.com") // missing "mta-sts." prefix
+            .send()
+            .await
+            .expect("request must succeed");
+
+        assert_eq!(
+            resp.status(),
+            404,
+            "request without mta-sts. prefix must return 404"
+        );
     }
 
     // T6: Host header matching is case-insensitive.

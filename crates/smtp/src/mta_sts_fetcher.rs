@@ -24,11 +24,12 @@ use crate::MtaStsError;
 /// deployments MUST use network-level egress filtering to prevent access to
 /// internal services.  The no-redirect and WebPKI invariants are still enforced.
 pub async fn fetch_mta_sts_policy_body(
+    client: &reqwest::Client,
     domain: &str,
     timeout_ms: u64,
     max_body_bytes: usize,
 ) -> Result<String, MtaStsError> {
-    if domain.is_empty() || domain.contains("://") || domain.contains('/') {
+    if domain.is_empty() || domain.contains("://") || domain.contains('/') || domain.contains('@') {
         return Err(MtaStsError::PolicyFetchFailed("invalid domain".into()));
     }
 
@@ -37,26 +38,21 @@ pub async fn fetch_mta_sts_policy_body(
         domain.trim_end_matches('.')
     );
 
-    fetch_url(&url, timeout_ms, max_body_bytes).await
+    fetch_url(client, &url, timeout_ms, max_body_bytes).await
 }
 
 /// Inner HTTP fetch used by `fetch_mta_sts_policy_body`.
 /// Separated so tests can call it with an `http://` URL pointing at a local
 /// mock server without needing a real TLS certificate.
 async fn fetch_url(
+    client: &reqwest::Client,
     url: &str,
     timeout_ms: u64,
     max_body_bytes: usize,
 ) -> Result<String, MtaStsError> {
-    let client = reqwest::Client::builder()
-        // Mandatory: no redirects — RFC 8461 §3.3.
-        .redirect(reqwest::redirect::Policy::none())
-        .timeout(Duration::from_millis(timeout_ms))
-        .build()
-        .map_err(|e| MtaStsError::PolicyFetchFailed(format!("client build failed: {e}")))?;
-
     let mut response = client
         .get(url)
+        .timeout(Duration::from_millis(timeout_ms))
         .send()
         .await
         .map_err(|e| MtaStsError::PolicyFetchFailed(format!("request failed: {e}")))?;
@@ -101,12 +97,19 @@ async fn fetch_url(
 mod tests {
     use super::*;
 
+    fn test_client() -> reqwest::Client {
+        reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .expect("test client")
+    }
+
     // T1: empty domain is rejected before making a network connection.
     // Oracle: RFC 8461 §3.3 — the domain MUST be a valid hostname; empty string
     // is not valid.
     #[tokio::test]
     async fn empty_domain_rejected() {
-        let err = fetch_mta_sts_policy_body("", 65_536, 5_000)
+        let err = fetch_mta_sts_policy_body(&test_client(), "", 5_000, 65_536)
             .await
             .expect_err("empty domain must fail");
         assert!(matches!(err, MtaStsError::PolicyFetchFailed(_)));
@@ -117,7 +120,7 @@ mod tests {
     // Oracle: RFC 8461 §3.3 — domain must be a bare label, not a URL.
     #[tokio::test]
     async fn domain_with_scheme_rejected() {
-        let err = fetch_mta_sts_policy_body("https://evil.com", 65_536, 5_000)
+        let err = fetch_mta_sts_policy_body(&test_client(), "https://evil.com", 5_000, 65_536)
             .await
             .expect_err("domain with scheme must fail");
         assert!(matches!(err, MtaStsError::PolicyFetchFailed(_)));
@@ -127,13 +130,24 @@ mod tests {
     // Oracle: RFC 8461 §3.3 — path separators are not valid in a domain label.
     #[tokio::test]
     async fn domain_with_path_separator_rejected() {
-        let err = fetch_mta_sts_policy_body("example.com/evil", 65_536, 5_000)
+        let err = fetch_mta_sts_policy_body(&test_client(), "example.com/evil", 5_000, 65_536)
             .await
             .expect_err("domain with path separator must fail");
         assert!(matches!(err, MtaStsError::PolicyFetchFailed(_)));
     }
 
-    // ── Mock-server tests (T4–T8) ────────────────────────────────────────────
+    // T4 (domain guard): domain containing "@" is rejected.
+    // Oracle: RFC 3986 treats "@" as the userinfo separator in the authority
+    // component; "evil.com@target.com" would connect to target.com, not evil.com.
+    #[tokio::test]
+    async fn domain_with_at_sign_rejected() {
+        let err = fetch_mta_sts_policy_body(&test_client(), "evil.com@target.com", 5_000, 65_536)
+            .await
+            .expect_err("domain with @ must fail");
+        assert!(matches!(err, MtaStsError::PolicyFetchFailed(_)));
+    }
+
+    // ── Mock-server tests (T5–T9) ────────────────────────────────────────────
     //
     // These tests call `fetch_url` directly with an `http://` URL pointing at
     // a local axum server.  This avoids the need for a real TLS certificate
@@ -167,7 +181,7 @@ mod tests {
             }),
         );
         let base = start_mock_server(router).await;
-        let result = fetch_url(&format!("{base}/"), 5_000, 65_536)
+        let result = fetch_url(&test_client(), &format!("{base}/"), 5_000, 65_536)
             .await
             .expect("should succeed");
         assert_eq!(result, body);
@@ -191,7 +205,7 @@ mod tests {
             }),
         );
         let base = start_mock_server(router).await;
-        let err = fetch_url(&format!("{base}/"), 5_000, 65_536)
+        let err = fetch_url(&test_client(), &format!("{base}/"), 5_000, 65_536)
             .await
             .expect_err("redirect must fail");
         assert!(
@@ -214,7 +228,7 @@ mod tests {
             }),
         );
         let base = start_mock_server(router).await;
-        let err = fetch_url(&format!("{base}/"), 5_000, 65_536)
+        let err = fetch_url(&test_client(), &format!("{base}/"), 5_000, 65_536)
             .await
             .expect_err("oversized body must fail");
         assert!(
@@ -232,7 +246,7 @@ mod tests {
             axum::routing::get(|| async { axum::http::StatusCode::NOT_FOUND }),
         );
         let base = start_mock_server(router).await;
-        let err = fetch_url(&format!("{base}/"), 5_000, 65_536)
+        let err = fetch_url(&test_client(), &format!("{base}/"), 5_000, 65_536)
             .await
             .expect_err("404 must fail");
         assert!(
@@ -254,9 +268,14 @@ mod tests {
         let port = listener.local_addr().expect("local_addr").port();
         drop(listener);
 
-        let err = fetch_url(&format!("http://127.0.0.1:{port}/"), 5_000, 65_536)
-            .await
-            .expect_err("connection refused must fail");
+        let err = fetch_url(
+            &test_client(),
+            &format!("http://127.0.0.1:{port}/"),
+            5_000,
+            65_536,
+        )
+        .await
+        .expect_err("connection refused must fail");
         assert!(
             matches!(err, MtaStsError::PolicyFetchFailed(_)),
             "unexpected error: {err}"

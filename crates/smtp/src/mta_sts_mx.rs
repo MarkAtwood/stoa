@@ -12,10 +12,14 @@ pub fn mx_matches_pattern(mx_hostname: &str, pattern: &str) -> bool {
 
     if let Some(base) = pat.strip_prefix("*.") {
         // Wildcard branch: mx must end with ".<base>" and the prefix must be a single label.
-        let suffix = format!(".{}", base);
-        if let Some(label) = mx.strip_suffix(suffix.as_str()) {
-            // label must be non-empty and contain no dots (exactly one label)
-            !label.is_empty() && !label.contains('.')
+        // strip_suffix(base) gives us the part before <base>; that part must end with '.'
+        // and the remaining label must be non-empty and contain no further dots.
+        if let Some(before_base) = mx.strip_suffix(base) {
+            if let Some(label) = before_base.strip_suffix('.') {
+                !label.is_empty() && !label.contains('.')
+            } else {
+                false
+            }
         } else {
             false
         }

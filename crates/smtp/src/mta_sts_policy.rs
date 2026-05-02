@@ -59,6 +59,11 @@ pub fn parse_mta_sts_policy(
 
         match key {
             "mode" => {
+                if mode.is_some() {
+                    return Err(MtaStsError::PolicyParseFailed(
+                        "duplicate 'mode' field".into(),
+                    ));
+                }
                 let parsed = match value {
                     "none" => MtaStsMode::None,
                     "testing" => MtaStsMode::Testing,
@@ -76,6 +81,11 @@ pub fn parse_mta_sts_policy(
                 mx_patterns.push(value.to_owned());
             }
             "max_age" => {
+                if max_age.is_some() {
+                    return Err(MtaStsError::PolicyParseFailed(
+                        "duplicate 'max_age' field".into(),
+                    ));
+                }
                 let parsed: u32 = value.parse().map_err(|_| {
                     MtaStsError::PolicyParseFailed(format!("max_age is not a valid u32: {}", value))
                 })?;
@@ -253,6 +263,34 @@ mod tests {
             "test setup: body must be exactly 65536 bytes"
         );
         parse_mta_sts_policy(&body, 65_536).expect("body at limit must be accepted");
+    }
+
+    // Duplicate mode field → PolicyParseFailed.
+    // Oracle: a crafted body "mode: enforce … mode: none" must not silently
+    // downgrade enforcement.  RFC 8461 §3.2 does not permit repeated fields.
+    #[test]
+    fn duplicate_mode_field_rejected() {
+        let body =
+            "version: STSv1\nmode: enforce\nmx: mx.example.com\nmax_age: 86400\nmode: none\n";
+        let err = parse_mta_sts_policy(body, 65_536).expect_err("duplicate mode must be rejected");
+        assert!(
+            matches!(err, MtaStsError::PolicyParseFailed(_)),
+            "unexpected error: {err}"
+        );
+    }
+
+    // Duplicate max_age field → PolicyParseFailed.
+    // Oracle: same rationale as duplicate mode — last-wins silently alters policy.
+    #[test]
+    fn duplicate_max_age_field_rejected() {
+        let body =
+            "version: STSv1\nmode: enforce\nmx: mx.example.com\nmax_age: 86400\nmax_age: 0\n";
+        let err =
+            parse_mta_sts_policy(body, 65_536).expect_err("duplicate max_age must be rejected");
+        assert!(
+            matches!(err, MtaStsError::PolicyParseFailed(_)),
+            "unexpected error: {err}"
+        );
     }
 
     // A body one byte over the 64 KiB limit must be rejected.

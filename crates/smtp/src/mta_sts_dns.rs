@@ -28,9 +28,7 @@ pub async fn lookup_mta_sts_txt(
             if matches!(e.kind(), ProtoErrorKind::NoRecordsFound { .. }) {
                 return Ok(None);
             }
-            return Err(MtaStsError::DnsLookupFailed(format!(
-                "DNS lookup failed: {e}"
-            )));
+            return Err(MtaStsError::DnsLookupFailed(format!("{e}")));
         }
     };
 
@@ -47,8 +45,17 @@ pub async fn lookup_mta_sts_txt(
         })
         .collect();
 
-    // Filter to records containing v=STSv1 (case-sensitive, RFC 8461 §3.1).
-    let sts_records: Vec<&String> = all_txt.iter().filter(|s| s.contains("v=STSv1")).collect();
+    // Filter to records where the first tag is v=STSv1 (RFC 8461 §3.1:
+    // "If the first tag of a TXT record is not v=STSv1, the record MUST be ignored").
+    let sts_records: Vec<&String> = all_txt
+        .iter()
+        .filter(|s| {
+            s.split(';')
+                .next()
+                .map(|t| t.trim() == "v=STSv1")
+                .unwrap_or(false)
+        })
+        .collect();
 
     match sts_records.len() {
         0 => return Ok(None),
@@ -76,6 +83,11 @@ pub async fn lookup_mta_sts_txt(
         }
     };
 
+    // RFC 8461 §3.1: id MUST be 1–32 alphanumeric characters.
+    if id.is_empty() {
+        return Err(MtaStsError::DnsTxtMissingId);
+    }
+
     if id.len() > 32 {
         return Err(MtaStsError::DnsTxtIdTooLong);
     }
@@ -95,7 +107,13 @@ mod tests {
     // These tests do not perform DNS lookups.
 
     fn parse_sts_record(text: &str) -> Result<Option<MtaStsTxtRecord>, MtaStsError> {
-        if !text.contains("v=STSv1") {
+        // RFC 8461 §3.1: first tag MUST be v=STSv1.
+        if text
+            .split(';')
+            .next()
+            .map(|t| t.trim() != "v=STSv1")
+            .unwrap_or(true)
+        {
             return Ok(None);
         }
 
@@ -113,6 +131,10 @@ mod tests {
                 return Err(MtaStsError::DnsTxtMissingId);
             }
         };
+
+        if id.is_empty() {
+            return Err(MtaStsError::DnsTxtMissingId);
+        }
 
         if id.len() > 32 {
             return Err(MtaStsError::DnsTxtIdTooLong);
@@ -190,7 +212,15 @@ mod tests {
     // without requiring a live DNS resolver (RFC 8461 §3.1).
 
     fn select_sts_record(records: &[&str]) -> Result<Option<MtaStsTxtRecord>, MtaStsError> {
-        let sts: Vec<&&str> = records.iter().filter(|s| s.contains("v=STSv1")).collect();
+        let sts: Vec<&&str> = records
+            .iter()
+            .filter(|s| {
+                s.split(';')
+                    .next()
+                    .map(|t| t.trim() == "v=STSv1")
+                    .unwrap_or(false)
+            })
+            .collect();
         match sts.len() {
             0 => Ok(None),
             1 => parse_sts_record(sts[0]),
@@ -251,5 +281,26 @@ mod tests {
         .expect("should not error")
         .expect("should be Some");
         assert_eq!(rec.policy_id, "20160831085359Z");
+    }
+
+    // T12: record with v=STSv1 as a non-first tag → Ok(None).
+    // Oracle: RFC 8461 §3.1 — "If the first tag of a TXT record is not v=STSv1,
+    // the record MUST be ignored."
+    #[test]
+    fn sts_version_not_first_tag_returns_none() {
+        let result =
+            parse_sts_record("foo=bar; v=STSv1; id=20160831085359Z").expect("should not error");
+        assert!(result.is_none(), "v=STSv1 as non-first tag must be ignored");
+    }
+
+    // T13: record with empty id= value → DnsTxtMissingId.
+    // Oracle: RFC 8461 §3.1 — id MUST be 1–32 alphanumeric characters (1-or-more).
+    #[test]
+    fn parse_empty_id_returns_missing_id_error() {
+        let err = parse_sts_record("v=STSv1; id=").expect_err("empty id must error");
+        assert!(
+            matches!(err, MtaStsError::DnsTxtMissingId),
+            "unexpected error: {err}"
+        );
     }
 }

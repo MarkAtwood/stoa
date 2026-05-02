@@ -26,6 +26,9 @@ use stoa_core::util::nntp_dot_stuff;
 
 /// Cached policy entry used by `MtaStsEnforcer`.
 struct CachedStsEntry {
+    /// The `id=` from the DNS TXT record at the time this policy was fetched.
+    /// Used to detect RFC 8461 §4.1 policy rotation (id= change forces re-fetch).
+    policy_id: String,
     mode: MtaStsMode,
     mx_patterns: Vec<String>,
 }
@@ -41,22 +44,31 @@ struct CachedStsEntry {
 /// proceed — RFC 8461 §2 says policy fetch failures MUST NOT block delivery.
 pub struct MtaStsEnforcer {
     resolver: TokioResolver,
+    http_client: reqwest::Client,
     cache: Mutex<HashMap<String, (CachedStsEntry, Instant)>>,
     fetch_timeout_ms: u64,
     max_body_bytes: usize,
 }
 
 impl MtaStsEnforcer {
-    pub fn new(fetch_timeout_ms: u64, max_body_bytes: usize) -> Self {
+    pub fn new(fetch_timeout_ms: u64, max_body_bytes: usize) -> Result<Self, crate::MtaStsError> {
         let resolver = TokioResolver::builder_tokio()
-            .expect("TokioResolver init failed")
+            .map_err(|e| crate::MtaStsError::DnsLookupFailed(format!("resolver init failed: {e}")))?
             .build();
-        Self {
+        // reqwest::Client holds a connection pool; build once and reuse.
+        let http_client = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .map_err(|e| {
+                crate::MtaStsError::PolicyFetchFailed(format!("HTTP client init failed: {e}"))
+            })?;
+        Ok(Self {
             resolver,
+            http_client,
             cache: Mutex::new(HashMap::new()),
             fetch_timeout_ms,
             max_body_bytes,
-        }
+        })
     }
 
     /// Apply MTA-STS enforcement for a single delivery attempt.
@@ -73,8 +85,7 @@ impl MtaStsEnforcer {
         peer_host: &str,
         peer_tls: bool,
     ) -> Result<(), SmtpRelayError> {
-        // Step 1: Check in-memory cache. A fresh entry is used directly;
-        // this also lets tests pre-seed the cache without live DNS/HTTPS.
+        // Step 1: Check the in-memory cache.
         //
         // SAFETY: std::sync::Mutex is safe here because the guard is dropped
         // at the end of the block, before any .await point.  Do not hold the
@@ -84,15 +95,40 @@ impl MtaStsEnforcer {
             guard
                 .get(rcpt_domain)
                 .filter(|(_, valid_until)| Instant::now() < *valid_until)
-                .map(|(entry, _)| (entry.mode.clone(), entry.mx_patterns.clone()))
+                .map(|(entry, _)| {
+                    (
+                        entry.policy_id.clone(),
+                        entry.mode.clone(),
+                        entry.mx_patterns.clone(),
+                    )
+                })
         };
 
         let (mode, mx_patterns) = match cached {
-            Some(p) => p,
+            Some((cached_id, mode, mx_patterns)) => {
+                // Step 2 (cache hit): RFC 8461 §4.1 SHOULD verify id= on each delivery
+                // to detect policy rotation.  Tolerate DNS failure — a valid cached
+                // entry must never block delivery due to a transient DNS problem.
+                match lookup_mta_sts_txt(&self.resolver, rcpt_domain).await {
+                    Ok(Some(txt)) if txt.policy_id != cached_id => {
+                        // Policy has rotated — discard stale entry and re-fetch.
+                        // SAFETY: guard dropped immediately.
+                        self.cache
+                            .lock()
+                            .expect("mta_sts cache lock")
+                            .remove(rcpt_domain);
+                        match self.load_fresh_policy(rcpt_domain, &txt).await {
+                            Some(p) => p,
+                            None => return Ok(()), // fetch failed; don't block delivery
+                        }
+                    }
+                    // id= unchanged, no TXT record, or DNS error — use cached policy.
+                    _ => (mode, mx_patterns),
+                }
+            }
             None => {
-                // Step 2: Cache miss — DNS TXT lookup for _mta-sts.<domain>.
-                // We only need to confirm a record exists before fetching the HTTPS policy.
-                let _txt = match lookup_mta_sts_txt(&self.resolver, rcpt_domain).await {
+                // Step 2 (cache miss): DNS TXT lookup followed by HTTPS policy fetch.
+                let txt = match lookup_mta_sts_txt(&self.resolver, rcpt_domain).await {
                     Ok(Some(r)) => r,
                     Ok(None) => return Ok(()),
                     Err(e) => {
@@ -100,45 +136,14 @@ impl MtaStsEnforcer {
                         return Ok(()); // RFC 8461 §2: fetch failures must not block delivery
                     }
                 };
-
-                // Step 3: Fetch policy from HTTPS.
-                let body = match fetch_mta_sts_policy_body(
-                    rcpt_domain,
-                    self.fetch_timeout_ms,
-                    self.max_body_bytes,
-                )
-                .await
-                {
-                    Ok(b) => b,
-                    Err(e) => {
-                        warn!("MTA-STS policy fetch failed for {rcpt_domain}: {e}");
-                        return Ok(());
-                    }
-                };
-
-                let policy = match parse_mta_sts_policy(&body, self.max_body_bytes) {
-                    Ok(p) => p,
-                    Err(e) => {
-                        warn!("MTA-STS policy parse failed for {rcpt_domain}: {e}");
-                        return Ok(());
-                    }
-                };
-
-                let valid_until = Instant::now() + Duration::from_secs(policy.max_age as u64);
-                let entry = CachedStsEntry {
-                    mode: policy.mode.clone(),
-                    mx_patterns: policy.mx_patterns.clone(),
-                };
-                // SAFETY: guard dropped immediately after insert — no await follows.
-                self.cache
-                    .lock()
-                    .expect("mta_sts cache lock")
-                    .insert(rcpt_domain.to_owned(), (entry, valid_until));
-                (policy.mode, policy.mx_patterns)
+                match self.load_fresh_policy(rcpt_domain, &txt).await {
+                    Some(p) => p,
+                    None => return Ok(()),
+                }
             }
         };
 
-        // Step 4: Apply enforcement rules.
+        // Step 3: Apply enforcement rules.
         match mode {
             MtaStsMode::None => Ok(()),
             MtaStsMode::Testing => {
@@ -166,17 +171,73 @@ impl MtaStsEnforcer {
         }
     }
 
+    /// Fetch the MTA-STS policy from HTTPS and insert it into the cache.
+    ///
+    /// `txt` is the DNS TXT record whose `id=` is stored with the cached entry.
+    /// Returns `None` on any fetch or parse failure (caller must not block delivery).
+    async fn load_fresh_policy(
+        &self,
+        rcpt_domain: &str,
+        txt: &crate::MtaStsTxtRecord,
+    ) -> Option<(MtaStsMode, Vec<String>)> {
+        let body = match fetch_mta_sts_policy_body(
+            &self.http_client,
+            rcpt_domain,
+            self.fetch_timeout_ms,
+            self.max_body_bytes,
+        )
+        .await
+        {
+            Ok(b) => b,
+            Err(e) => {
+                warn!("MTA-STS policy fetch failed for {rcpt_domain}: {e}");
+                return None;
+            }
+        };
+
+        let policy = match parse_mta_sts_policy(&body, self.max_body_bytes) {
+            Ok(p) => p,
+            Err(e) => {
+                warn!("MTA-STS policy parse failed for {rcpt_domain}: {e}");
+                return None;
+            }
+        };
+
+        // Enforce a minimum 60-second cache TTL regardless of max_age.
+        // max_age: 0 would otherwise expire immediately, causing a DNS + HTTPS
+        // re-fetch on every delivery — a remote-controlled amplification risk.
+        let effective_age = (policy.max_age as u64).max(60);
+        let valid_until = Instant::now() + Duration::from_secs(effective_age);
+        let entry = CachedStsEntry {
+            policy_id: txt.policy_id.clone(),
+            mode: policy.mode.clone(),
+            mx_patterns: policy.mx_patterns.clone(),
+        };
+        // SAFETY: guard dropped immediately after insert — no await follows.
+        self.cache
+            .lock()
+            .expect("mta_sts cache lock")
+            .insert(rcpt_domain.to_owned(), (entry, valid_until));
+
+        Some((policy.mode, policy.mx_patterns))
+    }
+
     /// Seed the cache directly (test helper only).
     #[cfg(test)]
     pub fn seed_cache(
         &self,
         domain: &str,
+        policy_id: &str,
         mode: MtaStsMode,
         mx_patterns: Vec<String>,
         max_age_secs: u64,
     ) {
         let valid_until = Instant::now() + Duration::from_secs(max_age_secs);
-        let entry = CachedStsEntry { mode, mx_patterns };
+        let entry = CachedStsEntry {
+            policy_id: policy_id.to_owned(),
+            mode,
+            mx_patterns,
+        };
         self.cache
             .lock()
             .expect("mta_sts cache lock")
@@ -364,14 +425,12 @@ async fn do_deliver(
 /// avoids repeating that work on every outbound TLS handshake.
 static TLS_CLIENT_CONFIG: std::sync::LazyLock<Arc<rustls::ClientConfig>> =
     std::sync::LazyLock::new(|| {
-        static ONCE: std::sync::OnceLock<()> = std::sync::OnceLock::new();
-        ONCE.get_or_init(|| {
-            if let Err(e) = rustls::crypto::ring::default_provider().install_default() {
-                // Only fails if a provider was already installed — not fatal,
-                // but indicates a programming mistake (double-init).
-                tracing::warn!("rustls crypto provider already installed: {e:?}");
-            }
-        });
+        // LazyLock already guarantees single execution — no OnceLock needed here.
+        if let Err(e) = rustls::crypto::ring::default_provider().install_default() {
+            // Only fails if a provider was already installed — not fatal,
+            // but indicates a programming mistake (double-init).
+            tracing::warn!("rustls crypto provider already installed: {e:?}");
+        }
         let mut root_store = rustls::RootCertStore::empty();
         root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
         Arc::new(
@@ -643,8 +702,11 @@ async fn run_smtp_session(
         .write_all(&stuffed)
         .await
         .map_err(SmtpRelayError::Io)?;
+    // nntp_dot_stuff always ends its output with \r\n, so we only need
+    // the bare ".\r\n" terminator.  Appending "\r\n.\r\n" would produce an
+    // extra blank line in the received message body (RFC 5321 §4.1.1.4).
     writer
-        .write_all(b"\r\n.\r\n")
+        .write_all(b".\r\n")
         .await
         .map_err(SmtpRelayError::Io)?;
     writer.flush().await.map_err(SmtpRelayError::Io)?;
@@ -712,8 +774,8 @@ fn check_250(code: u16, line: &str, context: &str) -> Result<(), SmtpRelayError>
 pub fn parse_smtp_line(line: &str) -> Result<(u16, bool, &str), SmtpRelayError> {
     // Enforce an absolute sanity limit even for synthetic callers.
     // RFC 5321 §4.5.3.1.5: reply line limit is 512 bytes including CRLF.
-    // A line of >= 512 bytes without CRLF already exceeds the spec.
-    if line.len() >= MAX_SMTP_LINE {
+    // Use > (not >=) to match read_line and accept the maximum valid length.
+    if line.len() > MAX_SMTP_LINE {
         return Err(SmtpRelayError::ProtocolError(format!(
             "response line exceeds {} bytes",
             MAX_SMTP_LINE
@@ -848,11 +910,13 @@ mod tests {
     }
 
     #[test]
-    fn parse_smtp_line_exactly_512_bytes_is_rejected() {
-        // 512 bytes is the max; at exactly 512 the parse_smtp_line guard rejects it.
+    fn parse_smtp_line_exactly_512_bytes_is_accepted() {
+        // 512 bytes is the RFC 5321 §4.5.3.1.5 maximum (including CRLF).
+        // A line of exactly 512 bytes must be accepted, not rejected.
         let line = "250 ".to_string() + &"x".repeat(508); // 4 + 508 = 512
-        let err = parse_smtp_line(&line).unwrap_err();
-        assert!(matches!(err, SmtpRelayError::ProtocolError(_)));
+        let (code, cont, _text) = parse_smtp_line(&line).unwrap();
+        assert_eq!(code, 250);
+        assert!(!cont);
     }
 
     #[test]
@@ -1197,6 +1261,16 @@ mod tests {
                 "expected dot-stuffed '..signature' in body, got: {:?}",
                 String::from_utf8_lossy(&body)
             );
+            // No spurious blank line before the DATA terminator.
+            // Oracle: RFC 5321 §4.1.1.4 — the leading CRLF of <CRLF>.<CRLF> is
+            // the body's last line-ending, not an extra blank line.  Appending
+            // "\r\n.\r\n" when the body already ends in "\r\n" produces the
+            // sequence "\r\n\r\n.\r\n", which inserts an unwanted blank line.
+            assert!(
+                !body.windows(7).any(|w| w == b"\r\n\r\n.\r\n"),
+                "spurious blank line found before DATA terminator: {:?}",
+                String::from_utf8_lossy(&body)
+            );
             wr.write_all(b"250 OK\r\n").await.unwrap();
 
             // QUIT (best-effort read)
@@ -1292,9 +1366,10 @@ mod tests {
     // (no timeout needed).
     #[tokio::test]
     async fn mta_sts_enforce_mx_mismatch_returns_permanent() {
-        let enforcer = MtaStsEnforcer::new(5_000, 65_536);
+        let enforcer = MtaStsEnforcer::new(5_000, 65_536).expect("MtaStsEnforcer init");
         enforcer.seed_cache(
             "example.com",
+            "testpolicyid",
             crate::config::MtaStsMode::Enforce,
             vec!["mail.example.com".to_string()],
             86_400,
@@ -1335,9 +1410,10 @@ mod tests {
     // block delivery.
     #[tokio::test]
     async fn mta_sts_enforce_mx_matches_proceeds_to_connect() {
-        let enforcer = MtaStsEnforcer::new(5_000, 65_536);
+        let enforcer = MtaStsEnforcer::new(5_000, 65_536).expect("MtaStsEnforcer init");
         enforcer.seed_cache(
             "example.com",
+            "testpolicyid",
             crate::config::MtaStsMode::Enforce,
             vec!["mail.example.com".to_string()],
             86_400,
@@ -1378,9 +1454,10 @@ mod tests {
     // delivery; they are reported but do not cause a permanent error.
     #[tokio::test]
     async fn mta_sts_testing_mode_mx_mismatch_allows_delivery() {
-        let enforcer = MtaStsEnforcer::new(5_000, 65_536);
+        let enforcer = MtaStsEnforcer::new(5_000, 65_536).expect("MtaStsEnforcer init");
         enforcer.seed_cache(
             "example.com",
+            "testpolicyid",
             crate::config::MtaStsMode::Testing,
             vec!["mail.example.com".to_string()],
             86_400,
