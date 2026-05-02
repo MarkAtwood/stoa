@@ -29,7 +29,19 @@ pub async fn fetch_mta_sts_policy_body(
     timeout_ms: u64,
     max_body_bytes: usize,
 ) -> Result<String, MtaStsError> {
-    if domain.is_empty() || domain.contains("://") || domain.contains('/') || domain.contains('@') {
+    // Reject characters that are invalid in a bare hostname or that could
+    // corrupt the constructed URL.  RFC 8461 §3.3 requires the domain to be a
+    // valid DNS name; the additional chars below are URL meta-characters that
+    // would allow SSRF if smuggled into https://mta-sts.<domain>/...
+    if domain.is_empty()
+        || domain.contains("://")
+        || domain.contains('/')
+        || domain.contains('@')
+        || domain.contains('#')
+        || domain.contains('?')
+        || domain.contains('[')
+        || domain.contains(']')
+    {
         return Err(MtaStsError::PolicyFetchFailed("invalid domain".into()));
     }
 
@@ -144,6 +156,39 @@ mod tests {
         let err = fetch_mta_sts_policy_body(&test_client(), "evil.com@target.com", 5_000, 65_536)
             .await
             .expect_err("domain with @ must fail");
+        assert!(matches!(err, MtaStsError::PolicyFetchFailed(_)));
+    }
+
+    // T4b: domain containing "#" is rejected.
+    // Oracle: RFC 3986 treats "#" as the fragment delimiter; "example.com#evil"
+    // would construct "https://mta-sts.example.com#evil/..." and the fragment
+    // could be used to confuse proxies or caches.
+    #[tokio::test]
+    async fn domain_with_fragment_rejected() {
+        let err = fetch_mta_sts_policy_body(&test_client(), "example.com#evil", 5_000, 65_536)
+            .await
+            .expect_err("domain with # must fail");
+        assert!(matches!(err, MtaStsError::PolicyFetchFailed(_)));
+    }
+
+    // T4c: domain containing "?" is rejected.
+    // Oracle: RFC 3986 treats "?" as the query delimiter; could corrupt the URL.
+    #[tokio::test]
+    async fn domain_with_query_rejected() {
+        let err = fetch_mta_sts_policy_body(&test_client(), "example.com?q=evil", 5_000, 65_536)
+            .await
+            .expect_err("domain with ? must fail");
+        assert!(matches!(err, MtaStsError::PolicyFetchFailed(_)));
+    }
+
+    // T4d: domain containing "[" is rejected.
+    // Oracle: RFC 3986 §3.2.2 uses "[" and "]" to delimit IPv6 literals;
+    // a domain containing "[" could be used to inject an IPv6 address.
+    #[tokio::test]
+    async fn domain_with_bracket_rejected() {
+        let err = fetch_mta_sts_policy_body(&test_client(), "example.com[evil]", 5_000, 65_536)
+            .await
+            .expect_err("domain with [ must fail");
         assert!(matches!(err, MtaStsError::PolicyFetchFailed(_)));
     }
 

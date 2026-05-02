@@ -4,8 +4,6 @@ use std::fmt;
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum MtaStsError {
-    /// No `_mta-sts.<domain>` TXT record found.
-    DnsTxtNotFound,
     /// DNS/network failure while resolving or querying `_mta-sts.<domain>`.
     DnsLookupFailed(String),
     /// Multiple STSv1 TXT records found; RFC 8461 §3.1 requires exactly one.
@@ -35,9 +33,6 @@ pub enum MtaStsError {
 impl fmt::Display for MtaStsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MtaStsError::DnsTxtNotFound => {
-                write!(f, "MTA-STS: no TXT record found")
-            }
             MtaStsError::DnsLookupFailed(msg) => {
                 write!(f, "MTA-STS: DNS lookup failed: {}", msg)
             }
