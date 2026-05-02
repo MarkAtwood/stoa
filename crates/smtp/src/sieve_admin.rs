@@ -30,7 +30,7 @@ use sqlx::SqlitePool;
 use tokio::net::TcpListener;
 use tracing::info;
 
-use crate::config::Config;
+use crate::config::{Config, MtaStsMode};
 use crate::session::SieveCache;
 use crate::store;
 
@@ -141,11 +141,18 @@ async fn run_admin_server(config: Arc<Config>, pool: SqlitePool, sieve_cache: Si
         sieve_cache,
     };
 
-    // All routes are protected by the bearer-token middleware when a token is
-    // configured.  This includes /metrics: even though metrics expose no user
-    // data, they reveal internal counters that could aid targeted attacks, and
-    // the admin API already requires a token for all other endpoints.
-    let app = Router::new()
+    // /.well-known/mta-sts.txt is public — no bearer token required.
+    // RFC 8461 §3.3: the policy must be reachable without authentication
+    // so that sending MTAs can fetch it.  In production this endpoint MUST
+    // be served over HTTPS; operators should terminate TLS at a reverse
+    // proxy (nginx/Caddy) and forward plain HTTP to this listener.
+    //
+    // All /admin/* and /metrics routes are protected by the bearer-token
+    // middleware.  This includes /metrics: even though metrics expose no
+    // user data, they reveal internal counters that could aid targeted
+    // attacks, and the admin API already requires a token for all other
+    // endpoints.
+    let protected = Router::new()
         .route("/admin/sieve/{username}", get(list_scripts))
         .route("/admin/sieve/{username}/{name}", get(get_script))
         .route("/admin/sieve/{username}/{name}", put(put_script))
@@ -156,10 +163,14 @@ async fn run_admin_server(config: Arc<Config>, pool: SqlitePool, sieve_cache: Si
         )
         .route("/admin/sieve/check", post(check_script))
         .route("/metrics", get(get_metrics))
-        .layer(middleware::from_fn_with_state(
+        .route_layer(middleware::from_fn_with_state(
             state.clone(),
             require_bearer_token,
-        ))
+        ));
+
+    let app = Router::new()
+        .route("/.well-known/mta-sts.txt", get(serve_mta_sts_policy))
+        .merge(protected)
         .with_state(state);
 
     if let Err(e) = axum::serve(listener, app).await {
@@ -325,6 +336,71 @@ async fn get_metrics() -> Response {
         StatusCode::OK,
         [("Content-Type", encoder.format_type())],
         buf,
+    )
+        .into_response()
+}
+
+/// GET /.well-known/mta-sts.txt
+///
+/// Serves the MTA-STS policy file (RFC 8461 §3.2) for the domain named in
+/// the `Host:` request header.  The fetching MTA sets `Host: mta-sts.<domain>`
+/// per RFC 8461 §3.3; we strip the `mta-sts.` prefix and look up the domain
+/// in `config.mta_sts.hosted_domains`.
+///
+/// Returns 200 with `Content-Type: text/plain` on success, 404 if the domain
+/// is not in the hosted list.
+///
+/// **Production note:** this endpoint MUST be served over HTTPS.  Run a
+/// reverse proxy (nginx / Caddy) that terminates TLS and forwards plain HTTP
+/// to this listener.  The admin server itself does not handle TLS.
+async fn serve_mta_sts_policy(
+    State(s): State<AdminState>,
+    headers: axum::http::HeaderMap,
+) -> Response {
+    let host = headers
+        .get(axum::http::header::HOST)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+
+    // Strip port suffix if present (e.g. "mta-sts.example.com:443").
+    let host_no_port = host.rsplit_once(':').map(|(h, _)| h).unwrap_or(host);
+
+    // RFC 8461 §3.3: the policy URL is https://mta-sts.<domain>/.well-known/mta-sts.txt
+    let domain = match host_no_port.strip_prefix("mta-sts.") {
+        Some(d) if !d.is_empty() => d,
+        _ => return (StatusCode::NOT_FOUND, "unknown domain").into_response(),
+    };
+
+    let cfg = s
+        .config
+        .mta_sts
+        .hosted_domains
+        .iter()
+        .find(|d| d.domain.eq_ignore_ascii_case(domain));
+
+    let cfg = match cfg {
+        Some(c) => c,
+        None => return (StatusCode::NOT_FOUND, "unknown domain").into_response(),
+    };
+
+    let mode_str = match cfg.mode {
+        MtaStsMode::None => "none",
+        MtaStsMode::Testing => "testing",
+        MtaStsMode::Enforce => "enforce",
+    };
+
+    // RFC 8461 §3.2 policy file format: version first, then mode, then zero
+    // or more mx lines, then max_age.
+    let mut body = format!("version: STSv1\r\nmode: {mode_str}\r\n");
+    for mx in &cfg.mx_patterns {
+        body.push_str(&format!("mx: {mx}\r\n"));
+    }
+    body.push_str(&format!("max_age: {}\r\n", cfg.max_age_secs));
+
+    (
+        StatusCode::OK,
+        [("Content-Type", "text/plain; charset=utf-8")],
+        body,
     )
         .into_response()
 }
@@ -998,5 +1074,182 @@ mod tests {
             StatusCode::OK,
             "/metrics must return 200 with correct Authorization header"
         );
+    }
+
+    // ── MTA-STS policy endpoint tests ────────────────────────────────────────
+
+    async fn mta_sts_app(hosted_domains: Vec<crate::config::MtaStsDomainConfig>) -> Router {
+        let pool = crate::store::open(":memory:").await.expect("open db");
+        let config = Arc::new(Config {
+            hostname: "test.example.com".to_string(),
+            listen: ListenConfig {
+                port_25: "127.0.0.1:0".into(),
+                port_587: "127.0.0.1:0".into(),
+                smtps_addr: None,
+            },
+            tls: TlsConfig {
+                cert_path: None,
+                key_path: None,
+            },
+            limits: LimitsConfig::default(),
+            log: LogConfig::default(),
+            reader: ReaderConfig::default(),
+            delivery: crate::config::DeliveryConfig::default(),
+            database: DatabaseConfig::default(),
+            sieve_admin: crate::config::SieveAdminConfig::default(),
+            dns_resolver: crate::config::DnsResolver::System,
+            auth: AuthConfig::default(),
+            peer_whitelist: vec![],
+            mta_sts: crate::config::MtaStsConfig {
+                enabled: true,
+                hosted_domains,
+                ..Default::default()
+            },
+        });
+        let cache = crate::session::new_sieve_cache();
+        let state = AdminState {
+            config,
+            pool,
+            sieve_cache: cache,
+        };
+        Router::new()
+            .route("/.well-known/mta-sts.txt", get(serve_mta_sts_policy))
+            .with_state(state)
+    }
+
+    // T1: enforce mode with two MX patterns → 200, correct RFC 8461 body.
+    // Oracle: RFC 8461 §3.2 policy file format.
+    #[tokio::test]
+    async fn mta_sts_enforce_returns_policy() {
+        let app = mta_sts_app(vec![crate::config::MtaStsDomainConfig {
+            domain: "example.com".to_string(),
+            mode: MtaStsMode::Enforce,
+            mx_patterns: vec!["mail.example.com".to_string(), "*.mx.example.com".to_string()],
+            max_age_secs: 86400,
+        }])
+        .await;
+        let req = Request::builder()
+            .method(Method::GET)
+            .uri("/.well-known/mta-sts.txt")
+            .header("Host", "mta-sts.example.com")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = response_body(resp).await;
+        assert!(body.starts_with("version: STSv1\r\n"), "body: {body}");
+        assert!(body.contains("mode: enforce\r\n"), "body: {body}");
+        assert!(body.contains("mx: mail.example.com\r\n"), "body: {body}");
+        assert!(body.contains("mx: *.mx.example.com\r\n"), "body: {body}");
+        assert!(body.contains("max_age: 86400\r\n"), "body: {body}");
+    }
+
+    // T2: mode=none with no mx patterns → 200, no mx lines in body.
+    // Oracle: RFC 8461 §3.2 — mx is not required for mode=none.
+    #[tokio::test]
+    async fn mta_sts_none_mode_no_mx() {
+        let app = mta_sts_app(vec![crate::config::MtaStsDomainConfig {
+            domain: "example.net".to_string(),
+            mode: MtaStsMode::None,
+            mx_patterns: vec![],
+            max_age_secs: 0,
+        }])
+        .await;
+        let req = Request::builder()
+            .method(Method::GET)
+            .uri("/.well-known/mta-sts.txt")
+            .header("Host", "mta-sts.example.net")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = response_body(resp).await;
+        assert!(body.contains("mode: none\r\n"), "body: {body}");
+        assert!(!body.contains("mx:"), "mode=none must not include mx lines: {body}");
+    }
+
+    // T3: domain not in hosted_domains → 404.
+    // Oracle: a non-hosted domain must not leak a policy.
+    #[tokio::test]
+    async fn mta_sts_unknown_domain_returns_404() {
+        let app = mta_sts_app(vec![crate::config::MtaStsDomainConfig {
+            domain: "example.com".to_string(),
+            mode: MtaStsMode::Enforce,
+            mx_patterns: vec!["mail.example.com".to_string()],
+            max_age_secs: 86400,
+        }])
+        .await;
+        let req = Request::builder()
+            .method(Method::GET)
+            .uri("/.well-known/mta-sts.txt")
+            .header("Host", "mta-sts.other.com")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    }
+
+    // T4: Host header without mta-sts. prefix → 404.
+    // Oracle: RFC 8461 §3.3 — Host must be "mta-sts.<domain>".
+    #[tokio::test]
+    async fn mta_sts_wrong_host_prefix_returns_404() {
+        let app = mta_sts_app(vec![crate::config::MtaStsDomainConfig {
+            domain: "example.com".to_string(),
+            mode: MtaStsMode::Enforce,
+            mx_patterns: vec!["mail.example.com".to_string()],
+            max_age_secs: 86400,
+        }])
+        .await;
+        let req = Request::builder()
+            .method(Method::GET)
+            .uri("/.well-known/mta-sts.txt")
+            .header("Host", "example.com")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    }
+
+    // T5: Host header includes port → domain still matched correctly.
+    // Oracle: RFC 7230 §5.4 — Host may include port; port must be stripped.
+    #[tokio::test]
+    async fn mta_sts_host_with_port_matched() {
+        let app = mta_sts_app(vec![crate::config::MtaStsDomainConfig {
+            domain: "example.com".to_string(),
+            mode: MtaStsMode::Testing,
+            mx_patterns: vec!["mx.example.com".to_string()],
+            max_age_secs: 3600,
+        }])
+        .await;
+        let req = Request::builder()
+            .method(Method::GET)
+            .uri("/.well-known/mta-sts.txt")
+            .header("Host", "mta-sts.example.com:443")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = response_body(resp).await;
+        assert!(body.contains("mode: testing\r\n"), "body: {body}");
+    }
+
+    // T6: domain matching is case-insensitive (RFC 1034 §3.1).
+    #[tokio::test]
+    async fn mta_sts_domain_case_insensitive() {
+        let app = mta_sts_app(vec![crate::config::MtaStsDomainConfig {
+            domain: "Example.COM".to_string(),
+            mode: MtaStsMode::Enforce,
+            mx_patterns: vec!["mail.example.com".to_string()],
+            max_age_secs: 86400,
+        }])
+        .await;
+        let req = Request::builder()
+            .method(Method::GET)
+            .uri("/.well-known/mta-sts.txt")
+            .header("Host", "mta-sts.example.com")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
     }
 }
