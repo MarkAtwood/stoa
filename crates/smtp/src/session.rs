@@ -119,11 +119,13 @@ enum SessionState {
     Mail {
         ehlo_domain: String,
         from: String,
+        require_tls: bool,
     },
     Rcpt {
         ehlo_domain: String,
         from: String,
         to: Vec<String>,
+        require_tls: bool,
     },
 }
 
@@ -464,10 +466,11 @@ pub async fn run_session<S>(
                     continue;
                 }
                 let from = parse_angle_addr(args);
+                let require_tls = has_requiretls_param(args);
                 if write_half.write_all(b"250 OK\r\n").await.is_err() {
                     break;
                 }
-                state = SessionState::Mail { ehlo_domain, from };
+                state = SessionState::Mail { ehlo_domain, from, require_tls };
             }
 
             "RCPT" => {
@@ -477,6 +480,7 @@ pub async fn run_session<S>(
                     SessionState::Mail {
                         ref ehlo_domain,
                         ref from,
+                        require_tls,
                     } => {
                         let ehlo_domain = ehlo_domain.clone();
                         let from_clone = from.clone();
@@ -487,6 +491,7 @@ pub async fn run_session<S>(
                             ehlo_domain,
                             from: from_clone,
                             to: vec![to_addr],
+                            require_tls,
                         };
                     }
                     SessionState::Rcpt { ref mut to, .. } => {
@@ -519,12 +524,13 @@ pub async fn run_session<S>(
 
             "DATA" => {
                 // Must be in Rcpt state with at least one recipient.
-                let (ehlo_domain, from, to) = match state {
+                let (ehlo_domain, from, to, require_tls) = match state {
                     SessionState::Rcpt {
                         ref ehlo_domain,
                         ref from,
                         ref to,
-                    } if !to.is_empty() => (ehlo_domain.clone(), from.clone(), to.clone()),
+                        require_tls,
+                    } if !to.is_empty() => (ehlo_domain.clone(), from.clone(), to.clone(), require_tls),
                     _ => {
                         if write_half
                             .write_all(b"503 Bad sequence of commands\r\n")
@@ -644,19 +650,28 @@ pub async fn run_session<S>(
                     raw_bytes = new_bytes;
                 }
 
-                // ─── Received: header (RFC 5321 §4.4) ────────────────────────
+                // ─── Received: header (RFC 5321 §4.4 / RFC 3848 §2) ─────────
                 // Every MTA that accepts a message MUST prepend a Received:
                 // trace header.  This must be the outermost (first) header so
                 // it is prepended last, after Authentication-Results.
+                //
+                // RFC 3848 §2: use "ESMTPS" when TLS was active, "ESMTP" when
+                // not.  RFC 8689 §4.1: annotate "REQUIRETLS" in the with-clause
+                // when the sender signalled REQUIRETLS on MAIL FROM.
                 {
                     let now_secs = SystemTime::now()
                         .duration_since(UNIX_EPOCH)
                         .unwrap_or_default()
                         .as_secs() as i64;
                     let date_str = epoch_to_rfc2822(now_secs);
+                    let with_clause = match (is_tls, require_tls) {
+                        (true, true) => "ESMTPS (REQUIRETLS)",
+                        (true, false) => "ESMTPS",
+                        (false, _) => "ESMTP",
+                    };
                     let received = format!(
-                        "Received: from {} ([{}]) by {} with SMTP; {}\r\n",
-                        ehlo_domain, client_ip, config.hostname, date_str
+                        "Received: from {} ([{}]) by {} with {}; {}\r\n",
+                        ehlo_domain, client_ip, config.hostname, with_clause, date_str
                     );
                     let received_bytes = received.into_bytes();
                     let mut new_bytes = Vec::with_capacity(received_bytes.len() + raw_bytes.len());
