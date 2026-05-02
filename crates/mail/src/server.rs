@@ -330,11 +330,12 @@ pub fn render_mta_sts_policy(
         MtaStsMode::Enforce => "enforce",
     };
 
-    let mut body = format!("version: STSv1\nmode: {mode_str}\n");
+    // RFC 8461 §3.2: policy body MUST use CRLF line endings.
+    let mut body = format!("version: STSv1\r\nmode: {mode_str}\r\n");
     for pattern in &domain_config.mx_patterns {
-        body.push_str(&format!("mx: {pattern}\n"));
+        body.push_str(&format!("mx: {pattern}\r\n"));
     }
-    body.push_str(&format!("max_age: {}\n", domain_config.max_age_secs));
+    body.push_str(&format!("max_age: {}\r\n", domain_config.max_age_secs));
 
     let digest = sha2::Sha256::digest(body.as_bytes());
     let hex_full = data_encoding::HEXLOWER.encode(&digest);
@@ -357,10 +358,12 @@ async fn mta_sts_handler(
         .get(header::HOST)
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
+    // Strip port suffix using rsplit_once so IPv6 literals like [::1]:443
+    // are handled correctly: rsplit_once(':') on "[::1]:443" gives ("[::1]", "443").
+    // Plain "host:port" and bare "host" also work correctly.
     let domain = raw_host
-        .split(':')
-        .next()
-        .unwrap_or(raw_host)
+        .rsplit_once(':')
+        .map_or(raw_host, |(host, _port)| host)
         .to_lowercase();
 
     match state
@@ -2998,7 +3001,7 @@ mod tests {
         let body = resp.text().await.expect("body");
         assert_eq!(
             body,
-            "version: STSv1\nmode: enforce\nmx: mail.example.com\nmax_age: 86400\n"
+            "version: STSv1\r\nmode: enforce\r\nmx: mail.example.com\r\nmax_age: 86400\r\n"
         );
     }
 
@@ -3028,7 +3031,7 @@ mod tests {
         let body = resp.text().await.expect("body");
         assert_eq!(
             body,
-            "version: STSv1\nmode: testing\nmx: mail.example.com\nmax_age: 3600\n"
+            "version: STSv1\r\nmode: testing\r\nmx: mail.example.com\r\nmax_age: 3600\r\n"
         );
     }
 
@@ -3061,14 +3064,14 @@ mod tests {
         let body = resp.text().await.expect("body");
         assert_eq!(
             body,
-            "version: STSv1\nmode: enforce\nmx: mx1.example.com\nmx: mx2.example.com\nmax_age: 86400\n"
+            "version: STSv1\r\nmode: enforce\r\nmx: mx1.example.com\r\nmx: mx2.example.com\r\nmax_age: 86400\r\n"
         );
     }
 
     // T4: policy_id is first 32 hex chars of SHA-256 of the policy body.
-    // Oracle: Python hashlib.sha256 computed independently for the test body.
-    //   body = "version: STSv1\nmode: enforce\nmx: mail.example.com\nmax_age: 86400\n"
-    //   hashlib.sha256(body.encode()).hexdigest()[:32] == "bc184e4363fb9dabae68ae9b0583c839"
+    // Oracle: Python hashlib.sha256 computed independently for the CRLF body.
+    //   body = "version: STSv1\r\nmode: enforce\r\nmx: mail.example.com\r\nmax_age: 86400\r\n"
+    //   hashlib.sha256(body.encode()).hexdigest()[:32] == "9ebad69d69d237d74acd7c3e01d01962"
     #[test]
     fn render_mta_sts_policy_id_is_sha256_first32() {
         use stoa_smtp::config::{MtaStsDomainConfig, MtaStsMode};
@@ -3082,10 +3085,10 @@ mod tests {
         let (body, policy_id) = render_mta_sts_policy(&domain_config);
         assert_eq!(
             body,
-            "version: STSv1\nmode: enforce\nmx: mail.example.com\nmax_age: 86400\n"
+            "version: STSv1\r\nmode: enforce\r\nmx: mail.example.com\r\nmax_age: 86400\r\n"
         );
         assert_eq!(policy_id.len(), 32);
-        assert_eq!(policy_id, "bc184e4363fb9dabae68ae9b0583c839");
+        assert_eq!(policy_id, "9ebad69d69d237d74acd7c3e01d01962");
     }
 
     // T5: unknown domain → 404.

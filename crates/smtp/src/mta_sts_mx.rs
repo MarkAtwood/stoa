@@ -25,8 +25,8 @@ pub fn mx_matches_pattern(mx_hostname: &str, pattern: &str) -> bool {
 }
 
 /// Check if an MX hostname matches any pattern in the policy's mx list.
-pub fn check_mx_against_policy(mx: &str, patterns: &[String]) -> bool {
-    patterns.iter().any(|p| mx_matches_pattern(mx, p))
+pub fn check_mx_against_policy<S: AsRef<str>>(mx: &str, patterns: &[S]) -> bool {
+    patterns.iter().any(|p| mx_matches_pattern(mx, p.as_ref()))
 }
 
 #[cfg(test)]
@@ -103,6 +103,6 @@ mod tests {
 
     #[test]
     fn policy_empty_list_never_matches() {
-        assert!(!check_mx_against_policy("mx.example.com", &[]));
+        assert!(!check_mx_against_policy("mx.example.com", &[] as &[&str]));
     }
 }

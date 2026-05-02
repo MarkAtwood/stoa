@@ -2,6 +2,7 @@ use std::fmt;
 
 /// Typed errors for MTA-STS policy lookup, fetch, parse, and enforcement.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum MtaStsError {
     /// No `_mta-sts.<domain>` TXT record found.
     DnsTxtNotFound,

@@ -29,7 +29,7 @@ pub async fn lookup_mta_sts_txt(domain: &str) -> Result<Option<MtaStsTxtRecord>,
             if matches!(e.kind(), ProtoErrorKind::NoRecordsFound { .. }) {
                 return Ok(None);
             }
-            return Ok(None);
+            return Err(MtaStsError::DnsTxtInvalid(format!("DNS lookup failed: {e}")));
         }
     };
 

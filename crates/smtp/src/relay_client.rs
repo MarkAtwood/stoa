@@ -80,7 +80,8 @@ impl MtaStsEnforcer {
             Some(p) => p,
             None => {
                 // Step 2: Cache miss — DNS TXT lookup for _mta-sts.<domain>.
-                let txt = match lookup_mta_sts_txt(rcpt_domain).await {
+                // We only need to confirm a record exists before fetching the HTTPS policy.
+                let _txt = match lookup_mta_sts_txt(rcpt_domain).await {
                     Ok(Some(r)) => r,
                     Ok(None) => return Ok(()),
                     Err(e) => {
@@ -113,7 +114,6 @@ impl MtaStsEnforcer {
                 };
 
                 let valid_until = Instant::now() + Duration::from_secs(policy.max_age as u64);
-                let _ = txt.policy_id; // captured for cache keying; not stored
                 let entry = CachedStsEntry {
                     mode: policy.mode.clone(),
                     mx_patterns: policy.mx_patterns.clone(),
@@ -304,13 +304,19 @@ async fn do_deliver(
         ));
     }
 
-    // MTA-STS enforcement (RFC 8461 §4): check before TCP connect so that
-    // a policy violation in enforce mode never touches the peer network.
+    // MTA-STS enforcement (RFC 8461 §4): check all recipient domains before
+    // TCP connect so a policy violation in enforce mode never touches the peer.
+    // Deduplicate domains to avoid redundant DNS/cache lookups.
     if let Some(enforcer) = mta_sts {
-        if let Some(domain) = envelope.rcpt_to.first().and_then(|r| recipient_domain(r)) {
-            enforcer
-                .enforce_for_delivery(domain, &peer.host, peer.tls)
-                .await?;
+        let mut seen = std::collections::HashSet::new();
+        for rcpt in &envelope.rcpt_to {
+            if let Some(domain) = recipient_domain(rcpt) {
+                if seen.insert(domain) {
+                    enforcer
+                        .enforce_for_delivery(domain, &peer.host, peer.tls)
+                        .await?;
+                }
+            }
         }
     }
 
