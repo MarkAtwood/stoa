@@ -171,12 +171,16 @@ async fn basic_auth_middleware(
 }
 
 fn unauthorized_response() -> Response {
-    axum::response::Response::builder()
-        .status(StatusCode::UNAUTHORIZED)
-        .header(header::WWW_AUTHENTICATE, r#"Basic realm="stoa""#)
-        .header(header::CONTENT_TYPE, "text/plain")
-        .body(axum::body::Body::from("401 Unauthorized"))
-        .unwrap()
+    use axum::response::IntoResponse;
+    (
+        StatusCode::UNAUTHORIZED,
+        [
+            (header::WWW_AUTHENTICATE, r#"Basic realm="stoa""#),
+            (header::CONTENT_TYPE, "text/plain"),
+        ],
+        "401 Unauthorized",
+    )
+        .into_response()
 }
 
 fn build_cors_layer(cors_config: &CorsConfig) -> CorsLayer {
@@ -328,9 +332,10 @@ fn build_mta_sts_policy_body(domain_config: &stoa_smtp::config::MtaStsDomainConf
     // write! on String is infallible; unwrap() is safe.
     let mut body = format!("version: STSv1\r\nmode: {mode_str}\r\n");
     for pattern in &domain_config.mx_patterns {
-        write!(body, "mx: {pattern}\r\n").unwrap();
+        write!(body, "mx: {pattern}\r\n").expect("String::write_fmt is infallible");
     }
-    write!(body, "max_age: {}\r\n", domain_config.max_age_secs).unwrap();
+    write!(body, "max_age: {}\r\n", domain_config.max_age_secs)
+        .expect("String::write_fmt is infallible");
     body
 }
 

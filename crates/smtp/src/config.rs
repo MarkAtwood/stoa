@@ -504,7 +504,7 @@ fn default_hostname() -> String {
 }
 
 /// MTA-STS operating mode for a hosted domain (RFC 8461 §3.2).
-#[derive(Debug, Clone, Default, PartialEq, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum MtaStsMode {
     /// Do not enforce TLS; publish policy for testing purposes only.

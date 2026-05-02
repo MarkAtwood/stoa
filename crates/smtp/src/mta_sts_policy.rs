@@ -78,7 +78,18 @@ pub fn parse_mta_sts_policy(
                 mode = Some(parsed);
             }
             "mx" => {
-                mx_patterns.push(value.to_owned());
+                let pattern = value.to_owned();
+                // RFC 8461 §4.1: a wildcard pattern must be "*.label[.label...]".
+                // Bare "*." has an empty suffix and would match any single-label
+                // hostname ending in a dot — reject it as malformed.
+                if let Some(suffix) = pattern.strip_prefix("*.") {
+                    if suffix.is_empty() {
+                        return Err(MtaStsError::PolicyParseFailed(
+                            "invalid mx pattern: '*.' requires a non-empty suffix".into(),
+                        ));
+                    }
+                }
+                mx_patterns.push(pattern);
             }
             "max_age" => {
                 if max_age.is_some() {
@@ -104,9 +115,11 @@ pub fn parse_mta_sts_policy(
     }
 
     let mode = mode.ok_or_else(|| MtaStsError::PolicyParseFailed("missing 'mode' field".into()))?;
-    if mx_patterns.is_empty() {
+    // RFC 8461 §3.2: mx is required only for "enforce" and "testing" modes.
+    // For "none", the mx list is irrelevant and may be omitted.
+    if matches!(mode, MtaStsMode::Enforce | MtaStsMode::Testing) && mx_patterns.is_empty() {
         return Err(MtaStsError::PolicyParseFailed(
-            "at least one 'mx' field is required".into(),
+            "at least one 'mx' field is required for enforce/testing mode".into(),
         ));
     }
     let max_age =
@@ -310,5 +323,26 @@ mod tests {
             parse_mta_sts_policy(&body, 65_536).expect_err("body over limit must be rejected");
         assert!(matches!(err, MtaStsError::PolicyParseFailed(_)));
         assert!(err.to_string().contains("too large"));
+    }
+
+    // RFC 8461 §3.2: "mx" is required only for "enforce" and "testing" modes.
+    // A "none" policy with no mx lines is valid — it signals "stop enforcing".
+    #[test]
+    fn parse_none_mode_no_mx_accepted() {
+        let body = "version: STSv1\nmode: none\nmax_age: 0\n";
+        let p = parse_mta_sts_policy(body, 65_536)
+            .expect("mode=none with no mx lines is valid per RFC 8461 §3.2");
+        assert_eq!(p.mode, MtaStsMode::None);
+        assert!(p.mx_patterns.is_empty());
+    }
+
+    // A bare "*." wildcard has an empty suffix and is not a valid MX pattern
+    // per RFC 8461 §4.1 (wildcard must be "*.label[.label...]").
+    #[test]
+    fn bare_wildcard_mx_pattern_rejected() {
+        let body = "version: STSv1\nmode: enforce\nmx: *.\nmax_age: 86400\n";
+        let err =
+            parse_mta_sts_policy(body, 65_536).expect_err("bare '*.' mx pattern must be rejected");
+        assert!(matches!(err, MtaStsError::PolicyParseFailed(_)));
     }
 }

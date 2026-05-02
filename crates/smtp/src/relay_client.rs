@@ -91,14 +91,14 @@ impl MtaStsEnforcer {
         // at the end of the block, before any .await point.  Do not hold the
         // guard across an await — that would deadlock a Tokio worker thread.
         let cached = {
-            let guard = self.cache.lock().expect("mta_sts cache lock");
+            let guard = self.cache.lock().unwrap_or_else(|p| p.into_inner());
             guard
                 .get(rcpt_domain)
                 .filter(|(_, valid_until)| Instant::now() < *valid_until)
                 .map(|(entry, _)| {
                     (
                         entry.policy_id.clone(),
-                        entry.mode.clone(),
+                        entry.mode, // MtaStsMode is Copy
                         entry.mx_patterns.clone(),
                     )
                 })
@@ -115,7 +115,7 @@ impl MtaStsEnforcer {
                         // SAFETY: guard dropped immediately.
                         self.cache
                             .lock()
-                            .expect("mta_sts cache lock")
+                            .unwrap_or_else(|p| p.into_inner())
                             .remove(rcpt_domain);
                         match self.load_fresh_policy(rcpt_domain, &txt).await {
                             Some(p) => p,
@@ -210,13 +210,13 @@ impl MtaStsEnforcer {
         let valid_until = Instant::now() + Duration::from_secs(effective_age);
         let entry = CachedStsEntry {
             policy_id: txt.policy_id.clone(),
-            mode: policy.mode.clone(),
+            mode: policy.mode, // MtaStsMode is Copy
             mx_patterns: policy.mx_patterns.clone(),
         };
         // SAFETY: guard dropped immediately after insert — no await follows.
         self.cache
             .lock()
-            .expect("mta_sts cache lock")
+            .unwrap_or_else(|p| p.into_inner())
             .insert(rcpt_domain.to_owned(), (entry, valid_until));
 
         Some((policy.mode, policy.mx_patterns))
@@ -240,7 +240,7 @@ impl MtaStsEnforcer {
         };
         self.cache
             .lock()
-            .expect("mta_sts cache lock")
+            .unwrap_or_else(|p| p.into_inner())
             .insert(domain.to_owned(), (entry, valid_until));
     }
 }
