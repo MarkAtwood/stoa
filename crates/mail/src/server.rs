@@ -8,6 +8,8 @@ use axum::{
     routing::{delete, get, post},
     Json, Router,
 };
+use jmap_server::{Dispatcher, HandlerFuture, JmapHandler};
+use jmap_types::{JmapError, JmapRequest};
 use serde_json::{json, Value};
 use stoa_auth::{AuthConfig, CredentialStore, OidcStore};
 use stoa_core::msgid_map::MsgIdMap;
@@ -317,39 +319,111 @@ async fn jmap_session_handler(
         .unwrap_or_else(|| "anonymous".to_string());
     let is_operator = state.auth_config.is_operator(&username);
     let session = crate::jmap::session::build_session(&username, &state.base_url, is_operator);
+
     Json(serde_json::to_value(session).expect("JmapSession is always JSON-serializable"))
 }
 
-async fn jmap_api_handler(
-    State(state): State<Arc<AppState>>,
-    user: Option<Extension<AuthenticatedUser>>,
-    axum::extract::Json(request): axum::extract::Json<crate::jmap::types::Request>,
-) -> impl axum::response::IntoResponse {
-    use axum::response::IntoResponse as _;
-    let jmap = match state.jmap.as_ref() {
-        Some(j) => j,
-        None => {
-            return (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(json!({"error": "JMAP not configured"})),
+// ---------------------------------------------------------------------------
+// JMAP Dispatcher infrastructure
+// ---------------------------------------------------------------------------
+
+/// Per-request JMAP caller context forwarded to each method handler.
+#[derive(Clone)]
+struct JmapCaller {
+    username: String,
+    user_id: i64,
+    is_operator: bool,
+    canonical_account_id: String,
+    server_start: Instant,
+    slow_threshold_ms: u64,
+}
+
+/// Adapter that wraps `route_method` as a [`JmapHandler`].
+///
+/// All registered methods share a single `StoaHandler` instance.  The
+/// `method` argument passed to [`JmapHandler::call`] selects the arm inside
+/// `route_method`.  This gives us [`Dispatcher`]-level ResultReference
+/// resolution while keeping all handler logic in the existing `route_method`.
+struct StoaHandler {
+    stores: Arc<JmapStores>,
+}
+
+impl JmapHandler<JmapCaller> for StoaHandler {
+    fn call(
+        &self,
+        method: String,
+        _call_id: String,
+        args: Value,
+        caller: JmapCaller,
+    ) -> HandlerFuture {
+        let stores = Arc::clone(&self.stores);
+        Box::pin(async move {
+            let t0 = Instant::now();
+            let result = route_method(
+                &method,
+                args,
+                &stores,
+                &caller.canonical_account_id,
+                caller.server_start,
+                caller.is_operator,
+                caller.user_id,
             )
-                .into_response();
-        }
-    };
+            .await;
+            let elapsed = t0.elapsed().as_secs_f64();
+            crate::metrics::JMAP_REQUESTS_TOTAL
+                .with_label_values(&[&method])
+                .inc();
+            crate::metrics::JMAP_REQUEST_DURATION_SECONDS
+                .with_label_values(&[&method])
+                .observe(elapsed);
+            if caller.slow_threshold_ms > 0
+                && (elapsed * 1000.0) as u64 >= caller.slow_threshold_ms
+            {
+                tracing::warn!(
+                    event = "slow_jmap",
+                    method = %method,
+                    elapsed_ms = (elapsed * 1000.0) as u64,
+                    username = %caller.username,
+                    "slow JMAP method",
+                );
+            }
+            if method == "Email/query" {
+                if let Some(ids) = result.get("ids").and_then(|v| v.as_array()) {
+                    crate::metrics::EMAIL_QUERY_RESULTS.set(ids.len() as i64);
+                }
+            }
+            stoa_value_to_result(result)
+        })
+    }
+}
 
-    // Derive the canonical accountId for the authenticated principal.
-    // In dev mode no AuthenticatedUser extension is present; use "anonymous".
-    let username = user
-        .map(|Extension(u)| u.0)
-        .unwrap_or_else(|| "anonymous".to_string());
-    let canonical_account_id = format!("u_{username}");
-    let is_operator = state.auth_config.is_operator(&username);
-    let server_start = state.start_time;
+/// Translate a `route_method` `Value` return into a handler `Result`.
+///
+/// `route_method` embeds method-level errors as `{"type": "<error-type>"}` or
+/// `{"error": "<message>"}` in the returned `Value`.  The Dispatcher contract
+/// requires errors to be `Err(JmapError)`.
+fn stoa_value_to_result(
+    v: Value,
+) -> Result<(Value, Vec<jmap_types::Invocation>), JmapError> {
+    if let Some(type_str) = v.get("type").and_then(|t| t.as_str()) {
+        let mut err = JmapError::custom(type_str);
+        err.description = v
+            .get("description")
+            .and_then(|d| d.as_str())
+            .map(str::to_string);
+        Err(err)
+    } else if v.get("error").is_some() {
+        Err(JmapError::server_fail("internal error"))
+    } else {
+        Ok((v, vec![]))
+    }
+}
 
-    // Look up the numeric user_id from the users table.
-    let user_id: i64 = match sqlx::query_scalar("SELECT id FROM users WHERE username = ?")
-        .bind(&username)
-        .fetch_optional(&*jmap.mail_pool)
+/// Resolve a username to its numeric `user_id` from the database.
+async fn resolve_user_id(pool: &sqlx::AnyPool, username: &str) -> i64 {
+    match sqlx::query_scalar::<_, i64>("SELECT id FROM users WHERE username = ?")
+        .bind(username)
+        .fetch_optional(pool)
         .await
     {
         Ok(Some(id)) => id,
@@ -370,73 +444,117 @@ async fn jmap_api_handler(
             );
             SINGLETON_USER_ID
         }
+    }
+}
+
+/// Build the JMAP [`Dispatcher`] that routes all supported methods.
+///
+/// All RFC 3977-adjacent methods and custom Stoa extensions route through a
+/// single [`StoaHandler`] that delegates to `route_method`.  The Dispatcher
+/// layer provides RFC 8620 ResultReference (`#`-prefix) resolution before each
+/// call, which the previous hand-rolled loop did not implement.
+fn build_jmap_dispatcher(stores: Arc<JmapStores>) -> Dispatcher<JmapCaller> {
+    let handler: Arc<dyn JmapHandler<JmapCaller>> = Arc::new(StoaHandler { stores });
+
+    // All method names handled by route_method plus the 26 RFC 8621 names.
+    // Unimplemented RFC 8621 names route to the `_` arm and return unknownMethod.
+    const METHODS: &[&str] = &[
+        // RFC 8621 Mailbox
+        "Mailbox/get",
+        "Mailbox/changes",
+        "Mailbox/query",
+        "Mailbox/queryChanges",
+        "Mailbox/set",
+        // RFC 8621 Thread
+        "Thread/get",
+        "Thread/changes",
+        // RFC 8621 Email
+        "Email/get",
+        "Email/changes",
+        "Email/query",
+        "Email/queryChanges",
+        "Email/set",
+        "Email/copy",
+        "Email/import",
+        "Email/parse",
+        // RFC 8621 SearchSnippet
+        "SearchSnippet/get",
+        // RFC 8621 Identity
+        "Identity/get",
+        "Identity/changes",
+        "Identity/set",
+        // RFC 8621 EmailSubmission
+        "EmailSubmission/get",
+        "EmailSubmission/changes",
+        "EmailSubmission/query",
+        "EmailSubmission/queryChanges",
+        "EmailSubmission/set",
+        // RFC 8621 VacationResponse
+        "VacationResponse/get",
+        "VacationResponse/set",
+        // RFC 9404 Blob
+        "Blob/get",
+        "Blob/copy",
+        // Stoa-specific admin methods
+        "ServerStatus/get",
+        "Peer/get",
+        "GroupLog/get",
+    ];
+
+    let mut d = Dispatcher::new();
+    for &method in METHODS {
+        d.register(method, Arc::clone(&handler));
+    }
+    d
+}
+
+// ---------------------------------------------------------------------------
+// JMAP API handler
+// ---------------------------------------------------------------------------
+
+async fn jmap_api_handler(
+    State(state): State<Arc<AppState>>,
+    user: Option<Extension<AuthenticatedUser>>,
+    axum::extract::Json(request): axum::extract::Json<JmapRequest>,
+) -> impl axum::response::IntoResponse {
+    use axum::response::IntoResponse as _;
+    let jmap = match state.jmap.as_ref() {
+        Some(j) => j,
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({"error": "JMAP not configured"})),
+            )
+                .into_response();
+        }
     };
 
-    let mut method_responses = Vec::new();
+    let username = user
+        .map(|Extension(u)| u.0)
+        .unwrap_or_else(|| "anonymous".to_string());
+    let canonical_account_id = format!("u_{username}");
+    let is_operator = state.auth_config.is_operator(&username);
 
-    for crate::jmap::types::Invocation(method, args, call_id) in request.method_calls {
-        let t0 = std::time::Instant::now();
-        let result = route_method(
-            &method,
-            args,
-            jmap,
-            &canonical_account_id,
-            server_start,
-            is_operator,
-            user_id,
-        )
-        .await;
-        let elapsed = t0.elapsed().as_secs_f64();
-        crate::metrics::JMAP_REQUESTS_TOTAL
-            .with_label_values(&[&method])
-            .inc();
-        crate::metrics::JMAP_REQUEST_DURATION_SECONDS
-            .with_label_values(&[&method])
-            .observe(elapsed);
-        let threshold_ms = state.slow_jmap_threshold_ms;
-        if threshold_ms > 0 && (elapsed * 1000.0) as u64 >= threshold_ms {
-            tracing::warn!(
-                event = "slow_jmap",
-                method = %method,
-                elapsed_ms = (elapsed * 1000.0) as u64,
-                username = %username,
-                "slow JMAP method",
-            );
-        }
-        if method == "Email/query" {
-            let count = result
-                .get("ids")
-                .and_then(|v| v.as_array())
-                .map_or(0, |a| a.len()) as i64;
-            crate::metrics::EMAIL_QUERY_RESULTS.set(count);
-        }
-        // A result is an error invocation if it has an "error" key (internal
-        // error path) or a "type" key (MethodError path — accountNotFound,
-        // unknownMethod, etc.).
-        let is_error = result.get("error").is_some() || result.get("type").is_some();
-        let response_name = if is_error {
-            "error".to_string()
-        } else {
-            method.clone()
-        };
-        method_responses.push(crate::jmap::types::Invocation(
-            response_name,
-            result,
-            call_id,
-        ));
-    }
+    let user_id = resolve_user_id(&jmap.mail_pool, &username).await;
 
-    let session_state = jmap
+    let session_state: jmap_types::State = jmap
         .state_store
         .get_state(user_id, "session")
         .await
-        .unwrap_or_else(|_| "0".to_string());
+        .unwrap_or_else(|_| "0".to_string())
+        .into();
 
-    let response = crate::jmap::types::Response {
-        method_responses,
-        session_state,
-        created_ids: None,
+    let caller = JmapCaller {
+        username,
+        user_id,
+        is_operator,
+        canonical_account_id,
+        server_start: state.start_time,
+        slow_threshold_ms: state.slow_jmap_threshold_ms,
     };
+
+    let dispatcher = build_jmap_dispatcher(Arc::clone(jmap));
+    let response = dispatcher.dispatch(request, caller, session_state).await;
 
     match serde_json::to_value(response) {
         Ok(v) => (StatusCode::OK, Json(v)).into_response(),
@@ -779,10 +897,10 @@ async fn route_method(
             // the client split the request rather than getting a partial result.
             const MAX_IDS: usize = 500;
             if ids.len() > MAX_IDS {
-                return serde_json::to_value(crate::jmap::types::MethodError::request_too_large(
-                    MAX_IDS,
-                ))
-                .unwrap_or(json!({}));
+                let mut err = JmapError::request_too_large();
+                err.description =
+                    Some(format!("ids exceeds maxObjectsInGet limit of {MAX_IDS}"));
+                return serde_json::to_value(&err).unwrap_or(json!({}));
             }
             let email_state = jmap
                 .state_store
