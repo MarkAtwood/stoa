@@ -517,7 +517,10 @@ async fn run_smtp_session(
         .map_err(SmtpRelayError::Io)?;
 
     // Read multi-line EHLO response; collect extension keywords.
+    // RFC 5321 §4.1.1.1: the first response line is "250[-]Domain [greeting]"
+    // — only continuation lines carry extension keywords.
     let mut extensions: Vec<String> = Vec::new();
+    let mut ehlo_first = true;
     loop {
         line.clear();
         read_line(reader, &mut line).await?;
@@ -534,8 +537,11 @@ async fn run_smtp_session(
                 line.trim_end()
             )));
         }
-        // First continuation line is the domain greeting; subsequent lines are extensions.
-        extensions.push(text.to_ascii_uppercase());
+        // Skip the first line (domain greeting); push only extension keywords.
+        if !ehlo_first {
+            extensions.push(text.to_ascii_uppercase());
+        }
+        ehlo_first = false;
         if !cont {
             break;
         }
