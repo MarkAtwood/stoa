@@ -42,10 +42,8 @@ stoa-tls = { path = "../tls" }
 stoa-reader = { path = "../reader" }
 stoa-auth = { path = "../auth" }
 stoa-smtp = { path = "../smtp" }
-jmap-types       = { path = "../../../JMAP/crate-jmap-types" }
-jmap-server      = { path = "../../../JMAP/crate-jmap-server" }
-jmap-mail-types  = { path = "../../../JMAP/crate-jmap-mail-types" }
-jmap-mail-server = { path = "../../../JMAP/crate-jmap-mail-server" }
+jmap-types  = { path = "../../../JMAP/crate-jmap-types" }
+jmap-server = { path = "../../../JMAP/crate-jmap-server" }
 serde_ipld_dagcbor = "0.6"
 async-trait = "0.1"
 chrono = "0.4"

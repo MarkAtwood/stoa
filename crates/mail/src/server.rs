@@ -334,7 +334,7 @@ struct JmapCaller {
     user_id: i64,
     is_operator: bool,
     canonical_account_id: String,
-    server_start: Instant,
+    process_start: Instant,
     slow_threshold_ms: u64,
 }
 
@@ -364,7 +364,7 @@ impl JmapHandler<JmapCaller> for StoaHandler {
                 args,
                 &stores,
                 &caller.canonical_account_id,
-                caller.server_start,
+                caller.process_start,
                 caller.is_operator,
                 caller.user_id,
             )
@@ -402,6 +402,13 @@ impl JmapHandler<JmapCaller> for StoaHandler {
 /// `route_method` embeds method-level errors as `{"type": "<error-type>"}` or
 /// `{"error": "<message>"}` in the returned `Value`.  The Dispatcher contract
 /// requires errors to be `Err(JmapError)`.
+///
+/// # Precondition
+///
+/// Success responses returned by `route_method` **must not** contain a top-level
+/// `"type"` key.  If they do, this function will incorrectly treat them as errors.
+/// All current `route_method` handler arms satisfy this — the `"type"` key appears
+/// only in `MethodError`/`JmapError` objects.  New handlers must preserve this invariant.
 fn stoa_value_to_result(
     v: Value,
 ) -> Result<(Value, Vec<jmap_types::Invocation>), JmapError> {
@@ -420,44 +427,43 @@ fn stoa_value_to_result(
 }
 
 /// Resolve a username to its numeric `user_id` from the database.
-async fn resolve_user_id(pool: &sqlx::AnyPool, username: &str) -> i64 {
+///
+/// Returns `Ok(SINGLETON_USER_ID)` when the user is not found — intentional for
+/// the v1 single-user deployment model.  Returns `Err` only on a database failure,
+/// which the caller should surface as 503.
+async fn resolve_user_id(pool: &sqlx::AnyPool, username: &str) -> Result<i64, sqlx::Error> {
     match sqlx::query_scalar::<_, i64>("SELECT id FROM users WHERE username = ?")
         .bind(username)
         .fetch_optional(pool)
-        .await
+        .await?
     {
-        Ok(Some(id)) => id,
-        Ok(None) => {
+        Some(id) => Ok(id),
+        None => {
             if username != "anonymous" {
                 tracing::warn!(
                     username = %username,
                     "JMAP: user not found in users table; falling back to singleton user_id"
                 );
             }
-            SINGLETON_USER_ID
-        }
-        Err(e) => {
-            tracing::warn!(
-                username = %username,
-                error = %e,
-                "JMAP: users table lookup failed; falling back to singleton user_id"
-            );
-            SINGLETON_USER_ID
+            Ok(SINGLETON_USER_ID)
         }
     }
 }
 
 /// Build the JMAP [`Dispatcher`] that routes all supported methods.
 ///
-/// All RFC 3977-adjacent methods and custom Stoa extensions route through a
+/// All RFC 8621 Email/Mailbox/Thread/etc. methods and custom Stoa extensions route through a
 /// single [`StoaHandler`] that delegates to `route_method`.  The Dispatcher
 /// layer provides RFC 8620 ResultReference (`#`-prefix) resolution before each
 /// call, which the previous hand-rolled loop did not implement.
 fn build_jmap_dispatcher(stores: Arc<JmapStores>) -> Dispatcher<JmapCaller> {
     let handler: Arc<dyn JmapHandler<JmapCaller>> = Arc::new(StoaHandler { stores });
 
-    // All method names handled by route_method plus the 26 RFC 8621 names.
-    // Unimplemented RFC 8621 names route to the `_` arm and return unknownMethod.
+    // All method names to register with the Dispatcher.
+    // IMPORTANT: this list must be kept in sync with the match arms in `route_method`.
+    // A name missing here will cause the Dispatcher to return unknownMethod instead of
+    // dispatching to route_method, with no compile-time error.
+    // Unimplemented RFC 8621 names intentionally route to the `_` arm → unknownMethod.
     const METHODS: &[&str] = &[
         // RFC 8621 Mailbox
         "Mailbox/get",
@@ -535,7 +541,17 @@ async fn jmap_api_handler(
     let canonical_account_id = format!("u_{username}");
     let is_operator = state.auth_config.is_operator(&username);
 
-    let user_id = resolve_user_id(&jmap.mail_pool, &username).await;
+    let user_id = match resolve_user_id(&jmap.mail_pool, &username).await {
+        Ok(id) => id,
+        Err(e) => {
+            tracing::error!(error = %e, "JMAP: users table lookup failed");
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({"error": "database unavailable"})),
+            )
+                .into_response();
+        }
+    };
 
     let session_state: jmap_types::State = jmap
         .state_store
@@ -549,7 +565,7 @@ async fn jmap_api_handler(
         user_id,
         is_operator,
         canonical_account_id,
-        server_start: state.start_time,
+        process_start: state.start_time,
         slow_threshold_ms: state.slow_jmap_threshold_ms,
     };
 
@@ -2760,5 +2776,99 @@ mod tests {
             .await
             .expect("request must succeed");
         assert_eq!(resp.status(), 404);
+    }
+
+    // -----------------------------------------------------------------------
+    // JMAP wire-format conformance tests.
+    //
+    // These tests exercise serialization/deserialization of jmap-types wire
+    // types from stoa-mail's perspective.  They catch regressions caused by
+    // a breaking change in the jmap-types crate (field rename, serde attribute
+    // change, etc.) that would silently produce malformed JMAP responses.
+    // -----------------------------------------------------------------------
+
+    /// Oracle: RFC 8620 §3.3 — JmapRequest parses from canonical wire JSON.
+    #[test]
+    fn jmap_request_parses_from_wire_json() {
+        let raw = r#"{
+            "using": ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
+            "methodCalls": [
+                ["Email/get", {"accountId": "u_alice", "ids": ["id1"]}, "c0"]
+            ]
+        }"#;
+        let req: jmap_types::JmapRequest = serde_json::from_str(raw)
+            .expect("JmapRequest must parse from RFC 8620 §3.3 wire format");
+        assert_eq!(req.using.len(), 2);
+        assert_eq!(req.method_calls.len(), 1);
+        let (method, _args, call_id) = &req.method_calls[0];
+        assert_eq!(method, "Email/get");
+        assert_eq!(call_id, "c0");
+    }
+
+    /// Oracle: RFC 8620 §3.4 — JmapResponse serializes createdIds only when Some.
+    #[test]
+    fn jmap_response_omits_created_ids_when_none() {
+        use jmap_types::{JmapResponse, State};
+        let resp = JmapResponse::new(vec![], State::from("s1"), None);
+        let json = serde_json::to_string(&resp).expect("JmapResponse serializes");
+        assert!(
+            !json.contains("createdIds"),
+            "createdIds must be omitted when None, got: {json}"
+        );
+        assert!(
+            json.contains("sessionState"),
+            "sessionState must be present, got: {json}"
+        );
+        assert!(
+            json.contains("methodResponses"),
+            "methodResponses must be present, got: {json}"
+        );
+    }
+
+    /// Oracle: RFC 8620 §3.6.2 — JmapError types serialize as camelCase strings.
+    #[test]
+    fn jmap_error_type_serializes_camel_case() {
+        let err = jmap_types::JmapError::unknown_method();
+        let json = serde_json::to_string(&err).expect("JmapError serializes");
+        assert!(json.contains("unknownMethod"), "got: {json}");
+
+        let err = jmap_types::JmapError::request_too_large();
+        let json = serde_json::to_string(&err).expect("JmapError serializes");
+        assert!(json.contains("requestTooLarge"), "got: {json}");
+
+        let err = jmap_types::JmapError::account_not_found();
+        let json = serde_json::to_string(&err).expect("JmapError serializes");
+        assert!(json.contains("accountNotFound"), "got: {json}");
+    }
+
+    /// Oracle: stoa_value_to_result contract — value with top-level "type" key is an error.
+    #[test]
+    fn stoa_value_to_result_detects_method_error() {
+        let v = serde_json::json!({"type": "accountNotFound"});
+        let result = stoa_value_to_result(v);
+        assert!(result.is_err(), "value with 'type' key must be Err");
+        let err = result.unwrap_err();
+        assert_eq!(err.error_type, "accountNotFound");
+    }
+
+    /// Oracle: stoa_value_to_result contract — value with top-level "error" key is serverFail.
+    #[test]
+    fn stoa_value_to_result_detects_internal_error() {
+        let v = serde_json::json!({"error": "db connection lost"});
+        let result = stoa_value_to_result(v);
+        assert!(result.is_err(), "value with 'error' key must be Err");
+        let err = result.unwrap_err();
+        assert_eq!(err.error_type, "serverFail");
+    }
+
+    /// Oracle: stoa_value_to_result contract — success value passes through unchanged.
+    #[test]
+    fn stoa_value_to_result_passes_success_value_through() {
+        let v = serde_json::json!({"accountId": "u_alice", "state": "s1", "list": []});
+        let result = stoa_value_to_result(v.clone());
+        assert!(result.is_ok(), "success value must be Ok");
+        let (out, extra) = result.unwrap();
+        assert_eq!(out, v);
+        assert!(extra.is_empty());
     }
 }
