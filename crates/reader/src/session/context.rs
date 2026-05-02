@@ -143,35 +143,84 @@ mod tests {
 
     #[test]
     fn test_initial_state_auth_required() {
-        let ctx = SessionContext::new(test_addr(), SessionFlags { auth_required: true, posting_allowed: true, tls_active: false });
+        let ctx = SessionContext::new(
+            test_addr(),
+            SessionFlags {
+                auth_required: true,
+                posting_allowed: true,
+                tls_active: false,
+            },
+        );
         assert_eq!(ctx.state, SessionState::Authenticating);
     }
 
     #[test]
     fn test_initial_state_no_auth() {
-        let ctx = SessionContext::new(test_addr(), SessionFlags { auth_required: false, posting_allowed: true, tls_active: false });
+        let ctx = SessionContext::new(
+            test_addr(),
+            SessionFlags {
+                auth_required: false,
+                posting_allowed: true,
+                tls_active: false,
+            },
+        );
         assert_eq!(ctx.state, SessionState::Active);
     }
 
     #[test]
     fn test_initial_no_group() {
-        let ctx = SessionContext::new(test_addr(), SessionFlags { auth_required: false, posting_allowed: true, tls_active: false });
+        let ctx = SessionContext::new(
+            test_addr(),
+            SessionFlags {
+                auth_required: false,
+                posting_allowed: true,
+                tls_active: false,
+            },
+        );
         assert!(ctx.selected_group.is_none());
     }
 
     #[test]
     fn test_posting_allowed_flag() {
-        let ctx_allowed = SessionContext::new(test_addr(), SessionFlags { auth_required: false, posting_allowed: true, tls_active: false });
+        let ctx_allowed = SessionContext::new(
+            test_addr(),
+            SessionFlags {
+                auth_required: false,
+                posting_allowed: true,
+                tls_active: false,
+            },
+        );
         assert!(ctx_allowed.posting_allowed);
-        let ctx_denied = SessionContext::new(test_addr(), SessionFlags { auth_required: false, posting_allowed: false, tls_active: false });
+        let ctx_denied = SessionContext::new(
+            test_addr(),
+            SessionFlags {
+                auth_required: false,
+                posting_allowed: false,
+                tls_active: false,
+            },
+        );
         assert!(!ctx_denied.posting_allowed);
     }
 
     #[test]
     fn test_tls_active_flag() {
-        let ctx_plain = SessionContext::new(test_addr(), SessionFlags { auth_required: false, posting_allowed: true, tls_active: false });
+        let ctx_plain = SessionContext::new(
+            test_addr(),
+            SessionFlags {
+                auth_required: false,
+                posting_allowed: true,
+                tls_active: false,
+            },
+        );
         assert!(!ctx_plain.tls_active);
-        let ctx_tls = SessionContext::new(test_addr(), SessionFlags { auth_required: false, posting_allowed: true, tls_active: true });
+        let ctx_tls = SessionContext::new(
+            test_addr(),
+            SessionFlags {
+                auth_required: false,
+                posting_allowed: true,
+                tls_active: true,
+            },
+        );
         assert!(ctx_tls.tls_active);
     }
 }

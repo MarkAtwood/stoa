@@ -23,7 +23,10 @@ use stoa_transit::{
         auth::parse_trusted_peer_keys,
         blacklist::BlacklistConfig,
         ingestion_queue::ingestion_queue,
-        pipeline::{run_pipeline, IpfsStore, PipelineCtx, ERR_MISSING_MESSAGE_ID, ERR_SIGNATURE_SELF_CHECK_FAILED},
+        pipeline::{
+            run_pipeline, IpfsStore, PipelineCtx, ERR_MISSING_MESSAGE_ID,
+            ERR_SIGNATURE_SELF_CHECK_FAILED,
+        },
         rate_limit::{ExhaustionAction, PeerRateLimiter},
         session::{run_peering_session, PeeringShared},
     },

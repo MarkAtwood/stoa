@@ -137,10 +137,9 @@ impl ServerStores {
 
         let trusted_issuer_store = TrustedIssuerStore::from_config(&config.auth.trusted_issuers)?;
 
-        let smtp_relay_queue =
-            build_smtp_relay_queue(&config.smtp_relay, &config.path_hostname)
-                .await
-                .map_err(|e| format!("smtp relay queue init failed: {e}"))?;
+        let smtp_relay_queue = build_smtp_relay_queue(&config.smtp_relay, &config.path_hostname)
+            .await
+            .map_err(|e| format!("smtp relay queue init failed: {e}"))?;
 
         let verify_pool =
             make_disk_pool_with_verify_migrations(&config.database.verify_url).await?;
@@ -429,8 +428,13 @@ async fn build_smtp_relay_queue(
         None
     };
 
-    let queue =
-        SmtpRelayQueue::new(queue_dir, cfg.peers.clone(), down_backoff, dkim_signer, local_hostname)
-            .map_err(|e| e.to_string())?;
+    let queue = SmtpRelayQueue::new(
+        queue_dir,
+        cfg.peers.clone(),
+        down_backoff,
+        dkim_signer,
+        local_hostname,
+    )
+    .map_err(|e| e.to_string())?;
     Ok(Some(queue))
 }

@@ -138,6 +138,7 @@ mod tests {
             slow_jmap_threshold_ms: 0,
             activitypub_config: Default::default(),
             activitypub: None,
+            mta_sts_domains: Arc::new(Vec::new()),
         });
         (state, tmp)
     }

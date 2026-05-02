@@ -1107,7 +1107,7 @@ fn is_blocked_ip(ip: std::net::IpAddr) -> bool {
             || o[0] == 10             // 10.0.0.0/8
             || (o[0] == 172 && (o[1] & 0xf0) == 16)  // 172.16.0.0/12
             || (o[0] == 192 && o[1] == 168)           // 192.168.0.0/16
-            || v4 == Ipv4Addr::BROADCAST              // 255.255.255.255
+            || v4 == Ipv4Addr::BROADCAST // 255.255.255.255
         }
         IpAddr::V6(v6) => {
             let s = v6.segments();

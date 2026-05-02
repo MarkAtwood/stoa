@@ -452,6 +452,7 @@ impl SmtpRelayQueue {
         let relay_envelope = RelayEnvelope {
             mail_from: envelope.mail_from.clone(),
             rcpt_to: envelope.rcpt_to.clone(),
+            require_tls: false,
         };
 
         // DKIM-sign the article before SMTP relay delivery.
@@ -486,6 +487,7 @@ impl SmtpRelayQueue {
             &relay_envelope,
             article_bytes_to_send,
             &self.local_hostname,
+            None,
         )
         .await
         {
@@ -645,8 +647,14 @@ mod tests {
     async fn new_creates_queue_dir_and_dead_subdir() {
         let parent = tempfile::tempdir().expect("tempdir");
         let queue_dir = parent.path().join("sub").join("relay-queue");
-        SmtpRelayQueue::new(queue_dir.clone(), vec![], Duration::from_secs(300), None, "")
-            .expect("new should create dirs");
+        SmtpRelayQueue::new(
+            queue_dir.clone(),
+            vec![],
+            Duration::from_secs(300),
+            None,
+            "",
+        )
+        .expect("new should create dirs");
         assert!(queue_dir.is_dir(), "queue_dir should exist");
         assert!(queue_dir.join("dead").is_dir(), "dead/ subdir should exist");
     }
@@ -805,8 +813,13 @@ mod tests {
         std::fs::set_permissions(&queue_dir, std::fs::Permissions::from_mode(0o555))
             .expect("set permissions");
 
-        let result =
-            SmtpRelayQueue::new(queue_dir.clone(), vec![], Duration::from_secs(300), None, "");
+        let result = SmtpRelayQueue::new(
+            queue_dir.clone(),
+            vec![],
+            Duration::from_secs(300),
+            None,
+            "",
+        );
 
         // Restore write permission so tempdir cleanup can remove the directory.
         let _ = std::fs::set_permissions(&queue_dir, std::fs::Permissions::from_mode(0o755));

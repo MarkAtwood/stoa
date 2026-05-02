@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use std::path::Path;
 
-pub use stoa_smtp::config::SmtpRelayPeerConfig;
+pub use stoa_smtp::config::{MtaStsConfig, MtaStsDomainConfig, MtaStsMode, SmtpRelayPeerConfig};
 
 pub use stoa_auth::{AuthConfig, UserCredential};
 
@@ -22,6 +22,9 @@ pub struct Config {
     pub delivery: DeliveryConfig,
     #[serde(default)]
     pub activitypub: ActivityPubConfig,
+    /// MTA-STS policy configuration (RFC 8461).
+    #[serde(default)]
+    pub mta_sts: MtaStsConfig,
 }
 
 fn default_base_url() -> String {

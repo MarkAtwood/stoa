@@ -29,7 +29,14 @@ fn peer_addr() -> SocketAddr {
 }
 
 fn active_ctx() -> SessionContext {
-    SessionContext::new(peer_addr(), SessionFlags { auth_required: false, posting_allowed: true, tls_active: false })
+    SessionContext::new(
+        peer_addr(),
+        SessionFlags {
+            auth_required: false,
+            posting_allowed: true,
+            tls_active: false,
+        },
+    )
 }
 
 fn make_group(name: &str, numbers: Vec<u64>) -> GroupData {

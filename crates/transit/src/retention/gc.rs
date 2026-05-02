@@ -218,7 +218,10 @@ impl<P: PinClient> GcRunner<P> {
         let errors: Vec<GcReportError> = exec_result
             .errors
             .into_iter()
-            .map(|e| GcReportError { cid: e.cid, reason: e.reason })
+            .map(|e| GcReportError {
+                cid: e.cid,
+                reason: e.reason,
+            })
             .collect();
 
         let elapsed_ms = start.elapsed().as_millis() as u64;
@@ -336,10 +339,11 @@ pub async fn start_gc_scheduler<P, F, Fut>(
             // prevent release_gc_lock from running (zmn9.38 / stoa-c4zlv.87).
             let runner_ref = Arc::clone(&runner);
             let candidates_for_task = candidates.clone();
-            let run_result = tokio::spawn(async move {
-                runner_ref.run_once(&candidates_for_task, now_ms).await
-            })
-            .await;
+            let run_result =
+                tokio::spawn(
+                    async move { runner_ref.run_once(&candidates_for_task, now_ms).await },
+                )
+                .await;
 
             // Always release the advisory lock, even if run_once panicked.
             release_gc_lock(gc_lock.as_ref()).await;

@@ -138,8 +138,7 @@ async fn from_credentials_accepts_multiple_users() {
             password: hash_b,
         },
     ];
-    let store = CredentialStore::from_credentials(&users)
-        .expect("test setup: valid bcrypt hashes");
+    let store = CredentialStore::from_credentials(&users).expect("test setup: valid bcrypt hashes");
     assert!(
         store.check("user-a", "pass-a").await,
         "user-a must be accepted"

@@ -227,8 +227,7 @@ impl BlockCache {
         let mut total_bytes = initial_bytes as u64;
 
         // Fast path: nothing to evict.
-        if count < self.config.max_entries
-            && total_bytes + incoming_bytes <= self.config.max_bytes
+        if count < self.config.max_entries && total_bytes + incoming_bytes <= self.config.max_bytes
         {
             return Ok(());
         }
@@ -284,7 +283,10 @@ impl BlockCache {
             q.execute(&*self.pool).await?;
         }
 
-        debug!(evicted = victim_cids.len(), "evicted LRU entries from block cache");
+        debug!(
+            evicted = victim_cids.len(),
+            "evicted LRU entries from block cache"
+        );
         Ok(())
     }
 }

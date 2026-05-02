@@ -2,9 +2,9 @@ use std::{net::SocketAddr, sync::Arc, time::Instant};
 
 use axum::{
     extract::{DefaultBodyLimit, Extension, Request, State},
-    http::{header, HeaderName, Method, StatusCode},
+    http::{header, HeaderMap, HeaderName, Method, StatusCode},
     middleware::Next,
-    response::Response,
+    response::{IntoResponse, Response},
     routing::{delete, get, post},
     Json, Router,
 };
@@ -70,6 +70,8 @@ pub struct AppState {
     pub slow_jmap_threshold_ms: u64,
     pub activitypub_config: crate::config::ActivityPubConfig,
     pub activitypub: Option<Arc<crate::activitypub::ActivityPubState>>,
+    /// MTA-STS hosted domain policies (RFC 8461). Empty means no domains served.
+    pub mta_sts_domains: Arc<Vec<stoa_smtp::config::MtaStsDomainConfig>>,
 }
 
 /// Authenticated user identity extracted from HTTP Basic Auth.
@@ -263,6 +265,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/health", get(health_handler))
         .route("/metrics", get(metrics_handler))
         .route("/.well-known/jmap", get(well_known_jmap))
+        .route("/.well-known/mta-sts.txt", get(mta_sts_handler))
         .route(
             "/.well-known/webfinger",
             get(crate::activitypub::webfinger_handler),
@@ -303,11 +306,78 @@ async fn health_handler(State(state): State<Arc<AppState>>) -> Json<Value> {
     }))
 }
 
-async fn well_known_jmap() -> impl axum::response::IntoResponse {
+async fn well_known_jmap() -> impl IntoResponse {
     (
         StatusCode::MOVED_PERMANENTLY,
         [(axum::http::header::LOCATION, "/jmap/session")],
     )
+}
+
+/// Render an MTA-STS policy body and derive its policy-id.
+///
+/// Returns `(body, policy_id)` where `body` is the RFC 8461 §3.2 policy text
+/// and `policy_id` is the first 32 hex characters of the SHA-256 of the body,
+/// satisfying the ≤32-char limit from RFC 8461 §3.3.
+pub fn render_mta_sts_policy(
+    domain_config: &stoa_smtp::config::MtaStsDomainConfig,
+) -> (String, String) {
+    use sha2::Digest as _;
+    use stoa_smtp::config::MtaStsMode;
+
+    let mode_str = match domain_config.mode {
+        MtaStsMode::None => "none",
+        MtaStsMode::Testing => "testing",
+        MtaStsMode::Enforce => "enforce",
+    };
+
+    let mut body = format!("version: STSv1\nmode: {mode_str}\n");
+    for pattern in &domain_config.mx_patterns {
+        body.push_str(&format!("mx: {pattern}\n"));
+    }
+    body.push_str(&format!("max_age: {}\n", domain_config.max_age_secs));
+
+    let digest = sha2::Sha256::digest(body.as_bytes());
+    let hex_full = data_encoding::HEXLOWER.encode(&digest);
+    let policy_id = hex_full[..32].to_owned();
+
+    (body, policy_id)
+}
+
+/// Serve `/.well-known/mta-sts.txt` for hosted domains (RFC 8461 §3.3).
+///
+/// Extracts the `Host` header, strips any port suffix, matches it
+/// case-insensitively against `state.mta_sts_domains`, and returns the
+/// rendered policy body with `Content-Type: text/plain`.  Returns 404 for
+/// unknown domains.
+async fn mta_sts_handler(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    let raw_host = headers
+        .get(header::HOST)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    let domain = raw_host
+        .split(':')
+        .next()
+        .unwrap_or(raw_host)
+        .to_lowercase();
+
+    match state
+        .mta_sts_domains
+        .iter()
+        .find(|d| d.domain.to_lowercase() == domain)
+    {
+        None => (
+            StatusCode::NOT_FOUND,
+            [(header::CONTENT_TYPE, "text/plain")],
+            String::new(),
+        ),
+        Some(domain_config) => {
+            let (body, _policy_id) = render_mta_sts_policy(domain_config);
+            (StatusCode::OK, [(header::CONTENT_TYPE, "text/plain")], body)
+        }
+    }
 }
 
 async fn jmap_session_handler(
@@ -376,8 +446,7 @@ impl JmapHandler<JmapCaller> for StoaHandler {
             crate::metrics::JMAP_REQUEST_DURATION_SECONDS
                 .with_label_values(&[&method])
                 .observe(elapsed);
-            if caller.slow_threshold_ms > 0
-                && (elapsed * 1000.0) as u64 >= caller.slow_threshold_ms
+            if caller.slow_threshold_ms > 0 && (elapsed * 1000.0) as u64 >= caller.slow_threshold_ms
             {
                 tracing::warn!(
                     event = "slow_jmap",
@@ -409,9 +478,7 @@ impl JmapHandler<JmapCaller> for StoaHandler {
 /// `"type"` key.  If they do, this function will incorrectly treat them as errors.
 /// All current `route_method` handler arms satisfy this — the `"type"` key appears
 /// only in `MethodError`/`JmapError` objects.  New handlers must preserve this invariant.
-fn stoa_value_to_result(
-    v: Value,
-) -> Result<(Value, Vec<jmap_types::Invocation>), JmapError> {
+fn stoa_value_to_result(v: Value) -> Result<(Value, Vec<jmap_types::Invocation>), JmapError> {
     if let Some(type_str) = v.get("type").and_then(|t| t.as_str()) {
         let mut err = JmapError::custom(type_str);
         err.description = v
@@ -914,8 +981,7 @@ async fn route_method(
             const MAX_IDS: usize = 500;
             if ids.len() > MAX_IDS {
                 let mut err = JmapError::request_too_large();
-                err.description =
-                    Some(format!("ids exceeds maxObjectsInGet limit of {MAX_IDS}"));
+                err.description = Some(format!("ids exceeds maxObjectsInGet limit of {MAX_IDS}"));
                 return serde_json::to_value(&err).unwrap_or(json!({}));
             }
             let email_state = jmap
@@ -1058,8 +1124,7 @@ async fn route_method(
             let mut entries: Vec<crate::thread::get::ThreadEntry> = Vec::new();
             let requested_set: std::collections::HashSet<&str> =
                 requested_ids.iter().map(String::as_str).collect();
-            let mut found: std::collections::HashSet<String> =
-                std::collections::HashSet::new();
+            let mut found: std::collections::HashSet<String> = std::collections::HashSet::new();
             let mut total_scanned: usize = 0;
 
             'outer: for (group_name, lo, hi) in &groups {
@@ -1075,10 +1140,8 @@ async fn route_method(
                     .unwrap_or_default();
                 for rec in &records {
                     if let Some(cid) = cid_map.get(&rec.article_number).copied() {
-                        let tid = crate::thread::get::thread_id_for(
-                            &rec.references,
-                            &rec.message_id,
-                        );
+                        let tid =
+                            crate::thread::get::thread_id_for(&rec.references, &rec.message_id);
                         if requested_set.contains(tid.as_str()) {
                             found.insert(tid);
                         }
@@ -1484,6 +1547,7 @@ mod tests {
             slow_jmap_threshold_ms: 0,
             activitypub_config: Default::default(),
             activitypub: None,
+            mta_sts_domains: Arc::new(Vec::new()),
         });
         (state, tmp)
     }
@@ -1503,6 +1567,7 @@ mod tests {
             slow_jmap_threshold_ms: 0,
             activitypub_config: Default::default(),
             activitypub: None,
+            mta_sts_domains: Arc::new(Vec::new()),
         });
         (state, tmp)
     }
@@ -1522,8 +1587,7 @@ mod tests {
             start_time: Instant::now(),
             jmap: None,
             credential_store: Arc::new(
-                CredentialStore::from_credentials(&users)
-                    .expect("test setup: valid bcrypt hashes"),
+                CredentialStore::from_credentials(&users).expect("test setup: valid bcrypt hashes"),
             ),
             auth_config: Arc::new(AuthConfig {
                 required: true,
@@ -1537,6 +1601,7 @@ mod tests {
             slow_jmap_threshold_ms: 0,
             activitypub_config: Default::default(),
             activitypub: None,
+            mta_sts_domains: Arc::new(Vec::new()),
         });
         (state, tmp)
     }
@@ -1627,6 +1692,7 @@ mod tests {
             slow_jmap_threshold_ms: 0,
             activitypub_config: Default::default(),
             activitypub: None,
+            mta_sts_domains: Arc::new(Vec::new()),
         });
         (state, ipfs, tmps)
     }
@@ -2144,6 +2210,7 @@ mod tests {
             slow_jmap_threshold_ms: 0,
             activitypub_config: Default::default(),
             activitypub: None,
+            mta_sts_domains: Arc::new(Vec::new()),
         });
         let addr = spawn_server(state).await;
         let resp = reqwest::Client::new()
@@ -2187,6 +2254,7 @@ mod tests {
             slow_jmap_threshold_ms: 0,
             activitypub_config: Default::default(),
             activitypub: None,
+            mta_sts_domains: Arc::new(Vec::new()),
         });
         let addr = spawn_server(state).await;
         let resp = reqwest::Client::new()
@@ -2596,8 +2664,7 @@ mod tests {
             start_time: Instant::now(),
             jmap: None,
             credential_store: Arc::new(
-                CredentialStore::from_credentials(&users)
-                    .expect("test setup: valid bcrypt hashes"),
+                CredentialStore::from_credentials(&users).expect("test setup: valid bcrypt hashes"),
             ),
             auth_config: Arc::new(AuthConfig {
                 required: true,
@@ -2612,6 +2679,7 @@ mod tests {
             slow_jmap_threshold_ms: 0,
             activitypub_config: Default::default(),
             activitypub: None,
+            mta_sts_domains: Arc::new(Vec::new()),
         });
         (state, tmp)
     }
@@ -2674,6 +2742,7 @@ mod tests {
                     verify_http_signatures: false,
                 },
                 activitypub: None,
+                mta_sts_domains: Arc::new(Vec::new()),
                 ..inner
             }),
             tmp,
@@ -2870,5 +2939,221 @@ mod tests {
         let (out, extra) = result.unwrap();
         assert_eq!(out, v);
         assert!(extra.is_empty());
+    }
+
+    // ── stoa-2xeks.20: /.well-known/mta-sts.txt handler tests ────────────────
+
+    async fn mta_sts_state(
+        domains: Vec<stoa_smtp::config::MtaStsDomainConfig>,
+    ) -> (Arc<AppState>, tempfile::TempPath) {
+        let (ts, tmp) = make_token_store().await;
+        let state = Arc::new(AppState {
+            start_time: Instant::now(),
+            jmap: None,
+            credential_store: Arc::new(CredentialStore::empty()),
+            auth_config: Arc::new(AuthConfig::default()),
+            token_store: ts,
+            oidc_store: None,
+            base_url: "http://localhost".to_string(),
+            cors: crate::config::CorsConfig::default(),
+            slow_jmap_threshold_ms: 0,
+            activitypub_config: Default::default(),
+            activitypub: None,
+            mta_sts_domains: Arc::new(domains),
+        });
+        (state, tmp)
+    }
+
+    // T1: known domain with enforce policy → 200 + text/plain + correct body.
+    // Oracle: hand-written expected body per RFC 8461 §3.2 format; SHA-256 of
+    // body pre-computed with Python's hashlib.sha256 (independent of the
+    // implementation).
+    #[tokio::test]
+    async fn mta_sts_handler_enforce_returns_200_with_correct_body() {
+        use stoa_smtp::config::{MtaStsDomainConfig, MtaStsMode};
+
+        let domain_config = MtaStsDomainConfig {
+            domain: "example.com".to_string(),
+            mode: MtaStsMode::Enforce,
+            mx_patterns: vec!["mail.example.com".to_string()],
+            max_age_secs: 86400,
+        };
+        let (state, _tmp) = mta_sts_state(vec![domain_config]).await;
+        let addr = spawn_server(state).await;
+
+        let resp = reqwest::Client::new()
+            .get(format!("http://{addr}/.well-known/mta-sts.txt"))
+            .header("Host", "example.com")
+            .send()
+            .await
+            .expect("request must succeed");
+
+        assert_eq!(resp.status(), 200);
+        assert_eq!(
+            resp.headers()
+                .get("content-type")
+                .and_then(|v| v.to_str().ok()),
+            Some("text/plain")
+        );
+        let body = resp.text().await.expect("body");
+        assert_eq!(
+            body,
+            "version: STSv1\nmode: enforce\nmx: mail.example.com\nmax_age: 86400\n"
+        );
+    }
+
+    // T2: known domain with testing mode → 200 with "mode: testing" in body.
+    // Oracle: hand-written expected body.
+    #[tokio::test]
+    async fn mta_sts_handler_testing_mode_returns_correct_body() {
+        use stoa_smtp::config::{MtaStsDomainConfig, MtaStsMode};
+
+        let domain_config = MtaStsDomainConfig {
+            domain: "example.com".to_string(),
+            mode: MtaStsMode::Testing,
+            mx_patterns: vec!["mail.example.com".to_string()],
+            max_age_secs: 3600,
+        };
+        let (state, _tmp) = mta_sts_state(vec![domain_config]).await;
+        let addr = spawn_server(state).await;
+
+        let resp = reqwest::Client::new()
+            .get(format!("http://{addr}/.well-known/mta-sts.txt"))
+            .header("Host", "example.com")
+            .send()
+            .await
+            .expect("request must succeed");
+
+        assert_eq!(resp.status(), 200);
+        let body = resp.text().await.expect("body");
+        assert_eq!(
+            body,
+            "version: STSv1\nmode: testing\nmx: mail.example.com\nmax_age: 3600\n"
+        );
+    }
+
+    // T3: known domain with multiple MX patterns → all patterns appear in body.
+    // Oracle: hand-written expected body.
+    #[tokio::test]
+    async fn mta_sts_handler_multiple_mx_patterns_all_in_body() {
+        use stoa_smtp::config::{MtaStsDomainConfig, MtaStsMode};
+
+        let domain_config = MtaStsDomainConfig {
+            domain: "example.com".to_string(),
+            mode: MtaStsMode::Enforce,
+            mx_patterns: vec![
+                "mx1.example.com".to_string(),
+                "mx2.example.com".to_string(),
+            ],
+            max_age_secs: 86400,
+        };
+        let (state, _tmp) = mta_sts_state(vec![domain_config]).await;
+        let addr = spawn_server(state).await;
+
+        let resp = reqwest::Client::new()
+            .get(format!("http://{addr}/.well-known/mta-sts.txt"))
+            .header("Host", "example.com")
+            .send()
+            .await
+            .expect("request must succeed");
+
+        assert_eq!(resp.status(), 200);
+        let body = resp.text().await.expect("body");
+        assert_eq!(
+            body,
+            "version: STSv1\nmode: enforce\nmx: mx1.example.com\nmx: mx2.example.com\nmax_age: 86400\n"
+        );
+    }
+
+    // T4: policy_id is first 32 hex chars of SHA-256 of the policy body.
+    // Oracle: Python hashlib.sha256 computed independently for the test body.
+    //   body = "version: STSv1\nmode: enforce\nmx: mail.example.com\nmax_age: 86400\n"
+    //   hashlib.sha256(body.encode()).hexdigest()[:32] == "bc184e4363fb9dabae68ae9b0583c839"
+    #[test]
+    fn render_mta_sts_policy_id_is_sha256_first32() {
+        use stoa_smtp::config::{MtaStsDomainConfig, MtaStsMode};
+
+        let domain_config = MtaStsDomainConfig {
+            domain: "example.com".to_string(),
+            mode: MtaStsMode::Enforce,
+            mx_patterns: vec!["mail.example.com".to_string()],
+            max_age_secs: 86400,
+        };
+        let (body, policy_id) = render_mta_sts_policy(&domain_config);
+        assert_eq!(
+            body,
+            "version: STSv1\nmode: enforce\nmx: mail.example.com\nmax_age: 86400\n"
+        );
+        assert_eq!(policy_id.len(), 32);
+        assert_eq!(policy_id, "bc184e4363fb9dabae68ae9b0583c839");
+    }
+
+    // T5: unknown domain → 404.
+    // Oracle: RFC 8461 §3.3 — domains not configured for MTA-STS must return 404.
+    #[tokio::test]
+    async fn mta_sts_handler_unknown_domain_returns_404() {
+        let (state, _tmp) = mta_sts_state(vec![]).await;
+        let addr = spawn_server(state).await;
+
+        let resp = reqwest::Client::new()
+            .get(format!("http://{addr}/.well-known/mta-sts.txt"))
+            .header("Host", "unknown.example.com")
+            .send()
+            .await
+            .expect("request must succeed");
+
+        assert_eq!(resp.status(), 404);
+    }
+
+    // T6: Host header matching is case-insensitive.
+    // Oracle: RFC 4343 — DNS labels are case-insensitive; domain matching must
+    // follow the same rule so that "EXAMPLE.COM" matches "example.com".
+    #[tokio::test]
+    async fn mta_sts_handler_host_case_insensitive() {
+        use stoa_smtp::config::{MtaStsDomainConfig, MtaStsMode};
+
+        let domain_config = MtaStsDomainConfig {
+            domain: "Example.COM".to_string(),
+            mode: MtaStsMode::Enforce,
+            mx_patterns: vec!["mail.example.com".to_string()],
+            max_age_secs: 86400,
+        };
+        let (state, _tmp) = mta_sts_state(vec![domain_config]).await;
+        let addr = spawn_server(state).await;
+
+        let resp = reqwest::Client::new()
+            .get(format!("http://{addr}/.well-known/mta-sts.txt"))
+            .header("Host", "example.com")
+            .send()
+            .await
+            .expect("request must succeed");
+
+        assert_eq!(resp.status(), 200, "case-insensitive host match must return 200");
+    }
+
+    // T7: Host header with port suffix → domain part used for matching.
+    // Oracle: HTTP/1.1 Host header may include port (RFC 7230 §5.4); port must
+    // be stripped before comparing against configured domains.
+    #[tokio::test]
+    async fn mta_sts_handler_host_with_port_stripped() {
+        use stoa_smtp::config::{MtaStsDomainConfig, MtaStsMode};
+
+        let domain_config = MtaStsDomainConfig {
+            domain: "example.com".to_string(),
+            mode: MtaStsMode::Enforce,
+            mx_patterns: vec!["mail.example.com".to_string()],
+            max_age_secs: 86400,
+        };
+        let (state, _tmp) = mta_sts_state(vec![domain_config]).await;
+        let addr = spawn_server(state).await;
+
+        let resp = reqwest::Client::new()
+            .get(format!("http://{addr}/.well-known/mta-sts.txt"))
+            .header("Host", "example.com:443")
+            .send()
+            .await
+            .expect("request must succeed");
+
+        assert_eq!(resp.status(), 200, "Host with port suffix must still match");
     }
 }

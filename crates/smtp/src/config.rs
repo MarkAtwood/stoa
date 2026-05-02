@@ -54,6 +54,9 @@ pub struct Config {
     /// error.
     #[serde(default)]
     pub peer_whitelist: Vec<IpNet>,
+    /// MTA-STS policy configuration (RFC 8461).
+    #[serde(default)]
+    pub mta_sts: MtaStsConfig,
 }
 
 fn default_db_path() -> String {
@@ -498,6 +501,62 @@ impl std::fmt::Display for DnsResolver {
 
 fn default_hostname() -> String {
     "localhost".to_owned()
+}
+
+/// MTA-STS operating mode for a hosted domain (RFC 8461 §3.2).
+#[derive(Debug, Clone, Default, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum MtaStsMode {
+    /// Do not enforce TLS; publish policy for testing purposes only.
+    #[default]
+    None,
+    /// Enforce check but do not block delivery on failure; report only.
+    Testing,
+    /// Block delivery if TLS or MX validation fails.
+    Enforce,
+}
+
+/// MTA-STS policy configuration for one hosted domain.
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct MtaStsDomainConfig {
+    /// The domain this policy applies to (e.g. "example.com").
+    pub domain: String,
+    /// Policy enforcement mode.
+    #[serde(default)]
+    pub mode: MtaStsMode,
+    /// MX hostname patterns for this domain (e.g. ["*.example.com"]).
+    #[serde(default)]
+    pub mx_patterns: Vec<String>,
+    /// Cache lifetime in seconds (1–31557600). Default: 86400 (1 day).
+    #[serde(default = "default_mta_sts_max_age_secs")]
+    pub max_age_secs: u32,
+}
+
+/// Top-level MTA-STS configuration block.
+#[derive(Debug, Clone, serde::Deserialize, Default)]
+pub struct MtaStsConfig {
+    /// Whether MTA-STS checking is enabled at all.
+    #[serde(default)]
+    pub enabled: bool,
+    /// Per-domain policy configuration for domains this server hosts.
+    #[serde(default)]
+    pub hosted_domains: Vec<MtaStsDomainConfig>,
+    /// Timeout in milliseconds for HTTPS policy fetch. Default: 10000.
+    #[serde(default = "default_mta_sts_fetch_timeout_ms")]
+    pub fetch_timeout_ms: u64,
+    /// Maximum allowed policy body size in bytes. Default: 65536 (64 KiB).
+    #[serde(default = "default_mta_sts_max_policy_body_bytes")]
+    pub max_policy_body_bytes: usize,
+}
+
+fn default_mta_sts_max_age_secs() -> u32 {
+    86400
+}
+fn default_mta_sts_fetch_timeout_ms() -> u64 {
+    10_000
+}
+fn default_mta_sts_max_policy_body_bytes() -> usize {
+    65_536
 }
 
 #[non_exhaustive]

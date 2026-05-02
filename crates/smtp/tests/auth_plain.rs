@@ -112,6 +112,7 @@ fn test_config(tim_credential: Option<UserCredential>) -> Arc<Config> {
         dns_resolver: DnsResolver::System,
         auth,
         peer_whitelist: vec![],
+        mta_sts: Default::default(),
     })
 }
 

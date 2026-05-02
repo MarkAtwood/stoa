@@ -65,6 +65,7 @@ fn test_config() -> Arc<Config> {
         dns_resolver: DnsResolver::System,
         auth: AuthConfig::default(),
         peer_whitelist: vec![],
+        mta_sts: Default::default(),
     })
 }
 

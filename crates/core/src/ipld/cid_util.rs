@@ -90,8 +90,8 @@ use crate::ipld::codec::CODEC_RAW;
 /// - `header_bytes`: verbatim RFC 5536 wire header bytes
 /// - `body_bytes`: dot-unstuffed NNTP body bytes
 pub fn cid_for_article(header_bytes: &[u8], body_bytes: &[u8]) -> Cid {
-    let header_len = u32::try_from(header_bytes.len())
-        .expect("header_bytes length must fit in u32");
+    let header_len =
+        u32::try_from(header_bytes.len()).expect("header_bytes length must fit in u32");
     let mut combined = Vec::with_capacity(4 + header_bytes.len() + body_bytes.len());
     combined.extend_from_slice(&header_len.to_be_bytes());
     combined.extend_from_slice(header_bytes);
@@ -154,6 +154,9 @@ mod tests {
         // header1="AB", body1="C" vs header2="A", body2="BC" — same concat, different split.
         let cid1 = cid_for_article(b"AB", b"C");
         let cid2 = cid_for_article(b"A", b"BC");
-        assert_ne!(cid1, cid2, "different header/body splits must produce different CIDs");
+        assert_ne!(
+            cid1, cid2,
+            "different header/body splits must produce different CIDs"
+        );
     }
 }

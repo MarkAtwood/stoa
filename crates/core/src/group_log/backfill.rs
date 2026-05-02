@@ -129,9 +129,7 @@ where
                 // Fall through to BFS path by returning without advancing tips.
                 return Ok(0);
             };
-            storage
-                .advance_tips(group, &parent_ids, &want_id)
-                .await?;
+            storage.advance_tips(group, &parent_ids, &want_id).await?;
         }
         return Ok(0);
     }
@@ -681,11 +679,7 @@ mod tests {
         let child_id = make_entry_id(b"stale-tip-child");
 
         let parent_entry = make_entry(1_000, b"art-parent", vec![]);
-        let child_entry = make_entry(
-            2_000,
-            b"art-child",
-            vec![entry_id_to_cid(&parent_id)],
-        );
+        let child_entry = make_entry(2_000, b"art-child", vec![entry_id_to_cid(&parent_id)]);
 
         local
             .insert_entry(parent_id.clone(), parent_entry)
@@ -697,10 +691,7 @@ mod tests {
             .unwrap();
 
         // Manually set the tip to parent only — child is present but not a tip.
-        local
-            .set_tips(&group, &[parent_id.clone()])
-            .await
-            .unwrap();
+        local.set_tips(&group, &[parent_id.clone()]).await.unwrap();
 
         // Backfill for child_id: it's already present so no fetch calls.
         let count = backfill(&local, &group, child_id.clone(), |_id| async move {

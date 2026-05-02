@@ -158,6 +158,7 @@ async fn main() {
         slow_jmap_threshold_ms: config.log.slow_jmap_threshold_ms,
         activitypub_config: config.activitypub,
         activitypub: None,
+        mta_sts_domains: Arc::new(config.mta_sts.hosted_domains),
     });
 
     let shutdown = async {

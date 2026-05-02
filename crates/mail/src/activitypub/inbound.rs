@@ -379,8 +379,8 @@ async fn fetch_public_key(key_id: &str, http_client: &reqwest::Client) -> Result
         ));
     }
 
-    let actor: Value = serde_json::from_slice(&buf)
-        .map_err(|e| format!("failed to parse actor JSON: {e}"))?;
+    let actor: Value =
+        serde_json::from_slice(&buf).map_err(|e| format!("failed to parse actor JSON: {e}"))?;
 
     let pem = actor["publicKey"]["publicKeyPem"]
         .as_str()
@@ -470,8 +470,24 @@ fn verify_rsa_sha256(pub_key_pem: &str, signed_string: &str, sig_b64: &str) -> R
 fn strip_html(html: &str) -> String {
     // Only block-level tags produce a newline; inline tags (strong, em, a, etc.) do not.
     const BLOCK_TAGS: &[&str] = &[
-        "p", "div", "br", "h1", "h2", "h3", "h4", "h5", "h6",
-        "li", "ul", "ol", "blockquote", "pre", "hr", "tr", "td", "th",
+        "p",
+        "div",
+        "br",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "li",
+        "ul",
+        "ol",
+        "blockquote",
+        "pre",
+        "hr",
+        "tr",
+        "td",
+        "th",
     ];
 
     let mut out = String::with_capacity(html.len());
@@ -486,7 +502,8 @@ fn strip_html(html: &str) -> String {
             '>' => {
                 in_tag = false;
                 // Strip leading '/' for closing tags, then take the tag name.
-                let name = tag_buf.trim_start_matches('/')
+                let name = tag_buf
+                    .trim_start_matches('/')
                     .split_ascii_whitespace()
                     .next()
                     .unwrap_or("")

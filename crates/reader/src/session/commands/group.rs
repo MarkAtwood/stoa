@@ -167,7 +167,11 @@ mod tests {
     fn make_ctx() -> SessionContext {
         SessionContext::new(
             SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 1234),
-            SessionFlags { auth_required: false, posting_allowed: true, tls_active: false },
+            SessionFlags {
+                auth_required: false,
+                posting_allowed: true,
+                tls_active: false,
+            },
         )
     }
 

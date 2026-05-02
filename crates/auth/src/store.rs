@@ -107,9 +107,7 @@ impl CredentialStore {
     /// This catches the common mistake of storing a plaintext password in
     /// `[auth.users]`; a plaintext value would cause `bcrypt::verify` to always
     /// return `false`, making authentication silently fail at request time.
-    pub fn from_credentials(
-        users: &[UserCredential],
-    ) -> Result<Self, CredentialStoreError> {
+    pub fn from_credentials(users: &[UserCredential]) -> Result<Self, CredentialStoreError> {
         for u in users {
             if !looks_like_bcrypt_hash(&u.password) {
                 return Err(CredentialStoreError::BadHash {

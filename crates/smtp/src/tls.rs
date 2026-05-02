@@ -101,6 +101,7 @@ mod tests {
             dns_resolver: crate::config::DnsResolver::System,
             auth: AuthConfig::default(),
             peer_whitelist: vec![],
+            mta_sts: Default::default(),
         };
         assert!(tls_configured(&cfg));
     }
@@ -131,6 +132,7 @@ mod tests {
             dns_resolver: crate::config::DnsResolver::System,
             auth: AuthConfig::default(),
             peer_whitelist: vec![],
+            mta_sts: Default::default(),
         };
         assert!(!tls_configured(&cfg));
     }

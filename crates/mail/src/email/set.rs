@@ -526,15 +526,14 @@ mod tests {
             username: None,
             password: None,
         };
-        let queue =
-            stoa_smtp::SmtpRelayQueue::new(
-                dir.path(),
-                vec![peer],
-                Duration::from_secs(300),
-                None,
-                "test.example.com",
-            )
-            .expect("queue");
+        let queue = stoa_smtp::SmtpRelayQueue::new(
+            dir.path(),
+            vec![peer],
+            Duration::from_secs(300),
+            None,
+            "test.example.com",
+        )
+        .expect("queue");
 
         let (msgid_map, _tmp_msgid) = make_msgid_map().await;
         let ipfs = MemIpfsStore::new();
@@ -583,15 +582,14 @@ mod tests {
             username: None,
             password: None,
         };
-        let queue =
-            stoa_smtp::SmtpRelayQueue::new(
-                dir.path(),
-                vec![peer],
-                Duration::from_secs(300),
-                None,
-                "test.example.com",
-            )
-            .expect("queue");
+        let queue = stoa_smtp::SmtpRelayQueue::new(
+            dir.path(),
+            vec![peer],
+            Duration::from_secs(300),
+            None,
+            "test.example.com",
+        )
+        .expect("queue");
 
         let (msgid_map, _tmp_msgid) = make_msgid_map().await;
         let ipfs = MemIpfsStore::new();
@@ -639,15 +637,14 @@ mod tests {
             username: None,
             password: None,
         };
-        let queue =
-            stoa_smtp::SmtpRelayQueue::new(
-                dir.path(),
-                vec![peer],
-                Duration::from_secs(300),
-                None,
-                "test.example.com",
-            )
-            .expect("queue");
+        let queue = stoa_smtp::SmtpRelayQueue::new(
+            dir.path(),
+            vec![peer],
+            Duration::from_secs(300),
+            None,
+            "test.example.com",
+        )
+        .expect("queue");
 
         // Remove the queue directory so enqueue will fail with an I/O error.
         std::fs::remove_dir_all(dir.path()).expect("remove queue dir");

@@ -449,7 +449,11 @@ async fn auth_lockout_triggered_after_threshold_failures() {
 
     // Verify the tracker recorded all 3 failures for 127.0.0.1.
     let peer_ip: std::net::IpAddr = "127.0.0.1".parse().unwrap();
-    let count = stores.auth_failure_tracker.lock().await.failure_count(peer_ip);
+    let count = stores
+        .auth_failure_tracker
+        .lock()
+        .await
+        .failure_count(peer_ip);
     assert_eq!(
         count, 3,
         "auth_failure_tracker must record 3 failures for 127.0.0.1; got {count}"
@@ -488,7 +492,9 @@ async fn article_posted_writes_audit_row() {
     let stores = Arc::new(ServerStores {
         ipfs_store: Arc::new(MemIpfs::new()) as Arc<dyn IpfsBlockStore>,
         msgid_map: Arc::new(MsgIdMap::new(core_pool.clone())),
-        log_storage: Arc::new(stoa_core::group_log::SqliteLogStorage::new(core_pool.clone())),
+        log_storage: Arc::new(stoa_core::group_log::SqliteLogStorage::new(
+            core_pool.clone(),
+        )),
         article_numbers: Arc::new(ArticleNumberStore::new(reader_pool.clone())),
         overview_store: Arc::new(OverviewStore::new(reader_pool)),
         credential_store: Arc::new(CredentialStore::empty()),

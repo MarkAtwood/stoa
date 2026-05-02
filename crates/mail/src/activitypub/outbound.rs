@@ -151,7 +151,11 @@ pub async fn deliver_article(
             if let Some(res) = join_set.join_next().await {
                 match res {
                     Ok(result) => {
-                        if result.success { delivered += 1; } else { failed += 1; }
+                        if result.success {
+                            delivered += 1;
+                        } else {
+                            failed += 1;
+                        }
                         results.push(result);
                     }
                     Err(e) => {

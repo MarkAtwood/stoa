@@ -150,7 +150,11 @@ mod tests {
     async fn sample_empty_db_returns_zero_groups() {
         let (pool, _tmp) = make_pool().await;
         let groups = sample_group_metrics(&pool, &HashSet::new()).await.unwrap();
-        assert_eq!(groups.len(), 0, "empty articles table should return 0 groups");
+        assert_eq!(
+            groups.len(),
+            0,
+            "empty articles table should return 0 groups"
+        );
     }
 
     #[tokio::test]
@@ -217,7 +221,11 @@ mod tests {
 
         let groups = sample_group_metrics(&pool, &HashSet::new()).await.unwrap();
         // Guard fires: returns empty set (no gauges set).
-        assert_eq!(groups.len(), 0, "guard must return empty set when cardinality exceeded");
+        assert_eq!(
+            groups.len(),
+            0,
+            "guard must return empty set when cardinality exceeded"
+        );
 
         // Gauges for group "g.0" must NOT have been updated (guard suppressed).
         // They will be absent (0.0 default) because these are new label values.
@@ -259,6 +267,9 @@ mod tests {
         let after = crate::metrics::GROUP_LOG_ENTRIES_TOTAL
             .with_label_values(&["alt.gone"])
             .get();
-        assert_eq!(after, 0.0, "gauge for GC'd group must be removed (reads back as 0)");
+        assert_eq!(
+            after, 0.0,
+            "gauge for GC'd group must be removed (reads back as 0)"
+        );
     }
 }

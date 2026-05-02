@@ -357,8 +357,7 @@ pub fn start_audit_logger(
     batch_size: usize,
     flush_interval: std::time::Duration,
 ) -> AuditLoggerHandle {
-    let (tx, rx) =
-        tokio::sync::mpsc::channel::<(i64, AuditEvent)>(AUDIT_CHANNEL_CAPACITY);
+    let (tx, rx) = tokio::sync::mpsc::channel::<(i64, AuditEvent)>(AUDIT_CHANNEL_CAPACITY);
     let join = tokio::spawn(audit_logger_task(pool, rx, batch_size, flush_interval));
     AuditLoggerHandle { tx, join }
 }
@@ -675,9 +674,27 @@ mod tests {
         // Use fixed timestamps (1/2/3 ms) — the exact values don't matter for
         // this test; we're only verifying that the dropped counter increments.
         let mut buffer = vec![
-            (1i64, AuditEvent::GcRun { articles_unpinned: 1, group_name: "comp.test".to_string() }),
-            (2i64, AuditEvent::GcRun { articles_unpinned: 2, group_name: "comp.test".to_string() }),
-            (3i64, AuditEvent::GcRun { articles_unpinned: 3, group_name: "comp.test".to_string() }),
+            (
+                1i64,
+                AuditEvent::GcRun {
+                    articles_unpinned: 1,
+                    group_name: "comp.test".to_string(),
+                },
+            ),
+            (
+                2i64,
+                AuditEvent::GcRun {
+                    articles_unpinned: 2,
+                    group_name: "comp.test".to_string(),
+                },
+            ),
+            (
+                3i64,
+                AuditEvent::GcRun {
+                    articles_unpinned: 3,
+                    group_name: "comp.test".to_string(),
+                },
+            ),
         ];
 
         flush_buffer(&pool, &mut buffer).await;

@@ -177,9 +177,7 @@ pub async fn handle_list(
     // afterwards to enforce exact wildcard semantics.
     let db_prefix: Option<String> = {
         let news_part = pattern.strip_prefix("News/").unwrap_or("");
-        let end = news_part
-            .find(['*', '%'])
-            .unwrap_or(news_part.len());
+        let end = news_part.find(['*', '%']).unwrap_or(news_part.len());
         if end > 0 {
             Some(format!("{}%", &news_part[..end]))
         } else {

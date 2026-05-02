@@ -282,9 +282,12 @@ pub async fn run_session<S>(
                 } else {
                     ""
                 };
+                // RFC 8689 §2: REQUIRETLS MUST only be advertised on a TLS
+                // session so that clients know the server can enforce it.
+                let requiretls_line = if is_tls { "250-REQUIRETLS\r\n" } else { "" };
                 let resp = format!(
-                    "250-{}\r\n250-SIZE {}\r\n250-8BITMIME\r\n250-SMTPUTF8\r\n250-PIPELINING\r\n{}250 OK\r\n",
-                    config.hostname, config.limits.max_message_bytes, auth_line
+                    "250-{}\r\n250-SIZE {}\r\n250-8BITMIME\r\n250-SMTPUTF8\r\n250-PIPELINING\r\n{}{}250 OK\r\n",
+                    config.hostname, config.limits.max_message_bytes, auth_line, requiretls_line
                 );
                 if write_half.write_all(resp.as_bytes()).await.is_err() {
                     break;
@@ -440,6 +443,19 @@ pub async fn run_session<S>(
                 if !credential_store.is_empty() && authenticated_user.is_none() {
                     if write_half
                         .write_all(b"530 5.7.0 Authentication required\r\n")
+                        .await
+                        .is_err()
+                    {
+                        break;
+                    }
+                    continue;
+                }
+                // RFC 8689 §2: REQUIRETLS is only valid on a TLS-protected session.
+                // Reject on plaintext with 530 5.7.0 rather than silently ignoring the
+                // parameter, which would let a client believe the TLS requirement was honoured.
+                if has_requiretls_param(args) && !is_tls {
+                    if write_half
+                        .write_all(b"530 5.7.0 REQUIRETLS requires TLS\r\n")
                         .await
                         .is_err()
                     {
@@ -1273,6 +1289,27 @@ fn parse_angle_addr(args: &str) -> String {
     trimmed.to_string()
 }
 
+/// Return `true` if the SMTP MAIL FROM argument string contains the standalone
+/// `REQUIRETLS` parameter (RFC 8689 §2).
+///
+/// The parameter is case-insensitive per RFC 5321 §4.1.2.  It appears after
+/// the closing `>` of the address part, separated by whitespace.  Examples:
+///
+/// - `FROM:<user@example.com> REQUIRETLS`          → true
+/// - `FROM:<user@example.com> SIZE=1000 REQUIRETLS` → true
+/// - `FROM:<user@example.com>`                      → false
+fn has_requiretls_param(args: &str) -> bool {
+    // Strip up to and including the first `>` to isolate ESMTP params.
+    let params = match args.find('>') {
+        Some(pos) => &args[pos + 1..],
+        None => args,
+    };
+    // Split on ASCII whitespace; look for a case-insensitive "REQUIRETLS" token.
+    params
+        .split_ascii_whitespace()
+        .any(|tok| tok.eq_ignore_ascii_case("REQUIRETLS"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1339,6 +1376,7 @@ mod tests {
             dns_resolver: crate::config::DnsResolver::System,
             auth: AuthConfig::default(),
             peer_whitelist: vec![],
+            mta_sts: Default::default(),
         })
     }
 
@@ -1956,6 +1994,47 @@ mod tests {
         assert_eq!(parse_angle_addr("foo@bar.com"), "foo@bar.com");
     }
 
+    // ── stoa-2xeks.21: has_requiretls_param unit tests ────────────────────────
+
+    // T1: REQUIRETLS alone after address returns true.
+    // Oracle: RFC 8689 §2 — parameter token is case-insensitive.
+    #[test]
+    fn has_requiretls_param_present() {
+        assert!(has_requiretls_param("FROM:<user@example.com> REQUIRETLS"));
+    }
+
+    // T2: lowercase requiretls is accepted (case-insensitive per RFC 5321 §4.1.2).
+    #[test]
+    fn has_requiretls_param_lowercase() {
+        assert!(has_requiretls_param("FROM:<user@example.com> requiretls"));
+    }
+
+    // T3: REQUIRETLS mixed with SIZE parameter.
+    #[test]
+    fn has_requiretls_param_with_size() {
+        assert!(has_requiretls_param(
+            "FROM:<user@example.com> SIZE=1000 REQUIRETLS"
+        ));
+    }
+
+    // T4: no REQUIRETLS parameter returns false.
+    #[test]
+    fn has_requiretls_param_absent() {
+        assert!(!has_requiretls_param("FROM:<user@example.com>"));
+    }
+
+    // T5: SIZE only, no REQUIRETLS, returns false.
+    #[test]
+    fn has_requiretls_param_size_only() {
+        assert!(!has_requiretls_param("FROM:<user@example.com> SIZE=99999"));
+    }
+
+    // T6: "REQUIRETLS" is not a prefix match — "REQUIRETLSx" must not match.
+    #[test]
+    fn has_requiretls_param_no_prefix_match() {
+        assert!(!has_requiretls_param("FROM:<user@example.com> REQUIRETLSx"));
+    }
+
     // ── ryw.2: integration — MAIL FROM with SIZE must not corrupt envelope ───
 
     #[tokio::test]
@@ -2026,6 +2105,7 @@ mod tests {
             dns_resolver: crate::config::DnsResolver::System,
             auth: AuthConfig::default(),
             peer_whitelist: vec![],
+            mta_sts: Default::default(),
         });
 
         let client = b"EHLO client.example.com\r\nQUIT\r\n";
@@ -2105,6 +2185,7 @@ mod tests {
             dns_resolver: crate::config::DnsResolver::System,
             auth: AuthConfig::default(),
             peer_whitelist: vec![],
+            mta_sts: Default::default(),
         });
 
         let queue_dir = tempfile::tempdir().expect("tempdir");
@@ -2388,8 +2469,7 @@ mod tests {
             password: hash,
         }];
         let credential_store = Arc::new(
-            CredentialStore::from_credentials(&creds)
-                .expect("test setup: valid bcrypt hash"),
+            CredentialStore::from_credentials(&creds).expect("test setup: valid bcrypt hash"),
         );
 
         let config = test_config();
@@ -2439,6 +2519,157 @@ mod tests {
         assert!(
             !response.contains("354"),
             "MAIL FROM must not succeed without auth: {response}"
+        );
+    }
+    // ── stoa-2xeks.21: EHLO REQUIRETLS advertisement ─────────────────────────
+
+    // T7: REQUIRETLS advertised in EHLO when is_tls=true.
+    // Oracle: RFC 8689 §2 — REQUIRETLS MUST appear in EHLO only on TLS.
+    // We use the loopback listener approach already established in test_basic_smtp_session.
+    #[tokio::test]
+    async fn ehlo_includes_requiretls_on_tls_session() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let config = test_config();
+        let queue_dir = tempfile::tempdir().expect("tempdir");
+        let nntp_queue = NntpQueue::new(queue_dir.path(), None).expect("NntpQueue::new");
+        let addr = {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+                .await
+                .expect("bind");
+            let local = listener.local_addr().expect("local_addr");
+            let config2 = config.clone();
+            let queue2 = Arc::clone(&nntp_queue);
+            tokio::spawn(async move {
+                let (stream, peer) = listener.accept().await.expect("accept");
+                run_session(
+                    stream,
+                    true,
+                    peer.to_string(),
+                    config2,
+                    Arc::new(CredentialStore::empty()),
+                    queue2,
+                    None,
+                    Arc::new(crate::dns_cache::DnsCache::new()),
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+                .await;
+            });
+            local
+        };
+        let mut client = tokio::net::TcpStream::connect(addr).await.expect("connect");
+        client
+            .write_all(b"EHLO client.example.com\r\nQUIT\r\n")
+            .await
+            .expect("write");
+        let mut response = String::new();
+        client.read_to_string(&mut response).await.expect("read");
+        assert!(
+            response.contains("REQUIRETLS"),
+            "REQUIRETLS must appear in EHLO when is_tls=true, got: {response}"
+        );
+    }
+
+    // T8: REQUIRETLS NOT advertised in EHLO when is_tls=false.
+    // Oracle: RFC 8689 §2 — advertising REQUIRETLS on plaintext is forbidden.
+    #[tokio::test]
+    async fn ehlo_excludes_requiretls_on_plaintext_session() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let config = test_config();
+        let queue_dir = tempfile::tempdir().expect("tempdir");
+        let nntp_queue = NntpQueue::new(queue_dir.path(), None).expect("NntpQueue::new");
+        let addr = {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+                .await
+                .expect("bind");
+            let local = listener.local_addr().expect("local_addr");
+            let config2 = config.clone();
+            let queue2 = Arc::clone(&nntp_queue);
+            tokio::spawn(async move {
+                let (stream, peer) = listener.accept().await.expect("accept");
+                run_session(
+                    stream,
+                    false,
+                    peer.to_string(),
+                    config2,
+                    Arc::new(CredentialStore::empty()),
+                    queue2,
+                    None,
+                    Arc::new(crate::dns_cache::DnsCache::new()),
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+                .await;
+            });
+            local
+        };
+        let mut client = tokio::net::TcpStream::connect(addr).await.expect("connect");
+        client
+            .write_all(b"EHLO client.example.com\r\nQUIT\r\n")
+            .await
+            .expect("write");
+        let mut response = String::new();
+        client.read_to_string(&mut response).await.expect("read");
+        assert!(
+            !response.contains("REQUIRETLS"),
+            "REQUIRETLS must NOT appear in EHLO when is_tls=false, got: {response}"
+        );
+    }
+
+    // T9: MAIL FROM with REQUIRETLS on a non-TLS session must be rejected with
+    // "530 5.7.0 REQUIRETLS requires TLS" (RFC 8689 §2).
+    #[tokio::test]
+    async fn requiretls_mail_from_on_plaintext_rejected() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let config = test_config();
+        let queue_dir = tempfile::tempdir().expect("tempdir");
+        let nntp_queue = NntpQueue::new(queue_dir.path(), None).expect("NntpQueue::new");
+        let addr = {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+                .await
+                .expect("bind");
+            let local = listener.local_addr().expect("local_addr");
+            let config2 = config.clone();
+            let queue2 = Arc::clone(&nntp_queue);
+            tokio::spawn(async move {
+                let (stream, peer) = listener.accept().await.expect("accept");
+                run_session(
+                    stream,
+                    false,
+                    peer.to_string(),
+                    config2,
+                    Arc::new(CredentialStore::empty()),
+                    queue2,
+                    None,
+                    Arc::new(crate::dns_cache::DnsCache::new()),
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+                .await;
+            });
+            local
+        };
+        let mut client = tokio::net::TcpStream::connect(addr).await.expect("connect");
+        let script =
+            b"EHLO client.example.com\r\nMAIL FROM:<sender@example.com> REQUIRETLS\r\nQUIT\r\n";
+        client.write_all(script).await.expect("write");
+        let mut response = String::new();
+        client.read_to_string(&mut response).await.expect("read");
+        assert!(
+            response.contains("530") && response.contains("REQUIRETLS"),
+            "REQUIRETLS on plaintext must be rejected with 530, got: {response}"
+        );
+        // EHLO ends with "250 OK" so we cannot assert its absence;
+        // assert instead that no "354" DATA prompt was issued.
+        assert!(
+            !response.contains("354"),
+            "DATA prompt must not appear after REQUIRETLS rejection: {response}"
         );
     }
 }

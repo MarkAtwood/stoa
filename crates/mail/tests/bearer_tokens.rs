@@ -64,6 +64,7 @@ fn dev_app_state(token_store: Arc<TokenStore>) -> Arc<AppState> {
         slow_jmap_threshold_ms: 0,
         activitypub_config: Default::default(),
         activitypub: None,
+        mta_sts_domains: Arc::new(Vec::new()),
     })
 }
 
@@ -78,8 +79,7 @@ fn auth_app_state_alice(token_store: Arc<TokenStore>) -> Arc<AppState> {
         start_time: Instant::now(),
         jmap: None,
         credential_store: Arc::new(
-            CredentialStore::from_credentials(&users)
-                .expect("test setup: valid bcrypt hashes"),
+            CredentialStore::from_credentials(&users).expect("test setup: valid bcrypt hashes"),
         ),
         auth_config: Arc::new(AuthConfig {
             required: true,
@@ -93,6 +93,7 @@ fn auth_app_state_alice(token_store: Arc<TokenStore>) -> Arc<AppState> {
         slow_jmap_threshold_ms: 0,
         activitypub_config: Default::default(),
         activitypub: None,
+        mta_sts_domains: Arc::new(Vec::new()),
     })
 }
 
@@ -114,8 +115,7 @@ fn auth_app_state_two_users(token_store: Arc<TokenStore>) -> Arc<AppState> {
         start_time: Instant::now(),
         jmap: None,
         credential_store: Arc::new(
-            CredentialStore::from_credentials(&users)
-                .expect("test setup: valid bcrypt hashes"),
+            CredentialStore::from_credentials(&users).expect("test setup: valid bcrypt hashes"),
         ),
         auth_config: Arc::new(AuthConfig {
             required: true,
@@ -129,6 +129,7 @@ fn auth_app_state_two_users(token_store: Arc<TokenStore>) -> Arc<AppState> {
         slow_jmap_threshold_ms: 0,
         activitypub_config: Default::default(),
         activitypub: None,
+        mta_sts_domains: Arc::new(Vec::new()),
     })
 }
 

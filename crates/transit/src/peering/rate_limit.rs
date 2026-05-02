@@ -122,7 +122,10 @@ impl PeerRateLimiter {
         {
             Ok(ip) => ip,
             Err(_) => {
-                tracing::warn!(peer_addr, "rate limiter: unparseable peer address, skipping");
+                tracing::warn!(
+                    peer_addr,
+                    "rate limiter: unparseable peer address, skipping"
+                );
                 return None;
             }
         };

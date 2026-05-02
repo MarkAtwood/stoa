@@ -46,8 +46,7 @@ async fn auth_state_alice() -> Arc<AppState> {
         start_time: Instant::now(),
         jmap: None,
         credential_store: Arc::new(
-            CredentialStore::from_credentials(&users)
-                .expect("test setup: valid bcrypt hashes"),
+            CredentialStore::from_credentials(&users).expect("test setup: valid bcrypt hashes"),
         ),
         auth_config: Arc::new(AuthConfig {
             required: true,
@@ -61,6 +60,7 @@ async fn auth_state_alice() -> Arc<AppState> {
         slow_jmap_threshold_ms: 0,
         activitypub_config: Default::default(),
         activitypub: None,
+        mta_sts_domains: Arc::new(Vec::new()),
     })
 }
 
@@ -79,6 +79,7 @@ async fn dev_state() -> Arc<AppState> {
         slow_jmap_threshold_ms: 0,
         activitypub_config: Default::default(),
         activitypub: None,
+        mta_sts_domains: Arc::new(Vec::new()),
     })
 }
 

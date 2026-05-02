@@ -1,18 +1,176 @@
+use std::collections::HashMap;
 use std::io;
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use base64::Engine as _;
 use pin_project::pin_project;
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader, ReadBuf};
 use tokio::net::TcpStream;
 use tokio::time::timeout;
+use tracing::warn;
 
-use crate::config::SmtpRelayPeerConfig;
+use crate::config::{MtaStsMode, SmtpRelayPeerConfig};
+use crate::mta_sts_dns::lookup_mta_sts_txt;
+use crate::mta_sts_fetcher::fetch_mta_sts_policy_body;
+use crate::mta_sts_mx::check_mx_against_policy;
+use crate::mta_sts_policy::parse_mta_sts_policy;
 use crate::relay_error::SmtpRelayError;
 use stoa_core::util::nntp_dot_stuff;
+
+// ─── MTA-STS enforcement ──────────────────────────────────────────────────────
+
+/// Cached policy entry used by `MtaStsEnforcer`.
+struct CachedStsEntry {
+    mode: MtaStsMode,
+    mx_patterns: Vec<String>,
+}
+
+/// In-memory MTA-STS policy cache and enforcement for outbound relay.
+///
+/// One instance is created at startup and shared via `Arc`.  Each call to
+/// [`MtaStsEnforcer::enforce_for_delivery`] performs a DNS lookup, consults the
+/// in-memory cache, fetches the policy over HTTPS if needed, and then applies
+/// the enforcement rules from RFC 8461 §4.
+///
+/// On any DNS or fetch error the enforcer logs a warning and allows delivery to
+/// proceed — RFC 8461 §2 says policy fetch failures MUST NOT block delivery.
+pub struct MtaStsEnforcer {
+    cache: Mutex<HashMap<String, (CachedStsEntry, Instant)>>,
+    fetch_timeout_ms: u64,
+    max_body_bytes: usize,
+}
+
+impl MtaStsEnforcer {
+    pub fn new(fetch_timeout_ms: u64, max_body_bytes: usize) -> Arc<Self> {
+        Arc::new(Self {
+            cache: Mutex::new(HashMap::new()),
+            fetch_timeout_ms,
+            max_body_bytes,
+        })
+    }
+
+    /// Apply MTA-STS enforcement for a single delivery attempt.
+    ///
+    /// `rcpt_domain` — the domain part of the recipient address (e.g. `"example.com"`).
+    /// `peer_host`   — the hostname of the relay peer (matched against MX patterns).
+    /// `peer_tls`    — whether the relay connection is TLS-protected.
+    ///
+    /// Returns `Ok(())` when delivery is allowed, `Err(Permanent(...))` when
+    /// the enforce policy blocks delivery.
+    pub async fn enforce_for_delivery(
+        &self,
+        rcpt_domain: &str,
+        peer_host: &str,
+        peer_tls: bool,
+    ) -> Result<(), SmtpRelayError> {
+        // Step 1: Check in-memory cache. A fresh entry is used directly;
+        // this also lets tests pre-seed the cache without live DNS/HTTPS.
+        let cached = {
+            let guard = self.cache.lock().expect("mta_sts cache lock");
+            guard
+                .get(rcpt_domain)
+                .filter(|(_, valid_until)| Instant::now() < *valid_until)
+                .map(|(entry, _)| (entry.mode.clone(), entry.mx_patterns.clone()))
+        };
+
+        let (mode, mx_patterns) = match cached {
+            Some(p) => p,
+            None => {
+                // Step 2: Cache miss — DNS TXT lookup for _mta-sts.<domain>.
+                let txt = match lookup_mta_sts_txt(rcpt_domain).await {
+                    Ok(Some(r)) => r,
+                    Ok(None) => return Ok(()),
+                    Err(e) => {
+                        warn!("MTA-STS DNS lookup failed for {rcpt_domain}: {e}");
+                        return Ok(()); // RFC 8461 §2: fetch failures must not block delivery
+                    }
+                };
+
+                // Step 3: Fetch policy from HTTPS.
+                let body = match fetch_mta_sts_policy_body(
+                    rcpt_domain,
+                    self.fetch_timeout_ms,
+                    self.max_body_bytes,
+                )
+                .await
+                {
+                    Ok(b) => b,
+                    Err(e) => {
+                        warn!("MTA-STS policy fetch failed for {rcpt_domain}: {e}");
+                        return Ok(());
+                    }
+                };
+
+                let policy = match parse_mta_sts_policy(&body, self.max_body_bytes) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        warn!("MTA-STS policy parse failed for {rcpt_domain}: {e}");
+                        return Ok(());
+                    }
+                };
+
+                let valid_until = Instant::now() + Duration::from_secs(policy.max_age as u64);
+                let _ = txt.policy_id; // captured for cache keying; not stored
+                let entry = CachedStsEntry {
+                    mode: policy.mode.clone(),
+                    mx_patterns: policy.mx_patterns.clone(),
+                };
+                self.cache
+                    .lock()
+                    .expect("mta_sts cache lock")
+                    .insert(rcpt_domain.to_owned(), (entry, valid_until));
+                (policy.mode, policy.mx_patterns)
+            }
+        };
+
+        // Step 4: Apply enforcement rules.
+        match mode {
+            MtaStsMode::None => Ok(()),
+            MtaStsMode::Testing => {
+                if !peer_tls {
+                    warn!("MTA-STS testing: TLS not enabled for peer {peer_host} to {rcpt_domain}");
+                } else if !check_mx_against_policy(peer_host, &mx_patterns) {
+                    warn!("MTA-STS testing: peer {peer_host} not in MX policy for {rcpt_domain}");
+                }
+                Ok(())
+            }
+            MtaStsMode::Enforce => {
+                if !peer_tls {
+                    return Err(SmtpRelayError::Permanent(format!(
+                        "MTA-STS enforce: TLS required for {rcpt_domain} but relay is plaintext"
+                    )));
+                }
+                if !check_mx_against_policy(peer_host, &mx_patterns) {
+                    return Err(SmtpRelayError::Permanent(format!(
+                        "MTA-STS enforce: peer host {peer_host} \
+                         does not match MX policy for {rcpt_domain}"
+                    )));
+                }
+                Ok(())
+            }
+        }
+    }
+
+    /// Seed the cache directly (test helper only).
+    #[cfg(test)]
+    pub fn seed_cache(
+        &self,
+        domain: &str,
+        mode: MtaStsMode,
+        mx_patterns: Vec<String>,
+        max_age_secs: u64,
+    ) {
+        let valid_until = Instant::now() + Duration::from_secs(max_age_secs);
+        let entry = CachedStsEntry { mode, mx_patterns };
+        self.cache
+            .lock()
+            .expect("mta_sts cache lock")
+            .insert(domain.to_owned(), (entry, valid_until));
+    }
+}
 
 /// Wraps either a plain TCP stream or a TLS stream so that a single concrete
 /// type implements both [`AsyncRead`] and [`AsyncWrite`].  Using an enum here
@@ -73,6 +231,16 @@ const MAX_SMTP_LINE: usize = 512;
 pub struct RelayEnvelope {
     pub mail_from: String,
     pub rcpt_to: Vec<String>,
+    /// When `true` the sender included `REQUIRETLS` in the MAIL FROM command
+    /// (RFC 8689 §2).  The outbound relay MUST:
+    ///
+    /// 1. Connect over TLS (`peer.tls` must be `true`).
+    /// 2. Verify the remote MTA advertised `REQUIRETLS` in its EHLO response.
+    /// 3. Append the `REQUIRETLS` parameter to the forwarded MAIL FROM command.
+    ///
+    /// If either TLS condition is not met the delivery fails permanently
+    /// (RFC 8689 §5).
+    pub require_tls: bool,
 }
 
 /// Deliver an article to a relay peer via SMTP.
@@ -83,6 +251,10 @@ pub struct RelayEnvelope {
 /// operator-configured `config.hostname`; a bare label is rejected by many
 /// servers.  An empty string falls back to `"localhost"`.
 ///
+/// `mta_sts` — optional MTA-STS enforcer.  When `Some`, MTA-STS policy is
+/// checked for the first recipient's domain before connecting.  Pass `None`
+/// to skip enforcement (e.g. when MTA-STS checking is disabled in config).
+///
 /// Returns [`SmtpRelayError::Permanent`] immediately if `envelope.rcpt_to` is
 /// empty; RFC 5321 §3.3 requires at least one RCPT TO before DATA.
 pub async fn deliver_via_relay(
@@ -90,6 +262,7 @@ pub async fn deliver_via_relay(
     envelope: &RelayEnvelope,
     article_bytes: &[u8],
     local_hostname: &str,
+    mta_sts: Option<&MtaStsEnforcer>,
 ) -> Result<(), SmtpRelayError> {
     if envelope.rcpt_to.is_empty() {
         return Err(SmtpRelayError::Permanent(
@@ -98,7 +271,7 @@ pub async fn deliver_via_relay(
     }
     timeout(
         OPERATION_TIMEOUT,
-        do_deliver(peer, envelope, article_bytes, local_hostname),
+        do_deliver(peer, envelope, article_bytes, local_hostname, mta_sts),
     )
     .await
     .map_err(|_| {
@@ -109,12 +282,38 @@ pub async fn deliver_via_relay(
     })?
 }
 
+/// Extract the domain part of an email address.
+fn recipient_domain(addr: &str) -> Option<&str> {
+    addr.rfind('@').map(|i| &addr[i + 1..])
+}
+
 async fn do_deliver(
     peer: &SmtpRelayPeerConfig,
     envelope: &RelayEnvelope,
     article_bytes: &[u8],
     local_hostname: &str,
+    mta_sts: Option<&MtaStsEnforcer>,
 ) -> Result<(), SmtpRelayError> {
+    // Early guard: REQUIRETLS requires TLS — check before TCP connect so
+    // unit tests can verify this path without a live server.
+    if envelope.require_tls && !peer.tls {
+        return Err(SmtpRelayError::Permanent(
+            "REQUIRETLS requested but relay.tls is false; \
+             refusing to relay a REQUIRETLS message over a plaintext connection"
+                .to_string(),
+        ));
+    }
+
+    // MTA-STS enforcement (RFC 8461 §4): check before TCP connect so that
+    // a policy violation in enforce mode never touches the peer network.
+    if let Some(enforcer) = mta_sts {
+        if let Some(domain) = envelope.rcpt_to.first().and_then(|r| recipient_domain(r)) {
+            enforcer
+                .enforce_for_delivery(domain, &peer.host, peer.tls)
+                .await?;
+        }
+    }
+
     let tcp = TcpStream::connect(peer.host_port())
         .await
         .map_err(SmtpRelayError::Io)?;
@@ -265,7 +464,31 @@ async fn run_smtp_session(
         }
     }
 
-    // 3. AUTH PLAIN (if credentials configured).
+    // 3. REQUIRETLS check (RFC 8689 §5).
+    //
+    // When the message envelope has require_tls=true the remote MTA MUST have
+    // advertised REQUIRETLS in its EHLO response AND the connection MUST be
+    // over TLS.  If either condition is not met we fail permanently — RFC 8689
+    // says the message "SHOULD NOT be relayed to a server that does not
+    // support REQUIRETLS".  We treat "should not" as "must not" to avoid
+    // silently stripping a sender's TLS requirement.
+    if envelope.require_tls {
+        if !peer.tls {
+            return Err(SmtpRelayError::Permanent(
+                "REQUIRETLS requested but relay.tls is false; \
+                 refusing to relay a REQUIRETLS message over a plaintext connection"
+                    .to_string(),
+            ));
+        }
+        let advertises_requiretls = extensions.iter().any(|e| e == "REQUIRETLS");
+        if !advertises_requiretls {
+            return Err(SmtpRelayError::Permanent(
+                "REQUIRETLS requested but peer did not advertise REQUIRETLS in EHLO".to_string(),
+            ));
+        }
+    }
+
+    // 4. AUTH PLAIN (if credentials configured).
     if let (Some(username), Some(password)) = (&peer.username, &peer.password) {
         // Refuse to send AUTH PLAIN over a plaintext connection.  SASL PLAIN
         // credentials are base64-encoded, not encrypted; sending them without
@@ -342,7 +565,11 @@ async fn run_smtp_session(
             envelope.mail_from
         )));
     }
-    let mail_from_cmd = format!("MAIL FROM:<{}>\r\n", envelope.mail_from);
+    let mail_from_cmd = if envelope.require_tls {
+        format!("MAIL FROM:<{}> REQUIRETLS\r\n", envelope.mail_from)
+    } else {
+        format!("MAIL FROM:<{}>\r\n", envelope.mail_from)
+    };
     writer
         .write_all(mail_from_cmd.as_bytes())
         .await
@@ -696,11 +923,12 @@ mod tests {
         let envelope = RelayEnvelope {
             mail_from: "from@example.com".to_string(),
             rcpt_to: vec!["to@example.com".to_string()],
+            require_tls: false,
         };
         let article =
             b"From: from@example.com\r\nTo: to@example.com\r\nSubject: test\r\n\r\nHello\r\n";
 
-        let result = deliver_via_relay(&peer, &envelope, article, "test.example.com").await;
+        let result = deliver_via_relay(&peer, &envelope, article, "test.example.com", None).await;
         assert!(result.is_ok(), "delivery failed: {:?}", result.err());
 
         server.await.unwrap();
@@ -743,10 +971,11 @@ mod tests {
         let envelope = RelayEnvelope {
             mail_from: "from@example.com".to_string(),
             rcpt_to: vec!["to@example.com".to_string()],
+            require_tls: false,
         };
         let article = b"From: from@example.com\r\nSubject: test\r\n\r\nBody\r\n";
 
-        let result = deliver_via_relay(&peer, &envelope, article, "test.example.com").await;
+        let result = deliver_via_relay(&peer, &envelope, article, "test.example.com", None).await;
         assert!(
             matches!(&result, Err(SmtpRelayError::Permanent(m)) if m.contains("refusing")),
             "expected Permanent(refusing...), got: {:?}",
@@ -790,10 +1019,11 @@ mod tests {
         let envelope = RelayEnvelope {
             mail_from: "f@example.com".to_string(),
             rcpt_to: vec!["t@example.com".to_string()],
+            require_tls: false,
         };
 
         let result =
-            deliver_via_relay(&peer, &envelope, b"body\r\n", "test.example.com").await;
+            deliver_via_relay(&peer, &envelope, b"body\r\n", "test.example.com", None).await;
         assert!(
             matches!(&result, Err(SmtpRelayError::Permanent(m)) if m.contains("refusing")),
             "expected Permanent(refusing...), got: {:?}",
@@ -833,10 +1063,11 @@ mod tests {
         let envelope = RelayEnvelope {
             mail_from: "bad@example.com".to_string(),
             rcpt_to: vec!["t@example.com".to_string()],
+            require_tls: false,
         };
 
         let result =
-            deliver_via_relay(&peer, &envelope, b"body\r\n", "test.example.com").await;
+            deliver_via_relay(&peer, &envelope, b"body\r\n", "test.example.com", None).await;
         assert!(
             matches!(result, Err(SmtpRelayError::Permanent(_))),
             "expected Permanent, got: {:?}",
@@ -878,10 +1109,11 @@ mod tests {
         let envelope = RelayEnvelope {
             mail_from: "f@example.com".to_string(),
             rcpt_to: vec!["t@example.com".to_string()],
+            require_tls: false,
         };
 
         let result =
-            deliver_via_relay(&peer, &envelope, b"body\r\n", "test.example.com").await;
+            deliver_via_relay(&peer, &envelope, b"body\r\n", "test.example.com", None).await;
         assert!(
             matches!(result, Err(SmtpRelayError::Transient(_))),
             "expected Transient, got: {:?}",
@@ -971,11 +1203,12 @@ mod tests {
         let envelope = RelayEnvelope {
             mail_from: "f@example.com".to_string(),
             rcpt_to: vec!["t@example.com".to_string()],
+            require_tls: false,
         };
         // Article with a dot-line that must be stuffed per RFC 5321 §4.5.2.
         let article = b"Subject: test\r\n\r\nnormal line\r\n.signature\r\n";
 
-        let result = deliver_via_relay(&peer, &envelope, article, "test.example.com").await;
+        let result = deliver_via_relay(&peer, &envelope, article, "test.example.com", None).await;
         assert!(result.is_ok(), "delivery failed: {:?}", result.err());
 
         server.await.unwrap();
@@ -996,11 +1229,161 @@ mod tests {
         let envelope = RelayEnvelope {
             mail_from: "from@example.com".to_string(),
             rcpt_to: vec![],
+            require_tls: false,
         };
-        let result = deliver_via_relay(&peer, &envelope, b"article", "test.example.com").await;
+        let result =
+            deliver_via_relay(&peer, &envelope, b"article", "test.example.com", None).await;
         assert!(
             matches!(result, Err(SmtpRelayError::Permanent(_))),
             "expected Permanent error for empty rcpt_to, got: {:?}",
+            result
+        );
+    }
+
+    // ---- REQUIRETLS: plaintext connection is rejected (RFC 8689 §5) ----
+    //
+    // When require_tls=true and peer.tls=false, the relay guard must return
+    // Permanent before attempting a TCP connection.
+
+    #[tokio::test]
+    async fn requiretls_rejected_over_plaintext_connection() {
+        let peer = crate::config::SmtpRelayPeerConfig {
+            host: "127.0.0.1".to_string(),
+            port: 9999, // no server needed — must fail before TCP
+            tls: false,
+            username: None,
+            password: None,
+        };
+        let envelope = RelayEnvelope {
+            mail_from: "from@example.com".to_string(),
+            rcpt_to: vec!["to@example.com".to_string()],
+            require_tls: true,
+        };
+        let result =
+            deliver_via_relay(&peer, &envelope, b"article", "test.example.com", None).await;
+        assert!(
+            matches!(&result, Err(SmtpRelayError::Permanent(m)) if m.contains("REQUIRETLS")),
+            "expected Permanent(REQUIRETLS...), got: {:?}",
+            result
+        );
+    }
+
+    // ── stoa-2xeks.23: MTA-STS enforcement wiring ────────────────────────────
+
+    // T1: enforce mode + MX mismatch → Permanent before TCP connect.
+    // Oracle: RFC 8461 §4 — if peer host is not listed in the MTA-STS MX
+    // patterns and mode=enforce, the delivery MUST fail permanently; the TCP
+    // connection must never be opened.
+    //
+    // The test pre-seeds the enforcer cache to avoid a live DNS/HTTPS call.
+    // Port 9999 has no listener, so any TCP connect would timeout; the test
+    // verifies that the error is returned *before* the connection attempt
+    // (no timeout needed).
+    #[tokio::test]
+    async fn mta_sts_enforce_mx_mismatch_returns_permanent() {
+        let enforcer = MtaStsEnforcer::new(5_000, 65_536);
+        enforcer.seed_cache(
+            "example.com",
+            crate::config::MtaStsMode::Enforce,
+            vec!["mail.example.com".to_string()],
+            86_400,
+        );
+
+        let peer = crate::config::SmtpRelayPeerConfig {
+            host: "evil.attacker.com".to_string(), // not in MX policy
+            port: 9999,                            // no listener — must fail before TCP connect
+            tls: true,
+            username: None,
+            password: None,
+        };
+        let envelope = RelayEnvelope {
+            mail_from: "from@example.com".to_string(),
+            rcpt_to: vec!["to@example.com".to_string()],
+            require_tls: false,
+        };
+
+        let result = deliver_via_relay(
+            &peer,
+            &envelope,
+            b"article",
+            "test.example.com",
+            Some(&enforcer),
+        )
+        .await;
+        assert!(
+            matches!(&result, Err(SmtpRelayError::Permanent(m)) if m.contains("MTA-STS enforce")),
+            "expected Permanent(MTA-STS enforce), got: {:?}",
+            result
+        );
+    }
+
+    // T2: enforce mode + MX matches + no live server → connect error (not MTA-STS error).
+    // Oracle: RFC 8461 §4 — when the peer host IS in the MX policy, MTA-STS
+    // enforcement passes and delivery proceeds to the TCP connect.  With no
+    // listener the result is an I/O error, proving that enforcement did not
+    // block delivery.
+    #[tokio::test]
+    async fn mta_sts_enforce_mx_matches_proceeds_to_connect() {
+        let enforcer = MtaStsEnforcer::new(5_000, 65_536);
+        enforcer.seed_cache(
+            "example.com",
+            crate::config::MtaStsMode::Enforce,
+            vec!["mail.example.com".to_string()],
+            86_400,
+        );
+
+        let peer = crate::config::SmtpRelayPeerConfig {
+            host: "mail.example.com".to_string(), // matches policy
+            port: 9999,                           // no listener — connect will fail with I/O error
+            tls: true,
+            username: None,
+            password: None,
+        };
+        let envelope = RelayEnvelope {
+            mail_from: "from@example.com".to_string(),
+            rcpt_to: vec!["to@example.com".to_string()],
+            require_tls: false,
+        };
+
+        let result = deliver_via_relay(
+            &peer,
+            &envelope,
+            b"article",
+            "test.example.com",
+            Some(&enforcer),
+        )
+        .await;
+        // Must not be a MTA-STS error; connection failure (Io or Permanent TCP)
+        // proves we got past enforcement.
+        assert!(
+            !matches!(&result, Err(SmtpRelayError::Permanent(m)) if m.contains("MTA-STS")),
+            "MTA-STS enforcement must not block when MX matches; got: {:?}",
+            result
+        );
+    }
+
+    // T3: testing mode + MX mismatch → delivery is allowed (log only, no block).
+    // Oracle: RFC 8461 §4.2 — in testing mode policy failures MUST NOT block
+    // delivery; they are reported but do not cause a permanent error.
+    #[tokio::test]
+    async fn mta_sts_testing_mode_mx_mismatch_allows_delivery() {
+        let enforcer = MtaStsEnforcer::new(5_000, 65_536);
+        enforcer.seed_cache(
+            "example.com",
+            crate::config::MtaStsMode::Testing,
+            vec!["mail.example.com".to_string()],
+            86_400,
+        );
+
+        // With testing mode, the MTA-STS check must not return an error even
+        // though the peer is not in the policy.  We verify this by calling
+        // enforce_for_delivery directly (no live server needed).
+        let result = enforcer
+            .enforce_for_delivery("example.com", "evil.attacker.com", true)
+            .await;
+        assert!(
+            result.is_ok(),
+            "testing mode must not block delivery; got: {:?}",
             result
         );
     }

@@ -239,12 +239,12 @@ mod tests {
 
         // Mix of valid and invalid names.
         let groups = &[
-            "comp.lang.rust",        // valid
-            "../etc/passwd",         // path traversal
-            "comp..invalid",         // double dot
-            "",                      // empty
-            "1starts.with.digit",    // component starts with digit
-            "sci.math",              // valid
+            "comp.lang.rust",     // valid
+            "../etc/passwd",      // path traversal
+            "comp..invalid",      // double dot
+            "",                   // empty
+            "1starts.with.digit", // component starts with digit
+            "sci.math",           // valid
         ];
         update_peer_groups(&pool, "peer1", groups, NOW)
             .await
@@ -252,7 +252,11 @@ mod tests {
 
         let result = groups_for_peer(&pool, "peer1").await.unwrap();
         // Only the two valid names must be stored.
-        assert_eq!(result.len(), 2, "expected exactly 2 valid groups, got {result:?}");
+        assert_eq!(
+            result.len(),
+            2,
+            "expected exactly 2 valid groups, got {result:?}"
+        );
         assert!(result.contains(&"comp.lang.rust".to_string()));
         assert!(result.contains(&"sci.math".to_string()));
     }

@@ -317,8 +317,7 @@ impl LogStorage for SqliteLogStorage {
 
         // DELETE parent tips.
         if !parents_to_remove.is_empty() {
-            let mut qb =
-                sqlx::QueryBuilder::new("DELETE FROM group_tips WHERE group_name = ");
+            let mut qb = sqlx::QueryBuilder::new("DELETE FROM group_tips WHERE group_name = ");
             qb.push_bind(group.as_str());
             qb.push(" AND tip_id IN (");
             let mut sep = qb.separated(", ");

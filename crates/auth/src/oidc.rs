@@ -331,7 +331,10 @@ impl std::fmt::Display for OidcError {
             OidcError::KeyNotFound => write!(f, "OIDC key not found in JWKS"),
             OidcError::MissingClaim(s) => write!(f, "OIDC missing claim '{s}'"),
             OidcError::UnsupportedKeyType(s) => {
-                write!(f, "OIDC unsupported key type '{s}' (only RSA and EC supported)")
+                write!(
+                    f,
+                    "OIDC unsupported key type '{s}' (only RSA and EC supported)"
+                )
             }
             OidcError::UnsupportedAlgorithm(s) => {
                 write!(f, "OIDC unsupported algorithm '{s}'")

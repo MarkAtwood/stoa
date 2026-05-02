@@ -295,7 +295,11 @@ async fn handle_create(
         warn!(group = %group_name, "ActivityPub Create: missing actor field");
         return StatusCode::BAD_REQUEST.into_response();
     }
-    match ap_state.follower_store.is_follower(group_name, actor_url).await {
+    match ap_state
+        .follower_store
+        .is_follower(group_name, actor_url)
+        .await
+    {
         Ok(true) => {}
         Ok(false) => {
             warn!(

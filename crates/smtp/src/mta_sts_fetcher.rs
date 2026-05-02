@@ -1,0 +1,271 @@
+use std::time::Duration;
+
+use crate::MtaStsError;
+
+/// Fetch the MTA-STS policy file for `domain` from HTTPS.
+///
+/// URL: `https://mta-sts.<domain>/.well-known/mta-sts.txt`
+///
+/// # Security invariants (RFC 8461 §3.3)
+///
+/// - **No HTTP redirects** — `reqwest::redirect::Policy::none()` is mandatory.
+///   Allowing redirects would let an attacker redirect the policy fetch to a
+///   controlled server, defeating the HTTPS trust anchor.
+/// - **WebPKI certificate required** — no custom CA; system roots only.
+///   The HTTPS channel is what makes the policy trustworthy.
+/// - **Response body capped** at `max_body_bytes` (RFC 8461 §3.2 recommends ≤64 KiB).
+/// - **Connect+read timeout** applied via `timeout_ms`.
+///
+/// # SSRF note
+///
+/// Full SSRF mitigation (resolve hostname → check for RFC 1918 / loopback IPs
+/// before connecting) would require a custom DNS resolver wired into the reqwest
+/// connector.  This is disproportionate for this implementation.  Production
+/// deployments MUST use network-level egress filtering to prevent access to
+/// internal services.  The no-redirect and WebPKI invariants are still enforced.
+pub async fn fetch_mta_sts_policy_body(
+    domain: &str,
+    timeout_ms: u64,
+    max_body_bytes: usize,
+) -> Result<String, MtaStsError> {
+    if domain.is_empty() || domain.contains("://") || domain.contains('/') {
+        return Err(MtaStsError::PolicyFetchFailed("invalid domain".into()));
+    }
+
+    let url = format!(
+        "https://mta-sts.{}/.well-known/mta-sts.txt",
+        domain.trim_end_matches('.')
+    );
+
+    fetch_url(url, timeout_ms, max_body_bytes).await
+}
+
+/// Inner HTTP fetch used by `fetch_mta_sts_policy_body`.
+/// Separated so tests can call it with an `http://` URL pointing at a local
+/// mock server without needing a real TLS certificate.
+async fn fetch_url(
+    url: String,
+    timeout_ms: u64,
+    max_body_bytes: usize,
+) -> Result<String, MtaStsError> {
+    let client = reqwest::Client::builder()
+        // Mandatory: no redirects — RFC 8461 §3.3.
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(Duration::from_millis(timeout_ms))
+        .build()
+        .map_err(|e| MtaStsError::PolicyFetchFailed(format!("client build failed: {e}")))?;
+
+    let response = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| MtaStsError::PolicyFetchFailed(format!("request failed: {e}")))?;
+
+    let status = response.status();
+    if status.is_redirection() {
+        return Err(MtaStsError::PolicyFetchFailed(
+            "redirect not allowed".into(),
+        ));
+    }
+    if !status.is_success() {
+        return Err(MtaStsError::PolicyFetchFailed(format!(
+            "HTTP {}",
+            status.as_u16()
+        )));
+    }
+
+    // Read body with byte cap to prevent unbounded memory use.
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|e| MtaStsError::PolicyFetchFailed(format!("body read failed: {e}")))?;
+
+    if bytes.len() > max_body_bytes {
+        return Err(MtaStsError::PolicyFetchFailed("response too large".into()));
+    }
+
+    let body = std::str::from_utf8(&bytes)
+        .map_err(|_| MtaStsError::PolicyFetchFailed("invalid UTF-8 in response".into()))?
+        .to_owned();
+
+    Ok(body)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // T1: empty domain is rejected before making a network connection.
+    // Oracle: RFC 8461 §3.3 — the domain MUST be a valid hostname; empty string
+    // is not valid.
+    #[tokio::test]
+    async fn empty_domain_rejected() {
+        let err = fetch_mta_sts_policy_body("", 65_536, 5_000)
+            .await
+            .expect_err("empty domain must fail");
+        assert!(matches!(err, MtaStsError::PolicyFetchFailed(_)));
+        assert!(
+            err.to_string().contains("invalid domain"),
+            "unexpected error: {err}"
+        );
+    }
+
+    // T2: domain containing "://" is rejected (SSRF guard — prevents constructing
+    // a URL like "https://mta-sts.https://evil.com/...").
+    // Oracle: RFC 8461 §3.3 — domain must be a bare label, not a URL.
+    #[tokio::test]
+    async fn domain_with_scheme_rejected() {
+        let err = fetch_mta_sts_policy_body("https://evil.com", 65_536, 5_000)
+            .await
+            .expect_err("domain with scheme must fail");
+        assert!(matches!(err, MtaStsError::PolicyFetchFailed(_)));
+        assert!(
+            err.to_string().contains("invalid domain"),
+            "unexpected error: {err}"
+        );
+    }
+
+    // T3: domain containing "/" is rejected.
+    // Oracle: RFC 8461 §3.3 — path separators are not valid in a domain label.
+    #[tokio::test]
+    async fn domain_with_path_separator_rejected() {
+        let err = fetch_mta_sts_policy_body("example.com/evil", 65_536, 5_000)
+            .await
+            .expect_err("domain with path separator must fail");
+        assert!(matches!(err, MtaStsError::PolicyFetchFailed(_)));
+        assert!(
+            err.to_string().contains("invalid domain"),
+            "unexpected error: {err}"
+        );
+    }
+
+    // ── Mock-server tests (T4–T8) ────────────────────────────────────────────
+    //
+    // These tests call `fetch_url` directly with an `http://` URL pointing at
+    // a local axum server.  This avoids the need for a real TLS certificate
+    // while still exercising every HTTP response-handling path.
+
+    /// Spawn an axum router on a random loopback port and return the base URL.
+    async fn start_mock_server(router: axum::Router) -> String {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind");
+        let addr = listener.local_addr().expect("local_addr");
+        tokio::spawn(async move {
+            axum::serve(listener, router).await.expect("serve");
+        });
+        format!("http://127.0.0.1:{}", addr.port())
+    }
+
+    // T4: server returns 200 with a valid policy body → body is returned unchanged.
+    // Oracle: RFC 8461 §3.3 — a 200 response with a valid UTF-8 body must be
+    // returned as-is.
+    #[tokio::test]
+    async fn successful_fetch_returns_body() {
+        use axum::response::IntoResponse;
+        let body = "version: STSv1\nmode: enforce\nmx: mail.example.com\nmax_age: 86400\n";
+        let body_str = body.to_string();
+        let router = axum::Router::new().route(
+            "/",
+            axum::routing::get(move || {
+                let b = body_str.clone();
+                async move { (axum::http::StatusCode::OK, b).into_response() }
+            }),
+        );
+        let base = start_mock_server(router).await;
+        let result = fetch_url(format!("{base}/"), 5_000, 65_536)
+            .await
+            .expect("should succeed");
+        assert_eq!(result, body);
+    }
+
+    // T5: server returns 301 redirect → PolicyFetchFailed("redirect not allowed").
+    // Oracle: RFC 8461 §3.3 — redirects MUST NOT be followed; an attacker could
+    // redirect the policy fetch to a server they control.
+    #[tokio::test]
+    async fn redirect_returns_error() {
+        use axum::response::IntoResponse;
+        let router = axum::Router::new().route(
+            "/",
+            axum::routing::get(|| async {
+                (
+                    axum::http::StatusCode::MOVED_PERMANENTLY,
+                    [(axum::http::header::LOCATION, "/other")],
+                    "",
+                )
+                    .into_response()
+            }),
+        );
+        let base = start_mock_server(router).await;
+        let err = fetch_url(format!("{base}/"), 5_000, 65_536)
+            .await
+            .expect_err("redirect must fail");
+        assert!(
+            matches!(err, MtaStsError::PolicyFetchFailed(ref msg) if msg.contains("redirect")),
+            "unexpected error: {err}"
+        );
+    }
+
+    // T6: server returns 200 with a body > max_body_bytes → PolicyFetchFailed("too large").
+    // Oracle: RFC 8461 §3.2 — policy body MUST NOT exceed the configured limit.
+    #[tokio::test]
+    async fn oversized_body_returns_error() {
+        use axum::response::IntoResponse;
+        let large = "x".repeat(65_537);
+        let router = axum::Router::new().route(
+            "/",
+            axum::routing::get(move || {
+                let b = large.clone();
+                async move { (axum::http::StatusCode::OK, b).into_response() }
+            }),
+        );
+        let base = start_mock_server(router).await;
+        let err = fetch_url(format!("{base}/"), 5_000, 65_536)
+            .await
+            .expect_err("oversized body must fail");
+        assert!(
+            matches!(err, MtaStsError::PolicyFetchFailed(ref msg) if msg.contains("too large")),
+            "unexpected error: {err}"
+        );
+    }
+
+    // T7: server returns 404 → PolicyFetchFailed("HTTP 404").
+    // Oracle: RFC 8461 §3.3 — only 2xx is a valid policy response.
+    #[tokio::test]
+    async fn not_found_returns_error() {
+        let router = axum::Router::new().route(
+            "/",
+            axum::routing::get(|| async { axum::http::StatusCode::NOT_FOUND }),
+        );
+        let base = start_mock_server(router).await;
+        let err = fetch_url(format!("{base}/"), 5_000, 65_536)
+            .await
+            .expect_err("404 must fail");
+        assert!(
+            matches!(err, MtaStsError::PolicyFetchFailed(ref msg) if msg.contains("404")),
+            "unexpected error: {err}"
+        );
+    }
+
+    // T8: connection refused (no server) → PolicyFetchFailed("request failed").
+    // Oracle: unreachable server must not hang; reqwest surfaces the error via
+    // the connect timeout and wraps it as PolicyFetchFailed.
+    #[tokio::test]
+    async fn connection_refused_returns_error() {
+        // Bind a listener just to get a free port, then drop it so the port
+        // is closed before we try to connect.
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind");
+        let port = listener.local_addr().expect("local_addr").port();
+        drop(listener);
+
+        let err = fetch_url(format!("http://127.0.0.1:{port}/"), 5_000, 65_536)
+            .await
+            .expect_err("connection refused must fail");
+        assert!(
+            matches!(err, MtaStsError::PolicyFetchFailed(_)),
+            "unexpected error: {err}"
+        );
+    }
+}

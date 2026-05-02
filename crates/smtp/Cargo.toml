@@ -42,6 +42,8 @@ tempfile = "3"
 tower = { version = "0.5", features = ["util"] }
 prometheus = { version = "0.14", default-features = false }
 zeroize = "1"
+hickory-resolver = "=0.26.0-alpha.1"
+reqwest = { version = "0.12", features = ["json"] }
 
 [features]
 aws   = ["secretx/aws-sm", "secretx/aws-ssm"]
