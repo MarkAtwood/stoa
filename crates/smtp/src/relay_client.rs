@@ -109,9 +109,9 @@ impl MtaStsEnforcer {
     ) -> Result<(), SmtpRelayError> {
         // Step 1: Check the in-memory cache.
         //
-        // SAFETY: std::sync::Mutex is safe here because the guard is dropped
-        // at the end of the block, before any .await point.  Do not hold the
-        // guard across an await — that would deadlock a Tokio worker thread.
+        // NOTE: std::sync::Mutex guard is dropped at the end of the block,
+        // before any .await point.  Do not hold the guard across an await —
+        // that would deadlock a Tokio worker thread.
         let cached = {
             let guard = self.cache.lock().unwrap_or_else(|p| p.into_inner());
             guard
@@ -134,7 +134,7 @@ impl MtaStsEnforcer {
                 match lookup_mta_sts_txt(&self.resolver, rcpt_domain).await {
                     Ok(Some(txt)) if txt.policy_id != cached_id => {
                         // Policy has rotated — discard stale entry and re-fetch.
-                        // SAFETY: guard dropped immediately.
+                        // NOTE: guard dropped immediately.
                         self.cache
                             .lock()
                             .unwrap_or_else(|p| p.into_inner())
@@ -805,7 +805,7 @@ fn check_250(code: u16, line: &str, context: &str) -> Result<(), SmtpRelayError>
 ///
 /// The 512-byte line limit is enforced by [`read_line`]; callers that
 /// construct synthetic lines for unit tests bypass that check deliberately.
-pub fn parse_smtp_line(line: &str) -> Result<(u16, bool, &str), SmtpRelayError> {
+fn parse_smtp_line(line: &str) -> Result<(u16, bool, &str), SmtpRelayError> {
     // Enforce an absolute sanity limit even for synthetic callers.
     // RFC 5321 §4.5.3.1.5: reply line limit is 512 bytes including CRLF.
     // Use > (not >=) to match read_line and accept the maximum valid length.

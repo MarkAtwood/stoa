@@ -32,52 +32,43 @@ pub enum MtaStsError {
 
 impl fmt::Display for MtaStsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "MTA-STS: ")?;
         match self {
             MtaStsError::DnsLookupFailed { message } => {
-                write!(f, "MTA-STS: DNS lookup failed: {}", message)
+                write!(f, "DNS lookup failed: {}", message)
             }
             MtaStsError::DnsTxtMultipleRecords => {
-                write!(f, "MTA-STS: multiple STSv1 TXT records found")
+                write!(f, "multiple STSv1 TXT records found")
             }
             MtaStsError::DnsTxtMissingId => {
-                write!(f, "MTA-STS: TXT record missing id= field")
+                write!(f, "TXT record missing id= field")
             }
             MtaStsError::DnsTxtIdTooLong => {
-                write!(f, "MTA-STS: TXT record id= exceeds 32 characters")
+                write!(f, "TXT record id= exceeds 32 characters")
             }
             MtaStsError::DnsTxtIdInvalid => {
-                write!(
-                    f,
-                    "MTA-STS: TXT record id= contains non-alphanumeric characters"
-                )
+                write!(f, "TXT record id= contains non-alphanumeric characters")
             }
             MtaStsError::PolicyFetchFailed { message } => {
-                write!(f, "MTA-STS: policy fetch failed: {}", message)
+                write!(f, "policy fetch failed: {}", message)
             }
             MtaStsError::PolicyFetchRedirectForbidden => {
-                write!(
-                    f,
-                    "MTA-STS: policy fetch redirect not allowed (RFC 8461 §3.3)"
-                )
+                write!(f, "policy fetch redirect not allowed (RFC 8461 §3.3)")
             }
             MtaStsError::PolicyFetchHttpError { status } => {
-                write!(f, "MTA-STS: policy fetch HTTP {}", status)
+                write!(f, "policy fetch HTTP {}", status)
             }
             MtaStsError::PolicyFetchTooLarge => {
-                write!(f, "MTA-STS: policy fetch response body too large")
+                write!(f, "policy fetch response body too large")
             }
             MtaStsError::PolicyParseFailed { message } => {
-                write!(f, "MTA-STS: policy parse error: {}", message)
+                write!(f, "policy parse error: {}", message)
             }
             MtaStsError::PolicyIdMismatch { cached, dns } => {
-                write!(
-                    f,
-                    "MTA-STS: policy id mismatch (cached={}, dns={})",
-                    cached, dns
-                )
+                write!(f, "policy id mismatch (cached={}, dns={})", cached, dns)
             }
             MtaStsError::MxNotMatched { mx } => {
-                write!(f, "MTA-STS: MX hostname '{}' not in policy", mx)
+                write!(f, "MX hostname '{}' not in policy", mx)
             }
         }
     }

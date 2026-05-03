@@ -271,10 +271,12 @@ pub async fn run_session<S>(
                     }
                     continue;
                 }
-                // STARTTLS is not advertised here because the upgrade path is
-                // not yet implemented (stoa-ryw.3).  Advertising an
-                // extension we cannot complete causes MTAs that enforce
-                // STARTTLS-policy to fail delivery with a confusing error.
+                // STARTTLS is not advertised even when TLS is configured
+                // (cert+key set), because the upgrade path is not yet
+                // implemented (stoa-ryw.3).  Do not add STARTTLS to this
+                // response until the full upgrade flow exists: a remote MTA
+                // that sees STARTTLS in EHLO will send the STARTTLS command,
+                // receive 454, and abort delivery.
                 //
                 // AUTH PLAIN is advertised only on SMTPS (is_tls=true) to
                 // prevent credentials from being sent over a cleartext
