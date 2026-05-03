@@ -37,6 +37,11 @@ pub enum PeerTlsStatus {
     Plain,
 }
 
+/// How often to re-check the DNS TXT `id=` on a cache hit (RFC 8461 §4.1 SHOULD).
+/// Checking every delivery adds one DNS RTT per message; once per minute is enough
+/// to detect policy rotation quickly without making per-message DNS a bottleneck.
+const ID_CHECK_INTERVAL: Duration = Duration::from_secs(60);
+
 /// Cached policy entry used by `MtaStsEnforcer`.
 struct CachedStsEntry {
     /// The `id=` from the DNS TXT record at the time this policy was fetched.
@@ -45,6 +50,9 @@ struct CachedStsEntry {
     mode: MtaStsMode,
     /// Shared behind `Arc` so cache-hit paths clone the pointer, not the vec.
     mx_patterns: Arc<Vec<String>>,
+    /// When the DNS TXT `id=` was last verified against the live record.
+    /// Throttles re-checks to at most once per [`ID_CHECK_INTERVAL`].
+    last_id_check: Instant,
 }
 
 /// In-memory MTA-STS policy cache and enforcement for outbound relay.
@@ -122,30 +130,50 @@ impl MtaStsEnforcer {
                         entry.policy_id.clone(),
                         entry.mode, // MtaStsMode is Copy
                         entry.mx_patterns.clone(),
+                        entry.last_id_check,
                     )
                 })
         };
 
         let (mode, mx_patterns) = match cached {
-            Some((cached_id, mode, mx_patterns)) => {
-                // Step 2 (cache hit): RFC 8461 §4.1 SHOULD verify id= on each delivery
-                // to detect policy rotation.  Tolerate DNS failure — a valid cached
+            Some((cached_id, mode, mx_patterns, last_id_check)) => {
+                // Step 2 (cache hit): RFC 8461 §4.1 SHOULD verify id= periodically to
+                // detect policy rotation.  Checking on every delivery adds a DNS RTT per
+                // message; once per ID_CHECK_INTERVAL is sufficient and avoids making
+                // DNS a per-message bottleneck.  Tolerate DNS failure — a valid cached
                 // entry must never block delivery due to a transient DNS problem.
-                match lookup_mta_sts_txt(&self.resolver, rcpt_domain).await {
-                    Ok(Some(txt)) if txt.policy_id != cached_id => {
-                        // Policy has rotated — discard stale entry and re-fetch.
-                        // NOTE: guard dropped immediately.
-                        self.cache
-                            .lock()
-                            .unwrap_or_else(|p| p.into_inner())
-                            .remove(rcpt_domain);
-                        match self.load_fresh_policy(rcpt_domain, &txt).await {
-                            Some(p) => p,
-                            None => return Ok(()), // fetch failed; don't block delivery
+                if last_id_check.elapsed() >= ID_CHECK_INTERVAL {
+                    match lookup_mta_sts_txt(&self.resolver, rcpt_domain).await {
+                        Ok(Some(txt)) if txt.policy_id != cached_id => {
+                            // Policy has rotated — discard stale entry and re-fetch.
+                            // NOTE: guard dropped immediately.
+                            self.cache
+                                .lock()
+                                .unwrap_or_else(|p| p.into_inner())
+                                .remove(rcpt_domain);
+                            match self.load_fresh_policy(rcpt_domain, &txt).await {
+                                Some(p) => p,
+                                None => return Ok(()), // fetch failed; don't block delivery
+                            }
+                        }
+                        // id= unchanged, no TXT record, or DNS error — refresh check
+                        // timestamp so we don't retry again immediately.
+                        _ => {
+                            // NOTE: guard dropped immediately.
+                            if let Some((entry, _)) = self
+                                .cache
+                                .lock()
+                                .unwrap_or_else(|p| p.into_inner())
+                                .get_mut(rcpt_domain)
+                            {
+                                entry.last_id_check = Instant::now();
+                            }
+                            (mode, mx_patterns)
                         }
                     }
-                    // id= unchanged, no TXT record, or DNS error — use cached policy.
-                    _ => (mode, mx_patterns),
+                } else {
+                    // DNS check not due yet — use cached policy directly.
+                    (mode, mx_patterns)
                 }
             }
             None => {
@@ -235,6 +263,7 @@ impl MtaStsEnforcer {
             policy_id: txt.policy_id.clone(),
             mode: policy.mode, // MtaStsMode is Copy
             mx_patterns: mx_arc.clone(),
+            last_id_check: Instant::now(),
         };
         // NOTE: guard dropped immediately after insert — no await follows.
         self.cache
@@ -260,6 +289,7 @@ impl MtaStsEnforcer {
             policy_id: policy_id.to_owned(),
             mode,
             mx_patterns: Arc::new(mx_patterns),
+            last_id_check: Instant::now(),
         };
         self.cache
             .lock()
