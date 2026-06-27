@@ -1,0 +1,20 @@
+{
+  "id": "stoa-6834c255",
+  "title": "Fail-closed startup check for admin API exposure",
+  "description": "start_sieve_admin_server checks at startup whether the admin endpoint would be on a non-loopback interface without a bearer token. Refuses to start if unprotected. This is defense-in-depth: fail early rather than silently exposing an unauthenticated admin API.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T07:06:16Z",
+  "updated_at": "2026-05-01T04:55:35Z",
+  "closed_at": "2026-04-30T07:15:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-17ee367f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 00:06:15"
+    }
+  ]
+}

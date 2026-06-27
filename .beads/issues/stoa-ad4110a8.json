@@ -1,0 +1,21 @@
+{
+  "id": "stoa-ad4110a8",
+  "title": "serde_ipld_dagcbor not version-pinned; minor bump could change CID output",
+  "description": "core/Cargo.toml: serde_ipld_dagcbor = '0.6' matches any 0.6.x. DAG-CBOR encoding is the source of CID values stored in IPFS and the group log. A minor version bump changing serialization (map ordering, canonicalization edge cases) would produce different CIDs for new articles without any warning, breaking the group log's CID-addressed invariant. Fix: pin to exact version (= '0.6.x') and make upgrades a deliberate, test-validated decision.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:34:56Z",
+  "updated_at": "2026-05-01T04:59:39Z",
+  "closed_at": "2026-04-21T19:34:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:34:56"
+    }
+  ]
+}

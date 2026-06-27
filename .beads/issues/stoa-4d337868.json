@@ -1,0 +1,13 @@
+{
+  "id": "stoa-4d337868",
+  "title": "Review round 6: final convergence check",
+  "description": "Sixth review pass. Rounds 1-5 fixed: R1 P1s, R2 P0+P1s, R3 P1 (hlc negative guard), R4 P1 (did_verify UTF-8), R5 P2 (dead from_static_str). Look for any remaining issues the previous 5 rounds missed, especially in areas not yet heavily reviewed: imap, auth, mail, lmdb, sieve crates.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T04:39:37Z",
+  "updated_at": "2026-05-01T04:55:57Z",
+  "closed_at": "2026-04-27T04:44:55Z"
+}

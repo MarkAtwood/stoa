@@ -1,0 +1,21 @@
+{
+  "id": "stoa-5b02f6f9",
+  "title": "DECISION: Dual-CID model separates dedup from IPFS address",
+  "description": "Dual-CID model in cid_util.rs. Canonical CID (0x55 raw, SHA-256 wire bytes) for dedup map only. Root CID (0x71 DAG-CBOR) for IPFS addressing only. Root CID is not stable across ingests because HLC and operator signature differ. A single-CID approach would break either dedup or IPFS addressability.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:10:23Z",
+  "updated_at": "2026-05-01T04:56:03Z",
+  "closed_at": "2026-04-27T16:12:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:10:22"
+    }
+  ]
+}

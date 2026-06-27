@@ -1,0 +1,50 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "MTA-STS HTTPS fetcher implemented with no-redirect+WebPKI invariants; check+clippy clean",
+  "closed_at": "2026-05-02T17:55:12Z",
+  "compaction_level": 0,
+  "content_hash": "1014e177da04b59aec4eea10c39455aa8280faa70e20c36542b2a2ddc6ed6603",
+  "created_at": "2026-05-02T17:38:11Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement fetch_mta_sts_policy(domain: &str, config: &MtaStsConfig) -> Result<String, MtaStsError>. Fetches https://mta-sts.<domain>/.well-known/mta-sts.txt using reqwest. Security invariants (all mandatory): no HTTP redirects (reqwest::redirect::Policy::none()), WebPKI certificate required (no custom CA), read response body up to max_policy_body_bytes (64 KiB) then error, connect+read timeout from config, block RFC1918/loopback resolved IPs (SSRF prevention \u2014 resolve hostname, check IP range before connecting). Return MtaStsError::PolicyFetchFailed on any network error, cert error, redirect, or oversized response.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MTA-STS policy HTTPS fetcher",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T10:39:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.4",
+      "id": "07a18e56-0ef1-5ca1-964a-4c315a85b1da",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T10:39:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.3",
+      "id": "9f616ad9-e21d-54a1-bee1-73072dd7994e",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T10:38:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks",
+      "id": "bf658cd6-707b-5050-9353-fc9f958e3137",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

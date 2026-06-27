@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T22:40:29Z",
+  "compaction_level": 0,
+  "content_hash": "4edc1c1f26fb5aaddc40a6c72a31ef69b58194699b0d9524e0cd882d92d1e723",
+  "created_at": "2026-05-02T22:23:18Z",
+  "created_by": "Mark Atwood",
+  "description": "In mail/src/server.rs lines 329 and 331, build_mta_sts_policy_body uses body.push_str(&format!(...)) which allocates an intermediate String. The idiomatic Rust pattern is use std::fmt::Write; write!(body, ...).unwrap() which writes directly into the String without an intermediate allocation. Two occurrences: mx pattern loop (line 329) and max_age line (line 331). P2 unnecessary allocation.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.27",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Idiom review iter-4: push_str(&format!()) in build_mta_sts_policy_body",
+  "updated_at": "2026-05-02T22:40:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T15:23:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks",
+      "id": "dbd61bc2-2ed7-5b9a-9e0a-81f00917d234",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

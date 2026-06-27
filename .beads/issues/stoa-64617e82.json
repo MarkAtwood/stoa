@@ -1,0 +1,19 @@
+{
+  "id": "stoa-64617e82",
+  "title": "AUTH accepted on port 25 after EHLO on plain connection via non-TLS path",
+  "description": "session.rs: run_session is called with is_tls=false for port-25 and port-587 plain connections. The AUTH check at line ~313 gates on is_tls, but a client that sends AUTH on port 587 (submission port, expected to be TLS-upgraded) gets a 534 rather than a silent ignore. More critically: there is no enforcement that port 587 must require TLS before accepting MAIL FROM \u2014 the auth guard at line ~414 only fires when credential_store is non-empty. If credential_store is empty (no users configured), port 587 is an open relay accepting MAIL FROM from anyone on a cleartext connection. The intended security model is that port 587 requires AUTH, but there is no mechanism to enforce this: empty credential store = open relay on both ports 25 and 587.",
+  "status": "open",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:33:06Z",
+  "updated_at": "2026-05-01T04:57:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:33:06"
+    }
+  ]
+}

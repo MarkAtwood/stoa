@@ -1,0 +1,20 @@
+{
+  "id": "stoa-755b483a",
+  "title": "set_active uses SQLite transaction for atomic activate/deactivate \u2014 correct",
+  "description": "store::set_active begins a transaction, checks existence, deactivates all, activates the target, commits. This prevents the window where two concurrent activate requests leave two scripts active. A contributor might suggest using a single UPDATE without a transaction, arguing SQLite serializes writes. That's true for single statements but not for the check-then-update sequence. Defend: the existence check and the two UPDATE statements must be atomic; the transaction is necessary and correct. The cost of a transaction on a loopback SQLite write is negligible.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T13:32:39Z",
+  "updated_at": "2026-05-01T04:54:52Z",
+  "closed_at": "2026-04-22T23:33:10Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9f393084",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 06:32:38"
+    }
+  ]
+}

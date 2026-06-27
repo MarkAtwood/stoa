@@ -1,0 +1,27 @@
+{
+  "id": "stoa-f5aa3e4e",
+  "title": "wildmat: apply pattern matching at ingestion and gossipsub subscription",
+  "description": "## Why\nNeeded by stoa-efbe068a. Ingestion must filter articles using wildmat patterns.\n\nNOTE: Gossipsub was removed in commit bcd4026. The gossipsub subscription derivation part of this issue is obsolete. The ingestion filtering part remains valid.\n\n## What\n- Ingestion: replace exact-set lookup with wildmat_list_match against each newsgroup in the article's Newsgroups header\n- Startup: log which groups will be accepted based on configured patterns\n\n## Obsolete (gossipsub removed)\n- ~~Gossipsub topic derivation: extract hierarchies from positive patterns~~\n- ~~Subscribe to stoa.hier.* topics implied by patterns~~",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T16:14:08Z",
+  "updated_at": "2026-05-01T04:51:55Z",
+  "closed_at": "2026-04-27T18:58:06Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d4a4b39d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-24 09:14:15"
+    },
+    {
+      "depends_on_id": "stoa-f5ba46a6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-24 09:14:14"
+    }
+  ]
+}

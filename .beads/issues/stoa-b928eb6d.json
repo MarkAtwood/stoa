@@ -1,0 +1,20 @@
+{
+  "id": "stoa-b928eb6d",
+  "title": "[maintainer] enqueue I/O errors silently discarded",
+  "description": "NNTP/JMAP enqueue failures are logged at warn level only (relay_queue.rs:84, email/set.rs:218, post/smtp_relay.rs:84). Transient I/O errors (disk full, queue dir not writable) cause silent message loss \u2014 article is accepted to client, but never written to queue. Operator won't know unless actively monitoring warn logs. Need: change log level to error, add metric counter, or fail the request back to client.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T19:13:50Z",
+  "updated_at": "2026-05-01T05:00:32Z",
+  "closed_at": "2026-04-23T19:27:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-11ae5322",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 12:13:50"
+    }
+  ]
+}

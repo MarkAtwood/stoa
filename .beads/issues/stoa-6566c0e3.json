@@ -1,0 +1,19 @@
+{
+  "id": "stoa-6566c0e3",
+  "title": "Email/get: fetch_smtp_emails_batch silently swallows DB errors via unwrap_or_default",
+  "description": "email/get.rs fetch_smtp_emails_batch() calls .fetch_all().await.unwrap_or_default(). A DB error (connection loss, schema change) returns an empty HashMap, causing all smtp: IDs in the request to appear as notFound to the client with no error reported and no log. Fix: propagate the error to the caller, which should log it and return a serverFail or partial result.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:42:50Z",
+  "updated_at": "2026-05-01T04:52:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:42:50"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T13:25:08Z",
+  "compaction_level": 0,
+  "content_hash": "8c886a493f83f9bdfbce494db1c5a4945e6d916d467a785d60fea40005e89acd",
+  "created_at": "2026-05-03T13:04:46Z",
+  "created_by": "Mark Atwood",
+  "description": "In msgid_map.rs, insert() does: (1) INSERT ... ON CONFLICT DO NOTHING, (2) if rows_affected == 0, SELECT to compare CIDs. On PostgreSQL with READ COMMITTED isolation, the SELECT in step 2 can miss a concurrent transaction that inserted the same message_id between steps 1 and 2 if that transaction is not yet committed when step 1 runs but commits before step 2. The result is that insert() returns Ok(()) without detecting the duplicate. The fix is to use INSERT ... ON CONFLICT DO NOTHING RETURNING ... combined with a single SELECT in one statement, or to use SERIALIZABLE isolation.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.52",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Fix deferred by coordinator. The existing insert() already wraps INSERT+SELECT in a single transaction. For PostgreSQL READ COMMITTED atomicity, the proper fix is INSERT ... ON CONFLICT DO NOTHING RETURNING cid with fallback SELECT \u2014 uses AnyPool-compatible placeholders, no schema changes needed. Awaiting coordinator go-ahead.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "core: msgid_map INSERT then SELECT on conflict has TOCTOU window on PostgreSQL READ COMMITTED",
+  "updated_at": "2026-05-03T13:25:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:04:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "16202fb1-33f2-5e64-9582-4b5a62e6c501",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

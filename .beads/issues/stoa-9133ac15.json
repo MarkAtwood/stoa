@@ -1,0 +1,19 @@
+{
+  "id": "stoa-9133ac15",
+  "title": "three identical dir-scan loops with break-on-error should be a shared helper",
+  "description": "cleanup_tmp_files, cleanup_orphan_msg_files, and the dead/ count loop in drain_once all implement the same read_dir + loop { match next_entry() } pattern with identical error handling. The break-on-entry-error bug exists in all three. A private async fn scan_dir_entries(dir: &Path) -> Vec<DirEntry> (or an iterator) that centralises the read_dir loop would: (1) fix the break-vs-continue bug once, (2) remove three copies of the same error arm. Suggested rewrite: async fn collect_dir_entries(dir: &Path) -> Vec<tokio::fs::DirEntry> that logs and continues on per-entry errors and logs and returns empty vec on open error.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:09:53Z",
+  "updated_at": "2026-05-01T04:51:41Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-185e20da",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:09:52"
+    }
+  ]
+}

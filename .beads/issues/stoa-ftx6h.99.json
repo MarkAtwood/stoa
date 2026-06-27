@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "389c0e38e0803ea9066d2480c47212ebb270ccb71e071d8f8394dc5da37bdfa5",
+  "created_at": "2026-05-03T13:06:01Z",
+  "created_by": "Mark Atwood",
+  "description": "In session.rs (and referenced in server.rs), SieveCache is defined as Arc<Mutex<HashMap<String, Arc<CompiledScript>>>>. The inner Arc<CompiledScript> is redundant: the outer Mutex is already the synchronization point; cloning an Arc out of the map before releasing the lock serves no purpose if the script is only used within the same async task. The inner Arc adds indirection and cognitive load. Fix: remove the inner Arc \u2014 store CompiledScript directly in the HashMap. If the compiled script must be shared across tasks (e.g. passed to a spawned task), document why the inner Arc is required.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.99",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "smtp: SieveCache type alias wraps redundant inner Arc",
+  "updated_at": "2026-05-03T13:06:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "a93772da-307b-5970-b805-09a8e9010ec4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

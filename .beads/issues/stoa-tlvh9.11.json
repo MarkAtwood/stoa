@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T03:27:49Z",
+  "compaction_level": 0,
+  "content_hash": "cfbfc2f828ddbaed923d7a4cc1fa4d792d4371fa86474a0a96946e4c464177c3",
+  "created_at": "2026-05-04T03:19:16Z",
+  "created_by": "Mark Atwood",
+  "description": "rnews_main.rs:57-59 \u2014 The arg parser silently discards any unrecognised argument (wildcard arm just does i += 1). There is no --help or --version flag. A typo like 'stoa-rnews --conifg /etc/...' fails with 'error: --config <path> is required' rather than indicating the unknown flag. A new operator will have no way to discover valid flags without reading the source. Better approach: add --help output listing --config and --check with one-line descriptions; treat unrecognised flags as errors. A crate like clap (already used elsewhere in the workspace) would handle both at no extra maintenance cost.",
+  "ephemeral": 0,
+  "id": "stoa-tlvh9.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "unknown CLI args silently ignored, no --help",
+  "updated_at": "2026-05-04T03:27:49Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T20:19:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-tlvh9",
+      "id": "72aa6527-3745-5d4a-bff0-27731e7af0ee",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

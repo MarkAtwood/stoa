@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "4e9bf046b30b9d7039bd8fad4c92e0a6c92cd0cbcfb4d6d6d6f3a62ace202dd6",
+  "created_at": "2026-05-03T13:08:28Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\nsearch/mod.rs::build_schema() returns (Schema, Fields) as separate values. If the schema is later mutated or re-created, the Fields struct still holds stale Field handles from the original schema. The current code does not mutate the schema, but the separation is fragile: a future refactor that calls build_schema() twice would produce two Schema objects with Fields that silently cross-reference the wrong schema.\\n\\n## Acceptance Criteria\\n\\nReturn a single struct (e.g. SchemaWithFields) that wraps both. This prevents callers from accidentally using Fields from schema A with schema B.",
+  "ephemeral": 0,
+  "id": "stoa-593km",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Rust idiom: search/mod.rs::build_schema returns Fields separately, breaking schema/fields sync",
+  "updated_at": "2026-05-03T13:08:28Z"
+}

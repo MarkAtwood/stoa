@@ -1,0 +1,20 @@
+{
+  "id": "stoa-2d13c977",
+  "title": "for arg in args.by_ref() is obscure; while-let-next is clearer",
+  "description": "smtp/main.rs, imap/main.rs, mail/main.rs all use 'for arg in args.by_ref() { if arg == \"--config\" { match args.next() ... } }' to parse CLI args. The by_ref() borrow is needed so the for-loop and the inner args.next() share the same iterator state. This is correct but unfamiliar: most Rust readers encountering by_ref() inside a for loop have to pause and think. The standard idiomatic pattern for this problem is 'while let Some(arg) = args.next() { if arg == \"--config\" { let path = args.next().ok_or_else(|| ...); } }' which makes the shared iterator state obvious. All three binaries copy-paste the same parse_args() \u2014 they could share a single implementation in a common module, reducing the surface where this pattern needs to be understood.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:42:56Z",
+  "updated_at": "2026-05-01T05:00:33Z",
+  "closed_at": "2026-05-01T00:45:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d94f2708",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:42:56"
+    }
+  ]
+}

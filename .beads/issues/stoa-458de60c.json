@@ -1,0 +1,21 @@
+{
+  "id": "stoa-458de60c",
+  "title": "PinningApiKey::validate_uri_syntax has no test",
+  "description": "crates/transit/src/retention/remote_pin_client.rs: validate_uri_syntax() was added as a new public method but has no test. Needs: (1) literal token -> Ok, (2) syntactically valid secretx URI -> Ok, (3) invalid secretx URI -> Err.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-26T22:52:10Z",
+  "updated_at": "2026-05-01T04:58:59Z",
+  "closed_at": "2026-04-26T22:54:17Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-67be59c0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 15:52:10"
+    }
+  ]
+}

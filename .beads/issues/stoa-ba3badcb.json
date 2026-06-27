@@ -1,0 +1,21 @@
+{
+  "id": "stoa-ba3badcb",
+  "title": "asymmetric check_admin_addr signatures between transit (Option) and reader (Result)",
+  "description": "transit/src/config.rs:634 check_admin_addr returns Option<String> (a warning string); reader/src/config.rs:515 returns Result<(),String>. Transit's version returns None (no warning) when allow_non_loopback=true even without a bearer token \u2014 but start_admin_server still rejects that combination. A contributor adding admin support to a third daemon will copy one of these inconsistent patterns. The allow_non_loopback flag in transit config is confusing: it suppresses the config-level warning but the server's fail-closed guard still fires. Unify: both should return Result<(),String> and enforce the same rule (non-loopback requires bearer token, period).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T16:34:46Z",
+  "updated_at": "2026-05-01T04:56:26Z",
+  "closed_at": "2026-04-24T17:47:16Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3840252d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-24 09:34:46"
+    }
+  ]
+}

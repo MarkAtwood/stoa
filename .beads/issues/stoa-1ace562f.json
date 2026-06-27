@@ -1,0 +1,21 @@
+{
+  "id": "stoa-1ace562f",
+  "title": "complete_post audit log emits placeholder CID and key fingerprint",
+  "description": "post.rs complete_post() emits AuditEvent::ArticleSigned with cid: 'not-yet-stored' and key_fingerprint: 'not-yet-signed'. These placeholders will appear in any audit log a user reads and are misleading \u2014 the article IS signed and stored by the time a user queries the audit log. The audit emit should either be moved to after IPFS write and signing (in lifecycle.rs run_post_pipeline after step 4/6) or removed until the audit log is properly wired. As-is it gives a false audit trail.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T06:01:32Z",
+  "updated_at": "2026-05-01T05:00:02Z",
+  "closed_at": "2026-04-27T17:15:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-650091d3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 23:01:31"
+    }
+  ]
+}

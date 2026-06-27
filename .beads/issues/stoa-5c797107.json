@@ -1,0 +1,39 @@
+{
+  "id": "stoa-5c797107",
+  "title": "Implement Message-ID to CID reindex tool",
+  "description": "Implement a maintenance tool that walks all blocks in the local IPFS store, attempts to parse each as a Usenet article, and rebuilds the Message-ID to CID SQLite map from scratch. Used for disaster recovery if the SQLite database is lost but IPFS blocks are intact. Artifact: transit/src/import/reindex.rs.\n\nAcceptance:\n- Walks IPFS block store and parses each block\n- Non-article blocks are silently skipped\n- Rebuilt index matches the original (test by comparing before/after on a known corpus)\n- Progress reported every 1000 blocks\n- --dry-run flag reports what would be indexed without writing to SQLite",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:14:42Z",
+  "updated_at": "2026-05-01T04:58:13Z",
+  "closed_at": "2026-04-20T12:18:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-88563941",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:15:55"
+    },
+    {
+      "depends_on_id": "stoa-9f7a23fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:53:37"
+    },
+    {
+      "depends_on_id": "stoa-a1bf40fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:13"
+    },
+    {
+      "depends_on_id": "stoa-a684e7df",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:14:41"
+    }
+  ]
+}

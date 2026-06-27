@@ -1,0 +1,33 @@
+{
+  "close_reason": "slrn batch-mode interop test added at tests/interop/slrn_test.sh. Tests slrn --create against live reader (SKIP when slrn not installed).",
+  "closed_at": "2026-05-05T03:13:43Z",
+  "compaction_level": 0,
+  "content_hash": "fced37e3ec141efafc211d5d64c0dd7d30df26d6ee1bda50195184be303be094",
+  "created_at": "2026-05-05T02:33:31Z",
+  "created_by": "Mark Atwood",
+  "description": "Create tests/interop/slrn_test.sh that installs slrn (apt-get) if not present, then drives slrn in batch/script mode against a live stoa-reader. Must test: CAPABILITIES, GROUP, ARTICLE, HEAD, BODY, OVER, and QUIT. slrn supports -n (no .newsrc reading), --create-rc, and batch commands via a script file or initial commands. All commands must complete without errors or unexpected responses.",
+  "ephemeral": 0,
+  "id": "stoa-wlyx7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "slrn batch-mode interop test script",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:33:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-t3zm3",
+      "id": "793ed63d-823d-5bed-b872-5cf6b7b71c7a",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

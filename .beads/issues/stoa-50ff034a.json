@@ -1,0 +1,21 @@
+{
+  "id": "stoa-50ff034a",
+  "title": "mail: 'TLS configuration loaded' log is misleading \u2014 listener not active",
+  "description": "mail/main.rs logs 'TLS configuration loaded' when cert+key are both set, but the HTTPS listener is not yet wired in v1. An operator who configures TLS and sees this message will reasonably assume HTTPS is active. Should say 'TLS configuration validated' or 'TLS certificate and key validated (HTTP listener not yet TLS-enabled)' to avoid that false confidence.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T21:27:07Z",
+  "updated_at": "2026-05-01T04:54:28Z",
+  "closed_at": "2026-04-30T21:27:43Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-da369724",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 14:27:07"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "id": "stoa-45d8dea3",
+  "title": "Implement CID computation for articles",
+  "description": "Implement the function that takes an Article's canonical byte representation and returns its CIDv1 (SHA2-256, dag-pb or raw codec as appropriate). Artifact: src/cid.rs in usenet-ipfs-core. The IPFS client library used here is determined by the spike decision; use a feature flag so the implementation can be swapped.\n\nAcceptance:\n- cid_for_article(article: &Article) -> Cid compiles and runs\n- CID codec and hash function are documented and tested against a known reference vector from kubo or another IPFS reference impl\n- Feature flag selects the IPFS library used (iroh / rust-ipfs / libp2p)",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:09:50Z",
+  "updated_at": "2026-05-01T04:53:04Z",
+  "closed_at": "2026-04-20T03:20:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1c73f68d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:09:49"
+    },
+    {
+      "depends_on_id": "stoa-6b57af1d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:10:07"
+    },
+    {
+      "depends_on_id": "stoa-c9c62a23",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:01"
+    },
+    {
+      "depends_on_id": "stoa-d5eea38d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 18:50:14"
+    }
+  ]
+}

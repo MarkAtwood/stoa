@@ -1,0 +1,27 @@
+{
+  "id": "stoa-82acc6b9",
+  "title": "JMAP: bearer token issuance and validation",
+  "description": "Add per-client revocable bearer tokens on top of HTTP Basic. Design: POST /jmap/auth/token authenticates via HTTP Basic (same CredentialStore), accepts optional JSON body {\"label\": \"thunderbird-laptop\", \"expires_in_days\": 90}, returns {\"token\": \"<base64url>\", \"id\": \"<uuid>\", \"expires_at\": <unix or null>}. Token storage: SHA-256 hash of raw token stored in SQLite table (token_hash BLOB PK, username TEXT, label TEXT, created_at INT, expires_at INT nullable). Never store raw token. All JMAP endpoints accept either Authorization: Basic or Authorization: Bearer; Bearer path looks up sha256(raw_token), checks expiry. DELETE /jmap/auth/token/:id revokes a specific token. List tokens: GET /jmap/auth/token (returns id+label+created_at, never the raw token or hash). Bootstrap: operator creates first token via CLI or dev-mode Basic. This is what RFC 8620 \u00a72 envisions and what clients expect for persistent sessions \u2014 Basic is the bootstrap mechanism.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:48:32Z",
+  "updated_at": "2026-05-01T04:58:54Z",
+  "closed_at": "2026-04-22T05:08:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-31947539",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:48:32"
+    },
+    {
+      "depends_on_id": "stoa-8670b753",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:48:44"
+    }
+  ]
+}

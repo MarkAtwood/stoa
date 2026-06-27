@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T00:00:48Z",
+  "compaction_level": 0,
+  "content_hash": "08617835323e6217488419643680bf70e9eaba7287cdc75acb2a535bef66119e",
+  "created_at": "2026-05-02T23:09:06Z",
+  "created_by": "Mark Atwood",
+  "description": "relay_client.rs:206-210: enforcing a 60-second minimum TTL regardless of max_age is correct. A malicious policy server could set max_age=0 to force a DNS+HTTPS re-fetch on every delivery attempt, turning the enforcer into an amplification tool. The minimum cap prevents this. A contributor might remove it as 'incorrect' since it deviates from max_age; it should not be removed.",
+  "ephemeral": 0,
+  "id": "stoa-wfcj7.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Minimum 60-second cache TTL in load_fresh_policy prevents remote-controlled amplification",
+  "updated_at": "2026-05-03T00:00:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T16:09:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-wfcj7",
+      "id": "d382a197-2958-5cb9-acc6-96daf0732eb2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-4a4677ef",
+  "title": "XCID multi-line base64 response missing trailing CRLF before dot-terminator",
+  "description": "## What / Why\nIn crates/transit/src/peering/session.rs, the XCID response builds multi-line base64 output using lines.join('\\r\\n'). join() inserts the separator between elements but NOT after the last element, so the last base64 line is not followed by '\\r\\n' before the '.\\r\\n' dot-terminator. The result is: ...<last-b64-line>.\\r\\n instead of ...<last-b64-line>\\r\\n.\\r\\n.\n\n## Trigger \u2192 Bad Behavior\nClient sends XCID; server sends response with base64 body; client NNTP parser reads lines until '.' \u2014 the client sees the last data line merged with '.', treating it as data content and then timing out waiting for the terminator (or silently corrupting the CID value it reads).\n\n## Fix\nAfter join('\\r\\n'), append '\\r\\n' unconditionally before appending '.\\r\\n', OR switch to extending body_lines one line at a time and using the Response multiline formatter.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T03:07:46Z",
+  "updated_at": "2026-05-01T04:59:27Z",
+  "closed_at": "2026-04-27T04:06:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e2297bae",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 20:07:46"
+    }
+  ]
+}

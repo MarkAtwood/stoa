@@ -1,0 +1,20 @@
+{
+  "id": "stoa-2eb54048",
+  "title": "resolve_secret_uri duplicated across transit and reader main.rs",
+  "description": "crates/transit/src/main.rs lines 214-244 and crates/reader/src/main.rs lines 198-228 contain identical async fn resolve_secret_uri() implementations. The transit copy has an explicit NOTE comment: 'An identical copy of this function exists in crates/reader/src/main.rs. If you change the logic here, change it there too.' This is a textbook maintenance trap: a security-relevant function (secret retrieval, UTF-8 validation, process::exit on failure) that lives in two places. A contributor who fixes a bug or adds a new secretx backend type in one copy will not notice the comment, and the other copy silently diverges. The function belongs in stoa_core or a shared secretx-utils crate accessible to both binaries. Maintenance consequence: any security fix to secret resolution logic must be applied twice; the NOTE comment will be missed in code review.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:09:04Z",
+  "updated_at": "2026-05-01T04:53:45Z",
+  "closed_at": "2026-04-27T03:01:06Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:09:03"
+    }
+  ]
+}

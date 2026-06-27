@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T22:21:48Z",
+  "compaction_level": 0,
+  "content_hash": "cee21b131092624f42edd9c153f88e69962b928f35feb5cf1f61093438a3e097",
+  "created_at": "2026-05-02T22:02:42Z",
+  "created_by": "Mark Atwood",
+  "description": "In crates/mail/src/server.rs mta_sts_handler (line 386), the handler calls render_mta_sts_policy which always computes a SHA-256 digest + HEXLOWER encode + String alloc for policy_id, then immediately discards it (stored as _policy_id). This is unnecessary work on every /.well-known/mta-sts.txt HTTP request. Fix: either split render_mta_sts_policy into body-only and id functions, or have the handler call a body-only variant that skips the hash computation.",
+  "ephemeral": 0,
+  "id": "stoa-cc4gg",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: render_mta_sts_policy discards policy_id on every HTTP request",
+  "updated_at": "2026-05-02T22:21:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T15:02:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-tw9x2",
+      "id": "6e5db976-803c-5de9-ac1e-0165b219c79d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-3e444e55",
+  "title": "fix(mail): Email/query response position echoes client value when position > total",
+  "description": "In server.rs Email/query smtp arm (line 612), the response unconditionally returns the client-supplied position value:\n\n  return json!({ ..., \"position\": position, \"ids\": page, ... });\n\nWhen position > len(smtp_ids), skip() exhausts the iterator and page is empty, but position in the response still carries the out-of-range value the client sent.\n\nRFC 8620 \u00a75.5 requires that the response position field be the index of the first result in the ids array within the complete list of results. When ids is empty due to position >= total, the correct response position is total (i.e., one past the last valid index), not the client-supplied value.\n\nFix: replace the bare position in the response with the actual anchor:\n  let response_position = position.min(total);\n  return json!({ ..., \"position\": response_position, ... });\n\nThis is the same fix needed in the newsgroup CID path in the same method if it has the same pattern.\n\nSeverity: protocol nonconformance. JMAP clients that binary-search using position/total to detect end-of-list (e.g., Fastmail's client) may loop if the server echoes an out-of-range position instead of clamping to total.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:01:32Z",
+  "updated_at": "2026-05-01T04:59:37Z",
+  "closed_at": "2026-04-30T05:27:55Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-14057691",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:01:31"
+    }
+  ]
+}

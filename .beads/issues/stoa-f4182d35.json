@@ -1,0 +1,21 @@
+{
+  "id": "stoa-f4182d35",
+  "title": "Header parsing allocates lowercase String per line on hot paths",
+  "description": "PER-LINE ALLOCATION ON INGESTION AND READER HOT PATHS \u2014 has_header (ingestion.rs:250), parse_message_id_and_newsgroups (pipeline.rs:524), and extract_overview (overview.rs:214) each call to_ascii_lowercase() producing a new String for every header line scanned. A typical article has 10-20 headers; this generates 10-20 transient heap allocations per article per scan. extract_overview runs at POST time; has_header loops over 5 mandatory headers (5 full scans). Fix: use a case-insensitive byte comparison (eq_ignore_ascii_case or manual byte comparison) to avoid the lowercase allocation entirely.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:09:52Z",
+  "updated_at": "2026-05-01T04:56:04Z",
+  "closed_at": "2026-04-27T16:10:56Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:09:52"
+    }
+  ]
+}

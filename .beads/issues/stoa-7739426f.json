@@ -1,0 +1,19 @@
+{
+  "id": "stoa-7739426f",
+  "title": "SEC3: DKIM test signer helper duplicated in 3 test modules",
+  "description": "The RFC 8463 test keypair construction is identical in queue.rs tests, relay_queue.rs tests, and dkim_e2e.rs \u2014 three separate copies of the same ~10-line helper. Moving to tests/common/mod.rs (or a test-only helper in a shared location) would reduce duplication.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:22:42Z",
+  "updated_at": "2026-05-01T04:58:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0b13a613",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:22:42"
+    }
+  ]
+}

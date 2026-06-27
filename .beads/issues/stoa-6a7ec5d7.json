@@ -1,0 +1,21 @@
+{
+  "id": "stoa-6a7ec5d7",
+  "title": "is_valid_group_name diverges from stoa_core::GroupName validation",
+  "description": "The ActivityPub mod.rs uses a local is_valid_group_name (requires dot, no whitespace) while the rest of the system uses stoa_core::article::GroupName::new() which has its own validation rules. If the rules diverge, valid groups in the NNTP layer may be rejected by AP endpoints, or invalid names accepted by AP endpoints. A future maintainer adding AP routes will likely copy is_valid_group_name rather than finding GroupName::new, creating a recurring class of inconsistency bugs. Fix: replace is_valid_group_name with GroupName::new(name).is_ok().",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T17:46:43Z",
+  "updated_at": "2026-05-01T04:53:10Z",
+  "closed_at": "2026-04-28T18:41:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-08d918a1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 10:46:42"
+    }
+  ]
+}

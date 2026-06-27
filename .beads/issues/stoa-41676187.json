@@ -1,0 +1,33 @@
+{
+  "id": "stoa-41676187",
+  "title": "Implement RFC 3977 NNTP command parser",
+  "description": "Implement a line-oriented NNTP command parser: read a CR LF-terminated line, tokenize, dispatch to a command handler. Handle commands: CAPABILITIES, MODE READER, QUIT, LIST (ACTIVE, NEWSGROUPS, OVERVIEW.FMT), NEWGROUPS, NEWNEWS, GROUP, NEXT, LAST, ARTICLE, HEAD, BODY, STAT, OVER, XOVER, POST, IHAVE, AUTHINFO, STARTTLS. Unknown commands return 500. Artifact: reader/src/session/parser.rs and dispatcher.rs.\n\nAcceptance:\n- Parser handles RFC 3977 line length limit (512 bytes for commands)\n- Unknown command returns 500 response\n- QUIT closes session cleanly\n- Parser is fuzz-tested with a corpus of malformed lines (no panics)\n- All 200/300/400/500 response codes match RFC 3977 tables",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:12:41Z",
+  "updated_at": "2026-05-01T04:53:24Z",
+  "closed_at": "2026-04-20T00:33:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b57af1d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:07"
+    },
+    {
+      "depends_on_id": "stoa-90cf7937",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:13:57"
+    },
+    {
+      "depends_on_id": "stoa-987f87c2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:12:41"
+    }
+  ]
+}

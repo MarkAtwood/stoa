@@ -1,0 +1,39 @@
+{
+  "id": "stoa-14020c77",
+  "title": "imap TLS listener: accept IMAPS connections on port 993",
+  "description": "Create crates/imap/src/server.rs. pub struct ImapServer { stores: Arc<ImapStores>, tls_acceptor: Arc<tokio_rustls::TlsAcceptor>, config: Arc<ImapConfig> }. pub struct ImapStores { pub article_numbers: Arc<ArticleNumberStore>, pub overview: Arc<OverviewStore>, pub ipfs: Arc<dyn IpfsBlockStore>, pub credential_store: Arc<CredentialStore>, pub pool: Arc<SqlitePool> }. impl ImapServer { pub async fn new(config: ImapConfig) -> Result<Self, String> { load TLS config via usenet_ipfs_tls::load_tls_server_config; open SQLite pool; run migrations; build credential_store from config.auth; build ArticleNumberStore + OverviewStore from reader crate; build ImapStores; wrap in Arc } pub async fn run(self) -> Result<(), String> { bind TcpListener on config.listen.addr; loop { accept() -> spawn session task } } }. In main.rs: parse --config arg, load ImapConfig, build ImapServer, call server.run().await.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T07:16:46Z",
+  "updated_at": "2026-05-01T04:56:24Z",
+  "closed_at": "2026-04-23T07:30:08Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0f4b23a6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:17:24"
+    },
+    {
+      "depends_on_id": "stoa-33a032ee",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:17:25"
+    },
+    {
+      "depends_on_id": "stoa-3741bca1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:16:46"
+    },
+    {
+      "depends_on_id": "stoa-ac94cddf",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:17:23"
+    }
+  ]
+}

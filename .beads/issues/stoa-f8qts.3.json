@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T16:11:54Z",
+  "compaction_level": 0,
+  "content_hash": "303b73346eea8eda24e72747a8ff230f81a753e264f6a00b0e9e9f1cd6d54df8",
+  "created_at": "2026-05-05T15:55:09Z",
+  "created_by": "Mark Atwood",
+  "description": "routing_mailer.rs:36-43 DomainGlob selector uses rcpt_to.first() only. For multi-domain multi-recipient messages the remaining recipients may be on different domains and get the wrong provider. Doc comment says 'first recipient' but does not warn about misrouting for mixed-domain batches.",
+  "ephemeral": 0,
+  "id": "stoa-f8qts.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "DomainGlob routes on first RCPT TO only \u2014 not documented",
+  "updated_at": "2026-05-05T16:11:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-05T08:55:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-f8qts",
+      "id": "2d204eb5-327c-5390-8bbb-ee9dec364a07",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

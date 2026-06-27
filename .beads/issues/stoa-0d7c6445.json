@@ -1,0 +1,20 @@
+{
+  "id": "stoa-0d7c6445",
+  "title": "stoa-imap: auth_failures not incremented when LOGINDISABLED rejects AUTHENTICATE",
+  "description": "In session/mod.rs Event::CommandAuthenticateReceived, when !ctx.tls, auth_failures is incremented and should_disconnect is checked. But the code path for !ctx.tls calls server.authenticate_finish(no).ok() and then increments auth_failures. Looking at the code: yes it DOES increment auth_failures (line ctx.auth_failures += 1). This is correct \u2014 not a bug. Withdraw.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:42:32Z",
+  "updated_at": "2026-05-01T04:53:35Z",
+  "closed_at": "2026-05-01T03:42:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:42:32"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-ac94cddf",
+  "title": "imap crate: Cargo.toml skeleton and workspace registration",
+  "description": "Create the usenet-ipfs-imap crate: add crates/imap/ to workspace Cargo.toml members list; create crates/imap/Cargo.toml with name=usenet-ipfs-imap, edition=2021, crate-type=[bin]; add dependencies: tokio (version 1 features=[full]), imap-types (=2.0.0-alpha.6), imap-codec (=2.0.0-alpha.7 features=[ext_idle]), imap-next (=0.3.4 features=[stream]), tokio-rustls (0.26), rustls (0.23 features=[std,tls12]), serde (1 features=[derive]), toml (0.8), tracing (0.1), tracing-subscriber (0.3 features=[env-filter,json]), sqlx (0.8 features=[sqlite,runtime-tokio-rustls]), cid (0.11), usenet-ipfs-auth ({path=../auth}), usenet-ipfs-tls ({path=../tls}), usenet-ipfs-reader ({path=../reader}), usenet-ipfs-mail ({path=../mail}), usenet-ipfs-core ({path=../core}), bcrypt (0.15), base64 (0.22), subtle (2), sha2 (0.10), async-trait (0.1). Create src/lib.rs (empty pub mod config;) and src/main.rs (fn main() { println!(\"usenet-ipfs-imap\"); }). Run cargo check -p usenet-ipfs-imap to verify it compiles.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T07:16:21Z",
+  "updated_at": "2026-05-01T04:56:21Z",
+  "closed_at": "2026-04-23T07:24:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3741bca1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:16:20"
+    }
+  ]
+}

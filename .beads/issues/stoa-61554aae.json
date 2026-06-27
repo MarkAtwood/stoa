@@ -1,0 +1,20 @@
+{
+  "id": "stoa-61554aae",
+  "title": "SEC1: Asymmetric DKIM signing failure handling (NNTP defer vs SMTP dead-letter)",
+  "description": "Maintainer Burden \u2014 Error Path Consistency\n\nThe two queues implement opposite semantics for DKIM signing failure:\n  \u2022 queue.rs:217\u2013234 (NNTP): Signs inside drain loop; defers on error; retries next cycle\n  \u2022 relay_queue.rs:340\u2013368 (SMTP relay): Signs before relay; moves to dead-letter on error\n\nCurrent behavior:\n  \u2022 NNTP articles stuck in queue retry indefinitely (potential silent loss of service if signing is permanently broken)\n  \u2022 SMTP relay articles move to dead-letter immediately (immediate mail loss)\n\nRisk: Solo maintainer will struggle to remember which path uses which strategy. If a DKIM signing bug is discovered, one path will hide data loss and the other will lose mail immediately.\n\nRecommendation: Align error handling semantics OR add explicit comments explaining why they differ. Consider: should DKIM signing failure be treated as transient (retry) or permanent (dead-letter)?",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:23:05Z",
+  "updated_at": "2026-05-01T04:52:49Z",
+  "closed_at": "2026-04-30T23:26:43Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0b13a613",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:23:05"
+    }
+  ]
+}

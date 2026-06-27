@@ -1,0 +1,19 @@
+{
+  "id": "stoa-69696e5b",
+  "title": "decision: Semaphore back-pressure in run_server is correct",
+  "description": "server.rs acquires a semaphore permit before calling accept(), which means the listener stops accepting when max_connections is reached. The permit is held for the lifetime of the spawned session task via _permit. This correctly applies back-pressure and prevents unbounded connection accumulation. No issue needed.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:42:20Z",
+  "updated_at": "2026-05-01T04:58:17Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:42:20"
+    }
+  ]
+}

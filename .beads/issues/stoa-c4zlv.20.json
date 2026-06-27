@@ -1,0 +1,32 @@
+{
+  "compaction_level": 0,
+  "content_hash": "5440a29f707668e2385439e3ba4c25b78ae6a2b00ad29ecb71296f7037af1ff7",
+  "created_at": "2026-05-01T15:18:56Z",
+  "created_by": "Mark Atwood",
+  "description": "In server.rs jmap_api_handler, user_id is resolved by a SELECT from the users table at the start of the request. For a new user who has just been provisioned, this lookup may return None and fall back to SINGLETON_USER_ID=1. If the user later appears in the database (e.g. via concurrent provisioning), subsequent calls in the same request batch still use user_id=1, but the new user's data may have been written under their actual user_id. In a multi-user deployment this means the first request after account creation reads and writes state under user_id=1 rather than the correct user_id.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "v1 is single-user by design; SINGLETON_USER_ID fallback is intentional. Warning log already added. Multi-user provisioning race is a v2 concern.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "deferred",
+  "timeout_ns": 0,
+  "title": "jmap_api_handler: user_id lookup races with per-method state reads",
+  "updated_at": "2026-05-01T19:11:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:18:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "d6c18c4f-6e5c-5bbd-b1db-9458795870f5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

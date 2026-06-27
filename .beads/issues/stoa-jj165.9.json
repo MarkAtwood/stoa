@@ -1,0 +1,63 @@
+{
+  "compaction_level": 0,
+  "content_hash": "244b3f011ff3c12018a8c6fac9a312679c7ba8d9f01d96953c8378f3c8cdf2b0",
+  "created_at": "2026-05-02T14:36:29Z",
+  "created_by": "Mark Atwood",
+  "description": "Add integration tests that assert audit events are emitted on the correct paths. Use a test tracing subscriber that captures events and checks field values rather than testing log output strings.\n\n## Test infrastructure needed\nA helper that installs a capturing tracing subscriber for the duration of a test:\n\n  struct CapturedEvents(Arc<Mutex<Vec<HashMap<String, String>>>>);\n\n  impl CapturedEvents {\n      fn install() -> Self { ... }  // sets as default subscriber\n      fn events_with_field(&self, key: &str, val: &str) -> Vec<...> { ... }\n  }\n\nOr use the 'tracing-test' crate (maintained by the tracing team) which provides\n  #[traced_test] proc macro + logs_contain() helper. Either approach is acceptable\n  but must check field values, not log string content (string matching breaks if\n  message formatting changes; field checking does not).\n\n## Test cases\n\n  For each test, spawn a test server with jmap_state() and make an HTTP request.\n  Assert on captured audit events, not on HTTP response codes (those are tested elsewhere).\n\n  1. correct_credentials_emits_login_success_audit_event\n     - POST /jmap/api with valid Basic auth\n     - Assert: audit=true, event.type=auth.login_success, username=correct, present\n\n  2. wrong_password_emits_login_failure_audit_event\n     - POST /jmap/api with wrong password\n     - Assert: audit=true, event.type=auth.login_failure, username=correct\n\n  3. missing_auth_header_emits_no_credentials_audit_event\n     - POST /jmap/api with no Authorization header\n     - Assert: audit=true, event.type=auth.no_credentials\n\n  4. cross_account_emits_cross_account_audit_event\n     - POST /jmap/api, authenticated as alice, request accountId for bob\n     - Assert: audit=true, event.type=authz.cross_account, requested_account=u_bob\n\n  5. non_operator_admin_method_emits_forbidden_audit_event\n     - POST /jmap/api with ServerStatus/get by a non-operator user\n     - Assert: audit=true, event.type=authz.forbidden, method=ServerStatus/get\n\n## Test integrity note\nThese tests must use independent oracles (field value checks) not tautological\noracles (re-running the code under test). The audit event field values are\ndefined by the schema in B5 \u2014 the tests pin those values.",
+  "ephemeral": 0,
+  "id": "stoa-jj165.9",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Tests: verify audit events are emitted for all auth/authz paths",
+  "updated_at": "2026-06-26T20:26:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T07:36:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jj165.6",
+      "id": "3984d15e-4a33-5988-9c84-4ac3b40714f9",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T07:36:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jj165",
+      "id": "3bd6bb95-d474-5c62-b598-1d94ce1116d7",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-02T07:36:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jj165.8",
+      "id": "6ff910a8-2d48-522e-8c96-dc7a8d27bfae",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T07:36:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jj165.5",
+      "id": "a1656142-0e78-572f-80a9-d5546c48a885",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T07:36:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jj165.7",
+      "id": "b3517afa-74f6-5bb5-b87b-59773070fc5d",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

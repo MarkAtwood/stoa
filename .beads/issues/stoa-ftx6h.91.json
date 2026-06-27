@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "5f47b2e9ab817e7aa07cac1ee5998194faca3f1919c1cc5120432e211503ae3a",
+  "created_at": "2026-05-03T13:05:49Z",
+  "created_by": "Mark Atwood",
+  "description": "In relay_client.rs, MtaStsEnforcer evicts expired cache entries only when a new entry is inserted (via the opportunistic sweep in enforce()). A long-lived process that stops receiving new entries for a domain will accumulate expired entries indefinitely, since nothing triggers eviction between insertions. Fix: add a periodic background sweep task (e.g. spawned in the enforcer constructor) that wakes once per policy TTL window and evicts expired entries, or use an existing TTL-aware cache crate.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.91",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "smtp: MtaStsEnforcer TTL eviction is opportunistic-only with no periodic sweep",
+  "updated_at": "2026-05-03T13:05:49Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "0e033b76-317a-5093-b8f9-836fd170db85",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

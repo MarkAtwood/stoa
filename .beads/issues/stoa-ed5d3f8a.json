@@ -1,0 +1,20 @@
+{
+  "id": "stoa-ed5d3f8a",
+  "title": "Circuit breaker: Prometheus metrics for state transitions",
+  "description": "Emit structured log event and increment kubo_circuit_breaker_state{state=open|half_open|closed} Prometheus counter on each state transition. Expose kubo_circuit_breaker_failures_total counter. Blocked on: stoa-3e2e43e6.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:40:54Z",
+  "updated_at": "2026-05-01T04:51:47Z",
+  "closed_at": "2026-04-28T06:27:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3e2e43e6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:42:18"
+    }
+  ]
+}

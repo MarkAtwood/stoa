@@ -1,0 +1,21 @@
+{
+  "id": "stoa-4bbc1c40",
+  "title": "DECISION: signing key required for non-loopback listeners",
+  "description": "main.rs refuses to start when the transit daemon listens on a non-loopback address but operator.signing_key_path is not set. An ephemeral key generated at startup means article signatures change on every restart, breaking X-Stoa-Sig verification for peers that cached the operator's public key. The check permits loopback-only deployments (dev mode) to use an ephemeral key with a warn-level log, while preventing the silent correctness problem in production deployments.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:33:10Z",
+  "updated_at": "2026-05-01T05:00:02Z",
+  "closed_at": "2026-04-27T16:36:25Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:33:10"
+    }
+  ]
+}

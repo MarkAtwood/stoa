@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "bc6885d34be544b616860cc84dc9437247965ed0824cdd107e71214cb0cb6f61",
+  "created_at": "2026-05-04T05:05:23Z",
+  "created_by": "Mark Atwood",
+  "description": "What decision: rnews_main.rs exits with code 75 (EX_TEMPFAIL) when transient pipeline errors occur, and code 1 for configuration/parse failures. Why right: UUCP batch delivery relies on the exit code to decide whether to retry or discard. Exit 0 or 1 for a transient store failure would permanently lose articles the peer already committed to delivering. Exit 75 tells the UUCP scheduler the batch was not fully processed and it should retry. This matches the POSIX sysexits.h convention used by sendmail, INN2, and other mail/news infrastructure. Alternatives rejected: (1) exit 1 for all failures \u2014 UUCP discards the batch permanently, losing articles on transient infra outages; (2) no distinction \u2014 same problem; (3) custom exit codes outside sysexits.h \u2014 non-standard, not recognised by UUCP implementations.",
+  "ephemeral": 0,
+  "id": "stoa-paxfh.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "DECISION: EX_TEMPFAIL (75) vs exit(1) for transient vs permanent errors",
+  "updated_at": "2026-05-04T05:05:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T22:05:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-paxfh",
+      "id": "e4986f75-58b0-51ff-95f8-69b0ed3aa215",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

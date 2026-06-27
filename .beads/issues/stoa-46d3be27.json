@@ -1,0 +1,20 @@
+{
+  "id": "stoa-46d3be27",
+  "title": "DECISION: deterministic mailbox IDs via SHA-256(uid_le || role)",
+  "description": "Special-use mailbox IDs are derived as SHA-256(user_id as 8-byte little-endian || role as UTF-8), taking the first 16 bytes, base32-encoded without padding (26 chars). The algorithm is documented with an independent Python oracle. This means the ID is stable across database restores, computable without a DB round-trip, and collision-resistant for all practical purposes. Alternative rejected: auto-increment primary key as mailbox ID. That would change if the database were restored from a backup or migrated, breaking any client-cached JMAP mailbox IDs. Alternative rejected: random UUID at creation time. That is stable but requires a DB read before any operation can verify the ID is legitimate. Tradeoff: the derivation must be documented and tested against an external oracle (done), and the little-endian byte order is a fixed commitment.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:01:06Z",
+  "updated_at": "2026-05-01T04:59:31Z",
+  "closed_at": "2026-04-30T05:29:22Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-14057691",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:01:05"
+    }
+  ]
+}

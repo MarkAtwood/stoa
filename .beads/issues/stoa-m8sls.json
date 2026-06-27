@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "6d7c47acaef61eb0e803d57429f4378aa5f82bc945a7e7772eb286f5be461c2a",
+  "created_at": "2026-05-03T13:09:39Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\npost/ipfs_write.rs::MemIpfsStore uses HashMap<Vec<u8>, Vec<u8>> keyed by cid.to_bytes(). The Cid type from the cid crate implements Hash and Eq, so HashMap<Cid, Vec<u8>> is directly usable. Using Vec<u8> as the key adds allocation on every lookup (cid.to_bytes() allocates).\\n\\n## Acceptance Criteria\\n\\nChange MemIpfsStore.blocks type to HashMap<Cid, Vec<u8>>.",
+  "ephemeral": 0,
+  "id": "stoa-m8sls",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Rust idiom: MemIpfsStore key is cid.to_bytes() Vec<u8> \u2014 should use Cid directly as key",
+  "updated_at": "2026-05-03T13:09:39Z"
+}

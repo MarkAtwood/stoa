@@ -1,0 +1,21 @@
+{
+  "id": "stoa-55a54e96",
+  "title": "ingestion/pipeline: per-line String allocation for case-insensitive header scan",
+  "description": "## Why this issue exists\n\nThree header-scanning functions allocate heap Strings on every line of every article just to do a case-insensitive ASCII prefix comparison. On the hot article ingestion path this produces unnecessary GC pressure.\n\n## What needs to be done\n\n### has_header (ingestion.rs:308-327)\n\nCalled 5 times per article (once per mandatory header). For each call, every line in the header section is processed as:\n  `String::from_utf8_lossy(line).to_ascii_lowercase()`\nThat produces a Cow allocation (always heap when replacements occur) plus a second String for the lowercase result. The correct fix is a byte-level case-insensitive prefix check:\n  `line.len() >= needle.len() && line[..needle.len()].eq_ignore_ascii_case(needle.as_bytes())`\nNo allocation needed.\n\n### prepend_path_header (ingestion.rs:285-286)\n\nSame pattern: `String::from_utf8_lossy(trimmed).to_ascii_lowercase()` called on every non-body line to check for the 'Path:' prefix. A direct `trimmed.len() >= 5 && trimmed[..5].eq_ignore_ascii_case(b\"path:\")` check requires no allocation.\n\n### parse_message_id_and_newsgroups (pipeline.rs:538)\n\n`s.to_ascii_lowercase()` allocates a String per header line to do two prefix checks. The same byte-level approach removes the allocation entirely.\n\nAll three are on the article ingestion hot path and the fix in each case is a one-line change from `to_ascii_lowercase()` to `eq_ignore_ascii_case`.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T06:03:46Z",
+  "updated_at": "2026-05-01T04:55:52Z",
+  "closed_at": "2026-04-27T15:11:52Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-35ec26bb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 23:03:45"
+    }
+  ]
+}

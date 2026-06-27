@@ -1,0 +1,12 @@
+{
+  "id": "stoa-5c636b6b",
+  "title": "verify: parse_sig_type silently defaults unknown values to Dkim",
+  "description": "parse_sig_type returns SigType::Dkim for any unrecognized string. A configuration typo or future sig type string will silently fall through to DKIM verification rather than returning an error. Should return Err for unrecognized values.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T23:47:06Z",
+  "updated_at": "2026-05-01T04:51:58Z",
+  "closed_at": "2026-04-25T00:09:21Z"
+}

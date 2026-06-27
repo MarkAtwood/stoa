@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T03:27:48Z",
+  "compaction_level": 0,
+  "content_hash": "7a7cf883c62c2f303c829912820351d8105b47de82a73ad2c70706564aa2512b",
+  "created_at": "2026-05-04T03:18:59Z",
+  "created_by": "Mark Atwood",
+  "description": "rnews_main.rs:279 \u2014 trusted_keys: Arc::from(vec![]) allocates a fresh Arc-wrapped empty slice on every iteration of the article processing loop. At the 1000-article cap this is 1000 gratuitous heap allocations for an immutable empty sentinel. Fix: construct the empty Arc once before the loop (let empty_trusted_keys: Arc<[_]> = Arc::from(vec![]);) and clone it per iteration (clone of an Arc is a refcount bump, not a heap alloc). Impact at realistic scale: minor but pointless churn; easy one-liner fix.",
+  "ephemeral": 0,
+  "id": "stoa-tlvh9.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Hoist Arc::from(vec![]) out of per-article loop",
+  "updated_at": "2026-05-04T03:27:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T20:18:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-tlvh9",
+      "id": "abecc39c-18ad-587b-91c0-a4f574affbfa",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

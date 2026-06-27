@@ -1,0 +1,20 @@
+{
+  "id": "stoa-d5f64127",
+  "title": "validate_headers check_date: .expect() panic in production code path",
+  "description": "In post/validate_headers.rs, check_date() calls SystemTime::now().duration_since(UNIX_EPOCH).expect('system clock before epoch'). This panics and crashes the reader process if the system clock is set behind the Unix epoch (e.g. VM time misconfiguration, NTP failure). A network-facing daemon must not panic on environmental failure. Fix: propagate the error as a 441 response instead of panicking.",
+  "status": "in_progress",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:36:46Z",
+  "updated_at": "2026-05-01T04:56:47Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:36:46"
+    }
+  ]
+}

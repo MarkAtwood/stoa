@@ -1,0 +1,21 @@
+{
+  "id": "stoa-148122da",
+  "title": "WebDAV block store backend",
+  "description": "Implement WebDavBlockStore storing article blocks as files on any WebDAV endpoint. PUT /blocks/<CID> to store, GET /blocks/<CID> to retrieve, DELETE /blocks/<CID> to remove. No new heavyweight dependencies \u2014 reqwest already in the project.\n\nWhy this issue exists:\nWebDAV is the dominant self-hosted storage protocol in European deployments. Operators running Nextcloud, ownCloud, Hetzner Storage Box, Infomaniak kDrive, or Apache mod_dav get a compliant block store on their own hardware with no AWS involvement. This directly addresses the data sovereignty concern for EU operators who want their article bytes to never leave their own infrastructure.\n\n## Compatible backends (all speak standard WebDAV)\n\n- Nextcloud / ownCloud \u2014 self-hosted, common in EU enterprise\n- Hetzner Storage Box \u2014 popular German hoster, native WebDAV\n- Infomaniak kDrive \u2014 Swiss cloud, GDPR-native\n- Apache httpd / nginx with mod_dav \u2014 dead simple self-hosted\n- Sharepoint \u2014 enterprise WebDAV endpoint\n- Box, Dropbox (via WebDAV bridge) \u2014 consumer/SMB\n\n## What needs doing\n\n- Add [backend.webdav] config section: base_url (e.g. https://nextcloud.example.com/remote.php/dav/files/user/usenet-blocks/), username, password (from env var or secretsx URI), tls_verify (default true)\n- Implement WebDavStore: IpfsStore (transit) and WebDavBlockStore: IpfsBlockStore (reader) using reqwest\n  - put: HTTP PUT <base_url>/<CID> with body = raw bytes; 201 Created or 204 No Content = success; 405 Method Not Allowed on some servers for existing resource = treat as success (idempotent)\n  - get: HTTP GET <base_url>/<CID>; 200 = return body; 404 = None / NotFound; other 4xx/5xx = Err\n  - delete: HTTP DELETE <base_url>/<CID>; 204 = success; 404 = Ok(Immediate) (idempotent); returns DeletionOutcome::Immediate\n- Startup: HTTP MKCOL <base_url> to create the blocks directory if absent (idempotent \u2014 405 Method Not Allowed means it already exists on some servers); verify credentials with a PROPFIND on the base URL; fail fast with a clear error if unreachable or unauthorized\n- Authentication: HTTP Basic auth over TLS (reqwest handles this); do not send credentials over plain HTTP \u2014 fail fast if base_url is http:// without explicit opt-in flag allow_plaintext = true\n- Connection pool: reuse reqwest::Client across requests (already pooled by reqwest)\n- IPNS: disable\n\n## GC / delete semantics\n\nDeletionOutcome::Immediate. HTTP DELETE is synchronous. The resource is gone as soon as the server returns 204. No grace period.\n\n## Quirks to handle\n\n- Some WebDAV servers return 200 instead of 204 on DELETE \u2014 treat any 2xx as success\n- Some servers require a trailing slash on collection URLs \u2014 normalize in the client\n- Nextcloud rate-limits aggressive PUT bursts \u2014 add configurable request_delay_ms (default 0) for operators who need to throttle\n- Large files: WebDAV has no multipart; usenet articles are text-only and small, so this is not a concern in v1\n\n## Acceptance criteria\n- Round-trip test against a real Nextcloud instance (docker-compose in CI) or a lightweight WebDAV test server (duosecurity/webdav-test or similar)\n- put is idempotent: uploading the same CID twice does not error\n- delete on a missing resource returns Ok(DeletionOutcome::Immediate) without error\n- Startup fails with a clear error if credentials are wrong or base_url is unreachable\n- Plain HTTP base_url without allow_plaintext = true is rejected at startup with an error naming the security risk\n- Runbook documents Nextcloud setup (app password, remote.php/dav path) and Hetzner Storage Box setup",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:34:56Z",
+  "updated_at": "2026-05-01T04:59:02Z",
+  "closed_at": "2026-04-28T11:21:06Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5c9f1a38",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:34:58"
+    }
+  ]
+}

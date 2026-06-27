@@ -1,0 +1,22 @@
+{
+  "compaction_level": 0,
+  "content_hash": "d961b44f599861c08a5c1e1f8d76026bc257273e882d13352888b1b1aad6d5dc",
+  "created_at": "2026-05-01T19:51:50Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why\n\nStoring articles as raw .eml files in a Maildir hierarchy makes the stoa archive accessible to any Maildir-compatible tool: notmuch, neomutt, alot, astroid, emacs notmuch-mode, offlineimap, mbsync, etc. For personal/hobbyist deployments this is a significant quality-of-life improvement \u2014 users get their existing MUA workflows over their NNTP subscriptions without any additional tooling.\n\nIt also makes the block store human-inspectable and recoverable with standard Unix tools, unlike LMDB or SQLite blobs.\n\n## What\n\nImplement MaildirBlockStore for crates/reader/src/post/ and crates/transit/src/peering/ implementing IpfsBlockStore / IpfsStore respectively.\n\n**Storage layout:**\nEach newsgroup maps to a Maildir folder:\n```\n<root>/\n  comp.lang.rust/\n    cur/    \u2014 delivered messages\n    new/    \u2014 newly arrived messages\n    tmp/    \u2014 in-progress writes\n  comp.os.linux/\n    cur/\n    new/\n    tmp/\n```\n\nGroup name dots map directly to the Maildir folder name (no subdirectory splitting \u2014 notmuch handles flat group names fine).\n\nEach article is stored as a single .eml file in new/ on write, using a standard Maildir unique name: `<timestamp>.<pid>.<hostname>`. No flags suffix on initial write.\n\n**CID mapping:** A SQLite sidecar database (maildir_index.db) in the root directory maps CID \u2192 (group, maildir_filename). Required because Maildir filenames are not CIDs.\n\n**Config:**\n- maildir.root \u2014 path to the Maildir root directory\n- maildir.group_source \u2014 how to determine which group folder to write to: from the Newsgroups header (default) or a fixed folder name\n\n## Implementation notes\n\n- put_raw: compute CID, write to tmp/, rename to new/<unique-name>, record CID\u2192path in SQLite sidecar\n- put_block: same but with caller-supplied CID\n- get_raw: look up path in SQLite sidecar, read file\n- delete: look up path, remove file, remove sidecar row\n- All blocking I/O via spawn_blocking\n- Atomic write via tmp/\u2192new/ rename (same pattern as FsBlockStore)\n\n## Acceptance\n\n- MaildirBlockStore implements IpfsBlockStore\n- Written files are valid Maildir (notmuch new indexes them without error)\n- Round-trip put/get/delete tests pass\n- CID\u2192path mapping survives process restart\n- Config accepts [backend.maildir] section",
+  "ephemeral": 0,
+  "id": "stoa-hgfmg",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Does not handle notmuch tags or JMAP keyword sync \u2014 that is stoa-maildir-notmuch-tags (filed separately and depends on this issue).",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Maildir block store backend",
+  "updated_at": "2026-06-26T20:26:38Z"
+}

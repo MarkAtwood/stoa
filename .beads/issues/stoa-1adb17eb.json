@@ -1,0 +1,21 @@
+{
+  "id": "stoa-1adb17eb",
+  "title": "Article fetch by number incurs extra overview query for Message-ID",
+  "description": "EXTRA DB ROUND-TRIP ON ARTICLE HOT PATH \u2014 lookup_article_content_by_number (lifecycle.rs:1077) fetches wire bytes from IPFS, then scans headers with extract_header_value to extract the Message-ID as a String, then issues a separate overview_store.query_by_msgid() call to retrieve did_sig_valid. This is 2 DB queries + 1 IPFS fetch + a header scan per ARTICLE N command. The Message-ID is already stored in article_numbers alongside the CID; an overview lookup by (group, article_number) instead of by message-id would reduce this to 1 DB query with no header scan.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:10:09Z",
+  "updated_at": "2026-05-01T04:56:04Z",
+  "closed_at": "2026-04-27T16:11:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:10:09"
+    }
+  ]
+}

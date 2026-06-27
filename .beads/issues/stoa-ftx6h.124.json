@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "b88eff56dafeb68887b4e0d84d95a613aaf2872acc75335c1cbb0f808dc70a1c",
+  "created_at": "2026-05-03T13:06:40Z",
+  "created_by": "Mark Atwood",
+  "description": "imap/src/session/auth.rs correctly gates AUTH PLAIN and LOGIN behind a TLS check (!ctx.tls \u2192 LOGINDISABLED response). This matches RFC 3501 \u00a76.2.2 and the LOGINDISABLED capability semantics. STARTTLS resets auth_failures to 0 (correct: a new TLS channel is a new authentication attempt context). The authzid == authcid check in plain_finish() prevents impersonation where a client authenticates as user A but claims to act as user B. These are all correct security decisions.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.124",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "decision: IMAP AUTH only permitted after TLS; LOGINDISABLED enforced correctly",
+  "updated_at": "2026-05-03T13:06:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "5e08ae60-a000-5e6b-973b-27870176f166",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

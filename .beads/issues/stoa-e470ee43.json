@@ -1,0 +1,12 @@
+{
+  "id": "stoa-e470ee43",
+  "title": "core: flush_buffer drops audit events silently (counter not incremented)",
+  "description": "In audit.rs, when the channel send fails in flush_buffer (e.g. receiver dropped), the event is silently discarded. No metric or counter is incremented. Dropped audit events are undetectable.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T23:46:14Z",
+  "updated_at": "2026-05-01T04:56:24Z",
+  "closed_at": "2026-04-25T01:27:09Z"
+}

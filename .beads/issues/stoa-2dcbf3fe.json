@@ -1,0 +1,19 @@
+{
+  "id": "stoa-2dcbf3fe",
+  "title": "ZFS DMU: implement usenet-ipfs-zfs-dmu crate",
+  "description": "Based on selected approach from evaluation: implement usenet-ipfs-zfs-dmu crate providing object_write(data) -> ObjectId, object_read(id) -> Option<Vec<u8>>, object_exists(id) -> bool. Stable Rust FFI or socket-based client. Round-trip test with loopback pool. Benchmark vs filesystem. Blocked on: stoa-b37a7fd4.",
+  "status": "deferred",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:44:38Z",
+  "updated_at": "2026-05-01T04:56:55Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-b37a7fd4",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:47:37"
+    }
+  ]
+}

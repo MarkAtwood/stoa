@@ -1,0 +1,33 @@
+{
+  "close_reason": "Duplicate of stoa-2xeks.24 which is already open and tracking REQUIRETLS propagation through SessionState.",
+  "closed_at": "2026-05-02T21:44:37Z",
+  "compaction_level": 0,
+  "content_hash": "7d4d8cf60446a486e059744389308d73be4e9973b1220a4f8eee9071f1f53fc3",
+  "created_at": "2026-05-02T21:42:06Z",
+  "created_by": "Mark Atwood",
+  "description": "session.rs SessionState::Mail and SessionState::Rcpt do not carry require_tls. On a TLS session, has_requiretls_param() fires at MAIL FROM and the check passes, but the flag is never stored in state \u2014 it is silently dropped. By the time DATA fires, the session has no record that REQUIRETLS was requested, so the outbound RelayEnvelope is built without require_tls=true. RFC 8689 \u00a75 requires the forwarding MTA to propagate REQUIRETLS and enforce it end-to-end; silently dropping it means the server accepts the REQUIRETLS contract from the submitting client but does not honour it downstream.",
+  "ephemeral": 0,
+  "id": "stoa-w1h8x.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "REQUIRETLS flag lost after MAIL FROM \u2014 not stored in SessionState",
+  "updated_at": "2026-05-02T21:44:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:42:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-w1h8x",
+      "id": "a3d0b09f-08db-515a-ad9f-77e981bce168",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

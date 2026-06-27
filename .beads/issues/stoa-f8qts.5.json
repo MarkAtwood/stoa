@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T16:11:55Z",
+  "compaction_level": 0,
+  "content_hash": "d70dd64c81d13686f4dfd6ba57a8f79f57cdd4c6b414296af26fd3d1d038be7f",
+  "created_at": "2026-05-05T15:55:19Z",
+  "created_by": "Mark Atwood",
+  "description": "smtp/src/main.rs in c3cc3cd refactored TLS acceptor build to compress error-handling onto single lines (e.g. 'let store = match secretx::from_uri(key_path) { Ok(s) => s, Err(e) => { error!(\"{e}\"); std::process::exit(1); } }'). Loses the per-case error messages that distinguished 'invalid secretx URI' from 'secretx retrieval failed' \u2014 now both emit a bare {e}. Minor ops concern P3.",
+  "ephemeral": 0,
+  "id": "stoa-f8qts.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "STARTTLS inline one-liner error handling reduces debuggability",
+  "updated_at": "2026-05-05T16:11:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-05T08:55:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-f8qts",
+      "id": "6f55aec5-880a-5f48-9af7-1112a35a93d7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

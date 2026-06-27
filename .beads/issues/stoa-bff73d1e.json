@@ -1,0 +1,20 @@
+{
+  "id": "stoa-bff73d1e",
+  "title": "OIDC: deployment docs for Cognito and Entra ID",
+  "description": "Document in RUNBOOK.md: AWS Cognito User Pool configuration (app client, issuer URL, audience), Microsoft Entra ID (tenant ID, app registration, token endpoint), Okta setup. Include the [[auth.oidc_providers]] config snippet for each IdP. Blocked on: stoa-e279bbe7.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:44:04Z",
+  "updated_at": "2026-05-01T04:56:43Z",
+  "closed_at": "2026-04-28T09:37:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e279bbe7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:45:15"
+    }
+  ]
+}

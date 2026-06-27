@@ -1,0 +1,21 @@
+{
+  "id": "stoa-70098dd9",
+  "title": "hardcoded date in run_post_pipeline test breaks after 2026-04-21T12:00 UTC",
+  "description": "lifecycle.rs test helper minimal_article() hardcodes 'Date: Mon, 20 Apr 2026 12:00:00 +0000'. run_post_pipeline calls complete_post \u2192 validate_post_headers \u2192 check_date which enforces \u00b124h from SystemTime::now(). Trigger: run cargo test after 2026-04-21 12:00:00 UTC (which may already have passed). Bad behavior: post_then_over_returns_article test fails with '441 Date header out of acceptable range'. Fix: use a dynamically computed current-ish date string in the test.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T14:05:46Z",
+  "updated_at": "2026-05-01T04:55:43Z",
+  "closed_at": "2026-04-21T14:23:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ad28b4f3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 07:05:45"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T18:26:40Z",
+  "compaction_level": 0,
+  "content_hash": "9b85d64bfc2f97845279c2b843ec3be2532a935823f6e6b7fca10234482910b8",
+  "created_at": "2026-05-01T15:21:25Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: import/ihave_push.rs extract_message_id() calls line.to_ascii_lowercase() on every header line of every article to check for 'message-id:'. Bad behavior: each call heap-allocates a new String for every header line scanned. For a typical 20-header article processed 10,000 times (bulk import), this is 200,000 unnecessary String allocations. The fix is to use eq_ignore_ascii_case or starts_with a lowercase pattern in-place.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.75",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ihave_push extract_message_id allocates String per header line via to_ascii_lowercase",
+  "updated_at": "2026-05-01T18:26:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:21:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "0c6134b3-f5e8-5a3e-8179-5055851a265d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

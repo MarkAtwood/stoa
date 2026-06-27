@@ -1,0 +1,12 @@
+{
+  "id": "stoa-3f526231",
+  "title": "No test for CA cert expiry check in trusted_issuer_store",
+  "description": "issuer_from_pem rejects expired CA certs and verify_and_extract_cn rejects expired leaf certs, but neither path has a test. An expired CA fixture and an expired leaf cert fixture (with otherwise valid signatures) should be added to confirm that loading and per-connection validation behave correctly at the boundary condition.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T09:08:16Z",
+  "updated_at": "2026-05-01T04:59:23Z",
+  "closed_at": "2026-04-27T10:00:42Z"
+}

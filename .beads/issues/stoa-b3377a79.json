@@ -1,0 +1,13 @@
+{
+  "id": "stoa-b3377a79",
+  "title": "main.rs SystemTime UNIX_EPOCH unwrap can panic before 1970",
+  "description": "In crates/transit/src/main.rs (lines 441, 810), SystemTime::now().duration_since(UNIX_EPOCH).unwrap() panics if the system clock is set before the Unix epoch. Use unwrap_or_default() or map the error to a startup failure with a clear message.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:30:34Z",
+  "updated_at": "2026-05-01T04:53:11Z",
+  "closed_at": "2026-04-28T18:24:23Z"
+}

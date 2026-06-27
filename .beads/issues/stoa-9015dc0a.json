@@ -1,0 +1,19 @@
+{
+  "id": "stoa-9015dc0a",
+  "title": "wildmat DP algorithm: O(n*m) worst-case with wall-clock test for adversarial input",
+  "description": "wildmat.rs uses a DP algorithm (not backtracking regex) for RFC 3977 wildmat pattern matching. This prevents ReDoS: O(n*m) worst-case is guaranteed by the DP table. The adversarial test (repeated * with dense text) confirms sub-millisecond performance. This is the correct choice for a pattern match that runs on every GROUP/NEWNEWS/NEWGROUPS command.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:38:55Z",
+  "updated_at": "2026-05-01T04:58:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:38:55"
+    }
+  ]
+}

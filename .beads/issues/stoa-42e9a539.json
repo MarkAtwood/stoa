@@ -1,0 +1,20 @@
+{
+  "id": "stoa-42e9a539",
+  "title": "decision: STARTTLS pipeline check is best-effort and documented as such",
+  "description": "In session/lifecycle.rs lines 534-538, the STARTTLS pipelining check inspects reader.buffer().is_empty() and closes the connection if pipelined data is detected. The comment correctly documents that this is best-effort: it catches data already in the BufReader buffer but not data in the kernel TCP receive buffer. The trade-off is acceptable: a well-behaved client never pipelines; a malicious client is closed defensively. No change needed.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:29:21Z",
+  "updated_at": "2026-05-01T04:58:44Z",
+  "closed_at": "2026-04-28T20:07:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:29:21"
+    }
+  ]
+}

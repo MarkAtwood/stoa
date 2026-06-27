@@ -1,0 +1,20 @@
+{
+  "id": "stoa-0ddf5e00",
+  "title": "[decision] Credential redaction in SmtpRelayPeerConfig Debug impl",
+  "description": "SmtpRelayPeerConfig::fmt() redacts password field as <redacted>, and skip_serializing prevents serialization to TOML. Prevents accidental credential exposure in logs or debug output. Non-obvious: most code simply omits Debug or uses #[serde(skip)].",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T19:14:39Z",
+  "updated_at": "2026-05-01T05:00:25Z",
+  "closed_at": "2026-04-23T19:18:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-11ae5322",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 12:14:39"
+    }
+  ]
+}

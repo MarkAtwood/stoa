@@ -1,0 +1,21 @@
+{
+  "id": "stoa-8cd0391a",
+  "title": "9tz.1: tantivy dep + SearchConfig in config",
+  "description": "What: Add tantivy = \"0.22\" to crates/reader/Cargo.toml and add SearchConfig to crates/reader/src/config.rs.\n\nAlgorithm:\n1. In crates/reader/Cargo.toml add under [dependencies]: tantivy = \"0.22\"\n2. In crates/reader/src/config.rs add:\n   #[derive(Deserialize, Default, Clone, Debug)]\n   pub struct SearchConfig {\n       pub index_dir: Option<String>,       // None = search disabled\n       pub max_index_bytes: u64,            // default 10_737_418_240 (10 GiB)\n       pub body_index_max_bytes: usize,     // default 102_400 (100 KiB)\n       pub max_query_len: usize,            // default 4096\n   }\n   impl Default for SearchConfig { fn default() -> Self { Self { index_dir: None, max_index_bytes: 10_737_418_240, body_index_max_bytes: 102_400, max_query_len: 4096 } } }\n3. Add 'pub search: SearchConfig,' field to Config struct in config.rs.\n4. Add #[serde(default)] to the field.\n\nDefensive rules: No unwrap(). SearchConfig::default() leaves search disabled (index_dir = None) \u2014 operators must explicitly opt in.\n\nTests: Add unit test 'search_config_defaults_to_disabled' verifying SearchConfig::default().index_dir.is_none().",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T01:20:03Z",
+  "updated_at": "2026-05-01T05:00:36Z",
+  "closed_at": "2026-04-23T01:35:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-85f5ab08",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 18:20:03"
+    }
+  ]
+}

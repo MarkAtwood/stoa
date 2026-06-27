@@ -1,0 +1,13 @@
+{
+  "id": "stoa-d94f2708",
+  "title": "Review: DKIM round-3 fixes",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:37:41Z",
+  "updated_at": "2026-05-01T05:00:31Z",
+  "closed_at": "2026-05-01T01:26:33Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 The two queue implementations (NntpQueue and SmtpRelayQueue) have diverged in their failure handling design. SmtpRelayQueue has dead-letter, permanent vs transient distinction, orphan cleanup. NntpQueue has none of these. This asymmetry means bugs fixed in one will be missed in the other, and it will generate maintainability burden every time queue behavior is modified. The .tmp cleanup gap is a silent disk-space leak. The DKIM infinite retry is a silent log sink.\nConfidence: 85% chance of no missed bugs at P0. Least confident flags: 08dw.2 (relay_queue .tmp accumulation \u2014 I did not test whether drain_once in relay_queue silently skips or processes .tmp files in a way that harmlessly ignores them; I confirmed cleanup_orphan_msg_files skips them and drain_once only looks at .env files, so .tmp can accumulate \u2014 confident this is real). 08dw.4 (partial dead-letter move order \u2014 confirmed by reading the [env_path, msg_path] iteration order; the consequence is an orphan .msg at next restart, not data corruption). Uncertainty driven by: not running the code; cannot verify relay_queue drain_once does not have a secondary .tmp cleanup path I missed. Would raise confidence if: running 'cargo test -p stoa-smtp' and confirming the test suite passes with these findings in mind, and manually testing a crash-during-enqueue scenario.\nIdiom rating: ACCEPTABLE \u2014 The code is functional and the core queue logic (tmp+rename, orphan cleanup, DKIM dead-letter) is correctly structured. Round-3 changes introduced two idiom gaps: (1) trait import inside function body (use zeroize::Zeroize as _ in validate()) should be at module level; (2) silent scan termination on readdir error in cleanup_orphan_msg_files. The for+by_ref pattern in parse_args is unusual but correct. No unsafe code.\nRust idiom confidence: 90% chance of no missed issue. Least confident flags: 08dw.14 (silent readdir error termination \u2014 I confirmed the while-let-Ok pattern but did not run the code to verify actual behavior on EIO); 08dw.19 (find_header_end manual index loop \u2014 bounds-safe but non-idiomatic; clippy::indexing_slicing would catch it). Uncertainty driven by: not running cargo clippy against the actual codebase; cannot verify whether clippy::uninlined_format_args is enabled in the workspace Clippy config."
+}

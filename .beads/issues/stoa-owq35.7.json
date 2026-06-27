@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed as side-effect of owq35.2: non-NXDOMAIN errors now return Err instead of Ok(None), eliminating the dead-code branch",
+  "closed_at": "2026-05-02T20:25:18Z",
+  "compaction_level": 0,
+  "content_hash": "8fe36bd2176c2e2755123cb774ed842d72666ad89e711552bf89c993da9d08aa",
+  "created_at": "2026-05-02T20:17:53Z",
+  "created_by": "Mark Atwood",
+  "description": "mta_sts_dns.rs:28-33: the 'if matches!(e.kind(), NoRecordsFound { .. }) { return Ok(None); } return Ok(None);' pattern has dead code. Both branches return Ok(None). The if-check is meaningless. Suggested rewrite: collapse to a single 'return Ok(None);' (or return Err for transient errors, per stoa-owq35.2). As written it signals intent that was never completed.",
+  "ephemeral": 0,
+  "id": "stoa-owq35.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "lookup_mta_sts_txt dead-code if-branch should be removed",
+  "updated_at": "2026-05-02T20:25:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T13:17:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-owq35",
+      "id": "a940922e-51f8-58d1-9c6c-2b02e050efa9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-b224fccb",
+  "title": "HLC overflow handled correctly without integer overflow risk",
+  "description": "## Decision\ncrates/core/src/hlc.rs handles HLC overflow by bumping wall_ms when logical_count would overflow u16. The skew check uses (ts.wall_ms - now_ms) rather than (ts.wall_ms + MAX_SKEW_MS) to avoid addition overflow. The new_seeded() function ensures monotonicity after restart by reading the persisted HLC and advancing past it.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T03:10:45Z",
+  "updated_at": "2026-05-01T04:59:26Z",
+  "closed_at": "2026-04-27T03:12:21Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e2297bae",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 20:10:45"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "compaction_level": 0,
+  "content_hash": "8fb0df51acc841169d484ce689c58de4fd2aea0e17554d297ce2fd770a22dc4d",
+  "created_at": "2026-05-01T20:12:14Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why\n\nWithout quotas a single user can fill the block store and degrade or crash the service for all users. Per-user quotas are required for a multi-tenant deployment.\n\n## What\n\n- users.quota_bytes column (NULL = unlimited) set at provisioning time\n- Quota checked at two enforcement points:\n  1. JMAP Email/set create and Email/import: reject with overQuota error if accepting the message would exceed the user's quota\n  2. SMTP RCPT TO / DATA: return 452 4.2.2 (mailbox full) if the user is over quota\n- Quota accounting: sum of byte_size for all messages belonging to the user (tracked in the messages metadata table, not the block store \u2014 shared blocks are counted per-user based on their logical ownership)\n- JMAP Quota/get (RFC 9425) endpoint to let clients report quota status to users\n- Admin CLI: stoa-mail user set-quota <username> <gb>\n\n## Acceptance\n\n- Users at or over quota cannot receive new mail via SMTP or JMAP\n- overQuota JMAP error returned for Email/set create when over quota\n- 452 returned by SMTP when recipient is over quota\n- quota_bytes = NULL means unlimited (no enforcement)\n- JMAP Quota/get returns current usage and limit for the authenticated user",
+  "ephemeral": 0,
+  "id": "stoa-aphny",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Block store dedup means two users receiving the same email share one block. Quota accounting is logical (per-user metadata byte count) not physical (block store bytes). This is correct: each user is charged for the mail they own regardless of dedup savings.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Per-user quota enforcement",
+  "updated_at": "2026-06-26T20:26:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T13:12:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-hf1kd",
+      "id": "be9b7078-7d59-5fbb-9de7-bd2be3af79aa",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

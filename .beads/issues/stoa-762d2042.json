@@ -1,0 +1,20 @@
+{
+  "id": "stoa-762d2042",
+  "title": "dead/ metrics read_dir error silently skipped \u2014 metric goes stale",
+  "description": "drain_once wraps the dead/ read_dir in 'if let Ok(mut rd) = ...' \u2014 a read_dir failure silently skips the dead-letter count update without logging. The metric from the previous drain cycle is then reported as current, masking a filesystem problem. When the dead/ dir fills up (disk full, permission change), the operator sees a stale metric and no warning. Should log a warning on the Err branch, same as the main queue scan.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:04:26Z",
+  "updated_at": "2026-05-01T04:52:41Z",
+  "closed_at": "2026-05-01T01:07:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-187c7afd",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:04:26"
+    }
+  ]
+}

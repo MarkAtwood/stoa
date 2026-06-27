@@ -1,0 +1,20 @@
+{
+  "id": "stoa-1ffce49b",
+  "title": "TLS cert expiry: read NotAfter and emit WARN/ERROR log events",
+  "description": "At startup, parse NotAfter from each configured TLS cert (reader, transit, mail, smtp) using rustls-pemfile. Emit event=cert_expiry_warning WARN if days_remaining <= 30, ERROR if <= 7. Fields: path, days_remaining, expires_at (ISO8601). Blocked on: stoa-da4c51f7.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:43:19Z",
+  "updated_at": "2026-05-01T04:51:51Z",
+  "closed_at": "2026-04-27T22:19:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-da4c51f7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:44:44"
+    }
+  ]
+}

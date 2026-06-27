@@ -1,0 +1,19 @@
+{
+  "id": "stoa-cd52a365",
+  "title": "Transit: binary infrastructure and NNTP peering",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:11:39Z",
+  "updated_at": "2026-05-01T04:55:04Z",
+  "closed_at": "2026-04-20T12:31:43Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-a335e1da",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:11:38"
+    }
+  ]
+}

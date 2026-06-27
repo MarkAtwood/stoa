@@ -1,0 +1,21 @@
+{
+  "id": "stoa-ec8ae7a1",
+  "title": "AGENTS.md bans X-commands that code already implements",
+  "description": "AGENTS.md line 61 says 'nothing that exposes CIDs or IPFS internals to clients' is permitted, but XCID, XVERIFY, and XGET are implemented and intentional (ADR-0007). The prohibition in AGENTS.md contradicts the implemented code without distinguishing 'prohibited' (topology/DHT/pin state) from 'permitted' (X-Stoa-* headers and X-prefixed CID commands). A contributor would not know whether to extend the X-command set or revert it. Update AGENTS.md to reflect the ADR-0007 distinction: CID/integrity X-commands are permitted if advertised in CAPABILITIES; topology/infrastructure exposure is prohibited.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:10:11Z",
+  "updated_at": "2026-05-01T04:53:49Z",
+  "closed_at": "2026-04-27T17:40:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:10:11"
+    }
+  ]
+}

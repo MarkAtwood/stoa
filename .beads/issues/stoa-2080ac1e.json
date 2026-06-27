@@ -1,0 +1,20 @@
+{
+  "id": "stoa-2080ac1e",
+  "title": "GOOD: Rate limiter keys by IP not IP:port, preventing N-connection burst",
+  "description": "peering/session.rs deliberately extracts the IP address (peer_ip) separate from the full socket address (peer_addr), and uses peer_ip as the rate limiter key. The comment explicitly states the rationale: multiple simultaneous connections from one host share a single rate budget, preventing N-connection burst multiplication. This is the correct design \u2014 keying by IP:port would allow a peer to multiply its effective rate limit by opening N connections. The design is also applied consistently to blacklist checks (is_blacklisted and check_and_blacklist both use peer_ip).",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T13:52:58Z",
+  "updated_at": "2026-05-01T04:56:10Z",
+  "closed_at": "2026-04-22T14:10:16Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b816309",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 06:52:57"
+    }
+  ]
+}

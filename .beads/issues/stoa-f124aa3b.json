@@ -1,0 +1,20 @@
+{
+  "id": "stoa-f124aa3b",
+  "title": "SEC4: PinnedCertVerifier signature methods need why-comment",
+  "description": "In xcid_client.rs, PinnedCertVerifier implements verify_tls12_signature and verify_tls13_signature by delegating to the default rustls crypto provider. There is no comment explaining why these methods do not simply return Ok(HandshakeSignatureValid::assertion()). A reader familiar with TLS certificate pinning might expect that since the cert fingerprint is checked in verify_server_cert, the handshake signature methods could be no-ops. The reason they must still validate is that the handshake transcript signature proves the server holds the private key matching the pinned certificate; without it, a MITM could replay the pinned cert. A one-line comment at each method stating this rationale would prevent readers from incorrectly simplifying the implementation.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T23:44:04Z",
+  "updated_at": "2026-05-01T04:53:40Z",
+  "closed_at": "2026-04-24T00:03:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4206df49",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 16:44:04"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-363b1b8e",
+  "title": "SEC3: run_session_post_starttls duplicates run_session_io setup",
+  "description": "run_session_post_starttls (lifecycle.rs:241-266) and run_session_io (lifecycle.rs:573-622) are parallel TLS session entry points with near-identical setup: SessionContext::new, starttls_available=false, client_cert_fingerprint, client_cert_der, load_known_groups, tokio::io::split, BufReader::new, then run_command_loop. The only semantic difference is that run_session_io sends a greeting; run_session_post_starttls does not (RFC 4642 section 2.2). This duplication is a maintenance hazard: any new context field (e.g. connection metadata, rate limit state) must be set in both functions. A unified helper that accepts an Option<Response> for the greeting would collapse both into one code path. The one-line difference (whether to send greeting) does not justify duplicating 20+ lines of setup.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T23:43:54Z",
+  "updated_at": "2026-05-01T04:57:10Z",
+  "closed_at": "2026-04-24T00:02:41Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4206df49",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 16:43:54"
+    }
+  ]
+}

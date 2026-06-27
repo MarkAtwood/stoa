@@ -1,0 +1,21 @@
+{
+  "id": "stoa-4c10d590",
+  "title": "reader startup does not verify TLS cert/key files are readable",
+  "description": "reader/src/main.rs run_startup_checks reads TLS files but only logs errors, unlike transit which exits on TLS file errors. A reader with a rotated/missing cert file starts successfully and fails only on the first NNTPS connection. Maintenance consequence: cert rotation failures are invisible until a client connects.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:11:40Z",
+  "updated_at": "2026-05-01T04:53:43Z",
+  "closed_at": "2026-04-27T02:15:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:11:40"
+    }
+  ]
+}

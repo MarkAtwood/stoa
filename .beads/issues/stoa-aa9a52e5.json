@@ -1,0 +1,19 @@
+{
+  "id": "stoa-aa9a52e5",
+  "title": "stoa-imap: uidvalidity uses as-u32 cast \u2014 silent truncation after year 2106",
+  "description": "mailbox.rs get_or_create_uidvalidity: uidvalidity = ...as_secs() as u32 silently truncates. After Unix ts exceeds u32::MAX (~year 2106) the value wraps to near-zero, violating RFC 3501 monotonicity requirement. Use try_from with a fallback.",
+  "status": "open",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:44:12Z",
+  "updated_at": "2026-05-01T04:55:57Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:44:11"
+    }
+  ]
+}

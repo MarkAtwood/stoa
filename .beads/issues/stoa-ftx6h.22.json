@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "cf5d4a0c6f4320cbffa40823617e599855574e1e24b4e8af8e908c72a8ab0949",
+  "created_at": "2026-05-03T13:03:06Z",
+  "created_by": "Mark Atwood",
+  "description": "The validate_script function calls fancy_regex::Regex::new to check syntax of :regex patterns at compile time, but fancy_regex does not detect exponential backtracking (ReDoS). A crafted pattern like '(a+)+b' or '(x*)*y' will compile successfully but execute in exponential time on adversarial input. The lib.rs ReDoS note documents this and delegates mitigation to a sieve_eval_timeout_ms config option -- but that config option is described as future work and is not enforced in evaluate(). If operators accept Sieve scripts from untrusted sources (e.g. user-uploaded scripts via JMAP), there is no runtime CPU bound. The fix is to either: (a) implement the eval timeout before accepting untrusted scripts, or (b) document clearly that untrusted script upload must be disabled until the timeout is wired.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "sieve: ReDoS via :regex patterns accepted at compile time; no backtracking budget enforced",
+  "updated_at": "2026-05-03T13:03:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:03:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "5b236c55-be34-5d00-bc7a-2d4cc2ce8ebb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

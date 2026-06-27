@@ -1,0 +1,21 @@
+{
+  "id": "stoa-4cb9795d",
+  "title": "server.rs: session handler unwraps serde_json::to_value",
+  "description": "Why this issue exists: In crates/mail/src/server.rs the JMAP session endpoint calls serde_json::to_value(session).unwrap(). SessionResource contains only serializable fields today, but a future change adding a non-string map key or a type that fails serialization would crash the server process.\n\nWhat needs to be done: Replace .unwrap() with proper error propagation returning a 500 Internal Server Error HTTP response.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:24:50Z",
+  "updated_at": "2026-05-01T04:58:28Z",
+  "closed_at": "2026-04-28T17:03:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:24:50"
+    }
+  ]
+}

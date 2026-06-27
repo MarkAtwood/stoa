@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "197325058b93586851b0819415d27deb12930f56508e8ad552301abd0cc45c7d",
+  "created_at": "2026-05-03T13:05:40Z",
+  "created_by": "Mark Atwood",
+  "description": "In SqliteLogStorage::insert_entry (and insert_entry_and_advance_tips), the parent CIDs are inserted with a loop executing one INSERT per parent. A QueryBuilder bulk INSERT could insert all parents in a single statement. For an article with many parent CIDs (rare but possible when merging diverged DAGs), this is O(p) round-trips where a single statement would suffice.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.86",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "core: insert_entry loops over parent CIDs one-by-one instead of bulk inserting",
+  "updated_at": "2026-05-03T13:05:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "d1bf2eb5-7d32-508d-b342-40bcb643fe1f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

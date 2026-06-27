@@ -1,0 +1,20 @@
+{
+  "id": "stoa-62956739",
+  "title": "[readability] relay_queue::enqueue() write order lacks crash-safety rationale",
+  "description": "The enqueue() method (lines 86-118 in relay_queue.rs) writes .msg before .env, and the docstring at line 84 documents this order. However, the *reason* for the order is not explained, and that reason is critical for crash safety.\n\nThe design depends on the fact that drain_once() (lines 151-210) scans for .env files first, then reads the paired .msg. If .env is present, .msg must exist; the opposite is not guaranteed. This ensures no orphaned .msg files accumulate in the queue directory.\n\nIf a future maintainer reverses the write order to '.env.tmp \u2192 .env, then .msg.tmp \u2192 .msg', a crash between the two renames will leave a .env without its corresponding .msg, causing drain_once() to skip it gracefully (lines 196-199). But the .msg will never be reclaimed, leaking disk space indefinitely.\n\nRecommendation: Add a detailed comment to the enqueue() function explaining:\n- Why .msg must be written before .env\n- What happens if a crash occurs between the two writes\n- Why this ordering is load-bearing for the deferred-file-deletion safety model",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T19:14:19Z",
+  "updated_at": "2026-05-01T05:00:31Z",
+  "closed_at": "2026-04-28T10:19:52Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-11ae5322",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 12:14:19"
+    }
+  ]
+}

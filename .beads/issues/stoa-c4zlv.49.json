@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T16:21:20Z",
+  "compaction_level": 0,
+  "content_hash": "69ee12f737727d5cc00d98cf9f68679585bbacdc90cb2d46f11e0ad097353cfd",
+  "created_at": "2026-05-01T15:20:29Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: article headers contain a non-UTF-8 byte sequence (e.g. a Latin-1 encoded From: header) alongside an X-Stoa-Did-Sig header. post/did_passthrough.rs::extract_did_sig calls String::from_utf8_lossy on the raw header bytes. U+FFFD replacement characters are silently inserted for each invalid byte. The resulting string is compared byte-for-byte to find the DID sig header, but the header value it returns has the replacement chars baked in. verify_did_sig then verifies against a corrupted header string, producing a false Some(false) rejection for an article the author signed correctly.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.49",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "extract_did_sig uses from_utf8_lossy on header bytes before DID sig lookup",
+  "updated_at": "2026-05-01T16:21:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:20:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "b3262ada-ee37-53d0-beb1-9e0b09c171f9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

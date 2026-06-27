@@ -1,0 +1,19 @@
+{
+  "id": "stoa-744b3bb9",
+  "title": "drain_once dead/ scan duplicates read_dir loop already used for live queue",
+  "description": "drain_once contains two nearly identical read_dir loop structures (lines 311-333 for queue dir, lines 341-363 for dead/ dir). The dead/ scan is a reduced version of the first with a count instead of collecting paths. A helper fn count_env_files(dir: &Path) -> (usize, Option<io::Error>) would reduce the duplication and give the dead/ scan consistent error handling with the main scan.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:18:52Z",
+  "updated_at": "2026-05-01T04:59:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-81b33f87",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:18:51"
+    }
+  ]
+}

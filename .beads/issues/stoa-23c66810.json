@@ -1,0 +1,21 @@
+{
+  "id": "stoa-23c66810",
+  "title": "trusted_peers parse error silently disables peering auth (fail-open)",
+  "description": "transit/src/main.rs: parse_trusted_peer_keys errors are caught with unwrap_or_else returning empty Vec with only a warning log. A typo in any trusted_peers key silently disables all peer authentication. Fail-open security control. Maintenance consequence: misconfigured key is indistinguishable from intentionally open config.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:14:32Z",
+  "updated_at": "2026-05-01T04:53:42Z",
+  "closed_at": "2026-04-27T02:13:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:14:32"
+    }
+  ]
+}

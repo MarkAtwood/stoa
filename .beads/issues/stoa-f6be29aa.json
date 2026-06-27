@@ -1,0 +1,19 @@
+{
+  "id": "stoa-f6be29aa",
+  "title": "SEC6: Differentiated DKIM signing failure semantics per queue type",
+  "description": "NntpQueue defers on DKIM failure (queue.rs lines 227-234), SmtpRelayQueue dead-letters (relay_queue.rs lines 350-367). Correct because unsigned NNTP to local reader is recoverable (reader can still process without signature), but unsigned SMTP to external peer is forbidden (never expose unsigned to untrusted MTA). Both paths are explicit in code and defensible.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:22:30Z",
+  "updated_at": "2026-05-01T04:55:20Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0b13a613",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:22:29"
+    }
+  ]
+}

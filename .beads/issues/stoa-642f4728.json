@@ -1,0 +1,12 @@
+{
+  "id": "stoa-642f4728",
+  "title": "fix(verify): reject duplicate X-Stoa-Sig headers to prevent pass\u2192fail flip",
+  "description": "extract_sig_header in x_sig.rs only processes the first X-Stoa-Sig header. An in-transit attacker can prepend a forged header to cause the legitimate sig to appear as ParseError/Fail. Fix: detect and reject articles with duplicate X-Stoa-Sig headers.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:38:47Z",
+  "updated_at": "2026-05-01T04:55:55Z",
+  "closed_at": "2026-04-27T05:45:24Z"
+}

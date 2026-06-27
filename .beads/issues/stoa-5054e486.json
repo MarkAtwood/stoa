@@ -1,0 +1,27 @@
+{
+  "id": "stoa-5054e486",
+  "title": "Start peering TCP accept loop in transit main",
+  "description": "Start the transit-to-transit TCP listener in main.rs. For each accepted connection, spawn a session task running the peering pipeline (IHAVE/TAKETHIS ingestion queue). Wire the ingestion queue to the IPFS store and group log. Why: peer-to-peer article transfer cannot occur until the server accepts connections.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T00:13:45Z",
+  "updated_at": "2026-05-01T04:54:52Z",
+  "closed_at": "2026-04-21T01:38:16Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-057bc47b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:14:18"
+    },
+    {
+      "depends_on_id": "stoa-e861c46f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:14:12"
+    }
+  ]
+}

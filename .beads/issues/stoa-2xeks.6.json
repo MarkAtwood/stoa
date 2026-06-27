@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "MTA-STS policy parser implemented; check+clippy clean",
+  "closed_at": "2026-05-02T17:55:11Z",
+  "compaction_level": 0,
+  "content_hash": "5a63e33c455f913f617faef8bc0b3ca7d83738506dd04ef68e4b2ea7dde8ae2b",
+  "created_at": "2026-05-02T17:38:06Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement parse_mta_sts_policy(body: &str) -> Result<MtaStsPolicy, MtaStsError>. Parses the line-based key:value format (RFC 8461 \u00a73.2). Rules: version:STSv1 must appear first, mode must be none/testing/enforce, at least one mx line required, max_age must be 0..=31557600 (1 year in seconds), unknown keys are silently ignored per spec. Body must not exceed max_policy_body_bytes (64 KiB default). Return MtaStsError::PolicyParseFailed with field path on violation. MtaStsPolicy struct: version, mode, mx_patterns: Vec<String>, max_age: u32.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MTA-STS policy file parser",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T10:39:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.3",
+      "id": "89997571-9c95-56f2-9c25-72fea0cbfadb",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T10:38:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks",
+      "id": "ae3aa609-6cae-5302-a51f-2662b36cb22a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

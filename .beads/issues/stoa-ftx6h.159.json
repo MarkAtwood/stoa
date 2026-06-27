@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T13:26:22Z",
+  "compaction_level": 0,
+  "content_hash": "7007ee42fa55261a4994b5f0d5f56f2cd145de4e29f6b38cb34399b4dcd99aaa",
+  "created_at": "2026-05-03T13:08:01Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: StagingConfig.drain_workers is documented to control the number of concurrent drain tasks pulling articles from the staging store into the ingestion queue. What: main.rs always spawns exactly one drain task regardless of the drain_workers value. High-throughput deployments that set drain_workers > 1 in their config will see no scaling benefit. The field is silently ignored after parsing.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.159",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "drain_workers config field ignored; always 1 drain task",
+  "updated_at": "2026-05-03T13:26:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:08:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "ecc634db-fd1b-5131-86ca-8ad92819d4b8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

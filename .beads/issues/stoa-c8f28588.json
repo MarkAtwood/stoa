@@ -1,0 +1,21 @@
+{
+  "id": "stoa-c8f28588",
+  "title": "9tz.2: SearchError typed error enum",
+  "description": "What: Create crates/reader/src/search/error.rs with SearchError enum.\n\nAlgorithm:\n1. Create directory crates/reader/src/search/ with mod.rs and error.rs.\n2. In error.rs define:\n   #[derive(Debug, thiserror::Error)]\n   pub enum SearchError {\n       #[error(\"tantivy error: {0}\")] Tantivy(#[from] tantivy::TantivyError),\n       #[error(\"query parse error: {0}\")] QueryParse(String),\n       #[error(\"query too long: {len} bytes, max {max}\")] QueryTooLong { len: usize, max: usize },\n       #[error(\"index not available\")] Unavailable,\n   }\n3. In mod.rs: pub mod error; pub use error::SearchError; (rest of module added in 9tz.4)\n4. In crates/reader/src/lib.rs add: pub mod search;\n\nDefensive rules: All error variants must be non_exhaustive or have doc comments. No unwrap().\n\nTests: simple unit test verifying error Display messages are non-empty.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T01:20:04Z",
+  "updated_at": "2026-05-01T05:00:37Z",
+  "closed_at": "2026-04-23T01:35:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-85f5ab08",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 18:20:04"
+    }
+  ]
+}

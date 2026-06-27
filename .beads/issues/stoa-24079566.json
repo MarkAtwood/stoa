@@ -1,0 +1,12 @@
+{
+  "id": "stoa-24079566",
+  "title": "fix(mail): strip CRLF from SMTP envelope recipient addresses",
+  "description": "extract_email_addrs in email/set.rs returns email strings without calling strip_crlf. These are passed as SMTP envelope RCPT TO addresses. A JMAP client can inject CRLF into recipient addresses, enabling SMTP command injection in the relay sender. Fix: call strip_crlf on each extracted address.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:46:23Z",
+  "updated_at": "2026-05-01T04:52:02Z",
+  "closed_at": "2026-04-27T05:55:39Z"
+}

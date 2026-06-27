@@ -1,0 +1,20 @@
+{
+  "id": "stoa-174023ab",
+  "title": "check_cert_expiry duplicated in main.rs and admin.rs",
+  "description": "TLS cert expiry check is copy-pasted between main.rs and admin.rs. Should be deduplicated into tls.rs.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:28:04Z",
+  "updated_at": "2026-05-01T04:58:38Z",
+  "closed_at": "2026-04-28T21:03:25Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:28:04"
+    }
+  ]
+}

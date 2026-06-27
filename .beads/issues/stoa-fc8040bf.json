@@ -1,0 +1,20 @@
+{
+  "id": "stoa-fc8040bf",
+  "title": "strip_did_sig_header breaks on RFC 5322 folded headers",
+  "description": "strip_did_sig_header() in did_verify.rs (line 326) splits on bare \\n and drops any line whose lowercased prefix does not match X-Usenet-IPFS-DID-Sig:. If the header is folded (RFC 5322 \u00a72.2.3: continuation lines start with whitespace), the continuation lines are NOT stripped because they begin with a tab or space, not the header name. The result is that the bytes fed to ed25519 verify_strict() differ from the bytes the author signed, producing a spurious VerificationFailed. The same issue affects extract_did_sig() in did_passthrough.rs: it captures only the first physical line, so the base64url signature is truncated at the fold boundary, causing InvalidSignatureEncoding before verification even begins. Any MTA or client that folds long headers (the sig is ~88 chars plus the DID URL) will silently break verification. A solo maintainer debugging this will have no test coverage for the folded case and may spend hours before finding it.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T04:59:49Z",
+  "updated_at": "2026-05-01T04:54:20Z",
+  "closed_at": "2026-04-23T05:02:30Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-062e13cb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:59:48"
+    }
+  ]
+}

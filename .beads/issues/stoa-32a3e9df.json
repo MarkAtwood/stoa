@@ -1,0 +1,20 @@
+{
+  "id": "stoa-32a3e9df",
+  "title": "signing.rs: temp key file created world-readable before chmod",
+  "description": "## Why this issue exists\n\nIn crates/core/src/signing.rs, write_signing_key() creates a temp file with File::create(), then calls set_permissions(0o600) on it, then writes key material, then renames into place.\n\nFile::create() creates with mode controlled by process umask. Under a permissive umask (0o022, the Linux default), the file exists as 0o644 (world-readable) between creation and set_permissions. Another process reading the directory during that window can read the private key.\n\n## What breaks\n\nEd25519 operator private key is exposed world-readable for a brief window during key generation or rotation. On multi-user systems this is a credential-leak.\n\n## Fix direction\n\nUse OpenOptions with mode(0o600) at creation time via std::os::unix::fs::OpenOptionsExt so the file is never created with broader permissions. Or use tempfile::NamedTempFile which uses O_CREAT|O_EXCL with 0o600, then persist and rename.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T06:00:30Z",
+  "updated_at": "2026-05-01T04:53:33Z",
+  "closed_at": "2026-04-27T07:56:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-a805d881",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 23:00:30"
+    }
+  ]
+}

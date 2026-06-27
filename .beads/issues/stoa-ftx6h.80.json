@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "27f975fcfdd7c8caa84b81b3ed692956e37dd5830bbef64fc19a99c37c266b26",
+  "created_at": "2026-05-03T13:05:32Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this issue exists: http_sign.rs RsaActorKey stores an rsa::RsaPrivateKey. sign_post() calls SigningKey::from(self.private_key.clone()) to construct the signing key on every call. RSA private key cloning involves allocating and copying large BigUint values. For high-volume ActivityPub delivery (fan-out to thousands of followers) this is unnecessary per-delivery allocation.\n\nWhat needs to be done: Store a pre-constructed rsa::pkcs1v15::SigningKey<sha2::Sha256> directly in RsaActorKey rather than the raw RsaPrivateKey. The signing key can be built once at key-load time. SigningKey implements Clone cheaply if needed, but ideally just hold Arc<SigningKey>.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.80",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "RsaPrivateKey cloned to construct SigningKey on each outbound ActivityPub delivery",
+  "updated_at": "2026-05-03T13:05:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "a5179834-cb43-5b9b-be1d-169fd867632a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

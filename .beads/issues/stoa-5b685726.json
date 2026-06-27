@@ -1,0 +1,21 @@
+{
+  "id": "stoa-5b685726",
+  "title": "verify/dkim: DkimResult::Neutral mapped to Fail instead of dedicated variant",
+  "description": "crates/verify/src/dkim.rs line 93 \u2014 DkimResult::Neutral is mapped to VerifResult::Fail. RFC 6376 distinguishes Neutral (signature present but not conclusively verified) from Fail (signature present and definitively wrong). Mapping Neutral to Fail causes callers to treat a transient/neutral DKIM outcome as a definitive signature failure, potentially causing false operator alerts. A dedicated VerifResult::Neutral variant or mapping to NoKey would be more accurate.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:25:59Z",
+  "updated_at": "2026-05-01T04:53:16Z",
+  "closed_at": "2026-04-28T18:25:43Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:25:58"
+    }
+  ]
+}

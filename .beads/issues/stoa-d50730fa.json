@@ -1,0 +1,33 @@
+{
+  "id": "stoa-d50730fa",
+  "title": "Add NNTP per-command latency histograms to reader daemon",
+  "description": "Instrument every NNTP command handler in the reader with a histogram observation for its total handling time: nntp_command_duration_seconds{command='ARTICLE'}, {command='OVER'}, {command='POST'}, etc. Use tokio-tracing span timing or explicit Instant::now() measurements. Artifact: instrumentation added to reader/src/session/commands/*.rs.\n\nAcceptance:\n- Every command handler emits a histogram observation on completion\n- Command label matches the RFC 3977 command name (uppercase)\n- POST histogram covers end-to-end time including IPFS write\n- Unit test: issue 5 commands, verify 5 histogram observations recorded",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:15:19Z",
+  "updated_at": "2026-05-01T04:58:12Z",
+  "closed_at": "2026-04-20T12:01:58Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-47bea8e0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:15:43"
+    },
+    {
+      "depends_on_id": "stoa-6c293cc9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:53:34"
+    },
+    {
+      "depends_on_id": "stoa-c1dc4c8d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:15:19"
+    }
+  ]
+}

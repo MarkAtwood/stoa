@@ -1,0 +1,21 @@
+{
+  "id": "stoa-b154022d",
+  "title": "HLC logical counter overflow at u32::MAX",
+  "description": "hlc.rs:36: self.last.logical + 1 with no overflow check. If wall_ms is unchanged and logical == u32::MAX, panics in debug; wraps to 0 in release. Wrapping breaks causality ordering. Same risk in receive() lines 52, 56 via .max(...) + 1. Fix: return Err on overflow or force wall_ms to advance. Trigger: node generating >4B events within a single millisecond, or mocked clock in tests.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:32:50Z",
+  "updated_at": "2026-05-01T04:59:52Z",
+  "closed_at": "2026-04-21T19:05:17Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:32:50"
+    }
+  ]
+}

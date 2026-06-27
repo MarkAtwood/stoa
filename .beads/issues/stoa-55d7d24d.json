@@ -1,0 +1,27 @@
+{
+  "id": "stoa-55d7d24d",
+  "title": "imap: E2E smoke test: imap-client connects and reads a newsgroup",
+  "description": "Create crates/imap/tests/e2e_smoke.rs. Uses the imap crate (not imap-next -- the higher-level client crate) to connect to the server as a real client. Algorithm: (1) spawn usenet-ipfs-imap server in-process on a random port with in-memory stores pre-seeded with two articles in comp.lang.rust; (2) connect with imap client using AUTH=PLAIN with test credentials; (3) SELECT comp.lang.rust; (4) FETCH 1:2 FLAGS; (5) STORE 1 +FLAGS (Seen); (6) SEARCH UNSEEN -> should return [2]; (7) EXPUNGE (no messages with Deleted -> empty expunge); (8) LOGOUT. Verify each step produces expected responses without errors. Use in-memory stores (MemIpfsStore, in-memory SQLite). This test exercises the full IMAP stack including TLS (use insecure/non-TLS mode or self-signed cert in test).",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T07:19:19Z",
+  "updated_at": "2026-05-01T04:56:39Z",
+  "closed_at": "2026-04-23T08:00:08Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3741bca1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:19:19"
+    },
+    {
+      "depends_on_id": "stoa-405585c2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:21:49"
+    }
+  ]
+}

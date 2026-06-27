@@ -1,0 +1,13 @@
+{
+  "id": "stoa-06f9b81e",
+  "title": "Review Round 19: R18 header name and parent cap",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T10:43:38Z",
+  "updated_at": "2026-05-01T04:59:53Z",
+  "closed_at": "2026-04-27T10:43:52Z",
+  "notes": "Confidence: 95% chance no missed bugs. Diff is small and targeted. The TooManyParents check order (before signature) is correct. Header name validation covers the security-critical characters. Omitting non-printable-ASCII check beyond CR/LF/NUL is acceptable since spaces in names can't corrupt canonical serialisation.\nMaintainer risk: LOW \u2014 no new public API surface, no footguns."
+}

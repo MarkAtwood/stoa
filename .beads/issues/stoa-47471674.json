@@ -1,0 +1,21 @@
+{
+  "id": "stoa-47471674",
+  "title": "extra header names not validated for CR/LF/NUL/colon",
+  "description": "validation.rs extra_headers loop (line 224) checks extra-header VALUES for CR/LF/NUL but never checks NAMES. A name containing bare CR/LF or colon would corrupt the canonical serialization, producing a structurally ambiguous canonical byte string used for signing. Fix: add a name check in the extra_headers loop: reject names that contain CR, LF, NUL, or colon; cap name length at e.g. 76 bytes.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T10:39:57Z",
+  "updated_at": "2026-05-01T04:52:03Z",
+  "closed_at": "2026-04-27T10:42:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-788640b7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 03:39:56"
+    }
+  ]
+}

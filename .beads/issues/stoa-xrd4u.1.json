@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T05:10:37Z",
+  "compaction_level": 0,
+  "content_hash": "e1ecedd2d66b9b7edca75acd7a48b68179c9540c18cf7d5014a56ed038b6c892",
+  "created_at": "2026-05-04T05:05:11Z",
+  "created_by": "Mark Atwood",
+  "description": "HlcTimestamp derives Copy, Ord, Eq but not Hash. A type used as a CRDT ordering key and potentially stored in HashMaps/HashSets should derive Hash. The field types (u64, u32, [u8;8]) all implement Hash trivially. Add Hash to the derive list in crates/core/src/hlc.rs.",
+  "ephemeral": 0,
+  "id": "stoa-xrd4u.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "HlcTimestamp missing Hash derive",
+  "updated_at": "2026-05-04T05:10:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T22:05:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-xrd4u",
+      "id": "07a3480b-25f9-54f3-8489-fec5e6e6f49e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

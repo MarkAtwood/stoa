@@ -1,0 +1,19 @@
+{
+  "id": "stoa-6467f56d",
+  "title": "relay_queue.rs: dead_dir recomputed three times in drain_once/try_deliver_one",
+  "description": "self.queue_dir.join('dead') appears three times: in drain_once (line 268) for the dead-letter count, and twice in try_deliver_one (lines 365, 422) for DKIM failure and permanent failure moves. A reader scanning the code may miss that these three sites all refer to the same directory and worry about divergence. SmtpRelayQueue.new() already validates dead/ is writable but never stores the dead_dir path. Simple fix: add dead_dir as a field on SmtpRelayQueue, set in new(), and reuse throughout. Reduces surface for typo-introduced divergence.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:39:06Z",
+  "updated_at": "2026-05-01T05:00:18Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d94f2708",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:39:05"
+    }
+  ]
+}

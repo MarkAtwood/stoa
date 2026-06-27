@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T13:17:01Z",
+  "compaction_level": 0,
+  "content_hash": "4a510f74095ee13dfb19ac256f1e473c7e9311b25f8383c0c8baafa9fc84b1c2",
+  "created_at": "2026-05-03T13:04:05Z",
+  "created_by": "Mark Atwood",
+  "description": "In sieve_admin.rs, user_exists() compares the incoming username against GLOBAL_SCRIPT_KEY with case-insensitive ASCII comparison, but the normalized key is never lowercased before being used as a DB key in save_script and other store functions. If a client POSTs a script for username '_GLOBAL', user_exists() returns true (matching '_global' case-insensitively), but the script is stored under the key '_GLOBAL'. A subsequent load_active_script('_global') will find nothing, so the global script silently never applies. Fix: normalize username to lowercase before all store calls, or use a single canonical comparison path.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.30",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "smtp: user_exists bypasses GLOBAL_SCRIPT_KEY normalization",
+  "updated_at": "2026-05-03T13:17:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:04:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "aa686f4d-5a16-5393-9f41-5eea90ea8bfe",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

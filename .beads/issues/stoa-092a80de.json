@@ -1,0 +1,21 @@
+{
+  "id": "stoa-092a80de",
+  "title": "SEC0: T4-T8 test helper copy not production code",
+  "description": "config.rs:790-811 defines whitelist_check() which duplicates normalization+containment logic from session.rs:171-194. T4-T8 (especially T7 IPv4-mapped regression test) call this copy, not run_session(). If production normalization in session.rs changes, T7 passes while the real code regresses silently. Fix: extract normalization into a pub(crate) fn in session.rs and test that directly, or drive an SMTP session with an IPv4-mapped peer_addr.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:48:02Z",
+  "updated_at": "2026-05-01T04:58:53Z",
+  "closed_at": "2026-04-30T15:53:41Z",
+  "notes": "SEC7 calibration: confirmed P1. T7 is the regression test specifically for the IPv4-mapped normalization bug. It calls whitelist_check() in config.rs, not the production normalization in session.rs:179-185. If a maintainer changes session.rs:181 from to_ipv4_mapped() back to to_ipv4(), T7 passes while production regresses. This is a concrete test integrity violation per CLAUDE.md: 'Tests must have an independent oracle' \u2014 the copy is not independent. Distinguished from 1onm.16 (P2): 1onm.16 is the maintainer-burden framing; 1onm.11 is the test integrity framing. Both describe the same root cause but 1onm.11 has the stronger safety implication. 1onm.16 can be treated as a duplicate. The fix (extract pub(crate) fn, described in 1onm.2 and 1onm.9) resolves all four issues.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b4887c1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:48:02"
+    }
+  ]
+}

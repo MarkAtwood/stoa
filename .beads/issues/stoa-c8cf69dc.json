@@ -1,0 +1,20 @@
+{
+  "id": "stoa-c8cf69dc",
+  "title": "SEC4: XCID body-reading loop missing NNTP format comment",
+  "description": "In xcid_client.rs run_xcid_protocol (~lines 174-189), the loop that reads base64 body lines until a standalone '.' has no comment explaining the NNTP dot-terminated multi-line body format. A reader unfamiliar with NNTP wire format will not understand why a lone '.' terminates the body, why lines are stripped of whitespace before accumulation, or why an empty line (not just '.') signals EOF. A brief comment referencing RFC 3977 \u00a73.1.1 (dot-stuffing and dot-termination) would make this self-contained.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T23:44:12Z",
+  "updated_at": "2026-05-01T04:53:41Z",
+  "closed_at": "2026-04-24T00:03:20Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4206df49",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 16:44:12"
+    }
+  ]
+}

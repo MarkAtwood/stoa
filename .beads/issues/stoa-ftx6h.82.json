@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "538614424f79a24ae62b7ece3c06a4eb264a1dbfe24e2043528e67b3ff92d25f",
+  "created_at": "2026-05-03T13:05:35Z",
+  "created_by": "Mark Atwood",
+  "description": "SqliteLogStorage::get_entry issues two sequential queries: one for (hlc_timestamp, article_cid, operator_signature) and one for parent_cids. For a caller that fetches many entries (e.g., backfill), this is an N+1 pattern: 2 round-trips per entry. A single JOIN or two-query approach inside one transaction would still be 2 queries but could be replaced by a JOIN: SELECT e.hlc_timestamp, e.article_cid, e.operator_signature, p.parent_id FROM log_entries e LEFT JOIN log_entry_parents p ON p.entry_id = e.id WHERE e.id = ?. This is a standard relational join and eliminates the second round-trip.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.82",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "core: sqlite_storage get_entry issues two separate queries (N+1 pattern)",
+  "updated_at": "2026-05-03T13:05:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "ab656580-e73f-54c1-8993-0d86b931ef94",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T05:10:36Z",
+  "compaction_level": 0,
+  "content_hash": "4d87b88066c6a8fe55fdbf3de1cd821061da7610746e5e52a379972cfd4f46a2",
+  "created_at": "2026-05-04T05:06:28Z",
+  "created_by": "Mark Atwood",
+  "description": "sqlite_storage.rs:35,93,148,161,227,253,259,281,333,340: every call to id.as_bytes().to_vec() or tip.as_bytes().to_vec() allocates a 32-byte Vec<u8> from a &[u8;32]. sqlx-sqlite implements Encode<'q, Sqlite> for &'q [u8] directly (sqlx-sqlite-0.8.6/src/types/bytes.rs), so .bind(id.as_bytes().as_ref()) or .bind(id.as_bytes() as &[u8]) binds without allocation. QueryBuilder::push_bind similarly accepts &[u8]. Idiomatic fix: drop all .to_vec() calls; bind the slice reference directly. This affects all hot paths (insert_entry, get_entry, has_entry, get_parent_cids, list_tips, set_tips, advance_tips, insert_entry_and_advance_tips).",
+  "ephemeral": 0,
+  "id": "stoa-xrd4u.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sqlite_storage: 10x unnecessary Vec<u8> allocation for 32-byte ID binds",
+  "updated_at": "2026-05-04T05:10:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T22:06:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-xrd4u",
+      "id": "c2dbe9ac-4adf-54fe-9276-2aff229b0998",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

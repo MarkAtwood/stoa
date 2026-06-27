@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "02ea50405d5895b5040d27e7fe1f09d4c87de65b1a6c81dc4e96fcb7f95f0cdd",
+  "created_at": "2026-05-04T05:05:39Z",
+  "created_by": "Mark Atwood",
+  "description": "What decision: validation.rs has one validate_article_ingress function called by both the POST handler and IHAVE handler, with a doc comment (DECISION rbe3.22) explaining the rationale. Why right: two separate validation paths for POST vs IHAVE are a known failure mode in real Usenet servers \u2014 a check added to POST but missed in IHAVE allows privilege escalation (e.g. injecting oversized or malformed articles via IHAVE that POST would reject). The single entry point eliminates this class of drift. Alternatives rejected: (1) separate validate_post / validate_ihave fns \u2014 drift risk; (2) shared base + per-handler extras \u2014 adds complexity for no benefit given current identical requirements; (3) middleware/trait composition \u2014 overkill for a sync validation function.",
+  "ephemeral": 0,
+  "id": "stoa-paxfh.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "DECISION: single validate_article_ingress entry point for POST and IHAVE",
+  "updated_at": "2026-05-04T05:05:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T22:05:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-paxfh",
+      "id": "8d02d18f-3f6a-5f01-9feb-109fa3333e19",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

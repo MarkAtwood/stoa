@@ -1,0 +1,14 @@
+{
+  "id": "stoa-ebc6ad28",
+  "title": "Review round 1: Graceful shutdown (0qfx)",
+  "description": "Verify fixes from graceful shutdown implementation",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T05:23:21Z",
+  "updated_at": "2026-05-01T04:53:59Z",
+  "closed_at": "2026-04-24T05:48:09Z",
+  "notes": "Confidence: 85% chance we have found all real bugs in the graceful shutdown path. Running out of real complaints: yes. Reason: The two P1 bugs (staging drain task not joined, NNTPS semaphore not drained) and one P1 doc gap (RUNBOOK) are clearly real. The P3 Ok(_)-swallows-panic bug (nzr6.1) is real and actionable. The P3 TOCTOU on connection count log (nzr6.4) is real but low severity \u2014 the count is diagnostic only. The P3 sigterm() duplication (nzr6.9) has genuine maintenance basis. The P4 doc comment inaccuracy (nzr6.16) and missing comment (nzr6.14) have engineering basis but are cosmetic. Two P3 issues (nzr6.2, nzr6.6) were pure confirmatory no-issue notes with no actionable content and annotated as opinion. One P4 (nzr6.12) is a duplicate of nzr6.1 and annotated as opinion/duplicate. The P2 findings (nzr6.3, nzr6.5, nzr6.7, nzr6.10) are all design-decision rationale notes, not bugs. Remaining uncertainty: staging pipeline code was not directly read by all agents; nzr6.11 (staging drain task not joined) is accepted on description but fix complexity is unknown. No evidence of missed bugs in the reader session dispatch or ingestion channel fanout paths."
+}

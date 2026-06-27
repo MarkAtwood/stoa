@@ -1,0 +1,21 @@
+{
+  "id": "stoa-1c042925",
+  "title": "DECISION: EMA backpressure uses Acquire/Release ordering for cross-thread visibility",
+  "description": "IpfsLatencyMonitor in transit/peering/backpressure.rs stores the active flag as AtomicBool and uses Ordering::Release on writes and Ordering::Acquire on reads. This establishes a happens-before relationship: any thread that observes backpressure_active() == true is guaranteed to see the EMA value that caused activation. The EMA value itself uses Relaxed ordering (acceptable because it is only ever written from one place and the precise value is advisory). A future contributor might change both to Relaxed for consistency, which would allow the backpressure_active flag to become visible to a reader before the EMA update that caused it, breaking any diagnostic that reads the EMA after observing the flag.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:16:46Z",
+  "updated_at": "2026-05-01T04:55:59Z",
+  "closed_at": "2026-04-27T15:38:43Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:16:45"
+    }
+  ]
+}

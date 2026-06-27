@@ -1,0 +1,20 @@
+{
+  "id": "stoa-fb12efcd",
+  "title": "Explain format!(\"{cap}\") string dispatch in handle_enable",
+  "description": "In session/mod.rs, the ENABLE handler converts each CapabilityEnable to a string with format!(\"{cap}\") and passes it to handle_enable() for case-insensitive string comparison. There is no comment explaining why a direct enum-variant match is not used instead. The reason is that the imap-types CapabilityEnable type has no dedicated Imap4Rev2 variant at the version pinned in Cargo.toml, making Display-based dispatch the only viable approach. Without this explanation, a new contributor will likely attempt to replace the string comparison with a pattern match and be confused when no such variant exists.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:25:18Z",
+  "updated_at": "2026-05-01T04:54:12Z",
+  "closed_at": "2026-04-30T02:53:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9d37d25b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:25:18"
+    }
+  ]
+}

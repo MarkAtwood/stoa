@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "7f7a87ada2c711597713f2fdef932ea7d21212bd54f9d6b602698249a88a2ae3",
+  "created_at": "2026-05-03T13:06:39Z",
+  "created_by": "Mark Atwood",
+  "description": "In relay_client.rs, parse_smtp_line(&[u8]) converts the entire line to a String via String::from_utf8_lossy(..).into_owned() before extracting the 3-digit status code and continuation flag. For the hot path (SMTP response parsing in the relay loop), the String allocation is unnecessary \u2014 the status code is the first 3 bytes and can be parsed as ASCII digits directly from the byte slice. Fix: parse the status code and continuation flag from the byte slice, returning (&str, bool) borrowing from the input, or (u16, bool) with no allocation. Only convert to String if the caller needs the human-readable text portion.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.123",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "smtp: parse_smtp_line takes &[u8] but allocates String unconditionally",
+  "updated_at": "2026-05-03T13:06:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "5a4b37ea-3d7e-58c3-9d63-c37846c2cc0c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

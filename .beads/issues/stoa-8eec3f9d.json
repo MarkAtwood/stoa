@@ -1,0 +1,13 @@
+{
+  "id": "stoa-8eec3f9d",
+  "title": "Review round 2: i5ay post-fix verification",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T07:26:47Z",
+  "updated_at": "2026-05-01T04:59:57Z",
+  "closed_at": "2026-04-30T07:30:32Z",
+  "notes": "SEC0+SEC7 Round 2 complete.\n\nFIXES VERIFIED (5/5):\n- lnc3.17: TransientError enum + all double-failure branches return it \u2713\n- lnc3.22: GLOBAL_SCRIPT_KEY constant shared, no bare strings \u2713\n- lnc3.23: inbox_mailbox_id cached at startup, handles None correctly \u2713\n- lnc3.24: special_mailboxes cached Arc<Vec>, no per-message queries \u2713\n- lnc3.21: Doc comments added to subscriptions.rs and flags.rs \u2713\n\nNEW ISSUE FILED:\n- P1: Metric discrepancy at line 919 (Keep action with no pools)\n\nSTATUS: One real correctness issue found (metric tracking inconsistency). All core fixes function correctly. Ready for fix or acceptance depending on metric importance. Confidence: 92%\nRound 2: P0=0 P1=1 (metrics consistency edge case). Fixes verified correct."
+}

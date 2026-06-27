@@ -1,0 +1,49 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T00:08:04Z",
+  "compaction_level": 0,
+  "content_hash": "81f98ba98ae4d3cfd8a34d7aa1d52503b79205ff05d759a2aec8d99c768bad35",
+  "created_at": "2026-05-03T23:53:55Z",
+  "created_by": "Mark Atwood",
+  "description": "Once all arms moved out of route_method, delete the function. Replace the manual comment warning at server.rs:633 with a compile-time exhaustive mechanism so the dispatcher method list cannot drift from handlers.",
+  "ephemeral": 0,
+  "id": "stoa-z8tz8.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Delete route_method and enforce dispatch completeness",
+  "updated_at": "2026-05-04T00:08:04Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T16:54:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-z8tz8.5",
+      "id": "3dc3875b-5f56-5ee8-821b-5f13a3116ddd",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-03T16:53:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-z8tz8",
+      "id": "84c6f075-3c9a-52ad-ab71-715d81daf3a3",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-03T16:54:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-z8tz8.2",
+      "id": "f3240ba0-c5bc-51cf-9980-36c8c2dd15bb",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

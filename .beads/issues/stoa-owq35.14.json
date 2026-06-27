@@ -1,0 +1,33 @@
+{
+  "close_reason": "Deferred: ~24 construction sites + ~14 test assertions across 4 files; MtaStsError is internal and not exposed. TLSRPT (RFC 8460) is out of v1 scope \u2014 revisit when wiring TLSRPT where PolicyFetchFailed sub-reason discrimination matters.",
+  "closed_at": "2026-05-02T20:27:59Z",
+  "compaction_level": 0,
+  "content_hash": "319fb336b1641e048a0e14408a36aaebd9d308ea30ce99b30ef12d41222e376c",
+  "created_at": "2026-05-02T20:19:11Z",
+  "created_by": "Mark Atwood",
+  "description": "mta_sts_error.rs: PolicyFetchFailed(String), PolicyParseFailed(String), DnsTxtInvalid(String), TlsCertInvalid(String) wrap free-form strings. Callers cannot match on specific sub-reasons without string parsing. When TLSRPT (RFC 8460) needs to classify failures by type, these variants are insufficient \u2014 a certificate error and a timeout both produce PolicyFetchFailed(String). Contrast with structured PolicyIdMismatch { cached, dns } and MxNotMatched { mx }. Not blocking while MtaStsError is internal, but adds friction when wiring TLSRPT.",
+  "ephemeral": 0,
+  "id": "stoa-owq35.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MtaStsError string-message variants lose structured context for TLSRPT callers",
+  "updated_at": "2026-05-02T20:27:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T13:19:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-owq35",
+      "id": "875f5586-7c84-585f-9a36-d2d7f65859d2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

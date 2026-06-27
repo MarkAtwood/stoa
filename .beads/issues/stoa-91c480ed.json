@@ -1,0 +1,20 @@
+{
+  "id": "stoa-91c480ed",
+  "title": "admin endpoint missing connection/request size limits (slowloris vector)",
+  "description": "Both transit/src/admin.rs and reader/src/admin.rs implement a hand-rolled HTTP/1.1 parser using read_line in a loop with no read deadline, no maximum header count, and no maximum header line length. A client that connects and drips bytes one per second will hold the connection open indefinitely, consuming a task and a file descriptor. There is no accept-backlog limit or connection count cap on the admin port. On a loopback-only deployment this is low severity, but if admin.addr is set to a non-loopback address this becomes a trivial denial-of-service vector. Maintenance consequence: any contributor adding an admin endpoint will inherit this handrolled HTTP parser pattern without recognising the missing defenses.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:11:05Z",
+  "updated_at": "2026-05-01T04:53:44Z",
+  "closed_at": "2026-04-27T03:01:42Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:11:04"
+    }
+  ]
+}

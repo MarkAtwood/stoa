@@ -1,0 +1,13 @@
+{
+  "id": "stoa-5cb0829f",
+  "title": "Review: feat(backend): S3-compatible object storage backend",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T02:11:20Z",
+  "updated_at": "2026-05-01T04:53:25Z",
+  "closed_at": "2026-04-28T02:14:49Z",
+  "notes": "Maintainer risk: LOW \u2014 S3 is well-understood, the only real correctness issue is the probe path. No security holes. Duplicate function is a minor maintenance burden.\nConfidence: 90% chance no missed bug. Uncertainty driven by: S3 provider differences (some providers return 200 for PUT on a missing bucket; startup probe might not catch all misconfigurations). Would raise confidence if: probe exercises the actual prefix path."
+}

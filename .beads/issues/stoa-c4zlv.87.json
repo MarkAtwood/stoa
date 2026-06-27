@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T17:50:19Z",
+  "compaction_level": 0,
+  "content_hash": "8e20910f0aa9c38a303680eb26d8cfbc1fbc8c49956476b4204a54845122c5e3",
+  "created_at": "2026-05-01T15:22:12Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: gc.rs start_gc_scheduler() acquires pg_try_advisory_lock before calling runner.run_once(). If run_once panics (e.g. due to an unexpected unwrap on a future refactor), the spawned task exits without calling release_gc_lock. Bad behavior: on PostgreSQL deployments, the advisory lock is a session-level lock. Since the panic aborts the spawned task but not the session (the pool connection returns to the pool), the lock may remain held by the pool connection for an indeterminate period, blocking GC on all other instances in a multi-instance deployment. The fix is to use a scope guard or catch_unwind around the GC run.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.87",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "GC advisory lock not released when run_once panics",
+  "updated_at": "2026-05-01T17:50:19Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:22:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "f8a4b675-8357-5571-b2ce-50c4b49e6dc9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

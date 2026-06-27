@@ -1,0 +1,19 @@
+{
+  "id": "stoa-c97f3aa2",
+  "title": "stoa-imap: ENABLE command only valid in Authenticated state, not Selected (RFC 5161)",
+  "description": "In session/mod.rs the ENABLE command handler guards with ImapState::Authenticated only, rejecting ENABLE in Selected state with NO. RFC 5161 section 3 states ENABLE is valid in any non-authenticated state \u2014 specifically it is valid in Selected state. RFC 9051 section 6.3.2 also permits ENABLE after SELECT. A client that selects a mailbox then sends ENABLE IMAP4rev2 will receive an incorrect NO response.",
+  "status": "open",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:41:38Z",
+  "updated_at": "2026-05-01T04:54:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:41:38"
+    }
+  ]
+}

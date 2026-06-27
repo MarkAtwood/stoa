@@ -1,0 +1,21 @@
+{
+  "id": "stoa-0f7066e9",
+  "title": "Audit log: AuditLogger trait and JSONL file backend",
+  "description": "Define AuditLogger trait with a write(event: AuditEvent) method. Implement JonlFileLogger: opens file with O_APPEND, writes one JSON object per line, never truncates. AuditEvent is a non_exhaustive enum covering all event types. Logger is constructed once at startup from [audit] config section (path field). Blocked on: stoa-35542eb9.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:41:45Z",
+  "updated_at": "2026-05-01T04:51:50Z",
+  "closed_at": "2026-04-27T20:17:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-35542eb9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:44:07"
+    }
+  ]
+}

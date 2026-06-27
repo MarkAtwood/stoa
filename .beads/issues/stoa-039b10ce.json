@@ -1,0 +1,21 @@
+{
+  "id": "stoa-039b10ce",
+  "title": "error text starts with response code: '441 441 Missing Message-ID header'",
+  "description": "In lifecycle.rs extract_post_metadata, three error messages are constructed as: Response::new(441, \"441 Missing Message-ID header\"). The numeric code appears both as the response code and again in the text. On the wire this produces '441 441 Missing Message-ID header'. Confusing for any client or user reading logs or the NNTP session transcript. What would make it clear: remove the '441 ' prefix from the text strings \u2014 Response::new(441, \"Missing Message-ID header\").",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T14:07:21Z",
+  "updated_at": "2026-05-01T04:53:06Z",
+  "closed_at": "2026-04-21T14:23:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ad28b4f3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 07:07:21"
+    }
+  ]
+}

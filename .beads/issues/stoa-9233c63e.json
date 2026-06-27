@@ -1,0 +1,20 @@
+{
+  "id": "stoa-9233c63e",
+  "title": "Core: LogStorage trait, in-memory implementation, SQLite implementation",
+  "description": "Define a LogStorage trait in usenet-ipfs-core that abstracts persistence of group log entries. Provide an in-memory implementation for tests and an SQLite implementation for production. All group log operations (append, query, backfill) use the trait \u2014 no direct SQLite calls in business logic. Migrations managed by sqlx. This is the persistence foundation for the Merkle-CRDT group log.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:44:47Z",
+  "updated_at": "2026-05-01T04:53:36Z",
+  "closed_at": "2026-04-20T03:28:29Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-a12b8b7b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:44:47"
+    }
+  ]
+}

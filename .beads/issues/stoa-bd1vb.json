@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "0261eb669432fb00563d99cdcc7e6df6800182e41841a2ddf3640e2ddb5e131d",
+  "created_at": "2026-05-05T15:48:04Z",
+  "created_by": "Mark Atwood",
+  "description": "After STARTTLS (stoa-ovjps.1), run_session in session.rs takes 14 positional parameters. This is the clippy::too_many_arguments case that was suppressed with #[allow(clippy::too_many_arguments)] (commit 360fc53). Callers in tests pass None for 6 consecutive optional fields, which makes the call sites unreadable and fragile (wrong positional argument). A SessionConfig or RunSessionArgs struct would make additions safe and call sites self-documenting.",
+  "ephemeral": 0,
+  "id": "stoa-bd1vb",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "smtp: run_session signature now 14 params \u2014 should take a config struct",
+  "updated_at": "2026-05-05T15:48:04Z"
+}

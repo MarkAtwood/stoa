@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "d2795512a2e78e81afdf97383abac39507e3e72916d3eff9989275be378a0a1f",
+  "created_at": "2026-05-03T13:07:13Z",
+  "created_by": "Mark Atwood",
+  "description": "trusted_issuer_store.rs explicitly uses ed25519_dalek::VerifyingKey::verify_strict instead of the standard verify(). verify_strict rejects small-order points, non-canonical scalar values, and other malleability vectors. The decision comment (DECISION rbe3.83) explains why x509-parser's built-in verification is not used. This is the correct choice for an authentication-critical signature check.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.141",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "good: trusted_issuer uses ed25519-dalek verify_strict to reject non-canonical signatures",
+  "updated_at": "2026-05-03T13:07:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:07:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "f8eec9ea-8e51-5a09-95d8-499b7a062a77",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

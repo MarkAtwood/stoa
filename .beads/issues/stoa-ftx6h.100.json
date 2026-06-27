@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T14:37:48Z",
+  "compaction_level": 0,
+  "content_hash": "3dd53e4796cb984806ca46cb4474d1eaba4aa24554b94311922003088906d7fd",
+  "created_at": "2026-05-03T13:06:01Z",
+  "created_by": "Mark Atwood",
+  "description": "evaluator::Ctx has all fields pub, but it is only used within the evaluator module (it is not part of the public API). Making the fields pub(super) or pub(crate) would be appropriate. As is, if evaluator were made pub, external code could construct Ctx with arbitrary state and call internal eval functions. Not a current security concern because evaluator mod is private, but it is a type-design smell.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.100",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve-native: Ctx struct fields are all pub \u2014 breaks encapsulation from evaluator submodule",
+  "updated_at": "2026-05-03T14:37:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "51d83062-64c7-51ea-979c-ade267b26b3a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

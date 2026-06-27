@@ -1,0 +1,21 @@
+{
+  "id": "stoa-b502bcb7",
+  "title": "Fix: sanitize tab/CR/LF in extract_overview() fields (CRITICAL)",
+  "description": "What: Tab characters in Subject/From fields corrupt OVER tab-separated output, breaking all newsreader clients. Fix extract_overview() in overview.rs.\nAlgorithm:\n1. In crates/reader/src/store/overview.rs, add helper:\n   fn sanitize_overview_field(s: &str) -> String {\n       s.chars().map(|c| if c == '\\t' || c == '\\r' || c == '\\n' { ' ' } else { c }).collect()\n   }\n2. In extract_overview(), wrap every string field assignment through sanitize_overview_field():\n   subject, from, date, message_id, references\n3. :bytes and :lines are numeric \u2014 no sanitization needed\n4. Add test: article with Subject containing a tab \u2192 sanitized to space in OverviewRecord\nDefensive: never store raw tab/CR/LF in overview SQLite; validate at extraction boundary.\nAcceptance: test extract_overview_strips_tab_in_subject passes; cargo test -p usenet-ipfs-reader clean.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T00:32:33Z",
+  "updated_at": "2026-05-01T04:59:20Z",
+  "closed_at": "2026-04-21T00:36:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-53e41c25",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:32:32"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T21:21:32Z",
+  "compaction_level": 0,
+  "content_hash": "8757a06f665e539bca799647d59720dec66ed1e7da888534c4f8cc9f3e0e8437",
+  "created_at": "2026-05-02T21:16:48Z",
+  "created_by": "Mark Atwood",
+  "description": "In production, a sending MTA fetches https://mta-sts.example.com/.well-known/mta-sts.txt with Host: mta-sts.example.com. The handler strips port and compares the raw host case-insensitively against MtaStsDomainConfig.domain (which is documented as 'example.com', not 'mta-sts.example.com'). 'mta-sts.example.com' \\!= 'example.com' \u2192 the find() always returns None \u2192 always 404. Tests pass only because they explicitly set Host: example.com, bypassing the production scenario. Fix: strip the 'mta-sts.' prefix from the Host header before comparing, or document that operators must configure domain as the full mta-sts.example.com subdomain (which contradicts the field comment and epic spec).",
+  "ephemeral": 0,
+  "id": "stoa-5yi4k.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mta_sts_handler: Host mta-sts.example.com never matches domain example.com \u2192 always 404",
+  "updated_at": "2026-05-02T21:21:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:16:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-5yi4k",
+      "id": "a5dd4ea9-df21-52f6-b560-8c84fadff6db",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

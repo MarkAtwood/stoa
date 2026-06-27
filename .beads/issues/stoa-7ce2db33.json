@@ -1,0 +1,27 @@
+{
+  "id": "stoa-7ce2db33",
+  "title": "E2E: wildmat group filter end-to-end acceptance test",
+  "description": "## What\nEnd-to-end test that reads a TOML config with wildmat patterns, starts the transit pipeline, ingests test articles, and asserts the correct groups were accepted and rejected \u2014 verifying the full acceptance criteria from the epic.\n\n## Algorithm\nTest in crates/integration-tests/ or crates/transit/tests/:\n\n1. Build transit Config from TOML:\n   [groups]\n   names = [\"comp.*\", \"sci.*\", \"!alt.binaries.*\", \"alt.test\"]\n2. Call Config::validate(); assert Ok\n3. Build GroupFilter from config; build ValidationConfig with that filter\n4. For each test article below, call validate_article_ingress() then run_pipeline():\n   - Article A: Newsgroups: comp.lang.rust \u2192 expect accepted, log entry for comp.lang.rust\n   - Article B: Newsgroups: sci.math \u2192 expect accepted, log entry for sci.math\n   - Article C: Newsgroups: alt.binaries.pictures \u2192 expect filtered (no log entry)\n   - Article D: Newsgroups: alt.test \u2192 expect accepted (exact match after negation miss)\n   - Article E: Newsgroups: rec.humor \u2192 expect filtered (no match in pattern list)\n5. Assert log entry counts match expectations\n6. Assert validate_article_ingress rejects Article C and E before pipeline (ValidationConfig filter)\n\n## Defensive programming rules\n- Use in-memory SQLite for all state\n- Test articles have deterministic Message-IDs (no random UUIDs)\n- Each article has From:, Date:, Subject: headers to pass mandatory header check\n- No network calls; use mock IPFS block store or LMDB in-process\n\n## Agent team\nStandard: Agent R (read integration test setup pattern in crates/integration-tests/), Agent I (write E2E test), Agent V (cargo test -p stoa-integration-tests + full workspace)\n\n## Tests\nThe test IS the deliverable. 5 articles \u00d7 2 assertions = 10 assertions total.\nOracle: epic acceptance criteria (hardcoded expected results).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-26T23:25:23Z",
+  "updated_at": "2026-05-01T04:52:02Z",
+  "closed_at": "2026-04-27T00:25:45Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-7fb63f3e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 16:25:38"
+    },
+    {
+      "depends_on_id": "stoa-efbe068a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 16:25:23"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T08:14:31Z",
+  "compaction_level": 0,
+  "content_hash": "2c6aadb314b05b5d7423dec649bd4e690a9b1a3508333f7759b05801ece7e6fb",
+  "created_at": "2026-05-04T08:04:38Z",
+  "created_by": "Mark Atwood",
+  "description": "Finding: The guard at `crates/mail/src/main.rs` lines 280-291 that aborts when `activitypub.verify_http_signatures = false` is combined with a non-loopback address has no `// SECURITY:` prefix comment. The dev-mode guard twelve lines earlier (line 93) does use `// SECURITY: abort if dev mode is active on a non-loopback address (SOC2 CC6.1)`. Applying the same prefix to the ActivityPub signature check would make it consistent and greppable alongside the other security enforcement points.",
+  "ephemeral": 0,
+  "id": "stoa-cajkm.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mail main.rs ActivityPub signature guard lacks SECURITY comment",
+  "updated_at": "2026-05-04T08:14:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T01:04:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-cajkm",
+      "id": "b9b87940-1b57-53f3-acfe-fa9f0e4ed3b0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

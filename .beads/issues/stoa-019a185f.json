@@ -1,0 +1,21 @@
+{
+  "id": "stoa-019a185f",
+  "title": "RemotePinWorker: background submit/poll/retry task",
+  "description": "What: Background tokio task that submits pending pin jobs, polls in-progress jobs, and retries failed submissions up to max_attempts.\n\nAlgorithm:\n1. Add function in crates/transit/src/retention/remote_pin_client.rs (or new file remote_pin_worker.rs):\n\npub async fn run_remote_pin_worker(\n    pool: Arc<SqlitePool>,\n    services: Vec<(String, RemotePinClient, usize, Vec<String>)>,\n    -- (service_name, client, max_attempts, group_patterns)\n    poll_interval: Duration,  -- how often to check for pending/queued jobs (default: 30s)\n) -> !  -- runs forever, intended to be tokio::spawn'd\n\n2. Main loop:\n   loop {\n     // Step A: Submit pending jobs\n     let pending = SELECT * FROM remote_pin_jobs WHERE status='pending' AND attempt_count < max_attempts LIMIT 50\n     for job in pending {\n       match client.submit_pin(&job.cid, &job.cid).await {\n         Ok(pin) => UPDATE remote_pin_jobs SET status=pin.status, request_id=pin.request_id, submitted_at_ms=now, attempt_count+=1 WHERE id=job.id\n         Err(RateLimited(secs)) => sleep(secs), then continue (do not count as attempt)\n         Err(e) => UPDATE attempt_count+=1, error=e.to_string() WHERE id=job.id\n                   if attempt_count >= max_attempts: UPDATE status='failed'\n       }\n     }\n\n     // Step B: Poll queued/pinning jobs\n     let in_progress = SELECT * FROM remote_pin_jobs WHERE status IN ('queued','pinning') LIMIT 50\n     for job in in_progress {\n       match client.check_status(&job.request_id).await {\n         Ok(pin) => UPDATE status=pin.status, last_attempt_ms=now WHERE id=job.id\n         Err(e) => log warning, continue\n       }\n     }\n\n     tokio::time::sleep(poll_interval).await;\n   }\n\n3. For group filtering: before inserting into remote_pin_jobs, check if article's group matches the service's group patterns. Use simple glob matching: 'comp.*' matches 'comp.lang.rust', '' matches any.\n\nDefensive programming:\n- Never log the api_key inside the worker\n- Rate limit responses sleep the worker, not blocking other services\n- Limit query to 50 jobs per cycle to avoid memory buildup\n- On DB error: log warning and continue (do not crash the worker)\n- On 404 for check_status: job may have been GC'd by service; mark as failed",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T05:36:37Z",
+  "updated_at": "2026-05-01T04:57:05Z",
+  "closed_at": "2026-04-23T05:51:41Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-56c514a3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 22:36:37"
+    }
+  ]
+}

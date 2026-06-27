@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "4677344eaba43482325a81af7afaf42ea961caf0077b5588dd8d3475561dd47f",
+  "created_at": "2026-05-01T19:39:42Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why\n\nstoa-transit explicitly rejects backend.type = 'git_sha256' with \"git object store is a reader-only backend\". This was a design decision but the operator should be free to choose their own storage. If they want to use a git bare repo for transit block storage, that is their call.\n\n## What\n\nPort the git_sha256 backend from crates/reader/src/post/git_store.rs to crates/transit/src/peering/. Remove the config validation rejection in crates/transit/src/config.rs and the pipeline rejection in crates/transit/src/peering/pipeline.rs.\n\n## Acceptance\n\n- transit accepts backend.type = 'git_sha256' in config\n- blocks written during peering are stored as git blob objects\n- round-trip put/get tests pass in transit context",
+  "ephemeral": 0,
+  "id": "stoa-4ti4z",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Add git_sha256 backend to stoa-transit",
+  "updated_at": "2026-05-01T19:39:42Z"
+}

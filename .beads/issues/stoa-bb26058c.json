@@ -1,0 +1,12 @@
+{
+  "id": "stoa-bb26058c",
+  "title": "SMTP: .msg.tmp orphan files accumulate on crash/power-loss",
+  "description": "smtp/src/queue.rs writes messages to a .msg.tmp file then renames to .msg on commit. If the process crashes between write and rename, .msg.tmp files accumulate without being cleaned up. Fix: on queue startup, scan for and remove (or recover) any .msg.tmp files left from a previous run.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T14:38:58Z",
+  "updated_at": "2026-05-01T04:57:34Z",
+  "closed_at": "2026-04-28T09:41:58Z"
+}

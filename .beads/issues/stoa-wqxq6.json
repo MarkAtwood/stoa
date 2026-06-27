@@ -1,0 +1,22 @@
+{
+  "compaction_level": 0,
+  "content_hash": "92e51f91e532655e06d2d1960d855d13ded6a1d2f71daabff35375b961056afd",
+  "created_at": "2026-05-01T19:47:53Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why\n\nCurrently each stoa daemon instance is configured with exactly one block store backend. Operators have no way to:\n- Replicate blocks to a second backend for redundancy (local fast + S3 backup)\n- Migrate between backends without downtime (reads fall back to old while writes go to new)\n- Tier storage (write to fast local store, fall back to cold cloud store for old blocks)\n\nThe IpfsBlockStore trait (4 methods: put_raw, put_block, get_raw, delete) is small enough that a composing wrapper is straightforward and composes with every existing backend without changes to any of them.\n\n## What\n\nImplement CompositeBlockStore wrapping Vec<Arc<dyn IpfsBlockStore>> with two config knobs:\n\n**write_policy:**\n- all \u2014 put to every backend (mirror/redundancy)\n- primary \u2014 put only to the first backend (waterfall/tiered)\n\n**read_policy:**\n- first_found \u2014 try backends in declaration order, return first hit (waterfall/tiered)\n- primary \u2014 read only from the first backend\n\nThis gives three useful operational modes from one type:\n\n**Mirror** (write=all, read=primary): redundancy. Writes go to all backends; reads from the first. If primary fails, promote any replica by reordering the list.\n\n**Waterfall/migration** (write=primary, read=first_found): zero-downtime backend migration. Configure [new-backend, old-backend]. Writes go to new; reads try new first, fall back to old for blocks not yet migrated. Run a background backfill job to copy old\u2192new, then remove old from config.\n\n**Tiered** (write=primary, read=first_found, first=fast-local, second=cold-cloud): hot/cold storage. Recent blocks served from LMDB or fs; older blocks fetched from S3 on cache miss.\n\n## Design\n\n- delete policy: delete-all in mirror mode; delete-primary-only in waterfall/tiered mode. Rationale: mirror must stay consistent; waterfall treats the secondary as read-only fallback.\n- put_raw in write=all mode: compute the CID from the data once, then call put_block on all backends with the pre-computed CID so each backend does not recompute it independently.\n- Errors in write=all: if any backend fails the put, return Err. Do not silently drop write failures on replica backends.\n- Config: expressed as a [[backend]] array in TOML with a top-level composite.write_policy and composite.read_policy field. Single-backend configs remain unchanged (no array needed).\n- Implement for both crates/reader/src/post/ and crates/transit/src/peering/.\n\n## Acceptance\n\n- CompositeBlockStore implements IpfsBlockStore\n- Mirror mode: put goes to all backends; get reads from first; delete removes from all\n- Waterfall mode: put goes to first backend only; get tries each in order; delete removes from first only\n- Unit tests cover: mirror write-all, mirror read-primary, waterfall read-fallback, waterfall write-primary-only, delete semantics for both modes\n- Config parsing accepts [[backend]] array and composite policy fields\n- Single-backend configs continue to work unchanged",
+  "ephemeral": 0,
+  "id": "stoa-wqxq6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "The waterfall/migration mode is the highest-value use case for most operators. Consider implementing that first and deferring mirror/tiered until there is a concrete request.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "CompositeBlockStore: run multiple backends simultaneously",
+  "updated_at": "2026-06-26T20:26:38Z"
+}

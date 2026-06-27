@@ -1,0 +1,27 @@
+{
+  "id": "stoa-aece8b70",
+  "title": "Write operator peering guide",
+  "description": "Write docs/operator/peering.md: how to configure transit-to-transit peering, what IHAVE/TAKETHIS means operationally, how gossipsub mesh forms, how to diagnose propagation failures, how to add/remove peers without restart (if supported), typical latency from ingestion to propagation. Artifact: docs/operator/peering.md.\n\nAcceptance criteria: explains both push (IHAVE) and gossipsub propagation paths; includes transit peer-list and admin endpoint usage; covers common failure modes",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:45:31Z",
+  "updated_at": "2026-05-01T04:58:00Z",
+  "closed_at": "2026-04-20T12:55:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0fdae308",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:45:31"
+    },
+    {
+      "depends_on_id": "stoa-100ee93e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:46:29"
+    }
+  ]
+}

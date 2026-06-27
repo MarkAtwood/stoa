@@ -1,0 +1,20 @@
+{
+  "id": "stoa-bbee66f0",
+  "title": "dkim.key_seed_b64 not resolved through secretx:// at startup",
+  "description": "main.rs resolves secretx:// URIs for bearer_token, nntp_password, and smtp_relay_peers[].password (lines 130-158), but dkim.key_seed_b64 is read directly from dcfg.key_seed_b64 without passing through resolve_secret_uri (line 184). The dkim.md operator guide explicitly states 'Use secretx:// URI injection ... for production deployments.' This means the documented workflow is broken: an operator who sets key_seed_b64 = 'secretx://...' will see a base64 decode error at startup instead of the secret being fetched. All other sensitive string fields have secretx resolution; this one does not.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:36:35Z",
+  "updated_at": "2026-05-01T04:58:43Z",
+  "closed_at": "2026-04-30T23:41:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-64675b0e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:36:34"
+    }
+  ]
+}

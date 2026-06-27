@@ -1,0 +1,21 @@
+{
+  "id": "stoa-59ca3554",
+  "title": "smtp/server.rs credential building: nested match instead of ? with map_err",
+  "description": "crates/smtp/src/server.rs builds the credential store with nested match blocks (match secret_store.get().await { Ok(v) => v, Err(e) => return Err(format!(...)) }) for each secretx step. The imap and reader equivalents use ? propagation with From<CredentialStoreError> via BuildStoreError. The smtp version is harder to read and harder to extend. Refactor smtp to use the same BuildStoreError pattern and ? propagation \u2014 this naturally resolves the duplication finding stoa-44ba837b.1.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T20:32:32Z",
+  "updated_at": "2026-05-01T04:52:27Z",
+  "closed_at": "2026-04-30T20:35:47Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-44ba837b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:32:32"
+    }
+  ]
+}

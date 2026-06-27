@@ -1,0 +1,20 @@
+{
+  "id": "stoa-23dd89e2",
+  "title": "SQLite BLOB block store backend",
+  "description": "Implement SqliteBlockStore storing article blocks as BLOBs in a SQLite table keyed by CID string. Zero new dependencies \u2014 SQLx and SQLite are already in the project.\n\nDepends on: stoa-5c9f1a38 (pluggable backend selector).\n\n## Why\n\nLowest possible implementation cost. Correct, transactional, and sufficient for single-node deployments up to ~50\u2013100 GB. Co-locates blocks with the existing index databases. Good default for operators who do not want to run a separate daemon.\n\n## Schema\n\n```sql\nCREATE TABLE blocks (\n    cid       TEXT    NOT NULL PRIMARY KEY,\n    codec     INTEGER NOT NULL,\n    data      BLOB    NOT NULL,\n    byte_size INTEGER NOT NULL,\n    stored_at INTEGER NOT NULL  -- unix ms\n);\n```\n\n## What needs doing\n\n- Add `[backend.sqlite]` config section: `path` (database file path)\n- Implement `SqliteStore: IpfsStore` and `SqliteBlockStore: IpfsBlockStore` using sqlx\n  - `put`: `INSERT OR IGNORE INTO blocks` \u2014 idempotent, CID is the natural unique key\n  - `get`: `SELECT data FROM blocks WHERE cid = ?`; map no-row \u2192 `None` / `NotFound`\n  - `delete` (for GC): `DELETE FROM blocks WHERE cid = ?`\n  - delete returns DeletionOutcome::Immediate \u2014 row is gone as soon as DELETE completes; get() returns NotFound immediately\n- IPNS: disable\n- Startup: run migrations to create the `blocks` table if absent; verify the file is writable\n- WAL mode enabled by default for concurrent reader access\n\n## GC / delete semantics\n\nDeletionOutcome::Immediate. SQLite DELETE is transactional and synchronous. No grace period. The article is inaccessible as soon as the transaction commits. Operators who need a grace period before articles become inaccessible should use the S3 lifecycle backend instead.\n\n## Acceptance criteria\n- Round-trip test: put block, get block, assert bytes match (uses in-memory SQLite, no tempfile needed)\n- Idempotent put: inserting the same CID twice does not error and does not duplicate the row\n- GC test: delete a CID, confirm get returns NotFound\n- delete() removes the row; get() returns NotFound immediately after\n- delete() on a CID that does not exist returns Ok(DeletionOutcome::Immediate) without error (idempotent)",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T16:17:38Z",
+  "updated_at": "2026-05-01T04:57:02Z",
+  "closed_at": "2026-04-28T01:45:41Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5c9f1a38",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 09:18:13"
+    }
+  ]
+}

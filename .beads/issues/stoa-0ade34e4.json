@@ -1,0 +1,21 @@
+{
+  "id": "stoa-0ade34e4",
+  "title": "auth/oidc: OidcError missing std::error::Error impl",
+  "description": "crates/auth/src/oidc.rs \u2014 OidcError implements Display but not std::error::Error. Library error types in Rust are expected to implement std::error::Error so callers can use ? to propagate them into Box<dyn Error> contexts, use .source() for cause chains, and use error-library integrations (anyhow, thiserror). Without this, OidcError cannot participate in the standard error chaining ecosystem. The Http(reqwest::Error) variant has a natural source() impl.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:22:44Z",
+  "updated_at": "2026-05-01T04:53:20Z",
+  "closed_at": "2026-04-28T17:42:58Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:22:43"
+    }
+  ]
+}

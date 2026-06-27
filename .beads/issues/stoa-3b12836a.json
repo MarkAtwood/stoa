@@ -1,0 +1,20 @@
+{
+  "id": "stoa-3b12836a",
+  "title": "reconcile MAX_HAVE truncation: caller cannot detect partial have-set",
+  "description": "core/group_log/reconcile.rs:55-66: when have grows to MAX_HAVE=1000, iteration stops silently. The returned set is indistinguishable from an exhaustive scan. A peer diverged by >1000 entries needs multiple reconciliation rounds with no protocol signal that more rounds are needed. For large divergences, convergence degrades sub-linearly and gossipsub is polluted with repeated reconcile messages. Fix: return a boolean 'truncated' flag or a cursor; document the multi-round convergence requirement explicitly.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:35:17Z",
+  "updated_at": "2026-05-01T04:59:43Z",
+  "closed_at": "2026-04-22T21:05:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:35:17"
+    }
+  ]
+}

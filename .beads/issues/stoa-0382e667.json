@@ -1,0 +1,19 @@
+{
+  "id": "stoa-0382e667",
+  "title": "Email/set create Message-ID uses millisecond timestamp: not globally unique under concurrent creation",
+  "description": "email/set.rs create_one_email() generates Message-ID as '<jmap-{timestamp_ms}@stoa.local>'. Two concurrent Email/set creates within the same millisecond will produce the same Message-ID, causing a msgid_map collision and incorrect deduplication. RFC 5322 requires globally unique Message-IDs. Fix: use UUID4 as the local-part (already a dependency), matching the AP inbound path.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:39:49Z",
+  "updated_at": "2026-05-01T04:52:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:39:49"
+    }
+  ]
+}

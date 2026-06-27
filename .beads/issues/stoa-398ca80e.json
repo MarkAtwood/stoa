@@ -1,0 +1,13 @@
+{
+  "id": "stoa-398ca80e",
+  "title": "duplicate TokenBucket type in rate_limit and peering/rate_limit",
+  "description": "crates/transit/src/rate_limit.rs and crates/transit/src/peering/rate_limit.rs both define a TokenBucket struct and a PeerRateLimiter. The top-level variant is keyed by IpAddr; the peering variant is keyed by String (address with port), giving different per-IP isolation semantics. Two independent implementations diverge silently. Extract one canonical implementation and delete the duplicate.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:25:35Z",
+  "updated_at": "2026-05-01T04:55:48Z",
+  "closed_at": "2026-04-28T20:03:56Z"
+}

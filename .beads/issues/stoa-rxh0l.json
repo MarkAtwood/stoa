@@ -1,0 +1,32 @@
+{
+  "compaction_level": 0,
+  "content_hash": "b929fc214816fd74635151aca9355b9d6b628916c397696fabc0b706d1b239bc",
+  "created_at": "2026-05-01T20:12:26Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why\n\nThe provisioning CLI (stoa-n39yl) covers local server management. A CloudFormation / BYOA deployment also needs a remote admin API so operators can manage users without SSH access to the instance.\n\n## What\n\nA set of authenticated admin-only HTTP endpoints under /admin/:\n\n- POST /admin/users \u2014 create user (username, email, password, quota_bytes, is_admin)\n- DELETE /admin/users/{username} \u2014 delete user and all their data\n- GET /admin/users \u2014 list all users with usage stats\n- PATCH /admin/users/{username} \u2014 update display_name, quota_bytes, is_admin\n- POST /admin/users/{username}/reset-password \u2014 set a new bcrypt hash\n\nAuth: Bearer token (same pattern as existing admin endpoints in stoa \u2014 subtle::ConstantTimeEq comparison, never ==). Token configured in Secrets Manager for BYOA deployments.\n\nAll admin endpoints return 403 if the request is not from an admin-authed session or does not present the admin bearer token.\n\nDELETE /admin/users/{username}: deletes user row, all metadata rows (mailboxes, messages, flags, state, change log). Does NOT delete blocks from the block store \u2014 blocks are shared and GC is a separate concern.\n\n## Acceptance\n\n- All CRUD operations work via HTTP\n- Non-admin requests to /admin/* return 403\n- User deletion removes all per-user metadata rows\n- Block store is not touched by user deletion\n- Admin bearer token compared with subtle::ConstantTimeEq",
+  "ephemeral": 0,
+  "id": "stoa-rxh0l",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "The admin bearer token timing-safe comparison requirement is documented in beads memories (stoa-admin-servers-use-subtle-constanttimeeq-for-bearer). Do not use == for token comparison.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Admin HTTP API for user management",
+  "updated_at": "2026-06-26T20:26:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T13:12:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-n39yl",
+      "id": "9870cea6-f87e-5a50-898e-e8481560931d",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

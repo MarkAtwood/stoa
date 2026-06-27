@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "ec0e340dfd24424192b6670ed67340efd2a5588b50acac7da6910e263129a324",
+  "created_at": "2026-05-02T15:56:08Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why this issue exists\n\nThe JMAP API and admin API have no per-IP or per-user rate limiting. A single client can flood the server with requests, causing resource exhaustion (DoS) or enabling credential stuffing at scale.\n\nSOC2 CC6.6 requires protection against availability attacks. Rate limiting is the standard first line of defence.\n\n## What needs to be done\n\n- Add `tower_governor` or `axum-ratelimit` as a Tower layer on the JMAP router and admin router.\n- Rate limit by: remote IP for unauthenticated endpoints; user_id for authenticated endpoints (falls back to IP if user not resolved yet).\n- Configurable limits with documented defaults: e.g., 60 req/min per IP on auth endpoints, 600 req/min per user on JMAP.\n- Return HTTP 429 with `Retry-After` header when limit is exceeded.\n- Emit a rate-limit-exceeded metric (Prometheus counter) and an `audit=true` tracing event.\n- Write a test that sends N+1 requests and verifies the (N+1)th returns 429.\n\n## Acceptance criteria\n\n- Configurable per-IP and per-user rate limits\n- 429 + Retry-After returned when exceeded\n- Prometheus counter incremented on limit hit\n- Test verifies 429 behaviour\n\n## Design notes\n\nRegulatory refs: SOC2 CC6.6. Prefer `tower_governor` (actively maintained, integrates cleanly with axum 0.8). Leaky-bucket or token-bucket algorithm; sliding window preferred over fixed window to avoid burst at boundary.",
+  "ephemeral": 0,
+  "id": "stoa-unegq",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Rate limiting on JMAP and admin API endpoints",
+  "updated_at": "2026-05-02T15:56:08Z"
+}

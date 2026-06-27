@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "6a374a536afd3df60a58085bc7fb22fa056a5127c05aa2afbbeb1a927d7ca613",
+  "created_at": "2026-06-13T06:42:44Z",
+  "created_by": "Mark Atwood",
+  "description": "stoa-mail has 4 Prometheus metrics but no OpenTelemetry SDK. No OTLP trace/span export, no centralized log export, no tracing-opentelemetry bridge. Mechanical fix: copy telemetry.rs pattern from transit/reader, add 5 OTel deps (same versions: 0.31/0.32), call init_telemetry() in main.rs, wire tracing_opentelemetry::layer(). Existing Prometheus metrics coexist cleanly. Files: crates/mail/Cargo.toml, crates/mail/src/main.rs, new crates/mail/src/telemetry.rs.",
+  "ephemeral": 0,
+  "id": "stoa-gslff",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Add full OTel to stoa-mail (traces, metrics, logs export)",
+  "updated_at": "2026-06-13T06:42:44Z"
+}

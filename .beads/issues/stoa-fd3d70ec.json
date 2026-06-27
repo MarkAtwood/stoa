@@ -1,0 +1,20 @@
+{
+  "id": "stoa-fd3d70ec",
+  "title": "relay_queue dead-letter count counts .env files only \u2014 inconsistent with DKIM failure",
+  "description": "drain_once counts dead-letter entries by counting .env files in dead/ (lines 272-273). But when a DKIM failure moves [env_path, msg_path], both files land in dead/. The metric counts .env files, so one dead-letter = 1 in the metric \u2014 that is consistent. However, this depends on both files always being moved atomically, which they are not (two separate renames, neither atomic with respect to the other). If the second rename fails (msg), dead/ has an .env without a .msg, metric is still 1, but payload is unrecoverable from dead/. A contributor reading the code will see 'count .env files' and assume each .env has a .msg \u2014 this is not guaranteed. Should document the invariant or count more defensively.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:38:29Z",
+  "updated_at": "2026-05-01T05:00:26Z",
+  "closed_at": "2026-05-01T00:42:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d94f2708",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:38:29"
+    }
+  ]
+}

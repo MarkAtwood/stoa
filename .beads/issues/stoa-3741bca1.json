@@ -1,0 +1,13 @@
+{
+  "id": "stoa-3741bca1",
+  "title": "[epic] IMAP server (usenet-ipfs-imap crate)",
+  "description": "Add a full IMAP4rev1 server as a new usenet-ipfs-imap crate, sharing the same backing stores as the JMAP mail server (ArticleNumberStore, OverviewStore, UserFlagsStore, IPFS block store).\\n\\n## Design decisions\\n\\n**TLS**: Implicit TLS only (IMAPS, port 993). Plaintext connections are not accepted \u2014 the listener wraps every TCP connection in TLS before the greeting is sent. STARTTLS is not offered or needed.\\n\\n**Authentication \u2014 required mechanisms**:\\n- AUTH=PLAIN (RFC 4616): username/password over the already-encrypted channel.\\n- AUTH=LOGIN: older username/password mechanism; required for broad MUA compatibility.\\n- AUTH=SCRAM-SHA-256 (RFC 5802): challenge-response; password never leaves the client in plaintext even at the application layer; provides mutual authentication. This is the 'improved' mechanism.\\n- SASL EXTERNAL (RFC 4422) / client certificate: if the TLS handshake presented a valid client certificate, the certificate identity is used as the credential. Two sub-modes:\\n  a. Exact cert match: the specific certificate (fingerprint) is pre-registered to a user account.\\n  b. Issuer trust: any certificate signed by a configured trusted CA/issuer is accepted; the Subject CN or SAN email is mapped to the account. Allows organisations to issue per-user certs from their own CA without registering each cert individually.\\n\\n**Protocol toolkit**: imap-codec + imap-types + imap-next (duesee/* crates). These handle all parsing, serialisation, LITERAL flow, and IDLE. Do not write a custom parser.\\n\\n**Core commands required**: CAPABILITY, NOOP, LOGOUT, LOGIN, AUTHENTICATE, SELECT, EXAMINE, LIST, STATUS, APPEND, FETCH, STORE, SEARCH, COPY, EXPUNGE, CLOSE, IDLE (RFC 2177), UID variants of FETCH/STORE/SEARCH/COPY.\\n\\n**Reuse from existing crates**: TLS config and loading from usenet-ipfs-reader/mail tls modules; UserFlagsStore for \\Seen/\\Flagged/\\Answered/\\Deleted/\\Draft; ArticleNumberStore for UIDs and mailbox enumeration; OverviewStore for SEARCH and ENVELOPE fetch; IPFS block store for FETCH BODY[].",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T01:59:12Z",
+  "updated_at": "2026-05-01T04:55:34Z",
+  "closed_at": "2026-04-23T08:00:18Z"
+}

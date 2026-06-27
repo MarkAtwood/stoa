@@ -1,0 +1,19 @@
+{
+  "id": "stoa-489db8b8",
+  "title": "MethodError::unknown_method serializes as type Other not unknownMethod",
+  "description": "types.rs MethodError::unknown_method() uses ErrorType::Other with description='unknownMethod'. RFC 8620 \u00a73.6 defines unknownMethod as a first-class type string that goes in the type field. Clients checking the type field will not recognise the error. ErrorType enum needs an UnknownMethod variant.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:38:58Z",
+  "updated_at": "2026-05-01T04:58:44Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:38:58"
+    }
+  ]
+}

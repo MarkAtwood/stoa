@@ -1,0 +1,20 @@
+{
+  "id": "stoa-dba8f511",
+  "title": "Fail2ban: integration test \u2014 threshold triggers lockout event",
+  "description": "Test: send 10 bad passwords from the same IP within 60 seconds, verify auth_lockout event is emitted, verify auth_failure events have correct remote_ip and reason fields, verify no credential content in any log line. Blocked on: stoa-584fdb58.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:43:11Z",
+  "updated_at": "2026-05-01T04:56:47Z",
+  "closed_at": "2026-04-27T19:59:55Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-584fdb58",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:44:41"
+    }
+  ]
+}

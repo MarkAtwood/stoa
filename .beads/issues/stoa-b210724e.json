@@ -1,0 +1,21 @@
+{
+  "id": "stoa-b210724e",
+  "title": "mail: axum HTTP server with /health",
+  "description": "Wire an axum Router in crates/mail/src/server.rs: bind TcpListener to config.listen.addr, add GET /health endpoint returning {status:ok, uptime_secs}. Add graceful shutdown via tokio::select! on CTRL-C and SIGTERM (same pattern as transit main). Call from main().\\n\\nWhy: having a working HTTP server with one endpoint validates the stack before JMAP-specific routes are added.\\n\\nAcceptance: curl http://127.0.0.1:<port>/health returns JSON 200 in a test.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T03:37:54Z",
+  "updated_at": "2026-05-01T04:58:52Z",
+  "closed_at": "2026-04-21T03:55:57Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-80c99d09",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 20:40:24"
+    }
+  ]
+}

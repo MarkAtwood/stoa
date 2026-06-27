@@ -1,0 +1,20 @@
+{
+  "id": "stoa-4448f4ad",
+  "title": "peer_rate_limiter uses std::sync::Mutex in async session: O(N) work under blocking lock",
+  "description": "session.rs PeeringShared.peer_rate_limiter is an Arc<std::sync::Mutex<PeerRateLimiter>>. PeerRateLimiter::check() does O(N-peers) eviction work under that mutex (the retain call). With many concurrent sessions, any session calling check() holds a blocking mutex while iterating all peer buckets, blocking the tokio thread for all other sessions waiting on the lock. Trigger: high-volume peering with many concurrent peer IPs. Bad behavior: async tasks block on sync mutex, reducing throughput and potentially causing latency spikes. Should use tokio::sync::Mutex or restructure eviction.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:59:39Z",
+  "updated_at": "2026-05-01T04:53:34Z",
+  "closed_at": "2026-04-27T08:01:56Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-35ec26bb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 22:59:38"
+    }
+  ]
+}

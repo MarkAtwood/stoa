@@ -1,0 +1,21 @@
+{
+  "id": "stoa-620db2d2",
+  "title": "IHAVE envelope msgid vs body msgid mismatch: duplicate check bypassed",
+  "description": "TRIGGER: A peer sends IHAVE <known-duplicate@example> with article body containing Message-ID: <new-article@example>. BEHAVIOR: check_ingest in transit/src/peering/ingestion.rs deduplicates using the command-line msgid (known-duplicate@example), finds it already known, and returns Reject. Peer then resends IHAVE <different-envelope@example> with the same body. Now the envelope msgid is unknown so check_ingest passes, but run_pipeline in pipeline.rs parses the Message-ID from article bytes (<new-article@example>) and stores that. Result: dedup table has entries for different msgids pointing to the same article bytes, and a crafted peer can inject articles by manipulating the envelope msgid to skip dedup while putting fresh content in the body.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:11:45Z",
+  "updated_at": "2026-05-01T04:56:44Z",
+  "closed_at": "2026-04-27T01:43:57Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:11:44"
+    }
+  ]
+}

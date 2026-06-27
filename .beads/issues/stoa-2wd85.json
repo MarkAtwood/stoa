@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "bbfe2ded9f41f5046a11acdf37f35c1315dcf710543c7f906fad2da7e7c55a4f",
+  "created_at": "2026-05-03T13:05:48Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\nstore/backfill.rs::backfill_overview() builds a HashSet<(String, i64)> of permanently-failed (group, article_number) pairs. On a server recovering from a large transit propagation backlog where IPFS is temporarily unavailable, every article in every batch gets inserted into the failed set. For a server with 10M articles, the failed set consumes O(n) memory with no cap.\\n\\nThe function was designed for startup backfill over a small number of missed articles. A large failed set also causes the progress==false early exit, but only after one full batch cycle per retry.\\n\\n## Acceptance Criteria\\n\\nAdd a max_failures cap (e.g. 10000) to the failed set; log a warning and stop backfill when exceeded.",
+  "ephemeral": 0,
+  "id": "stoa-2wd85",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "backfill_overview: failed HashSet grows unbounded on large backlogs",
+  "updated_at": "2026-05-03T13:05:48Z"
+}

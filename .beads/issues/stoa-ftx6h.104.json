@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "16651140c6d1316c2ee2bb52f275b31c4f98d2e2cfc4b99804f399500308fc8b",
+  "created_at": "2026-05-03T13:06:07Z",
+  "created_by": "Mark Atwood",
+  "description": "extract_match_type, extract_comparator, and extract_address_part each allocate a Vec<&Form> (remaining) as output. These are chained: extract_match_type returns remaining, which is passed to extract_comparator which returns remaining again, etc. Three Vec allocations per test evaluation. An iterator-chaining approach (filter_map, scan) could avoid the intermediary Vecs entirely -- collect only when the string-list arguments are finally needed.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.104",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "sieve-native: extract_match_type and extract_comparator allocate Vec<&Form> on each test call",
+  "updated_at": "2026-05-03T13:06:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "afa42702-cf0a-54e9-88dd-f3a5748cd91a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

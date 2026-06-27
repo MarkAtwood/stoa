@@ -1,0 +1,12 @@
+{
+  "id": "stoa-045ecbe5",
+  "title": "Review round 1: Graceful shutdown (0qfx)",
+  "description": "Verify fixes from graceful shutdown implementation",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T05:23:17Z",
+  "updated_at": "2026-05-01T04:52:12Z",
+  "closed_at": "2026-04-24T05:48:39Z"
+}

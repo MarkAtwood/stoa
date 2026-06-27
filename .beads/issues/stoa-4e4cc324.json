@@ -1,0 +1,21 @@
+{
+  "id": "stoa-4e4cc324",
+  "title": "sieve evaluator recompiles regex on every str_matches_regex_pat call",
+  "description": "In crates/sieve-native/src/evaluator.rs, str_matches_regex_pat() calls Regex::new() on each invocation. Sieve :matches comparisons inside loops or applied to many messages each recompile the same pattern. The code carries a PERF(qc9j.1) comment acknowledging this. Fix: cache compiled Regex objects keyed by pattern string, either in a thread_local or in a once_cell/LazyLock per-evaluator context.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T06:01:26Z",
+  "updated_at": "2026-05-01T04:55:53Z",
+  "closed_at": "2026-04-27T15:11:55Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-a805d881",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 23:01:26"
+    }
+  ]
+}

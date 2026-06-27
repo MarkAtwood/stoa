@@ -1,0 +1,27 @@
+{
+  "id": "stoa-8b7fd25e",
+  "title": "File Architecture Decision Records for all major design choices",
+  "description": "Create docs/adr/ directory. File ADRs (Markdown, Nygard format) for: (1) ed25519 signing library choice, (2) IPFS client library choice (from spike), (3) SQLite over Postgres for local state, (4) gossipsub per-hierarchy vs per-group, (5) synthetic article numbers vs global stable IDs, (6) Merkle-CRDT vs operational transform for group log. Artifact: docs/adr/0001-*.md through 0006-*.md.\n\nAcceptance criteria: each ADR has: status, context, decision, consequences; ADR-0002 references spike benchmark results",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:45:10Z",
+  "updated_at": "2026-05-01T04:58:01Z",
+  "closed_at": "2026-04-20T12:48:43Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-254a8317",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:45:09"
+    },
+    {
+      "depends_on_id": "stoa-cc8fc7d3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:45:59"
+    }
+  ]
+}

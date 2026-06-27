@@ -1,0 +1,19 @@
+{
+  "id": "stoa-91275c3e",
+  "title": "Clarify single-user mailbox model in architecture comments",
+  "description": "The code implements a single-user global delivery model where all authenticated sessions see the same mailbox and only one Sieve script (_global) is evaluated. This is mentioned in scattered context-specific comments (e.g., session.rs line 789) but not documented at the architectural level. A future maintainer might try to add per-user mailbox isolation without realizing this violates the design invariants. Add or consolidate high-level documentation explaining: (1) all sessions see the same JMAP mailbox, (2) Sieve is global (not per-user), (3) why this design was chosen.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T07:05:54Z",
+  "updated_at": "2026-05-01T04:54:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-17ee367f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 00:05:54"
+    }
+  ]
+}

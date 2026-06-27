@@ -1,0 +1,32 @@
+{
+  "compaction_level": 0,
+  "content_hash": "693f367b817484931030441592f6a4c807497b9724f21780c3be7b2a9454c822",
+  "created_at": "2026-05-05T00:16:29Z",
+  "created_by": "Mark Atwood",
+  "defer_until": "2099-01-01T08:00:00Z",
+  "description": "Shared mailboxes have one copy of each message but per-identity read state. Current stoa-mail uses in-memory per-instance flags \u2014 this replaces that properly.\n\nSchema:\n  message_flags(mailbox_id FK, message_id, identity nullable, flag, PRIMARY KEY (mailbox_id, message_id, identity, flag))\n\nidentity = OIDC sub for personal flags (\\Seen, \\Flagged, user labels)\nidentity = NULL for shared flags (visible to all grantees)\n\nShared flag use case: $Assigned for team inbox triage \u2014 one team member marks a message as being handled, all others see it. $Assigned is a shared flag (identity NULL). \\Seen is per-identity.\n\nJMAP Email/get returns flags for the authenticated identity: WHERE identity = current_sub OR identity IS NULL.\nJMAP Email/set flag changes: personal flags write identity = current_sub. Shared flags require write permission on mailbox.\n\nReplaces current in-memory flag store entirely. Persists across restarts. Correct for multi-instance deployments (multiple stoa-mail instances sharing same SQLite or future distributed store).",
+  "ephemeral": 0,
+  "id": "stoa-4dsqe.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "deferred",
+  "timeout_ns": 0,
+  "title": "design: per-identity message flags for shared mailboxes",
+  "updated_at": "2026-05-05T00:17:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T17:16:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-4dsqe",
+      "id": "8f06f4d6-6bbe-5a54-bdc0-7ac454e6ac1f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

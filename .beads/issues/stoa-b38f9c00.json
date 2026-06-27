@@ -1,0 +1,20 @@
+{
+  "id": "stoa-b38f9c00",
+  "title": "PostgreSQL/Aurora metadata backend",
+  "description": "Add PostgreSQL as an optional metadata backend alongside SQLite, targeting AWS Marketplace deployments where customers want managed RDS (Aurora Serverless v2) instead of self-managed SQLite files.\n\nWhy this issue exists:\nsqlx already supports PostgreSQL \u2014 the driver is a feature flag away. The blocking work is:\n1. Making the database URL in each config file point to either sqlite:// or postgres://\n2. Rewriting the migration files from SQLite dialect to PostgreSQL dialect (or maintaining dual sets)\n3. Removing WAL-mode pragmas (PostgreSQL doesn't use them) and SQLite-specific types (BLOB \u2192 BYTEA, INTEGER PRIMARY KEY AUTOINCREMENT \u2192 BIGSERIAL)\n4. Testing against a local PostgreSQL instance and against Aurora Serverless v2\n\nTarget deployment:\n- AWS Marketplace listing: customer deploys on their own AWS account\n- Aurora PostgreSQL Serverless v2 for the metadata plane (core.db, transit.db, reader.db)\n- mail.db can also use Aurora or stay SQLite depending on operator preference\n- Signing key moves to AWS Secrets Manager (see persistent signing key epic)\n- Transit gossipsub identity key can also live in Secrets Manager\n\nHorizontal scaling coordination (required for multi-instance deployments with shared PostgreSQL + S3):\n\nGC leader election:\n- Only one transit instance should run GC at a time to avoid racing to unpin the same articles\n- Use PostgreSQL advisory locks (pg_try_advisory_lock) to elect a GC leader at each scheduled run\n- Non-leader instances skip the run and log a debug message\n- Lock is released immediately after GC completes so leadership rotates naturally\n\nHLC node_id per instance:\n- With multiple transit instances sharing the same operator signing key, group log entries must still be distinguishable by instance\n- Derive HLC node_id from instance ID (hostname, pod name, or a UUID generated at startup and stored in PostgreSQL) rather than from the signing key\n- This ensures concurrent appends from different instances have distinct node_ids and do not produce HLC collisions\n\nIPNS publisher:\n- Multiple transit instances racing to publish the same IPNS name will stomp each other\n- For multi-instance deployments, IPNS publishing must be restricted to a single elected publisher (same pg_try_advisory_lock pattern as GC) or disabled entirely\n- Document in RUNBOOK.md: IPNS is not meaningful in a multi-instance deployment; group log tips are the canonical discovery mechanism\n\nOut of scope:\n- Multi-tenancy (one Aurora instance per customer is fine)\n- Data migration tooling from SQLite to PostgreSQL (manual export/import is acceptable for v1)\n- Replacing the CID block store with S3 (separate epic)\n\nAcceptance criteria:\n- Both sqlite:// and postgres:// URLs work at runtime; the backend is selected by the database URL in config\n- All four databases (core, transit, reader, mail) have PostgreSQL-dialect migration files\n- Integration tests pass against both SQLite (in-memory, existing) and PostgreSQL (docker-compose)\n- WAL mode pragma is skipped when the backend is PostgreSQL\n- Two transit instances running against the same PostgreSQL do not race on GC: only one runs per schedule tick\n- Two transit instances appending to the same group log produce entries with distinct node_ids\n- RUNBOOK.md includes Aurora Serverless v2 setup and a multi-instance deployment section",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T16:37:05Z",
+  "updated_at": "2026-05-01T04:57:02Z",
+  "closed_at": "2026-04-28T06:10:59Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1413739e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 09:37:08"
+    }
+  ]
+}

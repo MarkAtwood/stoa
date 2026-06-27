@@ -1,0 +1,13 @@
+{
+  "id": "stoa-09e99a3b",
+  "title": "BuiltArticle missing Debug derive",
+  "description": "ipld/builder.rs: BuiltArticle does not derive Debug. It is the central output type from build_article and holds a Vec of IPLD blocks. Absence of Debug makes trace-logging and test assertions on this type impossible. Fix: derive Debug on BuiltArticle.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:24:41Z",
+  "updated_at": "2026-05-01T04:52:20Z",
+  "closed_at": "2026-04-28T18:24:29Z"
+}

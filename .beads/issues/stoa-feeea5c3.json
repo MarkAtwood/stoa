@@ -1,0 +1,20 @@
+{
+  "id": "stoa-feeea5c3",
+  "title": "config: DkimConfig derives Default producing invalid zero-value",
+  "description": "DkimConfig derives Default, which produces all-empty strings for domain, selector, key_seed_b64, and public_key_b64 -- a value that fails validate() immediately. The Default impl exists solely to satisfy serde(default) on Option<DkimConfig> which does not require DkimConfig to implement Default. Idiomatic Rust: drop the derive Default; Option<T> with serde(default) needs no Default on T.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:37:15Z",
+  "updated_at": "2026-05-01T04:52:46Z",
+  "closed_at": "2026-04-30T23:41:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-64675b0e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:37:15"
+    }
+  ]
+}

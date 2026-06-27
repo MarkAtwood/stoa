@@ -1,0 +1,21 @@
+{
+  "id": "stoa-22a8522c",
+  "title": "Circuit breaker: state machine implementation",
+  "description": "Implement Closed/Open/Half-Open circuit breaker state machine. Configurable: failure_threshold (default 5), window_secs (default 10), probe_interval_secs (default 30). Thread-safe atomic state transitions. Blocked on: stoa-3e2e43e6.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:40:46Z",
+  "updated_at": "2026-05-01T05:00:34Z",
+  "closed_at": "2026-04-28T06:27:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3e2e43e6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:42:13"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-454bdaf3",
+  "title": "imap_flags table in migration is dead schema never referenced in code",
+  "description": "imap/migrations/20260423000001_imap_state.sql creates imap_flags table with (username, mailbox, uid, flags) for IMAP flag storage. No code in crates/imap/src/ reads or writes this table. The STORE handler in fetch.rs is a stub that does nothing. This is either dead schema that will never be used, or the flag storage was intended but the implementation was never wired. Dead schema in migrations accumulates forever and confuses future contributors. Either document it as 'reserved for future flag persistence' or remove it if the design changed.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T06:01:50Z",
+  "updated_at": "2026-05-01T04:52:15Z",
+  "closed_at": "2026-04-27T07:56:26Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-18ecb995",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 23:01:50"
+    }
+  ]
+}

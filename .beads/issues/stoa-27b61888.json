@@ -1,0 +1,19 @@
+{
+  "id": "stoa-27b61888",
+  "title": "session.rs: no rate limiting or brute-force protection on AUTH PLAIN attempts",
+  "description": "session.rs: there is no limit on the number of AUTH PLAIN attempts per session. A client can send AUTH PLAIN with arbitrary credentials indefinitely until the command_timeout fires (default 300 seconds). Each bcrypt verification takes ~100ms at cost 10, so ~3000 attempts per 300-second window are possible per connection. Combined with max_connections=100 this gives 300,000 bcrypt attempts per minute \u2014 practical brute force. RFC 4954 \u00a76 says the server SHOULD disconnect after a configured number of failed authentication attempts. Should add a per-session auth failure counter and disconnect after e.g. 3 failures.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:35:47Z",
+  "updated_at": "2026-05-01T04:52:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:35:46"
+    }
+  ]
+}

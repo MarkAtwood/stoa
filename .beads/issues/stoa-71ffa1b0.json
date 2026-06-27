@@ -1,0 +1,20 @@
+{
+  "id": "stoa-71ffa1b0",
+  "title": "EnvelopeFile Debug derive leaks PII email addresses to logs",
+  "description": "EnvelopeFile now derives Debug. The struct contains mail_from (String) and rcpt_to (Vec<String>) \u2014 both are PII email addresses. Debug output via {:?} or dbg!() is a common logging/debugging pattern. A future contributor adding debug instrumentation or using dbg!() in relay_queue.rs would silently emit PII to logs with no redaction. The struct is private to the module but tests import it via super::*. Consequence: any debug log of EnvelopeFile reveals sender/recipient email addresses. Consider impl fmt::Debug manually with <redacted> for the address fields, or document why plain Debug is safe.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:55:58Z",
+  "updated_at": "2026-05-01T04:52:42Z",
+  "closed_at": "2026-05-01T00:58:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-18bf2fce",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:55:57"
+    }
+  ]
+}

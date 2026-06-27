@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T17:33:45Z",
+  "compaction_level": 0,
+  "content_hash": "db5407eac8577b1435c1257999f60659fadd1482cb5b11dbe1729cbfc862b8e8",
+  "created_at": "2026-05-01T15:18:10Z",
+  "created_by": "Mark Atwood",
+  "description": "In token_store.rs verify(), the token is hashed with SHA-256 and the hash is passed directly to SQLite as a WHERE clause parameter. The database comparison (token_hash = ?) is not guaranteed to run in constant time \u2014 SQLite performs a normal byte comparison which may be subject to timing side channels. While a SHA-256 pre-image attack is computationally infeasible, the timing of the hash comparison itself (via early-exit equality) could in theory leak how many prefix bytes matched, depending on SQLite internals and hardware. For defense in depth the lookup should retrieve the hash and compare it in constant time in Rust (e.g. using subtle::ConstantTimeEq) rather than relying on database equality.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "token_store verify: SHA-256 lookup without constant-time comparison",
+  "updated_at": "2026-05-01T17:33:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:18:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "467f5081-b053-5755-91a0-964a739d3a09",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

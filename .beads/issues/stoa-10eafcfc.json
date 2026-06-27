@@ -1,0 +1,20 @@
+{
+  "id": "stoa-10eafcfc",
+  "title": "Fuzz target pre-filters invalid group names; rejection paths never exercised",
+  "description": "core/fuzz/fuzz_targets/validate_ingress.rs:25-28: filter_map(|g| GroupName::new(g).ok()) drops invalid group names before they reach validate_article_ingress(). ValidationError::InvalidGroupInNewsgroups and the allowed_groups filter (validation.rs:142-150) are never triggered by fuzzing. Fix: remove the filter; let invalid group names reach the validator and be rejected there. The fuzzer should exercise error paths, not just happy paths.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:35:37Z",
+  "updated_at": "2026-05-01T04:59:46Z",
+  "closed_at": "2026-04-22T22:10:28Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:35:37"
+    }
+  ]
+}

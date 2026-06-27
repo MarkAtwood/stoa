@@ -1,0 +1,27 @@
+{
+  "id": "stoa-7bb314f3",
+  "title": "Define NNTP session state enum and transition rules",
+  "description": "Define SessionState enum: Authenticating (before AUTHINFO or when auth_required=true), Active (normal operation, no group selected), GroupSelected (GROUP has been issued, article pointer valid). For TLS: add a NotSecure/Secure boolean dimension. Document the valid command set per state and the transitions. Artifact: reader/src/session/state.rs.\n\nAcceptance: all valid state transitions documented; commands that are invalid in a given state enumerated; unit test: invalid command in wrong state returns 480 (auth required) or 412 (no group selected)",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:46:10Z",
+  "updated_at": "2026-05-01T04:53:52Z",
+  "closed_at": "2026-04-20T03:13:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-00566a8f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:46:10"
+    },
+    {
+      "depends_on_id": "stoa-09261f4e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:53:28"
+    }
+  ]
+}

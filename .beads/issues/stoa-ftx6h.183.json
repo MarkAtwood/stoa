@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T15:13:19Z",
+  "compaction_level": 0,
+  "content_hash": "0e5976d4e29587ea8419511e087a7364aa1e7e7a2ac2396777ebc6e32f8e1be6",
+  "created_at": "2026-05-03T13:10:30Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: the test ipfs_and_msgid_persist_when_log_fails explicitly asserts that msgid_map entries survive a log-append failure, documenting a partial-commit characteristic. This is a known correctness issue (article in IPFS + msgid_map but not in group log) that will cause the article to be invisible to readers but prevent it from being reingested. No issue tracks fixing this. What: the test documents the behaviour as expected rather than as a known deficiency. File a separate issue to add two-phase commit or compensating rollback between IPFS write and log append.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.183",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "fault_sqlite_failure test documents partial-commit without asserting it is fixed",
+  "updated_at": "2026-05-03T15:13:19Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:10:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "c2a88c5b-0713-5f5f-95d9-47016de8210a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

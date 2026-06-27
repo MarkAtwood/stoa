@@ -1,0 +1,21 @@
+{
+  "id": "stoa-95fc06b4",
+  "title": "OTel: docker-compose test stack and ADOT docs for AWS",
+  "description": "Add docker-compose.observability.yml: OTel Collector, Grafana, Tempo, Loki, Prometheus. Verify transit+reader emit metrics, traces, logs visible in Grafana UI. Document AWS Distro for OpenTelemetry (ADOT) sidecar setup and CloudFormation snippet in RUNBOOK.md. Blocked on: stoa-fb85a082.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:41:56Z",
+  "updated_at": "2026-05-01T04:51:50Z",
+  "closed_at": "2026-04-28T07:52:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-fb85a082",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:41:55"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T14:35:56Z",
+  "compaction_level": 0,
+  "content_hash": "db6f0ec20798856a25edc029b548e706bd71a25dba72859f9abd28278123aa48",
+  "created_at": "2026-05-03T13:06:31Z",
+  "created_by": "Mark Atwood",
+  "description": "ParseError implements Display and From<ParseError> for String but does not implement std::error::Error. This means it cannot be used with the ? operator in functions returning Result<_, Box<dyn Error>> or returned as a source() from another error type. Adding impl std::error::Error for ParseError {} (empty body, since there is no source to chain) would be the correct Rust idiom for a leaf error type.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.117",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve-native: ParseError does not implement std::error::Error",
+  "updated_at": "2026-05-03T14:35:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "cb9f9bb3-776d-5d6d-a3a6-6fce64e010fd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

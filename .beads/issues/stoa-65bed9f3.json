@@ -1,0 +1,20 @@
+{
+  "id": "stoa-65bed9f3",
+  "title": "[decision] NntpQueue pattern for SMTP relay durability",
+  "description": "Relay queue reuses proven pattern from NNTP delivery: atomic two-file writes (.msg.tmp\u2192.msg then .env.tmp\u2192.env), timestamp-prefixed FIFO ordering, crash recovery at startup. Non-obvious because single JSON file would be simpler but loses atomicity and ordering guarantees.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T19:14:11Z",
+  "updated_at": "2026-05-01T05:00:26Z",
+  "closed_at": "2026-04-23T19:18:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-11ae5322",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 12:14:11"
+    }
+  ]
+}

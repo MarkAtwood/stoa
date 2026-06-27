@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "20d6eb64c485c6ca17521a4ceb7ddadb52c884a5addab6e06569f793d3bf85e9",
+  "created_at": "2026-05-03T13:04:35Z",
+  "created_by": "Mark Atwood",
+  "description": "In tests/trusted_issuer.rs, store_with_trusted_ca_cert_path() explicitly drops tmp before returning the store. TrustedIssuerStore does not hold a file reference after from_config returns, so the drop is safe. A reader unfamiliar with this could assume the store needs the file to stay alive. Add a comment: 'from_config reads and parses the PEM at construction time; the tempfile can be dropped immediately.']",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.48",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "auth: trusted_issuer test helper drops tempfile before returning store \u2014 needs comment",
+  "updated_at": "2026-05-03T13:04:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:04:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "3111f4c0-0860-5b97-b510-4e9673f734ec",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

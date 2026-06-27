@@ -1,0 +1,19 @@
+{
+  "id": "stoa-3982e313",
+  "title": "suck_pull: fetch_article drops dot-unstuffed lines without restoring original CRLF terminator",
+  "description": "suck_pull.rs fetch_article() lines 354-367: reads line with read_line, trims trailing CR/LF, un-stuffs leading dot, then appends with b'\\r\\n'. This works correctly for the common case, but trims ALL trailing CR and LF characters via trim_end_matches(['\\r', '\\n']), which collapses lines ending with multiple CRLFs or bare LFs. More critically, lines that originally ended with '\\r' (i.e. body lines from a non-compliant server that sends bare LF) lose their content because trim_end_matches strips the \\r. The correct approach is trim_end_matches(['\\r', '\\n']) on the wire-protocol line (correct), but then unconditionally write CRLF back \u2014 which is what the code does. However the trimming is applied before the dot-unstuffing check, so a line like '..\\r\\n' becomes '.. ' \u2192 wrong: it strips to '..', then drops first dot \u2192 '.', writes as '.\\r\\n'. This is the CRLF reconstruction bug already present in a less obvious form.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:44:03Z",
+  "updated_at": "2026-05-01T04:55:06Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:44:03"
+    }
+  ]
+}

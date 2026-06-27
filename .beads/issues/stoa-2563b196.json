@@ -1,0 +1,20 @@
+{
+  "id": "stoa-2563b196",
+  "title": "DECISION: iterative DP glob for LIST ReDoS prevention",
+  "description": "IMAP LIST wildcards (* and %) are supplied by the client and are attacker-controlled. A recursive backtracking matcher has worst-case exponential time on adversarial inputs such as repeated percent signs against a long non-matching string, which could block a session for seconds on a single LIST command. The implementation in mailbox.rs uses an iterative O(m*n) DP approach with two rolling boolean rows, keeping space O(n). A combined-length cap of 1 KiB in glob_match rejects pathologically long patterns before any DP work begins. A decision comment in glob_bytes explicitly prohibits replacing this with a recursive implementation or removing the cap. A dedicated timing test verifies the adversarial case completes in under 100ms.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:25:54Z",
+  "updated_at": "2026-05-01T04:55:40Z",
+  "closed_at": "2026-04-30T02:51:01Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9d37d25b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:25:53"
+    }
+  ]
+}

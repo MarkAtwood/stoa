@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "cargo test -p stoa-smtp passes; allow_non_loopback=true without bearer_token on non-loopback fails the guard; clippy clean",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T07:45:59Z",
+  "compaction_level": 0,
+  "content_hash": "36b59610b1649341192a1d0d240ea1b29ec1f62d67d90c7009a6b5462552a556",
+  "created_at": "2026-05-04T06:32:16Z",
+  "created_by": "Mark Atwood",
+  "description": "## What\nIn crates/smtp/src/sieve_admin.rs, fix the gap where allow_non_loopback=true allows binding to a non-loopback address without a bearer_token. The token must be required whenever the address is non-loopback, regardless of allow_non_loopback.\n\n## Algorithm\n1. Read crates/smtp/src/sieve_admin.rs lines 100-130.\n2. Find the existing guard (around line 112):\n     if !is_loopback_addr(bind) && !config.sieve_admin.allow_non_loopback && !has_token { exit(1) }\n3. Change to: require token whenever non-loopback, regardless of allow_non_loopback:\n     if !is_loopback_addr(bind) && !has_token {\n         eprintln!(\n             'error: sieve admin API is bound to non-loopback address ({}) without a bearer_token. \\\nAny host on the network can read and overwrite user mail filter scripts. \\\nSet sieve_admin.bearer_token to a secret value, or change sieve_admin.bind to 127.0.0.1.',\n             bind\n         );\n         std::process::exit(1);\n     }\n4. The allow_non_loopback field now ONLY controls whether a non-loopback bind with a valid token emits a warning or not (it no longer bypasses the token requirement). Update the subsequent warning logic accordingly.\n5. Update docs/comments on allow_non_loopback in config.rs to reflect narrowed semantics.\n6. cargo fmt; cargo clippy clean; cargo test --workspace clean.\n\n## Defensive programming rules\n- The error message must be actionable.\n- allow_non_loopback must NOT be deleted (it still serves a purpose: suppresses the informational warning for ops who know what they are doing with a properly-tokenized setup).\n- No new function needed; inline change only.\n\n## Tests\nAdd to sieve_admin test module:\n- test_non_loopback_no_token_allow_flag_is_fatal: allow_non_loopback=true, no bearer_token, non-loopback addr \u2192 condition (non_loopback && no_token) = true. Oracle: the patched guard condition.\n- test_non_loopback_with_token_ok: allow_non_loopback=true, bearer_token set, non-loopback \u2192 condition = false. Oracle: token present bypasses token guard.",
+  "ephemeral": 0,
+  "id": "stoa-90tpd.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "smtp: tighten sieve_admin allow_non_loopback to require bearer_token",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T23:32:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-90tpd",
+      "id": "8b8f88d0-9fc5-5d85-8aaf-1f54a8e08248",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

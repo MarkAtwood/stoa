@@ -1,0 +1,33 @@
+{
+  "close_reason": "Positive observation \u2014 no action required.",
+  "closed_at": "2026-05-02T21:44:39Z",
+  "compaction_level": 0,
+  "content_hash": "685cc2a71809a386927bc55710a5ad821856b3887e1c13e12cc7e37162ea7216",
+  "created_at": "2026-05-02T21:42:56Z",
+  "created_by": "Mark Atwood",
+  "description": "mta_sts_fetcher.rs uses response.chunk() in a loop with a running byte count rather than response.bytes() which would buffer the entire response before checking the size. A contributor might simplify this to .bytes().await and check len() afterward. That would allow an adversarial server to exhaust process memory before the limit fires. The chunk-by-chunk approach is correct and must be preserved. The comment already documents this reasoning.",
+  "ephemeral": 0,
+  "id": "stoa-w1h8x.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "chunk-by-chunk body reading in fetch_url prevents unbounded memory growth",
+  "updated_at": "2026-05-02T21:44:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:42:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-w1h8x",
+      "id": "2f4a8252-bb9d-5163-9492-f59c096e28e1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

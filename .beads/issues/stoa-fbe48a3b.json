@@ -1,0 +1,20 @@
+{
+  "id": "stoa-fbe48a3b",
+  "title": "INSERT OR IGNORE idempotency is correct and well-tested",
+  "description": "INSERT OR IGNORE for idempotent puts is correct for a content-addressed store: same CID always means same content, so silently skipping a duplicate is always safe. The idempotent put test verifies COUNT(*) == 1 after two puts of the same data \u2014 this is the right oracle. A future contributor might suggest UPSERT or replacing on conflict; don't \u2014 INSERT OR IGNORE is correct because content-addressed blocks are immutable.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T01:47:55Z",
+  "updated_at": "2026-05-01T04:51:31Z",
+  "closed_at": "2026-04-28T01:55:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-aa592c93",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 18:47:55"
+    }
+  ]
+}

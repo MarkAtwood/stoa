@@ -1,0 +1,21 @@
+{
+  "id": "stoa-57409a9d",
+  "title": "RustIpfsStore: expose ipfs handle for IPNS publisher",
+  "description": "Add pub(crate) fn ipfs_handle(&self) -> rust_ipfs::Ipfs method to RustIpfsStore in pipeline.rs. rust_ipfs::Ipfs is Arc-backed and Clone. Change the internal ipfs field to be accessible for cloning. In main.rs, extract the ipfs handle before boxing into Arc<dyn IpfsStore>: let rust_store = RustIpfsStore::new().await?; let ipfs_for_ipns = rust_store.ipfs_handle(); let ipfs_store = Arc::new(rust_store). Why: IpnsPublisher needs direct access to rust_ipfs::Ipfs to call publish_ipns().",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T06:27:37Z",
+  "updated_at": "2026-05-01T04:56:18Z",
+  "closed_at": "2026-04-23T06:29:59Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-74573660",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 23:27:36"
+    }
+  ]
+}

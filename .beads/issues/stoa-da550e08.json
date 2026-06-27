@@ -1,0 +1,19 @@
+{
+  "id": "stoa-da550e08",
+  "title": "OIDC: integration test against Keycloak (docker-compose)",
+  "description": "docker-compose setup: Keycloak realm with a test client. Test: obtain JWT from Keycloak, use it as Bearer token in JMAP request, verify mailbox list returned. Test expired JWT returns 401. Test invalid signature returns 401. Test bcrypt auth still works alongside OIDC. Blocked on: stoa-e279bbe7.",
+  "status": "deferred",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:43:59Z",
+  "updated_at": "2026-05-01T04:59:26Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e279bbe7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:45:06"
+    }
+  ]
+}

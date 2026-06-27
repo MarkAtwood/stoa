@@ -1,0 +1,21 @@
+{
+  "id": "stoa-bd23bbc2",
+  "title": "Ed25519 deterministic signing ensures same article \u2192 identical CID across parallel POSTs",
+  "description": "sign_article() signs with ed25519-dalek which uses RFC 8032 deterministic signing: same key + same bytes \u2192 same signature \u2192 same CID in IPFS every time. This is not an accident \u2014 it makes the IPFS write idempotent: if two concurrent sessions POST the same article, both sign to the same bytes, write to the same CID, and msgid_map.insert_or_ignore handles the second attempt cleanly. A future contributor might 'improve' this by adding a nonce or timestamp to the signature, which would break idempotency. Defend: Ed25519 is deterministic by spec (RFC 8032 \u00a75.1.6); adding randomness is non-standard and actively harmful here.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T14:07:37Z",
+  "updated_at": "2026-05-01T04:54:53Z",
+  "closed_at": "2026-04-21T16:46:59Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ad28b4f3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 07:07:37"
+    }
+  ]
+}

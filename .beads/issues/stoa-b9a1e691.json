@@ -1,0 +1,20 @@
+{
+  "id": "stoa-b9a1e691",
+  "title": "ingested_at_ms in articles table must use SystemTime::now(), not article Date header",
+  "description": "transit/src/peering/pipeline.rs:231-234: the comment 'ingested_at_ms MUST be the current wall-clock time (SystemTime::now()), NOT from the article's Date header or ctx.timestamp \u2014 those are peer-supplied' is load-bearing documentation for the GC system. The GC grace period protects newly ingested articles from immediate collection. If ingested_at_ms were set from the article's Date header (which can be arbitrary \u2014 old articles, backdated articles, articles with future dates), the grace period would be meaningless: an article dated 2020 ingested today would show age_days = 1500 and be immediately eligible for GC. The current design is correct. A contributor who 'cleans up' this comment because it seems obvious will remove the only documentation protecting this invariant.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T21:41:51Z",
+  "updated_at": "2026-05-01T04:55:31Z",
+  "closed_at": "2026-04-22T22:53:45Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e38f5cd8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 14:41:51"
+    }
+  ]
+}

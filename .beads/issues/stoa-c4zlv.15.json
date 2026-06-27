@@ -1,0 +1,32 @@
+{
+  "compaction_level": 0,
+  "content_hash": "72981b6cdc9065bac0e385df930c27fc38f209780ac6093bdbc08f1bfbd4ffa0",
+  "created_at": "2026-05-01T15:18:30Z",
+  "created_by": "Mark Atwood",
+  "description": "In server.rs route_method Email/query for the newsgroup path, jmap.overview_store.query_range(&group_name, lo, hi) loads ALL articles in the group (lo..hi range) into memory as OverviewRecords, then builds EmailOverviewEntry vec, then filters/sorts/paginates in handle_email_query. For a group with 100k articles this loads all 100k records on every Email/query call regardless of the page size requested. The special-mailbox path uses SQL LIMIT/OFFSET to avoid this; the newsgroup path should do similarly.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "query_range already has LIMIT MAX_OVER_RESULTS=10000 (bounded). Full JMAP date-sort SQL push-down requires overview store API redesign \u2014 defer to v2.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "deferred",
+  "timeout_ns": 0,
+  "title": "Email/query for newsgroup: O(N) articles loaded into memory before filtering",
+  "updated_at": "2026-05-01T19:11:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:18:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "d0cc441e-0116-5041-bf6e-13bbc8499ac3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

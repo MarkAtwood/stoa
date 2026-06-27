@@ -1,0 +1,21 @@
+{
+  "id": "stoa-b4e741ce",
+  "title": "JMAP config: operator role concept and capability gating",
+  "description": "Add operator_usernames list to [auth] config. Users in this list receive the urn:ietf:params:jmap:usenet-ipfs-admin capability in their session document. Regular users do not see this capability and cannot call admin methods. Blocked on: stoa-3ea48ee7.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:45:46Z",
+  "updated_at": "2026-05-01T04:57:02Z",
+  "closed_at": "2026-04-28T12:46:47Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3ea48ee7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:46:22"
+    }
+  ]
+}

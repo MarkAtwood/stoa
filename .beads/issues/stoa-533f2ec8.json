@@ -1,0 +1,21 @@
+{
+  "id": "stoa-533f2ec8",
+  "title": "imap: credential_file secretx URI not validated at config-parse time",
+  "description": "imap Config::validate() checks bcrypt hashes in auth.users but does NOT validate auth.credential_file when it is a secretx: URI. Reader's validate() calls secretx::from_uri() eagerly and returns ConfigError::Validation on a bad URI. imap defers this to build_credential_store() which runs after tracing is initialized. Consequence: a misconfigured secretx URI in imap config passes Config::from_file() with Ok, then the process exits at runtime via error\\!()+exit(1) rather than surfacing the error before any other startup work. Trigger: auth.credential_file = 'secretx:///bad-uri' in imap config.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:37:47Z",
+  "updated_at": "2026-05-01T04:58:42Z",
+  "closed_at": "2026-04-30T19:41:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-eee41a47",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 12:37:47"
+    }
+  ]
+}

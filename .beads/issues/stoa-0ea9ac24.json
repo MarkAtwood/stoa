@@ -1,0 +1,20 @@
+{
+  "id": "stoa-0ea9ac24",
+  "title": "Dual group matchers: group_matches_pattern vs GroupFilter",
+  "description": "main.rs defines a private group_matches_pattern (line 1094) that is a simpler, different implementation from GroupFilter/matches_wildmat. It is used to decide which external pinning service jobs to enqueue (drain task, lines 767-789 and 893-917).\n\nThe two matchers differ in behavior:\n- matches_wildmat: full DP wildmat (*, ?, any sequence)\n- group_matches_pattern: only handles trailing *, treated as starts_with prefix; a ? is matched literally\n\nA user who puts 'comp.lang.?' or 'alt.?est' in pinning.external_services[].groups expecting wildmat semantics will get silent wrong results \u2014 the pattern acts as an exact match against the group name with '?' as a literal character.\n\nThere is no documentation warning that ExternalPinServiceConfig::groups uses a different matching engine than GroupsConfig::names. A future maintainer editing the groups field in both places will expect identical semantics.\n\nNo config validation catches invalid patterns in ExternalPinServiceConfig::groups (validate_group_pattern is only called for groups.names). So '?' or uppercase chars pass silently.\n\nThere is no test for group_matches_pattern itself \u2014 the function is only reachable from the drain task, which has no unit test coverage.\n\nFix options: replace group_matches_pattern with matches_wildmat (one-line change, consistent semantics); or document the restricted syntax explicitly and add a config validation check that rejects ? patterns in external service groups.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:30:02Z",
+  "updated_at": "2026-05-01T05:00:10Z",
+  "closed_at": "2026-04-27T00:42:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:30:02"
+    }
+  ]
+}

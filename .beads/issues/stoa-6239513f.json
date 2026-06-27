@@ -1,0 +1,13 @@
+{
+  "id": "stoa-6239513f",
+  "title": "R3-SEC2: parse_multipart uses empty boundary when param absent",
+  "description": "core/ipld/mime_parser.rs: if boundary param is None, defaults to empty string. Delimiter becomes '--' matching many lines. Should return None/error when boundary is absent.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T15:32:24Z",
+  "updated_at": "2026-05-01T05:00:08Z",
+  "closed_at": "2026-04-22T16:00:18Z"
+}

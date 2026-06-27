@@ -1,0 +1,19 @@
+{
+  "id": "stoa-e9b3c1ce",
+  "title": "Document _global key in Sieve implementation",
+  "description": "The magic string '_global' is used as the single Sieve script key throughout the codebase, but lacks documentation explaining: (1) what _global means and why it exists, (2) where to look to understand the single-user delivery model. A future maintainer needs a high-level doc comment explaining the architectural choice. Consider adding a module-level doc comment to session.rs or sieve_admin.rs explaining that this is a single-user system with a global Sieve script evaluated for all mail.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T07:05:49Z",
+  "updated_at": "2026-05-01T04:54:14Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-17ee367f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 00:05:49"
+    }
+  ]
+}

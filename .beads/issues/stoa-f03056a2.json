@@ -1,0 +1,51 @@
+{
+  "id": "stoa-f03056a2",
+  "title": "End-to-end: Thunderbird subscribes, reads articles, posts reply",
+  "description": "Drive Thunderbird in headless mode (or use a Thunderbird-compatible Python NNTP client that exercises the same code path) to: connect to reader, subscribe to a group, download headers (OVER), fetch article bodies, post a reply. Verify the reply appears via ARTICLE. Artifact: tests/e2e/thunderbird_compat.py.\n\nAcceptance criteria:\n- Group subscription (LIST ACTIVE + GROUP) works\n- OVER-based header download populates a message list\n- ARTICLE fetch retrieves body\n- Posted reply is retrievable as a new article\n- Test is headless and runs in CI without a display server",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:16:24Z",
+  "updated_at": "2026-05-01T04:58:08Z",
+  "closed_at": "2026-04-20T15:14:56Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1b06bf25",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:16:53"
+    },
+    {
+      "depends_on_id": "stoa-3a0b935e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:16:53"
+    },
+    {
+      "depends_on_id": "stoa-3ab98bd0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:16:54"
+    },
+    {
+      "depends_on_id": "stoa-43bde6ba",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:54:15"
+    },
+    {
+      "depends_on_id": "stoa-55db6c35",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:16:24"
+    },
+    {
+      "depends_on_id": "stoa-8946a281",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:16:54"
+    }
+  ]
+}

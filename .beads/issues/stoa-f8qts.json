@@ -1,0 +1,23 @@
+{
+  "close_reason": "all steps complete",
+  "closed_at": "2026-05-05T16:11:57Z",
+  "compaction_level": 0,
+  "content_hash": "729f77e61194d124885a76cfc993907a1935b0111e34bbe839c1afc13ee2f8b4",
+  "created_at": "2026-05-05T15:54:18Z",
+  "created_by": "Mark Atwood",
+  "description": "Pre-merge review of 17 commits: sieve/RFC5183, MailStore trait, OutboundMailer/SES, STARTTLS, TLS policy, OCI image, security headers, staging WAL fix",
+  "ephemeral": 0,
+  "id": "stoa-f8qts",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "review: 24h work 2026-05-04/05",
+  "updated_at": "2026-06-26T20:26:38Z"
+}

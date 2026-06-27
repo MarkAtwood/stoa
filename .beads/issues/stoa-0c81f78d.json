@@ -1,0 +1,20 @@
+{
+  "id": "stoa-0c81f78d",
+  "title": "zeroize::Zeroizing wrapping password clone before spawn_blocking is correct hygiene",
+  "description": "In CredentialStore::check(), the password is wrapped in zeroize::Zeroizing before moving into spawn_blocking. This ensures the copy on the blocking thread is cleared from memory after use. The original &str reference is not zeroized (a known limitation of Rust &str), but clearing the owned clone is meaningfully better than leaving it on the heap. Do not remove the Zeroizing wrapper to 'simplify' the code.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T20:32:08Z",
+  "updated_at": "2026-05-01T04:51:41Z",
+  "closed_at": "2026-04-30T20:33:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-44ba837b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:32:07"
+    }
+  ]
+}

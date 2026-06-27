@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "81bc0e193e4eb12af58f89776e4c77e41a9e2ea23cd0697779759b1f50e88bde",
+  "created_at": "2026-05-02T15:27:34Z",
+  "created_by": "Mark Atwood",
+  "description": "Define the KeyService trait before any implementation is written. All code that touches DEKs depends on this trait, not on a concrete AWS KMS type. This enables the local test backend and keeps KMS behind a seam.\n\n## Trait definition (crates/mail/src/crypto/key_service.rs)\n\n  #[async_trait]\n  pub trait KeyService: Send + Sync {\n      /// Wrap (encrypt) a plaintext DEK under the site master key.\n      /// Returns an opaque blob \u2014 callers must not interpret it.\n      async fn wrap_dek(&self, plaintext_dek: &[u8]) -> Result<Vec<u8>, KeyServiceError>;\n\n      /// Unwrap (decrypt) a previously wrapped DEK.\n      async fn unwrap_dek(&self, wrapped_dek: &[u8]) -> Result<Vec<u8>, KeyServiceError>;\n  }\n\n  #[derive(Debug, thiserror::Error)]\n  pub enum KeyServiceError {\n      #[error(\"KMS unavailable: {0}\")]\n      Unavailable(String),\n      #[error(\"decryption failed\")]\n      DecryptFailed,\n      #[error(\"invalid wrapped key\")]\n      InvalidKey,\n  }\n\n## Two implementations required by this epic\n\n  1. AwsKmsKeyService \u2014 production\n     Calls KMS Encrypt / Decrypt with the configured key ARN.\n     Lives behind the existing 'aws' Cargo feature.\n\n  2. LocalKeyService \u2014 dev and test\n     Wraps with AES-256-GCM using a fixed in-process key (random at startup).\n     Never persists anything. Suitable for cargo test and local dev.\n     Must NOT be compiled into a release binary (cfg(test) or dev feature only).\n\n## Why thiserror not Box<dyn Error>\n  Callers need to distinguish Unavailable (retry/503) from DecryptFailed\n  (likely data corruption, log and alert). Box<dyn Error> loses that.\n\n## Acceptance\n  - Trait compiles\n  - Both implementations compile with their respective feature flags\n  - A unit test exercises wrap \u2192 unwrap roundtrip on both implementations",
+  "ephemeral": 0,
+  "id": "stoa-6cj39.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Design: key_service trait \u2014 DEK wrap/unwrap abstraction",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T08:27:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-6cj39",
+      "id": "9f49cc7f-b80a-5f55-833c-da4b450a60a0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

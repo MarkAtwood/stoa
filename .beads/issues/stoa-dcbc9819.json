@@ -1,0 +1,21 @@
+{
+  "id": "stoa-dcbc9819",
+  "title": "reader::ClientCertEntry and TrustedIssuerEntry duplicate stoa_auth types",
+  "description": "The refactor re-exported stoa_auth::UserCredential from reader config but left reader::config::ClientCertEntry and reader::config::TrustedIssuerEntry as separate local duplicates of the identical types in stoa_auth::config. This forces a manual struct-to-struct conversion shim in build_trusted_issuer_store (server_stores.rs:329-334) and a separate from_config on reader's local ClientCertStore (client_cert_store.rs:31) that takes the local type. Fix: re-export stoa_auth::ClientCertEntry and stoa_auth::TrustedIssuerEntry from reader config (same pattern as UserCredential), delete the local definitions, and remove the conversion in build_trusted_issuer_store.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:55:46Z",
+  "updated_at": "2026-05-01T04:55:27Z",
+  "closed_at": "2026-04-30T18:10:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-65dc6723",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 10:55:46"
+    }
+  ]
+}

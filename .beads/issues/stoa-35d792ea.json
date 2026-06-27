@@ -1,0 +1,33 @@
+{
+  "id": "stoa-35d792ea",
+  "title": "Implement gossipsub backpressure and message rate limiting",
+  "description": "Implement per-peer outbound queue with configurable depth. If a peer's queue is full, new messages for that peer are dropped and a metric counter is incremented. Implement a per-hierarchy publish rate limiter (token bucket) to prevent a single group from flooding the mesh. Artifact: transit/src/gossip/backpressure.rs.\n\nAcceptance criteria:\n- Queue depth and token bucket rate are configurable from TOML\n- Dropped messages increment a Prometheus counter (gossip_messages_dropped_total)\n- No deadlock or unbounded memory growth under sustained high-rate publish\n- Unit test: publish at 10x rate limit, verify drops are counted and queue doesn't grow unboundedly",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:12:00Z",
+  "updated_at": "2026-05-01T04:55:02Z",
+  "closed_at": "2026-04-20T04:33:22Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-347ba0f6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:12:00"
+    },
+    {
+      "depends_on_id": "stoa-353f02ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:12:22"
+    },
+    {
+      "depends_on_id": "stoa-44686efa",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:12:26"
+    }
+  ]
+}

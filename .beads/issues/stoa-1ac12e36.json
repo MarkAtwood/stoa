@@ -1,0 +1,21 @@
+{
+  "id": "stoa-1ac12e36",
+  "title": "smtp read_data_body: no per-message body timeout; oversized lines buffered",
+  "description": "smtp/session.rs read_data_body(): per-line limit is enforced but there is no per-message timeout within the byte loop. A client sending a line that is exactly at the limit per iteration can hold the connection indefinitely. Add a total-message read timeout or check accumulated body size and fail fast.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T13:09:58Z",
+  "updated_at": "2026-05-01T04:57:27Z",
+  "closed_at": "2026-04-22T14:49:31Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-b770251a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 06:09:58"
+    }
+  ]
+}

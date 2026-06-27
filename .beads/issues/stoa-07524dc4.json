@@ -1,0 +1,12 @@
+{
+  "id": "stoa-07524dc4",
+  "title": "transit: GC never deletes articles row or msgid_map entry",
+  "description": "## Problem\ngc_executor.rs calls pin_client.unpin() but never deletes the row from the articles table or the msgid_map. After GC:\n1. The article is removed from IPFS but the articles row persists \u2014 so on every subsequent GC run the same CID is selected as a candidate and unpin() is called again (repeatedly calling unpin on already-absent content).\n2. The msgid_map entry persists \u2014 future ingestion of the same article (e.g. from a peer that still has it) is rejected as 435 Duplicate even though the content is gone, permanently preventing re-ingestion.\n\n## Acceptance criteria\n- On successful unpin, DELETE FROM articles WHERE cid = ? and DELETE FROM msgid_map WHERE cid = ? in the same DB transaction\n- Test: after GC, the article row is absent, the msgid_map entry is absent, and re-ingesting the same message-id succeeds",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T18:57:36Z",
+  "updated_at": "2026-05-01T04:56:40Z",
+  "closed_at": "2026-04-24T19:35:17Z"
+}

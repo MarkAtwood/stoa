@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "1842dc47e9e46ced12b370beb82ac70bc4377e5578033e38c7124a5c82a73225",
+  "created_at": "2026-05-03T13:03:22Z",
+  "created_by": "Mark Atwood",
+  "description": "AdminClient always builds base_url as 'http://{addr}'. The Bearer token (from --token or STOA_CTL_TOKEN) is sent in the Authorization header over plain HTTP. If the admin port is exposed beyond loopback (e.g. on a management VLAN), the token can be sniffed. The default address is 127.0.0.1:9090 (loopback only), which is safe in practice. However the code has no mechanism to enforce HTTPS, and there is no warning if addr is non-loopback. Consider either adding TLS support or emitting a warning when addr is not a loopback address.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "ctl: admin token sent over plain HTTP; stoa-ctl never uses HTTPS",
+  "updated_at": "2026-05-03T13:03:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:03:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "9ca0a63e-59de-5f67-80d0-ddc438a06999",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

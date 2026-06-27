@@ -1,0 +1,20 @@
+{
+  "id": "stoa-a6d9ea5c",
+  "title": "imap config test: new bcrypt error suffix '(cost must be 4-31)' not asserted",
+  "description": "imap/src/config.rs test auth_users_plaintext_password_is_validation_error asserts msg.contains('auth.users[alice]') but does not assert the new '(cost must be 4-31)' suffix added in commit 8cf8dd7. If the suffix is removed or typo'd in a future edit, no test catches it. The reader config test has the same gap (asserts 'not a valid bcrypt hash' but not the suffix). A future contributor who silently drops the suffix gets a green test suite. Fix: add assert!(msg.contains('cost must be 4')) to both tests.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:38:39Z",
+  "updated_at": "2026-05-01T04:54:25Z",
+  "closed_at": "2026-04-30T19:47:45Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-eee41a47",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 12:38:38"
+    }
+  ]
+}

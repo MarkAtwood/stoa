@@ -1,0 +1,21 @@
+{
+  "id": "stoa-d4aa65d6",
+  "title": "smtp crate: InboundAuthResult missing #[derive(Debug)]",
+  "description": "Why this issue exists: InboundAuthResult in crates/smtp/src/auth.rs is missing #[derive(Debug)]. This prevents use in debug assertions, tracing, and test output.\n\nWhat needs to be done: Add #[derive(Debug)] to InboundAuthResult.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:27:31Z",
+  "updated_at": "2026-05-01T04:53:14Z",
+  "closed_at": "2026-04-28T17:41:59Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:27:31"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Pre-existing; filed standalone issue stoa-6h72d",
+  "closed_at": "2026-05-04T08:20:55Z",
+  "compaction_level": 0,
+  "content_hash": "6076df68461adcf255c1e76504af0d3a7e5f24aed2d00b6a962376517cd04310",
+  "created_at": "2026-05-04T08:15:55Z",
+  "created_by": "Mark Atwood",
+  "description": "sigterm() is copy-pasted verbatim in crates/reader/src/main.rs:590, crates/mail/src/main.rs:298, crates/smtp/src/main.rs:307, crates/imap/src/main.rs:195, and crates/transit/src/main.rs:1536. All five are identical: install a SIGTERM handler via tokio::signal::unix and await it. Any change to SIGTERM handling requires edits in 5 places. Extract to pub async fn wait_for_sigterm() in stoa_core (e.g. stoa_core::signals) and replace all 5 call sites.",
+  "ephemeral": 0,
+  "id": "stoa-smkww.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Extract sigterm() to stoa_core to eliminate 5-way duplication",
+  "updated_at": "2026-05-04T08:20:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T01:15:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-smkww",
+      "id": "72f893d8-8583-572e-b5d8-094f1e444279",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

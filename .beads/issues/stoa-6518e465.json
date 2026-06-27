@@ -1,0 +1,21 @@
+{
+  "id": "stoa-6518e465",
+  "title": "Ingestion queue depth counter race under concurrent burst load",
+  "description": "transit/peering/ingestion_queue.rs:67-85: depth counter uses Relaxed atomics throughout. is_full() reads a depth snapshot that is not synchronized with the drain task's decrement. Under burst load, a peer session can observe stale depth and bypass the 431 rejection. The 80% drain threshold check (depth * 10 < max * 8) races against concurrent decrements. Fix: use Acquire on depth load in is_full() and Release on decrement in recv(), or serialize queue acceptance behind a Mutex.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T16:55:38Z",
+  "updated_at": "2026-05-01T04:55:44Z",
+  "closed_at": "2026-04-21T17:15:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-33df35ca",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 09:55:38"
+    }
+  ]
+}

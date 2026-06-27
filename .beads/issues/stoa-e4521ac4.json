@@ -1,0 +1,21 @@
+{
+  "id": "stoa-e4521ac4",
+  "title": "Admin CLI: new usenet-ipfs-ctl binary with global flags",
+  "description": "Add usenet-ipfs-ctl binary to workspace Cargo.toml. Implement global flags: --host/-H (default http://127.0.0.1:9090), --token (Bearer auth header), --json (raw JSON output). All commands exit non-zero and print error if admin endpoint unreachable. Thin HTTP client using reqwest. Blocked on: stoa-4640ef2a.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:45:56Z",
+  "updated_at": "2026-05-01T04:51:53Z",
+  "closed_at": "2026-04-24T07:17:17Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4a899c3f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:00:52"
+    }
+  ]
+}

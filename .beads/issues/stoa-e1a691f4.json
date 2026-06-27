@@ -1,0 +1,12 @@
+{
+  "id": "stoa-e1a691f4",
+  "title": "search: parse_date_to_ts hand-rolls RFC 2822 parsing instead of using chrono",
+  "description": "reader/src/search/mod.rs:123 \u2014 parse_date_to_ts manually strips the day-of-week prefix and tries three format strings. chrono::DateTime::parse_from_rfc2822 already handles this correctly and is used everywhere else (mail/src/feed.rs, core/src/ipld/header_map.rs, mail/src/email/query.rs). If the manual strip has an edge-case bug, search indexing silently assigns timestamp 0, causing articles to sort to the bottom of date-ordered results. Fix: replace body with chrono::DateTime::parse_from_rfc2822(date_str.trim()).ok().map(|dt| dt.timestamp()).filter(|&ts| ts > 0).unwrap_or(0) as u64",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:34:42Z",
+  "updated_at": "2026-05-01T04:55:11Z",
+  "closed_at": "2026-05-01T02:35:31Z"
+}

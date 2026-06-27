@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T05:11:23Z",
+  "compaction_level": 0,
+  "content_hash": "0871e2a321a93cf64f3bcbad67436b0ece38fac9d9ad0c8855017f45e65d865c",
+  "created_at": "2026-05-04T05:06:35Z",
+  "created_by": "Mark Atwood",
+  "description": "rnews_main.rs:147-177: core_pool and transit_pool are wrapped in Arc<AnyPool>, then immediately deref-cloned with (*core_pool).clone() at lines 176-177. AnyPool (sqlx) is itself an internally ref-counted pool handle \u2014 cloning it is O(1) and does not copy connection state. The outer Arc<T> provides no benefit and forces the awkward (*pool).clone() pattern. Idiomatic fix: drop Arc::new(...) wrappers; let core_pool: AnyPool = ...; let transit_pool: AnyPool = ...; then MsgIdMap::new(core_pool.clone()) and SqliteLogStorage::new(core_pool.clone()) just call .clone() on the pool directly. The Arc overhead also adds two extra ref-count increments on every use via Deref.",
+  "ephemeral": 0,
+  "id": "stoa-xrd4u.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "rnews_main: Arc<AnyPool> is redundant \u2014 AnyPool is already ref-counted",
+  "updated_at": "2026-05-04T05:11:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T22:06:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-xrd4u",
+      "id": "69293e6f-9cf1-530a-bf4b-17423c874498",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "closed_at": "2026-05-03T13:04:40Z",
+  "compaction_level": 0,
+  "content_hash": "b8b0f2c63502fcfc821be8626700f275cb84eaf1077cc9c1b9a393c564fc45ea",
+  "created_at": "2026-05-03T13:04:15Z",
+  "created_by": "Mark Atwood",
+  "description": "extract_sig_header first calls str::from_utf8 on the header section, then iterates line-by-line over the resulting &str. This is fine but the UTF-8 check also runs on the body bytes that were already excluded by body_start. The code correctly slices with header_section = &article_bytes[..body_start.unwrap_or(len)] before the UTF-8 check, so the body is excluded. No real efficiency problem here -- already correct. Withdraw this issue.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.35",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "verify: x_sig extract_sig_header does two passes over header section (UTF-8 decode + line scan)",
+  "updated_at": "2026-05-03T13:04:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:04:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "c3347109-e3d2-5829-8d5d-0175e21854c1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

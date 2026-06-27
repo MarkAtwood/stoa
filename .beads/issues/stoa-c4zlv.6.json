@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T16:21:24Z",
+  "compaction_level": 0,
+  "content_hash": "48a260dee351c1c5d7430406f61431ac25102d6069fba1fa2ba195962788a92e",
+  "created_at": "2026-05-01T15:17:31Z",
+  "created_by": "Mark Atwood",
+  "description": "In server.rs route_method Blob/copy, every blobId in the request is reported as successfully copied regardless of whether it is a valid CID or whether the block actually exists in IPFS. RFC 9404 \u00a74.2 requires that non-existent blobs be reported in notCopied. The current implementation claims success for garbage strings and unknown CIDs, which misrepresents the state to the client.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Blob/copy does not validate that blobIds exist before reporting success",
+  "updated_at": "2026-05-01T16:21:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:17:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "e568047a-f496-508e-968d-1a281a28d94c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

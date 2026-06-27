@@ -1,0 +1,33 @@
+{
+  "id": "stoa-4e410713",
+  "title": "Implement command dispatcher enforcing state machine rules",
+  "description": "Implement dispatch(ctx: &mut SessionContext, cmd: Command) -> Response: routes each command to its handler, checks preconditions (auth state, group selected), and returns the appropriate error response if preconditions fail. ARTICLE/HEAD/BODY/STAT/NEXT/LAST require GroupSelected or a message-ID argument. POST requires auth if auth_required. Artifact: reader/src/session/dispatch.rs.\n\nAcceptance: every RFC 3977 precondition encoded in dispatch; unit test matrix: each command x each state -> correct response code; no business logic in dispatcher (just routing and state checks)",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:46:25Z",
+  "updated_at": "2026-05-01T04:53:59Z",
+  "closed_at": "2026-04-20T03:13:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-00566a8f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:46:24"
+    },
+    {
+      "depends_on_id": "stoa-7bb314f3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:46:58"
+    },
+    {
+      "depends_on_id": "stoa-af616cc3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:47:08"
+    }
+  ]
+}

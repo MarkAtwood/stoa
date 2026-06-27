@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "7b82543a80f3e754cac326b8bcf04e93b1417986d47911f4ac1026502b8f8ec5",
+  "created_at": "2026-05-03T13:06:37Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\ntls.rs::check_cert_expiry() emits a warning/error log and updates the Prometheus gauge when TLS certificate is within 30/7 days of expiry. It is called at startup and on /reload. However, a server that runs continuously for months after startup will not emit the warning until /reload is manually triggered. Operators relying on alerting off the Prometheus gauge or tracing logs will miss the expiry window.\\n\\n## Acceptance Criteria\\n\\nSchedule a periodic task (e.g. every 24h) that calls check_cert_expiry and updates the gauge. The task should be cancellable on shutdown.",
+  "ephemeral": 0,
+  "id": "stoa-60vi2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "tls.rs: check_cert_expiry called at startup only; no periodic recheck",
+  "updated_at": "2026-05-03T13:06:37Z"
+}

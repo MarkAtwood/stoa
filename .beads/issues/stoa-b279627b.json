@@ -1,0 +1,26 @@
+{
+  "id": "stoa-b279627b",
+  "title": "Define StorageError variants for SQLite and IPFS failures",
+  "description": "Define StorageError: SqlxError(sqlx::Error), MigrationFailed, EntryNotFound(LogEntryId), DuplicateEntry(LogEntryId), IpfsWriteFailed(String), IpfsPinFailed(String), IpfsNotReachable. Implement retry-hint method: is_transient(&self) -> bool (true for IpfsNotReachable and IpfsWriteFailed, false for data errors). Artifact: core/src/error.rs.\n\nAcceptance criteria: is_transient() correctly identifies transient vs permanent failures; unit test for each variant; sqlx::Error wrapping does not expose internal details in Display",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:47:05Z",
+  "updated_at": "2026-05-01T04:54:13Z",
+  "closed_at": "2026-04-20T02:58:29Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-09261f4e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:47:49"
+    },
+    {
+      "depends_on_id": "stoa-656d4d6d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:47:04"
+    }
+  ]
+}

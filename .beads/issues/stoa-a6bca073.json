@@ -1,0 +1,20 @@
+{
+  "id": "stoa-a6bca073",
+  "title": "OverviewStore query_range uses LIMIT to cap memory \u2014 correct bounded materialization",
+  "description": "overview.rs query_range passes MAX_OVER_RESULTS=10000 as a LIMIT to the SQL query, preventing unbounded result sets when a client requests OVER 1-9999999. The DECISION comment rbe3.7 explains why true row-by-row streaming is deferred. This is the right call at v1: command handlers return a complete Response value, which simplifies testing. Bounding at 10000 rows caps peak memory at about 2 MB. A contributor might suggest removing the limit to support large groups; that would require a redesign of the command loop to support incremental writes.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T17:48:31Z",
+  "updated_at": "2026-05-01T04:58:42Z",
+  "closed_at": "2026-04-28T20:06:49Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-08d918a1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 10:48:31"
+    }
+  ]
+}

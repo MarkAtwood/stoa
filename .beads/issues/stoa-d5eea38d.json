@@ -1,0 +1,22 @@
+{
+  "id": "stoa-d5eea38d",
+  "title": "Define article root node DAG-CBOR schema",
+  "description": "Specify the Rust types and field layout for the article root node in usenet-ipfs-core. The root node contains: header_cid (Cid), body_cid (Cid), mime_cid (Option<Cid>), and a metadata struct. Include a schema_version field for forward compatibility. Canonical serialization must follow RFC 8785 + Corundum Chapter 31 conventions (sorted keys, NFKC normalization, UTC timestamps, no whitespace). Codec choice (DAG-CBOR vs DAG-JSON) is deferred to spike l62.2.9.10 \u2014 schema defined here is codec-independent.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T01:49:08Z",
+  "updated_at": "2026-05-01T04:55:14Z",
+  "closed_at": "2026-04-20T02:33:12Z",
+  "notes": "Size: S",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-88506f2e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 18:49:08"
+    }
+  ]
+}

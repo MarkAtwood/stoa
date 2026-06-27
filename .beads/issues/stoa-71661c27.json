@@ -1,0 +1,13 @@
+{
+  "id": "stoa-71661c27",
+  "title": "CA cert expiry not re-checked at runtime",
+  "description": "TrustedIssuerStore is built once at startup; CA cert validity is checked then via issuer_from_pem, but never again. If a loaded CA cert expires while the daemon is running, the store continues trusting it indefinitely because verify_and_extract_cn only checks leaf cert validity, not the cached CA. An expired CA should no longer authenticate new leaf certs, but it will until the daemon restarts.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T09:08:04Z",
+  "updated_at": "2026-05-01T04:56:58Z",
+  "closed_at": "2026-04-27T09:38:13Z"
+}

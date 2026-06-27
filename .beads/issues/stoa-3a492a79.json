@@ -1,0 +1,33 @@
+{
+  "id": "stoa-3a492a79",
+  "title": "Implement structured tracing with tokio-tracing across both binaries",
+  "description": "Add tokio-tracing to both transit and reader. Default format: JSON to stdout. Configure log level via RUST_LOG env var and via config file [log] section. Key spans to instrument: NNTP session lifecycle, article ingestion pipeline, IPFS write, group log append, gossipsub publish. Artifact: shared tracing setup in core/src/tracing.rs, called from both binary main.rs files.\n\nAcceptance:\n- JSON log output includes: timestamp, level, target, span name, message\n- RUST_LOG=debug produces debug-level output; RUST_LOG=info suppresses debug\n- Per-session span includes peer IP address (for reader) or remote peer ID (for transit)\n- No sensitive data (keys, passwords) appears in any log output\n- cargo test does not emit tracing output unless RUST_LOG set",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:14:53Z",
+  "updated_at": "2026-05-01T04:58:13Z",
+  "closed_at": "2026-04-20T06:43:07Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-90cf7937",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:14"
+    },
+    {
+      "depends_on_id": "stoa-c1dc4c8d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:14:53"
+    },
+    {
+      "depends_on_id": "stoa-e6227fde",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:14"
+    }
+  ]
+}

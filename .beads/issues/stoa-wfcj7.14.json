@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T00:00:48Z",
+  "compaction_level": 0,
+  "content_hash": "2851250fdeef1380e15ca078ec0ecf90c138a47cffbc6703955a0a1ccb80ebfb",
+  "created_at": "2026-05-02T23:09:06Z",
+  "created_by": "Mark Atwood",
+  "description": "mta_sts_fetcher.rs:70-88: using response.chunk() in a loop with a running byte-count check is the correct approach. Using bytes() or text() would buffer the full response body before the size check fires, allowing an adversarial server to OOM the process. The chunk() approach enforces the cap as each chunk arrives. A future contributor might 'simplify' this to .text().await.map_err(...); the existing approach is intentionally defensive and should be preserved.",
+  "ephemeral": 0,
+  "id": "stoa-wfcj7.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Chunk-based body reading in fetch_url prevents unbounded memory from adversarial server",
+  "updated_at": "2026-05-03T00:00:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T16:09:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-wfcj7",
+      "id": "b3814069-0e80-5962-a867-8d7019fcd82d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

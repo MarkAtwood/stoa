@@ -1,0 +1,13 @@
+{
+  "id": "stoa-049fb5cd",
+  "title": "[epic] Prometheus metrics \u2014 operational observability",
+  "description": "Why: Production deployments need visibility into article ingest rate, pipeline latency, IPFS block write/read throughput, peer connection counts, queue depths, and error rates. Prometheus is the standard for this in the Rust/cloud ecosystem; the metrics-rs / prometheus crates are mature.\\n\\nWhat:\\n- Add a GET /metrics endpoint to the admin HTTP server (already exists) returning Prometheus text exposition format.\\n- Metrics to expose:\\n    Counters: articles_ingested_total, articles_rejected_total (by reason), pipeline_errors_total, ipfs_writes_total, ipfs_reads_total, ipfs_cache_hits_total, ipfs_cache_misses_total\\n    Gauges: ingestion_queue_depth, staging_queue_depth (if write-ahead buffer enabled), peer_connections_active, groups_total, articles_total\\n    Histograms: pipeline_duration_seconds, ipfs_write_duration_seconds, ipfs_read_duration_seconds, nntp_command_duration_seconds\\n- Metrics endpoint is protected by the same bearer token as other admin endpoints.\\n- Use the metrics crate (facade) so the implementation can be swapped; default to prometheus-client.\\n- Apply to transit, reader, mail, and smtp binaries.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T02:24:03Z",
+  "updated_at": "2026-05-01T04:59:57Z",
+  "closed_at": "2026-04-22T21:30:54Z"
+}

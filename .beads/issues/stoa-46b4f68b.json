@@ -1,0 +1,21 @@
+{
+  "id": "stoa-46b4f68b",
+  "title": "assign_number races under concurrent pool connections",
+  "description": "reader/src/store/article_numbers.rs:26-64: assign_number uses a DEFERRED SQLite transaction that reads SELECT MAX(article_number) then INSERTs. With a pool that has max_connections > 1, two concurrent calls for the same group both read the same MAX and both attempt to INSERT (group_name, same_number). The second INSERT hits the PRIMARY KEY constraint and returns Err(sqlx::Error::Database). The caller receives an unexpected DB error and the article number assignment silently fails. The tests use max_connections(1) which hides this. Fix: use an EXCLUSIVE transaction (BEGIN EXCLUSIVE), or use INSERT OR IGNORE followed by SELECT to make the operation idempotent, or add explicit retry logic on UNIQUE violation.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T21:41:20Z",
+  "updated_at": "2026-05-01T04:57:31Z",
+  "closed_at": "2026-04-22T21:32:29Z",
+  "notes": "CONFIRMED THEORETICAL: server_stores.rs creates the pool with max_connections(1). assign_number is only called sequentially in a for-loop in log_append.rs. No concurrent assign_number calls are possible. The PRIMARY KEY constraint would also catch the race if it could occur. Downgrading to P3 or close as won't-fix.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e38f5cd8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 14:41:20"
+    }
+  ]
+}

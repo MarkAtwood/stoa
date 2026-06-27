@@ -1,0 +1,33 @@
+{
+  "close_reason": "Documented accepted trade-off: code already calls cleanup_orphaned_files() at startup. No code change needed.",
+  "closed_at": "2026-05-01T18:23:48Z",
+  "compaction_level": 0,
+  "content_hash": "8243e71b2174bc04658778144cffbd412602e706f08bb91fc2c26e4b3d43ff99",
+  "created_at": "2026-05-01T15:22:05Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: staging.rs try_stage() writes the staging file to disk before acquiring the BEGIN IMMEDIATE transaction. If the future is cancelled (e.g. peer disconnects) or the process is killed after fs::write succeeds but before COMMIT, the file is left on disk with no corresponding DB row. Bad behavior: orphaned staging files accumulate on disk. The code documents this and calls cleanup_orphaned_files() at startup, so the orphan is eventually cleaned up on next restart \u2014 but between crashes the disk fills if ingestion is high-volume. This is a known accepted trade-off, but should be filed for tracking.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.86",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "staging.rs: file written before BEGIN IMMEDIATE; cancellation after write but before COMMIT leaves orphan",
+  "updated_at": "2026-05-01T18:23:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:22:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "df1cb3d6-b45d-5105-8f1f-e2c925d2918c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

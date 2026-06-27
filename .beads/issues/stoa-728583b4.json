@@ -1,0 +1,20 @@
+{
+  "id": "stoa-728583b4",
+  "title": "IPLD test vectors cross-validated against Python dag-cbor (not self-referential)",
+  "description": "core/ipld/test_vectors.rs: each CID test vector documents the Python oracle command used to produce the expected bytes, the library version, and the date. This is the correct practice per project test integrity rules. A contributor who says 'just compute the expected value from the code' should be shown this file as the standard. The roundtrip tests (stoa-37ad23c8.26) are the gap \u2014 not these vectors.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:37:04Z",
+  "updated_at": "2026-05-01T04:59:51Z",
+  "closed_at": "2026-04-22T22:25:41Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:37:03"
+    }
+  ]
+}

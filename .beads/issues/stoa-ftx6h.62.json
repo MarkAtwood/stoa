@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T14:20:02Z",
+  "compaction_level": 0,
+  "content_hash": "7cd844b0139d3436c67f889611c2fac20fd9534039d92eea0e0614cbe65dc1a5",
+  "created_at": "2026-05-03T13:05:03Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this issue exists: auth_token.rs list_tokens() and revoke_token() derive the username from the AuthenticatedUser extension's username field, which is an Option<String>. In dev mode, basic_auth_middleware in server.rs injects a synthetic AuthenticatedUser with username = None (unwrap_or_default gives empty string). Meanwhile issue_token() uses the literal string 'dev'. This means tokens issued in dev mode (username='dev') cannot be listed or revoked via the API (which queries by username=''), and vice versa.\n\nWhat needs to be done: Standardize the dev-mode synthetic user's username to the same literal used by issue_token ('dev'), or use a named constant DEV_USERNAME throughout. The empty-string fallback in list_tokens is silently wrong.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.62",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "list_tokens/revoke_token: username is empty string in dev mode",
+  "updated_at": "2026-05-03T14:20:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "241e0008-1cda-5489-ac40-b22b7e5a6f7d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

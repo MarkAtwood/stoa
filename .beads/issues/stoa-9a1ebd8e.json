@@ -1,0 +1,20 @@
+{
+  "id": "stoa-9a1ebd8e",
+  "title": "module comment in inbox.rs contradicts verify_http_signatures config behavior",
+  "description": "The module doc comment for inbox.rs says 'Inbound HTTP Signature verification is not yet implemented \u2014 a future hardening pass will add it. For v1, we trust the actor field.' But the code does implement signature verification for Create activities (dispatched via inbound::verify_http_signature). The comment is stale and wrong. A contributor reading the module comment will assume the verification path is unimplemented and may try to implement it again or skip security review. Fix: update the doc comment to describe the actual state: Create activities are verified when verify_http_signatures=true, but Follow/Undo are not yet verified.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T17:47:34Z",
+  "updated_at": "2026-05-01T04:54:10Z",
+  "closed_at": "2026-04-28T21:55:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-08d918a1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 10:47:33"
+    }
+  ]
+}

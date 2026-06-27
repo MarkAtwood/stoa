@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "MtaStsEnforcer::new now returns Result<Self, MtaStsError>",
+  "closed_at": "2026-05-02T22:00:07Z",
+  "compaction_level": 0,
+  "content_hash": "c2c790c564d3a1838f6e91e6b589d6ef3e78b6c6760d8c47579128a6f02a9116",
+  "created_at": "2026-05-02T21:42:52Z",
+  "created_by": "Mark Atwood",
+  "description": "MtaStsEnforcer::new calls TokioResolver::builder_tokio().expect(\"TokioResolver init failed\"). This panics at runtime if /etc/resolv.conf is unreadable or the OS resolver config is malformed \u2014 a condition that can arise in container/chroot environments. A constructor that can fail must return Result. Fix: change new() to return Result<Self, ...> and propagate the error to the caller.",
+  "ephemeral": 0,
+  "id": "stoa-owq35.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MtaStsEnforcer::new panics on resolver init failure",
+  "updated_at": "2026-05-02T22:00:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:42:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-owq35",
+      "id": "f7b33aa3-dedc-56b5-9969-461226a4c17e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

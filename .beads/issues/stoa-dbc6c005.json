@@ -1,0 +1,27 @@
+{
+  "id": "stoa-dbc6c005",
+  "title": "sieve-native: lexer and recursive-descent parser",
+  "description": "Implement the tokenizer and a generic form reader. The parser has zero knowledge of Sieve commands or grammar \u2014 it just reads forms.\n\nWhat: src/lexer.rs + src/form.rs\n\nCore insight: Sieve syntax is a Lisp-family form language. Every statement is:\n  command :tag arg :tag arg test_or_testlist block?\nwhich maps directly to a flat Vec<Form>. No grammar rules needed in the parser.\n\nForm type (form.rs):\n  pub enum Form {\n      Word(String),               // bare word \u2014 command name or extension name\n      Tag(String),                // :contains, :over, :is etc  (colon stripped)\n      Str(String),                // \"quoted string\"\n      Num(u64),                   // integer literal\n      StringList(Vec<String>),    // [\"a\", \"b\", \"c\"]\n      TestList(Vec<Stmt>),        // (test, test, test)  \u2014 allof/anyof args\n      Block(Vec<Stmt>),           // { stmt; stmt; }\n  }\n  pub type Stmt = Vec<Form>;      // first element is always Word(command)\n  pub type Script = Vec<Stmt>;\n\nLexer (lexer.rs) \u2014 tokens only, no Sieve knowledge:\n  pub enum Token { Word(String), Tag(String), StringLit(String), Number(u64),\n                   LBracket, RBracket, LParen, RParen, LBrace, RBrace, Semicolon, Comma }\n  pub fn tokenize(src: &str) -> Result<Vec<Token>, ParseError>\n  Handle: quoted strings with \\-escapes, multi-line strings (text: ... .CRLF), # comments, numbers.\n  ParseError carries line+column.\n\nForm reader (form.rs):\n  pub fn read_script(tokens: &[Token]) -> Result<Script, ParseError>\n  Algorithm:\n  1. read_stmt(): consume tokens up to Semicolon or LBrace; collect as Vec<Form>.\n     Each token maps to exactly one Form variant.\n     LBracket \u2192 read_string_list() \u2192 StringList.\n     LParen   \u2192 read_test_list()  \u2192 TestList  (comma-separated stmts, no semicolons).\n     LBrace   \u2192 read_block()      \u2192 Block     (recursive read_script() until RBrace).\n  2. read_script() = loop calling read_stmt() until tokens exhausted.\n\nThe form reader is ~80 lines. It knows about brackets, parens, braces, and semicolons. Nothing else.\n\nDefensive rules:\n  - Unclosed bracket/brace/paren \u2192 ParseError with position.\n  - Empty StringList is valid ([]).\n  - Non-string tokens inside StringList \u2192 ParseError (strings only in [...]).\n  - No unwrap(); all token exhaustion \u2192 ParseError.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:23:51Z",
+  "updated_at": "2026-05-01T04:54:07Z",
+  "closed_at": "2026-04-24T03:16:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1dcfbf49",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:23:50"
+    },
+    {
+      "depends_on_id": "stoa-b8bfcd4f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:25:12"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed: render_mta_sts_policy now uses CRLF per RFC 8461 \u00a73.2; test oracle updated to 9ebad69d...",
+  "closed_at": "2026-05-02T20:20:43Z",
+  "compaction_level": 0,
+  "content_hash": "e253272463c31c4faca341f67bdac598a001b14c749b9166bd5762074079f02d",
+  "created_at": "2026-05-02T20:17:10Z",
+  "created_by": "Mark Atwood",
+  "description": "render_mta_sts_policy (server.rs:333) builds the policy body with bare '\\n' line endings. RFC 8461 \u00a73.2 states 'A valid policy file MUST ... use CRLF line endings.' Trigger: a remote MTA that strictly validates RFC 8461 \u00a73.2 fetches our /.well-known/mta-sts.txt and rejects it, preventing delivery to our hosted domains. Fix: replace '\\n' with '\\r\\n' in render_mta_sts_policy.",
+  "ephemeral": 0,
+  "id": "stoa-owq35.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "render_mta_sts_policy serves LF-only but RFC 8461 \u00a73.2 requires CRLF",
+  "updated_at": "2026-05-02T20:20:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T13:17:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-owq35",
+      "id": "dcd561f9-b2d6-5726-8976-3dcd9f30498a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

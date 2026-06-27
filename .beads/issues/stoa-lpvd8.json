@@ -1,0 +1,35 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": ".github/workflows/docker.yml created with build/push and grype vulnerability scan",
+  "closed_at": "2026-05-05T04:18:29Z",
+  "compaction_level": 0,
+  "content_hash": "b54e13d55bfa76f7f23e2dbf855922620bf3972b962e8fb50e21ef46c9b93a26",
+  "created_at": "2026-05-05T02:31:57Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why\nstoa-4291i: automated image build/push is the delivery mechanism.\n\n## What\nAdd docker.yml GitHub Actions workflow:\n- Trigger: push to main (SHA tag) and push of semver tags (version + latest)\n- Build using the Dockerfile added in the Dockerfile issue\n- Push to GHCR (ghcr.io/${{ github.repository }})\n- Run grype or docker scout vuln scan; fail on HIGH/CRITICAL CVEs\n- Cache layers with actions/cache or buildx inline cache\n\n## Acceptance\n- Workflow file exists at .github/workflows/docker.yml\n- grype scan step fails build on HIGH/CRITICAL (unacknowledged)\n- Image tagged :sha-<SHA> on main push and :v<X.Y.Z> + :latest on tag push\n",
+  "ephemeral": 0,
+  "id": "stoa-lpvd8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Part of epic stoa-4291i",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CI: build and push OCI image on main + semver tags",
+  "updated_at": "2026-05-05T04:18:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:32:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-yyc57",
+      "id": "99a73c36-aa49-5358-8c82-f6538889e2ee",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

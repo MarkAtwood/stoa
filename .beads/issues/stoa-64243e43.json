@@ -1,0 +1,21 @@
+{
+  "id": "stoa-64243e43",
+  "title": "Stale comment says bearer token comparison is not constant-time",
+  "description": "transit/src/admin.rs: a comment (around lines 199-201 per review) says 'string comparison is not constant-time; this is intentional for v1 (ops/dev use only)'. The actual check_bearer_token function correctly uses subtle::ConstantTimeEq. The stale comment contradicts the implementation. A future maintainer will read the comment, conclude the code needs a security fix, and change the comparison back to plain equality \u2014 converting a timing-safe check into a timing oracle. Fix: update the comment to note that constant-time comparison via subtle crate is in place and intentional.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T21:41:04Z",
+  "updated_at": "2026-05-01T04:54:33Z",
+  "closed_at": "2026-04-21T22:37:50Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e38f5cd8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 14:41:03"
+    }
+  ]
+}

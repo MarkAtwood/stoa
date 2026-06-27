@@ -1,0 +1,21 @@
+{
+  "id": "stoa-42d2ff2f",
+  "title": "auth: check() takes password as plain &str, should zeroize",
+  "description": "crates/auth/src/store.rs line 200: check(&self, username: &str, password: &str). Security-sensitive: password lives as a plain String heap allocation (line 211 clone for spawn_blocking) with no zeroization guarantee after bcrypt::verify completes. Should use secrecy::SecretString or a ZeroizeOnDrop wrapper.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:12:41Z",
+  "updated_at": "2026-05-01T04:52:23Z",
+  "closed_at": "2026-04-30T17:31:22Z",
+  "notes": "Fix: add secrecy dep; change to check(&self, username: &str, password: &SecretString). Call expose_secret() inside the spawn_blocking closure and let it drop. Update session/commands/auth.rs call sites.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-577b3bd5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 10:12:40"
+    }
+  ]
+}

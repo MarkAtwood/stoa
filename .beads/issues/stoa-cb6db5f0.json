@@ -1,0 +1,20 @@
+{
+  "id": "stoa-cb6db5f0",
+  "title": "ihave_push.rs dot_stuff splits on LF but NNTP articles use CRLF: CRLF lines gain extra LF",
+  "description": "## What / Why\ncrates/transit/src/import/ihave_push.rs dot_stuff() splits input on '\\n' and then re-adds '\\n' after each line. For CRLF-encoded articles (which is the canonical format per RFC 5536), this means each line with '\\r\\n' is split into a '\\r'-suffixed segment and the '\\n' is then re-appended, producing correct output. However, the trailing-newline cleanup logic (pop the final '\\n' if input doesn't end with '\\n') can misfire: if article_bytes ends with '\\r\\n', the final split element is empty (''), and the function adds a '\\n' for it, then removes it\u2014but the '\\r' from the last real line is left dangling without its matching '\\n'. This corrupts the last line of the NNTP stream.\n\n## Trigger \u2192 Bad Behavior\nImport an article file whose last line ends exactly with '\\r\\n' (standard CRLF article) \u2192 send_ihave sends a truncated or malformed last line \u2192 transit daemon may reject the article or silently corrupt it.\n\n## Fix\nRewrite dot_stuff to handle CRLF-terminated lines explicitly (split on '\\r\\n', rejoin with '\\r\\n'), matching the behavior in fetch.rs which handles this correctly.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T03:08:19Z",
+  "updated_at": "2026-05-01T04:59:28Z",
+  "closed_at": "2026-04-27T03:38:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e2297bae",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 20:08:19"
+    }
+  ]
+}

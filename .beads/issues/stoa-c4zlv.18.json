@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T18:33:55Z",
+  "compaction_level": 0,
+  "content_hash": "5c3dc03e0bdf622d80c8c61d2a43845d659ea0ebc48808927717f29c17902ef8",
+  "created_at": "2026-05-01T15:18:49Z",
+  "created_by": "Mark Atwood",
+  "description": "In outbound.rs deliver_article, one JoinSet task is spawned per follower with no upper bound. A group with 10,000 followers will spawn 10,000 concurrent HTTP connection attempts simultaneously. This can exhaust file descriptors, connection pool limits, or memory. A semaphore or bounded concurrency (e.g. max 50 concurrent deliveries) is needed to prevent resource exhaustion during fanout.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "deliver_article fanout: no cap on concurrent delivery tasks",
+  "updated_at": "2026-05-01T18:33:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:18:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "e6018a32-9e33-56a0-8f44-fbd6c68376eb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

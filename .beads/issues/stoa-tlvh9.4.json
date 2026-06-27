@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "2c00f2fbb5c31907338ff80dc0a35811cb2e8b0cf2e9aa55d0c1ecf9a1b2f871",
+  "created_at": "2026-05-04T03:18:58Z",
+  "created_by": "Mark Atwood",
+  "description": "import/rnews.rs:106\u2013111: the cunbatch arm calls decompress_cunbatch() purely to produce its Err, then immediately has unreachable!(). This is harder to read than a direct return.\n\n    } else if input.starts_with(CUNBATCH_MARKER) {\n        decompress_cunbatch(&input[CUNBATCH_MARKER.len()..])?;\n        unreachable!()\n    }\n\nBecause decompress_cunbatch always returns Err, the ? propagates and the unreachable! is dead. But a reader has to understand all of that to follow the control flow.\n\nSuggested approach: return the error directly without the indirection:\n\n    } else if input.starts_with(CUNBATCH_MARKER) {\n        return Err(RnewsError::UnsupportedCompression(\n            \"cunbatch (Unix compress .Z) is not supported; use gunbatch (gzip) instead\".to_string(),\n        ));\n    }\n\ndecompress_cunbatch can remain as its own public entry point for callers who have a bare cunbatch payload. parse_rnews_batch need not route through it.",
+  "ephemeral": 0,
+  "id": "stoa-tlvh9.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "cunbatch arm uses call-then-unreachable pattern",
+  "updated_at": "2026-05-04T03:18:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T20:18:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-tlvh9",
+      "id": "2fc4658e-95f0-5aab-8218-a8f2eb310253",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

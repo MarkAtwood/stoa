@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T00:32:17Z",
+  "compaction_level": 0,
+  "content_hash": "8ee5f5d8e29f326904bd16a732d4e58457932e9b4847fbf7c0c60ab5de633dd4",
+  "created_at": "2026-05-03T00:12:11Z",
+  "created_by": "Mark Atwood",
+  "description": "crates/mail/src/mta_sts_cache.rs implements MtaStsCache backed by mta_sts_cache table. Migration 0015 drops that table with comment 'cache was never implemented'. The module is re-exported from lib.rs (pub use mta_sts_cache::...) but has no callers outside its own tests. If any future code instantiates MtaStsCache::get() or store() it will hit a 'no such table' runtime error. The module is dead code that misrepresents the implementation \u2014 it suggests persistence is wired when it is not. Remove the module, its re-export, and migration 0014 (which is made inert by 0015 dropping the table immediately after).",
+  "ephemeral": 0,
+  "id": "stoa-3xdjv.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Remove dead MtaStsCache module (table dropped by migration 0015)",
+  "updated_at": "2026-05-03T00:32:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T17:12:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-3xdjv",
+      "id": "14cb79db-4c98-5b90-bd2c-cd06b24b2e7b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

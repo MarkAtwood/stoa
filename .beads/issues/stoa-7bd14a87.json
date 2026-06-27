@@ -1,0 +1,27 @@
+{
+  "id": "stoa-7bd14a87",
+  "title": "smtp: swap usenet-ipfs-sieve for sieve-native; license \u2192 MIT",
+  "description": "Replace the AGPL sieve dep in smtp with the new MIT native implementation.\n\nWhat: crates/smtp/Cargo.toml, crates/smtp/src/session.rs (SieveCache type update), CLAUDE.md, root Cargo.toml\n\nAlgorithm:\n1. crates/smtp/Cargo.toml: replace 'usenet-ipfs-sieve = { path = \"../sieve\" }' with 'usenet-ipfs-sieve-native = { path = \"../sieve-native\" }'; change license to 'MIT'.\n2. session.rs: replace 'use usenet_ipfs_sieve::' with 'use usenet_ipfs_sieve_native::' throughout. No logic changes \u2014 API surface is identical by design.\n3. sieve_admin.rs: same use statement swap.\n4. CLAUDE.md: update license section \u2014 usenet-ipfs-smtp is now MIT; only usenet-ipfs-sieve (the old AGPL wrapper crate) remains AGPL and is no longer linked by any production binary.\n5. Verify: 'cargo tree -p usenet-ipfs-smtp | grep sieve-rs' returns empty.\n6. Verify: 'cargo tree -p usenet-ipfs-smtp | grep AGPL' returns empty (cargo tree doesn't show licenses directly, but grep for usenet-ipfs-sieve crate name).\n7. cargo build --workspace succeeds.\n8. cargo test --workspace passes.\n\nDefensive rules:\n- Do not remove usenet-ipfs-sieve crate from the workspace \u2014 it still exists as a standalone AGPL crate; just nothing links it in production.\n- The old sieve crate's tests still pass (cargo test -p usenet-ipfs-sieve).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:24:55Z",
+  "updated_at": "2026-05-01T04:54:06Z",
+  "closed_at": "2026-04-24T03:46:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1dcfbf49",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:24:55"
+    },
+    {
+      "depends_on_id": "stoa-c9333160",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:25:16"
+    }
+  ]
+}

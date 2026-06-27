@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T08:14:32Z",
+  "compaction_level": 0,
+  "content_hash": "a87a34b9df0bc32f663c8299c7a2427a1e38e88370280ef14d68bf9e37df9cd8",
+  "created_at": "2026-05-04T08:04:43Z",
+  "created_by": "Mark Atwood",
+  "description": "Finding: The boundary between validate() and main.rs startup guards is inconsistently drawn.\n\nvalidate() already contains a security guard with no I/O: the allow_http+credential cleartext check in reader/config.rs (lines 637-655 and 700-719). Yet the dev-mode loopback guard (is_dev_mode() && !is_loopback_addr()) and the signing_key_path guard live in main.rs, also without any I/O dependency.\n\nThe stated split \u2014 validate() for structure, main.rs for runtime \u2014 is not consistently applied. A reader of validate() cannot rely on it being the complete set of config-time security invariants, because some are checked later in main.rs. This creates a gap: --check-config (if ever added) would pass validate() but miss the loopback guard.\n\nSuggested fix: move the pure-logic security guards (is_dev_mode+loopback, signing_key_path+loopback) into validate() alongside the existing allow_http guard, reserving main.rs guards for checks that require actual I/O (Kubo ping, file readability, cert expiry).",
+  "ephemeral": 0,
+  "id": "stoa-cajkm.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "dev-mode guard split: validate() vs main.rs is inconsistent",
+  "updated_at": "2026-05-04T08:14:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T01:04:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-cajkm",
+      "id": "69ac5901-9e2e-5bb2-a17a-43bbcc400a04",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

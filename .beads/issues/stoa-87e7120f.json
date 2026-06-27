@@ -1,0 +1,19 @@
+{
+  "id": "stoa-87e7120f",
+  "title": "public error enums missing #[non_exhaustive]: adding variants is a breaking change",
+  "description": "ValidationError, ProtocolError, StorageError, SigningError in core/src/error.rs are all public enums without #[non_exhaustive]. Any future variant addition is a semver-breaking change because downstream match arms would need a wildcard. Annotate all four with #[non_exhaustive] before the first published release.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:36:52Z",
+  "updated_at": "2026-05-01T04:52:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:36:51"
+    }
+  ]
+}

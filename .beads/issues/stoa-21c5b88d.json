@@ -1,0 +1,13 @@
+{
+  "id": "stoa-21c5b88d",
+  "title": "AuditEvent::to_json expect panics in production",
+  "description": "crates/core/src/audit.rs: AuditEvent::to_json calls serde_json::to_string(...).expect(\"audit event must serialize\"). serde_json serialization is infallible for types with no custom Serializer, but the expect makes it a logic bomb if any AuditEvent field ever becomes non-serializable. Fix: return Result<String, serde_json::Error> from to_json and propagate at the call site, or use unwrap_or_else with a fallback JSON string.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:24:53Z",
+  "updated_at": "2026-05-01T04:53:17Z",
+  "closed_at": "2026-04-28T18:24:33Z"
+}

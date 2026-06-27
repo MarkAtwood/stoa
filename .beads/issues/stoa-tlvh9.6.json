@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T03:30:53Z",
+  "compaction_level": 0,
+  "content_hash": "6ccd486599f1b8b50468045a26950f244049c1f81a546d3c939d1d30c4537703",
+  "created_at": "2026-05-04T03:19:03Z",
+  "created_by": "Mark Atwood",
+  "description": "rnews_main.rs:301-303,315-318 \u2014 PipelineError::Transient and IngestResult::TransientError both increment a counter and log at ERROR level but the binary still exits 0. Under UUCP, exit 0 means 'batch accepted'; a nonzero exit is the signal for the UUCP scheduler to retry. If the database or object store is temporarily unavailable, every article in the batch is silently lost rather than retried. The exit-code comment on lines 8-9 documents only 0 and 1 but does not mention a retry/transient-failure case. Better approach: exit nonzero (e.g. exit 75, EX_TEMPFAIL from sysexits.h) when transient > 0, so the UUCP subsystem retries the batch.",
+  "ephemeral": 0,
+  "id": "stoa-tlvh9.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "transient errors exit 0, UUCP cannot retry",
+  "updated_at": "2026-05-04T03:30:53Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T20:19:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-tlvh9",
+      "id": "90ec05e3-81d3-5436-8d2f-a0b18e6ac3f8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

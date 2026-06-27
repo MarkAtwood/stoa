@@ -1,0 +1,20 @@
+{
+  "id": "stoa-313379ba",
+  "title": "Good: startup writability probe prevents silent mis-config at launch",
+  "description": "The .stoa_write_probe pattern in FsStore::open writes and immediately removes a sentinel file to verify the directory is writable at startup. A future contributor might suggest removing it as 'unnecessary' since write errors will surface later. Defend it: a misconfigured read-only mount will silently accept ingest traffic for hours before the first write attempt surfaces the error. The probe catches this at startup with a clear error message, which is the right tradeoff.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T01:18:51Z",
+  "updated_at": "2026-05-01T04:59:30Z",
+  "closed_at": "2026-04-28T01:29:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-713dbc32",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 18:18:51"
+    }
+  ]
+}

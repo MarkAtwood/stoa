@@ -1,0 +1,21 @@
+{
+  "id": "stoa-b3a9e770",
+  "title": "now_rfc2822() duplicated identically in 4 test files",
+  "description": "A ~30-line now_rfc2822() function appears copy-pasted in nntp_conformance.rs, two_process_harness.rs, e2e_data_flow.rs, and fault_store_errors.rs. Duplicated test helpers are a maintenance trap: if the RFC 2822 formatting ever needs a bug fix (e.g., DST offset), the fix must be applied in 4 places and someone will miss one. Suggested rewrite: extract to a crate-level test helper module (e.g., a tests/helpers/ module or a test-only sub-crate) and import from there.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T15:45:26Z",
+  "updated_at": "2026-05-01T04:55:13Z",
+  "closed_at": "2026-04-21T16:46:57Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-436e4a3a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 08:45:26"
+    }
+  ]
+}

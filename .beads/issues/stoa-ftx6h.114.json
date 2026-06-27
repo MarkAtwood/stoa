@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T13:31:04Z",
+  "compaction_level": 0,
+  "content_hash": "4aa3d18f24f85d18d05732536ee3054fb750f19a6e6d7ca0f08a2af91be302e4",
+  "created_at": "2026-05-03T13:06:26Z",
+  "created_by": "Mark Atwood",
+  "description": "In relay_error.rs, SmtpRelayError::is_transient() and is_permanent() each enumerate variants explicitly. The enum is #[non_exhaustive], so a new variant added in the future will not be caught by the compiler as unhandled in these methods \u2014 it will silently match the default false arm. A delivery attempt for a new error variant will appear as neither transient nor permanent, causing it to be dropped without retry or dead-letter. Fix: add a compile-time assertion or exhaustive match (remove the _ arm) in is_transient and is_permanent, using #[allow(unreachable_patterns)] only as a last resort. Alternatively, annotate the default arm with a todo! so new variants are caught at test time.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.114",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "smtp: SmtpRelayError is_transient/is_permanent exhaustiveness gap",
+  "updated_at": "2026-05-03T13:31:04Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "25dbf1a9-315f-5d96-8471-dcd79e79ece3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

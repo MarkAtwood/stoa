@@ -1,0 +1,20 @@
+{
+  "id": "stoa-c3270e8e",
+  "title": "elegance: inconsistent re-export path for UserCredential across crates",
+  "description": "reader/src/config.rs re-exports 'stoa_auth::UserCredential' (root path). imap/src/config.rs re-exports 'stoa_auth::config::UserCredential' (module path). imap/src/session/auth.rs also uses the module path directly. The same type has two different import paths in use across the workspace. One should be canonical. Since stoa_auth::lib.rs already re-exports UserCredential at the root (confirmed by auth/tests/integration.rs using it that way), the reader pattern is correct and imap/config.rs should match it. Suggested fix: change imap/config.rs to 'pub use stoa_auth::UserCredential' and align imap/session/auth.rs accordingly.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:12:21Z",
+  "updated_at": "2026-05-01T04:51:37Z",
+  "closed_at": "2026-04-30T17:17:14Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-577b3bd5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 10:12:21"
+    }
+  ]
+}

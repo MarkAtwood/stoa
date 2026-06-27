@@ -1,0 +1,20 @@
+{
+  "id": "stoa-9cc123bb",
+  "title": "Re-export pattern for UserCredential eliminates type-conversion shim",
+  "description": "AuthConfig::users is Vec<UserCredential> and CredentialStore::from_credentials takes &[UserCredential]. Before this commit they were two different types \u2014 reader-local vs stoa_auth \u2014 requiring a mapping loop at the call site. The re-export (pub use stoa_auth::UserCredential) makes them the same type so from_credentials can receive auth.users directly with no shim. Alternative was keeping both types as distinct structs and maintaining a field-by-field mapping, which risks the two types drifting silently. Re-exporting is correct: the reader config is already a thin wrapper over stoa_auth types; making the type identity explicit removes a class of future divergence bugs.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:12:29Z",
+  "updated_at": "2026-05-01T04:51:37Z",
+  "closed_at": "2026-04-30T17:15:00Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-577b3bd5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 10:12:29"
+    }
+  ]
+}

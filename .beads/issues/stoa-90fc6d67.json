@@ -1,0 +1,19 @@
+{
+  "id": "stoa-90fc6d67",
+  "title": "note_to_article injects attacker-controlled content into RFC 5322 headers without CRLF stripping",
+  "description": "inbound.rs note_to_article() constructs RFC 5322 article bytes using format!() with Note fields (content, from, subject, published) that come directly from the remote ActivityPub POST body. These fields are not passed through strip_crlf(). A malicious remote server can inject CRLF sequences into the article headers, forging arbitrary headers (e.g. Newsgroups, Message-ID) in the injected article. The email/set.rs create path applies strip_crlf(); the AP inbound path does not.",
+  "status": "open",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:38:27Z",
+  "updated_at": "2026-05-01T04:54:25Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:38:27"
+    }
+  ]
+}

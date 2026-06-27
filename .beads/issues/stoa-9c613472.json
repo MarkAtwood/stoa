@@ -1,0 +1,21 @@
+{
+  "id": "stoa-9c613472",
+  "title": "Sieve script cache has no cross-session invalidation after admin API update",
+  "description": "smtp/session.rs: SieveCache is per-process HashMap with no TTL. Updating a script via the admin API invalidates the local cache entry but not caches in other running sessions or processes. Long-lived sessions continue running stale scripts. Needs version counter or document that script changes require server restart.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T13:09:22Z",
+  "updated_at": "2026-05-01T04:54:30Z",
+  "closed_at": "2026-04-22T14:25:07Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-b770251a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 06:09:21"
+    }
+  ]
+}

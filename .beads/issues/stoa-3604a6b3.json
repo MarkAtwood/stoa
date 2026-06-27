@@ -1,0 +1,21 @@
+{
+  "id": "stoa-3604a6b3",
+  "title": "write_signing_key bool param should be enum",
+  "description": "signing.rs: write_signing_key takes a bool parameter named 'force'. Bool parameters that control behavior create call-site confusion: write_signing_key(&key, &path, true) is opaque. Idiomatic Rust uses a small enum (e.g. enum Overwrite { Force, NoOverwrite }) so call sites self-document. This is especially important for a security-sensitive operation (overwriting a signing key) where a misreading of the bool could silently overwrite a production key.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:21:19Z",
+  "updated_at": "2026-05-01T04:53:21Z",
+  "closed_at": "2026-04-28T18:40:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:21:19"
+    }
+  ]
+}

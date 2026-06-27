@@ -1,0 +1,13 @@
+{
+  "id": "stoa-79e80a29",
+  "title": "smtp_relay: parse_email_addrs splits on comma, breaks on quoted display names",
+  "description": "reader/src/post/smtp_relay.rs:112 \u2014 splits address list on ',' then uses find('<')/rfind('>') to extract addresses. Fails on RFC 5322 addresses with commas in quoted display names (e.g. \"Smith, John\" <j@example.com>). mailparse::addrparse() is already a dep in this crate and handles this correctly. Fix: replace parse_email_addrs with mailparse::addrparse().",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:45:41Z",
+  "updated_at": "2026-05-01T04:55:11Z",
+  "closed_at": "2026-05-01T02:56:05Z"
+}

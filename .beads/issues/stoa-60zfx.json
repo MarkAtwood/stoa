@@ -1,0 +1,49 @@
+{
+  "close_reason": "CI integration added at .github/workflows/interop.yml with continue-on-error=true and justfile interop-test target.",
+  "closed_at": "2026-05-05T03:13:47Z",
+  "compaction_level": 0,
+  "content_hash": "57a358f20a88d91500770245470a5eb72ed7e68e1d82121cfc153baf4cf8275c",
+  "created_at": "2026-05-05T02:33:49Z",
+  "created_by": "Mark Atwood",
+  "description": "Add a GitHub Actions workflow step (or separate workflow) that runs the newsreader interop tests (slrn, tin, Thunderbird) against a live stoa-reader. The step must be marked as optional (allowed to fail without blocking CI) and should only run when Docker is available. Add a justfile target 'interop-test' that runs all three interop tests against a locally started reader.",
+  "ephemeral": 0,
+  "id": "stoa-60zfx",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CI integration: optional newsreader interop step",
+  "updated_at": "2026-05-05T03:13:47Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:34:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-nzq22",
+      "id": "39e8fe0d-03e4-5133-b1cc-c09046e89593",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:33:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-upi45",
+      "id": "9956ed94-264d-507e-aeaf-7ad345642a0f",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:33:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-wlyx7",
+      "id": "f82c0dc1-028f-5a24-bf9b-70e7ba0d39f2",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

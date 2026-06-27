@@ -1,0 +1,27 @@
+{
+  "id": "stoa-a976a050",
+  "title": "Define shared test suite for LogStorage implementations",
+  "description": "Write a set of async test functions (not marked #[test] directly) that accept any impl LogStorage and exercise all trait methods: insert and retrieve, set and list tips, count, has_entry for missing ID. These functions are called from both the mem and SQLite implementation tests. Artifact: core/src/group_log/storage_tests.rs.\n\nAcceptance: shared tests exercise all trait methods; both implementations pass all shared tests; tests are deterministic (no randomness)",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:45:06Z",
+  "updated_at": "2026-05-01T04:53:38Z",
+  "closed_at": "2026-04-20T03:27:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-26dc1ae3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:47:10"
+    },
+    {
+      "depends_on_id": "stoa-9233c63e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:45:06"
+    }
+  ]
+}

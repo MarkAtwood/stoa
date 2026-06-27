@@ -1,0 +1,20 @@
+{
+  "id": "stoa-32372ae2",
+  "title": "new_with_store for testability is correct design",
+  "description": "The new_with_store(Arc<dyn ObjectStore>, prefix) constructor allows unit tests to inject InMemory without running an S3 server. This is correct: the S3 store logic (CID computation, path building, error mapping) can be tested independently of the AWS SDK. A future contributor might suggest removing this in favor of mocking with wiremock; don't \u2014 wiremock-based S3 mocking is fragile (needs to handle AWS SigV4 auth) while InMemory tests the real trait implementation cleanly.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T02:12:23Z",
+  "updated_at": "2026-05-01T04:57:47Z",
+  "closed_at": "2026-04-28T02:14:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5cb0829f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 19:12:22"
+    }
+  ]
+}

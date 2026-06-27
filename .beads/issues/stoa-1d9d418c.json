@@ -1,0 +1,15 @@
+{
+  "id": "stoa-1d9d418c",
+  "title": "feat(smtp): manual peer whitelist (IP/CIDR)",
+  "description": "## Why\n\nOperators need to unconditionally trust specific peers \u2014 internal mail relays, monitoring systems, partner MTAs \u2014 without those peers being subject to DNSBL, FCrDNS, or greylisting checks. A static IP/CIDR whitelist in config, checked at connect time before any other filter.\n\n## Design\n\n### Config\n\n```toml\n[smtp]\npeer_whitelist = [\n    \"10.0.0.0/8\",\n    \"172.16.0.0/12\",\n    \"192.168.0.0/16\",\n    \"2001:db8::/32\",\n    \"1.2.3.4/32\",\n]\n```\n\n`peer_whitelist = []` by default (no trusted peers). Entries are parsed at startup; invalid CIDR strings are a fatal config error.\n\n### Hookup point\n\nIn `server.rs`, immediately after `accept()` and peer IP extraction, before DNSBL/FCrDNS checks:\n\n```rust\nlet whitelisted = config.peer_whitelist.iter().any(|net| net.contains(&peer_ip));\nif whitelisted {\n    // skip DNSBL, FCrDNS, greylisting \u2014 spawn session directly\n}\n```\n\n`whitelisted` flag is carried into `run_session` and used to bypass greylisting at RCPT TO time (same mechanism as DNSWL flag).\n\n### Dependency\n\n`ipnet` crate for CIDR matching (`IpNet::contains`). Not currently in the workspace \u2014 add to `crates/smtp/Cargo.toml`.\n\nConfig deserialization: implement `serde::Deserialize` for `Vec<IpNet>` via `ipnet`'s built-in serde support.\n\n### Precedence\n\n```\npeer_whitelist match  \u2192  skip DNSBL + FCrDNS + greylisting\nDNSWL match           \u2192  skip DNSBL + FCrDNS + greylisting\nDNSBL reject          \u2192  554 drop\nFCrDNS fail           \u2192  action applied\ngreylisting           \u2192  451 or pass\n```\n\nManual whitelist takes precedence over everything \u2014 it is operator intent, not heuristic.\n\n### No runtime reload\n\nWhitelist is read at startup. Changing it requires a server restart. Acceptable for a single-operator system; SIGHUP reload can be a future enhancement.\n\n## Acceptance criteria\n\n- IP matching a whitelisted CIDR proceeds directly to session, no DNSBL/FCrDNS/greylist checks\n- IPv4 and IPv6 CIDRs both supported\n- Invalid CIDR in config causes startup failure with a clear error message\n- Empty `peer_whitelist = []` is behaviour-identical to today\n- cargo fmt + clippy -D warnings + cargo test --workspace clean",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:18:32Z",
+  "updated_at": "2026-05-01T04:55:33Z",
+  "closed_at": "2026-04-30T15:58:12Z",
+  "notes": "Review converged after 1 round. Final review: stoa-6b4887c1.",
+  "design": "ipnet crate for IpNet::contains. Parsed at startup into Vec<IpNet> in Config. Checked first in server.rs accept loop before any other filter. whitelisted bool carried into run_session for greylist bypass."
+}

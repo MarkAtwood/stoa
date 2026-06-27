@@ -1,0 +1,33 @@
+{
+  "compaction_level": 0,
+  "content_hash": "dcc6c4eb3b06facfdd97a1314a547b5e8106e0e714526af8313e161e976ef625",
+  "created_at": "2026-05-05T00:16:43Z",
+  "created_by": "Mark Atwood",
+  "defer_until": "2099-01-01T08:00:00Z",
+  "description": "Canonical identity is separate from OIDC token. One person can authenticate via multiple IdPs (LF SSO, GitHub, Google) and reach the same mailboxes.\n\nSchema:\n  identities(identity_id PK, email, display_name, active bool, created_at, updated_at)\n  identity_providers(identity_id FK, issuer, sub, trust_level, linked_at, linked_by, PRIMARY KEY (issuer, sub))\n\ntrust_level values: managed | verified | federated\n  managed: foundation-controlled IdP (LF SSO/Okta), SCIM-provisioned, high trust\n  verified: third-party with verified email (GitHub, Google), medium trust\n  federated: any OIDC provider, low trust\n\nAuto-linking rules:\n  managed\u2192managed: auto-link on matching foundation-issued email, safe\n  verified\u2192managed: auto-link only if email is foundation-issued on both sides\n  verified\u2192verified: require user-confirmed or admin linking, not auto\n\nlinked_by values: scim | auto-email | admin | user-confirmed\n\nLogin flow:\n  token arrives with issuer + sub\n  \u2192 look up identity_providers WHERE issuer=? AND sub=?\n  \u2192 found: get identity_id, check active, proceed\n  \u2192 not found: attempt email linkage per trust rules above\n  \u2192 still not found: create new identity + provider record\n\nOIDC provider config gains trust_level field:\n  [[auth.oidc_providers]]\n  issuer = \"https://sso.linuxfoundation.org\"\n  trust_level = \"managed\"\n  scim_enabled = true\n\n  [[auth.oidc_providers]]\n  issuer = \"https://token.actions.githubusercontent.com\"\n  trust_level = \"verified\"\n  scim_enabled = false\n\nmin_trust_level on mailboxes: session must have an active provider at or above this level to access the mailbox. If not, stoa returns 401 with WWW-Authenticate pointing at a required managed IdP (step-up auth). The client re-authenticates and the session gains a second active provider.",
+  "ephemeral": 0,
+  "id": "stoa-4dsqe.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "DoD/GSA door-open decision: add 'hardware' as a fourth trust tier above 'managed'. Maps to PIV/CAC smart card authentication (client certificate with Federal Common Policy CA chain). trust_level values in order: hardware > managed > verified > federated. hardware tier slots PIV support in cleanly when needed without restructuring the access control model. PIV is client cert auth with specific CA chain \u2014 stoa-reader already has client_certs skeleton. Keep that path from rotting. Also note: every access control decision must write an audit log row (grant check, token validation, SCIM event, mailbox access) \u2014 government auditors need 'who accessed what when' for any message any time. Gaps are findings.\nIdentity ID format decision: UUIDv7. Time-ordered, good B-tree index locality, RFC 9562, no external coordination, not derived from any IdP attribute so stable across provider changes and merges.\n\nDID support: future, not v1. Users will be able to add DIDs to their identity later as an additional credential type, same linking ceremony as IdP providers. Schema placeholder:\n\n  CREATE TABLE identity_dids (\n      identity_id  TEXT NOT NULL,  -- UUIDv7\n      did          TEXT NOT NULL,  -- did:key:z6Mk... or did:web:... etc\n      linked_at    INTEGER NOT NULL,\n      linked_by    TEXT NOT NULL,  -- 'user-confirmed' | 'admin'\n      PRIMARY KEY (did)\n  );\n\nDID method priority when implemented: did:key first (self-contained, no external resolution), then did:web, then others explicitly. did:ion and blockchain-dependent methods last.\n\nLong-term payoff: cross-instance stoa federation. Two stoa instances both recognizing did:key:z6Mk... means same person authenticates to both without central registry or manual linking. Do not design anything now that forecloses this.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "deferred",
+  "timeout_ns": 0,
+  "title": "design: identity model \u2014 identities, providers, trust tiers",
+  "updated_at": "2026-05-05T00:36:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T17:16:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-4dsqe",
+      "id": "1321c51d-3a41-5d53-87a1-6f95f87640e4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

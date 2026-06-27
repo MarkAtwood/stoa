@@ -1,0 +1,20 @@
+{
+  "id": "stoa-881b15e4",
+  "title": "imap/listener: max_connections config is validated but never enforced",
+  "description": "crates/imap/src/config.rs validates limits.max_connections > 0 and defaults to 200, but crates/imap/src/listener.rs never uses this value \u2014 there is no Semaphore, AtomicUsize connection counter, or any other enforcement. The listener accepts an unlimited number of simultaneous connections regardless of config, making the IMAP server susceptible to connection exhaustion (fd leak / memory exhaustion). Fix: add a tokio::sync::Semaphore of size max_connections in listener; acquire before spawning each session task.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T20:57:15Z",
+  "updated_at": "2026-05-01T04:53:53Z",
+  "closed_at": "2026-04-24T21:35:59Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-43a593be",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-24 13:57:15"
+    }
+  ]
+}

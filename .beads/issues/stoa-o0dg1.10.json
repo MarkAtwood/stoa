@@ -1,0 +1,33 @@
+{
+  "close_reason": "opinion: Arc clone pattern is correct and idiomatic",
+  "closed_at": "2026-05-02T14:03:33Z",
+  "compaction_level": 0,
+  "content_hash": "2cc2838bc6ff4a1ede48978d46f3dde8964e1a15788056a4a90816043f0c7727",
+  "created_at": "2026-05-02T14:02:51Z",
+  "created_by": "Mark Atwood",
+  "description": "build_jmap_dispatcher(stores: Arc<JmapStores>) creates StoaHandler{stores} and then calls Arc::clone(&handler) 31 times in the loop. The pattern is: one Arc<StoaHandler> with one Arc<JmapStores> inside it, then 31 Arc::clone of the handler. This is correct and efficient. No change needed \u2014 noting it as reviewed.",
+  "ephemeral": 0,
+  "id": "stoa-o0dg1.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "build_jmap_dispatcher takes Arc<JmapStores> by value, StoaHandler clones it \u2014 single clone suffices",
+  "updated_at": "2026-05-02T14:03:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T07:02:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-o0dg1",
+      "id": "a8ed9776-19a3-52a2-9ac2-3413ffb68135",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-a12b8b7b",
+  "title": "Core crate: Merkle-CRDT per-group append-only log",
+  "description": "Implement the per-group Merkle-CRDT append-only log in usenet-ipfs-core. Each group has a log of entries (timestamp, article_cid, operator_signature). Log tips are Merkle-hashed. Two peers reconcile by exchanging tips and performing set-union of missing entries, walking parent links for late-join backfill. Hybrid-logical-clock ordering ensures causal consistency without a coordinator.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:10:13Z",
+  "updated_at": "2026-05-01T04:53:07Z",
+  "closed_at": "2026-04-20T12:28:53Z",
+  "notes": "Prior art \u2014 Corundum two-tier timeline: Corundum organizes per-user content as a mutable current chunk (up to 256 entries) plus sealed immutable epochs, each with a Merkle root and prev-pointer chain. The ArchiveIndex provides O(1) lookup by sequence number. This is directly comparable to the usenet-ipfs per-group Merkle-CRDT log. Key differences: Corundum is per-user-per-operator; usenet-ipfs is per-group across multiple peers with CRDT merge semantics. The entry field shape (seq, prev, contentHash/CID, timestamp, retention) should inform the usenet-ipfs group log entry design even though the merge protocol differs.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-a2023a88",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:10:12"
+    }
+  ]
+}

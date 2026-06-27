@@ -1,0 +1,32 @@
+{
+  "compaction_level": 0,
+  "content_hash": "c4f0fbd04650b27b7e8eb1ccb185fdcd6bd825dec4a299f204d25d3b18231eea",
+  "created_at": "2026-05-02T14:02:06Z",
+  "created_by": "Mark Atwood",
+  "defer_until": "2026-06-01T07:00:00Z",
+  "description": "build_jmap_dispatcher allocates a new HashMap and does 31 Arc::clone + HashMap::insert operations on every JMAP request. Dispatcher<JmapCaller> is Send+Sync (per jmap-server design) and its only per-request data (JmapCaller) is passed to dispatch() at call time, not at construction. Could be built once in AppState::new() and stored as Arc<Dispatcher<JmapCaller>> \u2014 removing ~31 allocations per request. Worth fixing once AppState initialization is settled.",
+  "ephemeral": 0,
+  "id": "stoa-o0dg1.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "deferred",
+  "timeout_ns": 0,
+  "title": "build_jmap_dispatcher rebuilt per JMAP request \u2014 Dispatcher could be cached in AppState",
+  "updated_at": "2026-05-02T14:07:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T07:02:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-o0dg1",
+      "id": "4c47c75f-ceed-5981-a832-19ffb2c3d48a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

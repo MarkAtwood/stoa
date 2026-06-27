@@ -1,0 +1,20 @@
+{
+  "id": "stoa-a4b254d0",
+  "title": "GOOD: T7 regression test for IPv4-mapped normalization bug surface",
+  "description": "Test T7 (peer_whitelist_ipv4_mapped_ipv6_matches_ipv4_cidr) encodes the failure mode that would occur on a dual-stack Linux server: when a client connects as IPv4 to a dual-stack socket, the kernel presents the peer address as ::ffff:x.x.x.x. Without normalization, an operator who adds 192.168.0.0/16 to peer_whitelist would find their IPv4 clients not whitelisted. T7 names RFC 4291 section 2.5.5.2 as the oracle, uses a concrete address pair, and is the only test that would catch a regression if to_ipv4_mapped() were accidentally changed or removed. This bug surface is non-obvious and the test captures institutional knowledge about dual-stack socket behavior.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:48:12Z",
+  "updated_at": "2026-05-01T04:58:57Z",
+  "closed_at": "2026-04-30T15:56:07Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b4887c1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:48:12"
+    }
+  ]
+}

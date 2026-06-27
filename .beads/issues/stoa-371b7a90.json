@@ -1,0 +1,20 @@
+{
+  "id": "stoa-371b7a90",
+  "title": "hand-rolled RFC3339 calendar in email/types.rs: O(n) year loop, no edge-case tests",
+  "description": "email/types.rs implements hlc_ms_to_rfc3339 using hand-rolled date arithmetic (days_to_year_doy loops from 1970 one year at a time). For a timestamp 1000 years in the future, it loops 1000 times per call. More critically: doy_to_month_day has a fallback of (12,31) that is reached when rem is not exhausted by the months array \u2014 this can produce incorrect dates for inputs where accumulated day-in-year accounting is wrong. There are no test vectors against an independent implementation (e.g., chrono). This entire function should use chrono::DateTime::from_timestamp or equivalent.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:58:16Z",
+  "updated_at": "2026-05-01T04:51:49Z",
+  "closed_at": "2026-04-27T06:25:00Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-18ecb995",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 22:58:15"
+    }
+  ]
+}

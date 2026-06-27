@@ -1,0 +1,20 @@
+{
+  "id": "stoa-76959216",
+  "title": "Broken sentence in smtp_peer_down_secs doc comment",
+  "description": "config.rs line 276: garbled sentence \u2014 counter name deleted, leaving double space and dangling fragment. A reader cannot tell which counter is meant. Fix: restore counter name or rephrase.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:47:45Z",
+  "updated_at": "2026-05-01T04:58:51Z",
+  "closed_at": "2026-04-30T15:57:49Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b4887c1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:47:45"
+    }
+  ]
+}

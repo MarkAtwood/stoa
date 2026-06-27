@@ -1,0 +1,47 @@
+{
+  "compaction_level": 0,
+  "content_hash": "1c81225fdb99ac93d9acd315d029e85027be88a0bb758ba738715a7d79055586",
+  "created_at": "2026-05-02T14:35:41Z",
+  "created_by": "Mark Atwood",
+  "description": "Emit a tracing::info! event with audit = true on every auth outcome in basic_auth_middleware. These events are the primary compliance evidence for HIPAA \u00a7164.312(b) and PCI-DSS Requirement 10.\n\n## Audit event schema (all auth events)\n  tracing::info!(\n      audit         = true,\n      event.type    = \"auth.login_success\" | \"auth.login_failure\" | \"auth.no_credentials\",\n      auth.method   = \"basic\" | \"bearer_token\" | \"oidc_jwt\",\n      username      = %attempted_username,  // empty string if not present in request\n      source_ip     = %source_ip,\n      \"auth event\",\n  );\n\n## Specific sites in basic_auth_middleware (server.rs ~line 94)\n\n  1. OIDC JWT success (line ~122): event.type = auth.login_success, auth.method = oidc_jwt\n  2. OIDC JWT failure (line ~125): event.type = auth.login_failure, auth.method = oidc_jwt\n     (Note: this currently falls through to bearer token check \u2014 only emit if ALL auth paths fail)\n  3. Bearer token success (line ~134): event.type = auth.login_success, auth.method = bearer_token\n  4. Bearer token not found (line ~137): event.type = auth.login_failure, auth.method = bearer_token\n  5. Bearer token DB error (line ~139): event.type = auth.login_failure, auth.method = bearer_token\n     (do not include the DB error message in the audit event \u2014 that belongs in the existing tracing::error! call)\n  6. Basic auth credentials missing (line ~160): event.type = auth.no_credentials\n  7. Basic auth wrong password (line ~164): event.type = auth.login_failure, auth.method = basic\n  8. Basic auth success (line ~167): event.type = auth.login_success, auth.method = basic\n\n## What NOT to log\n- The password or token value (obvious)\n- The full Authorization header\n- DB error messages (already logged separately by existing tracing::error! calls)\n- OIDC intermediate failures that fall through to the next auth method \u2014 only log a failure\n  if the request is ultimately rejected, to avoid a failed-OIDC event immediately followed\n  by a successful-bearer event which looks suspicious in audit logs\n\n## Acceptance\n- Integration test: correct credentials \u2192 audit event with event.type=auth.login_success emitted\n- Integration test: wrong password \u2192 audit event with event.type=auth.login_failure emitted\n- Integration test: missing Authorization header \u2192 audit event with event.type=auth.no_credentials emitted\n- source_ip field is present and non-empty in all three cases",
+  "ephemeral": 0,
+  "id": "stoa-jj165.5",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Add audit events to basic_auth_middleware for all auth outcomes",
+  "updated_at": "2026-06-26T20:26:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T07:36:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jj165.4",
+      "id": "71e93107-fe3c-57ff-9d05-7f53c15207fc",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T07:36:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jj165.1",
+      "id": "8fb17720-0671-55de-991e-ecae43d8d021",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T07:35:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jj165",
+      "id": "9c3bffd0-6f8a-5fb8-872b-0c3df292f48b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

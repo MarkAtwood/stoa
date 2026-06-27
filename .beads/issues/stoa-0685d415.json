@@ -1,0 +1,26 @@
+{
+  "id": "stoa-0685d415",
+  "title": "Peer block fetch: XCID command spec and transit CAPABILITIES",
+  "description": "Define the XCID <cid> command: wire request/response format (224 Block follows / 430 No such block), add XCID to transit peering CAPABILITIES response so peers can probe support. Blocked on: stoa-74b450b1.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:39:01Z",
+  "updated_at": "2026-05-01T04:56:25Z",
+  "closed_at": "2026-04-23T22:27:47Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-74b450b1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:39:13"
+    },
+    {
+      "depends_on_id": "stoa-ba00cbee",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 12:59:53"
+    }
+  ]
+}

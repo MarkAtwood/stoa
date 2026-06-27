@@ -1,0 +1,21 @@
+{
+  "id": "stoa-208fe74d",
+  "title": "9tz.7: NNTP SEARCH dispatch + lifecycle handler",
+  "description": "What: Wire NNTP SEARCH command into the dispatch and lifecycle layers. Advertise SEARCH in CAPABILITIES.\n\nAlgorithm:\n1. In dispatch.rs, match arm for Command::Search:\n   - If state is not GroupSelected \u2192 return Response::new(412, \"No newsgroup selected\")\n   - Otherwise: placeholder Response::new(100, \"Article list follows\") (actual call in lifecycle.rs)\n   Actually: move full logic to lifecycle.rs (similar to OVER pattern).\n\n2. In lifecycle.rs run_command_loop(), add before the generic dispatch():\n   if let Command::Search { ref key, ref value } = parsed_cmd {\n       let resp = handle_search(stores, ctx, key, value).await;\n       writer.write_all(&resp.to_wire_bytes()).await?;\n       continue;\n   }\n\n3. Implement handle_search(stores, ctx, key, value) -> Response:\n   - If ctx.current_group.is_none() \u2192 return Response::new(412, \"No newsgroup selected\")\n   - If stores.search_index.is_none() \u2192 return Response::new(503, \"Search not available\")\n   - Validate value.len() <= stores.config.search.max_query_len \u2192 if over, 501 Syntax error\n   - Build query_str from key + value:\n     * Subject \u2192 subject:\"<value>\"\n     * From \u2192 from_header:\"<value>\"\n     * Body \u2192 body_text:\"<value>\"\n     * Text \u2192 \"<value>\" (searches all fields)\n     * Since \u2192 convert RFC 2822 date to unix ts; RangeQuery on date_ts\n     * Before \u2192 convert RFC 2822 date to unix ts; RangeQuery on date_ts\n   - Call search_index.search_in_group(group, query_str, 10000, max_query_len).await\n   - On Ok(nums): format multi-line response:\n     \"100 Article list follows\\r\\n\" + article_nums joined by \"\\r\\n\" + \"\\r\\n.\\r\\n\"\n   - On Err(QueryTooLong) \u2192 501; Err(Unavailable) \u2192 503; Err(_) \u2192 451 \"Program error\"\n\n4. In CAPABILITIES response: add \"SEARCH\" capability line (unconditionally; server returns 503 if disabled).\n\nDefensive rules: Never log query value (may contain sensitive search terms). Convert dates defensively; if RFC 2822 parse fails, return 501 Syntax error. All error paths return typed NNTP codes, never unwrap.\n\nTests: Integration test: open in-memory stores, POST article, SEARCH BODY finds it.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T01:21:32Z",
+  "updated_at": "2026-05-01T05:00:38Z",
+  "closed_at": "2026-04-23T02:17:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-85f5ab08",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 18:21:31"
+    }
+  ]
+}

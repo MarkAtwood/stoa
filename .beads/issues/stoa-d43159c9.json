@@ -1,0 +1,14 @@
+{
+  "id": "stoa-d43159c9",
+  "title": "Review round 3: full project security and correctness",
+  "description": "Third full-project review pass. Previous rounds (rbe3, 3vye) covered: staging drain_one race, pipeline parent chain, gc ingested_at_ms, validate_headers NUL bytes, dot_stuff CRLF, pipeline self-sig fatal, group_range efficiency, percent_decode admin, auth handshake deadlock, STAT msgid stub. This round focuses on remaining gaps.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T04:07:30Z",
+  "updated_at": "2026-05-01T04:53:40Z",
+  "closed_at": "2026-04-27T04:12:38Z",
+  "notes": "Maintainer risk: LOW \u2014 No P0 correctness bugs found in round 3. One P1 defense-in-depth gap (negative HLC timestamp cast). All other agent findings were false positives after manual verification. The DID verification, CRDT reconcile, x_sig bounds, and group log concurrency findings did not hold up to scrutiny."
+}

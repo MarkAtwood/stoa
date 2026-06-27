@@ -1,0 +1,21 @@
+{
+  "id": "stoa-bb007471",
+  "title": "Response::to_string allocates per-line String for every response",
+  "description": "O(N) PER-COMMAND ALLOCATION \u2014 Response::to_string (response.rs:239) calls write!() per body line via the fmt::Display impl, which forces string allocation through to_string() before write_all at each command dispatch in lifecycle.rs. For OVER responses with 10 000 body lines this is 10 000 format! calls inside the Display impl, then .to_string() materialises the full response into a single String before any bytes hit the wire. Fix: write directly to a pre-allocated BytesMut or use a write-to-writer path that avoids materialising the full response String.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:10:01Z",
+  "updated_at": "2026-05-01T04:56:04Z",
+  "closed_at": "2026-04-27T16:11:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:10:00"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "stoa-9ebacbc8",
+  "title": "routing.rs: add_newsgroups_header does not validate newsgroup name before injecting into header",
+  "description": "routing.rs add_newsgroups_header: the newsgroup name comes from the Sieve FileInto argument (e.g. 'newsgroup:comp.test'). The newsgroup portion is used verbatim in the Newsgroups: header without validation. A Sieve script could use FileInto('newsgroup:bad\\r\\nX-Injected: header') to inject arbitrary headers into the queued article. The Sieve script editor is the only path to control the newsgroup name, but the admin API accepts arbitrary script content \u2014 a Sieve script that passes compilation could inject headers via FileInto.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:36:13Z",
+  "updated_at": "2026-05-01T04:52:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:36:13"
+    }
+  ]
+}

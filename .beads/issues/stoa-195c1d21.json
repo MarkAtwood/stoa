@@ -1,0 +1,14 @@
+{
+  "id": "stoa-195c1d21",
+  "title": "Review round 1: Native Sieve interpreter (n3vt)",
+  "description": "Round 1 review of the sieve-native crate and smtp dep-swap",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T04:06:50Z",
+  "updated_at": "2026-05-01T04:54:00Z",
+  "closed_at": "2026-04-24T04:39:42Z",
+  "notes": "SEC1 REVIEW COMPLETE: Maintainer risk = MEDIUM. The ~2000-line crate is well-written and maintainable by a solo dev, but has MEDIUM risk in three areas:\n\n1. FANCY-REGEX DRIFT (HIGH): pinned at v0.13.0, latest is v0.18.0. Regex matching behavior could change silently. Glob-to-regex code lacks edge-case tests. Impact: silent matching bugs on upgrade.\n\n2. ORACLE DRIFT (MEDIUM): cross-validation uses sieve-rs as oracle, but if sieve-rs updates, no documented procedure for resolving divergence. Solo maintainer without Sieve expertise cannot reliably verify RFC 5228/5229 correctness.\n\n3. RFC EXPERTISE DEPENDENCY (MEDIUM): inline comments reference RFC sections but don't explain semantic rules (e.g., why 'ignore unknown commands' is fail-safe). Solo maintainer without RFC knowledge will struggle to refactor safely.\n\nASSESSMENT DETAIL:\n- Code quality: GOOD (no unsafe, explicit errors, clean structure)\n- Test coverage: ADEQUATE for happy path (28 unit + 13 integration tests, all passing)\n- Test gaps: Regex edge cases, address extraction edge cases, variable substitution edge cases\n- Cross-validation oracle: VALID but insufficient for spec compliance (independent impl, not reference impl)\n\n4 TASK ISSUES FILED (P2-P3):\n- stoa-195c1d21.3: fancy-regex version pinning & upgrade path\n- stoa-195c1d21.4: oracle drift mitigation plan  \n- stoa-195c1d21.5: parse error location info (low impact)\n- stoa-195c1d21.6: RFC documentation for solo maintainers\n\nRECOMMENDATIONS:\n- Address P2 (fancy-regex, edge-case tests) before next major version\n- Add Sieve expertise or external reference tests before heavy refactoring\n- Document oracle divergence procedure in CLAUDE.md before deploying to production"
+}

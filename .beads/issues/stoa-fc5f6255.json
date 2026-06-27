@@ -1,0 +1,20 @@
+{
+  "id": "stoa-fc5f6255",
+  "title": "startup_scan_removes_tmp_files test does not cover the wider *.tmp deletion",
+  "description": "The test startup_scan_removes_tmp_files creates 'something.msg.tmp' and 'something.env.tmp' \u2014 files that both the old and new check would delete. No test covers a file like 'other.tmp' (no double extension), so the behavioral widening in round-6 (extension()==\"tmp\" matches any .tmp) has zero test coverage. A future contributor who sees the test will believe it demonstrates that only well-formed queue tmp files are deleted, when in fact any .tmp file now matches.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:09:18Z",
+  "updated_at": "2026-05-01T04:52:28Z",
+  "closed_at": "2026-05-01T01:16:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-185e20da",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:09:18"
+    }
+  ]
+}

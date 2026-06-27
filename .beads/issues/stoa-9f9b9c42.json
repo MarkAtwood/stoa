@@ -1,0 +1,20 @@
+{
+  "id": "stoa-9f9b9c42",
+  "title": "Backpressure: high-water mark on staging buffer with 436/400 responses",
+  "description": "Add configurable high-water mark to ingest staging buffer ([ingest] max_pending_articles default 1000, max_pending_bytes default 256MB). When exceeded: IHAVE/TAKETHIS returns 436 (RFC 4644 Retry later), POST returns 400 server busy. Backpressure releases automatically as drain catches up. Blocked on: stoa-b4d07bb2.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:40:34Z",
+  "updated_at": "2026-05-01T04:59:03Z",
+  "closed_at": "2026-04-27T22:52:43Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-b4d07bb2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:41:46"
+    }
+  ]
+}

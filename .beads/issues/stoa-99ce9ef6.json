@@ -1,0 +1,21 @@
+{
+  "id": "stoa-99ce9ef6",
+  "title": "GC advisory lock released before articles-table cleanup creates re-collection window",
+  "description": "start_gc_scheduler acquires pg_try_advisory_lock, runs run_once (which calls unpin but does not delete the articles row), then releases the lock. A second GC instance that acquires the lock during the delete phase could select the same CID as a candidate and attempt a second unpin. The articles-row deletion must happen while the advisory lock is held.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:37:17Z",
+  "updated_at": "2026-05-01T04:56:46Z",
+  "closed_at": "2026-05-01T04:32:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:37:17"
+    }
+  ]
+}

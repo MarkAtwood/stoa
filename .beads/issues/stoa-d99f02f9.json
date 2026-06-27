@@ -1,0 +1,12 @@
+{
+  "id": "stoa-d99f02f9",
+  "title": "Config reload via SIGHUP and admin endpoint",
+  "description": "Reload operator-configurable settings without restarting the daemon, triggered by either SIGHUP or a POST to the admin endpoint.\n\nWhy this issue exists:\nToday any config change requires a full restart, dropping all active connections. Operators need to add peers, update group subscriptions, rotate credentials, and change log levels without service interruption. Both SIGHUP (standard Unix operator muscle memory) and an admin endpoint (for scripted/remote management) must be supported.\n\nScope:\nReloadable without restart:\n- [peers] addresses \u2014 add/remove transit peers\n- [groups] names \u2014 add/remove group subscriptions\n- [auth] users and credential_file \u2014 rotate credentials\n- [log] level \u2014 change log verbosity at runtime\n- [pinning] rules \u2014 update retention policy\n\nNot reloadable (require restart):\n- Listen addresses ([listen] addr)\n- Database paths\n- TLS cert/key paths\n- IPFS api_url\n\nMechanism:\n- SIGHUP: re-read the config file from the original --config path, apply reloadable fields, log what changed at INFO\n- POST /admin/reload: same effect as SIGHUP; returns JSON diff of what changed\n- If the new config has a parse error, log the error and keep the current config unchanged\n- Emit a structured log event for each changed field (old value redacted for credential fields)\n\nAcceptance criteria:\n- Adding a peer via config file + SIGHUP causes the daemon to connect to the new peer without restart\n- POST /admin/reload returns {changed: [field names], errors: []}\n- A config file with a syntax error on reload leaves the running config unchanged and returns the parse error\n- Credential rotation via reload does not drop active authenticated sessions",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:15:49Z",
+  "updated_at": "2026-05-01T04:51:44Z",
+  "closed_at": "2026-04-28T08:36:58Z"
+}

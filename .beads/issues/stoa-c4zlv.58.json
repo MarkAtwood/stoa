@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T17:33:51Z",
+  "compaction_level": 0,
+  "content_hash": "1757b8cd7b12d78386dd57d8bc220ecd9c9cf5b950110c0bd123604988699639",
+  "created_at": "2026-05-01T15:20:48Z",
+  "created_by": "Mark Atwood",
+  "description": "Scenario: newsreader client uses NEWNEWS to retrieve message-IDs of articles posted since its last connection (RFC 3977 \u00a77.4). session/commands/list.rs::newnews unconditionally returns an empty 230 response. Consequence: any client relying on NEWNEWS for incremental article sync (slrn uses this, as do suck/leafnode pull feeds) will never receive article notifications. The server will silently appear empty to these clients regardless of how many articles have been posted.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.58",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "NEWNEWS always returns empty \u2014 incremental sync broken",
+  "updated_at": "2026-05-01T17:33:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:20:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "9b4a53e7-cae2-578d-9d7e-af6c52f3281b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

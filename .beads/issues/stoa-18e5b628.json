@@ -1,0 +1,21 @@
+{
+  "id": "stoa-18e5b628",
+  "title": "Migrate operator signing key to secretx SigningBackend",
+  "description": "Why: OperatorConfig.signing_key_path is a bare file path in both stoa-transit (crates/transit/src/config.rs:138) and stoa-reader (crates/reader/src/config.rs:220). This forces the private key material to live on disk as a PEM file. secretx SigningBackend (secretx-core) is an exact fit: sign(message) returns raw signature bytes without exposing key material, enabling PKCS#11 HSM, AWS KMS, or WolfHSM backends in addition to plain file. What to do: Rename signing_key_path to signing_key_uri in OperatorConfig (both transit and reader). At startup, resolve via secretx: if uri starts with 'secretx:' dispatch to the appropriate backend; otherwise treat as a file path for backwards compat. Replace the code that loads PEM bytes and constructs an ed25519-dalek SigningKey with a Box<dyn SigningBackend>. Update all article-signing call sites from .sign(message) on the dalek key to signing_backend.sign(message).await. Add secretx (with file + env features at minimum) to stoa-transit and stoa-reader Cargo.toml.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-26T20:44:58Z",
+  "updated_at": "2026-05-01T04:56:17Z",
+  "closed_at": "2026-04-26T20:47:02Z",
+  "notes": "Part of epic stoa-6c0f1855 (Integrate crate-secretsx). Blocked on stoa-f0b9ff15 (workspace wiring).",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-f0b9ff15",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 13:45:30"
+    }
+  ]
+}

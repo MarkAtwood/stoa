@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "91f7b025735a43fa3cfc3cb16b1ab432737661d14c9447839d61ed22d4743990",
+  "created_at": "2026-05-03T13:06:13Z",
+  "created_by": "Mark Atwood",
+  "description": "In oidc.rs::try_key: validation.required_spec_claims = [\"exp\"].iter().map(|s| s.to_string()).collect(); This is equivalent to HashSet::from([\"exp\".to_string()]) or [\"exp\".to_owned()].into(). The iterator pattern is unnecessarily verbose for a single-element set. Clippy (unnecessary_to_owned, or clippy::single_element_loop) may flag this.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.107",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "auth: required_spec_claims constructed via iterator; should use HashSet::from directly",
+  "updated_at": "2026-05-03T13:06:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "6a20d290-4950-5f9b-bf6a-b89b75a592ef",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

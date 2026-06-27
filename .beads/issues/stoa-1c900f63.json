@@ -1,0 +1,21 @@
+{
+  "id": "stoa-1c900f63",
+  "title": "DECISION: Peering handshake signs nonce-plus-pubkey",
+  "description": "Handshake in auth.rs signs their_nonce concatenated with my_pubkey. Binding to both values prevents cross-protocol replay. Signing only the nonce would allow replay. Future contributor might simplify to nonce-only.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:10:47Z",
+  "updated_at": "2026-05-01T04:56:03Z",
+  "closed_at": "2026-04-27T16:12:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:10:47"
+    }
+  ]
+}

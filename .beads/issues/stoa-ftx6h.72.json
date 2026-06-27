@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "18d2ee2864a0355e5dcb46974b32d010014ea3970aee536450fb38d1b1684516",
+  "created_at": "2026-05-03T13:05:18Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this issue exists: jmap/thread.rs handle_thread_get() fetches up to MAX_THREAD_SCAN=5000 email rows and groups them in memory by thread_id to service a Thread/get request. For mailboxes with thousands of messages this scans the entire email table on every Thread/get call. RFC 8621 \u00a74.5 Thread/get should be O(requested_thread_ids) not O(mailbox_size).\n\nWhat needs to be done: Add a (thread_id, email_id) index and query by thread_id directly: SELECT id FROM emails WHERE thread_id = ? for each requested thread ID. The current full-scan approach was likely a prototype shortcut. Remove MAX_THREAD_SCAN and the in-memory grouping once the indexed path is in place.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.72",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Thread/get: O(n) full scan up to MAX_THREAD_SCAN=5000 rows per request",
+  "updated_at": "2026-05-03T13:05:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "e0136790-662c-5e06-8edc-e9a75c7df156",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

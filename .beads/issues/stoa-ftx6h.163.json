@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T15:10:43Z",
+  "compaction_level": 0,
+  "content_hash": "3bebea7d2c69d5cfbe2e09703a6080d52def4a8c7df0c9a251b4a7b3b7395c5c",
+  "created_at": "2026-05-03T13:08:22Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: a leaked PostgreSQL advisory lock will prevent any other instance from publishing IPNS updates until the session disconnects, causing a silent stall of IPNS publishing across the cluster. What: ipns_publisher.rs IpnsPublisher::run acquires the advisory lock with can_publish() then calls update_and_publish(). If update_and_publish panics (e.g. from an unwrap on a serde error), the release_lock() call is never reached. The lock is not protected by a Drop guard or a catch_unwind boundary. Mitigation requires a defer-like pattern or restructuring the lock acquisition into a RAII guard.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.163",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "IPNS publisher PG advisory lock leaked on panic in update_and_publish",
+  "updated_at": "2026-05-03T15:10:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:08:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "8eac6dfd-3509-5972-bc99-81ac57b21a5c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

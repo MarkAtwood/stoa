@@ -1,0 +1,20 @@
+{
+  "id": "stoa-b3c5c0be",
+  "title": "TAKETHIS accepted in IHAVE mode (RFC 4644 mode violation)",
+  "description": "transit/peering/session.rs:111-143: TAKETHIS does not call check_mode_guard(). RFC 4644 specifies TAKETHIS is streaming-mode only. In IHAVE mode, a peer sending TAKETHIS should receive 401 but instead receives 239 (success). CHECK correctly calls check_mode_guard() at line 100. Fix: add check_mode_guard() call at the start of the TAKETHIS handler.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:35:43Z",
+  "updated_at": "2026-05-01T04:59:47Z",
+  "closed_at": "2026-04-22T21:05:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:35:43"
+    }
+  ]
+}

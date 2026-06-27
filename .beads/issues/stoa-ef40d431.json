@@ -1,0 +1,21 @@
+{
+  "id": "stoa-ef40d431",
+  "title": "activitypub/http_sign.rs: RsaPrivateKey cloned on every sign_post call",
+  "description": "Why this issue exists: In crates/mail/src/activitypub/http_sign.rs, RsaActorKey::sign_post constructs a new SigningKey by cloning the entire RsaPrivateKey on every call. RSA private keys are large; this is an unnecessary allocation per outbound ActivityPub delivery.\n\nWhat needs to be done: Construct the SigningKey once and store it alongside or instead of the raw RsaPrivateKey in RsaActorKey, so sign_post borrows without cloning.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:27:54Z",
+  "updated_at": "2026-05-01T04:55:46Z",
+  "closed_at": "2026-04-28T20:03:30Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:27:54"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "id": "stoa-deef2c6b",
+  "title": "Reader ingest: branch on InjectionSource for group log vs local-only",
+  "description": "Make the reader post pipeline write a group log entry only for peerable sources.\n\nWhat: crates/reader/src/post/ipfs_write.rs (or wherever the group log entry is written after IPFS write)\n\nCurrent flow (all articles):\n  write to IPFS \u2192 write group log entry \u2192 update article_numbers + overview \u2192 240 OK\n\nNew flow:\n  write to IPFS \u2192 if source.is_peerable() { write group log entry } \u2192 update article_numbers + overview \u2192 240 OK\n\nChanges:\n1. Thread InjectionSource through the post pipeline. Direct NNTP POST always passes NntpPost. NntpQueue drain passes the source from the envelope.\n2. In the group log entry writer: skip entry when !source.is_peerable().\n3. article_numbers and overview are always written regardless of source (local readers need to see all articles).\n4. Group log entry for peerable sources gains an informational injection_source field (DAG-CBOR optional field alongside the existing verification_cid from stoa-f07d2b75):\n   log_entry.injection_source = Some(source)   // informational; peers can filter if they want\n\nDefensive rules:\n- article_numbers and overview MUST be written for all sources including SmtpListId \u2014 local NNTP clients must be able to read list-injected articles.\n- The 240 OK response is sent regardless of source \u2014 the SMTP caller does not need to know whether the article was peered.\n- NntpPost source always writes the group log entry; no configuration can suppress it.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:58:19Z",
+  "updated_at": "2026-05-01T04:54:02Z",
+  "closed_at": "2026-04-24T00:39:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-46d6c408",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:58:19"
+    },
+    {
+      "depends_on_id": "stoa-7bd14a87",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:59:06"
+    },
+    {
+      "depends_on_id": "stoa-b11ea0b6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:58:48"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "stoa-626fffaa",
+  "title": "Implement ed25519 operator signing and signature verification",
+  "description": "Implement signing of canonical article bytes with an operator ed25519 key (ed25519-dalek), and verification of those signatures. Artifact: src/signing.rs in usenet-ipfs-core. The signing key is never logged and never stored in plaintext in application state.\n\nAcceptance:\n- sign(key: &SigningKey, canonical_bytes: &[u8]) -> Signature compiles and works\n- verify(pubkey: &VerifyingKey, canonical_bytes: &[u8], sig: &Signature) -> Result<()> works\n- Unit test: sign then verify with same key passes\n- Unit test: verify with wrong key returns error\n- Unit test: verify with tampered bytes returns error\n- No signing key material appears in any log statement",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:10:01Z",
+  "updated_at": "2026-05-01T04:53:07Z",
+  "closed_at": "2026-04-20T03:18:20Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1c73f68d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:10:01"
+    },
+    {
+      "depends_on_id": "stoa-5a6143a5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:10:10"
+    }
+  ]
+}

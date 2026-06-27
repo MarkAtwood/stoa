@@ -1,0 +1,20 @@
+{
+  "id": "stoa-189c34a0",
+  "title": "looks_like_bcrypt_hash factored into stoa-auth is correct placement",
+  "description": "looks_like_bcrypt_hash was previously duplicated in reader/config.rs. Moving it to stoa-auth ensures all three services (reader, imap, smtp) use the same validation logic and cost-range check. If a future contributor wants to tighten or relax the check, one change covers all services. Do not move it back to individual crates.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T20:32:04Z",
+  "updated_at": "2026-05-01T04:51:40Z",
+  "closed_at": "2026-04-30T20:33:28Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-44ba837b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:32:03"
+    }
+  ]
+}

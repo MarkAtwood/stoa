@@ -1,0 +1,13 @@
+{
+  "id": "stoa-b10f1f1d",
+  "title": "[epic] RocksDB block store backend",
+  "description": "## Why\nRocksDB is an LSM-tree embedded KV store with higher write throughput than LMDB, making it a better fit for transit nodes with heavy ingest rates. Trade-off: slower point reads (LSM vs B-tree) and a C++ dependency via the `rocksdb` crate FFI. Useful for operators seeing LMDB write amplification under sustained load.\n\n## Scope\n- `[backend] type = \"rocksdb\"` config: `path` directory, optional `cache_size_mb`\n- `RocksStore: IpfsStore` and `RocksBlockStore: IpfsBlockStore` backed by the `rocksdb` crate (column family: `blocks`, key = CID bytes, value = raw block)\n- Bloom filters on the blocks CF for fast negative lookups\n- Startup: open or create DB, verify writable\n- Integration tests: round-trip, idempotent put, delete, concurrent reads\n- RUNBOOK section with tuning notes (block cache, compaction)",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T16:23:46Z",
+  "updated_at": "2026-05-01T04:56:27Z",
+  "closed_at": "2026-04-28T04:07:11Z"
+}

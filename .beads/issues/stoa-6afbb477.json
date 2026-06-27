@@ -1,0 +1,20 @@
+{
+  "id": "stoa-6afbb477",
+  "title": "auth/oidc: per-provider reqwest Client wastes connection pool",
+  "description": "crates/auth/src/oidc.rs ProviderValidator::new() creates a fresh reqwest::Client per OIDC provider. Each Client has its own connection pool and TLS session cache. With multiple providers, N separate pools are allocated. The idiomatic pattern is to share one Arc<reqwest::Client> across all providers.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:24:44Z",
+  "updated_at": "2026-05-01T04:55:48Z",
+  "closed_at": "2026-04-28T21:27:50Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:24:44"
+    }
+  ]
+}

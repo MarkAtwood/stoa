@@ -1,0 +1,21 @@
+{
+  "id": "stoa-27b6cf42",
+  "title": "backfill.rs silently drops parent CIDs with non-32-byte digest",
+  "description": "backfill.rs:113-120: if let Ok(raw) = <[u8; 32]>::try_from(digest_bytes) silently skips parent CIDs whose multihash digest is not 32 bytes. The entry is inserted with incomplete ancestry, disconnecting the DAG. append.rs correctly propagates errors; backfill.rs must match. Trigger: adversarially-crafted entry with wrong-length CID digest.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:32:39Z",
+  "updated_at": "2026-05-01T04:59:53Z",
+  "closed_at": "2026-04-21T19:09:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:32:38"
+    }
+  ]
+}

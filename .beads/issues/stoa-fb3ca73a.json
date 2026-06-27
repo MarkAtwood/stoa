@@ -1,0 +1,13 @@
+{
+  "id": "stoa-fb3ca73a",
+  "title": "reader: missing should_panic test for from_credentials plaintext",
+  "description": "The auth crate (crates/auth/src/store.rs) has a #[should_panic] test asserting from_credentials panics on a plaintext password. The reader's identical implementation (crates/reader/src/store/credentials.rs) has no such test. A regression that removes or weakens the panic guard in the reader would pass CI undetected.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T10:02:55Z",
+  "updated_at": "2026-05-01T04:52:17Z",
+  "closed_at": "2026-04-27T10:20:45Z"
+}

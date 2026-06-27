@@ -1,0 +1,12 @@
+{
+  "id": "stoa-c3847fab",
+  "title": "transit: reindex does not validate Message-ID before DB insert",
+  "description": "reindex.rs:79-85 extracts a Message-ID string from raw article bytes but inserts it into msgid_map without calling validate_message_id(). Corrupted articles in IPFS could produce malformed msgids that break duplicate detection. Fix: call validate_message_id and skip articles with invalid msgids.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-25T02:53:24Z",
+  "updated_at": "2026-05-01T04:51:29Z",
+  "closed_at": "2026-04-25T02:53:30Z"
+}

@@ -1,0 +1,23 @@
+{
+  "close_reason": "Deferred: no Docker available in dev environment. slrn/tin/Thunderbird tests work without Docker using the existing start_reader.sh harness. Docker compose can be added later if needed.",
+  "closed_at": "2026-05-05T03:13:46Z",
+  "compaction_level": 0,
+  "content_hash": "70fa6ec4e8999daf78a5ece4c6605b6f4fd2d6cff98979021056df50ea06ed5f",
+  "created_at": "2026-05-05T02:33:45Z",
+  "created_by": "Mark Atwood",
+  "description": "Add a docker-compose.newsreader.yml (or extend existing compose files) that spins up a stoa-reader container with pre-seeded test data (at least one group with at least one article). The service should be usable by all three interop tests (slrn, tin, Thunderbird). Exposes a fixed NNTP port. Requires Docker but should be optional.",
+  "ephemeral": 0,
+  "id": "stoa-2twoc",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "docker-compose service for newsreader interop tests",
+  "updated_at": "2026-05-05T03:13:46Z"
+}

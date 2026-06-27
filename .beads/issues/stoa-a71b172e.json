@@ -1,0 +1,27 @@
+{
+  "id": "stoa-a71b172e",
+  "title": "Define group metadata cache (TTL-based, in-memory)",
+  "description": "Implement GroupMetadataCache: an in-memory cache of group name -> (count, low, high, description) with a configurable TTL (default 5 seconds). Cache is invalidated on any local write (POST or IHAVE). Backed by tokio::sync::RwLock<HashMap>. Artifact: reader/src/store/group_cache.rs.\n\nAcceptance: cache returns stale data within TTL; cache is invalidated on write; concurrent reads do not deadlock; cache miss falls through to SQLite; unit test: insert article, verify cache invalidated",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:46:39Z",
+  "updated_at": "2026-05-01T04:54:56Z",
+  "closed_at": "2026-04-20T04:16:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-96a8079e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:46:39"
+    },
+    {
+      "depends_on_id": "stoa-fc317007",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:53:29"
+    }
+  ]
+}

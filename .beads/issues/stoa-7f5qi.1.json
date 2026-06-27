@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "02aec5f228e25fd9f47d89a43d9e5e6aa2e316070f8f3e9a2d55c86812ba9117",
+  "created_at": "2026-05-04T04:12:05Z",
+  "created_by": "Mark Atwood",
+  "description": "All previous issues fixed. Remaining observations are opinion/style only. parse_message_id_and_newsgroups handles non-folded headers correctly: tested by tracing through the logic \u2014 early-exit guard (current==0 check before reset) is correct and costs at most two extra header iterations after both fields are found. extract_body_msgid is pub not pub(crate): justified because tests/rnews_ingest.rs is an integration test (external crate) that must import it; documented with a doc comment; not a security concern. validation.rs forbidden closure: correct and well-commented. No P0/P1/P2 findings.",
+  "ephemeral": 0,
+  "id": "stoa-7f5qi.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Round 3: no actionable issues",
+  "updated_at": "2026-05-04T04:12:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T21:12:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-7f5qi",
+      "id": "a1b707c2-d5ed-5552-a992-5ff649e83229",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

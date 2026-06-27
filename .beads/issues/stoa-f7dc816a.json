@@ -1,0 +1,26 @@
+{
+  "id": "stoa-f7dc816a",
+  "title": "Write fuzz target for article ingress validation",
+  "description": "Write a cargo-fuzz target (fuzz/fuzz_targets/validate_ingress.rs) that passes arbitrary bytes as article input to validate_article_ingress(). Objective: no panics under any input. Artifact: fuzz/fuzz_targets/validate_ingress.rs, fuzz/Cargo.toml.\n\nAcceptance criteria: fuzz target compiles with cargo-fuzz; no panics found in 1 million iterations; any panic is a P0 bug filed immediately; findings documented in fuzz/FINDINGS.md",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:47:28Z",
+  "updated_at": "2026-05-01T04:57:56Z",
+  "closed_at": "2026-04-20T03:04:56Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-13c8a615",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:48:05"
+    },
+    {
+      "depends_on_id": "stoa-656d4d6d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:47:27"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "RoutingMailer with Selector (DomainGlob, MessageType, CatchAll), failover on transient failure, outbound_send_total{provider,result} Prometheus counter. 8 tests pass.",
+  "closed_at": "2026-05-05T01:01:42Z",
+  "compaction_level": 0,
+  "content_hash": "2881493c93f11c242d6b9b9ba1ecee81cd4333a0373ec5ede0f3d5e8c1dc6cce",
+  "created_at": "2026-05-05T00:40:05Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why this issue exists\n\nPhase 2 of epic stoa-y0p2j. RoutingMailer wraps an ordered list of (Selector, Arc<dyn OutboundMailer>) pairs and dispatches sends through the first healthy matching provider, falling over to the next on failure.\n\n## What needs to be done\n\n1. Define Selector enum: DomainGlob(String), MessageType(MessageType), CatchAll\n2. Define MessageType enum: Transactional | Bulk | System\n3. Implement RoutingMailer: Vec<(Selector, Arc<dyn OutboundMailer>)>\n   - send(): find first matching selector whose provider is healthy; attempt; on failure try next matching entry\n4. Add per-provider Prometheus counters: outbound_send_total{provider, result}\n5. Emit tracing event with audit=true on delivery failure\n6. Add config shape:\n   [[delivery.route]]\n   selector = { domain = \"*.example.com\" }\n   provider = \"ses-primary\"\n   [[delivery.route]]\n   selector = \"*\"\n   provider = \"smtp-relay\"\n7. Unit tests: selector matching, failover to next provider, catch-all, metrics counters\n\n## Acceptance criteria\n\n- RoutingMailer selects by domain and message type\n- Falls over to next matching entry on transient failure\n- Per-provider outbound_send_total{provider, result} counter emitted\n- cargo clippy clean, cargo test passes",
+  "ephemeral": 0,
+  "id": "stoa-6pj10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Phase 2: RoutingMailer with failover and selector logic",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T17:40:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-10ggx",
+      "id": "d889865d-10b3-5557-9b84-44849dabb1d0",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

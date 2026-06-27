@@ -1,0 +1,21 @@
+{
+  "id": "stoa-3d2c4997",
+  "title": "Write architecture overview document",
+  "description": "Write docs/architecture.md: how the two binaries and core crate relate, the data flow from NNTP POST through signing, IPFS storage, group log append, and gossipsub propagation, how article numbers are synthesized, and how group state is reconciled between peers. Include a diagram (ASCII or mermaid). Artifact: docs/architecture.md.\n\nAcceptance criteria: document explains all six data-flow steps; diagram present; a new contributor can understand the system from this doc alone without reading code",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:44:53Z",
+  "updated_at": "2026-05-01T04:58:02Z",
+  "closed_at": "2026-04-20T12:41:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-254a8317",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:44:52"
+    }
+  ]
+}

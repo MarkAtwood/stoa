@@ -1,0 +1,19 @@
+{
+  "id": "stoa-434fe94b",
+  "title": "stoa-lmdb: LmdbError missing non_exhaustive",
+  "description": "LmdbError is a public enum with no #[non_exhaustive]. Future variants break downstream match arms.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:47:11Z",
+  "updated_at": "2026-05-01T04:52:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:47:10"
+    }
+  ]
+}

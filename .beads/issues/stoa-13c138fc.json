@@ -1,0 +1,20 @@
+{
+  "id": "stoa-13c138fc",
+  "title": "Doc comment says '6 mandatory headers' but code checks 5",
+  "description": "In crates/core/src/validation.rs, the doc comment on validate_article_ingress (line 115) states 'All 6 mandatory RFC 5536 headers present and non-empty' as check #1. However, the mandatory_fields array at line 187 contains only 5 entries: From, Date, Message-ID, Subject, Path. Newsgroups is validated separately as its own check (#3). A reader counting to verify will find 5 fields in the array, not 6, and will wonder which header is missing or whether the count is wrong. The doc comment should either say '5 mandatory headers' (accurate for the mandatory_fields array) or explain that Newsgroups is the 6th and is checked separately in step 3.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:30:48Z",
+  "updated_at": "2026-05-01T05:00:08Z",
+  "closed_at": "2026-04-28T10:19:50Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:30:48"
+    }
+  ]
+}

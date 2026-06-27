@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "migration 0014 written for SQLite and PostgreSQL",
+  "closed_at": "2026-05-02T17:44:37Z",
+  "compaction_level": 0,
+  "content_hash": "a1e5f5ee59e359b92dffac262e73ddc9778b76ee46f55d610fce1e75f59f422d",
+  "created_at": "2026-05-02T17:37:47Z",
+  "created_by": "Mark Atwood",
+  "description": "MTA-STS policy enforcement requires caching fetched policies per RFC 8461 \u00a75 (re-fetch only after max_age expires or policy-id changes). Add migration 0014 to both crates/mail/migrations/ (SQLite) and crates/mail/migrations_pg/ (PostgreSQL). Schema: (domain TEXT PRIMARY KEY, policy_id TEXT NOT NULL, mode TEXT NOT NULL, mx_patterns TEXT NOT NULL, fetched_at TIMESTAMP NOT NULL, expires_at TIMESTAMP NOT NULL). Both migration files must be consistent in column names.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "DB migration 0014: mta_sts_cache table",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T10:37:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks",
+      "id": "22d77d75-0753-59f7-b186-0f1b5c44305b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

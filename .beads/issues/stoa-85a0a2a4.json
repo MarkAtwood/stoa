@@ -1,0 +1,25 @@
+{
+  "id": "stoa-85a0a2a4",
+  "title": "ZFS DMU block store backend",
+  "description": "Implement ZfsDmuStore using the userspace DMU object API (stoa-b37a7fd4) as a block store backend for both transit and reader.\n\nDepends on: pluggable backend epic (stoa-5c9f1a38) and ZFS DMU userspace API (stoa-b37a7fd4).\n\n## Why this is compelling\n\nZFS DMU already implements what the block store layer needs: content-addressed immutable blocks, SHA-256/SHA-512 checksums per block, native deduplication (articles that appear on multiple groups or are re-injected are stored once), copy-on-write, and instant snapshots for backup. The CID-to-object-ID mapping is a single SQLite table.\n\n## What needs doing\n\n- Implement `ZfsDmuStore: IpfsStore` (transit) and `ZfsDmuBlockStore: IpfsBlockStore` (reader) using the `usenet-ipfs-zfs-dmu` crate\n  - `put`: write bytes via `object_write`; record `(cid, object_id)` in a SQLite index table; skip if CID already in index\n  - `get`: look up `object_id` from index by CID; call `object_read(object_id)`; map miss \u2192 `None` / `NotFound`\n- Add `[backend.zfs_dmu]` config section: `dataset` (ZFS dataset name or zvol path), `index_db` (path to the CID\u2192object_id SQLite file)\n- IPNS: disable (same as filesystem backend \u2014 no IPFS network node)\n- Verify dataset is accessible and writable at startup; emit a clear error if ZFS kernel module is not loaded or dataset does not exist\n- GC: unpin by removing the index entry and calling `object_free(object_id)`; ZFS dedup table handles the rest\n- Runbook section: ZFS dataset creation (`zfs create`), dedup property (`zfs set dedup=sha256`), snapshot strategy\n\n## Acceptance criteria\n- Round-trip test using the ZFS DMU API crate (can use a loopback pool in CI if kernel module available, otherwise mark as integration-test requiring ZFS)\n- CID computed locally matches what Kubo would produce for the same bytes\n- Deduplication: writing the same article bytes twice results in one DMU object (verified via `zfs list -o dedupratio`)",
+  "status": "deferred",
+  "priority": 3,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T16:12:25Z",
+  "updated_at": "2026-05-01T04:51:25Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5c9f1a38",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 09:12:28"
+    },
+    {
+      "depends_on_id": "stoa-b37a7fd4",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 09:12:29"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-e4ddf811",
+  "title": "smtp: IncomingMessage type and queue channel",
+  "description": "Implement crates/smtp/src/queue.rs. Define: pub struct IncomingMessage { pub envelope_from: String, pub envelope_to: Vec<String>, pub raw_bytes: Vec<u8>, pub received_at: std::time::SystemTime, pub peer_addr: String }. Define: pub struct MessageQueue(tokio::sync::mpsc::Sender<IncomingMessage>). impl MessageQueue { pub fn new() -> (MessageQueue, tokio::sync::mpsc::Receiver<IncomingMessage>) \u2014 creates unbounded channel; pub async fn enqueue(&self, msg: IncomingMessage) \u2014 sends on channel, logs warning if receiver dropped }. Tests: create queue, enqueue a message, receive it.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T05:19:11Z",
+  "updated_at": "2026-05-01T04:57:40Z",
+  "closed_at": "2026-04-21T05:22:07Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-2aaf1187",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 22:19:10"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-7e619ee5",
+  "title": "sao SEC0/SEC1: ETag header safety with special chars in message_id",
+  "description": "ETag generation at feed.rs:305-314 uses message_id directly after strip_angles(). If message_id contains \" or \\ chars, the resulting ETag header becomes malformed per RFC 9110 \u00a78.8.3. Currently masked by fallback at line 327-328 which silently degrades to W/\"feed\", losing semantic identity.\n\nOracle: RFC 9110 \u00a78.8.3 (ETag header syntax), RFC 2822 \u00a73.6.4 (Message-ID format).\n\nFix: either (a) hash the message_id to a safe token, (b) escape quotes/backslashes, or (c) document why current degradation is acceptable.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T03:55:58Z",
+  "updated_at": "2026-05-01T04:54:20Z",
+  "closed_at": "2026-04-23T03:57:45Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-929c49ad",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 20:55:57"
+    }
+  ]
+}

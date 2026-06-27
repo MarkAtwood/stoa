@@ -1,0 +1,21 @@
+{
+  "id": "stoa-28285b5c",
+  "title": "email/query.rs: map_or(true) on date parse failure not documented as policy",
+  "description": "after/before filter retain uses map_or(true,...) meaning articles with unparseable dates pass the filter. This is a policy decision that should be commented. After the P0 date format bug is fixed, consider whether map_or(false,...) is more correct.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T06:00:40Z",
+  "updated_at": "2026-05-01T04:51:23Z",
+  "closed_at": "2026-04-27T17:15:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-18ecb995",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 23:00:40"
+    }
+  ]
+}

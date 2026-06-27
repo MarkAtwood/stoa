@@ -1,0 +1,21 @@
+{
+  "id": "stoa-bc29f8f1",
+  "title": "build_credential_store_inner duplicated in imap, reader, AND smtp",
+  "description": "aubi merged CredentialStore but left the secretx-aware builder logic in three separate places: crates/imap/src/main.rs (build_credential_store_inner), crates/reader/src/store/server_stores.rs (build_credential_store_inner), and crates/smtp/src/server.rs (inline, unnamed). The smtp version was not updated by aubi: it still uses if let Some(ref path) (old pattern), uses nested match chains instead of ?, and lacks BuildStoreError \u2014 structurally inconsistent with the refactored imap and reader versions. Any future change to credential loading (new secret provider, retry logic, logging) must be made in three places. This is the exact class of maintenance problem the aubi epic was filed to fix.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T20:31:34Z",
+  "updated_at": "2026-05-01T04:52:27Z",
+  "closed_at": "2026-04-30T20:55:03Z",
+  "notes": "smtp was updated (gzag.7, gzag.8 closed) to use consistent ? + if let Some(path) = & pattern. Three copies are now structurally consistent. Full extraction to stoa-auth requires secretx as an optional dep \u2014 needs design decision: (A) add secretx optional dep to stoa-auth, (B) create stoa-config-common crate, (C) leave as 3 consistent copies. Flagged for human decision.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-44ba837b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:31:34"
+    }
+  ]
+}

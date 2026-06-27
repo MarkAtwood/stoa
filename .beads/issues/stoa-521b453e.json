@@ -1,0 +1,27 @@
+{
+  "id": "stoa-521b453e",
+  "title": "WebDAV backend: integration test and RUNBOOK (Nextcloud, Hetzner)",
+  "description": "Integration test using a lightweight WebDAV server in docker-compose (e.g. bytemark/webdav or nginx with mod_dav). Tests: round-trip, idempotent put, delete missing returns Ok, plaintext rejection. RUNBOOK: Nextcloud app password and remote.php/dav path, Hetzner Storage Box WebDAV setup. Blocked on: stoa-148122da.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:48:14Z",
+  "updated_at": "2026-05-01T04:57:10Z",
+  "closed_at": "2026-04-28T12:00:20Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-148122da",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:48:13"
+    },
+    {
+      "depends_on_id": "stoa-5c9f1a38",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:48:14"
+    }
+  ]
+}

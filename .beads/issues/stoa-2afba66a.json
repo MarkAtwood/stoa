@@ -1,0 +1,27 @@
+{
+  "id": "stoa-2afba66a",
+  "title": "config: GroupsConfig wildmat pattern validation + all-negation rejection",
+  "description": "## What\nUpdate GroupsConfig validation in transit/src/config.rs to accept wildmat patterns (bare names, comp.*, !alt.*) instead of rejecting them; add all-negation rejection at startup.\n\n## Algorithm\n1. In config.rs, add validate_group_pattern(s: &str) -> Result<(), ConfigError>:\n   a. Strip leading '!' if present (negation prefix is allowed)\n   b. Remainder must be non-empty (return Err if empty)\n   c. Each character must be in: [a-z0-9+\\-_.?*] (extend RFC 3977 charset with wildcards)\n   d. No consecutive dots ('..') allowed\n   e. Return Ok(())\n2. In Config::validate(), replace the loop that calls validate_group_name(name) for groups.names entries with validate_group_pattern(name)\n3. After the loop, call GroupFilter::new(&self.groups.names): if Err(WildmatError::AllNegation) return ConfigError::Validation(\"groups.names must contain at least one positive (non-negated) pattern\")\n4. Do NOT store the GroupFilter on Config (it is constructed at pipeline startup in whss.5 / whss.6)\n5. Keep validate_group_name() unchanged for all other uses (article ingestion validation)\n\n## Defensive programming rules\n- validate_group_pattern must not allow NUL bytes or non-ASCII\n- ConfigError::Validation messages must be human-readable and actionable\n- Empty groups.names list: validate_group_pattern is not called, GroupFilter::new([]) returns Err(AllNegation), config fails \u2014 this is correct behavior\n- Do not change GroupsConfig::names type (still Vec<String>)\n\n## Agent team\nStandard: Agent R (read config.rs validate() and validate_group_name()), Agent I (implement validate_group_pattern + update validate()), Agent V (cargo test -p stoa-transit + clippy)\n\n## Tests (oracle: TOML parsing + expected error messages)\n- valid_wildmat_pattern: validate_group_pattern(\"comp.*\") = Ok(())\n- valid_negation_pattern: validate_group_pattern(\"!alt.binaries.*\") = Ok(())\n- valid_exact_name: validate_group_pattern(\"alt.test\") = Ok(())\n- invalid_uppercase: validate_group_pattern(\"Comp.*\") = Err (uppercase not in RFC 3977 group names)\n- invalid_empty: validate_group_pattern(\"\") = Err\n- invalid_double_dot: validate_group_pattern(\"comp..rust\") = Err\n- all_negation_config_fails: Config with names=[\"!comp.*\"] fails validate() with AllNegation message\n- mixed_config_ok: Config with names=[\"comp.*\", \"!alt.binaries.*\"] passes validate()",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-26T23:24:27Z",
+  "updated_at": "2026-05-01T04:52:00Z",
+  "closed_at": "2026-04-27T00:01:30Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1ab0f019",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 16:25:31"
+    },
+    {
+      "depends_on_id": "stoa-efbe068a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 16:24:27"
+    }
+  ]
+}

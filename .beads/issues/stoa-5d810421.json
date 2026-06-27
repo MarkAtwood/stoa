@@ -1,0 +1,19 @@
+{
+  "id": "stoa-5d810421",
+  "title": "decision: subtle::ConstantTimeEq for bearer token comparison is correct",
+  "description": "sieve_admin.rs require_bearer_token uses subtle::ConstantTimeEq for the token comparison. This is the correct approach to prevent timing side-channel attacks on secret tokens. No issue needed.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:41:59Z",
+  "updated_at": "2026-05-01T04:58:17Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:41:58"
+    }
+  ]
+}

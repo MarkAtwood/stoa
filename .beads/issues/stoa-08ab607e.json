@@ -1,0 +1,19 @@
+{
+  "id": "stoa-08ab607e",
+  "title": "session: prepend_received_header uses rotate_right O(n) in-place",
+  "description": "prepend_received_header builds header bytes then calls data.rotate_right(header.len()) to shift the entire message body to make room at the front. For a 10 MB message this copies ~10 MB of bytes. Prefer building a new Vec from header + &data[..], or use a rope/chain structure. The current approach also means the Received header is prepended even if the message is immediately rejected by Sieve.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:41:23Z",
+  "updated_at": "2026-05-01T04:55:07Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:41:23"
+    }
+  ]
+}

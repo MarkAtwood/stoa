@@ -1,0 +1,21 @@
+{
+  "id": "stoa-ab0b5c0d",
+  "title": "email/set.rs: mailboxIds keys treated as newsgroup names",
+  "description": "Why this issue exists: create_one_email reads newsgroup names from keys of mailboxIds JSON object, but Email/get and Email/query use hashed SHA-256/base32 mailbox IDs (via mailbox_id_for_group). The set and get/query paths use different identification schemes for the same concept \u2014 a correctness bug.\n\nWhat needs to be done: Align set and get/query to use the same mailbox identifier scheme. Either accept hashed IDs in set with a reverse lookup, or consistently use raw group names throughout.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:25:17Z",
+  "updated_at": "2026-05-01T04:58:29Z",
+  "closed_at": "2026-04-28T17:08:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:25:17"
+    }
+  ]
+}

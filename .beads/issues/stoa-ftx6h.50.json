@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "028b2c6a64914afb4533b0304d2ce8f5b6d50150ce79a745e03750667b7cffd9",
+  "created_at": "2026-05-03T13:04:40Z",
+  "created_by": "Mark Atwood",
+  "description": "STARTTLS on port 25 (opportunistic TLS for MTA-to-MTA) is not implemented. The code advertises STARTTLS in EHLO capabilities but responds 454 (TLS not available). Any peer MTA that attempts STARTTLS will fail over to cleartext delivery. This means all inbound mail on port 25 is received in cleartext, defeating MTA-STS enforcement on peers that enforce outbound TLS. This is a security regression: the MTA-STS stack is built but the inbound TLS acceptance path is a stub. Priority: the risk is live \u2014 operators who deploy this thinking TLS is enforced are wrong.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.50",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "smtp: STARTTLS not implemented on port 25 (cleartext MTA delivery)",
+  "updated_at": "2026-05-03T13:04:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:04:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "b473480c-38c8-5b2f-9210-418f7c420535",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

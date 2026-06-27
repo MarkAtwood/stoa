@@ -1,0 +1,20 @@
+{
+  "id": "stoa-12cc8b76",
+  "title": "strip_did_sig_header: join('\\n') destroys CRLF \u2014 signed bytes differ from author's bytes",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T05:02:53Z",
+  "updated_at": "2026-05-01T04:56:21Z",
+  "closed_at": "2026-04-23T05:03:17Z",
+  "notes": "In did_verify.rs:341, strip_did_sig_header returns out_lines.join('\\n').into_bytes(). If the input article used CRLF (\\r\\n) line endings \u2014 the canonical NNTP wire format \u2014 the output bytes use bare LF (\\n). The author signed the original CRLF bytes. The verifier strips the DID-Sig header, gets LF-only bytes, and verifies against those. The signature covers different bytes than what was verified. This causes all valid NNTP-canonical (CRLF) articles to fail DID verification. Repro: sign an article with CRLF line endings, add DID-Sig header, pass to verify_did_sig \u2014 it will always return Ok(false) due to the byte mismatch.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-062e13cb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 22:02:52"
+    }
+  ]
+}

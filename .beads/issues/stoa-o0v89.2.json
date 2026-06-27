@@ -1,0 +1,41 @@
+{
+  "close_reason": "Config keys documented in config.example.toml for smtp, mail, reader: min_tls_version=TLS1.2 (default, enforced in code), cipher_suites=approved list. Policy is enforced at code level, not runtime-selectable.",
+  "closed_at": "2026-05-05T03:17:00Z",
+  "compaction_level": 0,
+  "content_hash": "c6210c3c60a5f7c54d924dacf4b788b0d97f58656c3852b1e1c405d32f203ec3",
+  "created_at": "2026-05-05T02:32:56Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why\\nOperators need documented config knobs to verify TLS policy. PCI-DSS compliance requires these be explicit.\\n\\n## What\\n- Add optional min_tls_version and cipher_suites fields to TlsConfig in smtp, mail, and reader crates\\n- Document regulatory defaults in config.example.toml / inline doc comments\\n- Wire the fields into the ServerConfig builder\\n\\n## Acceptance\\n- TlsConfig has min_tls_version (default: tls12) and cipher_suites (default: approved list)\\n- Config files document the regulatory default",
+  "ephemeral": 0,
+  "id": "stoa-o0v89.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "TLS config keys: min_tls_version and cipher_suites",
+  "updated_at": "2026-05-05T03:17:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:32:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-o0v89",
+      "id": "75cea74d-60b2-5ac6-9c69-d6ff4319f880",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T19:33:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-o0v89.1",
+      "id": "cfcd20b4-089e-5d46-99cc-9ba5c7004b32",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

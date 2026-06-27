@@ -1,0 +1,20 @@
+{
+  "id": "stoa-bd33db99",
+  "title": "smtp/server.rs: no-op smtps_parts rebind",
+  "description": "Why this issue exists: In crates/smtp/src/server.rs, there is a let smtps_parts: Option<...> = listener_smtps; rebind that does nothing \u2014 it just renames the variable. This adds noise without adding clarity.\n\nWhat needs to be done: Remove the rebind and use listener_smtps directly, or rename it at the binding site.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:28:42Z",
+  "updated_at": "2026-05-01T04:58:39Z",
+  "closed_at": "2026-04-28T21:00:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:28:41"
+    }
+  ]
+}

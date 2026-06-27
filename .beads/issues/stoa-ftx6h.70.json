@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed: removed false 'default implementation' claim from trait doc comment; method is abstract, each backend must implement; corrected to state persistent backends must use a transaction",
+  "closed_at": "2026-05-03T15:37:09Z",
+  "compaction_level": 0,
+  "content_hash": "72708b156f5a059748302612739357e68f9f0d6d55e0409a1b77e137522e7146",
+  "created_at": "2026-05-03T13:05:17Z",
+  "created_by": "Mark Atwood",
+  "description": "group_log/storage.rs provides a default impl of insert_entry_and_advance_tips that calls insert_entry and then advance_tips as two separate operations. A crash between the two leaves the entry stored but the tips not updated (or vice versa). For the in-memory backend this is acceptable (no persistence), but any backend that overrides only some trait methods and inherits this default will have a crash window. The trait should either remove the default impl (forcing each backend to implement it) or document clearly that the default is only safe for non-persistent backends.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.70",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "core: LogStorage default impl of insert_entry_and_advance_tips is not crash-safe",
+  "updated_at": "2026-05-03T15:37:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "8bf97974-c6f4-59e8-af4f-320872586af0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-97da40ab",
+  "title": "Mailbox/get total_emails underflows for empty group (lo > hi)",
+  "description": "server.rs route_method Mailbox/get computes total_emails as (hi - lo + 1) as u32 from list_groups() return values. If a group has no articles, lo=1 and hi=0 (conventional empty range). The expression hi - lo + 1 cast to u32 produces 0 correctly if using i64 arithmetic, but if the types are u64, subtraction wraps. Regardless of type, callers relying on this producing 0 for an empty group need a saturating_sub or explicit max(0) guard \u2014 the current code lacks that.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:57:54Z",
+  "updated_at": "2026-05-01T04:51:50Z",
+  "closed_at": "2026-04-27T06:44:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-18ecb995",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 22:57:53"
+    }
+  ]
+}

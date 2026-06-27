@@ -1,0 +1,21 @@
+{
+  "id": "stoa-7dded951",
+  "title": "schema: drop user_id from mail tables (migrations 0011/0012)",
+  "description": "## Why\nuser_id partitioning in mailbox_messages and user_mailboxes exists only to isolate per-user data. With a single shared mailbox there is no partitioning to enforce.\n\n## What\n\n### SQLite migrations\n0011_drop_user_id_mailboxes.sql:\n  CREATE TABLE mailboxes_new (mailbox_id TEXT PRIMARY KEY, role TEXT NOT NULL UNIQUE, name TEXT NOT NULL, sort_order INTEGER NOT NULL DEFAULT 10);\n  INSERT INTO mailboxes_new SELECT mailbox_id, role, name, sort_order FROM user_mailboxes WHERE user_id = (SELECT MIN(user_id) FROM user_mailboxes) OR user_id IS NULL;\n  DROP TABLE user_mailboxes;\n  ALTER TABLE mailboxes_new RENAME TO mailboxes;\n\n0012_drop_user_id_messages.sql:\n  CREATE TABLE messages_new (id INTEGER PRIMARY KEY AUTOINCREMENT, mailbox_id TEXT NOT NULL, envelope_from TEXT NOT NULL, envelope_to TEXT NOT NULL, raw_message BLOB NOT NULL, received_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')), FOREIGN KEY (mailbox_id) REFERENCES mailboxes(mailbox_id));\n  CREATE INDEX idx_messages_mailbox ON messages_new (mailbox_id);\n  INSERT INTO messages_new (id, mailbox_id, envelope_from, envelope_to, raw_message, received_at) SELECT id, mailbox_id, envelope_from, envelope_to, raw_message, received_at FROM mailbox_messages;\n  DROP TABLE mailbox_messages;\n  ALTER TABLE messages_new RENAME TO messages;\n\n### Postgres migrations\nEquivalent 0011/0012 for migrations_pg/.\n\n### Rust changes\n- Update all sqlx queries referencing user_mailboxes \u2192 mailboxes and mailbox_messages \u2192 messages.\n- Remove user_id bind parameters from all queries in provision.rs, server.rs, email/get.rs, session.rs.\n- received_at DEFAULT changed to strftime RFC3339 form (fixes the P3 datetime conversion issue from review 4d9y.17).\n\n## Acceptance criteria\n- Migrations run cleanly on a fresh database and on a database with existing rows.\n- No user_id column in mailboxes or messages tables.\n- All existing tests pass.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:13:47Z",
+  "updated_at": "2026-05-01T04:53:05Z",
+  "closed_at": "2026-04-30T06:28:20Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-a58a4ea1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:14:41"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "id": "stoa-f0b9ff15",
+  "title": "Add secretx workspace dependencies (crates.io, v0.3.0)",
+  "description": "Why: All per-crate secretx integration tasks depend on the workspace resolving the secretx crates. secretx 0.3.0 is now published on crates.io \u2014 use registry deps, not a local path. What to do: In the root Cargo.toml [workspace.dependencies], add: secretx-core = { version = '0.3.0' } and secretx = { version = '0.3.0', default-features = false, features = ['env', 'file'] }. Add additional backend features (aws-sm, aws-kms, pkcs11) as separate optional workspace deps for consuming crates that need them. Consuming crates (stoa-transit, stoa-reader, stoa-auth) reference via { workspace = true } in their own Cargo.toml. Verify cargo build --workspace compiles cleanly. No local path = '../crate-secretsx/...' entries \u2014 use the registry.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-26T20:44:48Z",
+  "updated_at": "2026-05-01T04:52:00Z",
+  "closed_at": "2026-04-26T20:52:07Z",
+  "notes": "secretx 0.3.0 published on crates.io. Replaces stoa-31d0c78a (which was the old crates.io publication gate \u2014 now closed). Once this is done, unblocks: stoa-c0b7a31e, stoa-5cde2362, stoa-7271458c, stoa-6a99b937, stoa-2eb3f01c, stoa-644cbdd8, stoa-a6cbd038."
+}

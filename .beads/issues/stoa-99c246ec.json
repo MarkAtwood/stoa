@@ -1,0 +1,12 @@
+{
+  "id": "stoa-99c246ec",
+  "title": "Replace hand-rolled mime_parser.rs multipart splitting with mailparse subparts",
+  "description": "The current mime_parser.rs uses mailparse only for header parsing, then re-implements RFC 2046 multipart boundary splitting manually via split_on_boundary(). This is the source of bt5.12 (bare LF) and the nested multipart gap.\n\nmailparse (already a dependency in core, reader, and mail crates) handles all of this correctly:\n- ParsedMail.subparts gives a recursive MIME tree\n- Handles bare LF line endings by design\n- Handles nested multipart recursion\n- Active: v0.15 Nov 2024\n\nFix: replace split_on_boundary() and flat part iteration with a recursive walk of ParsedMail::subparts, accumulating (Cid, Vec<u8>) blocks depth-first. The public API (parse_mime \u2192 Option<ParsedMime>) and the MimeNode/block output format stay the same; only the internal parsing mechanism changes.\n\nNo new dependency needed. Do NOT use mail-parser \u2014 its API flattens the MIME tree into text/html/attachments, losing the structural information needed for IPLD block construction.\n\nAcceptance: bt5.12 is resolved. Nested multipart/mixed articles produce correct block trees. Bare-LF articles are accepted, not silently dropped.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T13:16:44Z",
+  "updated_at": "2026-05-01T04:59:56Z",
+  "closed_at": "2026-04-22T19:21:50Z"
+}

@@ -1,0 +1,26 @@
+{
+  "id": "stoa-99dcd80d",
+  "title": "Add cargo-deny to CI for license and advisory auditing",
+  "description": "Add cargo-deny to CI: runs `cargo deny check` covering licenses (deny GPL), advisories (deny unmaintained, deny vulnerabilities), and bans (deny duplicate versions of key crates). Add deny.toml config file. Artifact: .github/workflows/ci.yml step, deny.toml.\n\nAcceptance: CI fails on any crate with a known CVE; CI fails on GPL-licensed dependencies; deny.toml is committed",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:44:25Z",
+  "updated_at": "2026-05-01T04:58:04Z",
+  "closed_at": "2026-04-20T06:00:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0af1ed3d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:45:44"
+    },
+    {
+      "depends_on_id": "stoa-f9590951",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:44:24"
+    }
+  ]
+}

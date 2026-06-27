@@ -1,0 +1,21 @@
+{
+  "id": "stoa-bd29cb87",
+  "title": "reader admin server has no rate limiting; transit admin does",
+  "description": "transit/src/admin.rs has RateLimiter (token-bucket, default 60 rpm per IP). reader/src/admin.rs has no rate limiting at all. An attacker or misbehaving script on the local machine can hammer the reader admin endpoint without backpressure. Loopback-only means this is low risk, but the asymmetry will generate a class of 'why doesn't reader have X that transit has' PRs. Both should share the same admin security posture.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T16:34:20Z",
+  "updated_at": "2026-05-01T04:56:26Z",
+  "closed_at": "2026-04-24T17:47:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3840252d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-24 09:34:20"
+    }
+  ]
+}

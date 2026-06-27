@@ -1,0 +1,20 @@
+{
+  "id": "stoa-d70b67ab",
+  "title": "e2e test: explain blank_pos+2 header insertion offset",
+  "description": "In did_sig_e2e.rs, both test cases use 'blank_pos + 2' to insert the DID-Sig header line, where blank_pos is the index of the start of the '\\r\\n\\r\\n' sequence. The +2 skips past the '\\r\\n' of the last real header to land at the start of the blank-line '\\r\\n'. This is non-obvious: a new reader may think blank_pos is the start of the blank line itself, or wonder why not +4. The offset should have a brief inline comment, and the repeated pattern (it appears in both test cases) is a candidate for extraction into a helper.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T04:59:39Z",
+  "updated_at": "2026-05-01T04:53:33Z",
+  "closed_at": "2026-04-23T07:06:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-062e13cb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:59:38"
+    }
+  ]
+}

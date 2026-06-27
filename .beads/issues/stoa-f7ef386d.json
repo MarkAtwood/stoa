@@ -1,0 +1,27 @@
+{
+  "id": "stoa-f7ef386d",
+  "title": "feat(smtp): wire SMTP delivery into JMAP INBOX",
+  "description": "**What:** Wire SMTP delivery into the JMAP mail SQLite so that delivered messages appear in Email/get and Email/query for the recipient's INBOX.\n\n**Algorithm (part A \u2014 smtp writes to mail SQLite):**\n1. Add mail SQLite migration (0010_mailbox_messages.sql): CREATE TABLE mailbox_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, mailbox_id TEXT NOT NULL, envelope_from TEXT NOT NULL, envelope_to TEXT NOT NULL, raw_message BLOB NOT NULL, received_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (user_id) REFERENCES users(id))\n2. Add mail_db_path: Option<String> to smtp DeliveryConfig in smtp/config.rs\n3. In smtp/server.rs: if mail_db_path is Some, open stoa_smtp::store::open(path) \u2192 Arc<SqlitePool> as mail_pool; pass as Option<Arc<SqlitePool>> to run_session\n4. In sieve_delivery() smtp/session.rs: for Keep action, if mail_pool is Some: a) SELECT id FROM users WHERE username = ? (bind parameter); b) SELECT mailbox_id FROM user_mailboxes WHERE user_id = ? AND role = 'inbox'; c) INSERT INTO mailbox_messages (user_id, mailbox_id, envelope_from, envelope_to, raw_message) VALUES (?,?,?,?,?); d) UPDATE state_version SET version = version+1 WHERE scope = 'Email'; e) If mail_pool is None: fall back to smtp's own deliver() (legacy, no JMAP visibility)\n\n**Algorithm (part B \u2014 JMAP reads smtp-delivered messages):**\n5. Add mail/src/email/inbox.rs with: load_inbox_email(pool: &SqlitePool, user_id: i64, smtp_id: i64) -> Result<Option<(Vec<u8>, String, String)>, sqlx::Error> \u2014 SELECT raw_message, mailbox_id, received_at FROM mailbox_messages WHERE id = ? AND user_id = ?\n6. In mail/src/email/get.rs: if id starts with 'smtp:', parse row_id = id['smtp:'.len()..].parse::<i64>(); fetch via load_inbox_email; parse RFC 5322 bytes with mail-parser; build Email value with id=id, blobId=id, mailboxIds={mailbox_id: true}\n7. In mail/src/email/query.rs: when filter.mailbox_id matches a user_mailboxes mailbox_id, query mailbox_messages WHERE mailbox_id = ? AND user_id = ? ORDER BY id; return 'smtp:{id}' strings\n8. In blob download handler: if blobId starts with 'smtp:', serve raw_message bytes from mailbox_messages WHERE id = ? AND user_id = ?\n\n**Defensive programming rules:**\n- smtp_id parsed from 'smtp:' prefix must be validated as i64 before SQL bind \u2014 reject non-numeric with invalidArguments\n- All mailbox_messages queries bind user_id from the authenticated session (not from the ID string) \u2014 prevents cross-user access\n- envelope_to is a SQL bind param, never interpolated\n- raw_message may be large \u2014 stream from DB if possible; cap at operator-configured max message size\n- If mail_pool connection fails during smtp delivery, log error and fall back to legacy smtp store (do not drop the message)\n- No raw_message bytes in log statements\n\n**Agent team:** R reads smtp/session.rs, smtp/store.rs, mail/src/email/get.rs, mail/src/email/query.rs, mail/src/server.rs; I implements migration + smtp write path + JMAP read path; T writes tests independently.\n\n**Tests:**\n- smtp delivery with mail_pool: after deliver, SELECT COUNT(*) FROM mailbox_messages = 1; row has correct user_id, mailbox_id, envelope_from. Oracle: DB state\n- Email/get 'smtp:{id}': returns Email with correct id, blobId, mailboxIds, From/Subject parsed from raw. Oracle: known RFC 5322 bytes inserted directly\n- Email/get 'smtp:{id}' for wrong user_id: returns notFound. Oracle: user_id mismatch enforced at DB query\n- Email/query by INBOX mailbox_id: returns ['smtp:{id}']. Oracle: mailbox_id from user_mailboxes\n- Blob download 'smtp:{id}': returns raw message bytes. Oracle: bytes inserted during test setup\n- E2E: SMTP send \u2192 JMAP Mailbox/get INBOX \u2192 Email/query INBOX \u2192 Email/get by id \u2192 blob download",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T03:53:36Z",
+  "updated_at": "2026-05-01T04:53:08Z",
+  "closed_at": "2026-04-30T05:30:18Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-172aef57",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 20:53:36"
+    },
+    {
+      "depends_on_id": "stoa-77165bba",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 20:54:40"
+    }
+  ]
+}

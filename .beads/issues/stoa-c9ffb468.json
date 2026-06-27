@@ -1,0 +1,21 @@
+{
+  "id": "stoa-c9ffb468",
+  "title": "DECISION: Canonical bytes use NUL separator for header/body boundary",
+  "description": "canonical_bytes() in crates/core/src/canonical.rs uses the two-byte sequence 0x00 0x0a (NUL + newline) as the separator between the header block and body in the canonical serialization. The choice is documented: NUL is forbidden in well-formed RFC 5322 header values, so this separator cannot appear in any legitimate header line. This means the boundary is unambiguous without needing to count header lines or track blank-line position. Why correct: the canonical bytes are the input to signing and CID derivation. An ambiguous boundary would allow two logically different articles to produce the same canonical bytes, undermining content integrity. A future contributor might suggest replacing this with a blank CRLF line (the normal RFC 5322 header/body separator), but that sequence can appear in folded header values, making it ambiguous.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:09:32Z",
+  "updated_at": "2026-05-01T04:56:05Z",
+  "closed_at": "2026-04-27T16:31:14Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:09:32"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-66e2de93",
+  "title": "Placeholder: NZB-compatible download metadata for binary groups (deferred to v2)",
+  "description": "Design placeholder for NZB-compatible download metadata in v2. Standard binary Usenet clients use NZB files to specify multi-part downloads. The v2 CID manifest will need to be compatible with or translatable to NZB format so existing download managers (SABnzbd, NZBGet) can work. Explicitly out of scope for v1.\n\nAcceptance:\n- Issue exists and is labeled 'deferred'\n- No code is written",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:17:29Z",
+  "updated_at": "2026-05-01T04:52:38Z",
+  "closed_at": "2026-04-20T12:12:12Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-b69f1b24",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:17:28"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "decision recorded",
+  "closed_at": "2026-05-04T08:12:10Z",
+  "compaction_level": 0,
+  "content_hash": "af8397e997c4b7e74385d75679fdf62e7a7950f8e6b80c029ceae4aa794bb36d",
+  "created_at": "2026-05-04T08:04:25Z",
+  "created_by": "Mark Atwood",
+  "description": "Good decision: in reader/main.rs the two security guards (missing signing key, auth dev-mode on non-loopback) both run before TcpListener::bind. The process exits before any socket is opened, so there is no window in which the server is reachable but unguarded. The same ordering holds in mail/main.rs: the ActivityPub signature guard and the auth dev-mode guard both fire before run_server is called.",
+  "ephemeral": 0,
+  "id": "stoa-cajkm.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "DECISION: dev-mode guards placed before socket bind",
+  "updated_at": "2026-05-04T08:12:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T01:04:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-cajkm",
+      "id": "979ffee1-0cd0-5e8c-8dfb-1e8066c43525",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

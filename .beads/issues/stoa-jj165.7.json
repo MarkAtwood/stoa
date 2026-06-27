@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "9a7b24f9890ee6d995b3427746709a85b4c868d1de11d1b5fd8de44ee404a9c2",
+  "created_at": "2026-05-02T14:36:01Z",
+  "created_by": "Mark Atwood",
+  "description": "route_method rejects requests where the caller's accountId does not match their canonical account. This is an authorization boundary. The rejection is currently silent (returns accountNotFound with no log). Add an audit event.\n\n## Current code (route_method, server.rs ~line 583)\n  if let Some(requested_id) = args.get(\"accountId\").and_then(|v| v.as_str()) {\n      if requested_id != canonical_account_id {\n          let err = MethodError::account_not_found();\n          return serde_json::to_value(&err).unwrap_or(json!({}));\n      }\n  }\n\n## Audit event to add\n  tracing::warn!(\n      audit              = true,\n      event.type         = \"authz.cross_account\",\n      method             = %method,\n      username           = %username,\n      requested_account  = %requested_id,\n      own_account        = %canonical_account_id,\n      \"cross-account access attempt\",\n  );\n\n## Note on frequency\nThis will fire on misconfigured clients as well as actual attacks.\nThe warn! level is appropriate \u2014 it surfaces in monitoring without\nbeing as loud as error!, and the audit = true field routes it to the\naudit log group regardless of level.\n\n## Acceptance\n- Test: authenticated user requesting a different accountId \u2192 authz.cross_account event emitted\n- Test: authenticated user requesting their own accountId \u2192 no authz.cross_account event\n- requested_account and own_account fields are both present in the event",
+  "ephemeral": 0,
+  "id": "stoa-jj165.7",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Add audit event for JMAP cross-account accountId rejection",
+  "updated_at": "2026-06-26T20:26:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T07:36:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jj165.4",
+      "id": "3d87b8a5-ec01-57d7-ac21-b2e936674e46",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T07:36:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jj165",
+      "id": "a1d291fc-daea-58dd-b2de-c4075734731e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "stoa-e2297bae",
+  "title": "Review round 2: full project security and correctness",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T03:03:38Z",
+  "updated_at": "2026-05-01T04:59:10Z",
+  "closed_at": "2026-04-27T17:15:03Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 The codebase has strong security defaults (ConstantTimeEq, fail-closed admin without token, bcrypt with dummy-hash timing defense, NUL byte checks in core validation). Primary risks are: (1) transit layer accepts articles with invalid signatures non-fatally, which may violate the security model if inter-operator trust is required; (2) staging drain_one race condition could cause duplicate group log entries under concurrent drain workers; (3) STAT <msgid> stub returns 430 always, breaking standard newsreader behavior. No SQL injection vectors found (all queries use sqlx bound parameters). No path traversal found. No credential logging found.\nConfidence: 78% \u2014 Reviewed approximately 45 source files across all 7 crates. Full coverage of core HLC, validation, signing, rate limiting, msgid_map, wildmat, group_log (types, append, reconcile, verify). Full coverage of transit staging, peering session, pipeline, admin, retention (gc, policy, gc_candidates, audit_log, remote_pin_worker), import (ihave_push, feed_negotiation). Full coverage of reader session lifecycle, all command handlers (post, fetch, over, hdr, auth, xget, group, list), post validation, admin. Full coverage of auth CredentialStore. Partial coverage of: verify (x_sig only, not dkim), transit config/main/lib (skimmed), integration tests (conformance test header only), lmdb crate (not read). Key uncertainties: (1) XCID multi-line base64 finding (stoa-e2297bae.4) \u2014 confirmed join() behavior but did not trace the full session.rs XCID response path to byte-level output; (2) ihave_push dot_stuff CRLF finding (stoa-e2297bae.7) \u2014 the trailing-newline logic is subtle and the observed behavior may be correct for LF-only input files; recommend adding a CRLF-specific test to verify."
+}

@@ -1,0 +1,19 @@
+{
+  "id": "stoa-029e3cd8",
+  "title": "Migration 0012 FK constraint may fail when multiple users' messages exist",
+  "description": "Migration 0012_drop_user_id_messages.sql copies all mailbox_messages rows to the new messages table with FK constraint ON mailbox_id \u2192 mailboxes(mailbox_id). But migration 0011 only preserved mailbox_id values from the MIN(user_id) user. When mailbox_messages has rows from other users with different mailbox_id values, those rows become orphaned in the new table. If FK constraints are enabled (currently disabled by default in SQLite but may be enabled in tests/production), the INSERT will fail with a FK violation. Correct behavior: either preserve ALL mailboxes from all users in migration 0011, or remove the FK constraint and handle orphaned rows.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T07:06:35Z",
+  "updated_at": "2026-05-01T04:58:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-17ee367f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 00:06:34"
+    }
+  ]
+}

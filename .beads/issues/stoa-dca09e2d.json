@@ -1,0 +1,12 @@
+{
+  "id": "stoa-dca09e2d",
+  "title": "DECISION: VerifiedEntry typestate is correct soundness design",
+  "description": "verify.rs: VerifiedEntry typestate can only be constructed by the verify module. Correct idiomatic Rust \u2014 preserve and extend.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:27:24Z",
+  "updated_at": "2026-05-01T04:51:35Z",
+  "closed_at": "2026-04-28T20:46:23Z"
+}

@@ -1,0 +1,13 @@
+{
+  "id": "stoa-88063e19",
+  "title": "AppendError not in UsenetIpfsError hierarchy",
+  "description": "group_log/append.rs defines AppendError as a standalone enum that is never integrated into the top-level UsenetIpfsError. Callers must handle two separate error types when appending to the group log, breaking the unified error story.\\n\\nFix: add AppendError as a variant of StorageError (or a top-level variant of UsenetIpfsError) with a From impl so ? propagation works uniformly.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:23:56Z",
+  "updated_at": "2026-05-01T04:52:19Z",
+  "closed_at": "2026-04-28T18:26:22Z"
+}

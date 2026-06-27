@@ -1,0 +1,21 @@
+{
+  "id": "stoa-55a07582",
+  "title": "jmap/dispatch.rs Dispatcher is dead code",
+  "description": "Why this issue exists: jmap/dispatch.rs defines a synchronous Dispatcher struct that server.rs never uses \u2014 it routes all JMAP methods inline. The struct adds maintenance surface with no benefit.\n\nWhat needs to be done: Delete dispatch.rs and remove it from the module tree. Any future dispatch abstraction should be async-native.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:27:12Z",
+  "updated_at": "2026-05-01T04:53:14Z",
+  "closed_at": "2026-04-28T17:49:21Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:27:11"
+    }
+  ]
+}

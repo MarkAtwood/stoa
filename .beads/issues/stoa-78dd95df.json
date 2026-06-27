@@ -1,0 +1,45 @@
+{
+  "id": "stoa-78dd95df",
+  "title": "imap: APPEND command handler",
+  "description": "Add APPEND to crates/imap/src/commands/append.rs. APPEND uploads a message to a mailbox. Algorithm: (1) require Authenticated or Selected state; (2) validate mailbox exists via ArticleNumberStore; (3) validate message size <= config.limits.max_message_bytes; (4) receive LITERAL bytes from imap-next (imap-codec handles LITERAL flow); (5) parse as RFC 2822 message using mailparse; (6) validate it would pass the NNTP POST checks (required headers: From, Subject, Date, Message-ID, Newsgroups); (7) store via the transit pipeline write path (v1: skip actual IPFS write, return tagged OK [APPENDUID uidvalidity uid] with a note that actual ingestion is done via NNTP POST/IHAVE); (8) assign next UID from imap_uid_validity, update next_uid. Defensive: message too large -> tagged NO [OVERQUOTA]; parse error -> tagged NO [CANNOT]; unknown mailbox -> tagged NO [NONEXISTENT].",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T07:18:58Z",
+  "updated_at": "2026-05-01T04:56:38Z",
+  "closed_at": "2026-04-23T07:53:48Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3741bca1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:18:58"
+    },
+    {
+      "depends_on_id": "stoa-50f99166",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:21:42"
+    },
+    {
+      "depends_on_id": "stoa-b13ded74",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:21:40"
+    },
+    {
+      "depends_on_id": "stoa-cb03c639",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:21:41"
+    },
+    {
+      "depends_on_id": "stoa-f2de320d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:21:40"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "stoa-c0fd5196",
+  "title": "test(imap): unit tests for IMAP4REV2 and NAMESPACE in capability_list",
+  "description": "Write unit tests for the updated capability_list() in crates/imap/src/session/commands.rs. Tests must have independent oracles \u2014 expected values come from the RFC wire format, not from calling capability_list() itself.\n\nTests to write (in the existing #[cfg(test)] mod at bottom of commands.rs):\n1. capability_list_includes_imap4rev2_plaintext: call capability_list(false); assert the result contains a capability that displays as \"IMAP4rev2\"; assert it does NOT display as \"IMAP4rev1\".\n2. capability_list_includes_imap4rev2_tls: same for capability_list(true).\n3. capability_list_includes_namespace: call capability_list(false); assert result contains Capability::Namespace (or a capability displaying as \"NAMESPACE\").\n4. capability_list_does_not_include_status_size: assert no capability displays as \"STATUS=SIZE\" (deferred).\n5. capability_data_roundtrip: call capability_data(true); encode to bytes using imap-codec ResponseCodec; assert wire bytes contain b\"IMAP4rev2\" and b\"NAMESPACE\" as substrings.\n\nOracle: RFC 9051 \u00a76.1.1 defines IMAP4rev2 as the exact capability string; RFC 2342 \u00a75 defines NAMESPACE. The wire encoding of capability strings is the capability name with no quotes.\n\nAcceptance: cargo test -p stoa-imap passes with all 5 tests green; no test modifies implementation files.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:04:43Z",
+  "updated_at": "2026-05-01T04:52:06Z",
+  "closed_at": "2026-04-30T02:19:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-149a6a7c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:05:21"
+    },
+    {
+      "depends_on_id": "stoa-db727e07",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:04:42"
+    }
+  ]
+}

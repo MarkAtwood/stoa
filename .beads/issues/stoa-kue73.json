@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "8b6d4705b0e9bb381a524143955e803dbfa1cf7854b112a52e55b21bc5acb668",
+  "created_at": "2026-05-03T13:07:59Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\nsearch/mod.rs uses Tantivy with ReloadPolicy::Manual. On normal shutdown (SIGTERM handled by main.rs), in-flight articles that were index_article'd but not yet committed will be lost from the search index. The Tantivy writer buffer is an in-process structure; on SIGKILL or crash, it is lost silently. The article still exists in IPFS and article_numbers, but is not searchable.\\n\\nThe module doc says the index is a 'rebuildable cache' and recovery requires deleting the index dir. This is the correct recovery story but it should be:\\n1. Documented explicitly as a known limitation.\\n2. Mitigated by calling commit() more frequently (e.g. after every POST, not just on batch close).\\n\\nlifecycle.rs already calls commit() after each successful POST (line 1300), so the window is one article maximum. Documenting this behavior is sufficient.\\n\\n## Acceptance Criteria\\n\\nAdd a comment near the writer buffer init in TantivySearchIndex::open/open_in_memory documenting the crash-recovery property.",
+  "ephemeral": 0,
+  "id": "stoa-kue73",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Tantivy writer buffer uncommitted on process SIGKILL: articles disappear from search",
+  "updated_at": "2026-05-03T13:07:59Z"
+}

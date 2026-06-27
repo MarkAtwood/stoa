@@ -1,0 +1,21 @@
+{
+  "id": "stoa-6d00f923",
+  "title": "Transit admin bearer token uses non-constant-time string comparison",
+  "description": "transit/admin.rs:296-303: auth_header == Some(expected.as_str()) is a timing-variable string compare. Comment acknowledges this but promises upgrade before public internet exposure. That upgrade is not guaranteed to land. Fix now: replace with subtle::ConstantTimeEq or ring::constant_time::verify_slices_are_equal to eliminate timing oracle on the token length and prefix.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:36:24Z",
+  "updated_at": "2026-05-01T04:59:50Z",
+  "closed_at": "2026-04-22T22:53:47Z",
+  "notes": "Fixed as part of stoa-31947539.4",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:36:24"
+    }
+  ]
+}

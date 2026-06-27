@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T13:17:04Z",
+  "compaction_level": 0,
+  "content_hash": "4fabdc9bb640f0846fa585a66c6326752e4da7e69a41cae64126e6ea9324e198",
+  "created_at": "2026-05-03T13:02:38Z",
+  "created_by": "Mark Atwood",
+  "description": "In dkim.rs::has_dkim_signature_header, the code correctly finds header_end (\\r\\n\\r\\n or \\n\\n separator) and only scans header_bytes = &article_bytes[..header_end]. However the or_else fallback for \\n\\n uses windows(2).position() which runs over the FULL article first -- only the position is then taken. For an article with no \\r\\n\\r\\n, the \\n\\n search starts from position 0 in the full article. If the body contains 'DKIM-Signature:' preceded by a blank line, the body-check guard would still be correct because header_bytes is sliced using the found position. On careful re-read this looks correct, but there is a subtle issue: for \\n\\n detection,  points to just after the blank line (p + 2). If there is NO separator at all,  is used, meaning the entire byte slice (including body) is scanned for DKIM-Signature. The intent says 'in the header section' but the fallback silently scans the whole article when the separator is absent.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "verify: DKIM header check scans full article bytes, not just header section",
+  "updated_at": "2026-05-03T13:17:04Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:02:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "421e4d0a-059d-516c-a7d0-ff0fbe93a4d7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

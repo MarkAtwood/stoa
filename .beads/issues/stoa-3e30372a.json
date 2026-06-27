@@ -1,0 +1,21 @@
+{
+  "id": "stoa-3e30372a",
+  "title": "Implement TOML peering configuration schema",
+  "description": "Define the TOML configuration schema for the transit daemon: [listen] (TCP address), [peers] (list of peer addresses for dialing), [groups] (list of groups to serve), [ipfs] (IPFS API config), [pinning] (policy rules), [gc] (schedule and policy). Implement Config struct with serde deserialization and validation. Artifact: transit/src/config.rs.\n\nAcceptance:\n- Invalid TOML exits with human-readable error naming the invalid field\n- Required fields are validated on load (no panics on missing required field)\n- Example config file included in transit/config.example.toml\n- Unit test: parse the example config with no errors",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:12:22Z",
+  "updated_at": "2026-05-01T04:55:02Z",
+  "closed_at": "2026-04-20T00:32:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-cd52a365",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:12:21"
+    }
+  ]
+}

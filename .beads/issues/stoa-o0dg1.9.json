@@ -1,0 +1,33 @@
+{
+  "close_reason": "decision records, no code change required",
+  "closed_at": "2026-05-02T14:07:09Z",
+  "compaction_level": 0,
+  "content_hash": "0d79be1df810d783b6fcb4831a5620c045d6127f3398f3152e5737322b081afe",
+  "created_at": "2026-05-02T14:02:30Z",
+  "created_by": "Mark Atwood",
+  "description": "The jmap-server Dispatcher spawns each handler call as a tokio::task, converting panics to serverFail responses. The old hand-rolled loop had no panic isolation \u2014 a panicking handler would have crashed the entire connection task. This is a genuine safety improvement, not just a refactor.",
+  "ephemeral": 0,
+  "id": "stoa-o0dg1.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Panic isolation gained for free via tokio::spawn in Dispatcher",
+  "updated_at": "2026-05-02T14:07:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T07:02:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-o0dg1",
+      "id": "68041a41-a1d5-52ff-873b-34842743ba9d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

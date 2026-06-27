@@ -1,0 +1,19 @@
+{
+  "id": "stoa-4c6fecac",
+  "title": "change_log record_created issues N sequential INSERTs in a loop",
+  "description": "state/change_log.rs record_created() issues one INSERT per item in a loop. For Email/set create with many new emails this is N sequential DB round-trips. Replace with a bulk INSERT using a VALUES clause or execute_batch to reduce to 1 DB call.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:53:13Z",
+  "updated_at": "2026-05-01T04:55:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:53:13"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "compaction_level": 0,
+  "content_hash": "77f5ad7fbc549496ce8d5145c3d957ce0057c61e09eab2bf438e67492845f8c6",
+  "created_at": "2026-05-01T19:54:01Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why\n\nThe CompositeBlockStore (stoa-wqxq6) uses a global write_policy (all vs. primary). This is too coarse when multiple instances of the same backend type are configured with different credentials or access levels.\n\nThe concrete use case: an operator points stoa at 3 S3 buckets \u2014 their own (writable) and two peers' buckets (read-only, either public or with read-only credentials). Reads waterfall across all three. Writes go only to the operator's own bucket. No local copying of peer articles needed \u2014 stoa serves them directly from the source bucket.\n\nThis is a natural fit for NNTP peering: each peer exposes their block store (S3 bucket, WebDAV endpoint, public fs mount) and you read from all of them while writing only to your own.\n\n## What\n\nAdd a per-backend `writable` boolean flag (default: true) to each [[backend]] entry in the config. The CompositeBlockStore read policy (first_found) is unchanged. The write policy ignores any backend with `writable = false`.\n\nExample config:\n```toml\n[[backend]]\ntype = \"s3\"\nbucket = \"my-primary\"\nwritable = true\n\n[[backend]]\ntype = \"s3\"\nbucket = \"peer-a-blocks\"\nwritable = false\n\n[[backend]]\ntype = \"s3\"\nbucket = \"peer-b-blocks\"\nwritable = false\n```\n\n## Design\n\n- Reads: try all backends in declaration order, return first hit regardless of writable flag.\n- Writes: put only to backends where writable = true. If no writable backend is configured, return a clear config error at startup rather than silently dropping writes.\n- Deletes: only from writable backends.\n- Validation at startup: warn if more than one backend has writable = true (ambiguous write target); error if zero backends have writable = true.\n- Single-backend configs with no writable field default to writable = true (backward compatible).\n\n## Acceptance\n\n- writable = false backends are skipped on put and delete\n- writable = false backends are included in the read waterfall\n- Zero writable backends is a startup config error\n- Single-backend config with no writable field continues to work unchanged\n- Tests cover: write goes only to writable backends, read falls through to read-only backends, zero-writable-backends startup error",
+  "ephemeral": 0,
+  "id": "stoa-wl22t",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "The NNTP peering use case (read from peers' buckets, write only to your own) is the primary motivation. Consider whether peer bucket credentials should live in the [peers] config section rather than [[backend]] to keep the separation clean.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Per-instance writable flag for composite backend",
+  "updated_at": "2026-06-26T20:26:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T12:54:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-wqxq6",
+      "id": "d4e6cb66-168e-54fc-b321-a1efdd75ff1d",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

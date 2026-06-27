@@ -1,0 +1,21 @@
+{
+  "id": "stoa-e753710e",
+  "title": "stoa-ctl log-tip breaks for group names containing '+'",
+  "description": "percent_encode in ctl/src/main.rs:213 encodes '+' as '%2B' ('+' is not in the safe set). extract_query_param in transit/src/admin.rs:428 explicitly does not decode percent-encoding. So stoa-ctl log-tip for a group like 'alt.binaries.pictures+test' sends group=%2B-encoded name; server extracts the encoded string and queries the DB, finding no match. + is a valid group name character per validate_group_name. Any group whose name contains '+' will always return 404 from log-tip.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T16:33:56Z",
+  "updated_at": "2026-05-01T04:53:57Z",
+  "closed_at": "2026-04-24T16:52:50Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3840252d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-24 09:33:56"
+    }
+  ]
+}

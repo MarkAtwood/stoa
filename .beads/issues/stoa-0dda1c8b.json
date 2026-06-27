@@ -1,0 +1,33 @@
+{
+  "id": "stoa-0dda1c8b",
+  "title": "ManageSieve RFC 5804: per-user Sieve script management",
+  "description": "Expose per-user Sieve script management via ManageSieve protocol (RFC 5804) on port 4190. ManageSieve is the standard protocol \u2014 Thunderbird, Roundcube, and most IMAP clients support it natively via a plugin or built-in. Commands to implement: CAPABILITY, AUTHENTICATE (PLAIN over TLS, SCRAM-SHA-256), STARTTLS, LISTSCRIPTS, PUTSCRIPT (upload + parse-validate, return parse errors with line/col), GETSCRIPT, DELETESCRIPT, SETACTIVE, RENAMESCRIPT, CHECKSCRIPT (validate without storing), LOGOUT, NOOP, HAVESPACE. Script size limit: configurable, default 64 KB. STARTTLS required before AUTHENTICATE (reject plaintext auth). If ManageSieve proves too complex for v1, fall back to HTTP admin endpoints (PUT /admin/sieve/{username}/{scriptname}, GET, DELETE, POST .../activate) consistent with the existing admin pattern \u2014 note this in the epic and decide at implementation time. Either way: validate script (parse-check) before saving, return parse errors. Store compiled AST alongside raw bytes in user_sieve_scripts table.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T04:52:57Z",
+  "updated_at": "2026-05-01T04:54:49Z",
+  "closed_at": "2026-04-21T06:17:45Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-03347379",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 21:52:57"
+    },
+    {
+      "depends_on_id": "stoa-9d47a214",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 21:53:06"
+    },
+    {
+      "depends_on_id": "stoa-e8f8b00b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 21:53:07"
+    }
+  ]
+}

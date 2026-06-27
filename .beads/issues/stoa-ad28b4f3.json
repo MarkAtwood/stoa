@@ -1,0 +1,13 @@
+{
+  "id": "stoa-ad28b4f3",
+  "title": "Review: entire usenet-ipfs codebase",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T13:56:35Z",
+  "updated_at": "2026-05-01T04:54:46Z",
+  "closed_at": "2026-04-22T18:57:03Z",
+  "notes": "Confidence: 35% chance of missed bug. Uncertainty driven by: (1) transit peering session.rs full flow not read \u2014 may have verification calls I missed; (2) group_log backfill.rs and the full reconciliation wire protocol not traced end-to-end; (3) JMAP mail crate lightly reviewed. Would raise confidence if: run cargo test --workspace and verify all pass; audit every call site of append() to confirm verify_entry is or isn't called anywhere in the call graph."
+}

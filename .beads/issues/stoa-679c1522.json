@@ -1,0 +1,21 @@
+{
+  "id": "stoa-679c1522",
+  "title": "peering auth handshake simultaneous write could deadlock on a slow TCP path",
+  "description": "## What / Why\nIn crates/transit/src/peering/auth.rs, both sides of the peering handshake write their nonce before reading the remote nonce. In tests this works because the BufReader has a 4096-byte buffer that absorbs the write without blocking. On a real TCP connection with a tiny kernel send buffer, both sides could block in write_all() waiting for the peer to read \u2014 but the peer is also blocked in write_all(). This is a classic simultaneous-write deadlock.\n\n## Risk\nIn a real deployment under memory pressure or with an unusual TCP stack configuration, two peers connecting simultaneously could deadlock for up to 15 seconds (the handshake timeout), preventing connection establishment. Low probability but non-zero for production deployments.\n\n## Fix\nUse tokio::io::split() or join the write and read futures with tokio::join! so the write and read run concurrently rather than sequentially. Or prefix each side's nonce send with a message-size field so the reader can always proceed.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T03:08:39Z",
+  "updated_at": "2026-05-01T04:59:12Z",
+  "closed_at": "2026-04-27T04:04:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e2297bae",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 20:08:38"
+    }
+  ]
+}

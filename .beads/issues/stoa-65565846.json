@@ -1,0 +1,19 @@
+{
+  "id": "stoa-65565846",
+  "title": "from_content_returns_err_for_empty_username test: redundant is_err() check",
+  "description": "In store.rs test from_content_returns_err_for_empty_username: result.is_err() is asserted separately, then result.err().unwrap() is called and matched. The matches!() on the unwrapped value already implies is_err(). Idiomatic rewrite: assert!(matches!(result, Err(CredentialStoreError::EmptyUsername { .. }))); \u2014 one assertion, no intermediate is_err(). Compare from_file_returns_err_for_empty_username which asserts err message content; from_content_ variant is weaker and inconsistently structured.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:38:26Z",
+  "updated_at": "2026-05-01T04:58:30Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-eee41a47",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 12:38:26"
+    }
+  ]
+}

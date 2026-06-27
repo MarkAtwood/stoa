@@ -1,0 +1,27 @@
+{
+  "id": "stoa-198e78b4",
+  "title": "Wire group_log queries into GROUP and LIST ACTIVE commands",
+  "description": "Replace the hardcoded (0, 0, 0) stub in the GROUP command handler with a live query to group_log::group_range() and group_log::article_count(). Wire LIST ACTIVE to enumerate groups from the group_log storage rather than from config. Why: newsreaders send GROUP before any ARTICLE fetch; returning zero counts causes clients to think groups are empty and skip fetching.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T00:15:28Z",
+  "updated_at": "2026-05-01T04:54:51Z",
+  "closed_at": "2026-04-21T01:09:41Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-53e41c25",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:16:11"
+    },
+    {
+      "depends_on_id": "stoa-ffb311ed",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:43"
+    }
+  ]
+}

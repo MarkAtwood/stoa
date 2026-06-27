@@ -1,0 +1,13 @@
+{
+  "id": "stoa-529fa036",
+  "title": "Audit + test: JMAP method authorization against RFC 8621",
+  "description": "Static review could not verify per-method authorization checks in the mail crate against RFC 8621 requirements. RFC 8621 specifies that each method must check the authenticated principal has the required rights before operating.\n\nStep 1 \u2014 Audit (read, no code change):\nFor each of these methods in mail/src/, identify what authorization check (if any) is present:\n- Email/get (\u00a75.1): must check mailbox read rights\n- Email/set (\u00a75.3): must check mailbox write rights for create/update/destroy\n- Mailbox/set (\u00a72.5): must check account ownership or admin rights for create/destroy\n\nStep 2 \u2014 File sub-issues for any missing checks found.\n\nStep 3 \u2014 Write tests:\nFor each method, write a test that:\n1. Authenticates as user A\n2. Attempts to access or modify a resource owned by user B\n3. Asserts the response is a method-level error (forbidden), not a server error and not a silent success\n\nIndependent oracle: RFC 8621 \u00a72-\u00a75 defines the exact error types (forbidden, invalidArguments, etc.) and conditions.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T17:04:54Z",
+  "updated_at": "2026-05-01T05:00:56Z",
+  "closed_at": "2026-04-22T23:10:48Z"
+}

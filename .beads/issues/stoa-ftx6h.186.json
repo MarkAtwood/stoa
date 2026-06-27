@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "70836040827b535f69af2d102aea0d0947ac0033d5a23aea0ca0f603f2c0f02e",
+  "created_at": "2026-05-03T13:10:49Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: while the overflow year is far in the future, silent narrowing casts from u64 to i64 are an anti-pattern in Rust that can be caught at compile time with a checked cast. What: audit_log.rs stores ingested_at_ms (u64) and gc_at_ms (u64) by casting to i64 with as i64 before binding to sqlx. If the value exceeds i64::MAX the cast wraps silently, storing a negative timestamp. Use i64::try_from(val).unwrap_or(i64::MAX) or assert the value fits before the cast.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.186",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "audit_log i64 cast from u64 ingested_at_ms silently truncates after year 292M",
+  "updated_at": "2026-05-03T13:10:49Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:10:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "4d403f5f-c540-5e98-91a5-71931e8f2e4b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

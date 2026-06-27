@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T14:11:48Z",
+  "compaction_level": 0,
+  "content_hash": "541d219a6b7b7f556438c422db6112cf2f80d861fb52471f8c644d8b11a68412",
+  "created_at": "2026-05-03T13:04:53Z",
+  "created_by": "Mark Atwood",
+  "description": "circuit_breaker.rs calls mutex.lock().unwrap() in allow_request(), record_success(), and record_failure(). A panic inside any of those closures poisons the mutex, and every subsequent call panics, taking down the process. The circuit breaker wraps IPFS calls, which may see errors. Use .expect() with a descriptive message is fine, but the underlying issue is that there is no recovery path. Consider using a poisoning-safe pattern or replacing with a lock-free approach for a hot-path limiter.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.57",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "core: circuit_breaker mutex uses .unwrap() throughout; lock poisoning terminates process",
+  "updated_at": "2026-05-03T14:11:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:04:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "6e861816-666e-5ecc-b2f8-2d8a35110961",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

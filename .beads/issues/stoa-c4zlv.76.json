@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T18:39:28Z",
+  "compaction_level": 0,
+  "content_hash": "4bc1d3240ae779135a180d15db1ab930633fdef4f54783a9348f1d1ac44f8b85",
+  "created_at": "2026-05-01T15:21:26Z",
+  "created_by": "Mark Atwood",
+  "description": "Scenario: high-volume auth-scanning bot cycles through a large number of source IPs. auth_limiter.rs::record_failure calls evict_oldest when the tracker is at max_entries capacity. evict_oldest performs a full HashMap iteration to find the minimum-timestamp entry, O(n) in max_entries. With max_entries=10000 this is 10k comparisons per new-IP insertion under sustained scanning. Replace HashMap with a structure that supports O(log n) min extraction, such as a BTreeMap keyed by (timestamp, ip) or a min-heap.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.76",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "AuthFailureTracker::evict_oldest is O(n) scan on every new-IP insert at capacity",
+  "updated_at": "2026-05-01T18:39:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:21:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "80fd38c6-ae3e-5bc5-a031-a1ba50bcf6d4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

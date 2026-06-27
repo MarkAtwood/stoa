@@ -1,0 +1,19 @@
+{
+  "id": "stoa-720a86a8",
+  "title": "looks_like_bcrypt_hash use statement placed mid-file in reader/config.rs",
+  "description": "reader/src/config.rs line 281 has a bare 'use stoa_auth::looks_like_bcrypt_hash;' statement placed mid-file between other struct/fn definitions rather than at the top of the file with other imports (lines 1-16). For a contributor reading the file top-to-bottom, finding a use statement 280 lines in is surprising. Move to top-of-file with the other use declarations.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:30:56Z",
+  "updated_at": "2026-05-01T04:51:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-031471c6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 12:30:55"
+    }
+  ]
+}

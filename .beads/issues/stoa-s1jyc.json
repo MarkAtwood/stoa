@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "d6c46e53be3a968d4482a34e91e82429bd07db01e199cee4405789ea092da2a9",
+  "created_at": "2026-05-02T15:56:15Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why this issue exists\n\nStoa has no automated dependency vulnerability scanning. Known CVEs in transitive dependencies go undetected until a human notices. PCI-DSS 6.3.3 requires that all software components are protected from known vulnerabilities. SOC2 CC7.1 requires monitoring for vulnerabilities.\n\n## What needs to be done\n\n- Add `cargo audit` as a CI step (GitHub Actions or equivalent) that runs on every push and PR.\n- The step should fail the build on any CVSS \u2265 7.0 (HIGH/CRITICAL) finding that is not explicitly acknowledged.\n- Add a `deny.toml` (cargo-deny) or `.cargo/audit.toml` with an explicit ignore list for any currently known findings that are accepted with documented rationale.\n- Schedule a weekly full audit run even if no push occurs.\n- Document the process for acknowledging a finding (add to ignore list with date, CVE ID, and rationale).\n\n## Acceptance criteria\n\n- CI blocks merge on unacknowledged HIGH/CRITICAL CVEs\n- Weekly scheduled scan runs independently of pushes\n- Existing acknowledged findings are documented with rationale\n- Process documented in CONTRIBUTING or equivalent\n\n## Design notes\n\nRegulatory refs: SOC2 CC7.1, PCI-DSS 6.3.3. Use `cargo audit` (rustsec advisory DB) and optionally `cargo deny` for license + advisory checks together.",
+  "ephemeral": 0,
+  "id": "stoa-s1jyc",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "cargo audit in CI pipeline",
+  "updated_at": "2026-05-02T15:56:15Z"
+}

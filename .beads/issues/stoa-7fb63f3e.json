@@ -1,0 +1,33 @@
+{
+  "id": "stoa-7fb63f3e",
+  "title": "tests: config + pipeline group filter integration tests",
+  "description": "## What\nWrite integration tests in the transit crate verifying config wildmat validation and pipeline group filtering end-to-end.\n\n## Algorithm\nTest file: crates/transit/tests/groups_filter.rs (or extend existing test module)\n\nTest 1 \u2014 valid_wildmat_config_loads: Build Config with names=[\"comp.*\", \"sci.*\", \"!alt.binaries.*\"] via TOML; call validate(); assert Ok.\n\nTest 2 \u2014 all_negation_config_rejected: Build Config with names=[\"!comp.*\"]; call validate(); assert Err containing \"positive\" in message.\n\nTest 3 \u2014 pipeline_accepts_matching_group:\n  - Build GroupFilter::new(&[\"comp.*\"]) \n  - Construct minimal article bytes with Newsgroups: comp.lang.rust\n  - Call run_pipeline() with ctx.group_filter = Some(filter)\n  - Assert PipelineResult::Stored (group log entry created for comp.lang.rust)\n\nTest 4 \u2014 pipeline_rejects_non_matching_group:\n  - GroupFilter::new(&[\"comp.*\"])\n  - Article Newsgroups: alt.test\n  - Call run_pipeline() with filter\n  - Assert the group log has no entry for alt.test (article IPFS block stored but no log entry)\n\nTest 5 \u2014 pipeline_negation_excludes:\n  - GroupFilter::new(&[\"comp.*\", \"sci.*\", \"!alt.binaries.*\", \"alt.test\"])\n  - Article Newsgroups: alt.binaries.pictures\n  - Assert no log entry for alt.binaries.pictures\n\nTest 6 \u2014 pipeline_no_filter_accepts_all:\n  - ctx.group_filter = None\n  - Article Newsgroups: alt.test\n  - Assert log entry created (backward-compatible default)\n\nOracle for all tests: hardcoded expected group names and filter patterns from epic acceptance criteria.\n\n## Defensive programming rules\n- Tests use in-memory SQLite (not a real file) to avoid disk state\n- Tests use deterministic article bytes with known Message-ID\n- No test uses run_pipeline() output as oracle for another test\n- Tests run in isolation (no shared state between test cases)\n\n## Agent team\nStandard: Agent R (read existing pipeline test helpers), Agent I (write integration tests), Agent V (cargo test -p stoa-transit + clippy)\n\n## Tests\nThe tests ARE the deliverable. Six named integration tests enumerated above.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-26T23:25:09Z",
+  "updated_at": "2026-05-01T04:52:01Z",
+  "closed_at": "2026-04-27T00:21:55Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6d9c3330",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 16:25:36"
+    },
+    {
+      "depends_on_id": "stoa-92edaf7f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 16:25:37"
+    },
+    {
+      "depends_on_id": "stoa-efbe068a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 16:25:09"
+    }
+  ]
+}

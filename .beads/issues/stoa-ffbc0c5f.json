@@ -1,0 +1,19 @@
+{
+  "id": "stoa-ffbc0c5f",
+  "title": "secretx: bypass in config validate() is correct design",
+  "description": "In both smtp/src/config.rs and reader/src/config.rs, the DKIM key_seed_b64 base64 validation is skipped when the value starts with 'secretx:'. This is correct: validate() runs before secretx resolution (which is async and happens in main()), so decoding a secretx URI as base64 would always fail. The secretx URI is validated at config load (from_uri() call in main()) and the resolved bytes are validated at key construction time. The asymmetry (public_key_b64 is always validated, key_seed_b64 is conditionally skipped) is intentional and correct \u2014 public_key_b64 is not expected to come from a secret store. A future contributor might 'fix' the asymmetry by also skipping public_key_b64 validation, which would be wrong.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:13:48Z",
+  "updated_at": "2026-05-01T04:58:26Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5be7a2c5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:13:47"
+    }
+  ]
+}

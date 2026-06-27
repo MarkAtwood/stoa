@@ -1,0 +1,21 @@
+{
+  "id": "stoa-3433f385",
+  "title": "DECISION: CredentialStore always runs bcrypt::verify for unknown usernames (timing-attack prevention)",
+  "description": "credentials.rs check() always runs bcrypt::verify even for unknown usernames using the pre-computed dummy_hash. This prevents timing-based username enumeration. The dummy hash is computed at the same bcrypt cost as the production hashes. A future contributor might add an early return for unknown users 'for efficiency' \u2014 this would create a timing oracle. Preserve this.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T06:02:14Z",
+  "updated_at": "2026-05-01T05:00:17Z",
+  "closed_at": "2026-04-27T16:58:31Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-650091d3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 23:02:14"
+    }
+  ]
+}

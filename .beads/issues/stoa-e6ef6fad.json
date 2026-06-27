@@ -1,0 +1,21 @@
+{
+  "id": "stoa-e6ef6fad",
+  "title": "auth/oidc: silent RS256 default when JWK has no alg field",
+  "description": "crates/auth/src/oidc.rs rsa_decoding_key_and_alg() silently defaults to Algorithm::RS256 when JWK has no alg field. This security decision should emit a tracing::debug and have a DECISION comment explaining why RS256 is the correct default for alg-less RSA keys.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:27:34Z",
+  "updated_at": "2026-05-01T04:53:13Z",
+  "closed_at": "2026-04-28T18:41:11Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:27:34"
+    }
+  ]
+}

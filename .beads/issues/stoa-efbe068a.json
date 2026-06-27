@@ -1,0 +1,14 @@
+{
+  "id": "stoa-efbe068a",
+  "title": "[groups] names: wildmat pattern support with negation",
+  "description": "## Why\n\nCurrently `[groups] names` in transit.toml only accepts fully-qualified group names (e.g. `comp.lang.rust`). Operators need to express policies like \"all of comp.*\", \"everything except alt.binaries.*\", or \"sci.* but not sci.crypt\". Without wildmat support, operators must enumerate every group explicitly \u2014 impractical for large hierarchies.\n\n## What\n\nAdd RFC 3977 wildmat pattern support (\u00a74.1) to `[groups] names`:\n\n- `*` \u2014 match any sequence of characters within a component or across dots\n- `?` \u2014 match any single character\n- `!` prefix \u2014 negation; exclude groups matched by this pattern\n- Patterns evaluated in order; first match wins\n- Bare group names continue to work as exact-match patterns\n\n### Examples\n\n```toml\n[groups]\nnames = [\n  \"comp.*\",          # all of comp hierarchy\n  \"sci.*\",           # all of sci hierarchy\n  \"!alt.binaries.*\", # except binary groups\n  \"alt.test\",        # one specific group\n]\n```\n\n## Scope\n\n- Parse and validate patterns in `GroupsConfig`\n- Implement wildmat matching (RFC 3977 \u00a74.1 semantics)\n- Apply pattern matching at ingestion: accept article if any Newsgroups entry matches\n- Subscribe gossipsub to the right per-hierarchy topics based on which hierarchies patterns can match\n- Reject config that has only negation patterns and no positive patterns (would accept nothing)\n- Integration test: wildcard accept, negation exclude, order-dependent resolution",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T16:13:41Z",
+  "updated_at": "2026-05-01T04:51:55Z",
+  "closed_at": "2026-04-27T00:56:50Z",
+  "notes": "Review converged after 1 round. Final review: stoa-dc77c90c."
+}

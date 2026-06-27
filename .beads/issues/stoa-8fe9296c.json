@@ -1,0 +1,33 @@
+{
+  "id": "stoa-8fe9296c",
+  "title": "Implement IHAVE and TAKETHIS article ingestion handler",
+  "description": "Implement the NNTP peering session handler for inbound connections. Accept IHAVE <message-id>, check the Message-ID->CID map for duplicates (respond 435 if known), respond 335 to proceed, receive article, validate headers and size at ingress, respond 235 on success or 437/43x on failure. Same for TAKETHIS. Artifact: transit/src/peering/ingestion.rs.\n\nAcceptance:\n- 435 response for already-known Message-ID (no duplicate store)\n- 437 response for malformed article (logged, not stored)\n- Article size limit enforced (configurable, default 1MB for text-only v1)\n- Message-ID format validated before use as map key\n- Unit test: inject a valid article, a duplicate, and a malformed article; check response codes",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:12:34Z",
+  "updated_at": "2026-05-01T04:55:01Z",
+  "closed_at": "2026-04-20T04:17:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-09261f4e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:53:05"
+    },
+    {
+      "depends_on_id": "stoa-6b57af1d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:04"
+    },
+    {
+      "depends_on_id": "stoa-cd52a365",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:12:33"
+    }
+  ]
+}

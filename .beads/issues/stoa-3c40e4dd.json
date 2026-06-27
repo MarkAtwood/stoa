@@ -1,0 +1,21 @@
+{
+  "id": "stoa-3c40e4dd",
+  "title": "feat(mail): resolve tls.key_path via secretx at startup",
+  "description": "mail passes tls.key_path directly without secretx resolution. Only credential_file has secretx handling in mail startup. An operator storing their TLS private key in a secret manager cannot use it with the mail daemon.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T21:02:34Z",
+  "updated_at": "2026-05-01T05:00:39Z",
+  "closed_at": "2026-04-30T21:24:49Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-7b8daa1e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 14:02:34"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "2a9beeea9daa9bbaaf035807230d8483d6e269f089c4028cc9377541dc3d7918",
+  "created_at": "2026-05-03T13:08:15Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\npost/ipfs_write.rs::IpfsBlockStore trait has a default delete() impl that returns DeletionOutcome::Deferred. MemIpfsStore does not override it, so deletes on the in-memory store are no-ops. KuboBlockStore overrides delete() with pin_rm(). This means tests that use MemIpfsStore cannot test the delete path.\\n\\nThe default impl makes sense as a 'not yet implemented' stub but the doc comment says 'Override to provide backend-specific behaviour' without explaining that the default is a no-op. An implementor who forgets to override gets silent data retention.\\n\\n## Acceptance Criteria\\n\\nChange the default to either panic! (forcing implementors to be explicit) or document explicitly that the default is 'block retained until GC' and add #[allow(unused)] to silence warnings on _cid in default.",
+  "ephemeral": 0,
+  "id": "stoa-t9jb3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Rust idiom: IpfsBlockStore::delete default impl never called \u2014 API misleads implementors",
+  "updated_at": "2026-05-03T13:08:15Z"
+}

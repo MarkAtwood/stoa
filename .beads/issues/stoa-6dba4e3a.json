@@ -1,0 +1,32 @@
+{
+  "id": "stoa-6dba4e3a",
+  "title": "Tests: IpnsPublisher build_index_json and admin endpoint",
+  "description": "Unit tests for build_index_json in ipns_publisher.rs: 1. Empty BTreeMap produces {\"version\":1,\"groups\":{}}. 2. Two groups in BTreeMap produce correct alphabetically-ordered JSON (BTreeMap guarantees key order). 3. CIDs are encoded as their string representation. Integration test in tests/ipns_admin.rs: seed articles for two groups in DB, call build_ipns_json(), parse returned JSON, verify groups key contains both groups. Admin /ipns tests do not need a live IPFS node \u2014 test build_ipns_json() helper function directly. Independent oracle: construct expected JSON strings by hand, not via serde round-trip through the code under test.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T06:28:25Z",
+  "updated_at": "2026-05-01T04:56:21Z",
+  "closed_at": "2026-04-23T06:47:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-74573660",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 23:28:24"
+    },
+    {
+      "depends_on_id": "stoa-87af7878",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 23:28:37"
+    },
+    {
+      "depends_on_id": "stoa-fa5a5edf",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 23:28:37"
+    }
+  ]
+}

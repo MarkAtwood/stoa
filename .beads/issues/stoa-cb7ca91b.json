@@ -1,0 +1,13 @@
+{
+  "id": "stoa-cb7ca91b",
+  "title": "LMDB: Send+Sync impl not compiler-verified",
+  "description": "crates/lmdb/src/lib.rs: LmdbBlockDb is used across threads (Arc<LmdbBlockDb>) but there is no explicit impl Send + Sync or a static assertion to verify the compiler grants those impls. If a future change adds a !Send field (e.g., Rc, RefCell) the Send+Sync property would silently be lost. Fix: add a compile-time static assertion: const _: () = { fn assert_send_sync<T: Send + Sync>() {} assert_send_sync::<LmdbBlockDb>(); };",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T14:39:05Z",
+  "updated_at": "2026-05-01T04:55:50Z",
+  "closed_at": "2026-04-27T14:55:18Z"
+}

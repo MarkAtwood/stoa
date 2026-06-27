@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T13:31:09Z",
+  "compaction_level": 0,
+  "content_hash": "67eff26bcad251e657ea91523a2017556bd714e6a4e51108141e4735d1966c32",
+  "created_at": "2026-05-03T13:06:32Z",
+  "created_by": "Mark Atwood",
+  "description": "In relay_queue.rs, EnvelopeFile is deserialized from JSON with #[serde(default)] on require_tls. If an envelope file written by a future version of stoa omits the field (or if the field is named differently), deserialization silently succeeds with require_tls=false, potentially relaying a message that was enqueued with REQUIRETLS over a plaintext connection. This is a correctness-security issue. Fix: make require_tls non-optional with an explicit default of false only at the serde level, and add a post-deserialization validation step that logs a warning when a REQUIRETLS envelope is found without TLS available.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.119",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "smtp: EnvelopeFile::require_tls silently defaults to false on missing field",
+  "updated_at": "2026-05-03T13:31:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "66aa683f-1232-5848-93cc-391a076b4a75",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

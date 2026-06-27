@@ -1,0 +1,26 @@
+{
+  "id": "stoa-1abd831d",
+  "title": "Define ProtocolError variants covering all RFC 3977 failure modes",
+  "description": "Define ProtocolError: UnknownCommand, MissingMandatoryHeader(field_name), InvalidMessageId, InvalidGroupName, ArticleTooBig(size, limit), DateOutOfRange, DuplicateMessageId, NoGroupSelected, NotAuthenticated, LineTooLong. Each variant maps to a specific RFC 3977 response code. Implement a method response_code(&self) -> u16. Artifact: core/src/error.rs, ProtocolError sub-enum.\n\nAcceptance criteria: every error variant has a response_code; unit test: each variant maps to a distinct response code matching RFC 3977; variants cover all command handler failure modes",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:47:01Z",
+  "updated_at": "2026-05-01T04:54:13Z",
+  "closed_at": "2026-04-20T02:58:06Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-09261f4e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:47:32"
+    },
+    {
+      "depends_on_id": "stoa-656d4d6d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:47:01"
+    }
+  ]
+}

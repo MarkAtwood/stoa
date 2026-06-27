@@ -1,0 +1,20 @@
+{
+  "id": "stoa-6ec467b9",
+  "title": "Add sieve-daemon workspace member to Cargo.toml",
+  "description": "Add the new sieve-daemon crate to the workspace.\n\nWhat: Add crates/sieve-daemon to [workspace.members] in root Cargo.toml and create the crate skeleton (Cargo.toml with AGPL-3.0-only license, axum/tokio/serde_json/usenet-ipfs-sieve deps, empty src/main.rs).\n\nAlgorithm:\n1. Edit root Cargo.toml: append 'crates/sieve-daemon' to members list.\n2. Create crates/sieve-daemon/Cargo.toml with: name=usenet-ipfs-sieve-daemon, license=AGPL-3.0-only, deps: axum 0.8, tokio (full), serde/serde_json, tower, tracing, usenet-ipfs-sieve path dep.\n3. Create crates/sieve-daemon/src/main.rs with a stub main() that prints 'sieve-daemon stub'.\n4. cargo check -p usenet-ipfs-sieve-daemon must pass.\n\nDefensive rules: no unwrap() in production paths; license field must be exactly 'AGPL-3.0-only'.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:16:58Z",
+  "updated_at": "2026-05-01T05:00:44Z",
+  "closed_at": "2026-04-23T20:25:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d1d5d8e9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:16:58"
+    }
+  ]
+}

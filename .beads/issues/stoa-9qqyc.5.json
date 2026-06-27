@@ -1,0 +1,50 @@
+{
+  "acceptance_criteria": "cargo test -p stoa-transit -- decompress_ passes; roundtrip and cap tests green; clippy clean",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T02:56:58Z",
+  "compaction_level": 0,
+  "content_hash": "fa008069f67cc5a4044e23b9bd83b45fc12c5ba39875c3e1a4a0ee34223e6df4",
+  "created_at": "2026-05-04T02:48:01Z",
+  "created_by": "Mark Atwood",
+  "description": "What: Implement streaming decompression functions for #! gunbatch (gzip) and #! cunbatch (Unix compress) with mandatory 50 MiB decompressed-size cap (UUCP-G1).\nFile: crates/transit/src/import/rnews.rs (same file as RnewsError)\nAlgorithm:\npub fn decompress_gunbatch(compressed: &[u8]) -> Result<Vec<u8>, RnewsError>:\n1. Construct flate2::read::GzDecoder::new(compressed) \u2014 &[u8] implements Read\n2. Create output Vec with capacity hint (min(compressed.len() * 4, MAX_BATCH_DECOMPRESSED_BYTES))\n3. Use a Read::take wrapper: let limited = decoder.take((MAX_BATCH_DECOMPRESSED_BYTES + 1) as u64)\n4. limited.read_to_end(&mut out)?  \u2014 if this fills MAX+1 bytes, the output is too large\n5. if out.len() > MAX_BATCH_DECOMPRESSED_BYTES: return Err(RnewsError::DecompressedTooLarge { bytes: out.len(), limit: MAX_BATCH_DECOMPRESSED_BYTES })\n   Note: .take(N+1) is the standard pattern \u2014 it reads at most N+1 bytes; if we got exactly N+1, the stream had more. We check after read.\n6. Return Ok(out)\n7. Map std::io::Error to RnewsError::Io via the #[from] impl\n\npub fn decompress_cunbatch(compressed: &[u8]) -> Result<Vec<u8>, RnewsError>:\n- Unix compress (.Z) / LZW is not supported by flate2 or any crate in the workspace.\n- Return Err(RnewsError::UnsupportedCompression(\"cunbatch (Unix compress .Z) not supported; use gunbatch instead\".to_string()))\n- Add a TODO comment: // TODO: add LZW support via a future spike issue\n\nDefensive rules:\n- Never call .unwrap() \u2014 all errors via ?\n- The .take(MAX+1) pattern must be exact \u2014 do not use take(MAX) as that would silently truncate valid batches at exactly 50 MiB\n- No key material is involved; logging the compressed.len() is safe\n\nTests (in same file, #[cfg(test)]):\n- decompress_gunbatch_roundtrip:\n  Oracle: the original plaintext (b\"hello world, this is a test batch\")\n  Steps: compress with flate2::write::GzEncoder (Compression::default()), then call decompress_gunbatch on result, assert eq to original\n- decompress_gunbatch_cap_enforced:\n  Oracle: the fact that MORE than MAX_BATCH_DECOMPRESSED_BYTES bytes were compressed\n  Steps: build a Vec of MAX_BATCH_DECOMPRESSED_BYTES+1 bytes of 0x00, compress with GzEncoder, call decompress_gunbatch, assert Err(RnewsError::DecompressedTooLarge { .. })\n  NOTE: This test requires allocating ~50 MiB. It is correct: the oracle is that the input was definitively larger than the cap. Mark with #[ignore] if slow for CI (it still runs on explicit cargo test -- --ignored).\n- decompress_cunbatch_unsupported: assert Err(RnewsError::UnsupportedCompression(_))",
+  "ephemeral": 0,
+  "id": "stoa-9qqyc.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "decompress_gunbatch and decompress_cunbatch with cap",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T19:48:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-9qqyc",
+      "id": "144f6e28-8acb-56c5-803a-6518cc3918dd",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-03T19:48:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-9qqyc.1",
+      "id": "311ac858-9987-556e-af75-b8abad4c56a6",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-03T19:48:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-9qqyc.2",
+      "id": "64d50f45-3c26-51bf-addf-335965d15983",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "id": "stoa-b503b927",
+  "title": "Integration test: pin/unpin/GC round-trip with audit verification",
+  "description": "Integration test: store 20 articles, apply a pinning policy that pins 7 of them, run GC, verify 13 are unpinned, verify 7 remain pinned, verify audit log has exactly 13 records. Then update policy to pin all 20, run GC, verify no further unpins. Artifact: transit/tests/retention_roundtrip.rs.\n\nAcceptance:\n- Test is deterministic and runs headlessly\n- Audit log contains correct count of records after each GC run\n- IPFS mock or embedded IPFS node used (no external dependency)\n- Test completes in under 30 seconds",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:16:36Z",
+  "updated_at": "2026-05-01T04:58:07Z",
+  "closed_at": "2026-04-20T12:02:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3287c8c4",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:16:36"
+    },
+    {
+      "depends_on_id": "stoa-4e48b549",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:16:52"
+    },
+    {
+      "depends_on_id": "stoa-c8fc03b1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:16:49"
+    }
+  ]
+}

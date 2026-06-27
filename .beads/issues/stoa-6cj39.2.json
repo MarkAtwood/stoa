@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "5f0e9ba50d785c368db4a018ee6a9a0875c12bac1c8de4b2b7897e3370f605d6",
+  "created_at": "2026-05-02T15:27:48Z",
+  "created_by": "Mark Atwood",
+  "description": "Add the schema and data access layer for per-user wrapped DEKs.\n\n## Migration (next number after 0013)\n\n  CREATE TABLE user_encryption_keys (\n      user_id        BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,\n      wrapped_dek    BYTEA  NOT NULL,\n      kms_key_id     TEXT   NOT NULL,   -- ARN of the KMS key used to wrap\n      algorithm      TEXT   NOT NULL DEFAULT 'AES_256',\n      created_at     BIGINT NOT NULL,\n      rotated_at     BIGINT           -- NULL until first rotation\n  );\n\n  ON DELETE CASCADE means deleting a user row automatically deletes their\n  wrapped DEK row \u2014 the foreign key enforces cryptographic erasure.\n\n## UserKeyStore (crates/mail/src/crypto/user_key_store.rs)\n\n  pub struct UserKeyStore {\n      pool: Arc<AnyPool>,\n      key_service: Arc<dyn KeyService>,\n  }\n\n  impl UserKeyStore {\n      /// Get or create the plaintext DEK for a user.\n      /// On first call: generates a fresh 32-byte DEK, wraps it, stores wrapped version.\n      /// On subsequent calls: fetches wrapped DEK from DB, unwraps via key_service.\n      /// Returns plaintext DEK valid for the duration of the request.\n      /// NEVER caches the plaintext DEK beyond a single call.\n      pub async fn get_dek(&self, user_id: i64) -> Result<[u8; 32], UserKeyError>;\n\n      /// Rotate the DEK: generate new DEK, re-encrypt all user data, store new wrapped DEK.\n      /// Transactional: if re-encryption fails, old DEK is preserved.\n      pub async fn rotate_dek(&self, user_id: i64) -> Result<(), UserKeyError>;\n\n      /// Destroy the DEK permanently. All encrypted data becomes unreadable.\n      /// Called on user deletion. Non-reversible.\n      pub async fn destroy_dek(&self, user_id: i64) -> Result<(), UserKeyError>;\n  }\n\n## Critical invariant: no plaintext DEK persistence\n  The plaintext DEK must exist in memory only for the duration of a single\n  request. It must never be written to a log, a tracing field, a database\n  column, or any durable storage. Add a SAFETY comment at every site where\n  the DEK is held in a local variable.\n\n## Acceptance\n  - Migration runs on both SQLite and Postgres backends\n  - get_dek called twice for the same user_id produces the same plaintext DEK\n  - destroy_dek followed by get_dek returns an error (no row to unwrap)\n  - ON DELETE CASCADE verified: deleting from users table removes user_encryption_keys row",
+  "ephemeral": 0,
+  "id": "stoa-6cj39.2",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Add user_encryption_keys table and UserKeyStore",
+  "updated_at": "2026-06-26T20:26:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T08:27:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-6cj39",
+      "id": "08620beb-1b85-5104-9738-32d48265d3ee",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-02T08:29:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-6cj39.1",
+      "id": "f585b89f-84d6-5c05-8fca-1a76533a81a1",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

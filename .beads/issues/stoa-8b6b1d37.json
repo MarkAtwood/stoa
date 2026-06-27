@@ -1,0 +1,20 @@
+{
+  "id": "stoa-8b6b1d37",
+  "title": "SEC-TESTS: round 1 summary \u2014 tests passing review",
+  "description": "Tests passing review with independent oracles and adequate coverage:\n\nbt5.1 (fault_queue_full.rs): Oracle is RFC 4644 \u00a72.5 and RFC 977 \u00a73.8. Tests use a real peering session over loopback TCP with a pre-filled queue. All three sub-cases tested (TAKETHIS\u2192431, IHAVE\u2192436, positive control\u2192239). The metric counter (rejected_full_total) is verified to increment, proving the article was not silently accepted. Verdict: ADEQUATE.\n\nbt5.8 (server.rs bearer+basic tests): Oracle is RFC 6750 \u00a72.1 and \u00a73.1. Five scenarios cover the interaction matrix: Basic-only, well-formed-but-unknown Bearer (must reject, not fall through), malformed Bearer (falls through to Basic), sequential requests, valid Bearer wins over Basic. All five use a live HTTP server over loopback. Verdict: ADEQUATE.\n\nbt5.11 (hlc.rs overflow tests): Oracle is Kulkarni & Demirbas 2014 HLC algorithm invariant: result must be strictly greater than the pre-overflow seed. Three sub-cases for send(), receive(), and post-overflow receive(). All use deterministic seeded inputs. Verdict: ADEQUATE (with fragility note filed separately as stoa-6b816309.21).\n\nbt5.12 (mime_parser.rs boundary tests): Oracle is RFC 2046 \u00a75.1.1 and RFC 2045 \u00a76.7 (QP example) and RFC 4648 \u00a710 (base64 'foobar' vector). Four boundary tests: bare-LF, mixed CRLF+LF, mid-line boundary (must not split), prefix false positive (--boundaryFOO must not match). Verdict: ADEQUATE on the boundary tests; QP oracle has a CID lookup self-reference noted separately in stoa-6b816309.23.\n\nbt5.7 (sieve): The integration test (test_sieve_compile_error_sends_451) is structurally sound \u2014 it exercises the full SMTP session, checks 451 appears after 354, and verifies 0 messages delivered. Verdict: ADEQUATE at integration level; unit-level assertion weakness noted in stoa-6b816309.16.\n\nbt5.10 (ingestion.rs): case_insensitive_msgid_duplicate_detected tests the duplicate detection path. Verdict: ADEQUATE for the detection direction; insert-direction normalization gap noted in stoa-6b816309.18.\n\nTests with open findings requiring follow-up:\n- bt5.3: stoa-6b816309.10 (max_age_days end-to-end path not tested in GcRunner)\n- bt5.5: stoa-6b816309.11 (epoch error path has no test)\n- bt5.6: stoa-6b816309.13 (key length error path has no test)\n- bt5.7: stoa-6b816309.16 (unit assertion too weak)\n- bt5.10: stoa-6b816309.18 (insert-direction normalization not tested)\n- bt5.12: stoa-6b816309.23 (QP oracle CID lookup self-reference)",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T13:54:06Z",
+  "updated_at": "2026-05-01T04:56:11Z",
+  "closed_at": "2026-04-22T14:09:49Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b816309",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 06:54:06"
+    }
+  ]
+}

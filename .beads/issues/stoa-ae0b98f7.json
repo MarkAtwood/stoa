@@ -1,0 +1,19 @@
+{
+  "id": "stoa-ae0b98f7",
+  "title": "group_metrics: Prometheus gauge values persist across server restart \u2014 stale gauges until first sample",
+  "description": "group_metrics.rs: Prometheus gauges (GROUP_LOG_ENTRIES_TOTAL, GROUP_STORAGE_BYTES, GROUP_LAST_ACTIVITY_TIMESTAMP) are process-global. After a restart the gauges start at 0 and jump to the real value only after the first sample_group_metrics call. For a group that no longer exists in the articles table, its gauge retains the pre-restart value indefinitely because the GROUP BY query omits it (no row \u2192 no set call). The gauge is never reset to 0 for deleted groups. This is inherent to Prometheus gauges without explicit deletion. Consider calling gauge.remove(label) for groups that drop out of the GROUP BY result, or document the known staleness.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:45:53Z",
+  "updated_at": "2026-05-01T04:54:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:45:52"
+    }
+  ]
+}

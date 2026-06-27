@@ -1,0 +1,32 @@
+{
+  "acceptance_criteria": "cargo test -p stoa-transit passes; dns_auth_cache table exists after migration",
+  "compaction_level": 0,
+  "content_hash": "e6501cb8917e7afed4148127d0037322d753d732033c0af4c1ce19fb2296dbff",
+  "created_at": "2026-05-04T05:59:36Z",
+  "created_by": "Mark Atwood",
+  "description": "Add dns_auth_cache table to the transit DB schema, replacing the\npreviously-planned dkim_key_cache table with a unified table covering\nall DNS authentication evidence types.\n\nFile: new migration in crates/transit/migrations/\n\nSQL:\n```sql\nCREATE TABLE IF NOT EXISTS dns_auth_cache (\n    evidence_type TEXT    NOT NULL,\n    domain        TEXT    NOT NULL,\n    selector      TEXT    NOT NULL DEFAULT '',\n    record_cid    TEXT    NOT NULL DEFAULT '',\n    first_seen_ms INTEGER NOT NULL,\n    last_seen_ms  INTEGER NOT NULL,\n    ttl_secs      INTEGER,\n    algorithm     TEXT,\n    key_bytes     BLOB,\n    policy        TEXT,\n    record_status TEXT    NOT NULL DEFAULT 'active',\n    PRIMARY KEY (evidence_type, domain, selector, record_cid)\n);\nCREATE INDEX IF NOT EXISTS idx_dns_auth_cache_lookup\n    ON dns_auth_cache (evidence_type, domain, selector);\n```\n\nevidence_type values: 'dkim', 'spf', 'dmarc', 'arc'\nselector: DKIM/ARC signing selector; empty string for SPF/DMARC\nrecord_cid: CID of raw TXT blob; empty string for tombstone rows\npolicy: raw policy string for SPF (v=spf1 ...) and DMARC (v=DMARC1 ...); NULL for DKIM/ARC\nkey_bytes: DER/raw public key bytes for DKIM/ARC; NULL for SPF/DMARC\n\nDefensive rules: IF NOT EXISTS on all DDL; no data migration needed.",
+  "ephemeral": 0,
+  "id": "stoa-p4oc4.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "DB migration: dns_auth_cache table (DKIM, SPF, DMARC, ARC)",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T22:59:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p4oc4",
+      "id": "3cf84d99-0f5c-59d9-9e32-a9dae214eb35",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

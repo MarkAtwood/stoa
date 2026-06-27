@@ -1,0 +1,20 @@
+{
+  "id": "stoa-0ec8c803",
+  "title": "Option<Arc<GroupFilter>> used across crate boundaries without type alias",
+  "description": "The type Option<Arc<GroupFilter>> appears in three places across two crates: ValidationConfig.allowed_groups (stoa_core::validation), PipelineCtx.group_filter (stoa_transit::peering::pipeline), and the local variable in transit main.rs. The semantics are always the same: None means accept all, Some means apply the filter. Without a type alias, there is no way to communicate this convention in the type system, and any site that constructs or passes this value must independently understand the None-means-accept-all convention. A type alias such as type GroupPolicy = Option<Arc<GroupFilter>> defined in stoa_core::wildmat would make the convention visible and searchable, and enable future promotion to a newtype if the semantics need to evolve (e.g. adding a None-means-reject-all mode).",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:32:03Z",
+  "updated_at": "2026-05-01T05:00:00Z",
+  "closed_at": "2026-04-28T09:56:56Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:32:03"
+    }
+  ]
+}

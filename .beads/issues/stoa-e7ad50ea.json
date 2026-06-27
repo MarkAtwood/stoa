@@ -1,0 +1,21 @@
+{
+  "id": "stoa-e7ad50ea",
+  "title": "reader config does not require backend OR ipfs to be configured",
+  "description": "transit/config.rs:522 validates that either [backend] or non-empty [ipfs.api_url] is present and returns ConfigError::Validation if neither is set. reader/config.rs:467 validate() has no such check. reader/src/config.rs IpfsConfig defaults api_url to http://127.0.0.1:5001, so a reader with no [ipfs] section implicitly uses Kubo at that address. An operator who deploys reader with LMDB but omits [backend] gets a reader that silently attempts Kubo connections. Scenario: reader config that only has [listen], [limits], [auth], [tls] passes validation but has no usable block store.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T16:34:29Z",
+  "updated_at": "2026-05-01T04:56:26Z",
+  "closed_at": "2026-04-24T17:47:08Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3840252d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-24 09:34:28"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T13:50:27Z",
+  "compaction_level": 0,
+  "content_hash": "995ebed62f69f446c04e822bba4b5b839256c0586a452f3b449ab77d54b85cc1",
+  "created_at": "2026-05-03T13:01:22Z",
+  "created_by": "Mark Atwood",
+  "description": "dispatch() handles Command::Group by returning Response::group_selected(&group_str, 0, 0, 0) \u2014 hardcoded zeros for count/low/high. lifecycle.rs overrides this with handle_group_live() which returns live data. But run_command_loop only reaches handle_group_live for authenticated (non-Authenticating) sessions. If a bug or future code path ever calls dispatch() for GROUP on an Active/GroupSelected session that does not hit the match arm in lifecycle, clients see stale 0s. The dispatch() GROUP handler should be unreachable or explicitly panic \u2014 having a silent 0,0,0 fallback is a correctness trap.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "GROUP response returns (0,0,0) via dispatch, not live data",
+  "updated_at": "2026-05-03T13:50:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:01:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "ed772909-a6b1-5de6-b1d9-5c33d000557b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

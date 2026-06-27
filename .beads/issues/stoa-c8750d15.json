@@ -1,0 +1,20 @@
+{
+  "id": "stoa-c8750d15",
+  "title": "GOOD: stoa-auth as consolidation target, not a new crate",
+  "description": "## What\n\nThe refactor consolidated the duplicate CredentialStore and UserCredential into stoa-auth (the existing crate at crates/auth), rather than creating a new crate (stoa-secrets, stoa-config-common) or merging the code into stoa-core.\n\n## Why good\n\nstoa-auth already existed, already depended on bcrypt, and already had the better-tested CredentialStore implementation with `is_empty()`, timing-safe dummy hash, and file-load variants. Using it as the consolidation target required zero new crates, zero new dependency edges, and zero changes to the 5+ non-reader crates that already imported from it.\n\nCreating a new crate (the alternative listed in the epic description) would have required: new Cargo.toml, new workspace member, updating dependency declarations in every consumer, deciding where to draw the boundary, and a second round of review. It solves no problem that stoa-auth doesn't already solve.\n\nMerging into stoa-core would have pulled bcrypt (a slow, specialized dep) into core, which is supposed to be a lean shared-types crate used by everything including embedded or constrained builds.\n\n## Alternative avoided\n\nNew stoa-secrets or stoa-config-common crate: more churn, no benefit over the existing stoa-auth home. Merging into stoa-core: bloats core with an auth-specific dependency (bcrypt).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T16:51:45Z",
+  "updated_at": "2026-05-01T04:55:29Z",
+  "closed_at": "2026-04-30T16:56:49Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-45f3f588",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 09:51:44"
+    }
+  ]
+}

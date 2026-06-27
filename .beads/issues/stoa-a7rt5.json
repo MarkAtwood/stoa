@@ -1,0 +1,23 @@
+{
+  "close_reason": "Duplicate of stoa-ftx6h.6 which was already filed in the same review session.",
+  "closed_at": "2026-05-03T13:06:24Z",
+  "compaction_level": 0,
+  "content_hash": "d62e53b79bf40db1ee0a4ca32cf06e7985044282060d4947ac73616e2ac8297f",
+  "created_at": "2026-05-03T13:06:16Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\nThe admin server check_bearer_token uses subtle::ConstantTimeEq to compare the supplied token against the configured secret. However, if the supplied and configured tokens have different lengths, the slices passed to ct_eq have different lengths. On different-length inputs, ct_eq returns CtChoice::FALSE immediately (documented behaviour). An attacker can distinguish 'wrong length' from 'right length, wrong value' by timing the response, leaking the exact length of the bearer token.\\n\\nThe fix is to compare length-padded or HMAC-derived fixed-length representations, or to always compare max(len1,len2) bytes by padding the shorter.\\n\\n## Acceptance Criteria\\n\\nTokens are hashed (SHA-256 or HMAC) before comparison so ct_eq always operates on equal-length inputs regardless of token length.",
+  "ephemeral": 0,
+  "id": "stoa-a7rt5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "check_bearer_token pads to equal length but still early-exits before ct_eq",
+  "updated_at": "2026-05-03T13:06:24Z"
+}

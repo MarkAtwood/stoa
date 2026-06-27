@@ -1,0 +1,20 @@
+{
+  "id": "stoa-9ad8c160",
+  "title": "main: parse_args collects args to Vec then uses index loop",
+  "description": "main.rs parse_args: collects std::env::args() into Vec<String> then iterates with a manual index counter i to find --config <path>. Idiomatic Rust: iterate with .windows(2) or use env::args().skip(1) with a peekable iterator, avoiding the Vec allocation and index mutation. The current form is a C-style loop pattern.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:38:04Z",
+  "updated_at": "2026-05-01T04:55:17Z",
+  "closed_at": "2026-04-30T23:46:02Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-64675b0e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:38:04"
+    }
+  ]
+}

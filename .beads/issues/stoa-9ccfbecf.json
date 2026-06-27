@@ -1,0 +1,12 @@
+{
+  "id": "stoa-9ccfbecf",
+  "title": "fix(mail): escape base_url in RSS/Atom XML output",
+  "description": "feed.rs interpolates base_url directly into RSS and Atom XML at lines 126, 175-176, 179-180 without calling escape_xml. An operator-misconfigured base_url containing XML special characters would produce malformed XML. Fix: wrap base_url in escape_xml at those three sites.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:30:54Z",
+  "updated_at": "2026-05-01T04:55:55Z",
+  "closed_at": "2026-04-27T05:35:37Z"
+}

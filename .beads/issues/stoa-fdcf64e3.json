@@ -1,0 +1,19 @@
+{
+  "id": "stoa-fdcf64e3",
+  "title": "cleanup_tmp_files before cleanup_orphan_msg_files ordering is load-bearing",
+  "description": "start_drain() runs cleanup_tmp_files() before cleanup_orphan_msg_files(). This ordering is correct: if a .msg.tmp existed and was NOT renamed to .msg before the crash, it must be deleted (not quarantined). If cleanup_orphan ran first, it would only see .msg files; the .msg.tmp files would be processed anyway in cleanup_tmp. But the concern is subtler: cleanup_orphan checks for the existence of a .env peer for each .msg. If .msg.tmp were misidentified as .msg (which it cannot be because cleanup_orphan filters by .ends_with('.msg') not '.msg.tmp'), it could be mistakenly quarantined. The current order (tmp cleanup first) ensures the queue dir is clean of tmp files before orphan detection runs, making orphan detection deterministic. A future contributor might reorder these calls. They must not.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:57:17Z",
+  "updated_at": "2026-05-01T04:58:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-18bf2fce",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:57:17"
+    }
+  ]
+}

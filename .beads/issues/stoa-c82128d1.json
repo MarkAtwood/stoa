@@ -1,0 +1,21 @@
+{
+  "id": "stoa-c82128d1",
+  "title": "9tz.5: Add search_index to ServerStores",
+  "description": "What: Add search_index: Option<Arc<TantivySearchIndex>> to ServerStores.\n\nAlgorithm:\n1. In crates/reader/src/store/server_stores.rs add field:\n   pub search_index: Option<Arc<crate::search::TantivySearchIndex>>,\n2. In ServerStores::new_with_ipfs(config):\n   let search_index = TantivySearchIndex::open(&config.search)?\n     .map(Arc::new);\n   Add to Ok(Self { ..., search_index })\n3. In ServerStores::new_mem():\n   let search_index = Some(Arc::new(TantivySearchIndex::open_in_memory()\n     .expect(\"in-memory tantivy init cannot fail\")));\n   Add to Self { ..., search_index }\n4. Update all callers of ServerStores that construct it with named fields (integration tests etc.) \u2014 add search_index: None.\n\nDefensive rules: If TantivySearchIndex::open() returns Err, propagate to caller (startup fails). None means search is disabled; callers must check is_some() before using.\n\nTests: In new_with_ipfs, if config.search.index_dir is None, search_index is None.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T01:20:37Z",
+  "updated_at": "2026-05-01T05:00:37Z",
+  "closed_at": "2026-04-23T02:02:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-85f5ab08",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 18:20:37"
+    }
+  ]
+}

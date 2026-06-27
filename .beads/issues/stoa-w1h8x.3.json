@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T21:59:32Z",
+  "compaction_level": 0,
+  "content_hash": "8587d45fe2e47047173153274a4b7517e3fb20a601a398d3bc894bb7716d67f0",
+  "created_at": "2026-05-02T21:42:21Z",
+  "created_by": "Mark Atwood",
+  "description": "enforce_for_delivery in relay_client.rs fetches the DNS TXT record on a cache miss (stored in _txt) but throws it away without storing or comparing the policy_id. RFC 8461 \u00a74.1 requires: if a cached policy exists but the DNS id= has changed, the sender MUST re-fetch. The current implementation uses Instant-based TTL expiry as the only cache invalidation mechanism. If an operator updates their MTA-STS policy mid-TTL (e.g. changing mode from testing to enforce), the old cached policy remains in effect until Instant::now() >= valid_until. Additionally, MtaStsError::PolicyIdMismatch is defined in mta_sts_error.rs but is never produced anywhere in the codebase \u2014 dead variant. Fix: on a cache hit, also do a DNS TXT lookup and compare policy_id; if mismatched, invalidate the cache entry and re-fetch.",
+  "ephemeral": 0,
+  "id": "stoa-w1h8x.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MTA-STS policy cache never invalidated on id= mismatch (RFC 8461 \u00a74.1)",
+  "updated_at": "2026-05-02T21:59:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:42:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-w1h8x",
+      "id": "55c4f812-a312-5c91-91e0-2cefc2f9a428",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

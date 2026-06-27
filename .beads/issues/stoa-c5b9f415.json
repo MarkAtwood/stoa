@@ -1,0 +1,20 @@
+{
+  "id": "stoa-c5b9f415",
+  "title": "Sieve Keep action silently drops message on fallback store failure",
+  "description": "In crates/smtp/src/session.rs lines 855-866, when Keep action attempts SMTP\u2192JMAP delivery and fails, it falls back to the smtp store. But if the fallback also fails (line 863), only a warning is logged and the function continues. The message is accepted (250 OK was already sent to the SMTP client) but never stored anywhere. This is silent data loss. Correct behavior: when both stores fail, the entire sieve_delivery should return an error that causes run_session to send 452 transient error to the client, forcing the sending MTA to retry.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T07:06:40Z",
+  "updated_at": "2026-05-01T04:58:35Z",
+  "closed_at": "2026-04-30T07:17:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-17ee367f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 00:06:40"
+    }
+  ]
+}

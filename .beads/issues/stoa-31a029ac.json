@@ -1,0 +1,19 @@
+{
+  "id": "stoa-31a029ac",
+  "title": "tmp+rename write order for queue files is correct and well-documented",
+  "description": "Both NntpQueue and SmtpRelayQueue write .msg first (tmp+rename), then .env (tmp+rename). The comment in relay_queue.rs lines 113-122 explains the crash-safety contract: if .env is absent, the drain skips the entry; if .msg is absent, something went wrong. This is the correct order \u2014 writing the 'pointer' (.env, which the drain scans for) last means the drain never sees a partial entry. A contributor might suggest simplifying to a single atomic write or reversing the order. Do not accept either change.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:39:47Z",
+  "updated_at": "2026-05-01T05:00:21Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d94f2708",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:39:47"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-501ddcff",
+  "title": "auth/oidc: JWKS cache thunder-herd on force-refresh",
+  "description": "crates/auth/src/oidc.rs get_keys() \u2014 On force-refresh, the write lock is acquired only after fetch_fresh_keys() completes. Two concurrent validate_jwt calls that both see KeyNotFound will both call fetch_fresh_keys() independently, doubling OIDC provider traffic. The cache read also releases the RwLock before calling fetch_fresh_keys, creating a TOCTOU window where expired keys are re-fetched by every concurrent caller. Impact: burst of OIDC HTTP requests during key rotation under load.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:21:50Z",
+  "updated_at": "2026-05-01T04:58:19Z",
+  "closed_at": "2026-04-28T17:03:59Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:21:50"
+    }
+  ]
+}

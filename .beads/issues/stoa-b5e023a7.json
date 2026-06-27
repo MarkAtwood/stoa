@@ -1,0 +1,21 @@
+{
+  "id": "stoa-b5e023a7",
+  "title": "transit IPv6 zone ID creates ambiguous peer identity in rate limiter",
+  "description": "transit/peering/session.rs: peer_ip is SocketAddr::to_string() which includes IPv6 zone IDs (e.g., 'fe80::1%eth0'). Two peers on different interfaces with same zone ID could collide. Use SocketAddr.ip() directly as HashMap key. Also affects admin.rs RateLimiter independently.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T13:11:01Z",
+  "updated_at": "2026-05-01T04:54:28Z",
+  "closed_at": "2026-04-22T14:35:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-b770251a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 06:11:01"
+    }
+  ]
+}

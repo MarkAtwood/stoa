@@ -1,0 +1,20 @@
+{
+  "id": "stoa-92295caf",
+  "title": "relay_queue: Vec::new() without capacity hint before push loop",
+  "description": "relay_queue.rs drain_once line 194: let mut env_files: Vec<PathBuf> = Vec::new(); then pushed in a loop. The directory entry count is not known in advance, but the async ReadDir stream could be collected into a Vec via a stream adapter. Minor: at least Vec::new() is fine here since capacity is unknown; this is a low-priority style note only if a collect-based approach is readable.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:37:33Z",
+  "updated_at": "2026-05-01T04:55:17Z",
+  "closed_at": "2026-04-30T23:37:44Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-64675b0e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:37:32"
+    }
+  ]
+}

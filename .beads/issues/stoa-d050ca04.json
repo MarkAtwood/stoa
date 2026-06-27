@@ -1,0 +1,26 @@
+{
+  "id": "stoa-d050ca04",
+  "title": "E2E: POST article with DID sig, verify X-Usenet-IPFS-DID-Verified",
+  "description": "What: End-to-end test: submit an article with a valid X-Usenet-IPFS-DID-Sig header over raw TCP NNTP, then retrieve via ARTICLE and check X-Usenet-IPFS-DID-Verified: true is present.\n\nAlgorithm:\n1. Add test in crates/integration-tests/tests/ or crates/reader/tests/\n2. Setup: spin up in-process reader server with ServerStores::new_mem() on a random port (same pattern as nntp_conformance.rs)\n3. Generate Ed25519 key pair using ed25519_dalek in the test\n4. Compute did:key URL for the public key (encode as did:key:z<base58btc(multicodec_prefix + pub_bytes)>)\n5. Build article bytes: standard headers + body\n6. Sign article bytes with private key -> 64-byte sig -> base64url-no-pad\n7. Construct header value: format!('{}  {}', did_key_url, sig_b64) \u2014 note: test must use the exact format parse_did_sig expects\n8. Build full article with X-Usenet-IPFS-DID-Sig header injected before the blank line\n9. POST article via TCP (same helpers as nntp_conformance.rs: write_all, read_line)\n10. Wait for 240 response\n11. Send ARTICLE <msgid>\n12. Read full response including headers\n13. Assert response starts with 220\n14. Assert response headers contain 'X-Usenet-IPFS-DID-Verified: true'\n15. Also test with wrong signature: POST similar article with mangled sig, ARTICLE it, assert 'X-Usenet-IPFS-DID-Verified: false'\n\nDefensive programming:\n- Test article must have unique Message-ID per run (include timestamp or random)\n- Close TCP connections cleanly\n- Use tokio::time::timeout to prevent hangs",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T04:06:56Z",
+  "updated_at": "2026-05-01T05:00:53Z",
+  "closed_at": "2026-04-23T04:42:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0b174219",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:07:10"
+    },
+    {
+      "depends_on_id": "stoa-c06fa970",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:06:55"
+    }
+  ]
+}

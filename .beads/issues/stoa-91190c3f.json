@@ -1,0 +1,11 @@
+{
+  "id": "stoa-91190c3f",
+  "title": "feat(reader): RFC 5536 server-identity headers on article injection",
+  "description": "When a client POSTs an article via NNTP, stoa-reader must insert the server-identity headers required by RFC 5536 before storing and forwarding the article.\n\nHeaders to add/manage on POST acceptance:\n- Injection-Info (RFC 5536 \u00a73.2.9): identifies the injecting server; replaces deprecated NNTP-Posting-Host and X-Trace. Fields: posting-account (authenticated username if any), posting-host (client IP), mail-complaints-to (operator contact), logging-data (opaque server-local correlation token).\n- Path (RFC 5536 \u00a73.2.8): prepend the local server FQDN to the Path value received from the client, or synthesise if absent. Prevents loops and records transit.\n- Message-ID: if absent, synthesise one scoped to the local hostname (RFC 5536 \u00a73.1).\n- Injection-Date: if Date is absent or more than a configurable skew from server time, add/replace with server time.\n\nExplicitly out of scope:\n- X-Stoa-CID: tracked separately; that header requires content-addressing to be complete first.\n- Cancel/Supersede control messages: no moderation in v1 (design invariant).\n\nConfig:\n- hostname is already in Config; use it for Path and Message-ID synthesis\n- mail-complaints-to: new optional config field (default: absent)\n- max_clock_skew_secs: new optional config field for Injection-Date replacement\n\nCompliance note: RFC 5536 \u00a73.2.9 says the injecting agent SHOULD add Injection-Info. This is the minimum bar; stoa should treat it as MUST for articles accepted via POST.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T21:46:14Z",
+  "updated_at": "2026-05-01T04:52:09Z"
+}

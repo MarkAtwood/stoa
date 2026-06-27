@@ -1,0 +1,14 @@
+{
+  "id": "stoa-9f393084",
+  "title": "Review: usenet-ipfs-smtp 5-commit series",
+  "description": "Deep pre-merge review of commits 83aa070..79b735c (smtp receive daemon, SPF/DKIM/DMARC/ARC auth, List-ID routing, NNTP client, Sieve delivery, Sieve admin HTTP API)",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T13:29:44Z",
+  "updated_at": "2026-05-01T04:54:48Z",
+  "closed_at": "2026-04-22T18:57:02Z",
+  "notes": "Maintainer risk: HIGH \u2014 four P0 bugs, two of which (unbounded read_line, ESMTP param parsing) will fire in normal operation with any real MTA sending to this server. The STARTTLS advertisement bug will silently break delivery from MTAs that enforce STARTTLS-policy. The command timeout absence is a DoS surface. Do not merge without fixing at minimum ryw.1, ryw.2, ryw.3, ryw.4.\n\nConfidence: 20% chance of one more missed bug. Uncertainty driven by: (1) usenet_ipfs_sieve::evaluate API is opaque \u2014 I don't know if it can return duplicate Keep actions or what happens with a script that has no matching actions (implicit Keep? implicit Discard?). (2) The mail_auth crate behavior under mock_resolve in tests hides real DNS behavior. (3) The Sieve reject multi-recipient race: if two recipients are processed concurrently (not the case here, but if the Sieve eval is async), there could be a TOCTOU on the reject scan. Would raise confidence by: reading the usenet_ipfs_sieve crate source to verify evaluate() semantics, and running the test suite with a real MTA (postfix/exim) sending SIZE-parameterized MAIL FROM."
+}

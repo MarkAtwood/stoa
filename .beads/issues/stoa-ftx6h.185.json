@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "4fa7b6a88a1f6e06f3883bb6e5e9453b65b813db44a6785725588af343b66a4c",
+  "created_at": "2026-05-03T13:10:43Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: the inline LEB128 parser in tests/car_export.rs is a re-implementation of logic already in car_writer.rs. Divergence between the two will cause test false-negatives (the test passes even when the encoder is wrong, because the decoder has the same bug). What: tests/car_export.rs defines decode_varint and parse_blocks inline. The test oracle should be an independent reference (ipld.io spec or a third-party CAR decoder), not a hand-rolled copy of the production encoder's inverse. Using a published ipld-car crate for decoding in tests would provide a genuine independent oracle.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.185",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "car_export test inlines CAR varint/block parsing instead of calling car_writer helpers",
+  "updated_at": "2026-05-03T13:10:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:10:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "4ad058ca-4c7e-542e-bd58-6f70699799eb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

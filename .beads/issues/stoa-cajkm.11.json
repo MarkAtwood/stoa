@@ -1,0 +1,33 @@
+{
+  "close_reason": "decision recorded",
+  "closed_at": "2026-05-04T08:12:09Z",
+  "compaction_level": 0,
+  "content_hash": "16a7029abf85a9b5ffa7583dc60922461a5ae6b255ecfcec22d6c3d303bab570",
+  "created_at": "2026-05-04T08:04:33Z",
+  "created_by": "Mark Atwood",
+  "description": "Good decision: the dev-mode error messages in reader/main.rs (lines 354-360 and 366-375) interpolate the actual listen address from config so the operator sees which address triggered the guard, state exactly what is wrong (auth.required = false, no users configured), give two concrete remedies numbered (1) and (2), and for the signing-key case include the exact command to run (stoa-reader keygen --output <path>). This reduces time-to-resolution from 'read the docs' to 'copy the command'.",
+  "ephemeral": 0,
+  "id": "stoa-cajkm.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "DECISION: actionable error messages name address and remedy",
+  "updated_at": "2026-05-04T08:12:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T01:04:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-cajkm",
+      "id": "05e94adf-b255-5b10-973c-887af708f723",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

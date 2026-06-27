@@ -1,0 +1,21 @@
+{
+  "id": "stoa-8152bbe4",
+  "title": "imap build_credential_store erases error type to String at point of use",
+  "description": "reader/server_stores.rs uses a typed BuildStoreError enum (thiserror, two variants) before converting to String at the startup boundary. imap/main.rs converts CredentialStoreError to String inline via .map_err(|e| e.to_string()) inside the fn body, with no intermediate typed enum. When a new error class is added (e.g. a secrets-manager timeout vs a parse error), imap loses the ability to handle them differently. The divergence also means a maintainer updating reader's pattern has no signal that imap needs the same update. Scenario: a new BuildStoreError::Timeout variant is added to reader for retry logic; imap silently conflates it with parse errors.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:38:12Z",
+  "updated_at": "2026-05-01T04:52:52Z",
+  "closed_at": "2026-04-30T19:43:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-eee41a47",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 12:38:11"
+    }
+  ]
+}

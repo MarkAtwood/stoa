@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T17:53:54Z",
+  "compaction_level": 0,
+  "content_hash": "873f7e776c7691b141529edd7bab75e0c9de16833573c938d6a5ea635014162b",
+  "created_at": "2026-05-01T15:20:56Z",
+  "created_by": "Mark Atwood",
+  "description": "oidc.rs performs a manual not-before (nbf) check with exact-second comparison against the system clock. If the issuer's clock is even one second ahead of the server's clock, freshly issued tokens will fail validation with an 'nbf in the future' error until the local clock catches up. The jsonwebtoken crate's built-in validation accepts a leeway parameter for exactly this reason.\n\nTrigger: issue a JWT from a provider whose clock is 1-5 seconds ahead of the stoa-auth server. The token will be rejected until the local clock advances past the nbf value.\n\nFix: replace the manual nbf comparison with jsonwebtoken's built-in Validation::leeway field set to a small tolerance (30-60 seconds is conventional), or add an explicit leeway constant to the manual comparison.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.62",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "auth: OIDC nbf check has no clock-skew tolerance",
+  "updated_at": "2026-05-01T17:53:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:20:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "08dcb7d3-2338-5784-bb06-65abef93a152",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

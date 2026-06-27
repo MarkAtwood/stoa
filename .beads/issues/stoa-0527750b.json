@@ -1,0 +1,20 @@
+{
+  "id": "stoa-0527750b",
+  "title": "reader config: drain_timeout_secs doc comment 'Set to 0 to exit immediately' is misleading",
+  "description": "In crates/reader/src/config.rs, LimitsConfig::drain_timeout_secs has a doc comment that says 'Set to 0 to exit immediately.' This is inaccurate in two ways: (1) The field is Option<u64>, so None (field absent) and Some(0) are distinct states. None produces the 30-second default; Some(0) passes a zero-duration timeout to tokio::time::timeout. The doc does not explain this distinction. (2) Zero-duration behavior relies on tokio implementation details: a zero Duration fires immediately if the wrapped future is not immediately ready. This is not guaranteed by any public API contract. The doc should either remove the zero-value hint or replace it with an accurate description of what None vs. Some(0) do. The transit config's equivalent field omits the zero-value hint entirely, creating an asymmetry between the two configs governing the same concept.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T05:25:28Z",
+  "updated_at": "2026-05-01T04:53:47Z",
+  "closed_at": "2026-04-24T05:48:06Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ebc6ad28",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 22:25:28"
+    }
+  ]
+}

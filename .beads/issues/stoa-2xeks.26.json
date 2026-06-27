@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T22:40:29Z",
+  "compaction_level": 0,
+  "content_hash": "38d04415b196f702baa2c63e5efa1410f743987036c711f6535e2425192ddc50",
+  "created_at": "2026-05-02T22:23:13Z",
+  "created_by": "Mark Atwood",
+  "description": "In mta_sts_mx.rs line 15, the wildcard branch allocates a String via format\\!(\".{}\", base) on every call. This can be avoided by checking the suffix without allocation: verify mx ends with base, the preceding byte is '.', and the prefix contains no '.'. P2 unnecessary allocation in delivery hot path.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.26",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Idiom review iter-4: mta_sts_mx wildcard alloc",
+  "updated_at": "2026-05-02T22:40:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T15:23:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks",
+      "id": "0d113d06-3033-5e0b-915b-6ff11fe07be4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-e5986cee",
+  "title": "Good: spawn_blocking + Arc<PathBuf> pattern matches LMDB precedent",
+  "description": "Using spawn_blocking for all file I/O with Arc<PathBuf> to cross the thread boundary is the established pattern (matches LmdbStore/LmdbBlockStore). A future contributor might suggest tokio::fs async file ops instead. Defend: tokio::fs internally uses spawn_blocking anyway, adds an extra level of abstraction, and makes the read/write code more complex. The explicit spawn_blocking pattern is more transparent about what it does.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T01:19:02Z",
+  "updated_at": "2026-05-01T04:59:34Z",
+  "closed_at": "2026-04-28T01:29:26Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-713dbc32",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 18:19:01"
+    }
+  ]
+}

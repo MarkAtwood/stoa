@@ -1,0 +1,33 @@
+{
+  "close_reason": "decision recorded",
+  "closed_at": "2026-05-04T08:12:09Z",
+  "compaction_level": 0,
+  "content_hash": "5ccbce0c6fb3e3098cd9601d26db5fb756ee394cfff48b2d094ab5f43ef1c486",
+  "created_at": "2026-05-04T08:04:45Z",
+  "created_by": "Mark Atwood",
+  "description": "Good decision: imap/config.rs Config::validate() formats the plaintext-password error as auth.users['<username>']: password is not a valid bcrypt hash, embedding the specific username. In a config with many users this immediately points to the offending entry without requiring the operator to scan the file. The test at line 406 verifies the message contains both the username and the description, using the format string as an independent oracle rather than just checking the error variant.",
+  "ephemeral": 0,
+  "id": "stoa-cajkm.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "DECISION: config validation names offending user in error",
+  "updated_at": "2026-05-04T08:12:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T01:04:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-cajkm",
+      "id": "222d788f-8e68-5d45-87ff-b2ab10c9c5bc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

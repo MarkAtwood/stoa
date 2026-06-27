@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T14:39:46Z",
+  "compaction_level": 0,
+  "content_hash": "d3d3ef41297058e3aa0ad47ca1884408508572a31dfd59c76ec2027656ba072d",
+  "created_at": "2026-05-03T13:05:56Z",
+  "created_by": "Mark Atwood",
+  "description": "LmdbError implements std::error::Error but has no source() implementation. The Other(String) variant is constructed via heed::Error::to_string(), losing the original error chain. Using thiserror with #[error(transparent)] for the Other variant or preserving the heed::Error would improve diagnostics.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.96",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "lmdb: LmdbError does not implement std::error::Error::source; Other(String) loses original heed error",
+  "updated_at": "2026-05-03T14:39:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "a6bccc6b-b7a7-5421-b6e6-e556e0bf8b3b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

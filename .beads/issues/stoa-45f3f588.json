@@ -1,0 +1,13 @@
+{
+  "id": "stoa-45f3f588",
+  "title": "Review round 1: aubi merge duplicate CredentialStore",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T16:49:43Z",
+  "updated_at": "2026-05-01T04:53:01Z",
+  "closed_at": "2026-04-30T16:57:26Z",
+  "notes": "SEC7 confidence: 10% chance of missed bug. Running out of real complaints. 3 open P1 findings (all maintainability/housekeeping: stale audit doc, wrong section comment on re-export, ClientCertStore still duplicated). 0 correctness bugs (SEC0 confirmed). 0 efficiency regressions (SEC2 confirmed). 4 GOOD decisions recorded. 1 P4 finding labeled opinion (import style in test helper). P3 findings (re-export placement, two spellings in imap) are marginal but have real engineering basis. The change is a pure refactor+deletion with no new logic; missed-bug risk is low."
+}

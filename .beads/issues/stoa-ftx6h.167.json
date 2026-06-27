@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T14:24:29Z",
+  "compaction_level": 0,
+  "content_hash": "6a486fec2111cd8863796573ec2fd05d3edebebfd7d3ca682b56aa4ea281633b",
+  "created_at": "2026-05-03T13:08:47Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: consecutive_failures drives the blacklist threshold; double-counting halves the effective threshold and causes premature blacklisting. What: peer_registry.rs record_rejected() increments consecutive_failures (capped at 20 via MIN in SQL), and blacklist.rs check_and_blacklist() also increments consecutive_failures atomically via UPDATE ... RETURNING. If both are called for the same rejection event (as the IHAVE/TAKETHIS rejection path suggests), the counter increments twice per event. Need to audit all call sites to determine if both are called for the same event.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.167",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Double-increment of consecutive_failures: peer_registry and blacklist both called per rejection",
+  "updated_at": "2026-05-03T14:24:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:08:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "c2585f3e-64ec-5276-b909-2b55b84f27b0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

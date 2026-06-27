@@ -1,0 +1,20 @@
+{
+  "id": "stoa-de2bce15",
+  "title": "mailparse::addrparse for quoted-comma display names",
+  "description": "The hand-rolled split-on-comma address parser was incorrect for RFC 5322: 'Smith, John' <j@example.com> split into two tokens, discarding both. addrparse handles quoting and address groups correctly. The test added (quoted_comma_in_display_name) verifies the fix. Do not revert to split-on-comma.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:00:03Z",
+  "updated_at": "2026-05-01T04:51:42Z",
+  "closed_at": "2026-05-01T03:03:41Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3c6890ad",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:00:02"
+    }
+  ]
+}

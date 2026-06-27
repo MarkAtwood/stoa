@@ -1,0 +1,23 @@
+{
+  "close_reason": "Already fixed in lifecycle.rs: Command::Stat(Some(ArticleRef::MessageId)) is intercepted before dispatch and handled by stat_by_msgid() which queries msgid_map and returns 223 for known articles. Tests stat_by_msgid_known_returns_223 and stat_by_msgid_unknown_returns_430 confirm.",
+  "closed_at": "2026-05-03T13:57:25Z",
+  "compaction_level": 0,
+  "content_hash": "c21ea78938fd0eee3815bfea4fba16633cbed639376e33b0a4a5ade670924d98",
+  "created_at": "2026-05-03T13:05:13Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\nRFC 3977 \u00a76.2.4 requires STAT <message-id> to return 223 when the article is known, not 430. The commands/group.rs::stat_article() function returns 430 when passed a message-ID form. fault_store_errors.rs documents this as 'the v1 stub; message-ID lookups are not yet wired to IPFS storage'. While the test accepts 430, RFC 3977 requires 223 on success and 430 only when the article does not exist. A live query against the msgid_map is needed.\\n\\n## Acceptance Criteria\\n\\nstat_article with a known message-ID must return 223. The lookup must go through msgid_map, not just return 430.",
+  "ephemeral": 0,
+  "id": "stoa-z985k",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "stat_article returns 430 for msgid form, not 223 success",
+  "updated_at": "2026-05-03T13:57:25Z"
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-63ff1a2e",
+  "title": "RFC 3977 \u00a78.1: Article/Head/Body/Stat(None) return 420 instead of 412",
+  "description": "In lifecycle.rs run_command_loop, the arms for Article(None), Head(None), Body(None), Stat(None) (current-article pointer with no group selected) return Response::new(420, ...) but RFC 3977 \u00a78.1 requires 412 'No newsgroup selected' when no group is active and 420 'Current article number is invalid' when a group is selected but there is no current article. Standard newsreader clients (slrn, tin, Thunderbird) branch on these codes. Fix: return 412 when ctx.state \\!= GroupSelected; return 420 only when GroupSelected but no current article.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:36:10Z",
+  "updated_at": "2026-05-01T04:56:55Z",
+  "closed_at": "2026-05-01T04:47:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:36:09"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "stoa-a368aaae",
+  "title": "kk7.4: CORS + landing page tests",
+  "description": "What: Write tests for CORS middleware and GET / landing page in crates/mail/src/server.rs.\n\nAlgorithm (independent oracle: HTTP spec behavior, not the code under test):\nTest 1: get_root_returns_html\n  - Spawn server with CorsConfig { enabled: true, allowed_origins: [\"*\"] }\n  - GET / (no Origin header)\n  - Assert: 200 OK\n  - Assert: Content-Type header contains 'text/html'\n  - Assert: body contains 'usenet-ipfs' (from the landing page title/content)\n\nTest 2: cors_preflight_returns_correct_headers\n  - Spawn server with CorsConfig { enabled: true, allowed_origins: [\"https://example.com\"] }\n  - OPTIONS /jmap/api with headers:\n      Origin: https://example.com\n      Access-Control-Request-Method: POST\n      Access-Control-Request-Headers: Authorization, Content-Type\n  - Assert: 200 OK (or 204)\n  - Assert: Access-Control-Allow-Origin: https://example.com\n  - Assert: Access-Control-Allow-Methods contains POST\n  - Assert: Access-Control-Allow-Headers contains authorization (case-insensitive)\n\nTest 3: cors_disabled_no_headers\n  - Spawn server with CorsConfig { enabled: false, ... }\n  - POST /jmap/api with Origin: https://evil.example.com\n  - Assert: response does NOT contain Access-Control-Allow-Origin header\n\nTest 4: cors_wildcard_actual_request\n  - Spawn server with CorsConfig { enabled: true, allowed_origins: [\"*\"] }\n  - GET /health with Origin: https://anyapp.example.com\n  - Assert: Access-Control-Allow-Origin: * in response\n\nDefensive programming:\n- Tests must spawn fresh server on random port (use spawn_server helper pattern)\n- Tests must not modify global state\n- CORS tests must verify absence of credentials header with wildcard origin (security invariant)\n\nAcceptance: all 4 tests pass with cargo test --package usenet-ipfs-mail.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T03:26:29Z",
+  "updated_at": "2026-05-01T04:57:13Z",
+  "closed_at": "2026-04-23T03:37:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-59aabeed",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 20:26:45"
+    },
+    {
+      "depends_on_id": "stoa-6ee3ac2a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 20:26:28"
+    }
+  ]
+}

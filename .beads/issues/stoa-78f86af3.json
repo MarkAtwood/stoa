@@ -1,0 +1,21 @@
+{
+  "id": "stoa-78f86af3",
+  "title": "map_size_gb has no upper-bound validation; overflow on misconfigured value",
+  "description": "lmdb/src/lib.rs:63: map_size_gb as usize * 1024 * 1024 * 1024. An operator who writes map_size_gb = 20000 (20 TiB) would produce a usize that wraps in debug builds (panic) or wraps silently in release builds on a 64-bit machine, setting LMDB's map to a nonsensical value. Default is 1024 (fine), but there is no config validation that rejects values exceeding platform limits. Add a check: map_size_gb must be > 0 and map_size_gb * 1024^3 must not overflow usize (i.e. map_size_gb <= usize::MAX / (1024*1024*1024)).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T16:34:38Z",
+  "updated_at": "2026-05-01T04:56:26Z",
+  "closed_at": "2026-04-24T17:47:12Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3840252d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-24 09:34:37"
+    }
+  ]
+}

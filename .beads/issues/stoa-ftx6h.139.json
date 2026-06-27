@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "782c582f86b1bea1b310c14cb601dcb8f839875a6a5edcef6beccc60bb006539",
+  "created_at": "2026-05-03T13:07:09Z",
+  "created_by": "Mark Atwood",
+  "description": "The inner fetch_url function is separated from fetch_mta_sts_policy_body so tests can call it with an http:// URL pointing at a local axum mock server. This is the correct approach: it keeps the domain-validation and URL-construction logic testable without requiring a real TLS certificate, while the security invariants (no redirects, WebPKI roots) are enforced by the reqwest::Client built in production, not in the inner function.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.139",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "smtp: mta_sts_fetcher.rs separates fetch_url for testability without real TLS",
+  "updated_at": "2026-05-03T13:07:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:07:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "376e559c-b6ef-54f8-8f55-4eb1a4b2e508",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

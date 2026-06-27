@@ -1,0 +1,20 @@
+{
+  "id": "stoa-fb96e0c9",
+  "title": "Thread/get: integration test \u2014 single article and threaded conversation",
+  "description": "Test: single article \u2192 Thread/get returns thread with one emailId, threadId == emailId. Two articles with In-Reply-To chain \u2192 share threadId, emailIds has both. Unknown thread ID \u2192 not found (silently omitted per JMAP spec). Blocked on: stoa-f6e479c6.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:42:54Z",
+  "updated_at": "2026-05-01T04:51:51Z",
+  "closed_at": "2026-04-28T08:52:52Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-f6e479c6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:43:04"
+    }
+  ]
+}

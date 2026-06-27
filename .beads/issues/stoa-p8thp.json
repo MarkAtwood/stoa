@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "44accd17d768f0527c55d90ae616f5203a645a69a8a766cde404a4373dbe8072",
+  "created_at": "2026-05-03T13:06:46Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\ncommands/xget.rs::handle_xget() fetches raw IPFS block bytes for any client that provides a known article CID. The msgid_map check prevents fetching arbitrary IPFS blocks, but there is no requirement that the session be authenticated or TLS-protected before calling XGET. On a server with posting_allowed=false and auth_required=false (read-only open server), any unauthenticated client on any connection (plain or TLS) can retrieve raw IPLD blocks by CID.\\n\\nFor a private deployment where article content is sensitive, this may be an unintended capability. XGET is an X-prefixed extension and should at minimum require a TLS connection when TLS is configured.\\n\\n## Acceptance Criteria\\n\\nDocument the intended access policy for XGET. At minimum, if TLS is configured, require a TLS connection for XGET. Consider requiring authentication.",
+  "ephemeral": 0,
+  "id": "stoa-p8thp",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "xget.rs: XGET not gated on TLS or auth \u2014 any plain-text session can fetch blocks",
+  "updated_at": "2026-05-03T13:06:46Z"
+}

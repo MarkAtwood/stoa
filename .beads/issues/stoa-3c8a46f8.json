@@ -1,0 +1,21 @@
+{
+  "id": "stoa-3c8a46f8",
+  "title": "SMTP Sieve reject text sanitized before embedding in 550 response \u2014 prevents CRLF injection",
+  "description": "smtp/session.rs filters the Sieve reject reason through is_ascii_graphic() || ' ' before interpolating into '550 {safe}\\r\\n'. This strips CR (0x0d) and LF (0x0a), preventing a malicious Sieve script from injecting additional SMTP response lines. A contributor might simplify this to just .take(200) without filtering, which would re-open the injection. The filter is correct and necessary: SMTP response lines are terminated by CRLF, and a 550 response that contains embedded CRLF would confuse the receiving MTA's parser.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T14:08:02Z",
+  "updated_at": "2026-05-01T04:55:11Z",
+  "closed_at": "2026-04-21T16:47:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ad28b4f3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 07:08:02"
+    }
+  ]
+}

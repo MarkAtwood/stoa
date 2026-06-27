@@ -1,0 +1,13 @@
+{
+  "id": "stoa-f72082f7",
+  "title": "blacklist check_and_blacklist SELECT then UPDATE without transaction",
+  "description": "In crates/transit/src/peering/blacklist.rs, check_and_blacklist reads consecutive_failures in one query then updates it in a second query. Two concurrent sessions processing errors from the same peer can both read the same pre-threshold count and both update without triggering a blacklist, allowing the failure threshold to be silently exceeded. Wrap in BEGIN IMMEDIATE or use a single atomic UPDATE ... WHERE ... RETURNING.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:26:20Z",
+  "updated_at": "2026-05-01T04:53:15Z",
+  "closed_at": "2026-04-28T18:42:08Z"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-8c5977f3",
+  "title": "handle_nntp_search returns Vec<u8> instead of Response",
+  "description": "All other NNTP command handlers return Response, but handle_nntp_search returns Vec<u8> raw bytes. This breaks the established pattern and makes future response formatting changes require a separate code path for SEARCH. Should return Response like all other handlers.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T02:39:32Z",
+  "updated_at": "2026-05-01T04:56:12Z",
+  "closed_at": "2026-04-23T07:07:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ae1c536c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 19:39:32"
+    }
+  ]
+}

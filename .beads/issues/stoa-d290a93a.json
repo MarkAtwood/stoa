@@ -1,0 +1,13 @@
+{
+  "id": "stoa-d290a93a",
+  "title": "Fix README and write operator deployment runbook",
+  "description": "README.md currently says 'planning phase \u2014 no code exists yet' which is false (16K LOC, 240+ tests, two working binaries). This epic updates the README to reflect actual project state and adds a deployment runbook covering: how to build both binaries, required config files, TLS cert setup, IPFS node requirements, operator key generation, and how to peer two transit instances. Why: a developer cloning the repo today sees a contradictory README and no deployment docs; this blocks any operator from running the system.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T00:18:05Z",
+  "updated_at": "2026-05-01T04:59:04Z",
+  "closed_at": "2026-04-21T02:49:30Z"
+}

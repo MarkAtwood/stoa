@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T15:13:18Z",
+  "compaction_level": 0,
+  "content_hash": "9bf12d3d8a65ba81e3f623d781dddddfb28b495e7879e5e2feb4fc979dc35537",
+  "created_at": "2026-05-03T13:10:23Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: between the stat call and the read call, another process may delete the object, causing rados_object_read to return ENOENT or partial data. The ENOENT case is handled but a partial read is not detected. What: rados_store.rs get_raw calls rados_object_stat to get the size, allocates a buffer, then calls rados_object_read. The comment acknowledges the TOCTOU issue for ENOENT but the allocated Vec capacity is set from the stat size and the read may return fewer bytes than expected if the object is truncated between the two calls. The returned buffer should be truncated to the actual bytes read rather than returned at capacity.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.182",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "rados_store get_raw does stat then read with TOCTOU race",
+  "updated_at": "2026-05-03T15:13:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:10:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "84c45392-920c-5605-8610-c62209bdcc5c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

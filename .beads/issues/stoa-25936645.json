@@ -1,0 +1,19 @@
+{
+  "id": "stoa-25936645",
+  "title": "cmd_gc_run (cli/ops): deletes from pinned_cids only \u2014 does not unpin from IPFS or delete articles row",
+  "description": "cli/ops.rs cmd_gc_run(): when policy.should_pin() returns false, only DELETE FROM pinned_cids is executed. No call to PinClient::unpin() and no DELETE FROM articles. The CID remains pinned in IPFS and the articles row remains, so GC achieves no actual space reclamation. The operator who runs 'transit gc-run' expects the blocks to be actually freed. This parallels the GcRunner/GcExecutor split found in retention/gc.rs \u2014 a second instance of the same pattern where the DB-cleanup half is missing.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:45:14Z",
+  "updated_at": "2026-05-01T04:52:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:45:13"
+    }
+  ]
+}

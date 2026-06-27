@@ -1,0 +1,20 @@
+{
+  "id": "stoa-67cc62f2",
+  "title": "Multi-recipient Sieve reject leaks recipient identity to sender",
+  "description": "When messages have multiple recipients (e.g. RCPT TO alice AND bob), if alice's Sieve script rejects with a custom reason like 'Personal messages not wanted', the sender receives '550 Personal messages not wanted'. If bob would have kept the message, the sender now knows alice was one of the recipients. This is a BCC privacy issue. Suggested fix: standardize the 550 text to 'Message rejected by recipient policy' without exposing per-user reasons, OR document that multi-recipient delivery with conflicting Sieve scripts reveals recipient identity and the operator should not combine list-routing and Sieve-delivery users in the same server instance.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T13:31:55Z",
+  "updated_at": "2026-05-01T04:54:50Z",
+  "closed_at": "2026-04-23T00:34:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9f393084",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 06:31:55"
+    }
+  ]
+}

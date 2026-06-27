@@ -1,0 +1,20 @@
+{
+  "id": "stoa-d425c921",
+  "title": "GC age metric mismatch: gc.rs uses date_ms but candidates selected on ingested_at_ms",
+  "description": "## What / Why\nIn crates/transit/src/retention/gc.rs, run_once() logs GC decisions using candidate.date_ms (the article's Date: header timestamp). But gc_candidates.rs selects candidates based on ingested_at_ms (wall-clock ingestion time). These are different values: an old article ingested recently passes the ingested_at_ms grace period but its date_ms may be far in the past, causing misleading age calculations in GC decisions and audit log entries.\n\n## Trigger \u2192 Bad Behavior\nAn article with Date: from 2020 ingested today: gc_candidates selects it only after the grace period from ingestion, but gc.rs logs it as '4+ years old' based on the 2020 Date header. If any future code path uses date_ms for policy decisions rather than ingested_at_ms, old articles could be GC'd prematurely regardless of their ingestion recency.\n\n## Fix\nUse a single time basis (ingested_at_ms) consistently throughout GC selection and logging. Alternatively, if article age by Date: header is intentional for display, document the distinction explicitly with a comment explaining both fields and when each is appropriate.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T03:07:35Z",
+  "updated_at": "2026-05-01T04:59:27Z",
+  "closed_at": "2026-04-27T03:37:50Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e2297bae",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 20:07:35"
+    }
+  ]
+}

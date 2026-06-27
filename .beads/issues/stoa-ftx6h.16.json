@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T13:19:41Z",
+  "compaction_level": 0,
+  "content_hash": "f0944765eaee45e3c5e97ef9813e3763e107872a46a68a57abad78d58af68bd9",
+  "created_at": "2026-05-03T13:02:22Z",
+  "created_by": "Mark Atwood",
+  "description": "In eval_script, the match on eval_stmt_list returns: None | Some(StmtResult::Continue) | Some(StmtResult::Stop) => actions.push(SieveAction::Keep). RFC 5228 \u00a73.3 says stop halts execution but does NOT affect the implicit-keep rule \u2014 if no explicit disposition was reached before stop, Keep is correct. However, if a fileinto fired and then a stop occurred in a subsequent branch, the code correctly handles this because fileinto returns StmtResult::FileInto which exits eval_stmt_list before Stop can be produced. The subtle issue: Stop and None/Continue are aliased together, so a script that produces explicit Keep THEN calls stop in a nested block would correctly return Keep from the inner eval_stmt_list call, bubbling up through the outer. This appears correct on inspection but the Stop case in eval_script merging with None (no-action) hides the distinction between 'script ran stop with no prior disposition' and 'script naturally completed with no disposition'. Needs a test: stop before any disposition must produce Keep.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve: stop inside if-block returns Keep, not the script's last explicit action",
+  "updated_at": "2026-05-03T13:19:41Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:02:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "1da4d4a1-cda5-557e-a57d-bd0511966ebf",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

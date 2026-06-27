@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "e7c3581a543220a9c511d0cd0d2dfec57de88dfce829706c12b15ef1b3378477",
+  "created_at": "2026-05-03T13:05:46Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this issue exists: server.rs stoa_value_to_result() inspects incoming JMAP request objects by checking whether a 'type' key is present to decide how to route them. This is fragile: any JSON object with a 'type' field (including nested objects or non-method invocations) would be mis-routed. JMAP RFC 8620 \u00a73.2 specifies that a method call is a JSON array [methodName, arguments, callId], not an object with a 'type' key.\n\nWhat needs to be done: Parse JMAP method calls according to the RFC: a 3-element array [String, Object, String]. Replace the 'type' key heuristic with proper array destructuring. This also means the method name, arguments, and callId are always unambiguously separated.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.90",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "stoa_value_to_result: 'type' key detection is fragile; any key named 'type' triggers method routing",
+  "updated_at": "2026-05-03T13:05:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "276c3aa3-eec0-59c3-b7f9-e2bd0e048a88",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

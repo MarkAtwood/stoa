@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "7c90f858956e16f1f85afc4c2c8a4f9739bca83c56c91a3c8e4033ba779c9bc7",
+  "created_at": "2026-05-03T13:08:01Z",
+  "created_by": "Mark Atwood",
+  "description": "str_matches_glob calls sieve_glob_to_regex_capturing(pattern) which returns (regex_pat, star_count). The star_count is discarded. The function then calls str_matches_regex_pat which uses the regex WITHOUT capturing groups. However sieve_glob_to_regex_capturing always inserts capturing groups (.*) for each star. These capture groups are compiled into the regex but never used when called via str_matches_glob. A non-capturing version sieve_glob_to_regex_simple that uses (.*) without capture wrappers would be slightly more efficient for the non-capture path (header :matches without variables enabled, and header :is/:contains/:regex).",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.158",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "sieve-native: str_matches_glob calls sieve_glob_to_regex_capturing but discards captures; redundant work",
+  "updated_at": "2026-05-03T13:08:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:08:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "f167b5b0-19ba-5859-b75c-47f5d6637926",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

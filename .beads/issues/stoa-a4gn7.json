@@ -1,0 +1,22 @@
+{
+  "compaction_level": 0,
+  "content_hash": "3458b74bac6a553a250a22e3c315934463b3cf1b87cbc60b4047b310a43e6778",
+  "created_at": "2026-06-13T06:36:18Z",
+  "created_by": "Mark Atwood",
+  "description": "Session advertises eventSourceUrl but the endpoint is not wired. Clients cannot receive real-time state change notifications. SSE is the minimum push mechanism required by RFC 8620 section 7.3.",
+  "ephemeral": 0,
+  "id": "stoa-a4gn7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Superseded by stoa-v64xb (JMAP over WebSocket / RFC 8887). WebSocket is the preferred push transport; SSE is the fallback. Implement WebSocket first.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Wire EventSource push endpoint",
+  "updated_at": "2026-06-13T06:38:22Z"
+}

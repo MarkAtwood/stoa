@@ -1,0 +1,20 @@
+{
+  "id": "stoa-077b0682",
+  "title": "inconsistent path suffix check in queue.rs drain_once",
+  "description": "queue.rs line 203 checks for .msg.tmp/.env.tmp via 'path.to_str().is_some_and(|s| s.ends_with(...))' while lines 211 and elsewhere use 'path.extension().is_some_and(|e| e == \"msg\")'. The extension() pattern is the style used consistently in cleanup_tmp_files (relay_queue.rs) and in drain_once for .msg. The to_str() suffix check is inconsistent with the rest of the file and the sibling module.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:43:46Z",
+  "updated_at": "2026-05-01T04:55:12Z",
+  "closed_at": "2026-05-01T02:13:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4315538d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:43:46"
+    }
+  ]
+}

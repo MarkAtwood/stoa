@@ -1,0 +1,33 @@
+{
+  "close_reason": "decision recorded",
+  "closed_at": "2026-05-04T08:12:08Z",
+  "compaction_level": 0,
+  "content_hash": "f8c51d0d4fa64d86e4d7e30f2f96c5981fc96523ff69593a33dc99e6c7c98302",
+  "created_at": "2026-05-04T08:04:58Z",
+  "created_by": "Mark Atwood",
+  "description": "Good decision: mail/main.rs uses a graduated response for the ActivityPub HTTP-signature-disabled case. On a loopback address it logs a warn (acceptable for local dev). On a non-loopback address it exits with an error. This avoids breaking local development workflows while still preventing the misconfiguration from reaching production. The same pattern could have been a hard error in both cases (too strict) or a warning in both cases (not strict enough); the loopback distinction is the right split.",
+  "ephemeral": 0,
+  "id": "stoa-cajkm.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "DECISION: graduated warn vs error for loopback violations",
+  "updated_at": "2026-05-04T08:12:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T01:04:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-cajkm",
+      "id": "452881de-88ba-5663-8272-bcc1f8c8e1f3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

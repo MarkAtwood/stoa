@@ -1,0 +1,20 @@
+{
+  "id": "stoa-6dcf63e5",
+  "title": "Wrapper struct IpfsStore impls are pure delegation boilerplate",
+  "description": "AzureStore, GcsStore, S3Store (transit) and AzureBlockStore, GcsBlockStore, S3BlockStore (reader) each implement IpfsStore/IpfsBlockStore with identical bodies that just forward to self.0.*. This is 3x6=18 delegation methods in this commit alone. A macro (e.g. a delegate! or impl_via_inner! macro) or Deref-based delegation would eliminate the boilerplate. The pattern will grow with each new backend. Suggested rewrite: impl Deref<Target=ObjectStoreBackend> for each wrapper, then a blanket impl IpfsStore for T where T: Deref<Target=ObjectStoreBackend>.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T02:37:57Z",
+  "updated_at": "2026-05-01T04:51:32Z",
+  "closed_at": "2026-04-28T06:40:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-938166bc",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 19:37:56"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "stoa-53d78240",
+  "title": "suck_pull: wire accumulated body through ingestion pipeline",
+  "description": "Body bytes are now accumulated in FetchResult::Fetched(Vec<u8>) but not yet fed to run_pipeline. This needs AppState wiring (IpfsStore, MsgIdMap, LogStorage, SqlitePool, PipelineCtx) passed through run_suck_pull and its call sites. Commit: bf1d06f.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T06:35:12Z",
+  "updated_at": "2026-05-01T04:59:52Z",
+  "closed_at": "2026-04-27T14:18:05Z"
+}

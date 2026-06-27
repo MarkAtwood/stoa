@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "97917552b033b47c048e41f1253a188c302a1b2a589ab84ad27805d0587baa69",
+  "created_at": "2026-05-03T13:09:14Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: an O(n) filesystem scan on every write scales poorly: a store with 100k blocks will stat 100k directory entries per article ingested. What: fs_store.rs dir_bytes_used iterates all entries in the store directory with read_dir to sum byte sizes. This is called on every put_raw to enforce the byte budget. Maintain a running atomic byte counter updated on put and delete, initialized from a single scan at startup.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.171",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "FsStore::dir_bytes_used O(n) directory scan on every write",
+  "updated_at": "2026-05-03T13:09:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:09:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "a9b987cb-9a03-5dda-b705-6d4a61867a60",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

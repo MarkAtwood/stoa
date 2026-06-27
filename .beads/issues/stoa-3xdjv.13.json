@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T00:32:19Z",
+  "compaction_level": 0,
+  "content_hash": "cb930281b005c976585f23db9099c5772c0031836703d00b32f5ab099a7d474a",
+  "created_at": "2026-05-03T00:15:53Z",
+  "created_by": "Mark Atwood",
+  "description": "In mta_sts_policy.rs parse_mta_sts_policy(), line 47: 'let (key, value) = match line.split_once(\": \") { Some(pair) => pair, None => continue }'. The idiomatic Rust 1.65+ form is: 'let Some((key, value)) = line.split_once(\": \") else { continue };'. let-else reads linearly (early exit on the else branch) and avoids the inner binding (pair => pair). The current form is not wrong but is the pre-1.65 idiom.",
+  "ephemeral": 0,
+  "id": "stoa-3xdjv.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Policy parser split_once match should use let-else",
+  "updated_at": "2026-05-03T00:32:19Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T17:15:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-3xdjv",
+      "id": "4776025c-d52f-58e4-8975-64fbd19393ed",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "id": "stoa-7871ae85",
+  "title": "test(imap): update e2e smoke tests for IMAP4REV2 and NAMESPACE",
+  "description": "Update the end-to-end smoke tests in crates/imap/tests/e2e_smoke.rs to assert that the live server advertises IMAP4rev2 and NAMESPACE, and that ENABLE IMAP4rev2 and NAMESPACE commands work correctly over a real TCP connection.\n\nChanges:\n1. Find the existing CAPABILITY assertion (currently lines 109\u2013125 checking LOGINDISABLED, ENABLE, UNSELECT). Add assertions that the CAPABILITY response contains the substring IMAP4rev2 and NAMESPACE.\n2. Add a new test: after TLS/auth negotiation, send 'A001 ENABLE IMAP4rev2', assert the server responds with '* ENABLED IMAP4rev2' followed by a tagged OK.\n3. Add a new test: after auth, send 'A002 NAMESPACE', assert the response is '* NAMESPACE ((\"\" \".\")) NIL NIL' (or equivalent with the dot delimiter), followed by tagged OK.\n4. Add a new test: send 'A003 ENABLE IMAP4rev2' a second time, assert '* ENABLED' with empty list (idempotent).\n\nOracle: RFC 9051 \u00a76.3.2 (ENABLE response), RFC 2342 \u00a75 (NAMESPACE wire format). These are protocol-level expected values, not derived from the implementation.\n\nNote: the e2e tests spin up a real server process (or in-process listener) against localhost. Follow the existing pattern in e2e_smoke.rs for session setup.\n\nAcceptance: cargo test -p stoa-imap --test e2e_smoke passes with all new assertions green.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:05:06Z",
+  "updated_at": "2026-05-01T04:52:07Z",
+  "closed_at": "2026-04-30T02:23:20Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-2d01d934",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:05:27"
+    },
+    {
+      "depends_on_id": "stoa-2e93790e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:05:29"
+    },
+    {
+      "depends_on_id": "stoa-c0fd5196",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:05:26"
+    },
+    {
+      "depends_on_id": "stoa-db727e07",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:05:06"
+    }
+  ]
+}

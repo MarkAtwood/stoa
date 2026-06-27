@@ -1,0 +1,26 @@
+{
+  "id": "stoa-2d01d934",
+  "title": "test(imap): unit tests for ENABLE IMAP4rev2 handler",
+  "description": "Write unit tests for the ENABLE IMAP4rev2 handler. Tests must be independent of the implementation \u2014 expected behavior is derived from RFC 5161 (ENABLE) and RFC 9051 \u00a76.3.2.\n\nTests to write (in a new #[cfg(test)] block in session/mod.rs or a new session/tests.rs):\n1. enable_imap4rev2_sets_latch: construct a SessionContext with imap4rev2_enabled=false in Authenticated state; simulate ENABLE IMAP4rev2 command; assert imap4rev2_enabled is true afterwards; assert * ENABLED response contains IMAP4rev2.\n2. enable_imap4rev2_is_idempotent: set imap4rev2_enabled=true; simulate ENABLE IMAP4rev2 again; assert * ENABLED response contains empty capability list (RFC 5161 \u00a73: must not re-list already-enabled caps); assert imap4rev2_enabled is still true.\n3. enable_in_not_authenticated_state_returns_no: construct SessionContext in NotAuthenticated state; simulate ENABLE IMAP4rev2; assert tagged NO response; assert imap4rev2_enabled remains false.\n4. enable_unknown_capability_ignored: simulate ENABLE UNKNOWNCAP; assert * ENABLED is empty; assert no error; assert imap4rev2_enabled remains false.\n\nOracle: RFC 5161 \u00a73 and RFC 9051 \u00a76.3.2 define the expected wire behavior.\n\nAcceptance: cargo test -p stoa-imap passes with all 4 tests green.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:04:44Z",
+  "updated_at": "2026-05-01T04:52:07Z",
+  "closed_at": "2026-04-30T02:19:29Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-519295ee",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:05:22"
+    },
+    {
+      "depends_on_id": "stoa-db727e07",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:04:44"
+    }
+  ]
+}

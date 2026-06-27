@@ -1,0 +1,19 @@
+{
+  "id": "stoa-f745e81c",
+  "title": "feat(imap,mail): move newsgroups under News/ prefix; switch NAMESPACE delimiter to /",
+  "description": "Newsgroup mailboxes currently appear at the IMAP/JMAP root (e.g. comp.lang.rust). They must move to News/comp.lang.rust. The NAMESPACE delimiter must change from . to / so hierarchy-aware clients (Thunderbird, Apple Mail) can display the tree correctly.\n\nWhat needs to be done:\n1. Update mailbox_id_for_group() and all Mailbox/get responses to prefix newsgroup names with News/.\n2. Change the IMAP NAMESPACE response from ((\"\" \".\")) to ((\"\" \"/\")).\n3. Update the IMAP delimiter used in LIST, LSUB, and SELECT responses.\n4. Update JMAP Mailbox/get to return name=News and parentId=null for the News root, and name=<group> with parentId=<news-root-id> for each group.\n5. Migrate any existing stored mailbox IDs (or document that IDs are stable by derivation and no migration is needed).\n6. Add tests: IMAP LIST at root shows News/ with \\HasChildren; JMAP Mailbox/get returns correct parentId chain.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T03:53:59Z",
+  "updated_at": "2026-05-01T04:52:21Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3f84734e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 20:53:59"
+    }
+  ]
+}

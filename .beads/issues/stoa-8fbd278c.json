@@ -1,0 +1,21 @@
+{
+  "id": "stoa-8fbd278c",
+  "title": "from_content: use looks_like_bcrypt_hash not parse_bcrypt_cost for file validation",
+  "description": "store.rs from_content() validates hashes with parse_bcrypt_cost (no length check) while config startup validation and from_credentials panic guard both use looks_like_bcrypt_hash (len >= 60 + parse_bcrypt_cost). A credential file entry with a correctly-prefixed but too-short string (e.g. '$2b$10$x') passes from_content's BadHash check, silently producing a CredentialStore that rejects every auth attempt for that user with no diagnostic at load time. Fix: replace parse_bcrypt_cost with looks_like_bcrypt_hash in from_content's hash validation branch (line ~170 store.rs). No security impact (fail-closed), but operator mis-configuration is not surfaced promptly. IMAP is unaffected (no credential_file path). Affects reader only via build_credential_store -> merge_from_content/merge_from_file.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T18:30:39Z",
+  "updated_at": "2026-05-01T04:55:25Z",
+  "closed_at": "2026-04-30T18:36:55Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ff000988",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 11:30:39"
+    }
+  ]
+}

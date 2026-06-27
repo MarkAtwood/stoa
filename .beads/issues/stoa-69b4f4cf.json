@@ -1,0 +1,13 @@
+{
+  "id": "stoa-69b4f4cf",
+  "title": "reader CredentialStore::from_credentials silently accepts plaintext",
+  "description": "stoa-reader has its own CredentialStore in crates/reader/src/store/credentials.rs. Its from_credentials() has no bcrypt format guard. An operator config with plaintext passwords passes without panic and bcrypt::verify returns false for all logins \u2014 authentication silently always fails for every user. The fix is to add the same parse_bcrypt_cost guard that crates/auth/src/store.rs has.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T09:07:36Z",
+  "updated_at": "2026-05-01T04:51:47Z",
+  "closed_at": "2026-04-27T09:38:12Z"
+}

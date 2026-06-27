@@ -1,0 +1,33 @@
+{
+  "id": "stoa-ca890f11",
+  "title": "Implement SQLite-backed LogStorage using sqlx",
+  "description": "Implement SqliteLogStorage: SQLite-backed implementation of LogStorage using sqlx. Tables: `log_entries(id BLOB PK, group_name TEXT, hlc_timestamp BLOB, article_cid BLOB, operator_signature BLOB)`, `log_entry_parents(entry_id BLOB, parent_id BLOB)`, `group_tips(group_name TEXT, tip_id BLOB)`. All SQL in this module, nowhere else. Migrations in core/migrations/. Artifact: core/src/group_log/sqlite_storage.rs, core/migrations/.\n\nAcceptance: all shared tests from C pass against SQLite implementation; migration runs on fresh database; migration is idempotent (running twice is safe); no SQL outside this module",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:45:13Z",
+  "updated_at": "2026-05-01T04:53:39Z",
+  "closed_at": "2026-04-20T03:28:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9233c63e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:45:13"
+    },
+    {
+      "depends_on_id": "stoa-9d542fde",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:47:42"
+    },
+    {
+      "depends_on_id": "stoa-a976a050",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:47:17"
+    }
+  ]
+}

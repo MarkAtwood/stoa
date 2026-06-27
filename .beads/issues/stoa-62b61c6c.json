@@ -1,0 +1,12 @@
+{
+  "id": "stoa-62b61c6c",
+  "title": "reader: POST body read has no timeout (slow-upload DoS)",
+  "description": "The POST command body reader has no timeout. A slow client can hold a reader session open indefinitely by trickling bytes one at a time. This allows a slow-upload denial-of-service attack that exhausts the session limit.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T23:47:23Z",
+  "updated_at": "2026-05-01T04:51:58Z",
+  "closed_at": "2026-04-25T01:42:28Z"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-663badf4",
+  "title": "SmtpRelayQueue has no Debug impl \u2014 limits logging and test assertions",
+  "description": "pub struct SmtpRelayQueue has no #[derive(Debug)]. The DkimSigner field type may not implement Debug (mail_auth crate), so derive may not be possible. But there is no manual Debug impl either. A public type without Debug cannot be used in {:?} format strings, which limits debugging and test assertions. If the DkimSigner field prevents derive, a manual Debug impl that omits the signer (printing 'DkimSigner(...)') would satisfy the requirement.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:20:37Z",
+  "updated_at": "2026-05-01T04:59:23Z",
+  "closed_at": "2026-05-01T01:23:56Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-81b33f87",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:20:37"
+    }
+  ]
+}

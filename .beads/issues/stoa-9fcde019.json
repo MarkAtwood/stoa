@@ -1,0 +1,21 @@
+{
+  "id": "stoa-9fcde019",
+  "title": "DECISION: GC ingested_at_ms uses local wall clock not peer-supplied time",
+  "description": "pipeline.rs uses SystemTime::now() for the ingested_at_ms column in the articles table, with an explicit comment forbidding use of the article's Date header or ctx.timestamp (which is peer-supplied). The grace-period logic in gc_candidates.rs uses ingested_at_ms to protect newly-ingested articles from immediate collection. If a peer sends a backdated article (Date: 2001-01-01), using the article timestamp would cause the grace period to have already expired, allowing the GC to collect the article immediately after ingestion.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:32:44Z",
+  "updated_at": "2026-05-01T05:00:04Z",
+  "closed_at": "2026-04-27T16:36:22Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:32:43"
+    }
+  ]
+}

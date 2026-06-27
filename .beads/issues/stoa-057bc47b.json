@@ -1,0 +1,21 @@
+{
+  "id": "stoa-057bc47b",
+  "title": "Initialize rust-ipfs client in transit main.rs",
+  "description": "Wire the rust-ipfs 0.15.0 client into transit main.rs startup. Create an IpfsBlockStore backed by the real rust-ipfs node (not MemIpfsStore). The existing MemIpfsStore is used in tests only. Why: all downstream pipeline code calls ipfs_store.put_raw_block() and get_raw_block(); without the real client, no articles are stored or retrieved.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T00:13:38Z",
+  "updated_at": "2026-05-01T04:54:52Z",
+  "closed_at": "2026-04-21T01:38:14Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e861c46f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:14:11"
+    }
+  ]
+}

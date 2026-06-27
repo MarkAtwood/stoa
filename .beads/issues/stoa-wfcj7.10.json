@@ -1,0 +1,33 @@
+{
+  "close_reason": "Added last_id_check: Instant to CachedStsEntry; DNS TXT check now throttled to once per 60s per domain on cache hits",
+  "closed_at": "2026-05-03T00:03:21Z",
+  "compaction_level": 0,
+  "content_hash": "f9e949c6499cc06a9a0d04c288ff5ea55b5a3862d48ff41a24a0758b02684823",
+  "created_at": "2026-05-02T23:08:27Z",
+  "created_by": "Mark Atwood",
+  "description": "relay_client.rs:112 \u2014 on every cache hit the enforcer still does lookup_mta_sts_txt() to check for policy id rotation (RFC 8461 \u00a74.1 SHOULD). This means every outbound delivery to a cached domain performs a DNS round trip. For a busy server sending to a handful of domains, this adds one DNS RTT per delivery. RFC 8461 says SHOULD (not MUST), so the id check could be batched (e.g. once per minute or per N deliveries) rather than per-message. At low send volume this is irrelevant; at high volume it adds up.",
+  "ephemeral": 0,
+  "id": "stoa-wfcj7.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MtaStsEnforcer does DNS TXT lookup on every delivery even on cache hits",
+  "updated_at": "2026-05-03T00:03:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T16:08:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-wfcj7",
+      "id": "3d00a10c-8d36-5aa9-9211-4659405940cc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

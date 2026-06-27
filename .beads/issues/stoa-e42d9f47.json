@@ -1,0 +1,20 @@
+{
+  "id": "stoa-e42d9f47",
+  "title": "ENABLE dispatch: eliminate second hardcoded IMAP4rev2 literal and format! alloc",
+  "description": "In the CommandBody::Enable arm (mod.rs lines 472-481), handle_enable returns bool but the caller then unconditionally pushes CapabilityEnable::try_from(\"IMAP4rev2\") \u2014 hardcoding the capability name a second time independently of what was passed in. This means:\n\n1. The string \"IMAP4rev2\" must be kept in sync between handle_enable's match arm and the push in the dispatch arm. Adding a second enableable capability requires updating both places.\n2. format!(\"{cap}\") on line 474 allocates a heap String just to do a case-insensitive string compare. cap is already a CapabilityEnable \u2014 the conversion to String is unnecessary overhead on the hot path.\n\nPreferred fix: change handle_enable to return Option<CapabilityEnable<'static>> instead of bool \u2014 Some(cap) when newly activated, None otherwise. The dispatch arm then pushes the returned value directly, eliminating the second hardcoded literal and the format! allocation entirely.\n\nAffected: crates/imap/src/session/mod.rs lines 472-481, 707-715.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:25:05Z",
+  "updated_at": "2026-05-01T04:58:41Z",
+  "closed_at": "2026-04-30T02:52:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9d37d25b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:25:05"
+    }
+  ]
+}

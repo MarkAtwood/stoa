@@ -1,0 +1,21 @@
+{
+  "id": "stoa-8eb59f01",
+  "title": "TlsError::KeyLoad uses literal '<secretx>' placeholder, hides which URI failed",
+  "description": "In crates/tls/src/lib.rs, load_private_key_from_bytes uses the string literal '<secretx>' as the path label in TlsError::KeyLoad. When TLS startup fails due to a malformed PEM from a secrets manager, the operator sees 'failed to load TLS key at <secretx>: ...' with no indication of which secretx URI caused the problem. The URI should be threaded through so the error says 'failed to load TLS key at secretx:aws-sm:prod/stoa/tls-private-key: ...'. Possible fix: add a separate constructor load_private_key_from_bytes_with_label(pem_bytes, label) or change the signature to take the URI as a label parameter.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-26T21:55:59Z",
+  "updated_at": "2026-05-01T04:53:48Z",
+  "closed_at": "2026-04-26T22:07:22Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1490b957",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 14:55:58"
+    }
+  ]
+}

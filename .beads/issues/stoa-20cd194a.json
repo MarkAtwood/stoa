@@ -1,0 +1,39 @@
+{
+  "id": "stoa-20cd194a",
+  "title": "Implement LIST ACTIVE, LIST NEWSGROUPS, NEWGROUPS, NEWNEWS",
+  "description": "Implement LIST ACTIVE: return one line per known group (group high low status). Implement LIST NEWSGROUPS: return group descriptions. Implement NEWGROUPS date time: return groups created after given timestamp. Implement NEWNEWS date time: return Message-IDs of articles newer than given timestamp across specified groups. Artifact: reader/src/session/commands/list.rs.\n\nAcceptance:\n- LIST ACTIVE output parseable by slrn, tin, and Thunderbird (tested)\n- NEWGROUPS returns correct set for a known test timestamp\n- NEWNEWS returns correct Message-IDs for a known time range\n- NEWNEWS with wildmat pattern filters groups correctly",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:12:49Z",
+  "updated_at": "2026-05-01T04:53:24Z",
+  "closed_at": "2026-04-20T03:48:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-41676187",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:14:13"
+    },
+    {
+      "depends_on_id": "stoa-4d02536e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:15:05"
+    },
+    {
+      "depends_on_id": "stoa-987f87c2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:12:48"
+    },
+    {
+      "depends_on_id": "stoa-fc317007",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:53:23"
+    }
+  ]
+}

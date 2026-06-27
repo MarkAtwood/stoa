@@ -1,0 +1,20 @@
+{
+  "id": "stoa-6fa1b2db",
+  "title": "read_dot_stuffed: LF-only articles are silently normalized to CRLF, changing CID",
+  "description": "session.rs read_dot_stuffed (line 558-567) reconstructs each line as format\\!('{trimmed}\\r\\n'), where trimmed has CRLF stripped. For an article sent with LF-only line endings (RFC 3977 permits both), this converts every line to CRLF before storing to IPFS. The CID computed from the stored bytes will differ from a CID computed by any other peer from the wire bytes. Trigger: peer sends IHAVE/TAKETHIS with an LF-only article body. Bad behavior: the stored CID cannot be used to verify article integrity against the wire representation; two transit nodes receiving the same LF-only article will produce the same CID (both normalize to CRLF), but the article as stored does not match what was sent. More critically: the X-Stoa-Sig verification (verify/x_sig.rs) operates on original_bytes (before pipeline modifications) while the pipeline modifies the bytes further (prepend_path_header). The signer signs pre-pipeline bytes; the signature check is against original_bytes which is post-normalization. This is internally consistent but callers who verify against wire bytes will see a mismatch.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:58:56Z",
+  "updated_at": "2026-05-01T04:56:56Z",
+  "closed_at": "2026-04-27T07:07:41Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-35ec26bb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 22:58:56"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-7f9c8131",
+  "title": "main.rs TOCTOU: bind-then-drop admin listener before serving",
+  "description": "In main.rs, the startup check binds the admin listener socket to verify the address is available, then drops it, then the admin task later binds again. Between the check drop and the real bind, another process can claim the port. The server starts, serves NNTP, but the admin interface silently fails to bind. Operator has no metrics, no reload, no graceful drain. Correct fix: bind once at startup and pass the TcpListener to the admin task.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:24:35Z",
+  "updated_at": "2026-05-01T04:58:23Z",
+  "closed_at": "2026-04-28T17:01:25Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:24:34"
+    }
+  ]
+}

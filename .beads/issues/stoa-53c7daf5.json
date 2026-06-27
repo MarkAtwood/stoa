@@ -1,0 +1,20 @@
+{
+  "id": "stoa-53c7daf5",
+  "title": "IPLD roundtrip tests use same codec for encode and decode (no independent oracle)",
+  "description": "core/ipld/mime.rs:68-74, root_node.rs:111-124, builder.rs:167-193: serde_ipld_dagcbor used for both serialization and deserialization in roundtrip tests. A systematic codec bug (e.g., wrong field encoding in both directions) passes these tests while silently producing CIDs incompatible with external IPLD tooling. The test_vectors.rs vectors were cross-validated against Python dag-cbor \u2014 those are correct. The roundtrip tests provide no additional correctness guarantee. Fix: add byte-level assertions against the test_vectors.rs known-good hex, or cross-check with an independent library in the test.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:35:31Z",
+  "updated_at": "2026-05-01T04:59:46Z",
+  "closed_at": "2026-04-22T22:10:28Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:35:30"
+    }
+  ]
+}

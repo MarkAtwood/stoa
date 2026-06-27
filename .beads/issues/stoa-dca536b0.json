@@ -1,0 +1,13 @@
+{
+  "id": "stoa-dca536b0",
+  "title": "SMTP: Sieve Keep action silently drops mail when pool is None",
+  "description": "smtp/src/sieve_runner.rs: when the SQLite pool is None and the Sieve script evaluates to Keep (deliver locally), the mail is silently discarded with no error returned to the SMTP sender and no log entry. This is a data-loss bug. Fix: either require the pool to be present when local delivery is configured, or return a 451 transient failure so the sender retries.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T14:38:50Z",
+  "updated_at": "2026-05-01T04:52:03Z",
+  "closed_at": "2026-04-27T15:05:18Z"
+}

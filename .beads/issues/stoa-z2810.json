@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "e053430ddac249849f4592cc7469cf09840c9cc7c51f783b2f6ae54aeb862657",
+  "created_at": "2026-05-02T15:55:51Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why this issue exists\n\nStoa makes outbound TLS connections for: SMTP relay, IPFS/Kubo API, OIDC discovery, and any external webhook or ActivityPub delivery. It is not verified that all outbound clients use a verified certificate chain (no `danger_accept_invalid_certs`, no custom trust store that bypasses CA validation).\n\nAn auditor will ask for evidence that all outbound connections validate server certificates. A misconfigured outbound client enables MITM attacks.\n\n## What needs to be done\n\n- Audit every `reqwest::Client` construction site and every direct `tokio-rustls` client setup.\n- Confirm no code path uses `.danger_accept_invalid_certs(true)` in non-test code.\n- Confirm no code path uses a trust store that does not include the system root CAs or a pinned well-known CA.\n- If any dev-mode flag bypasses cert validation, gate it behind the env classification from the dev mode guard epic.\n- Add a CI test that spins up a server with a self-signed cert and verifies outbound connection is rejected in production mode.\n\n## Acceptance criteria\n\n- No `danger_accept_invalid_certs` in non-test code\n- All `reqwest::Client` and rustls `ClientConfig` constructions audited and documented\n- Self-signed server rejected in production mode\n- Any dev-mode bypass is guarded and logs a warning\n\n## Design notes\n\nRegulatory refs: All frameworks \u2014 outbound cert validation is universally required. SOC2 CC6.7, PCI-DSS 4.2.1.",
+  "ephemeral": 0,
+  "id": "stoa-z2810",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Outbound TLS certificate validation audit",
+  "updated_at": "2026-05-02T15:55:51Z"
+}

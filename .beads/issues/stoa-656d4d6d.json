@@ -1,0 +1,21 @@
+{
+  "id": "stoa-656d4d6d",
+  "title": "Core: error type hierarchy, input validation, and sanitization library",
+  "description": "All error types live in usenet-ipfs-core. Define a comprehensive, typed error hierarchy covering all failure modes across the system. Provide a centralized input validation and sanitization module used by both transit and reader at all ingress points. Prevents duplicated validation logic and ensures consistent rejection behavior.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:46:49Z",
+  "updated_at": "2026-05-01T04:54:10Z",
+  "closed_at": "2026-04-20T03:05:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1c73f68d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:46:49"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "ecd5c901e06db22cf7ab81390be871b54bb8966d3813d42070c36db10ba131a6",
+  "created_at": "2026-05-03T13:06:10Z",
+  "created_by": "Mark Atwood",
+  "description": "The function fn entry_id_to_cid(id: &LogEntryId) -> Cid (wrapping the 32 raw bytes as SHA2-256 multihash DAG-CBOR CIDv1) is duplicated in tests/group_log_vectors.rs, tests/reconcile_convergence.rs, and group_log/append.rs. It should be extracted to a single location \u2014 either a method on LogEntryId (LogEntryId::to_cid()) which already exists in types.rs, or a re-export. The tests are already calling append.rs's own to_cid() indirectly; they should use the same path.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.105",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "core: entry_id_to_cid helper copy-pasted across three test modules",
+  "updated_at": "2026-05-03T13:06:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "a38253ef-3661-58f6-b404-27bf76d63865",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

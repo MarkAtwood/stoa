@@ -1,0 +1,21 @@
+{
+  "id": "stoa-d6bc144f",
+  "title": "mail: RFC 8620 serde types (Request/Response/Invocation)",
+  "description": "Define serde types in crates/mail/src/jmap/types.rs: Request {using: Vec<String>, methodCalls: Vec<Invocation>, createdIds: Option<HashMap>}, Response {methodResponses: Vec<Invocation>, sessionState: String, createdIds: HashMap}, Invocation(method_name, args_json, call_id), standard error objects (unknownCapability, unknownMethod, notJSON, limit, forbidden, overQuota, notFound, invalidArguments, etc.).\\n\\nWhy: every JMAP method handler receives and returns these types; they must exist before any endpoint can be implemented.\\n\\nAcceptance: unit test round-trips a minimal Request/Response through serde_json.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T03:38:17Z",
+  "updated_at": "2026-05-01T04:52:43Z",
+  "closed_at": "2026-04-21T03:52:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-2b09db6a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 20:40:33"
+    }
+  ]
+}

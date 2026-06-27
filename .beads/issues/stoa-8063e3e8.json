@@ -1,0 +1,20 @@
+{
+  "id": "stoa-8063e3e8",
+  "title": "Two parallel group pattern validation paths with no shared logic",
+  "description": "Group pattern strings undergo two separate validation passes when loaded from config. First, validate_group_pattern in crates/transit/src/config.rs checks character set and consecutive dots. Second, WildmatPattern::parse in crates/core/src/wildmat.rs checks only for emptiness. These two validators are called in sequence (config.rs lines 579-585) but share no code. If the character set rules in validate_group_pattern change, WildmatPattern::parse is unaffected and vice versa. The right fix is to move character-set validation into WildmatPattern::parse so that GroupFilter::new is the single authoritative validator for pattern strings, and validate_group_pattern either disappears or becomes a thin wrapper.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:31:55Z",
+  "updated_at": "2026-05-01T04:59:58Z",
+  "closed_at": "2026-04-28T09:55:28Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:31:54"
+    }
+  ]
+}

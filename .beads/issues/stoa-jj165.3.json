@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "585ca6bf26270de0ad5a25b7078aa1ac96e29ab62d7c479434e576a6408c3741",
+  "created_at": "2026-05-02T14:35:15Z",
+  "created_by": "Mark Atwood",
+  "description": "Add TraceLayer from tower-http to build_router so every HTTP request gets a root span. Extract inbound W3C traceparent/tracestate headers to continue an existing trace (required for distributed tracing across a load balancer or API gateway).\n\n## What to do in build_router (server.rs)\n\n  1. Add TraceLayer:\n     tower_http::trace::TraceLayer::new_for_http()\n       .make_span_with(|req: &Request<_>| {\n           tracing::info_span!(\n               \"http_request\",\n               http.method = %req.method(),\n               http.route  = %req.uri().path(),    // path only, no query (avoids PII)\n               http.status_code = tracing::field::Empty,  // filled on response\n           )\n       })\n       .on_response(|resp, latency, span: &Span| {\n           span.record(\"http.status_code\", resp.status().as_u16());\n       })\n\n  2. Add W3C TraceContext propagation via an axum middleware that reads\n     'traceparent' and 'tracestate' headers and sets the OTEL context\n     before the handler runs, so the TraceLayer span is a child of the\n     upstream trace rather than a new root.\n\n  3. Exclude /health and /metrics from tracing (high-frequency polling\n     will flood traces with noise; use a filter in the TraceLayer).\n\n## Why path only, not full URI\nQuery strings frequently contain user-supplied data (search terms, IDs)\nthat must not appear in trace metadata sent to a third-party collector.\nPath is safe; query is not.\n\n## Placement in the layer stack\nTraceLayer must be the OUTERMOST layer (added last) so the span wraps\nauth middleware and all handlers. If placed inside the auth layer the\nspan won't include auth latency, which is misleading for latency analysis.\n\n## Acceptance\n- Each request to /jmap/api produces a span with http.method, http.route, http.status_code\n- A request with a valid traceparent header produces a child span, not a new root (verify with otel-jaeger or a test subscriber that checks parent_span_id)\n- /health requests do not produce spans",
+  "ephemeral": 0,
+  "id": "stoa-jj165.3",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Add tower-http TraceLayer to axum router with W3C TraceContext propagation",
+  "updated_at": "2026-06-26T20:26:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T07:36:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jj165.2",
+      "id": "09e8c7c9-d7c1-5549-b26a-3ac2b8612d6d",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T07:35:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jj165",
+      "id": "e0a8a979-28eb-5894-9170-eb88d76d33ef",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "stoa-e3ac8024",
+  "title": "R16: wire peering auth handshake into session",
+  "description": "auth.rs has a complete ed25519 challenge-response handshake (run_auth_handshake) but it is never called from run_peering_session. PeeringShared has no trusted_keys field and PeeringConfig has no trusted_peers setting. Wire up: (1) add trusted_peers: Vec<String> to PeeringConfig with #[serde(default)]; (2) parse to Vec<VerifyingKey> at startup; (3) add trusted_keys field to PeeringShared; (4) at start of run_peering_session, if trusted_keys is non-empty, call run_auth_handshake and drop connection on failure; (5) close 5w3.9.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T00:36:10Z",
+  "updated_at": "2026-05-01T04:54:22Z",
+  "closed_at": "2026-04-23T00:50:30Z"
+}

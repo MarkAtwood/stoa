@@ -1,0 +1,21 @@
+{
+  "id": "stoa-890156b7",
+  "title": "tls: cert_not_after returns String error not typed error",
+  "description": "crates/tls/src/lib.rs cert_not_after() returns Result<i64, String> while all other functions in the same file return Result<_, TlsError>. An ad-hoc String error type cannot be matched by callers, loses source() chaining, and is inconsistent with the rest of the module's error handling. Should return Result<i64, TlsError> using an appropriate TlsError::CertLoad variant.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:25:49Z",
+  "updated_at": "2026-05-01T04:53:16Z",
+  "closed_at": "2026-04-28T19:21:14Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:25:49"
+    }
+  ]
+}

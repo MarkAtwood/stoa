@@ -1,0 +1,20 @@
+{
+  "id": "stoa-2c4e022c",
+  "title": "SEC0: fallback to 127.0.0.1 on parse failure silently whitelists",
+  "description": "session.rs:171-174: if peer_addr fails SocketAddr::parse, client_ip defaults to 127.0.0.1. If 127.0.0.0/8 is in peer_whitelist, any connection whose peer_addr string fails to parse gets incorrectly whitelisted. In current deployment peer_addr comes from the OS so this cannot happen in practice. But the fallback is semantically wrong: unparseable address should not grant loopback identity. Safer default: 0.0.0.0 (unroutable sentinel). Same issue in config.rs whitelist_check() helper line 796.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:48:58Z",
+  "updated_at": "2026-05-01T04:58:46Z",
+  "closed_at": "2026-04-30T15:54:44Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b4887c1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:48:58"
+    }
+  ]
+}

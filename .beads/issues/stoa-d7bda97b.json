@@ -1,0 +1,27 @@
+{
+  "id": "stoa-d7bda97b",
+  "title": "STARTTLS: integration test with real NNTP client",
+  "description": "Integration test using Python nntplib or openssl s_client: verify STARTTLS upgrade succeeds, AUTHINFO USER works post-upgrade, 502 on double-STARTTLS, NNTPS connection works, transit-to-transit TLS peering works. Blocked on: stoa-74b386c0.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:38:58Z",
+  "updated_at": "2026-05-01T05:00:17Z",
+  "closed_at": "2026-04-23T23:42:22Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5eacdeb9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 12:59:41"
+    },
+    {
+      "depends_on_id": "stoa-74b386c0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:39:12"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "stoa-e2de00cc",
+  "title": "Health checks: liveness and readiness split",
+  "description": "Split the single /health endpoint into separate liveness and readiness probes for Kubernetes and load balancer compatibility.\n\nWhy this issue exists:\nThe current /health endpoint returns {status:ok} but does not distinguish between 'the process is alive' (liveness) and 'ready to serve traffic' (readiness). Kubernetes, ECS, and ALB all need both. A restarting daemon that is alive but not yet connected to Kubo should fail readiness without failing liveness.\n\nScope:\n- GET /healthz/live \u2014 returns 200 if the process is running. Never depends on external services. Used by Kubernetes liveness probe.\n- GET /healthz/ready \u2014 returns 200 only when all dependencies are up: Kubo reachable, SQLite migrations complete, gossipsub swarm joined. Returns 503 with JSON body listing failing checks during startup or degraded state.\n- Keep GET /health as a backwards-compatible alias for /healthz/ready\n- Add a structured JSON body to /healthz/ready: {status, checks: [{name, ok, detail}]}\n- Document probe configuration for Kubernetes and ECS in RUNBOOK.md\n\nAcceptance criteria:\n- /healthz/live returns 200 immediately after process start, before Kubo connects\n- /healthz/ready returns 503 if Kubo is unreachable\n- /healthz/ready returns 200 once all checks pass\n- Existing /health endpoint continues to work",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:15:42Z",
+  "updated_at": "2026-05-01T05:00:42Z",
+  "closed_at": "2026-04-28T08:46:30Z"
+}

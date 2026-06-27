@@ -1,0 +1,41 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T18:58:30Z",
+  "compaction_level": 0,
+  "content_hash": "b21de8887f9447ff374af8fd7fcb7fe5a25fc51d2fe2095804db86577a449e55",
+  "created_at": "2026-05-02T17:39:16Z",
+  "created_by": "Mark Atwood",
+  "description": "Unit tests for TlsrptRecorder. Test cases: record_failure for one domain produces correct failure record struct; multiple failures for same domain accumulate correctly; multiple domains tracked independently; all 11 TlsrptFailureType variants representable and serializable; serialized output matches RFC 8460 \u00a74.3 JSON field names (failure-type as kebab-case string). Oracle: hand-written expected JSON per RFC 8460; do not use the serializer as its own oracle.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Tests: TLSRPT failure record accumulator",
+  "updated_at": "2026-05-02T18:58:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T10:40:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.14",
+      "id": "10f0b71b-9baa-57a4-805a-4899109af3cc",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T10:39:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks",
+      "id": "6a5fb480-6e50-5c59-8ec9-1481f0d545a8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

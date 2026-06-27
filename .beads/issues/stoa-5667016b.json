@@ -1,0 +1,21 @@
+{
+  "id": "stoa-5667016b",
+  "title": "imap: interop extensions (UNSELECT, ENABLE, LIST-EXTENDED, LIST-STATUS, ID, SEARCHRES)",
+  "description": "Implement widely-probed extensions that improve interoperability and reduce round-trips. Clients probe CAPABILITIES and use these when present.\\n\\n- ENABLE (RFC 5161): explicit capability activation; required to turn on CONDSTORE and QRESYNC. Must be implemented before those extensions.\\n- UNSELECT (RFC 3691): close the selected mailbox without expunging \\Deleted messages; clients use this for cancel-move scenarios.\\n- LIST-EXTENDED (RFC 5258): LIST with RETURN STATUS option; lets clients get mailbox list and unread counts in a single command.\\n- LIST-STATUS (RFC 5819): companion to LIST-EXTENDED; batch STATUS responses alongside LIST.\\n- ID (RFC 2971): client/server identification exchange; many clients (Thunderbird, Apple Mail) send ID unconditionally and expect a response, not an error.\\n- SEARCHRES (RFC 5182): $ variable saves the last SEARCH result set for use as a UID set in subsequent FETCH/STORE/COPY/MOVE without re-transmitting the list.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T02:02:17Z",
+  "updated_at": "2026-05-01T04:55:37Z",
+  "closed_at": "2026-04-23T08:04:59Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3741bca1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 19:02:43"
+    }
+  ]
+}

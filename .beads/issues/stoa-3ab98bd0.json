@@ -1,0 +1,33 @@
+{
+  "id": "stoa-3ab98bd0",
+  "title": "RFC 3977 conformance: POST, NEWNEWS, NEWGROUPS",
+  "description": "Test POST: send a valid article, verify 240 response, retrieve via ARTICLE. Test POST with missing mandatory header, verify 441. Test NEWNEWS: post 3 articles, issue NEWNEWS with timestamp before posting, verify all 3 Message-IDs returned. Test NEWGROUPS with timestamp. Artifact: tests/conformance/post_and_news.py.\n\nAcceptance criteria:\n- POST roundtrip: posted article retrievable by message-ID and article number\n- POST with missing From: header returns 441\n- NEWNEWS returns correct Message-IDs for the time window\n- NEWGROUPS returns only groups created after the specified timestamp\n- All response codes match RFC 3977 tables",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:16:11Z",
+  "updated_at": "2026-05-01T04:58:09Z",
+  "closed_at": "2026-04-20T13:16:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-55db6c35",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:16:10"
+    },
+    {
+      "depends_on_id": "stoa-cdc4a0b7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:54:15"
+    },
+    {
+      "depends_on_id": "stoa-f43fd193",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:16:48"
+    }
+  ]
+}

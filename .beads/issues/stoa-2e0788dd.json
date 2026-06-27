@@ -1,0 +1,19 @@
+{
+  "id": "stoa-2e0788dd",
+  "title": "canonical.rs NUL byte separator with documented security reasoning",
+  "description": "canonical.rs uses \\x00\\n as the separator between canonical log entry fields, with a comment explaining why it prevents length-extension / field-confusion attacks. The asymmetry between log_entry_canonical_bytes (signed content) and entry_id_bytes (hashed ID) is also documented inline. This is the right level of security rigor for a signing scheme.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:39:03Z",
+  "updated_at": "2026-05-01T04:58:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:39:03"
+    }
+  ]
+}

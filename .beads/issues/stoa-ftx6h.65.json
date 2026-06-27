@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "bb671c8727137364a38f10ba91fbf29aceea2b0c83a60321b0cf4ddd3f5b3481",
+  "created_at": "2026-05-03T13:05:06Z",
+  "created_by": "Mark Atwood",
+  "description": "In relay_queue.rs, drain_once detects orphan .msg files (message files with no corresponding .env sidecar) and deletes them. This is correct for crashed incomplete writes, but a rename of .env succeeding while .msg rename fails is not possible given the atomic write order (msg first, then env). However, if an env file is manually deleted or corrupted by an operator mistake, the corresponding message is silently discarded without any dead-letter copy or metric increment. Fix: move orphan .msg files to the dead-letter directory rather than deleting them, so the operator can recover the content.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.65",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "smtp: relay queue orphan .msg files not re-queued, silently dropped",
+  "updated_at": "2026-05-03T13:05:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "d6d98ddc-0301-564f-a63c-fe0191d81164",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

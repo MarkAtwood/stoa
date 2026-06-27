@@ -1,0 +1,13 @@
+{
+  "id": "stoa-ae2d63c7",
+  "title": "Review-final: convergence check for CredentialStore consolidation",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T18:44:37Z",
+  "updated_at": "2026-05-01T04:52:57Z",
+  "closed_at": "2026-04-30T19:58:09Z",
+  "notes": "Maintainer risk: LOW-MEDIUM \u2014 The main code-correctness and security fixes are solid. The four open issues are API surface debt (#[non_exhaustive] gap, panic-vs-error asymmetry, string erasure) and one missed fix from the commit's stated scope. No new security exposure introduced.\nConfidence: 90% chance of missed bug is <10%. Least confident flags: the JoinError-swallow in check() (P4) \u2014 this may be intentional design to never surface internal panics as errors to auth callers. Uncertainty driven by: not running cargo clippy or cargo test against this exact tree; reviewed from source only. Would raise confidence if: ran clippy --all-features and checked if CredentialStoreError is matched exhaustively anywhere in the codebase.\nIdiom rating: ACCEPTABLE \u2014 The refactor correctly introduces thiserror, impl AsRef<Path>, and Zeroizing. Three issues remain: missing #[non_exhaustive] on CredentialStoreError, one missed .to_string()-on-literal in auth/config.rs, and typed error erasure in build_credential_store. None are soundness issues.\nRust idiom confidence: 90% chance of missed issue is <5%. Least confident flags: none. Uncertainty driven by: did not run clippy against live compilation; checked source only.\nNOT CONVERGED: 4 P1 findings"
+}

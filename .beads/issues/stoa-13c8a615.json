@@ -1,0 +1,33 @@
+{
+  "id": "stoa-13c8a615",
+  "title": "Implement centralized article ingress validation function",
+  "description": "Implement validate_article_ingress(article: &Article, config: &ValidationConfig) -> Result<(), ProtocolError> in core/src/validation.rs. Checks: all 6 mandatory RFC 5536 headers present, Message-ID format valid (<local@domain>), Date within +-24h of system time, Newsgroups contains only valid group names, all header fields <= 998 bytes, body size <= config.max_article_bytes. ValidationConfig is a small struct (max_article_bytes, allowed_groups: Option<Vec<GroupName>>). Artifact: core/src/validation.rs.\n\nAcceptance criteria: each check is a separate code path with a unit test; each failure returns the correct ProtocolError variant; function is the single validation point called by both POST and IHAVE handlers; no duplicate validation logic elsewhere",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:47:13Z",
+  "updated_at": "2026-05-01T04:54:16Z",
+  "closed_at": "2026-04-20T03:01:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1abd831d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:47:52"
+    },
+    {
+      "depends_on_id": "stoa-656d4d6d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:47:12"
+    },
+    {
+      "depends_on_id": "stoa-b279627b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:47:55"
+    }
+  ]
+}

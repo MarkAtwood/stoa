@@ -1,0 +1,21 @@
+{
+  "id": "stoa-9f75ca6e",
+  "title": "default_username_claim uses .to_string() on literal \u2014 inconsistent with commit's own fixes",
+  "description": "The commit 4fa767e explicitly changed all default_* serde functions to use .to_owned() on string literals, citing clippy correctness. auth/src/config.rs:73 default_username_claim() still uses \"email\".to_string(). A future contributor will see mixed style and not know which is the house style. The commit message claims all default-value functions were fixed, which is incorrect.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T18:46:16Z",
+  "updated_at": "2026-05-01T04:52:56Z",
+  "closed_at": "2026-04-30T18:53:01Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ae2d63c7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 11:46:16"
+    }
+  ]
+}

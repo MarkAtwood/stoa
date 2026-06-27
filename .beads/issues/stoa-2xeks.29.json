@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Iteration 2 review and fix pass complete",
+  "closed_at": "2026-05-03T02:48:49Z",
+  "compaction_level": 0,
+  "content_hash": "5060033904a54e2c8c955bcf56aacf7037555e7b2209f59aa4e61baec0faba61",
+  "created_at": "2026-05-03T02:35:58Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.29",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Maintainer risk: MEDIUM \u2014 one security surface gap (domain guard missing ':'), one incomplete RFC compliance path (RFC 8460 reporting absent). Both are non-blocking but need resolution before production use.\nConfidence: 15% chance of missed bug. Least confident flags: TLSRPT reporting path (P0) \u2014 could be intentionally deferred; cache eviction (P2) \u2014 scope depends on expected uptime and domain diversity. Uncertainty driven by: not having seen the full server startup path for RFC 8460 reporting (might be wired elsewhere), and not seeing production deployment assumptions. Would raise confidence if: reviewed crates/reader/src/store/server_stores.rs fully and any reporting cron/task that might consume tlsrpt_recorder().\nIdiom rating: CLEAN \u2014 no unsafe, no unwrap() in production paths (all have justifying comments), no Box<dyn Error> in APIs. Two minor findings: valid_until tuple placement and rfind vs rsplit_once.\nRust idiom confidence: 10% chance of missed issue. Least confident flags: none \u2014 the code is well-reviewed Rust with clear, consistent patterns. Uncertainty driven by: not reading tlsrpt.rs directly in this session (trait derives may be incomplete); relay_error.rs not in scope.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Review iter2: MTA-STS/REQUIRETLS/STARTTLS (stoa-2xeks)",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T19:35:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks",
+      "id": "a209b135-8681-5ab2-af5a-ecd3e9b33010",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "3e1c98857c4961a25654c2e11ad6a1c4b4283e68865aab87ccb154f2ba9d60ef",
+  "created_at": "2026-05-03T13:09:21Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\npost/smtp_relay.rs::find_header_end() is yet another copy of the header-end-finding logic, duplicating both injection.rs and post/mod.rs::find_header_boundary. Three copies of essentially the same byte-scanning function.\\n\\n## Acceptance Criteria\\n\\nRemove smtp_relay.rs::find_header_end and use crate::post::find_header_boundary instead.",
+  "ephemeral": 0,
+  "id": "stoa-h2mun",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Readability: smtp_relay.rs::find_header_end is a third copy of the same logic",
+  "updated_at": "2026-05-03T13:09:21Z"
+}

@@ -1,0 +1,19 @@
+{
+  "id": "stoa-e211df47",
+  "title": "grace_ms overflow: gc_max_age_days * 24*60*60*1000 silent overflow for large values",
+  "description": "main.rs line: let grace_ms = gc_max_age_days.saturating_mul(24 * 60 * 60 * 1000). gc_max_age_days is u64. 24*60*60*1000 = 86_400_000. For gc_max_age_days > 213503982334 the multiplication overflows u64. saturating_mul prevents wrapping but clips to u64::MAX, which means grace_period_ms passed to select_gc_candidates will be larger than now_ms, making cutoff_ms saturate to 0 and selecting ALL articles as GC candidates. An operator-specified max_age_days should be validated against a reasonable upper bound at config load time.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:40:29Z",
+  "updated_at": "2026-05-01T04:52:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:40:29"
+    }
+  ]
+}

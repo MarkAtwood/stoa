@@ -1,0 +1,12 @@
+{
+  "id": "stoa-65ea6ad9",
+  "title": "transit: ingestion queue capacity hardcoded at 1024",
+  "description": "Why: ingestion_queue(1024) in main.rs:264 is hardcoded. Under high ingest load operators may need to tune this; it should be a config field so the queue depth can be raised without recompiling.\\n\\nWhat: Add ingestion_queue_capacity field to transit config (e.g. under [peering] or [ingestion]), default 1024, wire into the ingestion_queue() call in main.rs.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T01:50:50Z",
+  "updated_at": "2026-05-01T04:55:32Z",
+  "closed_at": "2026-04-22T22:53:45Z"
+}

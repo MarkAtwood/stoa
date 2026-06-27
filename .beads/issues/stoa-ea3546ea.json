@@ -1,0 +1,12 @@
+{
+  "id": "stoa-ea3546ea",
+  "title": "transit: GC audit log created ad hoc, not via migration system",
+  "description": "The GC audit log table is created by a hand-written CREATE TABLE IF NOT EXISTS statement in the GC module rather than via sqlx::migrate!(). This bypasses the migration history, makes schema evolution harder, and can produce inconsistent schemas across deployments.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T23:47:40Z",
+  "updated_at": "2026-05-01T04:56:19Z",
+  "closed_at": "2026-04-25T01:27:10Z"
+}

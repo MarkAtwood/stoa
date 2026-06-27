@@ -1,0 +1,20 @@
+{
+  "id": "stoa-7f39a0fd",
+  "title": "Placeholder: design binary-group CID manifest format (deferred to v2)",
+  "description": "Design placeholder for v2 binary group support. In v1, articles are text-only (RFC 5536, no yEnc). In v2, binary attachments will be stored as separate IPFS blocks, with a CID manifest article that enumerates part CIDs (analogous to an NZB file but content-addressed). This issue captures the design intent. No implementation work. When v1 is released, reopen this issue and begin design. Artifact: notes in this issue's description only.\n\nAcceptance:\n- Issue exists and is labeled 'deferred'\n- No code is written\n- Issue is not in the ready queue (it is a placeholder)\n- When v1 ships, this issue is the starting point for v2 binary support design",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:17:17Z",
+  "updated_at": "2026-05-01T04:52:37Z",
+  "closed_at": "2026-04-20T12:11:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-b69f1b24",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:17:17"
+    }
+  ]
+}

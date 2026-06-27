@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T03:50:14Z",
+  "compaction_level": 0,
+  "content_hash": "e23d6c169d11439ad4da55d261389f0f0be1982963b606bdebe4d7a68a21c5cc",
+  "created_at": "2026-05-05T02:32:27Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement configurable drain timeout for stoa-smtp on SIGTERM. Stop accepting new SMTP connections, allow in-flight sessions to complete up to timeout, flush NNTP queue, exit cleanly. Part of epic stoa-c6s4x.",
+  "ephemeral": 0,
+  "id": "stoa-c6s4x.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Graceful SIGTERM drain for stoa-smtp",
+  "updated_at": "2026-05-05T03:50:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:32:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c6s4x",
+      "id": "0ba1eb32-9616-56f8-bb1d-1256547fa2a7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

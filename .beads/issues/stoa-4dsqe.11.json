@@ -1,0 +1,32 @@
+{
+  "compaction_level": 0,
+  "content_hash": "05d6cd2c4000c67f99e14af5e18b309faa757178b25630a7baec62784bd5e7cb",
+  "created_at": "2026-05-05T00:29:13Z",
+  "created_by": "Mark Atwood",
+  "defer_until": "2099-01-01T08:00:00Z",
+  "description": "Evaluate and integrate OPA (Open Policy Agent) and Casbin for policy enforcement. Two distinct roles, no overlap.\n\n## Casbin \u2014 Sieve capability enforcement\nWhat actions is a given Sieve script layer allowed to perform? The four-layer capability model (system/domain/mailbox/user, each with different allowed actions, operator-configurable restrictions) is exactly Casbin's design target. Embed as library (casbin-rs). Policy defined in model file, not code.\n\n## OPA \u2014 Mailbox access decisions\nReplace or augment stoa's grant-check SQL query with OPA policy evaluation. Identity context (sub, trust_tier, active_providers, session_groups) + resource context (mailbox_id, requested_permission, min_trust_level) \u2192 allow/deny with reason. Policy lives in Rego files, version-controlled, deployed independently of stoa. Enables operators (DoD, GSA, LF, community) to have radically different access policies on the same stoa codebase.\n\n## OPA deployment model\nPrefer sidecar over embedded library. OPA is designed to run as a sidecar with a REST API. Decouples policy updates from stoa restarts \u2014 operator can push new Rego bundle without touching stoa. stoa calls OPA over HTTP if configured, falls back to built-in grant-check SQL if OPA not present. OPA is optional, never required.\n\n## Rust ecosystem status at time of writing (2026-05)\nOPA: regorus (Microsoft's Rego evaluator in Rust) exists and is actively maintained, used in Azure, but not battle-hardened at OPA scale. opa-wasm also exists. Neither is mature enough to embed confidently yet \u2014 sidecar preferred.\nCasbin: casbin-rs is reasonably mature.\n\n## Integration points\nCasbin \u2192 crates/sieve-native: capability check before evaluating each action in script\nOPA \u2192 crates/mail + crates/smtp: access decision on every mailbox grant check, JMAP request, SMTP RCPT TO\n\n## Revisit when\nregorus matures sufficiently for production embedding, OR a customer requires OPA integration, OR Casbin-rs proves insufficient for capability model complexity.",
+  "ephemeral": 0,
+  "id": "stoa-4dsqe.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "deferred",
+  "timeout_ns": 0,
+  "title": "design: OPA and Casbin integration for policy enforcement",
+  "updated_at": "2026-05-05T00:29:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T17:29:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-4dsqe",
+      "id": "fa3b9596-8d29-56b8-9cac-68068b2ad24d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

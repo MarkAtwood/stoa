@@ -1,0 +1,22 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "7427c57e905efaf4f886083dd3b2d155313c1efc79cb1a63fca72c2514d0b3cf",
+  "created_at": "2026-05-04T03:17:50Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "stoa-tlvh9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Calibration (SEC7 final): Confidence: 15% chance of missed bug. 19 children reviewed against live code. DECISION NOTES (design confirmed correct): tlvh9.3 (gzip .take cap), tlvh9.7 (checked_add bounds), tlvh9.13 (RnewsConfig separate from Config), tlvh9.17 (NUL/DEL forbidden chars), tlvh9.19 (exit 0 for per-article rejects \u2014 correct UUCP semantics). ACTIONABLE: P0x3: tlvh9.10 (stdin size check wrong metric for compressed batches), tlvh9.14 (extract_message_id_bytes skips folded headers), tlvh9.18 (e2e test lacks content fidelity assertion). P1x2: tlvh9.2 (build_store duplication \u2014 already diverged), tlvh9.6 (transient errors exit 0, UUCP cannot retry). P2x3 tasks: tlvh9.5 (Arc alloc in loop), tlvh9.8 (summary invisible at warn level), tlvh9.11 (unknown args silently ignored). P3x6: tlvh9.1/4/9/12/15/16 \u2014 tlvh9.16 labeled opinion (let mut hlc rebind is stylistic only). OPINION labels applied: 1 (tlvh9.16). Running out of real complaints: NO \u2014 3 P0s and 2 P1s remain open. Stopping condition NOT met.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "in_progress",
+  "timeout_ns": 0,
+  "title": "Review round 1: stoa-9qqyc UUCP rnews ingest",
+  "updated_at": "2026-06-26T20:26:38Z"
+}

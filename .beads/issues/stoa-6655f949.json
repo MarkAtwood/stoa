@@ -1,0 +1,21 @@
+{
+  "id": "stoa-6655f949",
+  "title": "mail: /.well-known/jmap redirect",
+  "description": "Add GET /.well-known/jmap to the axum router returning 301 redirect to /jmap/session (RFC 8620 \u00a72). No auth required on this redirect endpoint.\\n\\nWhy: autoconfig discovery (Thunderbird, other clients) looks up /.well-known/jmap to bootstrap without manual server entry.\\n\\nAcceptance: curl -I /.well-known/jmap returns 301 Location: /jmap/session.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T03:38:18Z",
+  "updated_at": "2026-05-01T04:52:43Z",
+  "closed_at": "2026-04-21T04:01:57Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-b210724e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 20:40:35"
+    }
+  ]
+}

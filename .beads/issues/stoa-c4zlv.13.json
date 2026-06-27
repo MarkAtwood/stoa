@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T17:33:46Z",
+  "compaction_level": 0,
+  "content_hash": "6dea1b11d0cb5188fa96433a65ca06fe2d9c9e4379ea68e6e6c5dd9a36b10e4a",
+  "created_at": "2026-05-01T15:18:16Z",
+  "created_by": "Mark Atwood",
+  "description": "In follower_store.rs add(), the ON CONFLICT clause updates inbox_url but not followed_at. If a follower changes their inbox URL and re-sends a Follow, the followed_at timestamp stays at the original follow time, not the re-follow time. This is a minor semantic issue but it means the followed_at column cannot be used to detect re-follows or to implement TTL-based eviction correctly.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "follower_store ON CONFLICT does not update followed_at timestamp",
+  "updated_at": "2026-05-01T17:33:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:18:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "7c632a2d-761d-541e-9a96-64ca243611d3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

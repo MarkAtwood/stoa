@@ -1,0 +1,20 @@
+{
+  "id": "stoa-b6181cf9",
+  "title": "Redundant .unwrap() after .is_none() guard in config validators",
+  "description": "In both transit/src/config.rs and reader/src/config.rs, the Azure and GCS validation arms do: if backend.azure.is_none() { return Err(...) } let azure = backend.azure.as_ref().unwrap(). The unwrap is guaranteed safe by the guard, but a reviewer must reason through this. Rewrite: use 'let Some(azure) = backend.azure.as_ref() else { return Err(...) }' \u2014 eliminates the unwrap, makes the guard and binding explicit in one expression.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T02:37:48Z",
+  "updated_at": "2026-05-01T04:51:31Z",
+  "closed_at": "2026-04-28T02:54:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-938166bc",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 19:37:47"
+    }
+  ]
+}

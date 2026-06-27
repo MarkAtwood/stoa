@@ -1,0 +1,21 @@
+{
+  "id": "stoa-8c3c0e39",
+  "title": "PostgreSQL: migration files for reader and mail (PG dialect)",
+  "description": "Write PostgreSQL-dialect migration files for reader schema (article_numbers, overview, block_cache) and mail schema (bearer_tokens, user_flags, mailboxes). Same dialect translation as core/transit migrations. Blocked on: stoa-b38f9c00.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:42:37Z",
+  "updated_at": "2026-05-01T04:56:49Z",
+  "closed_at": "2026-04-28T06:10:59Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-b38f9c00",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:42:37"
+    }
+  ]
+}

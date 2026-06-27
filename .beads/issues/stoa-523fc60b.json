@@ -1,0 +1,21 @@
+{
+  "id": "stoa-523fc60b",
+  "title": "mail: TLS via rustls (HTTPS for JMAP)",
+  "description": "Add rustls-backed HTTPS to the axum server in crates/mail/src/tls.rs: load cert_path and key_path from config (PEM), construct rustls ServerConfig, wrap TcpListener in TlsAcceptor. If cert/key absent, log warning and serve plain HTTP only (development mode). Follow same pattern as usenet-ipfs-reader tls.rs.\\n\\nWhy: JMAP over plain HTTP exposes passwords and message content; production deployments must use HTTPS.\\n\\nAcceptance: with cert/key configured, curl --cacert accepts the connection; without them, server starts in plaintext mode with a warning.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T03:39:53Z",
+  "updated_at": "2026-05-01T04:59:25Z",
+  "closed_at": "2026-04-21T04:01:55Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-b210724e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 20:40:58"
+    }
+  ]
+}

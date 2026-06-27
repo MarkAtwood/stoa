@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T14:11:59Z",
+  "compaction_level": 0,
+  "content_hash": "3bf952930e1d57eb61727a41c3f47afee37a4eccffb78082095d68fe9843c478",
+  "created_at": "2026-05-03T13:11:03Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: node_id is part of the HLC timestamp and determines uniqueness of concurrent HLC ticks across nodes. If node_id is regenerated on every restart (instead of persisted with the HLC checkpoint), two restarts of the same instance may produce the same HLC timestamps as a different instance with the same node_id, violating HLC uniqueness. What: hlc_persist.rs load_hlc_checkpoint loads wall_ms and logical from the database but not node_id. The caller then calls HlcClock::new_seeded which re-derives node_id from instance_id, so the persisted HLC value does not include node_id. Persist node_id alongside wall_ms and logical in the checkpoint table.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.188",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "hlc_persist does not persist node_id; overwrites on reload",
+  "updated_at": "2026-05-03T14:11:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:11:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "32ab0133-5b54-509c-98e2-e73ac450cf24",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

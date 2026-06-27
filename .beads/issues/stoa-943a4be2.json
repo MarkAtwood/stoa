@@ -1,0 +1,13 @@
+{
+  "id": "stoa-943a4be2",
+  "title": "remove dead from_static_str in response.rs",
+  "description": "Response::from_static_str is a pub method with zero callers anywhere in the workspace. It was designed to convert the &'static str from authinfo_response() in auth.rs, but the session lifecycle uses Response::authentication_accepted() and Response::authentication_failed() directly instead. Dead code creates a misleading pattern: a contributor who finds from_static_str + authinfo_response might think that is the correct way to return auth responses and file a PR using them, introducing incorrect audit logging or missing it entirely.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T04:36:24Z",
+  "updated_at": "2026-05-01T04:55:57Z",
+  "closed_at": "2026-04-27T04:39:22Z"
+}

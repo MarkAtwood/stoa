@@ -1,0 +1,20 @@
+{
+  "id": "stoa-cbb47979",
+  "title": "SMTP NNTP client: no auth, no retry, 436/437 not handled",
+  "description": "smtp/nntp_client.rs: post_article() does not perform AUTHINFO. If the NNTP reader requires auth, every POST fails with 440 and is only logged as warn. No exponential backoff retry. 436 (Transfer failed, try again) treated same as 437 (permanent rejection). Partial article commits if connection drops mid-POST. Fix: (1) add optional AUTHINFO config, (2) retry on 436 with backoff, (3) treat 437 as permanent drop, (4) verify article with ARTICLE command after POST to confirm commit.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:35:58Z",
+  "updated_at": "2026-05-01T04:59:40Z",
+  "closed_at": "2026-04-22T22:24:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:35:57"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-d10ea38f",
+  "title": "FsStore: .block extension and directory format are undocumented contracts",
+  "description": "Files are named {cid-base32}.block. Once operators have data on disk this format cannot change without a migration. The .block suffix, base32 encoding of CIDv1, and the flat (non-sharded) directory layout are all permanent decisions not captured anywhere in code comments or docs. A future maintainer could accidentally change cid.to_string() to a different encoding or add subdirectory sharding without realizing this breaks existing stores. Add a doc comment to FsStore::open explaining the storage format as a stable contract.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T01:18:33Z",
+  "updated_at": "2026-05-01T04:59:35Z",
+  "closed_at": "2026-04-28T01:27:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-713dbc32",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 18:18:32"
+    }
+  ]
+}

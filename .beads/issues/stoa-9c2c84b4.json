@@ -1,0 +1,27 @@
+{
+  "id": "stoa-9c2c84b4",
+  "title": "LMDB backend: environment setup, config, startup check",
+  "description": "Add [backend.lmdb] config: path, map_size_gb (default 1TB virtual, no pre-allocation). Open or create LMDB environment at startup. Warn if approaching 80% of map_size. Fail fast if path not writable. Disable IPNS. Blocked on: stoa-b9466119.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:44:28Z",
+  "updated_at": "2026-05-01T05:00:29Z",
+  "closed_at": "2026-04-24T16:00:44Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5c9f1a38",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:44:27"
+    },
+    {
+      "depends_on_id": "stoa-b9466119",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:44:27"
+    }
+  ]
+}

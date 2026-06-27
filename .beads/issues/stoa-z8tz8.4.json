@@ -1,0 +1,41 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T00:08:03Z",
+  "compaction_level": 0,
+  "content_hash": "aad4454a00dd16bc294d647ffec47f3eb2cbe85eb6581ff3a472bb518db92358",
+  "created_at": "2026-05-03T23:53:53Z",
+  "created_by": "Mark Atwood",
+  "description": "Extract the SearchSnippet/get arm (~95 lines, server.rs:1047-1141) from route_method into a typed async function called directly from StoaHandler::call().",
+  "ephemeral": 0,
+  "id": "stoa-z8tz8.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wire SearchSnippet/get through StoaHandler",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T16:53:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-z8tz8",
+      "id": "8997c85e-b37c-5bf7-8ad6-b8e7a09914f7",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-03T16:54:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-z8tz8.3",
+      "id": "8fe9021b-21e2-5250-91fc-2fa57c3a2788",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

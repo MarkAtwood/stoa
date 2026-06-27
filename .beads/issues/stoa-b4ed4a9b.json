@@ -1,0 +1,21 @@
+{
+  "id": "stoa-b4ed4a9b",
+  "title": "Email/query: O(n log n) sort on every query, even when no sort-relevant filter",
+  "description": "email/query.rs handle_email_query always calls filtered.sort_by with a key that calls parse_rfc3339_timestamp twice per comparison element pair. parse_rfc3339_timestamp calls chrono::DateTime::parse_from_rfc3339 on each call \u2014 this is a full parse with string scanning. With N entries, the sort makes O(N log N) parse calls. For a mailbox with 10,000 articles, this is ~130,000 RFC3339 parses per query. Fix: compute timestamps once into a Vec<(i64, &EmailOverviewEntry)>, sort that, then extract entries. This is also the place to fix the RFC 2822 vs RFC 3339 date format mismatch (P0 bug).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T06:00:07Z",
+  "updated_at": "2026-05-01T04:52:02Z",
+  "closed_at": "2026-04-27T15:26:16Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-18ecb995",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 23:00:07"
+    }
+  ]
+}

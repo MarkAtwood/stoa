@@ -1,0 +1,20 @@
+{
+  "id": "stoa-e7c125e5",
+  "title": "Binary CID keys with Bloom filter are the right choice and should be defended",
+  "description": "Using cid.to_bytes() as RocksDB keys (36 bytes for CIDv1 raw SHA-256) rather than string encoding is correct: it is compact, avoids codec round-trips, and is the canonical form for IPLD tooling. The Bloom filter on the default column family makes negative lookups cheap, which matters when transit nodes check whether they already have a block before downloading. A future contributor might suggest using the base32-encoded CID string as key for debuggability \u2014 resist this: it adds 59 bytes per key and all IPFS tools can decode the binary form anyway.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T04:04:16Z",
+  "updated_at": "2026-05-01T04:51:33Z",
+  "closed_at": "2026-04-28T10:14:10Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-b29a7f1c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 21:04:16"
+    }
+  ]
+}

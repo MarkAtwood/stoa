@@ -1,0 +1,22 @@
+{
+  "id": "stoa-7907db91",
+  "title": "JMAP blob download: account_id not validated against authenticated user",
+  "description": "mail/blob.rs:13-37: /jmap/download/:account_id/:blob_id/:name \u2014 account_id is logged but never validated against authenticated session. Once IPFS fetch is wired, a user can craft a URL with another account's account_id and retrieve their blobs. Fix: validate account_id matches the authenticated principal before fetching from IPFS. Currently IPFS is stubbed (501), so this is latent \u2014 must be fixed before IPFS is wired.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:34:43Z",
+  "updated_at": "2026-05-01T04:59:40Z",
+  "closed_at": "2026-04-21T22:54:37Z",
+  "notes": "Fixed as side effect of stoa-31947539.2",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:34:43"
+    }
+  ]
+}

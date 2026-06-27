@@ -1,0 +1,20 @@
+{
+  "id": "stoa-3850c33f",
+  "title": "GOOD: deleted duplicate CredentialStore instead of aliasing it",
+  "description": "## What\n\naubi.3 deleted crates/reader/src/store/credentials.rs (the reader-local CredentialStore) entirely and updated all 5 import sites to use stoa_auth::CredentialStore directly. It did not add a type alias (`pub use stoa_auth::CredentialStore as CredentialStore`) in the old module location.\n\n## Why good\n\nA type alias would preserve the old import path (`stoa_reader::store::credentials::CredentialStore`) and silently allow new code to import from either path. Over time, two import paths for one type creates confusion about which is canonical and invites the divergence problem to re-emerge.\n\nBy deleting the module entirely, the compiler enforces the single-source-of-truth: any code that tries `use stoa_reader::store::credentials::CredentialStore` gets a hard compile error rather than silently resolving to the stoa_auth type via a compatibility shim. This makes the consolidation irreversible at the compiler level.\n\nThe reader-local copy was also a strict feature-subset of the stoa_auth version (missing `is_empty()`, `from_content()`, `merge_from_content()`, `from_file()`, and `merge_from_file()`), so keeping it as an alias would have hidden the availability of those richer constructors from reader code.\n\n## Alternative avoided\n\nType alias / re-export from the old credentials module path: preserves the duplicate namespace, doesn't enforce the canonical import, and makes the refactor reversible in a bad direction.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T16:52:05Z",
+  "updated_at": "2026-05-01T04:55:28Z",
+  "closed_at": "2026-04-30T16:56:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-45f3f588",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 09:52:04"
+    }
+  ]
+}

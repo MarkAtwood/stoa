@@ -1,0 +1,32 @@
+{
+  "closed_at": "2026-05-03T13:06:48Z",
+  "compaction_level": 0,
+  "content_hash": "08efa6ae881ddca649a3cf74fce71fd2f4c9689c11d430556f617979b9825a5b",
+  "created_at": "2026-05-03T13:06:45Z",
+  "created_by": "Mark Atwood",
+  "description": "In CredentialStore::check, password: &str is wrapped in Zeroizing::new(password.to_string()) and then moved into the spawn_blocking closure. The to_string() clone is necessary because spawn_blocking requires 'static, so a &str from the caller cannot be moved. This is correct. The Zeroizing wrapper ensures the password bytes are zeroed on drop. However the hash string is also cloned from the HashMap (via .cloned()) before the spawn_blocking. This is also necessary. Both clones are required; no improvement possible. Good pattern -- no action needed.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.126",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "auth: CredentialStore::check clones password String before passing to spawn_blocking",
+  "updated_at": "2026-05-03T13:06:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "e9f41d5a-f5d7-5338-9462-78b5b31e522f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

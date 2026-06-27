@@ -1,0 +1,20 @@
+{
+  "id": "stoa-f2deafea",
+  "title": "run_post_pipeline ignores extract_injection_source return value",
+  "description": "In lifecycle.rs run_post_pipeline (lines 812-814): extract_injection_source is called and returns an InjectionSource, but the very next line hardcodes injection_source = InjectionSource::NntpPost. The comment even explains why: 'trusting the header would allow forgery'. But that means the whole extract_injection_source call is dead code \u2014 it extracts and returns the value and the value is thrown away. The header IS removed from article_bytes (that side-effect matters), but the returned enum is silently discarded. If the design intent is that injection_source is always NntpPost via NNTP POST, the call to extract_injection_source should just not return a value (or should not exist at all). As-is, a future developer will assume the returned value is used and may be confused. Actual correctness impact: the injection_source passed to append_to_groups is always NntpPost, which may suppress peering for SmtpListId articles that came in via the SMTP drain.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:58:01Z",
+  "updated_at": "2026-05-01T05:00:09Z",
+  "closed_at": "2026-04-27T06:47:38Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-650091d3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 22:58:01"
+    }
+  ]
+}

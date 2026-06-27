@@ -1,0 +1,13 @@
+{
+  "id": "stoa-172aef57",
+  "title": "feat(mail): JMAP multi-user: resolve user_id from canonical_account_id",
+  "description": "mail/src/server.rs:435 has a live TODO: resolve user_id from canonical_account_id. Email/get currently does not fully resolve per-user identity from the JMAP accountId, which means multi-user JMAP deployments cannot correctly scope mailbox access.\n\nWhy this exists: the JMAP server was built out with single-user assumptions; multi-user plumbing is partially stubbed.\n\nWhat needs to be done:\n1. Audit all JMAP method handlers (Email/get, Email/query, Mailbox/get, Thread/get) for places where user_id is assumed or skipped.\n2. Implement canonical_account_id \u2192 user_id resolution: define the mapping (OIDC sub, DID, local account) and wire it through the session context.\n3. Enforce per-account mailbox scoping: each JMAP accountId must only see its own mailboxes and email.\n4. Add integration tests for at least two distinct accounts to verify isolation.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T03:07:00Z",
+  "updated_at": "2026-05-01T04:53:09Z",
+  "closed_at": "2026-04-30T05:30:12Z"
+}

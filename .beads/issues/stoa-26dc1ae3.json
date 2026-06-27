@@ -1,0 +1,33 @@
+{
+  "id": "stoa-26dc1ae3",
+  "title": "Define LogStorage trait in usenet-ipfs-core",
+  "description": "Define the async LogStorage trait: `insert_entry(entry: LogEntry) -> Result<()>`, `get_entry(id: &LogEntryId) -> Result<Option<LogEntry>>`, `list_tips(group: &GroupName) -> Result<Vec<LogEntryId>>`, `set_tips(group: &GroupName, tips: &[LogEntryId]) -> Result<()>`, `entry_count(group: &GroupName) -> Result<u64>`, `has_entry(id: &LogEntryId) -> Result<bool>`. Artifact: core/src/group_log/storage.rs.\n\nAcceptance: trait compiles; all methods are async; return types use a crate-local error type; no SQLite dependency in this file",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:44:55Z",
+  "updated_at": "2026-05-01T04:53:37Z",
+  "closed_at": "2026-04-20T03:26:30Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-238a85c1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:53:01"
+    },
+    {
+      "depends_on_id": "stoa-45d8dea3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:53:02"
+    },
+    {
+      "depends_on_id": "stoa-9233c63e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:44:54"
+    }
+  ]
+}

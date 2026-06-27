@@ -1,0 +1,21 @@
+{
+  "id": "stoa-cc8fc7d3",
+  "title": "Write wire format specification for group log entries",
+  "description": "Write docs/wire_format.md: precise byte-level specification of the canonical article serialization (field order, separators, encoding), group log entry format (HLC timestamp layout, CID encoding, signature placement, parent CID list encoding), and tip advertisement gossipsub message format. Artifact: docs/wire_format.md.\n\nAcceptance criteria: specification is unambiguous; a Go or Python implementation could be written from it without reading Rust code; includes at least two worked examples with hex dumps",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:45:03Z",
+  "updated_at": "2026-05-01T04:58:02Z",
+  "closed_at": "2026-04-20T12:42:00Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-254a8317",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:45:02"
+    }
+  ]
+}

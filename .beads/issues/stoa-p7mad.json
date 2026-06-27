@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T22:21:48Z",
+  "compaction_level": 0,
+  "content_hash": "386b1c818cd51e6c06803a4e207281e6ace917b6b24db5f61aa1cdc3fd05b9be",
+  "created_at": "2026-05-02T22:02:48Z",
+  "created_by": "Mark Atwood",
+  "description": "In relay_client.rs load_fresh_policy(), the cache TTL is set as: Instant::now() + Duration::from_secs(policy.max_age as u64). When max_age=0 (a valid RFC 8461 value), valid_until equals Instant::now() at insert time, meaning the cache entry is immediately stale. On every subsequent delivery to that domain, the cache check (Instant::now() < *valid_until) is false, causing a cache miss, triggering a DNS TXT lookup + HTTPS policy fetch for every delivery.\n\nA remote domain publishing max_age=0 can force the sending MTA to re-fetch its policy on every outbound message, causing amplified DNS and HTTPS load. With high delivery volume this degrades performance and could exhaust connection pool resources.\n\nFix: impose a minimum effective TTL (e.g., 60 seconds) regardless of the published max_age value. This bounds the re-fetch rate while still respecting the spirit of short max_age values. Document the floor in a comment referencing this security consideration.\n\nSeverity: P2 \u2014 reliability/security: remote-controlled DoS amplification on the fetching MTA.",
+  "ephemeral": 0,
+  "id": "stoa-p7mad",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "relay_client: max_age=0 causes unbounded re-fetch on every delivery",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T15:03:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jwahq",
+      "id": "4dbb3599-6273-5e15-a9a3-6e1ae5aad82c",
+      "metadata": {},
+      "type": "relates-to"
+    }
+  ]
+}

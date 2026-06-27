@@ -1,0 +1,19 @@
+{
+  "id": "stoa-b434dd4d",
+  "title": "drain_once dead-letter count scans dead/ on every tick",
+  "description": "relay_queue.rs drain_once (lines 341-363): counts files in dead/ via a full read_dir on every call to drain_once, including idle cycles triggered by the retry_interval timer. With a large dead/ directory this is an O(dead_count) filesystem scan per retry cycle. The dead/ count should be tracked incrementally (increment on move-to-dead, decrement on operator cleanup) or computed lazily only when the metric is actually scraped, not unconditionally on every drain tick.",
+  "status": "deferred",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:44:26Z",
+  "updated_at": "2026-05-01T04:55:12Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4315538d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:44:26"
+    }
+  ]
+}

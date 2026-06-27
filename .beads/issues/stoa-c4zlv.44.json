@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T18:49:29Z",
+  "compaction_level": 0,
+  "content_hash": "23ab2589dbff76cb1d2297b9e16a6f0a25ed6d1c448f8c273b1d9bea42fe5b9f",
+  "created_at": "2026-05-01T15:20:19Z",
+  "created_by": "Mark Atwood",
+  "description": "In crates/core/src/audit.rs, shutdown() awaits the background task handle but discards the JoinError with .ok() or equivalent, silently ignoring panics in the flush task. If the flush task panicked (e.g. due to a DB error during final flush), the caller never learns that audit events may have been lost. Fix: log the JoinError at warn/error level before returning, so operators can detect silent audit loss on shutdown.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.44",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "audit shutdown: task JoinError silently discarded",
+  "updated_at": "2026-05-01T18:49:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:20:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "ab1ba45a-8563-5c75-a4ea-b69de59921e4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

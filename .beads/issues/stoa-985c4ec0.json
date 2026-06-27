@@ -1,0 +1,20 @@
+{
+  "id": "stoa-985c4ec0",
+  "title": "header boundary detection implemented four times across codebase",
+  "description": "Blank-line separator between RFC 5322 headers and body is detected independently in post/mod.rs, store/backfill.rs, post/ipfs_write.rs, and post/injection.rs. Each has slightly different semantics. Diverging implementations will produce different behavior on malformed articles.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:27:29Z",
+  "updated_at": "2026-05-01T04:58:38Z",
+  "closed_at": "2026-04-28T21:42:08Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:27:28"
+    }
+  ]
+}

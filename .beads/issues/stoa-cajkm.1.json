@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T08:11:02Z",
+  "compaction_level": 0,
+  "content_hash": "50d41631483c4681f914cced00572a695da31f3657115d0236373ee24041a8b7",
+  "created_at": "2026-05-04T08:04:03Z",
+  "created_by": "Mark Atwood",
+  "description": "Finding: The dev-mode startup guard (auth.is_dev_mode() && !is_loopback_addr()) is copy-pasted with different wording into three main.rs files: reader/src/main.rs lines 363-376, mail/src/main.rs lines 93-104, and imap/src/main.rs lines 76-87. Each has a distinct eprintln! string \u2014 reader says 'no users configured', mail says 'no users configured', imap says 'no authentication (no users configured, auth.required = false)' \u2014 with slightly different phrasing for the fix instructions too.\n\nRisk: When the guard message needs updating (e.g. to mention STOA_ENV, or to add a doc URL, or to standardise the fix suggestion wording), a maintainer editing one copy has no mechanical reminder that two others exist. One copy will be missed. This has already happened: imap's message omits the second fix option that reader and mail both include.\n\nSuggested fix: Extract a shared function \u2014 e.g. stoa_core::startup::check_dev_mode_guard(is_dev_mode: bool, listen_addr: &str, daemon_name: &str) -> Result<(), String> \u2014 in a crate visible to all three. Each main.rs calls it and passes the result to eprintln!/process::exit. The message string lives in exactly one place.",
+  "ephemeral": 0,
+  "id": "stoa-cajkm.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Dev-mode guard eprintln! strings duplicated across 3 main.rs files",
+  "updated_at": "2026-05-04T08:11:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T01:04:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-cajkm",
+      "id": "ca713b92-4736-53ab-984a-f10aea0e36c1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

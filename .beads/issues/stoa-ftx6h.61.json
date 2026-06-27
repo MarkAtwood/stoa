@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "055a8c50d54a1c6427cab6dfddae6766178484df59a21d5d01c43bd20acea208",
+  "created_at": "2026-05-03T13:04:59Z",
+  "created_by": "Mark Atwood",
+  "description": "In auth.rs, dmarc_reject is set when policy=reject AND DKIM fails AND SPF fails. There is no ARC (Authenticated Received Chain, RFC 8617) bypass: messages forwarded through mailing lists that break DKIM alignment will be rejected even when the ARC chain proves the original message was DMARC-compliant. The mail-auth library supports ARC validation and the ARC chain is verified in verify_inbound, but the result is not consulted before setting dmarc_reject. This is a known v1 simplification but it means stoa will reject legitimate mailing-list traffic from DMARC-strict senders like gmail.com and yahoo.com.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.61",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "smtp: DMARC reject skips ARC bypass for mailing lists",
+  "updated_at": "2026-05-03T13:04:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:04:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "bd0a3fa9-3a3a-52c2-9466-4c5807825deb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

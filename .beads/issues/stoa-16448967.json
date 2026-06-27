@@ -1,0 +1,21 @@
+{
+  "id": "stoa-16448967",
+  "title": "auth_token.rs: unwrap on serde_json::to_value panics in handler",
+  "description": "Why this issue exists: serde_json::to_value() can fail if the type contains a non-string map key or other unserializable value. Calling .unwrap() on it inside an HTTP handler causes a process panic and crashes the server.\n\nWhat needs to be done: In crates/mail/src/auth_token.rs lines ~68 and ~98, replace .unwrap() with .map_err(|e| internal_error(e)) or equivalent error propagation that returns a 500 response instead of panicking.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:24:38Z",
+  "updated_at": "2026-05-01T04:58:28Z",
+  "closed_at": "2026-04-28T17:02:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:24:37"
+    }
+  ]
+}

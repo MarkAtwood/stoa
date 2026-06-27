@@ -1,0 +1,21 @@
+{
+  "id": "stoa-db9a62a8",
+  "title": "verify/types: ArticleVerification missing PartialEq",
+  "description": "crates/verify/src/types.rs \u2014 ArticleVerification derives Debug, Clone, Serialize, Deserialize but not PartialEq. Both SigType and VerifResult do derive PartialEq. Tests in verify/src/store.rs have to use matches! macro to test results rather than == because ArticleVerification lacks PartialEq. Adding PartialEq would make test assertions and production equality checks simpler and consistent with the inner types.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:27:42Z",
+  "updated_at": "2026-05-01T04:53:13Z",
+  "closed_at": "2026-04-28T17:42:30Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:27:42"
+    }
+  ]
+}

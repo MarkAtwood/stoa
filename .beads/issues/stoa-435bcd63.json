@@ -1,0 +1,21 @@
+{
+  "id": "stoa-435bcd63",
+  "title": "Implement HDR command (RFC 3977 \u00a78.5)",
+  "description": "reader/session/response.rs:76: CAPABILITIES advertises HDR. dispatch.rs:153: any unmatched command falls through to information_follows(), which is not correct HDR handling. RFC 3977 \u00a78.5 defines the HDR command. Clients seeing HDR in CAPABILITIES will attempt to use it and receive nonsense. Fix: either implement HDR or remove it from CAPABILITIES.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:36:18Z",
+  "updated_at": "2026-05-01T04:59:49Z",
+  "closed_at": "2026-04-22T23:32:37Z",
+  "design": "Decision: implement, not remove. HDR is used by Thunderbird and current clients when advertised in CAPABILITIES. Implementation: same article retrieval path as OVER but returns a single named header field per article. Advertise as 'HDR' in CAPABILITIES. Support both range and message-id forms per \u00a78.5.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:36:17"
+    }
+  ]
+}

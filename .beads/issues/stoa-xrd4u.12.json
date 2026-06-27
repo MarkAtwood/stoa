@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T16:12:03Z",
+  "compaction_level": 0,
+  "content_hash": "6559c9e6311483e3c9740ba2266fd3f0117b75db7dbb2ffb8d8368bc68ac2c25",
+  "created_at": "2026-05-04T05:14:17Z",
+  "created_by": "Mark Atwood",
+  "description": "Pass 2 idiom review found no new P0/P1/P2 idiom issues in the fixed code. filtered counter is u64 consistent with all other batch counters. resolve_local_hostname warning is correctly placed in the None arm. unwrap_or_else call site is correct: function only called when config.operator.hostname is None. No Arc wrapping of AnyPool remains.",
+  "ephemeral": 0,
+  "id": "stoa-xrd4u.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Pass 2: no new idiom issues",
+  "updated_at": "2026-05-05T16:12:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T22:14:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-xrd4u",
+      "id": "e3ea0e7d-e2e6-54ff-bf2c-ea4aa7985de1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

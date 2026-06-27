@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "23d4c2cc4681dbddd5925d2da1351adc7e74cba77fb5739641ded871ad3be73a",
+  "created_at": "2026-05-04T03:21:27Z",
+  "created_by": "Mark Atwood",
+  "description": "rnews.rs:5-6 and throughout \u2014 The module doc lists UUCP-G1 and UUCP-G3 as security invariant labels, and the code also references UUCP-G4. UUCP-G2 is never mentioned anywhere in the codebase or docs. A reader has no idea: (a) what the full UUCP-G* threat-model numbering scheme is, (b) what UUCP-G2 was (deleted? not applicable?), (c) where to find the authoritative list. The threat_model.md doc has no mention of UUCP. Fix: add a brief UUCP threat-model table to docs/threat_model.md or docs/adr/, defining G1\u2013G4 (and noting any gaps), and link to it from the rnews.rs module doc comment.",
+  "ephemeral": 0,
+  "id": "stoa-tlvh9.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "UUCP-G* labels undefined: G2 missing, no threat model table",
+  "updated_at": "2026-05-04T03:21:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T20:21:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-tlvh9",
+      "id": "193df936-d400-56dc-8177-1320e03aa653",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

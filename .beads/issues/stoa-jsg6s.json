@@ -1,0 +1,22 @@
+{
+  "compaction_level": 0,
+  "content_hash": "e5b764436bf8bc5ee58bd46335ae4638e8c1e96e05736085fc7d371dc7c1d3af",
+  "created_at": "2026-05-02T16:03:42Z",
+  "created_by": "Mark Atwood",
+  "description": "## Context\n\nStoa-mail must authenticate users across two surfaces with different protocol constraints:\n- **JMAP**: HTTP Bearer token \u2014 can use OAuth2/OIDC authorization code flow natively\n- **IMAP**: SASL username+password \u2014 standard clients do not use OIDC directly; XOAUTH2 support is inconsistent\n\nThis creates a structural question: how much identity data lives in stoa's own DB vs. delegated to an external IdP.\n\n## Decision\n\nAdopt a **two-profile architecture**. Both profiles share identical mailbox/application-state schema. Only the auth layer differs.\n\n### Profile A: `standalone`\n- stoa stores a local password hash (argon2id)\n- stoa enforces its own lockout, password policy, expiry (the crewcut P0 epics apply in full)\n- Target: self-hosted, air-gapped, privacy-focused deployments \u2014 no external IdP required\n\n### Profile B: `enterprise`\n- stoa stores `oidc_sub` (provider subject claim) + email only \u2014 **no password hash**\n- JMAP sessions obtained via OIDC authorization code flow; stoa validates the resulting JWT\n- IMAP uses **app passwords**: stoa-generated short tokens, revocable independently of the OIDC credential (same pattern as Google/Fastmail app-specific passwords)\n- Lockout, MFA, password policy, and account recovery delegate to the IdP\n\n### Both profiles\n\n- stoa always owns: `user_id`, email address(es), per-user DEK, mailbox state, JMAP state tokens, bearer tokens stoa has issued\n- Client certs (mTLS) are an optional additional auth surface on either profile \u2014 useful for transit peering and automated senders, not required for end-user clients\n- stoa does NOT cache OIDC refresh tokens or the IdP's user profile fields beyond `sub` and email\n\n## Alternatives considered\n\n**Single local-only store**: Simpler, but regulated/enterprise customers already have a certified IdP and don't want stoa to become a second identity silo they must certify separately.\n\n**OIDC-only (no standalone)**: Blocks self-hosted deployments with no external IdP. Usenet/NNTP culture is self-hosted-first; removing standalone would be a non-starter for a significant part of the target audience.\n\n**Full OIDC with no app passwords (IMAP via XOAUTH2 only)**: XOAUTH2 client support is too inconsistent. Thunderbird requires manual OAuth2 config; mutt/neomutt, alpine, and many CLI clients don't support it at all. App passwords bridge the gap with zero client-side friction.\n\n## Schema implications\n\n- `users.password_hash`: present and NOT NULL in standalone profile; absent (or nullable, null) in enterprise profile\n- `users.oidc_sub`: present in enterprise profile; absent or null in standalone\n- `imap_app_passwords` table: needed in enterprise profile (and optionally in standalone as a convenience)\n- Profile is a server-level config setting, not per-user\n\n## Crewcut epic impact\n\nIn enterprise profile, the following crewcut epics reduce in scope:\n- stoa-gvizi (account lockout): only IMAP app password lockout remains in scope; JMAP lockout delegates to IdP\n- stoa-8zi79 (password policy): only app password generation policy in scope; master password policy delegates to IdP\n- stoa-8b61s (token expiry): JMAP Bearer token expiry delegates to IdP; app password expiry remains in scope",
+  "design": "Profile is selected at server startup via config key `auth.profile = standalone | enterprise`. Not switchable at runtime. Migration between profiles requires a data migration (hash erasure or hash addition). The enterprise profile should validate at startup that `auth.oidc.issuer` is configured and reachable.",
+  "ephemeral": 0,
+  "id": "stoa-jsg6s",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "User identity: two-profile auth architecture (standalone vs enterprise/OIDC)",
+  "updated_at": "2026-05-02T16:03:42Z"
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-daac5b14",
+  "title": "ingestion validation order: mandatory headers checked after DB duplicate lookup",
+  "description": "transit/peering/ingestion.rs: size limit checked first (good), but mandatory header validation happens AFTER the duplicate-check DB round-trip. Attacker can send max-size articles with missing headers, paying one DB query per attempt before rejection. Move mandatory header presence check before any DB access.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T13:08:54Z",
+  "updated_at": "2026-05-01T04:54:32Z",
+  "closed_at": "2026-04-22T14:34:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-b770251a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 06:08:54"
+    }
+  ]
+}

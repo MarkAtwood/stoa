@@ -1,0 +1,14 @@
+{
+  "id": "stoa-1c76e14c",
+  "title": "HeaderMapNode: structured CBOR header map in ArticleRootNode",
+  "description": "Why: RFC 822/5322 headers are currently stored only as a raw byte block (header_cid, RAW codec 0x55), which is opaque to IPLD tooling. Adding a structured DAG-CBOR map block alongside the raw bytes enables ipfs dag get traversal of individual headers, lets Corundum read article metadata (subject, from, date) without a custom parser, and aligns with IPLD best practices. The raw bytes block is kept for wire-format fidelity and DKIM/S-MIME signature re-verification.\n\nSchema change: add header_map_cid (DAG-CBOR CIDv1, codec 0x71) to ArticleRootNode after header_cid. No schema_version bump \u2014 no production instances exist yet, so this is part of the initial schema definition.\n\nHeaderMapNode is BTreeMap<String, HeaderValue> where HeaderValue is untagged-serde enum Single(String) | Multi(Vec<String>). Header names are lowercased. Single occurrence -> string. Multiple occurrences -> array. Date-bearing headers (date, injection-date, nntp-posting-date, expires) are transformed to RFC 3339. If a date header cannot be parsed, the raw string is stored as fallback. All other header values are RFC 2047 decoded to UTF-8.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T23:25:21Z",
+  "updated_at": "2026-05-01T05:00:49Z",
+  "closed_at": "2026-04-20T23:51:38Z",
+  "design": "Option A: keep header_cid (raw bytes, RAW 0x55) for wire fidelity + add header_map_cid (DAG-CBOR 0x71) for IPLD traversal. BTreeMap for deterministic key ordering. serde untagged enum for heterogeneous string/array values. Date transformation oracle: Python email.utils.parsedate_to_datetime(). Fallback: unparseable dates stored as raw strings."
+}

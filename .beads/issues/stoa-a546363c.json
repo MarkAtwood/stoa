@@ -1,0 +1,21 @@
+{
+  "id": "stoa-a546363c",
+  "title": "smtp: Config struct and smtp.toml format",
+  "description": "Implement crates/smtp/src/config.rs. Config struct: listen: ListenConfig { port_25: String (default '0.0.0.0:25'), port_587: String (default '0.0.0.0:587') }; tls: TlsConfig { cert_path: Option<String>, key_path: Option<String> } (default: both None); limits: LimitsConfig { max_message_bytes: u64 (default 25*1024*1024 = 26214400), max_recipients: usize (default 100), command_timeout_secs: u64 (default 300) }; hostname: String (default 'localhost'); log: LogConfig (same as mail crate: level=info, format=json). Config::from_file, Config::validate (check non-empty ports, TLS both-or-neither). ConfigError enum (Io, Parse, Validation). Tests: parse minimal toml, validate TLS both-or-neither, defaults applied.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T05:19:10Z",
+  "updated_at": "2026-05-01T04:57:40Z",
+  "closed_at": "2026-04-21T05:22:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-2aaf1187",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 22:19:09"
+    }
+  ]
+}

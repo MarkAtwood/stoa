@@ -1,0 +1,21 @@
+{
+  "id": "stoa-6cc024ff",
+  "title": "imap::Config::validate does not check auth.users passwords are bcrypt",
+  "description": "reader::Config::validate() calls looks_like_bcrypt_hash on each auth.users entry and returns ConfigError::Validation on plaintext. imap::Config::validate() has no equivalent check. In production, a plaintext password in imap auth.users passes validate() and Config::from_file successfully, then panics in stoa_auth::CredentialStore::from_credentials when main() calls it. The imap VALID_TOML test constant uses password = \"hunter2\" (plaintext) and the test passes \u2014 demonstrating that validate() accepts it. Fix: add the same looks_like_bcrypt_hash loop to imap::Config::validate() that reader has, returning ConfigError::Validation. Also fix the VALID_TOML test constant to use a real bcrypt hash.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:55:56Z",
+  "updated_at": "2026-05-01T04:52:59Z",
+  "closed_at": "2026-04-30T18:02:38Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-65dc6723",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 10:55:56"
+    }
+  ]
+}

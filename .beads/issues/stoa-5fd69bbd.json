@@ -1,0 +1,19 @@
+{
+  "id": "stoa-5fd69bbd",
+  "title": "write-order invariant is documented and tested end-to-end",
+  "description": "The .msg-before-.env write ordering (lines 110-122 doc comment) is both documented with the exact crash scenario and tested by startup_scan_moves_orphan_msg_to_dead. This is genuinely correct and should be defended: a future contributor might think the order does not matter or suggest writing both in a single pass for efficiency. The comment explains exactly why the order is load-bearing and the test validates the recovery path.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:19:12Z",
+  "updated_at": "2026-05-01T04:59:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-81b33f87",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:19:12"
+    }
+  ]
+}

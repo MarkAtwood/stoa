@@ -1,0 +1,19 @@
+{
+  "id": "stoa-0970687f",
+  "title": "SEC0: stale doc on tls_active contradicts STARTTLS implementation",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T23:44:23Z",
+  "updated_at": "2026-05-01T04:57:11Z",
+  "closed_at": "2026-04-24T00:01:22Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4206df49",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 16:44:22"
+    }
+  ]
+}

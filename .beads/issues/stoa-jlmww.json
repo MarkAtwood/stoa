@@ -1,0 +1,22 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "5cb360bf1520d3b9d5cc7b119c122d477bdb415c8fb57f70e8a52414424beb46",
+  "created_at": "2026-05-04T03:56:04Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "stoa-jlmww",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Round 2 review complete. Filed 2 issues (both P2): stoa-jlmww.1 (test uses wrong extractor function \u2014 diverges from production code path for folded Message-IDs), stoa-jlmww.2 (MAX_BATCH_DECOMPRESSED_BYTES 50 MiB creates an undocumented asymmetry between gunbatch and uncompressed batch capacity). No P0 or P1 issues found. Confidence: 10% that a missed bug exists. Running out of real complaints: yes. Reasoning: (1) the correctness-critical paths (dedup, size caps, EX_TEMPFAIL exit, extract_body_msgid folding) were all fixed in round 1 and hold up under fresh review; (2) validation.rs forbidden-closure fix is correct; (3) build_store refactor is a clean delegation; (4) the two P2 issues filed are real but low-severity \u2014 one is a test-oracle divergence that does not affect production correctness for the test fixtures used, and one is a documentation/design clarity issue. No new panics, injection risks, or silent data loss paths found. Further complaints at this point would be bikeshedding.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "in_progress",
+  "timeout_ns": 0,
+  "title": "Review round 2: stoa-9qqyc UUCP rnews",
+  "updated_at": "2026-06-26T20:26:38Z"
+}

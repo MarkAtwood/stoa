@@ -1,0 +1,21 @@
+{
+  "id": "stoa-9c9daddf",
+  "title": "SearchKey::Body queries unscoped; Since/Before unimplemented",
+  "description": "In handle_nntp_search (lifecycle.rs:1125-1131), SearchKey::Subject and From map to field-scoped Tantivy queries (subject:\"...\" and from_header:\"...\"), but Body/Text map to bare value with no field prefix, causing the search to implicitly match all indexed fields (subject + from_header + body_text). This is undocumented and violates the principle of least surprise.\n\nAdditionally, SearchKey::Since and Before are parsed as enum variants but produce bare text queries\u2014they're unimplemented placeholders that would silently fail if a client sends them.\n\nFix: (1) Document the implicit field list for Body/Text, or (2) Make Body explicitly query body_text field only, or (3) Implement Since/Before as date range queries on date_ts field (requires query_str to encode ranges). Also remove Since/Before from SearchKey enum if they won't be implemented in v1 (per design invariant #2: no moderation; retention is explicit).",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T02:37:42Z",
+  "updated_at": "2026-05-01T05:00:40Z",
+  "closed_at": "2026-04-23T07:06:20Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-85f5ab08",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 19:37:42"
+    }
+  ]
+}

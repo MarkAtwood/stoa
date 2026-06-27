@@ -1,0 +1,23 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T04:39:16Z",
+  "compaction_level": 0,
+  "content_hash": "5d7d48fcfe76cb97c326df8a47836344ff7370e91db70a8c7147e57344467337",
+  "created_at": "2026-05-02T15:55:58Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why this issue exists\n\nThe JMAP and admin axum servers do not set standard security response headers. Any browser-based client (webmail, admin UI) is exposed to clickjacking, MIME sniffing, and information leakage via the Referer header.\n\nSOC2 CC6.6 requires protection of information in transit and defence against common web attack vectors. Security headers are a cheap, high-signal control that auditors check.\n\n## What needs to be done\n\nAdd a `tower-http` `SetResponseHeadersLayer` (or equivalent axum middleware) to both the JMAP and admin routers with:\n\n- `Strict-Transport-Security: max-age=63072000; includeSubDomains` (HSTS, 2 years)\n- `X-Content-Type-Options: nosniff`\n- `X-Frame-Options: DENY`\n- `Referrer-Policy: strict-origin-when-cross-origin`\n- `Content-Security-Policy: default-src 'none'` (API-only; no scripts/styles served)\n- `Permissions-Policy: geolocation=(), microphone=(), camera=()`\n\nWrite an integration test that makes an HTTP request and asserts all six headers are present with correct values.\n\n## Acceptance criteria\n\n- All six headers present on every JMAP and admin API response\n- Integration test asserts header presence and values\n- HSTS header only sent when TLS is active (guard on config)\n\n## Design notes\n\nRegulatory refs: SOC2 CC6.6. tower-http `SetResponseHeaderLayer` is the idiomatic approach \u2014 avoid hand-rolling middleware.",
+  "ephemeral": 0,
+  "id": "stoa-j931k",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Security response headers on JMAP/admin HTTP APIs",
+  "updated_at": "2026-06-26T20:26:38Z"
+}

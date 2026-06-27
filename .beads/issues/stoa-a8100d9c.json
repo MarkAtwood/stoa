@@ -1,0 +1,21 @@
+{
+  "id": "stoa-a8100d9c",
+  "title": "smtp/Cargo.toml license field missing AGPL-3.0 (links AGPL sieve crate)",
+  "description": "smtp/Cargo.toml: license field does not declare AGPL-3.0 despite linking usenet-ipfs-sieve which wraps sieve-rs (AGPL-3.0-only). Operators distributing the smtp binary believe it is MIT. The AGPL copyleft obligation applies. Fix: set license = 'AGPL-3.0-only' in smtp/Cargo.toml. Document in README that usenet-ipfs-smtp is AGPL due to sieve dependency. CLAUDE.md already states this requirement \u2014 this is a gap between documentation and Cargo manifest.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:34:17Z",
+  "updated_at": "2026-05-01T04:59:41Z",
+  "closed_at": "2026-04-21T19:51:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:34:17"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-06cfa3ab",
+  "title": "suck_pull: fetch_article reads and discards article body",
+  "description": "suck_pull::fetch_article (suck_pull.rs:253-306) reads the dot-terminated article body from the wire but throws all bytes away \u2014 the loop at line 289 drains lines without accumulating them, and FetchResult::Fetched is returned with no content. There is no call to run_pipeline or enqueue_article anywhere in the import module. As a result the suck-pull import successfully negotiates NEWNEWS, downloads article IDs, sends ARTICLE commands, and receives article bytes \u2014 but stores nothing. Every 'fetched' article is silently dropped. Trigger: any run_suck_pull call. Bad behavior: summary.fetched increments but no articles are ingested into IPFS or the group log.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:58:38Z",
+  "updated_at": "2026-05-01T04:56:54Z",
+  "closed_at": "2026-04-27T06:34:58Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-35ec26bb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 22:58:37"
+    }
+  ]
+}

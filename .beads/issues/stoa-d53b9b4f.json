@@ -1,0 +1,12 @@
+{
+  "id": "stoa-d53b9b4f",
+  "title": "fix(imap): use try_from for i64\u2192u32 UIDVALIDITY casts",
+  "description": "mailbox.rs casts i64 values from SQLite to u32 with silent truncation (as u32) at lines 177, 224, and 250. The stored values always fit u32 in practice (UIDVALIDITY is a Unix timestamp in seconds; next_uid increments slowly). However as u32 is silent on overflow \u2014 if a database corruption or migration error introduced a value > u32::MAX, the IMAP client would receive wrong UIDVALIDITY/UIDNEXT values with no operator indication. RFC 3501 requires UIDVALIDITY must never change; a silently wrong value breaks client sync. Fix: use u32::try_from with a warn! + fallback to 1.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T04:51:59Z",
+  "updated_at": "2026-05-01T04:52:30Z",
+  "closed_at": "2026-04-27T05:00:42Z"
+}

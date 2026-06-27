@@ -1,0 +1,13 @@
+{
+  "id": "stoa-daa51632",
+  "title": "verify_entry: redundant has_entry+get_entry round trips",
+  "description": "group_log/verify.rs: verify_entry calls storage.has_entry() then storage.get_entry() \u2014 two async round trips where one suffices. get_entry already signals absence. Fix: remove the has_entry call and branch on the get_entry result directly.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:25:12Z",
+  "updated_at": "2026-05-01T04:55:48Z",
+  "closed_at": "2026-04-28T20:03:55Z"
+}

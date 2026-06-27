@@ -1,0 +1,20 @@
+{
+  "id": "stoa-b3a31804",
+  "title": "put_block accepts CID/data mismatch without verification",
+  "description": "In crates/reader/src/post/object_store_backend.rs, put_block(cid, data) stores data at the object path keyed by cid, but never verifies that cid actually matches SHA2-256(data). A caller that passes a mismatched CID/data pair silently stores corrupted data \u2014 the object is retrievable by the given CID, but the content does not match the CID's hash commitment. This is a content-addressed store and content integrity is the core guarantee. The function doc says 'The caller is responsible for ensuring cid matches data', but there is no enforcement and the reader POST path is attacker-influenced input (an NNTP client POST). If any upstream code path can pass an attacker-controlled CID with attacker-controlled data into put_block, the store is trivially poisoned. Minimally, debug-mode hash verification should be added.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T02:36:47Z",
+  "updated_at": "2026-05-01T04:51:43Z",
+  "closed_at": "2026-04-28T02:48:14Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-938166bc",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 19:36:47"
+    }
+  ]
+}

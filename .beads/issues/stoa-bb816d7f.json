@@ -1,0 +1,26 @@
+{
+  "id": "stoa-bb816d7f",
+  "title": "Reader POST path: call verify_article at ingest",
+  "description": "Wire the verification pipeline into the reader's POST handler.\n\nWhat: crates/reader/src/post/ipfs_write.rs (or wherever POST pipeline lands after IPFS write); crates/reader/src/store/server_stores.rs\n\nChanges:\n1. Add verify_store: Option<Arc<VerifyStore>> to ServerStores.\n2. Add dkim_resolver: Option<Arc<mail_auth::Resolver>> to ServerStores (None disables DKIM).\n3. After article is written to IPFS and CID is known, call:\n     if let Some(vs) = &stores.verify_store {\n         let _ = verify_article(raw_bytes, &cid, vs, stores.dkim_resolver.as_deref()).await;\n     }\n4. verify_article() runs both verifiers (usenet-ipfs-sig always; dkim if resolver present).\n5. Errors from verify_article never propagate to the caller (verification is non-fatal).\n6. Add verify_store and dkim_resolver construction to build helpers; set to None in all integration tests that don't need verification.\n\npub async fn verify_article(raw: &[u8], cid: &Cid, store: &VerifyStore, resolver: Option<&Resolver>) -> ()\n  - calls verify_usenet_sig + verify_dkim\n  - calls store.record_verification for each result\n  - logs info! summary: article_cid, checks run, results\n\nDefensive rules:\n- Wrap entire verify_article body in a catch-unwind or handle all errors internally; never let a verification panic abort article ingest.\n- Log at info level: 'verified cid={} sig={} dkim={}'; never log key material.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:48:44Z",
+  "updated_at": "2026-05-01T05:01:00Z",
+  "closed_at": "2026-04-24T01:28:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-8c33ec19",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:49:56"
+    },
+    {
+      "depends_on_id": "stoa-f07d2b75",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:48:44"
+    }
+  ]
+}

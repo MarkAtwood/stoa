@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T14:39:48Z",
+  "compaction_level": 0,
+  "content_hash": "0b5653958cc291ca03791df650231e104aa019c55e0d89c4a108a1df6bee13d4",
+  "created_at": "2026-05-03T13:05:51Z",
+  "created_by": "Mark Atwood",
+  "description": "TlsError::source() returns None for CertParse(_). The CertParse variant carries a String, losing the x509-parser parse error. Like OidcError, using thiserror with #[source] would preserve the error chain. The other variants (CertLoad, KeyLoad) correctly chain the io::Error.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.92",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "tls: TlsError does not implement std::error::Error::source for CertParse variant",
+  "updated_at": "2026-05-03T14:39:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "31a80584-73fc-5f56-b95c-afcce9cb91ae",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

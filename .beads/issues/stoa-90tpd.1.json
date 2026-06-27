@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "cargo test -p stoa-core -- util tests pass; cargo clippy -p stoa-core clean; is_loopback_addr exists in stoa_core::util and is re-exported; no duplicate in reader/config.rs or transit/config.rs",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T07:45:58Z",
+  "compaction_level": 0,
+  "content_hash": "82cc0099bd3f49285e3b5438f143fa383ca082389fa4f0c174d67ece78636db2",
+  "created_at": "2026-05-04T06:31:39Z",
+  "created_by": "Mark Atwood",
+  "description": "## What\nMove the duplicated is_loopback_addr helper from reader/config.rs and transit/config.rs into crates/core/src/util.rs so mail, smtp, and imap can use it without duplication.\n\n## Algorithm\n1. Read crates/core/src/util.rs (may not exist \u2014 check lib.rs for existing pub mod util).\n2. If util.rs does not exist, create crates/core/src/util.rs and add pub mod util; to lib.rs.\n3. Copy the is_loopback_addr(addr: &str) -> bool function from crates/reader/src/config.rs to crates/core/src/util.rs, making it pub.\n4. The exact function body: parse the host from addr (split at last ':'), call addr.parse::<IpAddr>().map(|a| a.is_loopback()).unwrap_or(false). Handle '[' prefix for IPv6.\n5. In crates/reader/src/config.rs: remove the local is_loopback_addr and replace call sites with stoa_core::util::is_loopback_addr (or add use stoa_core::util::is_loopback_addr).\n6. In crates/transit/src/config.rs: same replacement.\n7. cargo fmt --all; cargo clippy --workspace --all-features -- -D warnings; cargo test --workspace \u2014 all must pass.\n\n## Defensive programming rules\n- Parse errors in addr (unparseable host) must return false (treat as non-loopback \u2192 more restrictive), never panic.\n- No unwrap() without comment explaining it cannot fail.\n- No log statements needed \u2014 this is a pure utility function.\n\n## Agent team\n- Agent R: Read reader/config.rs to get exact function body and all call sites. Read core/src/lib.rs.\n- Agent I: Implement the move as described.\n- Agent T: Write unit tests for is_loopback_addr in core crate: loopback IPv4 (127.0.0.1:PORT), loopback IPv6 ([::1]:PORT), non-loopback (0.0.0.0:PORT, 192.168.1.1:PORT), invalid input (empty string, 'foo'). Expected values derived from IpAddr::is_loopback() spec, not from the implementation.\n\n## Tests\n- test_loopback_ipv4: is_loopback_addr('127.0.0.1:9090') == true. Oracle: RFC 5735 \u00a73 defines 127.0.0.0/8 as loopback.\n- test_loopback_ipv6: is_loopback_addr('[::1]:9090') == true. Oracle: RFC 4291 \u00a72.5.3 defines ::1 as loopback.\n- test_non_loopback_any: is_loopback_addr('0.0.0.0:9090') == false. Oracle: 0.0.0.0 is not in 127.0.0.0/8.\n- test_non_loopback_private: is_loopback_addr('192.168.1.1:1119') == false. Oracle: private range, not loopback.\n- test_parse_error: is_loopback_addr('not-an-addr') == false. Oracle: fail-safe default.",
+  "ephemeral": 0,
+  "id": "stoa-90tpd.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "core: add shared is_loopback_addr to stoa_core::util",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T23:31:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-90tpd",
+      "id": "48757d69-6dd1-5887-8a57-1a4d286545a7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

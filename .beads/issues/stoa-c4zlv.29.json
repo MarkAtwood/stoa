@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T17:33:47Z",
+  "compaction_level": 0,
+  "content_hash": "e4fe4116f128224c9da28e580c8e03c28fafa6ed7b75e62ee842332f111760a3",
+  "created_at": "2026-05-01T15:19:30Z",
+  "created_by": "Mark Atwood",
+  "description": "In crates/core/src/group_log/backfill.rs, want_parent_ids is captured by checking 'if visited.len() == 1' on the first dequeue, relying on the assumption that want_id is inserted into the queue first and thus always the first entry visited. This is true today because want_id seeds the VecDeque before the BFS loop, but there is no assertion or documentation of this invariant. A future refactor (e.g. multi-root backfill) that changes queue seeding order would silently capture the wrong node's parents. Fix: capture parent_cids directly after the first storage.get_entry(want_id) call before the BFS loop, removing the fragile index-based detection.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.29",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "backfill: silent invariant that want_id is always dequeued first",
+  "updated_at": "2026-05-01T17:33:47Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:19:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "4e8c7a82-0526-5e2b-92fd-e76a818637f2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

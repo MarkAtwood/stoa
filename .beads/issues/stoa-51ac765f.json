@@ -1,0 +1,20 @@
+{
+  "id": "stoa-51ac765f",
+  "title": "readability: test files import UserCredential from reader config, not stoa_auth",
+  "description": "e2e_data_flow.rs and injection_provenance_e2e.rs import stoa_reader::config::UserCredential. That works because of the pub-use re-export, but it obscures that UserCredential lives in stoa_auth. A reader in 12 months will search for the struct definition in config.rs and find only a re-export, adding an indirection step. The two integration-test files already import directly from stoa_auth and never need UserCredential \u2014 so the inconsistency is within the reader crate's own tests. Suggested fix: change the two reader test files to use stoa_auth::UserCredential to match the pattern in the integration tests and make the type's home obvious at the use site.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:12:33Z",
+  "updated_at": "2026-05-01T04:51:24Z",
+  "closed_at": "2026-04-30T17:15:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-577b3bd5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 10:12:32"
+    }
+  ]
+}

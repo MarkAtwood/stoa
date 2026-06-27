@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "db22f4f0396793bc18cc077a634fdc36c206c8588e7b8feb82beebfc11a9d5e0",
+  "created_at": "2026-05-03T13:08:29Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: operators reload config via SIGHUP to add or revoke trusted peers without restarting the daemon. What: session.rs captures trusted_keys into a local Vec at session start (let trusted_keys = shared.trusted_keys.read().await.clone()). do_reload() updates the Arc<RwLock<Vec>> in ReloadableState but the cloned Vec held by each active session is never refreshed. A revoked key will still authenticate successfully on its existing session until that session disconnects. A newly added key will not authenticate on existing sessions.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.164",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Trusted keys snapshot at session start; SIGHUP reload not applied to running sessions",
+  "updated_at": "2026-05-03T13:08:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:08:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "a5e77765-a15c-5f75-a3be-783ef17dd396",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

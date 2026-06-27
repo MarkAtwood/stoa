@@ -1,0 +1,21 @@
+{
+  "id": "stoa-c0bed5d6",
+  "title": "DECISION: admin server fail-closed on non-loopback without bearer token",
+  "description": "admin.rs returns Err on non-loopback addr without bearer_token. Prevents accidentally exposing unauthenticated admin. Preserve this check.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T06:02:43Z",
+  "updated_at": "2026-05-01T05:00:16Z",
+  "closed_at": "2026-04-27T16:58:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-650091d3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 23:02:43"
+    }
+  ]
+}

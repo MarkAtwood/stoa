@@ -1,0 +1,11 @@
+{
+  "id": "stoa-bfd9e2a8",
+  "title": "test: Keycloak OIDC and Thunderbird JMAP integration tests",
+  "description": "Two deferred integration tests (stoa-da550e08 and stoa-14b79078) cover the full auth and JMAP client interop surface that cannot be tested in unit tests:\n\n1. Keycloak OIDC (3axq): spin up a Keycloak instance via docker-compose, configure a realm and client for stoa-reader/stoa-mail, verify token issuance and OIDC authentication through the auth crate end-to-end. This is the only integration path for the OIDC code.\n\n2. Thunderbird JMAP folder subscription (dd40): verify that Thunderbird can connect to stoa-mail via JMAP, see groups as folders (Mailbox/get), subscribe/unsubscribe (Mailbox/set), and fetch articles. This tests the full JMAP client interop path including capability negotiation.\n\nWhat needs to be done:\n1. Add a docker-compose.keycloak.yml with a pre-configured realm export.\n2. Add an integration test (integration-tests/tests/oidc_keycloak.rs) that authenticates through Keycloak and verifies protected NNTP/JMAP endpoints accept the token.\n3. Add a Thunderbird automation script (headless profile) that connects to stoa-mail, lists folders, subscribes to one, and fetches an article.\n4. Document the test setup in docs/testing.md.\n\nAdopts deferred issues: stoa-da550e08, stoa-14b79078.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T03:07:45Z",
+  "updated_at": "2026-05-01T04:52:07Z"
+}

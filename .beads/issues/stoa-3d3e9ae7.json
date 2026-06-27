@@ -1,0 +1,20 @@
+{
+  "id": "stoa-3d3e9ae7",
+  "title": "DB migration: add did_sig_valid to overview table",
+  "description": "What: Add did_sig_valid column to the overview SQLite table and update the Rust struct and store.\n\nAlgorithm:\n1. Create new migration file crates/reader/migrations/YYYYMMDD_did_sig.sql with: ALTER TABLE overview ADD COLUMN did_sig_valid INTEGER;  (NULL=no DID sig present, 0=invalid, 1=valid)\n2. In crates/reader/src/store/overview.rs: add pub did_sig_valid: Option<bool> to OverviewRecord struct\n3. Update OverviewStore::insert() signature to accept did_sig_valid: Option<bool>, add it to the INSERT statement\n4. Update all callers of insert() to pass None (existing call sites in lifecycle.rs/extract_overview path)\n5. Update OverviewStore::query_range() and query_by_msgid() SELECT to include did_sig_valid column, map INTEGER to Option<bool>\n\nDefensive programming:\n- Use INTEGER (not BOOLEAN) in SQLite \u2014 SQLite has no native boolean\n- NULL means absent (no X-Usenet-IPFS-DID-Sig header), 0 means verification failed, 1 means verified\n- Migration must be idempotent (ALTER TABLE ADD COLUMN is idempotent in SQLite if column doesn't exist, but wrap in a check if needed)\n- All existing INSERT calls pass None for did_sig_valid",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T04:05:28Z",
+  "updated_at": "2026-05-01T05:00:52Z",
+  "closed_at": "2026-04-23T04:20:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-c06fa970",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:05:28"
+    }
+  ]
+}

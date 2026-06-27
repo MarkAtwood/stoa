@@ -1,0 +1,21 @@
+{
+  "id": "stoa-b65be245",
+  "title": "mail: Email/set update for mailbox membership (stub)",
+  "description": "Implement Email/set update handling of mailboxIds change: since an article's Newsgroups header is immutable, mailbox membership is read-only. Return a notPermitted setError for any update that attempts to change mailboxIds. Other properties (keywords for \\Seen/\\Flagged) are handled separately in the user-state epic.\\n\\nWhy: clients may try to move messages between folders; a clear error is better than silent failure.\\n\\nAcceptance: Email/set update with mailboxIds change returns notPermitted; update with keywords-only succeeds (once user-flags are wired).",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T03:39:11Z",
+  "updated_at": "2026-05-01T04:53:03Z",
+  "closed_at": "2026-04-21T04:01:55Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-fb535c0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 20:40:56"
+    }
+  ]
+}

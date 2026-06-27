@@ -1,0 +1,13 @@
+{
+  "id": "stoa-19c45057",
+  "title": "usenet-ipfs-mail: crate foundation",
+  "description": "Create the usenet-ipfs-mail crate: workspace entry, Cargo.toml dependencies (axum, sqlx, rustls, usenet-ipfs-core, usenet-ipfs-reader), src/lib.rs, src/main.rs parse_args skeleton, and SQLite migration infrastructure. This is the prerequisite for all other mail sub-epics.\\n\\nWhy: no code can exist without a compilable crate skeleton wired into the workspace.\\n\\nHow to apply: all other iih sub-epics depend on this one.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T03:37:25Z",
+  "updated_at": "2026-05-01T05:00:36Z",
+  "closed_at": "2026-04-21T04:14:57Z"
+}

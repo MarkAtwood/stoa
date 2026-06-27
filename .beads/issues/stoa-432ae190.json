@@ -1,0 +1,20 @@
+{
+  "id": "stoa-432ae190",
+  "title": "store::count_messages is pub but only used in tests \u2014 should be cfg(test)",
+  "description": "store.rs: pub async fn count_messages has a comment '(used in tests)' but is unconditionally pub. A contributor browsing the store API surface would include it in a public API audit. It will never be appropriate to call this in production code. Fix: #[cfg(test)] and move it into the test module, or add a #[doc(hidden)] if you need it from integration test crates.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T13:32:10Z",
+  "updated_at": "2026-05-01T04:53:06Z",
+  "closed_at": "2026-04-23T00:28:50Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9f393084",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 06:32:09"
+    }
+  ]
+}

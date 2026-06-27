@@ -1,0 +1,21 @@
+{
+  "id": "stoa-10ad1cbe",
+  "title": "DECISION: IPLD test vectors cross-validated against Python dag_cbor oracle",
+  "description": "test_vectors.rs in core/src/ipld contains four article vectors (TV1-TV4). RAW block CIDs are verified against Python hashlib SHA-256. Root DAG-CBOR CIDs are cross-validated against Python dag_cbor 0.3.3 plus hashlib on a specific date. The test file explicitly documents the oracle version, date, and methodology. These are not roundtrip tests: the encoded bytes are fixed to externally-computed expected CIDs. If any encoding detail changes (field order, CBOR type for Vec<u8>, date format) the test catches it. A future contributor might replace these with roundtrip tests or regenerate the constants from the Rust implementation itself, which would prove nothing.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:15:40Z",
+  "updated_at": "2026-05-01T04:56:00Z",
+  "closed_at": "2026-04-27T15:51:30Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:15:40"
+    }
+  ]
+}

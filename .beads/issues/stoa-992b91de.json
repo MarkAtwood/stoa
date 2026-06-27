@@ -1,0 +1,19 @@
+{
+  "id": "stoa-992b91de",
+  "title": "Follow handler derives inbox URL by appending /inbox to actor URL",
+  "description": "inbox.rs handle_follow() sets inbox_url = format\\!('{}/inbox', actor_url). ActivityPub actors are not required to have their inbox at actor_url/inbox. The correct approach is to fetch the actor document (JSON-LD) and read the inbox field. The code already has a NOTE comment acknowledging this. Until fixed, Follow handling will fail for non-Mastodon-style actors (e.g. PeerTube, Pixelfed, or any AP implementation that uses a different inbox URL scheme).",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:38:18Z",
+  "updated_at": "2026-05-01T04:52:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:38:17"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-008a9e6e",
+  "title": "dispatch.rs SEARCH arm is a silent internal-error path that should be unreachable",
+  "description": "reader/src/session/dispatch.rs line 199-203 has a SEARCH arm that returns Response::new(500, 'Internal error: SEARCH not intercepted'). A comment says this should be unreachable because lifecycle.rs intercepts it before dispatch. This is a hidden ordering invariant: if any future refactor routes SEARCH through dispatch() (e.g. by reordering the if-let chains in run_command_loop), clients get a 500 instead of a correct SEARCH response. The invariant exists only in comments, not enforced by the type system. Maintenance consequence: the next person who moves command dispatch into a single match statement will silently break SEARCH.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:12:02Z",
+  "updated_at": "2026-05-01T04:53:43Z",
+  "closed_at": "2026-04-27T02:14:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:12:01"
+    }
+  ]
+}

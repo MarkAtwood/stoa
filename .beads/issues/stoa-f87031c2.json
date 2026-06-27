@@ -1,0 +1,21 @@
+{
+  "id": "stoa-f87031c2",
+  "title": "Blacklist system implemented but never checked on peering connection",
+  "description": "The blacklist system in transit is completely disconnected from the daemon: (1) is_blacklisted() is never called from session.rs or the accept_loop in main.rs \u2014 blacklisted peers can still connect. (2) PeerRegistry.record_accepted() and record_rejected() are never called from session.rs \u2014 consecutive_failures is always 0 in the DB during live operation. (3) check_and_blacklist() checks consecutive_failures against failure_threshold (default 10), but since record_rejected() is never called, the counter never increments, so check_and_blacklist() would never blacklist anyone even if it were wired up. All three functions (is_blacklisted, record_accepted, record_rejected) are fully implemented with tests but exist only in isolation. The blacklist, failure tracking, and peer scoring system have no effect on the running daemon. PeerRegistry is only used in cli/peers.rs for display. Fix: wire record_accepted/record_rejected into the session IHAVE/TAKETHIS result handlers, call check_and_blacklist after recording a rejection, and call is_blacklisted at connection accept time.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T22:01:02Z",
+  "updated_at": "2026-05-01T04:54:33Z",
+  "closed_at": "2026-04-21T22:47:25Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e38f5cd8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 15:01:01"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "stoa-78cc8aec",
+  "title": "Thunderbird NNTP compatibility smoke test",
+  "description": "Configure Thunderbird to connect to a running usenet-ipfs-reader (NNTP, no TLS). Subscribe to a test group. Verify group list loads, article list loads via OVER, and article body displays. Document any Thunderbird-specific quirks (e.g., it probes for XOVER before OVER). Why: Thunderbird is the most common desktop NNTP client; compatibility with it validates the reader for real users.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T00:17:13Z",
+  "updated_at": "2026-05-01T04:54:49Z",
+  "closed_at": "2026-04-21T03:43:00Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3b419c5e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:17:48"
+    },
+    {
+      "depends_on_id": "stoa-648b2878",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:17:28"
+    }
+  ]
+}

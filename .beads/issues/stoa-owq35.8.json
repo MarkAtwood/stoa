@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Removed dead let _ = txt.policy_id line; renamed txt to _txt to make intent explicit",
+  "closed_at": "2026-05-02T20:25:56Z",
+  "compaction_level": 0,
+  "content_hash": "b7a86babe255ee773d74b391dad3c44eb95a31e76f1b2e0840f5be68dd9d8717",
+  "created_at": "2026-05-02T20:18:09Z",
+  "created_by": "Mark Atwood",
+  "description": "relay_client.rs:116: 'let _ = txt.policy_id; // captured for cache keying; not stored'. policy_id is NOT used as a cache key \u2014 the key is rcpt_domain. Comment is wrong and misleads contributors. Fix: remove the variable and say 'DNS policy_id not used; in-memory cache key is rcpt_domain' or implement proper policy_id-based cache invalidation (stoa-owq35.4 context).",
+  "ephemeral": 0,
+  "id": "stoa-owq35.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "misleading comment on txt.policy_id in enforce_for_delivery",
+  "updated_at": "2026-05-02T20:25:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T13:18:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-owq35",
+      "id": "17491b62-1926-57c5-9314-d05debc1d645",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

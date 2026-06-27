@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T13:30:25Z",
+  "compaction_level": 0,
+  "content_hash": "307e6e45eb55bb0db8712ffb2aed08a0b00e02bd358acf596fd5842b46a5b2df",
+  "created_at": "2026-05-03T13:04:19Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this issue exists: change_log.rs append_change() only ever records a 'created' change type. There is no path that records 'updated' (keyword changes, flag changes) or 'destroyed' (deletion) changes. RFC 8621 \u00a74.4 Email/changes is required to return accurate created/updated/destroyed sets so that JMAP clients can sync incrementally.\n\nWhat needs to be done: Add 'updated' records when email keywords or mailbox membership changes, and 'destroyed' records when an email is expunged. The change_log schema and append_change() signature likely need a change_type enum parameter. Without this, JMAP clients using Email/changes will miss all mutations after initial import, breaking incremental sync.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.38",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "change_log: only records 'created'; Email/changes misses updates/destroys",
+  "updated_at": "2026-05-03T13:30:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:04:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "e7a01240-0adf-5f8d-b8cc-99e14d521ba6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

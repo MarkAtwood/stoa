@@ -1,0 +1,21 @@
+{
+  "id": "stoa-b29128d8",
+  "title": "pipeline double-code: Response::new(441, \"441 Duplicate...\") puts code in text field",
+  "description": "In post/pipeline.rs, Response::new(441, \"441 Duplicate article: Message-ID already known\") embeds the numeric code in the text argument. Response::to_bytes() prepends the code automatically, producing wire line '441 441 Duplicate article: Message-ID already known\\r\\n', which is malformed NNTP. Same pattern on the 500 internal error response. Any RFC 3977-conforming client will misbehave parsing or logging these double-code lines.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:24:00Z",
+  "updated_at": "2026-05-01T04:58:21Z",
+  "closed_at": "2026-04-28T16:59:49Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:23:59"
+    }
+  ]
+}

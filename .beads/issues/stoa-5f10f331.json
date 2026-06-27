@@ -1,0 +1,20 @@
+{
+  "id": "stoa-5f10f331",
+  "title": "map_or(false, f) should be is_some_and(f) in relay_queue tests",
+  "description": "relay_queue.rs tests use .map_or(false, |x| ...) in several filter expressions (e.g. lines 473, 511, 547). MSRV is 1.80 (from reader/Cargo.toml); is_some_and() was stabilized in 1.70. The idiomatic replacement is .is_some_and(|x| ...). clippy::map_unwrap_or flags this. Affects test code only but sets a bad pattern.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:15:30Z",
+  "updated_at": "2026-05-01T04:55:16Z",
+  "closed_at": "2026-05-01T00:31:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5be7a2c5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:15:29"
+    }
+  ]
+}

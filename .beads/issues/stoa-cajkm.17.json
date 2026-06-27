@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T08:11:00Z",
+  "compaction_level": 0,
+  "content_hash": "0f29806eb9606baa88af5d6761409cb30de94517740e663d10f3b5ea5968b947",
+  "created_at": "2026-05-04T08:04:46Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crates/smtp/src/sieve_admin.rs\\nLines: 38-45\\n\\nFinding: The file contains a local copy of is_loopback_addr() that is byte-for-byte identical to stoa_core::util::is_loopback_addr(). The smtp crate already depends on stoa-core. This copy will silently diverge if a security fix is applied to core \u2014 the sieve_admin endpoint is the last line of defence before an unauthenticated admin API is exposed.\\n\\nImpact: If a security fix is applied to core::util::is_loopback_addr (e.g., to handle a new address format or edge case), the smtp copy is not updated. An operator running the sieve_admin endpoint on a non-loopback address with allow_non_loopback=false and no bearer_token may get a false 'loopback' result and bypass the guard. The function is used in a fail-closed security check; divergence is a correctness/security risk.\\n\\nFix: Remove the local copy. Import and call stoa_core::util::is_loopback_addr directly, consistent with how reader/src/config.rs and transit/src/config.rs re-export it.",
+  "ephemeral": 0,
+  "id": "stoa-cajkm.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "smtp: duplicate is_loopback_addr diverges from core",
+  "updated_at": "2026-05-04T08:11:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T01:04:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-cajkm",
+      "id": "bc5754c9-cee9-5b7a-a4af-5be384694edf",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "acceptance_criteria": "cargo test -- sieve_environment_e2e; all 4 scenarios pass",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T01:53:48Z",
+  "compaction_level": 0,
+  "content_hash": "6fc20ab1fdd0e9b62e812c431616774e14ee5acca528ec3939cd7009056183f9",
+  "created_at": "2026-05-04T06:08:33Z",
+  "created_by": "Mark Atwood",
+  "description": "Integration test: DKIM-passing mail filed into Verified folder by Sieve environment test.\n\nFile: crates/smtp/tests/ or crates/sieve-native/tests/\n\nTest scenarios:\n1. dkim_pass_fileinto_verified:\n   - Sieve script: require [\"fileinto\",\"environment\"]; if environment \"vnd.stoa.dkim-result\" \"pass\" { fileinto \"Verified\"; }\n   - SieveEnv: vnd.stoa.dkim-result = \"pass\"\n   - Assert: outcome is FileInto(\"Verified\")\n\n2. spf_fail_fileinto_spam:\n   - Script tests vnd.stoa.spf-result against [\"fail\", \"softfail\"]\n   - SieveEnv: spf-result = \"softfail\"\n   - Assert: outcome is FileInto(\"Spam\")\n\n3. dmarc_reject_policy_discard:\n   - Script tests vnd.stoa.dmarc-policy \"reject\"\n   - Assert: outcome triggers reject action\n\n4. no_dkim_defaults_to_none:\n   - Empty SieveEnv (no auth results set)\n   - Script tests vnd.stoa.dkim-result \"none\"\n   - Assert: matches correctly (unknown name \u2192 empty string; \"none\" set explicitly)\n\nOracle: known SieveEnv inputs \u2192 known expected outcomes.\nThese are unit-level tests on evaluate(); no real SMTP session needed.",
+  "ephemeral": 0,
+  "id": "stoa-p4oc4.7.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "E2E test: Sieve environment vnd.stoa.* routes mail by auth result",
+  "updated_at": "2026-05-05T01:53:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T23:08:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p4oc4.7.1",
+      "id": "0b1a273e-5b8f-55e8-98c0-5b2a6de49d85",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-03T23:08:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p4oc4.7",
+      "id": "4bc0f2c1-398b-5677-8e54-67c9c58d65b5",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-03T23:08:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p4oc4.7.2",
+      "id": "897fbf73-769d-5de7-8198-93f90de62501",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

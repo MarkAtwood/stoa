@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T16:21:17Z",
+  "compaction_level": 0,
+  "content_hash": "2ac1bfce7975790a652151eee8faa8af6d28d82ebb74a6a449b7ea6ee7dbe72e",
+  "created_at": "2026-05-01T15:19:23Z",
+  "created_by": "Mark Atwood",
+  "description": "In crates/core/src/group_log/append.rs, insert_entry succeeds and the entry is durably stored, then the process can crash before advance_tips completes. On restart the entry is in the log but never becomes a tip, so it is permanently unreachable via list_tips and invisible to reconcile/backfill. There is no recovery path: no startup scan for entries-without-tip-membership, no WAL, no compensating logic. The fix requires either: (a) a single atomic DB transaction covering both the log_entries insert and the group_tips update (requires both tables in the same DB, which is currently true for SqliteLogStorage), or (b) a startup reconcile that finds orphaned log entries and re-adds them as tips. Document the failure mode at minimum if the fix is deferred.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.27",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "group_log append: crash between insert_entry and advance_tips leaves orphaned tip",
+  "updated_at": "2026-05-01T16:21:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:19:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "39734c69-610b-5a04-9c99-d8b51afc20a2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

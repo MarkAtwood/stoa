@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "52ef9e35a62a273815e0805d97399e3a024bf2811b7f09ba0746a5b0b17a1959",
+  "created_at": "2026-05-03T13:06:52Z",
+  "created_by": "Mark Atwood",
+  "description": "activitypub/inbox.rs handle_create() checks that the activity's actor is a registered follower of the target group before writing the note to IPFS. This prevents arbitrary remote actors from injecting content into the newsgroup via the AP inbox. The follower_store.is_follower() lookup is performed even when HTTP signature verification is disabled, providing a second layer of access control. The dedup logic (activity_id \u2192 note_id \u2192 SHA-256 of note) is also correctly ordered by specificity.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.131",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "decision: handle_create follower-only injection guard prevents open content injection",
+  "updated_at": "2026-05-03T13:06:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "bdc0189d-9b5a-5d7c-b0d5-b0e86f14f20c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

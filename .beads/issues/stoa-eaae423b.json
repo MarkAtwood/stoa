@@ -1,0 +1,20 @@
+{
+  "id": "stoa-eaae423b",
+  "title": "DECISION: reject-before-deliver ordering in sieve_delivery",
+  "description": "sieve_delivery evaluates all recipient Sieve scripts and collects their actions before performing any delivery side effect. A second pass checks for any Reject action across all recipients; if found, the function returns immediately with SieveOutcome::Rejected before any message is written to any store. Alternative rejected: delivering to non-rejecting recipients while rejecting others in a single pass. That alternative is semantically wrong for SMTP: a DATA-phase rejection must be all-or-nothing per the RFC. If per-recipient rejection were needed, the SMTP server would need to use RCPT-phase rejection or per-recipient DSNs. Tradeoff: two passes over the actions list (small and in-memory), which is negligible cost for the correctness guarantee.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:00:42Z",
+  "updated_at": "2026-05-01T04:59:30Z",
+  "closed_at": "2026-04-30T05:29:16Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-14057691",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:00:41"
+    }
+  ]
+}

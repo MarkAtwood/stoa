@@ -1,0 +1,22 @@
+{
+  "id": "stoa-c3665267",
+  "title": "Implement XCID command: return CID for current article",
+  "description": "Why: CID-aware clients (pinning scripts, indexers) may want to retrieve the CID for the article at the current cursor position without fetching the full article body. XCID is an X-prefixed command per RFC 3977 \u00a77.2, so it is experimental/non-standard and only sent by clients that have confirmed XCID capability via CAPABILITIES.\n\nWhat: XCID with no arguments returns the CID of the current article (same semantics as STAT \u2014 requires a group selected and a current article pointer). XCID <message-id> returns the CID for any article by message-id regardless of current group context. Response: 290 <cid> on success (new response code in the 2xx experimental range); 412 if no group selected (no-arg form); 423 if no current article; 430 if message-id not found.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T19:36:31Z",
+  "updated_at": "2026-05-01T04:57:48Z",
+  "closed_at": "2026-04-21T00:04:03Z",
+  "design": "Response code 290 chosen as the experimental slot \u2014 RFC 3977 \u00a73.2 reserves 2xx for success, and 290 is unassigned. Command parsing: add XCID arm to dispatch.rs. Lookup: MsgIdMap::get(message_id) \u2192 Option<Cid>. Format: '290 bafyrei...' (single line). Advertise as 'XCID' keyword in CAPABILITIES list.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ccc22fc0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 12:37:35"
+    }
+  ]
+}

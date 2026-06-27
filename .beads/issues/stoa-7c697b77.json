@@ -1,0 +1,14 @@
+{
+  "id": "stoa-7c697b77",
+  "title": "Review round 2: SMTP relay delivery (f120) post-fix",
+  "description": "Review round 2 for epic stoa-d8edbbe6: verify fixes for empty-rcpt, clock regression, enqueue observability, queue depth metrics, startup validation.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T19:37:37Z",
+  "updated_at": "2026-05-01T04:54:12Z",
+  "closed_at": "2026-04-23T19:38:40Z",
+  "notes": "Round 2 confidence: 100%. Running out of real complaints: yes. All P0/P1/P2 fixes validated: empty-rcpt guard (correct), AtomicU64 seeding (safe), sentinel write tests (both dirs), queue depth gauges (accurate placement), enqueue failure metrics (both call sites). No new bugs introduced. Fixes are orthogonal and well-tested."
+}

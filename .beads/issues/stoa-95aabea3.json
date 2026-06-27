@@ -1,0 +1,13 @@
+{
+  "id": "stoa-95aabea3",
+  "title": "ipld/metadata.rs: as u64 casts can silently truncate on 32-bit",
+  "description": "crates/core/src/ipld/metadata.rs: compute_byte_count and compute_line_count use 'as u64' casts on usize values. On 64-bit hosts this is fine, but 'as' casts are lossless truncation without a compile error on 32-bit. Fix: use u64::try_from(value).unwrap_or(u64::MAX) or a targeted lint suppression with a comment explaining the invariant.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:26:02Z",
+  "updated_at": "2026-05-01T04:53:16Z",
+  "closed_at": "2026-04-28T18:42:09Z"
+}

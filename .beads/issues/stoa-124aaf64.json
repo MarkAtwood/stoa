@@ -1,0 +1,20 @@
+{
+  "id": "stoa-124aaf64",
+  "title": "extract_did_sig truncates folded header values",
+  "description": "crates/reader/src/post/did_passthrough.rs extract_did_sig (line 9): the function returns only the value on the first line of the header. If the X-Usenet-IPFS-DID-Sig header value is folded across multiple lines (RFC 5322 \u00a72.2.3), the returned string contains only the partial value from the first line, omitting continuation-line content. An Ed25519 signature in base64url-no-pad is 86 characters, well within the 998-character RFC 5322 line limit, so folding is unlikely in practice. However, if folding does occur (e.g. via a newsreader that wraps long headers at 76 chars), extract_did_sig returns a truncated base64url string. verify_did_sig will then fail with InvalidSignatureEncoding (wrong decoded length, not 64 bytes) rather than VerificationFailed, and did_sig_valid will be stored as None instead of Some(false), incorrectly indicating no DID-Sig header was present. Correct behavior: unfold continuation lines before returning the value, consistent with the unfolding logic already present in overview.rs extract_overview().",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T05:00:04Z",
+  "updated_at": "2026-05-01T04:56:20Z",
+  "closed_at": "2026-04-23T05:59:06Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-062e13cb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 22:00:03"
+    }
+  ]
+}

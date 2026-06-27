@@ -1,0 +1,41 @@
+{
+  "close_reason": "OracleMailStore stub in src/store/oracle.rs: all methods return Err(not_implemented), compiles, has its own test. Part of d2a6965.",
+  "closed_at": "2026-05-05T02:03:56Z",
+  "compaction_level": 0,
+  "content_hash": "de992caaa27ef9b57f7a754f9d8b12a73098bf64e052eb9b467334c31b407f21",
+  "created_at": "2026-05-05T00:40:49Z",
+  "created_by": "Mark Atwood",
+  "description": "Define OracleMailStore in src/store/oracle.rs implementing all MailStore sub-traits. All methods return Err(not_implemented). Add oracle crate as optional dep. Proves the trait boundary is sufficient for Oracle; documents Oracle integration surface.",
+  "ephemeral": 0,
+  "id": "stoa-jom01.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jom01.4: OracleMailStore stub implementing MailStore trait",
+  "updated_at": "2026-05-05T02:03:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T17:40:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jom01",
+      "id": "02047ea5-3422-522c-83f1-ff70df40a19e",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T17:40:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jom01.1",
+      "id": "fb5a87c6-fa09-5bcb-99d3-655e4514b2fe",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

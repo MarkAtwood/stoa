@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "9508ae24b1d1f1bebe47dd3f8468a6afd9e1e20b7241a06c337196d4a1ce861b",
+  "created_at": "2026-05-03T13:07:34Z",
+  "created_by": "Mark Atwood",
+  "description": "group_log/verify.rs uses a VerifiedEntry newtype that can only be constructed via verify_signature() or (in tests) new_for_test gated behind cfg(any(test, feature=test-helpers)). This ensures all code paths that accept a VerifiedEntry have gone through signature verification. The append path, backfill path, and CRDT merge all accept VerifiedEntry, making it impossible to accidentally insert an unverified entry into the log. This is a good use of the type system to enforce a security invariant.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.149",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "DECISION: VerifiedEntry newtype enforcing signature verification at type level is correct",
+  "updated_at": "2026-05-03T13:07:34Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:07:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "983a1470-3477-50be-aa58-a5404683ed3e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

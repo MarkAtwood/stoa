@@ -1,0 +1,19 @@
+{
+  "id": "stoa-03eb197f",
+  "title": "drain_once scans dead/ dir on every drain pass to count entries",
+  "description": "drain_once does a full O(dead_count) directory scan of dead/ on every invocation just to set a gauge. With large dead-letter accumulation (operator ignoring dead/) this is unnecessary I/O every retry_interval. A cheaper design: maintain the count as an AtomicU64 incremented on each dead-letter write, decremented when the operator removes files. Alternatively, scan only at startup and on dead-letter moves. At scale (thousands of dead-letter files) the current scan adds latency to every drain cycle.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:18:44Z",
+  "updated_at": "2026-05-01T04:59:22Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-81b33f87",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:18:43"
+    }
+  ]
+}

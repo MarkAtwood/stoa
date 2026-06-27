@@ -1,0 +1,20 @@
+{
+  "id": "stoa-19d65744",
+  "title": "admin HTTP server: Authorization header prefix match is case-sensitive and fragile",
+  "description": "In admin.rs handle_admin_connection(), the Authorization header is parsed with: line.strip_prefix(\"Authorization: \"). HTTP headers are case-insensitive by RFC 7230. A client sending 'authorization: Bearer token' (lowercase) will fail auth even with a valid token, returning 401. This is a standards-compliance correctness bug. Additionally, the bearer token comparison in check_bearer_token uses subtle::ConstantTimeEq but the prefix match that extracts the Authorization header value uses a case-sensitive strip_prefix, so an attacker sending 'authorization:' (no space, or different case) can bypass authentication when no token is configured (bearer_token = None always returns true regardless). More critically: when a token IS configured, the extraction uses strip_prefix(\"Authorization: \") with the exact space \u2014 if the client sends 'Authorization:  Bearer tok' (double space), the extracted value is ' Bearer tok' (extra leading space) and ConstantTimeEq will return false, causing spurious 401s.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:58:35Z",
+  "updated_at": "2026-05-01T05:00:16Z",
+  "closed_at": "2026-04-27T06:48:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-650091d3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 22:58:35"
+    }
+  ]
+}

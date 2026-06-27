@@ -1,0 +1,20 @@
+{
+  "id": "stoa-169d2e0d",
+  "title": "staging drain_one race: deferred tx not BEGIN IMMEDIATE",
+  "description": "## What / Why\ndrain_one() in crates/transit/src/staging.rs opens a transaction with pool.begin() (SQLite DEFERRED), not BEGIN IMMEDIATE. With multiple concurrent drain workers, two workers can both SELECT the same unclaimed row before either UPDATE sets claimed_at, causing the same article to be processed twice through the IPFS pipeline and group-log append.\n\n## Trigger \u2192 Bad Behavior\nTwo drain tasks running concurrently on a staging store with \u22651 unclaimed row \u2192 both read the same row \u2192 both write the same article to IPFS and append the same message-id to the group log, producing a duplicate log entry.\n\n## Fix\nChange pool.begin() in drain_one to an explicit BEGIN IMMEDIATE: sqlx::query('BEGIN IMMEDIATE').execute(&mut *tx) before the SELECT, or use sqlx's acquire + raw IMMEDIATE query. This serializes the claim step.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T03:07:14Z",
+  "updated_at": "2026-05-01T04:59:26Z",
+  "closed_at": "2026-04-27T03:37:38Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e2297bae",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 20:07:13"
+    }
+  ]
+}

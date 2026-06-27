@@ -1,0 +1,41 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T19:19:07Z",
+  "compaction_level": 0,
+  "content_hash": "2a9fc9622c378ca8b5e88c29346c7e7378b61e9c22896fa31d9235694107a474",
+  "created_at": "2026-05-02T17:39:09Z",
+  "created_by": "Mark Atwood",
+  "description": "Axum test client tests for the mta-sts.txt handler. Test cases: known domain with enforce policy returns 200 with correct Content-Type text/plain and correctly formatted body; known domain with testing mode; known domain with multiple MX patterns; policy-id is 32-char hex derived from SHA-256 of body; unknown domain returns 404; Host header case-insensitive matching. Use axum::test harness (no live network). Verify rendered output byte-for-byte against hand-written expected strings.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Tests: /.well-known/mta-sts.txt handler",
+  "updated_at": "2026-05-02T19:19:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T10:39:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.10",
+      "id": "babd2943-885d-571b-8bb8-d6c3a9ff5ccf",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T10:39:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks",
+      "id": "f51bd305-b633-5fc2-a9a2-e08d853a3720",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

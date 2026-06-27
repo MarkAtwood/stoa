@@ -1,0 +1,21 @@
+{
+  "id": "stoa-334f21d2",
+  "title": "mail crate: missing derives on Flags, TokenInfo",
+  "description": "Why this issue exists: Flags (crates/mail/src/state/flags.rs) is missing #[derive(Debug, Clone)] and TokenInfo (crates/mail/src/token_store.rs) is missing #[derive(Debug)]. These are standard derives expected on any non-trivial data structure in idiomatic Rust; their absence prevents use in debug assertions, logging, and generic contexts.\n\nWhat needs to be done: Add #[derive(Debug, Clone)] to Flags and #[derive(Debug)] to TokenInfo.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:27:19Z",
+  "updated_at": "2026-05-01T04:53:14Z",
+  "closed_at": "2026-04-28T17:41:29Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:27:19"
+    }
+  ]
+}

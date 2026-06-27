@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "af56edc628800ff8f15e36915c40728ffb8f2f0c70ea59cd8c13d60b55e0332c",
+  "created_at": "2026-05-04T03:19:08Z",
+  "created_by": "Mark Atwood",
+  "description": "DECISION: In parse_rnews_batch_plain(), the byte count parsed from each '#! rnews N' header is checked against MAX_RNEWS_ARTICLE_BYTES before any slice indexing, and the end-of-article position is computed with checked_add() rather than unchecked addition.\n\nWHY RIGHT: An attacker controls the byte count field in the header. Without the range check, a count of usize::MAX - pos would wrap or panic in debug mode when used as a slice index. The explicit MAX_RNEWS_ARTICLE_BYTES check before the slice means the article is rejected with a typed MalformedBatch error rather than a panic or silent truncation. The checked_add() handles the residual case where pos + count would overflow even after the per-article cap (e.g. two near-max articles near the end of a large batch). Both defences are needed: the per-article cap prevents any single item from being too large; the overflow check prevents the cumulative position from wrapping.\n\nALTERNATIVES REJECTED:\n- Saturating addition: would silently cap the position and mismatch the declared length, producing a confusing truncation error rather than a clear overflow error.\n- Panic on overflow (default in debug): unacceptable for a network-facing parser; panics are treated as crashes by UUCP batch processors.",
+  "ephemeral": 0,
+  "id": "stoa-tlvh9.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Per-article byte count range-checked before slice, using checked_add",
+  "updated_at": "2026-05-04T03:19:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T20:19:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-tlvh9",
+      "id": "2b80a6e5-0722-5b82-8462-f9f5f6b2f7bf",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T22:40:30Z",
+  "compaction_level": 0,
+  "content_hash": "f6160e7d2c0411d796bc3043d24bc35b834801d3199bf624183c98b7ad68db9c",
+  "created_at": "2026-05-02T22:25:46Z",
+  "created_by": "Mark Atwood",
+  "description": "In server.rs mta_sts_handler, the Host header processing does strip_prefix('mta-sts.').unwrap_or(&host_no_port). The unwrap_or fallback means that a request with Host: example.com (no mta-sts. prefix) also matches a configured domain and receives a 200 policy response. Per RFC 8461 \u00a73.3, the MTA-STS policy URL is always https://mta-sts.<domain>/.well-known/mta-sts.txt; requests that do not arrive via the mta-sts. subdomain are not legitimate policy fetches. This could expose the policy to a reverse proxy that rewrites Host, or to any direct request to the server. The handler should return 404 when the mta-sts. prefix is absent.\n\n## Context\nserver.rs lines 377-379. RFC 8461 \u00a73.3 specifies the policy URL always uses the mta-sts. subdomain.",
+  "ephemeral": 0,
+  "id": "stoa-9cx9p.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mta_sts_handler: policy served to requests without 'mta-sts.' Host prefix",
+  "updated_at": "2026-05-02T22:40:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T15:25:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-9cx9p",
+      "id": "471604c2-af29-578d-832c-541be0193e12",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

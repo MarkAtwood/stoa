@@ -1,0 +1,13 @@
+{
+  "id": "stoa-3e2e43e6",
+  "title": "Circuit breaker on Kubo HTTP API",
+  "description": "Wrap all Kubo HTTP RPC calls in a circuit breaker so a slow or unreachable Kubo node degrades the service gracefully rather than hanging every inbound NNTP connection.\n\nWhy this issue exists:\nKubo is a required external dependency. If it becomes slow or unreachable, every NNTP command that touches the block store (ARTICLE, POST, BODY) will hang waiting for an HTTP timeout. Without a circuit breaker, a Kubo outage cascades into a full service hang rather than a clean error response to clients.\n\nScope:\n- Wrap KuboHttpClient (in core/src/ipfs/mod.rs) with a circuit breaker (tower or a lightweight hand-rolled state machine)\n- States: Closed (normal), Open (failing fast), Half-Open (probe recovery)\n- Thresholds: configurable failure rate and window (default: 5 failures in 10 seconds opens the circuit)\n- When Open: block_put and block_get return Err immediately without making an HTTP call; NNTP returns 403/503 to the client with a human-readable message\n- Recovery probe: one request allowed through every N seconds (default 30) to test if Kubo is back\n- Emit a structured log event and increment a Prometheus counter on state transitions (closed->open, open->half-open, half-open->closed)\n- Circuit breaker state is per-daemon-instance, not shared across processes\n\nAcceptance criteria:\n- With Kubo stopped: after threshold failures, subsequent block_get calls return immediately with an error, no HTTP timeout wait\n- Prometheus metric kubo_circuit_breaker_state{state=open} increments on transition\n- When Kubo restarts, the circuit closes within one probe interval\n- NNTP clients receive 403 with message 'block store unavailable' when circuit is open, not a timeout hang",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:16:17Z",
+  "updated_at": "2026-05-01T05:00:05Z",
+  "closed_at": "2026-04-28T06:28:31Z"
+}

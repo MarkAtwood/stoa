@@ -1,0 +1,20 @@
+{
+  "id": "stoa-e018143b",
+  "title": "relay_error: SmtpRelayError public enum missing #[non_exhaustive]",
+  "description": "SmtpRelayError is a pub enum re-exported from stoa-smtp (pub use relay_error::SmtpRelayError in lib.rs). Adding a new variant (e.g. RateLimited) is a breaking change without #[non_exhaustive]. The all_variants_classified test uses a Vec, not an exhaustive match, so it stays valid after adding #[non_exhaustive]. Fix: add #[non_exhaustive] to the enum definition.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:29:25Z",
+  "updated_at": "2026-05-01T04:52:30Z",
+  "closed_at": "2026-05-01T02:32:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3fb034ab",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 19:29:25"
+    }
+  ]
+}

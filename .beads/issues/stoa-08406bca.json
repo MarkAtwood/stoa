@@ -1,0 +1,19 @@
+{
+  "id": "stoa-08406bca",
+  "title": "rate_limiter HashMap grows unboundedly between O(n) eviction scans under DDoS",
+  "description": "rate_limiter.rs: eviction only runs every EVICT_INTERVAL=1024 calls. Under a DDoS from N distinct IPs, the HashMap grows to N entries before the next eviction pass. With N=100k IPs each entry ~88 bytes = ~8 MB held until the next 1024-call cycle completes. Consider a maximum map size cap or use an LRU structure (e.g. lru crate) bounded by entry count rather than a periodic full scan.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:37:47Z",
+  "updated_at": "2026-05-01T04:55:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:37:47"
+    }
+  ]
+}

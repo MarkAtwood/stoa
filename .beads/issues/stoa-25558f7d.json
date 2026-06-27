@@ -1,0 +1,13 @@
+{
+  "id": "stoa-25558f7d",
+  "title": "LogEntry missing PartialEq derive",
+  "description": "group_log/types.rs: LogEntry does not derive PartialEq. LogEntryId and LogHead both derive PartialEq. The asymmetry prevents equality checks in tests without manual field comparison. Fix: add PartialEq to the LogEntry derive list.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:24:30Z",
+  "updated_at": "2026-05-01T04:52:20Z",
+  "closed_at": "2026-04-28T18:24:30Z"
+}

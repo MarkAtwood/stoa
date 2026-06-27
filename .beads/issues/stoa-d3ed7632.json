@@ -1,0 +1,21 @@
+{
+  "id": "stoa-d3ed7632",
+  "title": "peer_whitelist doc claims DNSBL/FCrDNS bypass but neither is implemented",
+  "description": "config.rs:45-47 and session.rs:189-190: the doc comment and inline comment both state the whitelist bypasses 'DNSBL, FCrDNS, and greylisting.' None of these three subsystems exist in the codebase. The flag currently only logs a line and does nothing else. Advertising a bypass guarantee for unimplemented behavior misleads operators reading the config docs and maintainers who must later wire up the flag. Mitigation: narrow the doc to describe what the flag actually does today, and call out the future hookup explicitly.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:47:57Z",
+  "updated_at": "2026-05-01T04:58:57Z",
+  "closed_at": "2026-04-30T15:54:36Z",
+  "notes": "SEC7 calibration: downgraded P1\u2192P2. The doc is operator-visible and present-tense misleading (config.rs:45-47 says 'bypass DNSBL, FCrDNS, and greylisting' as a current guarantee; none of those subsystems exist). The log line 'spam filters bypassed' fires on connection, making the bypass appear to work. However, this is pre-release code with no shipped operators. No production harm today, but the inaccuracy is real. Comparable to 1onm.16 (maintainer-burden). True P1 requires a correctness failure or security gap in live code; this is a doc accuracy problem.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b4887c1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:47:57"
+    }
+  ]
+}

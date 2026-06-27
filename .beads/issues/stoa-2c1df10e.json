@@ -1,0 +1,12 @@
+{
+  "id": "stoa-2c1df10e",
+  "title": "smtp: EHLO domain CRLF injection into Received header",
+  "description": "## Problem\nsession.rs stores the EHLO argument verbatim (args.to_string()) and interpolates it into the Received: header without sanitization. A client can inject arbitrary headers by including CRLF sequences in the EHLO domain, e.g. EHLO evil\\r\\nX-Injected: header.\n\n## Security impact\nAttacker-controlled headers can be injected into every article delivered via SMTP\u2192NNTP path, potentially spoofing X-Stoa-Injection-Source or other trusted headers.\n\n## Fix\nStrip or reject EHLO arguments containing CR, LF, or NUL before storing. Per RFC 5321 \u00a74.1.1.1 the domain parameter must be a valid domain or address literal \u2014 reject anything else at the protocol level.\n\n## Acceptance criteria\n- EHLO with embedded CRLF is rejected with 501 Syntax error\n- Received: header contains only the sanitized domain\n- Fuzz test: 1000 random EHLO strings produce no header injection",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T18:55:38Z",
+  "updated_at": "2026-05-01T04:56:39Z",
+  "closed_at": "2026-04-24T19:10:17Z"
+}

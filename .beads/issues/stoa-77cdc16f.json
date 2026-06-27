@@ -1,0 +1,19 @@
+{
+  "id": "stoa-77cdc16f",
+  "title": "stoa-verify dkim.rs: DkimResult error reasons use Debug format \u2014 leaks Rust internals to operator DB",
+  "description": "In dkim.rs, DkimResult::Neutral/Fail/PermError/TempError all format the error with {:?} (Debug). This embeds Rust enum discriminant text into the article_verifications.reason column visible to operators. Use Display format or to_string() instead of format!(\"{err:?}\").",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:44:40Z",
+  "updated_at": "2026-05-01T04:52:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:44:40"
+    }
+  ]
+}

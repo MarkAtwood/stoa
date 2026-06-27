@@ -1,0 +1,20 @@
+{
+  "id": "stoa-9edcb5bf",
+  "title": "FsBlockStore missing Debug derive unlike all other block store types",
+  "description": "In post/fs_store.rs, FsBlockStore has no Debug derive or impl, inconsistent with SqliteBlockStore, ObjectStoreBlockBackend, PgBlockStore, GcsBlockStore which all have Debug. Should add derive or manual impl showing the path.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:28:39Z",
+  "updated_at": "2026-05-01T04:54:08Z",
+  "closed_at": "2026-04-28T22:00:43Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:28:39"
+    }
+  ]
+}

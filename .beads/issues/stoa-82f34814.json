@@ -1,0 +1,20 @@
+{
+  "id": "stoa-82f34814",
+  "title": "relay_queue dead-letter depth scan on every drain tick",
+  "description": "drain_once does a full read_dir of dead/ on every invocation to count .env files for the dead-letter metric (lines 269-277). For a busy queue with a large dead/ directory this is an O(dead_count) syscall on every retry_interval tick. Should maintain the dead-letter count as an AtomicU64 incremented on each dead-letter write, same as the relay_queue_depth metric is currently set from the live count. Expected impact at scale: hundreds of dead-letter files x 60-second tick interval = ~6 stat syscalls/second, not catastrophic but wasteful.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:38:46Z",
+  "updated_at": "2026-05-01T05:00:34Z",
+  "closed_at": "2026-05-01T00:42:20Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d94f2708",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:38:46"
+    }
+  ]
+}

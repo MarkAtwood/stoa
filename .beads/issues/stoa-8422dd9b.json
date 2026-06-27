@@ -1,0 +1,12 @@
+{
+  "id": "stoa-8422dd9b",
+  "title": "jmap: expose IPFS CID and operator signature as custom Email properties",
+  "description": "Why: The NNTP reader exposes X-Usenet-IPFS-CID and X-Usenet-IPFS-Sig as article headers and via XCID/XVERIFY commands. JMAP clients (including any usenet-ipfs-aware client) should be able to retrieve the same information without falling back to NNTP.\\n\\nWhat:\\n1. Add x-usenet-ipfs-cid as a custom Email property in Email/get responses. This is the IPFS CID string for the article root block. JMAP RFC 8621 \u00a75.1 allows vendor-prefixed custom properties.\\n2. Add x-usenet-ipfs-sig as a custom Email property: the base64url-encoded operator Ed25519 signature bytes from the X-Usenet-IPFS-Sig header.\\n3. Add a Usenet/verify method (or Email/verify) that accepts an emailId and optional expected CID, and returns: { cidMatch: bool, sigValid: bool }. This is the JMAP equivalent of XVERIFY SIG.\\n4. Advertise a custom capability urn:usenet-ipfs:jmap:cid in the session capabilities object so clients can detect support.\\n\\nStandard JMAP clients that do not request x-usenet-ipfs-* properties receive no extra data and are unaffected.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T02:04:01Z",
+  "updated_at": "2026-05-01T04:55:38Z",
+  "closed_at": "2026-04-22T23:10:47Z"
+}

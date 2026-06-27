@@ -1,0 +1,21 @@
+{
+  "id": "stoa-c7122860",
+  "title": "LMDB put/get/delete each opens a new transaction",
+  "description": "O(1) but WRITE SERIALISATION \u2014 LmdbBlockDb.put/get/delete (lmdb/src/lib.rs:140-166) each open and commit their own transaction. LMDB allows one write transaction at a time (env-level mutex). Transit calls put_raw once per article; if a burst of articles arrives, each one acquires the write mutex sequentially plus fsync overhead. Fix: expose a batch-write path (single write txn for N blocks) so the pipeline can write multiple blocks in one commit, amortising the per-commit cost.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:09:16Z",
+  "updated_at": "2026-05-01T04:56:06Z",
+  "closed_at": "2026-04-27T16:33:17Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:09:16"
+    }
+  ]
+}

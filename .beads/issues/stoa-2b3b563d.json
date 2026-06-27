@@ -1,0 +1,21 @@
+{
+  "id": "stoa-2b3b563d",
+  "title": "S3-compatible block store backend",
+  "description": "Implement S3BlockStore targeting any S3-compatible endpoint (AWS S3, MinIO, Backblaze B2, Tigris, Cloudflare R2, Garage). Article bytes are stored as objects keyed by CID string in a configured bucket. CIDs are computed locally; S3 is treated as a content-addressed key-value store.\n\nDepends on: pluggable backend epic (stoa-5c9f1a38).\n\n## What needs doing\n\n- Add aws-sdk-s3 (or object_store crate \u2014 evaluate which gives cleaner S3-compatible endpoint support) to transit and reader Cargo.toml\n- Implement S3Store: IpfsStore (transit) and S3BlockStore: IpfsBlockStore (reader)\n  - put: compute CID locally, PutObject with key = CID string, body = raw bytes, content-type = application/octet-stream; tag object with x-amz-tagging: retention-class=standard at ingest\n  - get: GetObject by CID key; map NoSuchKey \u2192 None / NotFound; other errors \u2192 Err\n  - delete: two modes, operator-configurable (see GC section below)\n- Add [backend.s3] config section: endpoint, bucket, region, access_key_id, secret_access_key (latter two from env vars preferred \u2014 do not log)\n- Replace IpnsPublisher with an S3ManifestWriter: writes group-index.json to a well-known key in the same bucket, same rate-limiting logic\n- Verify bucket exists and is writable at daemon startup; fail fast with a clear error if not\n\n## GC: two deletion modes\n\n### Mode 1: S3 lifecycle tagging (recommended for AWS S3)\n\nAt ingest: PutObject with tag retention-class=standard.\nOn GC delete call: PutObjectTagging to replace tags with retention-class=expired.\nS3 bucket lifecycle rule (configured by operator, documented in runbook): delete objects tagged retention-class=expired after 1 day.\nDeletionOutcome: Deferred { readable_for_approx_secs: Some(86400) }\n\nThe article remains readable for up to 24 hours after GC marks it. Clients issuing ARTICLE commands during this window receive normal responses. This is correct behaviour \u2014 the article is accessible until the backend reclaims it.\n\nBenefits: works even when daemon is down; survives daemon crashes mid-GC; no DeleteObject API calls at GC time; natural grace period prevents race between GC and in-flight reader requests.\n\n### Mode 2: explicit delete (for non-AWS S3-compatible stores or operators who prefer it)\n\nOn GC delete call: DeleteObject by CID key.\nDeletionOutcome: Immediate \u2014 article is gone as soon as DeleteObject completes.\n\nConfigure via [backend.s3] gc_mode = 'lifecycle' (default) or 'delete'.\n\n## Acceptance criteria\n- Round-trip test: put a block, get it back, assert bytes match (against a real MinIO instance in CI or a wiremock stub)\n- Lifecycle mode: after delete(), get() still returns data; after PutObjectTagging, object is tagged correctly\n- Explicit delete mode: after delete(), get() returns NotFound\n- Startup check rejects misconfigured credentials before accepting any NNTP connections\n- CID computed locally matches what would be produced by Kubo for the same bytes\n- Runbook documents lifecycle rule setup for AWS S3 and explains the 24-hour grace period\n\n## Notes\nGarage (https://garagehq.deuxfleurs.fr) is explicitly in scope \u2014 it speaks S3-compatible API, is written in Rust, and is designed for self-hosted geo-distributed deployments. Lifecycle tagging may not be supported by all S3-compatible stores; gc_mode = 'delete' is the fallback.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T16:08:50Z",
+  "updated_at": "2026-05-01T04:57:03Z",
+  "closed_at": "2026-04-28T02:10:58Z",
+  "notes": "Garage (https://garagehq.deuxfleurs.fr) is explicitly in scope for this epic \u2014 it speaks S3-compatible API, is written in Rust, and is designed for self-hosted geo-distributed deployments on commodity hardware. No separate epic needed. Mention Garage in the runbook as the recommended self-hosted option alongside MinIO.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5c9f1a38",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 09:08:54"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-2dd35d1a",
+  "title": "RUNBOOK graceful shutdown section omits staging and NNTPS drain gaps",
+  "description": "docs/RUNBOOK.md Graceful shutdown section (line 331) is inaccurate in two ways: (1) Step 2 says 'In-flight NNTP sessions continue until they complete their current command' but NNTPS sessions are not drained (see nzr6.8); (2) Step 3 only mentions the ingestion queue; the staging drain task is detached and not joined (see nzr6.11), so staged articles can be lost silently with exit code 0. The log-message table also omits the staging drain task entirely. The RUNBOOK should be updated once the code bugs are fixed, to accurately describe what is and is not drained.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T05:25:24Z",
+  "updated_at": "2026-05-01T04:53:58Z",
+  "closed_at": "2026-04-24T05:46:31Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ebc6ad28",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 22:25:24"
+    }
+  ]
+}

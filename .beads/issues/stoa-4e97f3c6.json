@@ -1,0 +1,21 @@
+{
+  "id": "stoa-4e97f3c6",
+  "title": "DECISION: adversarial backtracking test with timing bound",
+  "description": "wildmat.rs includes a test (wildmat_no_catastrophic_backtracking) that specifically constructs the worst-case pattern for recursive backtracking ('*a*a*a*a*a*a*a*a*a' against 18 'a's followed by 'b'), runs the matcher, and asserts both the correct result and a wall-clock bound of <100ms. This test would catch any future regression to a recursive implementation. Most wildmat test suites only check correctness; this one also enforces the algorithmic complexity guarantee.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:30:21Z",
+  "updated_at": "2026-05-01T05:00:14Z",
+  "closed_at": "2026-04-27T16:40:11Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:30:20"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "stoa-f99d2f41",
+  "title": "PinRule action field is stringly typed",
+  "description": "In crates/transit/src/retention/policy.rs, PinRule.action is a String compared against \"pin\" and \"skip\". A typo or unrecognised value is silently treated as no-match at evaluation time. Use an enum (Pin, Skip) so Serde rejects invalid values at deserialization.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:25:09Z",
+  "updated_at": "2026-05-01T04:52:20Z",
+  "closed_at": "2026-04-28T18:39:50Z"
+}

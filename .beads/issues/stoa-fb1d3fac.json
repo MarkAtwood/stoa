@@ -1,0 +1,21 @@
+{
+  "id": "stoa-fb1d3fac",
+  "title": "Backfill callback type does not enforce verify_entry call",
+  "description": "core/group_log/backfill.rs:49-56: backfill() accepts a fetch callback returning Result<LogEntry, String>. The docstring says the caller must call verify_entry before returning, but this is not enforced by types or checked inside backfill(). An integrator that returns unverified entries from the callback allows forged log entries with invalid operator signatures or phantom parent chains to enter local storage and propagate to peers. Fix: accept Result<VerifiedEntry, String> where VerifiedEntry is a newtype produced only by verify_entry(), making the invariant unbypassable.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T16:55:50Z",
+  "updated_at": "2026-05-01T04:54:43Z",
+  "closed_at": "2026-04-21T17:37:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-33df35ca",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 09:55:49"
+    }
+  ]
+}

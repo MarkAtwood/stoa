@@ -1,0 +1,21 @@
+{
+  "id": "stoa-3dda7ae0",
+  "title": "load_private_key_from_bytes has no test",
+  "description": "crates/tls/src/lib.rs: load_private_key_from_bytes and load_tls_server_config_with_key_bytes were added as new public API but have no tests. These functions are called in three production paths (smtp, reader, transit TLS key loading via secretx). Needs: a test with a known PEM key bytes that succeeds, and a test with invalid/empty bytes that returns the correct error.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-26T22:52:08Z",
+  "updated_at": "2026-05-01T04:59:00Z",
+  "closed_at": "2026-04-26T22:54:16Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-67be59c0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 15:52:08"
+    }
+  ]
+}

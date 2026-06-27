@@ -1,0 +1,23 @@
+{
+  "close_reason": "False positive: strip_did_sig_header splits on \\n and preserves \\r in each segment; joining with \\n correctly reconstructs \\r\\n endings. Verified by test strip_did_sig_header_preserves_non_utf8_bytes.",
+  "closed_at": "2026-05-03T13:09:04Z",
+  "compaction_level": 0,
+  "content_hash": "406516973c38bebf86d3fa54cc0dbc968083935d79325b5229b9eed2f2e72a2d",
+  "created_at": "2026-05-03T13:08:51Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\npost/did_verify.rs::strip_did_sig_header() splits on b'\\n' to process lines, then rejoins with b'\\n'.as_slice(). If the original article used CRLF line endings, all \\r characters are preserved in each line segment (since split on \\n keeps the \\r). But the rejoined output correctly has \\r\\n on each line EXCEPT the last \u2014 the trailing \\n after the last line is added by join, not from the original.\\n\\nIf the original article ends with \\r\\n (as all RFC 5536 NNTP articles should), the rejoined article ends with \\r\\n\\n (extra \\n from join). This corrupts the byte content and causes DID signature verification to fail on well-formed CRLF articles.\\n\\nThe test strip_did_sig_header_preserves_non_utf8_bytes uses CRLF input and CRLF expected output \u2014 does that test pass? If it does, the join does NOT add an extra \\n. Verify.\\n\\n## Acceptance Criteria\\n\\nAdd a test that strips the DID-Sig header from a CRLF article and byte-compares the result against the expected CRLF output. If the test fails, fix the rejoining logic.",
+  "ephemeral": 0,
+  "id": "stoa-v9mjs",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Rust idiom: strip_did_sig_header joins lines with b'\\n' losing original CRLF endings",
+  "updated_at": "2026-05-03T13:09:04Z"
+}

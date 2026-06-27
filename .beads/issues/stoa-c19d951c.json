@@ -1,0 +1,12 @@
+{
+  "id": "stoa-c19d951c",
+  "title": "reader/main: clippy useless_format in error push",
+  "description": "cargo clippy -p stoa-reader --no-deps -- -D warnings reports: error: useless use of format! in crates/reader/src/main.rs:93 \u2014 errors.push(format!(\"{e}\")) should be errors.push(e.to_string()). Pre-existing issue unrelated to recent changes.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T20:53:14Z",
+  "updated_at": "2026-05-01T04:51:29Z",
+  "closed_at": "2026-04-24T20:55:02Z"
+}

@@ -1,0 +1,26 @@
+{
+  "id": "stoa-ce64b6c5",
+  "title": "usenet-ipfs-mail: Email read path",
+  "description": "Implement JMAP Email read operations: Email object type mapping ArticleRootNode\u2192Email (id=CID, blobId, mailboxIds, keywords, from, subject, date, size), Email/get (fetch from IPFS), Email/query (query overview store), and Blob/get (stream raw article bytes by CID).\\n\\nWhy: reading articles is the core use case; Blob/get is required so clients can render full message bodies.\\n\\nHow to apply: Email write and user-state sub-epics build on the Email object type defined here.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T03:37:27Z",
+  "updated_at": "2026-05-01T04:52:39Z",
+  "closed_at": "2026-04-21T04:15:01Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e2014cee",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 20:40:15"
+    },
+    {
+      "depends_on_id": "stoa-f3d66547",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 20:40:16"
+    }
+  ]
+}

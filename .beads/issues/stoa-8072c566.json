@@ -1,0 +1,12 @@
+{
+  "id": "stoa-8072c566",
+  "title": "fix(reader): dispatch catch-all returns 215 instead of 500",
+  "description": "reader/session/dispatch.rs line 205 has _ => Response::information_follows() which returns 215 for any unhandled command. RFC 3977 requires 500 (unknown_command) for unrecognized commands. 215 is the response to LIST \u2014 returning it for an unknown command will confuse clients.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:23:07Z",
+  "updated_at": "2026-05-01T04:55:56Z",
+  "closed_at": "2026-04-27T05:29:58Z"
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T03:54:30Z",
+  "compaction_level": 0,
+  "content_hash": "8fd8a93685ca6a9aac0db674bdb004bcac7467a640aba24d1def5c31d26770d9",
+  "created_at": "2026-05-04T03:19:30Z",
+  "created_by": "Mark Atwood",
+  "description": "rnews_ingest.rs test_rnews_ingest_two_articles_e2e verifies that the CID stored in msgid_map matches pr.cid (line 161-163), but it does not verify that the bytes retrieved from the IPFS store under that CID actually contain the expected article content. run_pipeline prepends a Path: header (prepend_path_header), so the stored bytes differ from the parsed article_bytes. The test has no assertion that a get_raw(cid) roundtrip recovers parseable, correct content. As a result, a bug in prepend_path_header that produces corrupt bytes would not be caught by this test \u2014 the CID would still match. Correct behavior: the test should retrieve the stored block from MemIpfsStore and assert that the expected headers (Message-ID, Newsgroups, From) are present and correct in the stored bytes, providing an independent oracle for content fidelity.",
+  "ephemeral": 0,
+  "id": "stoa-tlvh9.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SEC0: test makes no assertion about article content fidelity after round-trip",
+  "updated_at": "2026-05-04T03:54:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T20:19:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-tlvh9",
+      "id": "b27d0d5d-ad1d-5b63-b78d-cfa9706ad993",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

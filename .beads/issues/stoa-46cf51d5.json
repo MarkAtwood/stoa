@@ -1,0 +1,33 @@
+{
+  "id": "stoa-46cf51d5",
+  "title": "aubi: delete reader CredentialStore duplicate; update 5 import sites",
+  "description": "## What\nDelete crates/reader/src/store/credentials.rs (the duplicate CredentialStore) and update all 5 files that import from it to use stoa_auth::CredentialStore instead.\n\n## Why\nstoa-auth already contains the canonical, better-tested CredentialStore with #[derive(Debug)] and is_empty(). The reader's local copy is a strict subset that diverged in naming only.\n\n## Files to update (5 total)\n\n### Production code\n1. crates/reader/src/store/server_stores.rs\n   - Line 30: change 'use crate::store::credentials::CredentialStore;' \u2192 'use stoa_auth::CredentialStore;'\n   - No other changes needed (UserCredential already fixed by aubi.2)\n\n### Test files (4)\n2. crates/reader/tests/e2e_data_flow.rs\n   - Change import of stoa_reader::store::credentials::CredentialStore \u2192 stoa_auth::CredentialStore\n   - Change import of stoa_reader::config::UserCredential \u2192 stoa_auth::UserCredential (if imported separately)\n3. crates/reader/tests/injection_provenance_e2e.rs \u2014 same pattern as above\n4. crates/integration-tests/tests/two_process_harness.rs\n   - Change import of stoa_reader::store::credentials::CredentialStore \u2192 stoa_auth::CredentialStore\n5. crates/integration-tests/tests/nntp_conformance.rs \u2014 same pattern\n\n## Algorithm\n1. Read each of the 5 files at the cited lines.\n2. Update the import lines as described.\n3. Delete crates/reader/src/store/credentials.rs.\n4. Remove 'pub mod credentials;' from crates/reader/src/store/mod.rs (if it exists there).\n5. Run: cargo build --workspace 2>&1; echo EXIT:$?\n6. Run: cargo test --workspace 2>&1 | tail -20; echo TEST_EXIT:$?\n7. Run: cargo clippy --workspace -- -D warnings 2>&1 | tail -10\n8. Run: cargo fmt --all -- --check 2>&1; echo FMT:$?\n   If fmt fails, run cargo fmt --all and re-check.\n\n## Defensive rules\n- Read before editing \u2014 do not assume exact line numbers match research report.\n- Do not edit any file outside the 5 listed.\n- Do not change any logic \u2014 only import paths.\n- The stoa-auth CredentialStore has is_empty() which the reader copy lacked. Any call to is_empty() on the reader copy was an error before \u2014 check for any such call in reader code.\n\n## Acceptance\nAll workspace tests pass; credentials.rs deleted; no import of stoa_reader::store::credentials anywhere; cargo clippy -D warnings clean",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T16:19:17Z",
+  "updated_at": "2026-05-01T04:52:23Z",
+  "closed_at": "2026-04-30T16:49:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-29ca1fad",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 09:19:22"
+    },
+    {
+      "depends_on_id": "stoa-526bc4c6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 09:19:17"
+    },
+    {
+      "depends_on_id": "stoa-577c4c2f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 09:19:21"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "stoa-114a5974",
+  "title": "ConfigError wraps String, losing source error",
+  "description": "reader::config::ConfigError and imap::config::ConfigError have variants Io(String), Parse(String), Validation(String). The source std::io::Error and toml::de::Error are stringified at the call site (e.map(|e| ConfigError::Io(e.to_string()))). Callers cannot match on or inspect the root cause, and backtrace/source chains are severed. Idiomatic Rust: use thiserror with #[source] fields or keep the original error type. Both crates already use thiserror elsewhere (stoa-auth); the pattern is established. Fix: replace String fields with typed sources using thiserror::Error.",
+  "status": "deferred",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:57:45Z",
+  "updated_at": "2026-05-01T04:52:59Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-65dc6723",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 10:57:45"
+    }
+  ]
+}

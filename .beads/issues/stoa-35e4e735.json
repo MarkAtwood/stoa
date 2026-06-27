@@ -1,0 +1,20 @@
+{
+  "id": "stoa-35e4e735",
+  "title": "Security: admin HTTP endpoint authentication and access control",
+  "description": "The admin HTTP endpoint (/health, /stats, /log-tip, /peers, /metrics) must not be accessible without authentication in production. Options: bearer token, mutual TLS, or Unix socket (localhost-only). Evaluate and implement. Admin endpoint should also have rate limiting to prevent DoS.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:48:12Z",
+  "updated_at": "2026-05-01T04:57:55Z",
+  "closed_at": "2026-04-20T12:33:08Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-8013af16",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:48:11"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "stoa-693b18ae",
+  "title": "mail/get: fragile not-found detection via Debug string matching",
+  "description": "In crates/mail/src/email/get.rs fetch_email(), when get_raw() returns Err(e), the code does format\\!(\"{e:?}\") and checks if the string contains 'NotFound' or 'not found'. This is fragile: a change to IpfsWriteError's Debug impl or a new error variant containing those words would silently misclassify real errors as 'not found'. Fix: match on IpfsWriteError::NotFound(_) directly.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T20:14:09Z",
+  "updated_at": "2026-05-01T04:53:54Z",
+  "closed_at": "2026-04-24T20:23:12Z"
+}

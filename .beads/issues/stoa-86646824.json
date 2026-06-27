@@ -1,0 +1,20 @@
+{
+  "id": "stoa-86646824",
+  "title": "Two spellings of UserCredential coexist in imap crate: re-export unused in auth.rs tests",
+  "description": "The aubi commit introduces a re-export pub use stoa_auth::config::UserCredential in crates/imap/src/config.rs, but the test helper make_store() in crates/imap/src/session/auth.rs (lines 315-317) still constructs the type using the full qualified path stoa_auth::config::UserCredential directly, bypassing the re-export.\n\nThis leaves two canonical spellings within the same crate:\n- stoa_auth::config::UserCredential (used in auth.rs tests)\n- crate::config::UserCredential (used in e2e_smoke.rs)\n\nThe re-export was introduced precisely to provide a single internal import path. The auth.rs test module should be updated to use the re-exported path to make the re-export's purpose visible and reduce future confusion.\n\nFiles:\n- crates/imap/src/session/auth.rs lines 314-322 (make_store test helper)\n- crates/imap/tests/e2e_smoke.rs lines 13-16 (uses the re-export correctly)",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T16:52:02Z",
+  "updated_at": "2026-05-01T04:58:35Z",
+  "closed_at": "2026-04-30T16:56:26Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-45f3f588",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 09:52:02"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-7265ac58",
+  "title": "SEC2: load_tls_acceptor called per connection",
+  "description": "In run_session() (lifecycle.rs:64) and run_plain_session() (lifecycle.rs:143), crate::tls::load_tls_acceptor() is called once per incoming connection. This function reads and parses TLS certificate and key files from disk on every connection establishment. The acceptor should be built once at server startup and shared (Arc<TlsAcceptor>) across all connection handlers. Under any meaningful connection rate this is a per-connection disk I/O + parse that is entirely avoidable.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T23:43:31Z",
+  "updated_at": "2026-05-01T04:56:32Z",
+  "closed_at": "2026-04-24T00:00:43Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4206df49",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 16:43:31"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-a1e233d9",
+  "title": "DECISION: articles table insert treated as hard error in pipeline",
+  "description": "pipeline.rs returns Err immediately if the articles table INSERT fails, unlike log-append failures which are logged as warnings and continue. The comment explains: if the IPFS write, msgid_map insert, and group-log append all succeed but the articles table insert fails, the block exists in IPFS but is invisible to select_gc_candidates and will never be collected. This correctly identifies the articles table as the GC tracking ledger and treats its integrity as non-negotiable.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:32:50Z",
+  "updated_at": "2026-05-01T05:00:04Z",
+  "closed_at": "2026-04-27T16:36:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:32:49"
+    }
+  ]
+}

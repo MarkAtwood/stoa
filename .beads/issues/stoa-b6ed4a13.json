@@ -1,0 +1,39 @@
+{
+  "id": "stoa-b6ed4a13",
+  "title": "imap session: protocol state machine using imap-next",
+  "description": "Create crates/imap/src/session.rs. Per-connection session. pub enum SessionState { Unauthenticated, Authenticated { username: String }, Selected { username: String, mailbox: String, readonly: bool } }. pub struct ImapSession { state: SessionState, server: imap_next::server::Server<tokio_rustls::server::TlsStream<tokio::net::TcpStream>>, stores: Arc<ImapStores>, pool: Arc<SqlitePool> }. Algorithm: (1) build Greeting = Response::Status(Status::ok(None, None, 'usenet-ipfs-imap ready')); (2) create imap_next::server::Server with greeting and default options; (3) loop: call server.next() via stream, match event: GreetingSent => continue, CommandReceived(cmd) => dispatch(cmd), CommandAuthenticateReceived => handle_authenticate(), IdleCommandReceived => handle_idle(), IdleDoneReceived => exit idle, ResponseSent => continue, error => break. Defensive: command_timeout_secs enforced via tokio::time::timeout around server.next().",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T07:16:56Z",
+  "updated_at": "2026-05-01T04:56:28Z",
+  "closed_at": "2026-04-23T07:30:08Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0f4b23a6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:17:27"
+    },
+    {
+      "depends_on_id": "stoa-33a032ee",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:17:28"
+    },
+    {
+      "depends_on_id": "stoa-3741bca1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:16:56"
+    },
+    {
+      "depends_on_id": "stoa-ac94cddf",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:17:26"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "stoa-2b72498d",
+  "title": "handle_authenticate_data catch-all skips authenticate_finish",
+  "description": "In crates/imap/src/session/auth.rs, the handle_authenticate_data catch-all arm (AuthProgress::None or unexpected state with a non-Cancel data event) logs a warning and returns None but never calls server.authenticate_finish(). If imap-next Server requires authenticate_finish to exit the authenticating sub-state, the session is left stuck: subsequent non-auth commands will be misinterpreted as authenticate data, and the client cannot recover without reconnecting.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T09:08:11Z",
+  "updated_at": "2026-05-01T04:59:48Z",
+  "closed_at": "2026-04-27T09:38:13Z"
+}

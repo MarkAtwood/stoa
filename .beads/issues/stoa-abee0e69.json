@@ -1,0 +1,21 @@
+{
+  "id": "stoa-abee0e69",
+  "title": "reader config: auth.required=false with no users is 'dev mode' but not labeled at runtime",
+  "description": "reader/src/config.rs AuthConfig::is_dev_mode() returns true when required=false and users is empty and credential_file is None. In lifecycle.rs this causes AUTHINFO PASS to accept any password. The reader config example sets 'required = false' with no users list. An operator who deploys with the example config as-is gets an open NNTP server that authenticates anyone. There is no warning logged at startup when dev mode is active on a non-loopback address. Maintenance consequence: operators who copy the example config into production get an open server with no visible indication in logs.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:16:04Z",
+  "updated_at": "2026-05-01T04:53:41Z",
+  "closed_at": "2026-04-27T02:14:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:16:04"
+    }
+  ]
+}

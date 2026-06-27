@@ -1,0 +1,40 @@
+{
+  "id": "stoa-49895c1e",
+  "title": "Implement derived metadata computation",
+  "description": "Compute byte_count (body_bytes.len()), line_count (body newline count), content_type_summary (top-level Content-Type value extracted from headers, empty string if absent). These feed into the metadata struct. byte_count and line_count match the values that OVER/XOVER return (:bytes, :lines fields per RFC 3977).",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T01:49:34Z",
+  "updated_at": "2026-05-01T04:55:28Z",
+  "closed_at": "2026-04-20T02:42:54Z",
+  "notes": "Size: S. Depends on Issue C (metadata schema), Issue D (header block builder), and Issue E (body block builder).",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0687d1a2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 18:49:57"
+    },
+    {
+      "depends_on_id": "stoa-0996e0f4",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 18:49:58"
+    },
+    {
+      "depends_on_id": "stoa-88506f2e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 18:49:34"
+    },
+    {
+      "depends_on_id": "stoa-ca46d37a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 18:49:58"
+    }
+  ]
+}

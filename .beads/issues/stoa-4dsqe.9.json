@@ -1,0 +1,32 @@
+{
+  "compaction_level": 0,
+  "content_hash": "6cafb1435324046470fa777c9eb3f408bb1b16a7b5778660e22910b87cc0c515",
+  "created_at": "2026-05-05T00:17:32Z",
+  "created_by": "Mark Atwood",
+  "defer_until": "2099-01-01T08:00:00Z",
+  "description": "JMAP session endpoint must return all mailboxes the authenticated identity has access to, across all domains. Auto-mapping: no manual 'add account' step \u2014 the session response includes everything granted.\n\nChanges to /jmap/session response:\n  accounts: one entry per accessible mailbox (personal + shared + archive). relay mailboxes never included.\n  Each account has: name (display_name from mailboxes), isPersonal bool, isReadOnly (no write grants)\n\nMulti-domain session URL: https://kubernetes.io/.well-known/jmap and https://cncf.io/.well-known/jmap can both point at same stoa instance. Session response is identity-scoped not domain-scoped \u2014 Alice sees all her mailboxes regardless of which domain URL she used to discover the server.\n\nStep-up authentication: if a mailbox requires min_trust_level higher than current session, exclude it from the accounts list and include it in a separate needs_step_up list with the required issuer URL. Client can initiate step-up by authenticating with the indicated IdP and presenting both tokens.\n\nsend-as authorization: JMAP Email/set create must verify the From address is in mailbox_addresses for the target mailbox AND identity has send-as or send-on-behalf permission. Reject with invalidProperties if not authorized. From header format: send-as \u2192 bare address. send-on-behalf \u2192 'Display Name on behalf of <address>'.",
+  "ephemeral": 0,
+  "id": "stoa-4dsqe.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "deferred",
+  "timeout_ns": 0,
+  "title": "design: JMAP session changes for multi-mailbox identity",
+  "updated_at": "2026-05-05T00:17:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T17:17:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-4dsqe",
+      "id": "3b2cb6ad-0730-5388-b24d-d568fcaacea6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

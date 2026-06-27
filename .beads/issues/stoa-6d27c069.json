@@ -1,0 +1,19 @@
+{
+  "id": "stoa-6d27c069",
+  "title": "GOOD: IpfsLatencyMonitor uses Release/Acquire ordering for backpressure state transition",
+  "description": "backpressure.rs: active flag stores with Ordering::Release and loads with Ordering::Acquire. The comment explicitly explains the happens-before edge: any thread that reads active==true via Acquire is guaranteed to observe the ema_ms_bits value that caused the transition. Downgrading to Relaxed would be wrong because a Relaxed store could become visible before the ema_ms_bits update, breaking diagnostics that read ema_ms() after observing backpressure_active()==true. The ordering choice is correct and the comment prevents future 'optimization' that would introduce a subtle race.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:49:04Z",
+  "updated_at": "2026-05-01T04:54:38Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:49:04"
+    }
+  ]
+}

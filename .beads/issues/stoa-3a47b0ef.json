@@ -1,0 +1,21 @@
+{
+  "id": "stoa-3a47b0ef",
+  "title": "try_into().unwrap() on verified-length slice in signing.rs",
+  "description": "signing.rs lines 26 and 53: after explicitly checking bytes.len() != 32, the code calls bytes.try_into().unwrap(). The unwrap() can never panic (the length was just verified), but it is dead code that looks like it could panic. The idiomatic replacement is an already-allocated [u8;32] initialized with copy_from_slice, or TryFrom with .expect(). This is not a runtime hazard but the unwrap masks what the check is for. More critically, if someone removes the len-check guard and the unwrap survives, it panics on malformed input at a key-loading boundary.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:21:10Z",
+  "updated_at": "2026-05-01T04:57:01Z",
+  "closed_at": "2026-04-28T16:58:14Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:21:10"
+    }
+  ]
+}

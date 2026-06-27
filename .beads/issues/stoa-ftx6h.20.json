@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "1ce3248daf0987f188c2d95d72b97356b7ed8a86164bcd0b370a7dbf1db75a72",
+  "created_at": "2026-05-03T13:02:51Z",
+  "created_by": "Mark Atwood",
+  "description": "reqwest::Client::new() is created with no timeout configured. A slow or unresponsive OIDC identity provider will stall every auth attempt that falls through to JWKS validation indefinitely, blocking the associated Tokio task and potentially exhausting the executor under load. Add a connect_timeout and a read_timeout (e.g. 5s / 10s) when constructing the reqwest::Client in OidcStore::new.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "oidc: no timeout on JWKS HTTP requests; a slow IdP stalls auth indefinitely",
+  "updated_at": "2026-05-03T13:02:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:02:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "248244b3-bd8d-544a-92fb-7007baf4a8da",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

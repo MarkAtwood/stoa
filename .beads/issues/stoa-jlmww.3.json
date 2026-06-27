@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "5671dd5c05eb10b315106c31bef058b240707f20f49f5eba8ed8c1181c9ff0e1",
+  "created_at": "2026-05-04T03:58:31Z",
+  "created_by": "Mark Atwood",
+  "description": "In parse_rnews_batch (rnews.rs lines 106-111), the cunbatch arm calls decompress_cunbatch(...)?  then unreachable!(). decompress_cunbatch always returns Err, so the ? propagates and unreachable!() is dead code. The comment explains it but readers still pause. Replace with the more direct form: return decompress_cunbatch(&input[CUNBATCH_MARKER.len()..]).map(|_| vec![])  (or equivalently map(|decompressed| parse_rnews_batch_plain(&decompressed))  if LZW support is ever added). This removes the dead unreachable!() and makes the control flow self-evident. clippy does not flag the current form, so this is purely a readability improvement.",
+  "ephemeral": 0,
+  "id": "stoa-jlmww.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "cunbatch arm: replace ?+unreachable! with direct return Err",
+  "updated_at": "2026-05-04T03:58:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T20:58:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jlmww",
+      "id": "a0564398-8bd1-5c02-8e82-916d08d24b3f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

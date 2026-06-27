@@ -1,0 +1,20 @@
+{
+  "id": "stoa-3a392777",
+  "title": "b1bc.2: Add DkimConfig struct to smtp/config.rs",
+  "description": "What: Add DkimConfig struct to crates/smtp/src/config.rs and integrate it into DeliveryConfig.\n\nAlgorithm:\n1. Add struct DkimConfig { domain: String, selector: String, key_seed_b64: String, public_key_b64: String } with serde Deserialize/Serialize derives.\n2. Add field dkim: Option<DkimConfig> to DeliveryConfig, defaulting to None.\n3. No validation logic in this bead \u2014 that is b1bc.3.\n4. Ensure DkimConfig derives Debug but key_seed_b64 must NOT appear in any log \u2014 add a custom Debug impl that redacts key_seed_b64.\n\nDefensive programming:\n- key_seed_b64 field must never appear in any tracing! or log! macro \u2014 the custom Debug impl must print \"[REDACTED]\" for that field.\n- DeliveryConfig default still works when dkim is absent.\n\nTests: None in this bead \u2014 b1bc.3 covers validation tests.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T22:50:29Z",
+  "updated_at": "2026-05-01T04:55:22Z",
+  "closed_at": "2026-04-30T22:53:45Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-15b2769f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 15:50:28"
+    }
+  ]
+}

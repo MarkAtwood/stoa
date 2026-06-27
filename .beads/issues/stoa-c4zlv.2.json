@@ -1,0 +1,33 @@
+{
+  "close_reason": "Added bounded scan: MAX_THREAD_SCAN=5000 articles with early-exit when all requested threads found. Full index requires schema change (TODO in code).",
+  "closed_at": "2026-05-01T16:24:40Z",
+  "compaction_level": 0,
+  "content_hash": "5d0d4b4fe7909dace869914b15dc1f67254f7b30514dd4c00ca01e55accd5940",
+  "created_at": "2026-05-01T15:17:04Z",
+  "created_by": "Mark Atwood",
+  "description": "In server.rs route_method Thread/get, all groups are iterated and for each group the full lo..hi range is fetched from the overview store, then all CIDs are batch-looked-up. This is O(total articles across all groups) per Thread/get call regardless of how many thread IDs are requested. With a large corpus this will cause multi-second latency on every Thread/get. RFC 8621 requires Thread/get to be responsive. The issue is architectural: thread membership is resolved by scanning all articles, not by indexed lookup.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Thread/get loads entire article corpus per request",
+  "updated_at": "2026-05-01T16:24:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:17:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "346149e7-9674-502c-b247-c179d6af6855",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

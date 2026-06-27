@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "e08230de1867849738544fc91b34af09eb5388c2b47b912077fe7b13302ce40a",
+  "created_at": "2026-06-13T06:38:16Z",
+  "created_by": "Mark Atwood",
+  "description": "Stoa advertises eventSourceUrl but never wired it. Skip SSE and go straight to WebSocket per RFC 8887. Provides server-initiated StateChange push for Email/Mailbox/Thread, request pipelining over a single persistent connection, and eliminates polling. This is the standard JMAP real-time transport \u2014 not chat-specific. Supersedes stoa-a4gn7 (EventSource) as the preferred push mechanism.",
+  "ephemeral": 0,
+  "id": "stoa-v64xb",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Implement JMAP over WebSocket (RFC 8887)",
+  "updated_at": "2026-06-13T06:38:16Z"
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "2788e4c4d632a05f847268d97c999f30668e984b9aad9e2b6529574fdea55037",
+  "created_at": "2026-05-03T13:07:40Z",
+  "created_by": "Mark Atwood",
+  "description": "SqliteLogStorage::insert_entry_and_advance_tips wraps the entry INSERT, parent edge INSERTs, parent tip DELETEs, and new tip INSERT all in a single SQLite transaction. This is the correct design: either all succeed or none do, preventing the DAG from being in a state where a tip points to a non-existent entry or where an entry is present but not referenced by a tip. The SQLite WAL mode (set in db_pool.rs) ensures concurrent reads are not blocked by this write transaction.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.151",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "DECISION: SqliteLogStorage insert_entry_and_advance_tips as single transaction is correct atomicity design",
+  "updated_at": "2026-05-03T13:07:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:07:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "e175f3fc-c238-5e7e-b7ae-80f6d9837ac9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

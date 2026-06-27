@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T14:53:31Z",
+  "compaction_level": 0,
+  "content_hash": "3c844d4801f406851820d926bb767244ce429bda81d15376433612893fd18c4a",
+  "created_at": "2026-05-03T13:03:38Z",
+  "created_by": "Mark Atwood",
+  "description": "eval_header_test has special logic to populate capture variables when mt == MatchType::Matches and variables_enabled is true (the pending_captures pattern). eval_address_test uses apply_match directly with no capture-variable population. RFC 5229 \u00a74 requires that numbered variables (dollar{1}, dollar{2}, ...) be set by any test that uses :matches, not just header. A Sieve script using 'address :matches' expects capture variables to be populated, but they will not be. This is a conformance gap with RFC 5229.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.26",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve: address test does not capture variables on :matches; only header test does",
+  "updated_at": "2026-05-03T14:53:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:03:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "e468373a-75b1-5737-9935-652f4aa857bb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

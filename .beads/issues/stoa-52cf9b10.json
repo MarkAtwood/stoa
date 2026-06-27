@@ -1,0 +1,21 @@
+{
+  "id": "stoa-52cf9b10",
+  "title": "DECISION: fail-closed admin endpoint (non-loopback requires bearer token)",
+  "description": "config.rs check_admin_addr() refuses to start the daemon if the admin HTTP endpoint is bound to a non-loopback address without a bearer token. The default addr is 127.0.0.1:9090 (loopback-only). This is fail-closed: an operator who binds the admin port to 0.0.0.0 without setting a token gets an explicit startup error rather than silently exposing an unauthenticated admin API to the network. Tests verify all four combinations (loopback/non-loopback \u00d7 token/no-token).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:31:46Z",
+  "updated_at": "2026-05-01T05:00:08Z",
+  "closed_at": "2026-04-27T16:38:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:31:45"
+    }
+  ]
+}

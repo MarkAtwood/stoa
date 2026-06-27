@@ -1,0 +1,20 @@
+{
+  "id": "stoa-b6849899",
+  "title": "Thread/get: implement handle_thread_get and wire into route_method",
+  "description": "Implement handle_thread_get(account_id, ids): for each thread ID, query overview for all articles with that thread_id, return Thread{id, emailIds: Vec<String>}. Wire as Thread/get in route_method(). Blocked on: stoa-f6e479c6.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:42:34Z",
+  "updated_at": "2026-05-01T04:56:49Z",
+  "closed_at": "2026-04-28T08:52:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-f6e479c6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:42:48"
+    }
+  ]
+}

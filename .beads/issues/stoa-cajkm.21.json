@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T08:11:00Z",
+  "compaction_level": 0,
+  "content_hash": "c171ce76078d357fd2d8d648e40376d278636fb9f851c781edb7a7d90ac8b265",
+  "created_at": "2026-05-04T08:04:57Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crates/core/src/util.rs\\nLines: 71-78\\n\\nFinding: is_loopback_addr() uses rsplit_once(':') to split host from port. For a bare IPv6 address without brackets and without a port (e.g. '::1'), rsplit_once(':') splits on the last colon, yielding host='' and port='1'. The empty string fails IP parse and is not 'localhost', so the function returns false instead of true.\\n\\nFor IPv4 without a port (e.g. '127.0.0.1'), rsplit_once returns None so unwrap_or(addr) gives '127.0.0.1', which parses correctly as loopback. IPv4 is safe.\\n\\nImpact: Any caller passing a bare '::1' (no port, no brackets) gets a wrong non-loopback result. In practice, TOML listen.addr values are 'host:port' strings, so this edge case would only arise if someone writes '::1' without a port in their config. The OS would reject such a string in TcpListener::bind anyway, but the guard would also incorrectly report non-loopback if evaluated beforehand. Test coverage gap: the test suite tests '[::1]:9090' but not bare '::1'.\\n\\nFix: Before rsplit_once, check if addr starts with '[' to distinguish bracketed IPv6 from bare IPv6. Or, use addr.parse::<std::net::SocketAddr>() first and fall back to host-split only if that fails.",
+  "ephemeral": 0,
+  "id": "stoa-cajkm.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "is_loopback_addr: bare ::1 (no port) returns false",
+  "updated_at": "2026-05-04T08:11:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T01:04:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-cajkm",
+      "id": "1b8fcdd7-ff79-5e21-8fbc-34341990409b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

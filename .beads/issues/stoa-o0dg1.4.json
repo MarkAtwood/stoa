@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T14:06:59Z",
+  "compaction_level": 0,
+  "content_hash": "6525eb0e4fd074d893042663f5daddaeb6e39e081ba1bacfab936d422d850a23",
+  "created_at": "2026-05-02T14:02:00Z",
+  "created_by": "Mark Atwood",
+  "description": "types.rs previously had 5 tests: invocation round-trip, request round-trip, response omits null createdIds, error type serializes camelCase, requestTooLarge includes limit. These were deleted along with the hand-rolled types. Now stoa-mail has no tests that catch a serialization regression in jmap-types (e.g. a field rename in JmapResponse). Add integration-level tests covering these serialization invariants, driven by the wire format not the internal types.",
+  "ephemeral": 0,
+  "id": "stoa-o0dg1.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Serialization conformance tests for JMAP wire types deleted",
+  "updated_at": "2026-05-02T14:06:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T07:01:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-o0dg1",
+      "id": "00fdfa2e-43e8-5dbd-86cf-b221b92e0d71",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

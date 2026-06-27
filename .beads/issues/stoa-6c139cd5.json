@@ -1,0 +1,20 @@
+{
+  "id": "stoa-6c139cd5",
+  "title": "Sieve has_terminal flag logic spread across 40 lines without invariant comment",
+  "description": "sieve/src/lib.rs:50-94: has_terminal tracks whether the script produced a disposition (Keep/Discard/FileInto/Reject). The logic is spread across ~40 lines of match arms. A contributor who adds a new Action variant and forgets to set has_terminal=true will silently add an implicit Keep after their action. Fix: add a module-level comment: 'has_terminal must be set true for any action that constitutes a final disposition per RFC 5228 \u00a74.1; if false after all events, implicit Keep is inserted.' Consider using an exhaustive match or enum with disposition marker.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T16:56:55Z",
+  "updated_at": "2026-05-01T04:53:19Z",
+  "closed_at": "2026-04-23T00:52:59Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-33df35ca",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 09:56:55"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-4818fece",
+  "title": "auth/smtp/integration tests cite external RFC oracles; never self-verify",
+  "description": "auth/tests, smtp/tests, integration-tests: test vectors cite RFC 4616 \u00a74 (SASL PLAIN), RFC 4122 (UUID), NIST FIPS 180-4 (SHA-256). Tests cross-verify against published reference values, not against the implementation. This is exemplary test discipline. Do not replace with self-verifying roundtrip tests.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T13:11:28Z",
+  "updated_at": "2026-05-01T04:56:08Z",
+  "closed_at": "2026-04-22T14:47:44Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-b770251a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 06:11:27"
+    }
+  ]
+}

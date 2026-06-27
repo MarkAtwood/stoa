@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T14:06:58Z",
+  "compaction_level": 0,
+  "content_hash": "00f0d0bb50d3ceb12ce80c4bcc411f42e03c209eae44679f7342a0fc35a0a26d",
+  "created_at": "2026-05-02T14:01:58Z",
+  "created_by": "Mark Atwood",
+  "description": "build_jmap_dispatcher has a hardcoded &[&str] list of 31 method names. If a developer adds a new arm to route_method's match but forgets to add the method to METHODS, the Dispatcher returns unknownMethod instead of dispatching it \u2014 a silent behavioral divergence with no compile-time check. Add a comment co-locating the METHODS list with the match arms, or derive the list from the match (e.g. via a const array used in both places).",
+  "ephemeral": 0,
+  "id": "stoa-o0dg1.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "METHODS array in build_jmap_dispatcher can silently go stale vs route_method arms",
+  "updated_at": "2026-05-02T14:06:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T07:01:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-o0dg1",
+      "id": "14aebfee-7028-5495-ba8c-af100c771262",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

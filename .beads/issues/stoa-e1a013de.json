@@ -1,0 +1,20 @@
+{
+  "id": "stoa-e1a013de",
+  "title": "SEC6: cert-pinned TLS retains handshake sig verification",
+  "description": "PinnedCertVerifier in xcid_client.rs bypasses CA chain validation (correct for self-signed certs in a private transit peering network) but explicitly delegates verify_tls12_signature and verify_tls13_signature to the rustls crypto provider. Naive 'skip cert validation' implementations often return HandshakeSignatureValid::assertion() unconditionally for these methods, which means any party can impersonate the peer server without holding its private key -- the channel is encrypted but not authenticated. By delegating to the provider, the implementation retains proof-of-key-possession while relaxing only the CA chain trust requirement. Decision: custom verifier pins only the fingerprint; handshake signature verification is not weakened.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T23:44:27Z",
+  "updated_at": "2026-05-01T04:53:41Z",
+  "closed_at": "2026-04-24T00:03:08Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4206df49",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 16:44:27"
+    }
+  ]
+}

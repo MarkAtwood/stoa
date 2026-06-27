@@ -1,0 +1,19 @@
+{
+  "id": "stoa-4f37e474",
+  "title": "PinPolicy::validate not called at startup \u2014 misconfigured retention silently allows GC of pinned articles",
+  "description": "policy.rs provides PinPolicy::validate() which checks for empty policy, bad group patterns, and useless rules. main.rs constructs gc_pre_pin_rules and calls PinPolicy::new() but never calls .validate(). An operator who writes a malformed group pattern (e.g. '123abc') in pinning.rules gets no startup error; the rule silently fails to match and articles that should be pinned are GC'd. PinPolicy::validate() must be called at startup and must be a fatal error.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:38:32Z",
+  "updated_at": "2026-05-01T04:52:31Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:38:31"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-51d7e889",
+  "title": "metrics::render_metrics silently drops Prometheus output on non-UTF-8",
+  "description": "In metrics.rs, String::from_utf8(buf).unwrap_or_default() is called on the Prometheus text output. If gather() ever produces non-UTF-8 bytes (possible with user-supplied metric labels), the entire metrics response is silently replaced with an empty string. The admin endpoint returns 200 OK with an empty body; monitoring sees no metrics and no error. Should use from_utf8_lossy or return an HTTP 500 on encoding failure.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:24:57Z",
+  "updated_at": "2026-05-01T04:58:28Z",
+  "closed_at": "2026-04-28T17:00:52Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:24:56"
+    }
+  ]
+}

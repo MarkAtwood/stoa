@@ -1,0 +1,20 @@
+{
+  "id": "stoa-ed1c29a1",
+  "title": "Test vectors: roundtrip tests that encode+decode with same code prove nothing",
+  "description": "Several tests assert roundtrip correctness using the code under test as its own oracle \u2014 the most common pattern being: build an object with code A, serialize with code B, deserialize with code B, assert equality. This proves B is self-consistent but not that it matches any external spec. Affected: fault_store_errors.rs HEAD/BODY/ARTICLE response builders, sieve_tests.rs compile/evaluate cycles, and any test asserting 'encode then decode == original' without a hardcoded expected value. By contrast, core/tests/vectors.rs does this correctly (Python-generated hex digests as the oracle). The fix is not to add more roundtrip tests \u2014 it is to replace them with spec-derived expected values.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T15:45:35Z",
+  "updated_at": "2026-05-01T04:55:14Z",
+  "closed_at": "2026-04-23T00:15:12Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-436e4a3a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 08:45:34"
+    }
+  ]
+}

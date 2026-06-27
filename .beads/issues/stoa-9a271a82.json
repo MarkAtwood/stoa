@@ -1,0 +1,19 @@
+{
+  "id": "stoa-9a271a82",
+  "title": "GOOD: impl_ipfs_store_via_inner macro eliminates repeated IpfsStore delegation",
+  "description": "object_store_backend.rs: impl_ipfs_store_via_inner! macro implements 3-method IpfsStore trait for newtypes wrapping ObjectStoreBackend. S3/Azure/GCS backends each use it with one line instead of 20 lines of identical delegation.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:51:26Z",
+  "updated_at": "2026-05-01T04:54:41Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:51:26"
+    }
+  ]
+}

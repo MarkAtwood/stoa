@@ -1,0 +1,12 @@
+{
+  "id": "stoa-2436bfde",
+  "title": "smtp: AUTH PLAIN sent in cleartext when tls=false",
+  "description": "relay_client.rs sends AUTH PLAIN credentials over a plaintext connection when tls is false. Credentials are base64-encoded but not encrypted, trivially interceptable on the network.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T23:45:09Z",
+  "updated_at": "2026-05-01T04:53:51Z",
+  "closed_at": "2026-04-25T00:49:11Z"
+}

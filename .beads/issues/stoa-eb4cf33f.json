@@ -1,0 +1,20 @@
+{
+  "id": "stoa-eb4cf33f",
+  "title": "pipeline verify_article runs over original_bytes not post-Path bytes \u2014 correct design",
+  "description": "transit pipeline.rs snapshots original_bytes before calling prepend_path_header, and runs verify_article over original_bytes. The CID (IPFS block) is computed from post-Path bytes. This is the right tradeoff: X-Stoa-Sig is computed by the originating peer before transit hops, so verification must use the pre-hop bytes. The code comment at DESIGN NOTE rbe3.46 correctly explains why CID and verification bytes differ, and that this is intentional. A contributor might try to 'fix' this by verifying over the stored block bytes, which would produce systematic false-negatives. Worth defending.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T17:48:22Z",
+  "updated_at": "2026-05-01T04:58:42Z",
+  "closed_at": "2026-04-28T20:06:43Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-08d918a1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 10:48:21"
+    }
+  ]
+}

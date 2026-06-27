@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T14:39:50Z",
+  "compaction_level": 0,
+  "content_hash": "9e3281e80507bae75b1f14db17bd029efaf331dcd34430e15813426683d9e562",
+  "created_at": "2026-05-03T13:05:46Z",
+  "created_by": "Mark Atwood",
+  "description": "OidcError implements std::error::Error but source() only returns Some for Http(e). The other variants (Config, InvalidToken, InvalidKey, etc.) carry String payloads that lose the original error chain. Using thiserror would allow #[from] / #[source] to preserve the original cause chain automatically and is consistent with the rest of the codebase (CredentialStoreError uses thiserror). The current implementation loses the jsonwebtoken error chain behind a to_string() call in try_key.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.88",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "auth: OidcError does not implement std::error::Error::source for non-Http variants",
+  "updated_at": "2026-05-03T14:39:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "12b6e40c-4a5e-594a-8c41-71c73b4bb98b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

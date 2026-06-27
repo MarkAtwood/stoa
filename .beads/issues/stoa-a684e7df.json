@@ -1,0 +1,20 @@
+{
+  "id": "stoa-a684e7df",
+  "title": "Import tooling: IHAVE bulk ingestion, suck pull, mbox backfill",
+  "description": "Implement tools for importing articles from legacy Usenet infrastructure into IPFS: (1) IHAVE-based bulk push from another NNTP server, (2) pull-style suck from a remote NNTP server, (3) mbox file backfill for offline archives. All import paths validate, sign, store to IPFS, and append to the group log identically to the live ingestion path.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:13:32Z",
+  "updated_at": "2026-05-01T04:58:15Z",
+  "closed_at": "2026-04-20T12:35:38Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-a2023a88",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:13:32"
+    }
+  ]
+}

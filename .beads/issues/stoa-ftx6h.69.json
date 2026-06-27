@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "91c7c8488d82d7728c9d207087876a2e9d94bcce83cf9c349272ec7ebec3f0bc",
+  "created_at": "2026-05-03T13:05:13Z",
+  "created_by": "Mark Atwood",
+  "description": "In dns_cache.rs, Bucket::get calls self.map.lock(), then does map.get(&key) to check existence and retrieve the value, and if the TTL is expired calls map.remove(&key). This is either one or two hash lookups. Using the entry API (map.entry(key)) would allow a single lookup that either removes stale entries or returns the value. At high DNS lookup rates (busy relay queue) this doubles the hash work per cache check. Fix: use entry().and_modify() or get() + remove() only on the stale path, replacing with a single HashMap::get() that avoids the double lookup on the hot (cache-hit, non-stale) path.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.69",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "smtp: DnsCache bucket performs two hash lookups per get",
+  "updated_at": "2026-05-03T13:05:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "b18a1b07-bb3d-5c5f-882f-5bed9ae2f512",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

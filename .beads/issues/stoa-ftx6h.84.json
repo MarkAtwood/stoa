@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "2083fd967e32af7e195f59655531390bd928007f2dde38e59400df371981e515",
+  "created_at": "2026-05-03T13:05:39Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this issue exists: server.rs route_method() dispatches JMAP method names via a large match arm on &str. The set of method strings in the match is not compile-checked against the dispatcher map built in build_jmap_dispatcher(). A method can be listed in one place but not the other and the mismatch is invisible at compile time. When a new method is added, the developer must remember to update both locations.\n\nWhat needs to be done: Introduce a typed enum for JMAP method names (MethodName) and use it in both the dispatcher map and the route_method match. Alternatively, collapse route_method into the dispatcher map entirely so there is only one registration point. This eliminates the maintenance hazard of two out-of-sync lists.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.84",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "route_method: single 400-arm match on method string; not compile-checked against handler set",
+  "updated_at": "2026-05-03T13:05:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "0f42ff06-33e5-55ec-b2be-304653adc671",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

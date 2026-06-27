@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "810c9438f548ea8b40814d058270b988cfa6646239d63d6d1cc9f4abbba3fe23",
+  "created_at": "2026-05-04T03:21:46Z",
+  "created_by": "Mark Atwood",
+  "description": "rnews_config.rs:73 \u2014 The validation error message is: 'must have either [backend] or [ipfs] with a url'. An operator who has never seen this config before does not know: (a) the exact TOML key name to add, (b) what a minimal [backend] section looks like, (c) which field in [ipfs] is the 'url' (it's api_url but the error says 'url'). Fix: rewrite to say something like: 'config must include either a [backend] section (with type = \"...\") or an [ipfs] section with a non-empty api_url; see config.example.toml for examples.'",
+  "ephemeral": 0,
+  "id": "stoa-tlvh9.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Validation error message doesn't say what to add to config",
+  "updated_at": "2026-05-04T03:21:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T20:21:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-tlvh9",
+      "id": "ed64b509-0945-5f01-9bc0-d44a4958e596",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

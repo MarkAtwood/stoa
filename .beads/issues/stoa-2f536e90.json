@@ -1,0 +1,19 @@
+{
+  "id": "stoa-2f536e90",
+  "title": "Transit: metrics and operator CLI",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:11:42Z",
+  "updated_at": "2026-05-01T04:55:03Z",
+  "closed_at": "2026-04-20T12:30:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-a335e1da",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:11:42"
+    }
+  ]
+}

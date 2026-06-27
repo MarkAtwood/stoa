@@ -1,0 +1,21 @@
+{
+  "id": "stoa-fd4b3bb3",
+  "title": "Sieve admin API starts in open state if bound to non-loopback without token",
+  "description": "smtp/sieve_admin.rs:91-98: warns if non-loopback + no bearer_token, but still starts. Any unauthenticated HTTP client on the network can upload/delete Sieve scripts. Fix: fail-closed \u2014 refuse to start if listen addr is non-loopback and no bearer_token is set. The warning-only approach creates a false sense that the operator was warned and thus things are fine.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:34:24Z",
+  "updated_at": "2026-05-01T04:59:41Z",
+  "closed_at": "2026-04-21T19:34:00Z",
+  "notes": "Implementation tracked in stoa-31947539.4",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:34:23"
+    }
+  ]
+}

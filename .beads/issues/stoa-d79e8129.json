@@ -1,0 +1,27 @@
+{
+  "id": "stoa-d79e8129",
+  "title": "Implement article header validation at POST ingress",
+  "description": "Implement header validation: (1) mandatory RFC 5536 headers present (From, Date, Message-ID, Newsgroups, Subject); (2) Newsgroups: value lists only valid group name format (RFC 3977 pattern); (3) Date: is within \u00b124h of server time; (4) Message-ID: format is valid (<local@domain>); (5) no header field exceeds 998 bytes (RFC 5322). Artifact: reader/src/post/validate_headers.rs.\n\nAcceptance:\n- Missing mandatory header \u2192 441 naming the missing field\n- Invalid group name in Newsgroups: \u2192 441\n- Date out of \u00b124h window \u2192 441\n- Invalid Message-ID format \u2192 441\n- Oversized header field \u2192 441\n- All validation paths are unit-tested",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:14:08Z",
+  "updated_at": "2026-05-01T04:53:30Z",
+  "closed_at": "2026-04-20T03:47:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-7148f086",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:14:08"
+    },
+    {
+      "depends_on_id": "stoa-cdc4a0b7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:15:28"
+    }
+  ]
+}

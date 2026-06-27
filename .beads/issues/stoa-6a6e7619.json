@@ -1,0 +1,19 @@
+{
+  "id": "stoa-6a6e7619",
+  "title": "ingestion_queue bytes counter uses AcqRel for pre-reserve but Relaxed for depth \u2014 inconsistent ordering",
+  "description": "ingestion_queue.rs try_enqueue: bytes_current uses fetch_add(AcqRel) for the pre-reserve and depth_current uses fetch_add(Relaxed) after try_send succeeds. The Relaxed store to depth_current can become visible to another thread before the bytes_current update, causing current_depth() to reflect a count higher than bytes_current reflects. The is_bytes_overloaded check reads bytes_current with Relaxed, which is fine for advisory, but depth/bytes observations can be inconsistent. For the correctness invariant that depth and bytes stay consistent, both should use the same ordering.",
+  "status": "open",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:37:54Z",
+  "updated_at": "2026-05-01T04:54:26Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:37:53"
+    }
+  ]
+}

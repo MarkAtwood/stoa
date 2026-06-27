@@ -1,0 +1,13 @@
+{
+  "id": "stoa-3e19dbfc",
+  "title": "Review: Ceph RADOS block store backend",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T04:32:51Z",
+  "updated_at": "2026-05-01T05:00:22Z",
+  "closed_at": "2026-04-28T04:39:56Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 two correctness bugs (probe race, TOCTOU) that would bite in production HA deployments. No unit tests by design (requires live Ceph). The feature flag means the bugs are not reachable without librados-dev installed.\nConfidence: 85% chance of no additional missed bugs. The two P1 bugs are both race conditions in the open() and get_raw() paths. Would raise confidence with: integration tests against ceph/demo docker image covering HA startup, concurrent reads during GC."
+}

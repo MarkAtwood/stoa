@@ -1,0 +1,27 @@
+{
+  "id": "stoa-e0889cbd",
+  "title": "Implement per-hierarchy topic routing (usenet.hier.<h> naming)",
+  "description": "Implement topic_for_group(group_name: &str) -> Topic: extract the top-level hierarchy (first component before the first dot), return TopicHash for 'usenet.hier.<hierarchy>'. Implement subscribe_hierarchies(groups: &[&str]) -> Vec<Topic>: compute the minimal set of hierarchy topics that cover all listed groups and subscribe. Artifact: transit/src/gossip/topics.rs.\n\nAcceptance criteria:\n- topic_for_group('comp.lang.rust') returns the same topic as topic_for_group('comp.os.linux')\n- topic_for_group('sci.math') returns a different topic than topic_for_group('comp.lang.rust')\n- subscribe_hierarchies(['comp.lang.rust', 'comp.os.linux', 'sci.math']) subscribes exactly 2 topics\n- Single-component group names (e.g. 'local') map to 'usenet.hier.local'\n- Unit tests cover all cases above",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:11:29Z",
+  "updated_at": "2026-05-01T04:55:04Z",
+  "closed_at": "2026-04-20T04:23:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-347ba0f6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:11:29"
+    },
+    {
+      "depends_on_id": "stoa-353f02ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:12:10"
+    }
+  ]
+}

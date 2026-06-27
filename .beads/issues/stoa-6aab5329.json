@@ -1,0 +1,19 @@
+{
+  "id": "stoa-6aab5329",
+  "title": "Email/set create silently substitutes fake From address when from field is missing",
+  "description": "email/set.rs create_one_email() defaults from to 'unknown@example.com' when missing/unparseable rather than returning invalidArguments. Article is written to IPFS with a fabricated From address and distributed to peers. Fix: return Err(invalidArguments) for missing or unparseable from.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:52:58Z",
+  "updated_at": "2026-05-01T04:52:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:52:58"
+    }
+  ]
+}

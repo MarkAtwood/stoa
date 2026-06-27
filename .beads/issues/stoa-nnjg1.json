@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "797d13370eb4e60e008895f2695e476a62b0b063a7a13ecedc41f94fe8ad161c",
+  "created_at": "2026-05-02T16:30:20Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why this issue exists\n\nstoa-mail implements JMAP for email. This epic adds the `urn:ietf:params:jmap:chat` capability (draft-atwood-jmap-chat-00) to the same server, bridging JMAP Chat clients with the Delta Chat email network.\n\nA JMAP Chat client connects to stoa and sees a native chat interface. Under the hood, stoa translates outbound chat messages into Delta Chat RFC 5322 emails (`Chat-Version: 1.0`, `Chat-Group-ID`, etc.) and delivers them via SMTP. Inbound Delta Chat emails arriving over SMTP are parsed and surfaced as JMAP Chat messages. Delta Chat users on the broader email network are unaware they are talking to a JMAP Chat client.\n\n## Scope\n\n- Deployment topology: owner-side (single-user mailbox) only. No `Peer/*` federation methods.\n- Chat kinds: `direct` and `group` only. Spaces are out of scope.\n- Identity model: `ChatContact.id` = email address. Natural fit for Delta Chat interop.\n- Storage: new tables alongside existing mail schema in the same Postgres database.\n- Body types: `text/plain` for v1. Rich body (`application/jmap-chat-rich`) deferred.\n- E2EE: Autocrypt key gossip headers stored and forwarded. Full MLS/E2EE deferred.\n\n## Child epics\n\n- Schema + bridge layer (inbound Delta Chat \u2192 JMAP Chat, outbound JMAP Chat \u2192 Delta Chat email)\n- JMAP Chat owner methods (Chat/*, Message/*, ChatContact/*, ReadPosition/*, PresenceStatus/*)\n- Push / SSE (JMAP state-change events, Chat/typing, presence events)",
+  "ephemeral": 0,
+  "id": "stoa-nnjg1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "JMAP Chat capability on stoa-mail with Delta Chat bridge",
+  "updated_at": "2026-06-26T20:26:38Z"
+}

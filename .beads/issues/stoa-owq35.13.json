@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Made check_mx_against_policy generic over S: AsRef<str>; updated empty-slice test type annotation",
+  "closed_at": "2026-05-02T20:27:08Z",
+  "compaction_level": 0,
+  "content_hash": "bbfb8c6870ff8f4d376f4694c844be5b7a7ce882dc4c2708aa3af704e649284a",
+  "created_at": "2026-05-02T20:18:55Z",
+  "created_by": "Mark Atwood",
+  "description": "mta_sts_mx.rs:28: fn check_mx_against_policy(mx: &str, patterns: &[String]) takes an owned String slice. Callers that have a &[&str] or &[impl AsRef<str>] must allocate String values first. &[String] is correct for callers that own the Vec<String>, but the function could be generic over impl AsRef<str> or accept &[impl AsRef<str>]. In practice this is only called from enforce_for_delivery with a Vec<String> so no allocation penalty today, but the signature is unnecessarily restrictive.",
+  "ephemeral": 0,
+  "id": "stoa-owq35.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "check_mx_against_policy takes &[String] forcing allocation at call sites",
+  "updated_at": "2026-05-02T20:27:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T13:18:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-owq35",
+      "id": "ac7deee8-1659-5410-954b-e50179349d70",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

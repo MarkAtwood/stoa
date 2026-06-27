@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "f9d759f2845b23587dead7e8bc1613dd21bb6e8decd2957613f40a76d518259f",
+  "created_at": "2026-05-03T13:09:26Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\nstore/backfill.rs::split_at_blank_line() is a one-line wrapper around crate::post::split_header_body() with no meaningful behaviour of its own. It allocates two Vec<u8> where split_header_body returns borrowed slices. The wrapper exists solely to hide the to_vec() calls, but adds noise and an unnecessary extra allocation step.\\n\\n## Acceptance Criteria\\n\\nInline split_at_blank_line at its single call site, or remove it and call split_header_body + to_vec() directly.",
+  "ephemeral": 0,
+  "id": "stoa-8uii9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Readability: backfill.rs split_at_blank_line is a thin wrapper with no doc comment",
+  "updated_at": "2026-05-03T13:09:26Z"
+}

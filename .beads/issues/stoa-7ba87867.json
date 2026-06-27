@@ -1,0 +1,19 @@
+{
+  "id": "stoa-7ba87867",
+  "title": "suck_pull: no MAX_ARTICLE_BYTES guard on accumulated body \u2014 peer can OOM the process",
+  "description": "suck_pull.rs fetch_article(): dot-terminated body accumulates into body: Vec<u8> with no size limit. A malicious remote NNTP server can stream an unbounded article body causing OOM. The ingestion path (check_ingest) enforces MAX_ARTICLE_BYTES, but the accumulation happens before check_ingest is called \u2014 after all the bytes have been received. Should add a body size check per iteration of the read loop (e.g. if body.len() > MAX_ARTICLE_BYTES { drop connection; return Failed }), matching the guard in session.rs:read_dot_stuffed.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:43:52Z",
+  "updated_at": "2026-05-01T04:52:52Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:43:52"
+    }
+  ]
+}

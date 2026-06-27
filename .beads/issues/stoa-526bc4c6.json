@@ -1,0 +1,14 @@
+{
+  "id": "stoa-526bc4c6",
+  "title": "refactor: merge duplicate CredentialStore and resolve_secret_uri",
+  "description": "stoa-1490b957.2 and u02k.3 are deferred P1 items from the secretx review: two parallel CredentialStore implementations exist (one in transit, one in reader) and both mains duplicate the resolve_secret_uri helper. These must be kept in sync manually, which is a compounding maintenance liability.\n\nWhy this exists: the two daemons were built out independently; shared secret-handling code was never extracted to a common location.\n\nWhat needs to be done:\n1. Extract a shared stoa-secrets (or stoa-config-common) crate, or add the shared logic to stoa-core under a feature flag.\n2. Move resolve_secret_uri into the shared location and delete both copies in transit/main.rs and reader/main.rs.\n3. Merge the two CredentialStore implementations into a single implementation, parameterised by the secretx backend.\n4. Ensure both daemons compile and all existing tests pass with the refactored paths.\n\nAdopts deferred issues: stoa-1490b957.2, stoa-1490b957.3.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T03:07:11Z",
+  "updated_at": "2026-05-01T04:52:21Z",
+  "closed_at": "2026-04-30T16:57:33Z",
+  "notes": "Review converged after 1 round. Final review: stoa-45f3f588. Follow-up epic filed: stoa-97adb45e (ClientCertStore dedup)."
+}

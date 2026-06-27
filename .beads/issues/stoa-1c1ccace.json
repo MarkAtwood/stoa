@@ -1,0 +1,21 @@
+{
+  "id": "stoa-1c1ccace",
+  "title": "No rate-limiting on NNTP TAKETHIS/IHAVE flood per peer",
+  "description": "transit/peering/session.rs:110-157: the session task reads CHECK/TAKETHIS commands and enqueues articles with no per-peer rate limit. A malicious peer can sustain continuous 431 responses by sending valid-format articles (passing format/size/msgid checks) that fail deduplication, keeping the ingestion queue perpetually full and blocking legitimate peers. The queue is bounded so this is not a memory exhaustion issue, but it is a DoS against legitimate ingestion. Fix: add a token bucket or per-connection rate limiter on accepted TAKETHIS commands.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T16:55:58Z",
+  "updated_at": "2026-05-01T04:54:42Z",
+  "closed_at": "2026-04-21T18:08:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-33df35ca",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 09:55:58"
+    }
+  ]
+}

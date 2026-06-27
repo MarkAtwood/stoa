@@ -1,0 +1,12 @@
+{
+  "id": "stoa-80cd0abd",
+  "title": "block_cache eviction_removes_lru_entry flaky",
+  "description": "The test inserts cid1 and cid2 in rapid succession; both can get the same SQLite last_access timestamp, making LRU ordering non-deterministic. cid1 or cid2 may be evicted. Fix: add a small sleep between puts, or use a monotonic sequence counter for last_access instead of wall-clock milliseconds.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T14:18:00Z",
+  "updated_at": "2026-05-01T05:00:16Z",
+  "closed_at": "2026-04-28T09:41:57Z"
+}

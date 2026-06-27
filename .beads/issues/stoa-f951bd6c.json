@@ -1,0 +1,21 @@
+{
+  "id": "stoa-f951bd6c",
+  "title": "SEC-TESTS: bt5.5 epoch error path has no test",
+  "description": "The fix for bt5.5 added error handling in validate_post_headers() / check_date() (reader/src/post/validate_headers.rs line 121): SystemTime::now().duration_since(UNIX_EPOCH).map_err(|_| Response::new(441, 'Internal fault: system clock before Unix epoch')). There is no #[test] that exercises this specific error path. The code path is untestable directly because SystemTime::now() cannot return a pre-epoch time in a unit test without dependency injection or a test-only clock abstraction. However, the fix DOES change behavior: before the fix, the error would have been a panic or an unwrap; after the fix, it returns a 441 response. The test requirement is: verify that check_date() returns a 441 Response when given a timestamp delta that triggers the error, OR that the implementation never panics on clock failure. Oracle: the specific error message 'Internal fault: system clock before Unix epoch' and the 441 code are the defined expected values. A test using a known-future date that does not trigger clock_before_epoch but does verify the branch structure would be insufficient. Currently the error path has 0% test coverage.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T13:52:40Z",
+  "updated_at": "2026-05-01T04:56:15Z",
+  "closed_at": "2026-04-22T14:02:22Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b816309",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 06:52:39"
+    }
+  ]
+}

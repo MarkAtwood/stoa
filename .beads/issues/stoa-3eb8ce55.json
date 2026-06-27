@@ -1,0 +1,13 @@
+{
+  "id": "stoa-3eb8ce55",
+  "title": "R14: P4 comment/visibility fixes",
+  "description": "Four quick P4 fixes: o0r.17 (replace opaque l62.2.6 reference in comments), o0r.19 (add comment explaining parse_range unwrap_or(0) fallback), ryw.17 (mark test-only store functions cfg(test)), ryw.16 (add comment to STARTTLS 454 handler). All self-contained changes to comments and visibility.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T00:17:20Z",
+  "updated_at": "2026-05-01T04:53:26Z",
+  "closed_at": "2026-04-23T00:28:51Z"
+}

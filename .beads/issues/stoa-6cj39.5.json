@@ -1,0 +1,55 @@
+{
+  "compaction_level": 0,
+  "content_hash": "bf00ae38bc7a8c4ad33a5df1f94fe8c2546c59f184e64ea8a2b1852873d028d3",
+  "created_at": "2026-05-02T15:28:28Z",
+  "created_by": "Mark Atwood",
+  "description": "Apply FieldCipher encryption to the three PII-bearing columns in the messages table. This is the highest-value encryption target: raw_message contains the full email body and headers.\n\n## Columns to encrypt\n  - raw_message   (BYTEA \u2192 BYTEA, ciphertext replaces plaintext)\n  - envelope_from (TEXT  \u2192 BYTEA, encrypted, store as BYTEA)\n  - envelope_to   (TEXT  \u2192 BYTEA, encrypted, store as BYTEA)\n\n  The message subject and headers are inside raw_message and are covered implicitly.\n\n## Schema migration\n  ALTER TABLE messages\n      ALTER COLUMN envelope_from TYPE BYTEA USING envelope_from::BYTEA,\n      ALTER COLUMN envelope_to   TYPE BYTEA USING envelope_to::BYTEA;\n\n  Note: this migration does NOT retroactively encrypt existing rows.\n  A separate one-time migration script (not a schema migration) must be\n  run to encrypt existing plaintext rows. Document this as a deployment step.\n\n## Write path (SMTP inbound delivery, Email/import)\n  1. Resolve user_id from caller context\n  2. Call user_key_store.get_dek(user_id)\n  3. Construct FieldCipher from DEK\n  4. Encrypt raw_message, envelope_from, envelope_to\n  5. INSERT encrypted bytes; discard DEK\n\n## Read path (Email/get, Email/query, download)\n  1. Fetch ciphertext rows\n  2. Call user_key_store.get_dek(user_id) \u2014 one call per request, not per row\n  3. Construct FieldCipher, decrypt each column\n  4. Return plaintext to caller; discard DEK\n\n## Performance note\n  AES-256-GCM on a 50 KB email \u2248 50\u00b5s. One KMS Decrypt call per request\n  \u2248 5\u201315ms (network). The KMS call dominates; row count does not matter.\n  Do NOT call get_dek per row \u2014 call once per request and reuse the FieldCipher.\n\n## Acceptance\n  - New messages are stored with ciphertext in raw_message (verified by direct DB query)\n  - Email/get returns the correct plaintext after decryption\n  - A message inserted by user A cannot be decrypted by user B's DEK (test: swap DEK, assert error)\n  - Existing tests pass",
+  "ephemeral": 0,
+  "id": "stoa-6cj39.5",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Encrypt messages.raw_message, envelope_from, envelope_to under per-user DEK",
+  "updated_at": "2026-06-26T20:26:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T08:29:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-6cj39.3",
+      "id": "1282a532-0acc-58d7-afa5-cf3b543a5c9e",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T08:28:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-6cj39",
+      "id": "1e5d7715-7966-5ebc-9ce3-a7e48ce7bf53",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-02T08:29:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-6cj39.4",
+      "id": "80cb014a-bf74-5e09-a386-d95467fb22b2",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T08:29:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-6cj39.2",
+      "id": "82254c8e-7d1a-5a22-990d-d2d9daf446ec",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

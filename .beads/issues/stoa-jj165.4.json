@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "d84cfd3dc672831f907da263f5162a15bf3bb00369d459cda8ceb93c34fb8a3c",
+  "created_at": "2026-05-02T14:35:27Z",
+  "created_by": "Mark Atwood",
+  "description": "Audit events must include the client source IP. Currently basic_auth_middleware has no access to the peer address. Add source IP extraction as a prerequisite for audit event instrumentation.\n\n## What to do\n  1. Add axum::extract::ConnectInfo<SocketAddr> to the server startup in main.rs:\n       TcpListener::bind(addr).await?\n       axum::serve(listener, router.into_make_service_with_connect_info::<SocketAddr>())\n     (Currently uses into_make_service() which does not populate ConnectInfo.)\n\n  2. In basic_auth_middleware extract the peer address:\n       let source_ip = req\n           .extensions()\n           .get::<ConnectInfo<SocketAddr>>()\n           .map(|ci| ci.0.ip().to_string())\n           .unwrap_or_else(|| \"-\".to_string());\n\n  3. Behind a load balancer, the direct peer is the LB. Add support for\n     X-Forwarded-For and X-Real-IP headers as fallback, gated on a config\n     flag (trust_proxy = false by default to prevent spoofing when running\n     without a proxy). Only the first value in XFF is used.\n\n  4. Forward source_ip into the request extensions so downstream handlers\n     (and audit log calls) can read it without re-extracting.\n\n## Why trust_proxy must default false\nIf trust_proxy = true on a server directly exposed to the internet,\nan attacker can forge X-Forwarded-For to spoof any IP in audit logs.\nThis is a known audit log poisoning vector. Default to false; operators\nset it to true only when behind a trusted proxy.\n\n## Acceptance\n- Unit test: request with ConnectInfo populated \u2192 source_ip = actual IP\n- Unit test: trust_proxy=true + X-Forwarded-For: 1.2.3.4 \u2192 source_ip = 1.2.3.4\n- Unit test: trust_proxy=false + X-Forwarded-For: 1.2.3.4 \u2192 source_ip = actual peer IP",
+  "ephemeral": 0,
+  "id": "stoa-jj165.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Extract and forward client source IP through auth middleware",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T07:35:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jj165",
+      "id": "fa11defa-771f-585f-8ad3-db5f92c3e20c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

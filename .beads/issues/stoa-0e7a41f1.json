@@ -1,0 +1,20 @@
+{
+  "id": "stoa-0e7a41f1",
+  "title": "DidSigError: typed error enum",
+  "description": "What: Define DidSigError enum in crates/reader/src/post/did_verify.rs (new file, or extend did_passthrough.rs).\n\nAlgorithm:\n1. Create crates/reader/src/post/did_verify.rs\n2. Define: pub enum DidSigError { InvalidFormat(String), UnsupportedMethod(String), InvalidKeyEncoding(String), InvalidSignatureEncoding(String), VerificationFailed, }\n3. Implement std::fmt::Display for DidSigError\n4. Implement std::error::Error for DidSigError\n5. Add pub mod did_verify; to crates/reader/src/post/mod.rs\n\nDefensive programming:\n- Each variant carries enough context for a useful log message\n- No key material in any variant (signatures and keys are not logged)\n- UnsupportedMethod carries the method name (e.g. 'did:web') so operators know what was rejected",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T04:05:34Z",
+  "updated_at": "2026-05-01T05:00:52Z",
+  "closed_at": "2026-04-23T04:20:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-c06fa970",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:05:33"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T17:50:17Z",
+  "compaction_level": 0,
+  "content_hash": "d322a7c85d1a8c65809c2aeac9e2df6ce66cb5ddeffde1d5b66fddd0f8b61e87",
+  "created_at": "2026-05-01T15:21:44Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: gc_candidates.rs select_gc_candidates() evaluates policy.should_pin() for each row and returns only candidates where should_pin is false. Then gc.rs run_once() calls policy.should_pin() again on the same candidates before deciding to unpin. Bad behavior: the double evaluation is not documented. If the policy object passed to select_gc_candidates differs from the one in run_once (e.g. due to a future refactor), some articles will be double-filtered and some may never be GC'd despite being eligible. The code should be made self-consistent: either filter in SQL+Rust once, or document explicitly that run_once re-evaluates.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.83",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "gc_candidates policy evaluation applied twice: once in select_gc_candidates and once in run_once",
+  "updated_at": "2026-05-01T17:50:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:21:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "24e90c6f-1371-5dcb-8e63-5ab3ed463c44",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

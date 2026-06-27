@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "ce72f5ec54bf3c2a185894f6db05ab605ed234862470ecb94647dabee164ee90",
+  "created_at": "2026-05-03T13:07:00Z",
+  "created_by": "Mark Atwood",
+  "description": "LmdbBlockDb::open uses a PathGuard RAII struct to ensure OPEN_PATHS is consistent even if open, write_txn, or commit fails midway. PathGuard::defuse() is called only after Ok(Self{...}) is reached. This correctly prevents the common bug where a process-global registry becomes permanently inconsistent after a partial construction failure. The pattern is well-documented and the test 'failed_open_does_not_lock_open_paths' validates it.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.135",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "good: lmdb PathGuard RAII pattern correctly handles mid-construction errors",
+  "updated_at": "2026-05-03T13:07:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:07:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "4513456b-76b7-555d-8603-8eaa327ed907",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

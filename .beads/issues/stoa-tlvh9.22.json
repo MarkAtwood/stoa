@@ -1,0 +1,32 @@
+{
+  "closed_at": "2026-05-04T03:22:06Z",
+  "compaction_level": 0,
+  "content_hash": "04587693cd90cde00f0c9974dae7d0b3c1b2f83787692792fb43ba7c4d4c52d5",
+  "created_at": "2026-05-04T03:21:41Z",
+  "created_by": "Mark Atwood",
+  "description": "Duplicate of stoa-tlvh9.6 (transient errors exit 0). That issue covers the fix; this one adds no new signal.",
+  "ephemeral": 0,
+  "id": "stoa-tlvh9.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Exit code 0 swallows transient pipeline errors silently",
+  "updated_at": "2026-05-04T03:22:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T20:21:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-tlvh9",
+      "id": "1c41e307-a22b-5f85-8953-46109832b955",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

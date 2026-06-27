@@ -1,0 +1,21 @@
+{
+  "id": "stoa-d485879d",
+  "title": "DECISION: GroupName newtype validated at construction",
+  "description": "GroupName is a validated newtype (crates/core/src/article.rs). The only way to hold a GroupName is via GroupName::new(), which applies RFC 3977 format checks at construction. No raw String can be used where a GroupName is expected. The escape hatch (new_unchecked) is gated behind #[cfg(any(test, fuzzing))], so it cannot be called from production code. Why correct: invalid group names cannot silently propagate through the system as map keys, NNTP wire tokens, or IPLD metadata. A future contributor might suggest removing the newtype and just validating 'at the boundaries', which would allow validated data to mix with unvalidated data as strings travel between layers.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:09:23Z",
+  "updated_at": "2026-05-01T04:56:06Z",
+  "closed_at": "2026-04-27T16:31:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:09:22"
+    }
+  ]
+}

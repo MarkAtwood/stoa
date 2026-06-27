@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T16:11:50Z",
+  "compaction_level": 0,
+  "content_hash": "74bf3b95f217b172d43138f297f5e9a18347494bafa08136bf311fdbe69cc81f",
+  "created_at": "2026-05-05T15:54:56Z",
+  "created_by": "Mark Atwood",
+  "description": "session.rs line 288: auth_line condition includes tls_acceptor.is_some() which causes AUTH PLAIN to be advertised in EHLO on port 25 before TLS. RFC 4954 \u00a73 says AUTH MUST NOT be advertised on cleartext MTA port. Fix: remove tls_acceptor.is_some() from auth_line condition; post-upgrade session gets is_tls=true automatically.",
+  "ephemeral": 0,
+  "id": "stoa-f8qts.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "AUTH advertised on port 25 before STARTTLS: RFC 4954 violation",
+  "updated_at": "2026-05-05T16:11:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-05T08:54:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-f8qts",
+      "id": "e4f029c5-52e8-5d51-895b-fd1978564f62",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

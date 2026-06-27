@@ -1,0 +1,14 @@
+{
+  "id": "stoa-a1c38061",
+  "title": "[epic] RSS/Atom feeds \u2014 one feed per newsgroup",
+  "description": "Why: RSS and Atom feeds are the lowest-friction way to expose newsgroup content to the broadest possible audience. Anyone with a feed reader (Feedly, NetNewsWire, miniflux, etc.) can follow a group without a newsreader client, without JMAP, without IMAP. The overview store already has everything needed: subject, from, date, message-id.\\n\\nWhat:\\n- Add feed endpoints to the mail HTTP server:\\n    GET /feed/<group-name>.rss  \u2192 RSS 2.0\\n    GET /feed/<group-name>.atom \u2192 Atom 1.0\\n- Each item/entry: title from Subject, author from From, published from Date, id from Message-ID, link to the web reader article URL (or the JMAP blob download URL for the full article).\\n- Pagination: ?limit=N&before=<message-id> for walking back through history.\\n- Content-Type: application/rss+xml and application/atom+xml respectively.\\n- ETag and Last-Modified headers for conditional GET support.\\n- Configurable max items per feed (default 100).\\n- No authentication required for public groups (auth policy tracked separately).",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T02:23:24Z",
+  "updated_at": "2026-05-01T04:55:45Z",
+  "closed_at": "2026-04-23T03:57:58Z",
+  "notes": "Review converged after 1 round. Final review: stoa-929c49ad."
+}

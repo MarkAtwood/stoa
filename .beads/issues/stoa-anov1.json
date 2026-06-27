@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "4bd9e7a0aedcbb5976004cf775c25f280a92153fc2415feb6e97fab1775d74ca",
+  "created_at": "2026-05-03T13:06:09Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\nstore/server_stores.rs constructs AuthFailureTracker with hardcoded parameters: max_failures=10, window=60s, max_entries=DEFAULT_MAX_ENTRIES. These values are not configurable via the config file. Operators cannot tune the per-IP lockout policy to match their security posture.\\n\\nIn contrast, session-level MAX_AUTH_FAILURES (5) controls per-session limits and is defined in context.rs.\\n\\n## Acceptance Criteria\\n\\nExpose AuthFailureTracker parameters (max_failures, window_secs) in the [auth] config section. Document defaults. The current hardcoded values become the defaults.",
+  "ephemeral": 0,
+  "id": "stoa-anov1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "auth_failure_tracker hardcoded window 10/60s; not configurable",
+  "updated_at": "2026-05-03T13:06:09Z"
+}

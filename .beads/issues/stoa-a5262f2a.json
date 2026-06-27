@@ -1,0 +1,21 @@
+{
+  "id": "stoa-a5262f2a",
+  "title": "PostgreSQL: GC leader election via pg_try_advisory_lock",
+  "description": "In transit GC runner: before each scheduled run, attempt pg_try_advisory_lock(GC_LOCK_ID). If lock not acquired, skip run and log debug message. Release lock immediately after GC completes. Only applies when backend is PostgreSQL. Blocked on: stoa-b38f9c00.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:43:55Z",
+  "updated_at": "2026-05-01T04:56:44Z",
+  "closed_at": "2026-04-28T06:07:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-b38f9c00",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:43:54"
+    }
+  ]
+}

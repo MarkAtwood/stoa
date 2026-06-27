@@ -1,0 +1,21 @@
+{
+  "id": "stoa-f76184ef",
+  "title": "PeerRateLimiter (rate_limit.rs) is dead code \u2014 parallel connections bypass rate limit",
+  "description": "transit/src/peering/rate_limit.rs contains a PeerRateLimiter struct that tracks per-IP rate limits across all connections from the same peer. It is never instantiated anywhere in the codebase. session.rs instead uses a private per-connection TokenBucket (lines 214-244, created fresh at line 59 for every TCP connection). A peer can open N simultaneous connections and get N * 200-article burst (and N * 100 articles/sec sustained) from the per-connection limiters, bypassing the intent of the global per-IP limiter entirely. With 10 connections a peer can inject 2000 articles in a burst. Fix: instantiate PeerRateLimiter in the shared peering state (PeeringShared), call it from session.rs in place of the local TokenBucket.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T22:01:03Z",
+  "updated_at": "2026-05-01T04:54:33Z",
+  "closed_at": "2026-04-21T22:47:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e38f5cd8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 15:01:02"
+    }
+  ]
+}

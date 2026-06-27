@@ -1,0 +1,20 @@
+{
+  "id": "stoa-89a80c9c",
+  "title": "elegance: split stoa_auth::CredentialStore import in server_stores.rs",
+  "description": "server_stores.rs line 22 already has 'use stoa_auth::{OidcStore, TrustedIssuerStore}'. The new 'use stoa_auth::CredentialStore' on line 31 is a standalone duplicate stoa_auth import that could be merged into the existing group: 'use stoa_auth::{CredentialStore, OidcStore, TrustedIssuerStore}'. The split form is not wrong but breaks the implicit convention that imports from the same external crate are grouped.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:12:13Z",
+  "updated_at": "2026-05-01T04:51:37Z",
+  "closed_at": "2026-04-30T17:14:55Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-577b3bd5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 10:12:12"
+    }
+  ]
+}

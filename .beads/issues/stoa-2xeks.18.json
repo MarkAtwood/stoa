@@ -1,0 +1,41 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T18:58:29Z",
+  "compaction_level": 0,
+  "content_hash": "525d4e0bb7c934ce96331dd9024e31c1082c6588cba2cf168e06f39f99b6be3c",
+  "created_at": "2026-05-02T17:39:00Z",
+  "created_by": "Mark Atwood",
+  "description": "Unit tests for MtaStsCache using sqlx with SQLite in-memory database (sqlx::SqlitePool::connect(':memory:')). Test cases: store and retrieve policy for a domain, cached entry not expired (returns hit), cached entry expired (returns miss), policy_id change triggers cache miss, two different domains stored independently, cache miss for unknown domain returns None. All tests must run without touching the filesystem; use in-memory SQLite exclusively.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Tests: MTA-STS policy cache",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T10:39:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks",
+      "id": "4e78d33e-06b1-5aee-8f3e-31827ee55144",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-02T10:39:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.8",
+      "id": "cc032d75-d0cd-5d11-8143-9874251dda82",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

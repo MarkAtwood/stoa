@@ -1,0 +1,42 @@
+{
+  "acceptance_criteria": "cargo test -p stoa-smtp passes; Sieve scripts using environment vnd.stoa.dkim-result work end-to-end",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T01:53:48Z",
+  "compaction_level": 0,
+  "content_hash": "9c21900c51cbf9845196003a9b09b479979ec0d58195456211f671fdc58b90c2",
+  "created_at": "2026-05-04T06:08:33Z",
+  "created_by": "Mark Atwood",
+  "description": "Populate SieveEnv with authentication metadata before calling the Sieve evaluator in stoa-smtp.\n\nFiles: crates/smtp/src/session.rs (or wherever sieve_delivery calls evaluate())\n\nAt the point where MessageAuthenticator results are available and before\nevaluate() is called, build a SieveEnv:\n\n```rust\nlet mut sieve_env = SieveEnv::new();\n\n// Standard RFC 5183 values\nsieve_env.set(\"domain\", &config.hostname);\nsieve_env.set(\"host\", &config.hostname);\nsieve_env.set(\"location\", \"MTA\");\nsieve_env.set(\"phase\", \"during\");\n\n// vnd.stoa.* values from authentication results\n// auth_result is the output of MessageAuthenticator::verify()\nmatch auth_result.dkim() {\n    Some(r) if r.result() == DkimResult::Pass => {\n        sieve_env.set(\"vnd.stoa.dkim-result\", \"pass\");\n        sieve_env.set(\"vnd.stoa.dkim-domain\", r.signature().domain());\n    }\n    Some(_) => sieve_env.set(\"vnd.stoa.dkim-result\", \"fail\"),\n    None    => sieve_env.set(\"vnd.stoa.dkim-result\", \"none\"),\n}\nmatch auth_result.spf() {\n    Some(r) => sieve_env.set(\"vnd.stoa.spf-result\", r.result().as_str()),\n    None    => sieve_env.set(\"vnd.stoa.spf-result\", \"none\"),\n}\nmatch auth_result.dmarc() {\n    Some(r) => {\n        sieve_env.set(\"vnd.stoa.dmarc-result\", r.result().as_str());\n        sieve_env.set(\"vnd.stoa.dmarc-policy\", r.policy().as_str());\n    }\n    None => {\n        sieve_env.set(\"vnd.stoa.dmarc-result\", \"none\");\n        sieve_env.set(\"vnd.stoa.dmarc-policy\", \"none\");\n    }\n}\n```\n\nThen pass &sieve_env to evaluate().\n\nNote: inspect the actual mail-auth crate API (MessageAuthenticator output types)\nbefore implementing \u2014 adapt field names/methods to match the real API.\n\nDefensive rules:\n- If auth was not run (no MessageAuthenticator configured), all vnd.stoa.* values = \"none\"\n- No unwrap() on auth result fields\n- dkim-domain = empty string if DKIM was not present (not \"none\" \u2014 domain is a string, not a result)",
+  "ephemeral": 0,
+  "id": "stoa-p4oc4.7.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "stoa-smtp: populate SieveEnv with vnd.stoa.* auth results",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T23:08:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p4oc4.7",
+      "id": "4ab0d7f0-e56f-52d5-94c1-257fbb0e3da6",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-03T23:08:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p4oc4.7.1",
+      "id": "55ddd4a8-7bae-535d-a598-ec7677a7d8af",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

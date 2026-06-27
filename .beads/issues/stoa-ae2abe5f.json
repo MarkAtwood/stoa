@@ -1,0 +1,21 @@
+{
+  "id": "stoa-ae2abe5f",
+  "title": "POST check_mandatory_headers does not check Path header (RFC 5536 mandatory)",
+  "description": "## What / Why\nRFC 5536 \u00a73.1 lists Path as a mandatory header for Netnews articles. crates/reader/src/post/validate_headers.rs check_mandatory_headers() checks only From, Date, Message-ID, Newsgroups, and Subject. Articles submitted via POST without a Path header pass validation and are stored without it.\n\n## Risk\nArticles stored without a Path header cannot be properly forwarded by transit peers that require it for loop detection (Son-of-RFC-1036 \u00a73.3). The transit ingestion code's prepend_path_header() will insert a Path header, but only on articles it receives; reader-originated articles may bypass this.\n\n## Fix\nEither add Path to the mandatory header list (and reject POSTed articles that lack it), or document the deliberate decision not to require it on POST (clients typically omit Path and rely on the server to insert it) and inject a server Path header at POST ingestion time.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T03:08:59Z",
+  "updated_at": "2026-05-01T04:59:14Z",
+  "closed_at": "2026-04-27T04:06:45Z",
+  "notes": "Design decision: do NOT add Path to check_mandatory_headers \u2014 POST clients never supply it; server injects it. Fix requires a reader.hostname config field (absent from reader config; only transit has it). Proper fix: add hostname to ReaderConfig, inject Path header in run_post_pipeline before sign_article. Deferred to separate config-extension task.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e2297bae",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 20:08:58"
+    }
+  ]
+}

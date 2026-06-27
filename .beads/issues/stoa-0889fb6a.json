@@ -1,0 +1,12 @@
+{
+  "id": "stoa-0889fb6a",
+  "title": "Fix empty MIME boundary string bypasses parse_multipart None guard",
+  "description": "core/ipld/mime_parser.rs parse_multipart guards against absent boundary via ? (returns None). But Content-Type: multipart/mixed; boundary= (present but empty) gives Some(\"\"). Empty boundary turns every '--' line into a delimiter, corrupting MIME CID subtrees. Fix: validate \\!boundary.is_empty() && boundary.len() <= 70 before use.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T16:12:07Z",
+  "updated_at": "2026-05-01T05:00:57Z",
+  "closed_at": "2026-04-22T18:40:43Z"
+}

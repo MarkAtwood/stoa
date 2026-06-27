@@ -1,0 +1,33 @@
+{
+  "id": "stoa-6c293cc9",
+  "title": "Implement CAPABILITIES, MODE READER, and QUIT",
+  "description": "Implement CAPABILITIES: return list based on what is enabled (VERSION 2, READER, POST, IHAVE, OVER, HDR, LIST ACTIVE etc, STARTTLS if TLS configured, AUTHINFO if auth configured). Implement MODE READER: return 200. Implement QUIT: send 205 and close. Artifact: reader/src/session/commands/capabilities.rs.\n\nAcceptance:\n- CAPABILITIES response lists only capabilities that are actually available\n- slrn connects and completes MODE READER exchange without error\n- QUIT causes clean TCP close (FIN) not RST",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:12:45Z",
+  "updated_at": "2026-05-01T04:53:24Z",
+  "closed_at": "2026-04-20T03:19:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-41676187",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:14:04"
+    },
+    {
+      "depends_on_id": "stoa-6b57af1d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:53:23"
+    },
+    {
+      "depends_on_id": "stoa-987f87c2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:12:44"
+    }
+  ]
+}

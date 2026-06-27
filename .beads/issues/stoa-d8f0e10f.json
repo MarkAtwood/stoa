@@ -1,0 +1,27 @@
+{
+  "id": "stoa-d8f0e10f",
+  "title": "Integrate group cache into LIST ACTIVE and GROUP handlers",
+  "description": "Modify the LIST ACTIVE and GROUP command handlers to consult the group cache before hitting SQLite. Cache hit: return cached metadata. Cache miss: query SQLite, populate cache, return result. Artifact: modifications to reader/src/session/commands/list.rs and group.rs.\n\nAcceptance: LIST ACTIVE response time under 5ms for 1000 groups after cache warm-up; GROUP response time under 1ms after cache warm-up; cache miss latency same as current (SQLite query)",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:46:45Z",
+  "updated_at": "2026-05-01T04:54:56Z",
+  "closed_at": "2026-04-20T04:22:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-96a8079e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:46:45"
+    },
+    {
+      "depends_on_id": "stoa-a71b172e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:47:18"
+    }
+  ]
+}

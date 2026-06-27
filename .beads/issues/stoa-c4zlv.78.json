@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "from_credentials now returns Result<Self, CredentialStoreError> instead of panicking; all 17 call sites updated across 9 files; tests pass",
+  "closed_at": "2026-05-01T19:30:33Z",
+  "compaction_level": 0,
+  "content_hash": "0a7e286ce8cae32f4804b6c95c31ffbc70122e320e243bc256106ae2e9220023",
+  "created_at": "2026-05-01T15:21:31Z",
+  "created_by": "Mark Atwood",
+  "description": "In crates/auth/src/store.rs, from_credentials calls bcrypt::hash_with_result (or equivalent) and panics if a stored credential has an invalid hash string. The callers from_file and from_content both return Result<_, ConfigError>, but from_credentials is infallible in its signature and panics instead. Panicking library functions are non-idiomatic in Rust and make the error unrecoverable.\n\nFix: change from_credentials to return Result<CredentialStore, ConfigError> and propagate the bcrypt parse error. Update the two call sites (from_file, from_content) to use ?.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.78",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "auth: CredentialStore::from_credentials panics on invalid bcrypt hash",
+  "updated_at": "2026-05-01T19:30:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:21:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "78337139-660e-5d41-ad02-5fac56a17cb0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "stoa-73e66000",
+  "title": "mail: Email/query implementation",
+  "description": "Implement Email/query in crates/mail/src/email/query.rs: filter by inMailbox (required; maps to group name via Mailbox id), optional filter by after/before (date range), from, subject (substring). Query OverviewStore.query_range() for the group, apply filters, sort by date desc. Return QueryResponse with ids (CID strings), position, total, queryState.\\n\\nWhy: clients use Email/query to list messages in a folder; this is the most frequently called method.\\n\\nAcceptance: after posting 3 articles to comp.test, Email/query for comp.test returns 3 ids; date-range filter returns correct subset.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T03:38:53Z",
+  "updated_at": "2026-05-01T04:52:50Z",
+  "closed_at": "2026-04-21T04:04:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-312e910f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 20:40:46"
+    },
+    {
+      "depends_on_id": "stoa-fb535c0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 20:40:47"
+    }
+  ]
+}

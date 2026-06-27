@@ -1,0 +1,20 @@
+{
+  "id": "stoa-ce2689f7",
+  "title": "smtp main.rs: dkim_signer.clone() where move suffices",
+  "description": "smtp/src/main.rs line 235: NntpQueue::new receives dkim_signer.clone() but dkim_signer is never used again after this point. The clone of Option<Arc<...>> is O(1) but semantically misleading \u2014 it implies dkim_signer has additional uses. Passing dkim_signer directly (move) would make the transfer of ownership explicit.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:53:47Z",
+  "updated_at": "2026-05-01T04:55:16Z",
+  "closed_at": "2026-04-30T23:58:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-64675b0e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:53:47"
+    }
+  ]
+}

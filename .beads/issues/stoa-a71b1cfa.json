@@ -1,0 +1,27 @@
+{
+  "id": "stoa-a71b1cfa",
+  "title": "E2E: SMTP session routing via native sieve scripts",
+  "description": "End-to-end integration test: full SMTP session with native sieve scripts routing messages.\n\nWhat: crates/smtp/tests/sieve_native_e2e.rs (extend or replace existing sieve e2e tests)\n\nTests (these are the same scenarios as the existing smtp sieve tests; if they already pass after the dep swap in W5, this bead is mostly verification):\n\n1. fileinto_newsgroup_prefix: upload script 'require [\"fileinto\"]; fileinto \"newsgroup:comp.test\";'; send SMTP message; assert article in NNTP queue under comp.test; 250 OK.\n2. reject_returns_550: upload 'reject \"policy\";'; send message; assert 550 response; nothing in queue.\n3. discard_returns_250_nothing_stored: upload 'discard;'; send; 250 OK; INBOX empty; queue empty.\n4. header_conditional_routing: script checks 'header :contains \"Subject\" \"rust\"'; send matching message \u2192 newsgroup; send non-matching \u2192 INBOX.\n5. variables_routing: script uses set+fileinto with variable; message routes to correct newsgroup.\n6. implicit_keep_no_script: no script uploaded for user; message delivered to INBOX.\n\nAll assertions use the same store query helpers as existing smtp integration tests.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:25:06Z",
+  "updated_at": "2026-05-01T04:54:06Z",
+  "closed_at": "2026-04-24T03:56:16Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1dcfbf49",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:25:06"
+    },
+    {
+      "depends_on_id": "stoa-7bd14a87",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:25:17"
+    }
+  ]
+}

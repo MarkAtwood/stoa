@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "162fdbc066cf9bc4ac134554641b873c5e12969739abbcc4950a33c9eeb09364",
+  "created_at": "2026-05-03T13:05:43Z",
+  "created_by": "Mark Atwood",
+  "description": "relay_queue.rs seeds the LazyLock<AtomicU64> counter from SystemTime epoch nanoseconds, so IDs are globally unique across restarts and sort chronologically. queue.rs uses a plain AtomicU64 starting at 0, so IDs restart from zero on every process restart and can collide with IDs from a previous run if the queue directory is not empty. Both modules call their function unique_id(). The inconsistency is a latent correctness bug: if the NNTP queue ever needs replay-safe IDs (e.g. for crash recovery), the zero-based counter will produce collisions. Fix: use the same epoch-seeded LazyLock pattern in queue.rs, or extract a shared unique_id() to a common module.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.87",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "smtp: unique_id() inconsistency between relay_queue and queue",
+  "updated_at": "2026-05-03T13:05:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "28be1955-12fb-514e-822a-5d532df1040e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "stoa-a1025827",
+  "title": "smtp: EHLO domain CRLF injection into Received header",
+  "description": "The EHLO domain from the client is embedded directly into the Received: header without stripping CR/LF characters. An attacker can inject arbitrary headers or corrupt the message structure by sending a CRLF-containing EHLO argument.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T23:46:43Z",
+  "updated_at": "2026-05-01T04:51:57Z",
+  "closed_at": "2026-04-24T23:49:42Z"
+}

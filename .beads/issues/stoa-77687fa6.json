@@ -1,0 +1,20 @@
+{
+  "id": "stoa-77687fa6",
+  "title": "Fail2ban: structured auth_failure log fields in NNTP and JMAP handlers",
+  "description": "Add event=auth_failure, remote_ip, username, reason fields to every authentication failure log event in NNTP AUTHINFO handler and JMAP auth middleware. Field names must be stable across releases (document as stable interface). No password or token content in any field. Blocked on: stoa-584fdb58.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:42:56Z",
+  "updated_at": "2026-05-01T04:56:48Z",
+  "closed_at": "2026-04-27T19:55:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-584fdb58",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:44:31"
+    }
+  ]
+}

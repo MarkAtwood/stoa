@@ -1,0 +1,19 @@
+{
+  "id": "stoa-ad9e47ae",
+  "title": "R2: no new issues",
+  "description": "Round 2 review found no new issues after round 1 fixes. \n\nVerified:\n- PKCS8/SubjectPublicKeyInfo openssl extraction commands are correct (verified with live OpenSSL 3.x)\n- extract_message_id consolidation correctly removes duplication\n- Both call sites (queue.rs line 228 and relay_queue.rs line 310) use the function correctly\n- Security guidance in dkim.md is complete (secretx:// injection, Debug redaction noted)\n- Test oracles are independent (RFC 8463 test vectors, not self-referential)\n- No regressions or new defects introduced",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:30:53Z",
+  "updated_at": "2026-05-01T05:00:43Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e1766e47",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:30:53"
+    }
+  ]
+}

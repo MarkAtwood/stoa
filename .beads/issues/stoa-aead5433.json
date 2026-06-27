@@ -1,0 +1,20 @@
+{
+  "id": "stoa-aead5433",
+  "title": "Config reload: SIGHUP handler and config re-read with diff",
+  "description": "Install tokio::signal SIGHUP handler. On signal: re-read config file from original --config path, compute diff of reloadable fields. If parse error, log and keep current config. Log each changed field at INFO (credential field values redacted). Blocked on: stoa-d99f02f9.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:39:51Z",
+  "updated_at": "2026-05-01T04:51:46Z",
+  "closed_at": "2026-04-28T08:36:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d99f02f9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:41:30"
+    }
+  ]
+}

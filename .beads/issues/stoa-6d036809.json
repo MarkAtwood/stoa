@@ -1,0 +1,13 @@
+{
+  "id": "stoa-6d036809",
+  "title": "Drop gossipsub and libp2p from transit",
+  "description": "The block store is now external (LMDB/Kubo), so the in-process libp2p swarm (gossipsub + Kademlia + yamux + noise) only served to propagate tip advertisements. With that function gone, libp2p is pure overhead and carries unpatched CVEs (GHSA-xqmp-fxgv-xvq5, GHSA-gc42-3jg7-rxr2, GHSA-vxx9-2994-q338). Remove the entire gossip module, xcid_client (client side only), all gossip wiring from main.rs, and the libp2p dep.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-25T03:41:36Z",
+  "updated_at": "2026-05-01T04:56:18Z",
+  "closed_at": "2026-04-25T03:52:07Z"
+}

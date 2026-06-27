@@ -1,0 +1,13 @@
+{
+  "id": "stoa-d79dca7a",
+  "title": "SMTP: RCPT TO address allows unescaped > injection",
+  "description": "smtp/src/relay.rs constructs RCPT TO commands by interpolating the recipient address without stripping or escaping '>'. An address containing '>' would terminate the SMTP argument early and allow injection of additional SMTP commands into the relay session. Fix: validate recipient addresses to RFC 5321 mailbox syntax before building the RCPT TO line, or at minimum reject any address containing '>'. This is a P2 because the relay only accepts addresses from operator-controlled Sieve rules, but defense-in-depth requires sanitization at the SMTP command boundary.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T14:38:47Z",
+  "updated_at": "2026-05-01T04:52:03Z",
+  "closed_at": "2026-04-27T15:05:17Z"
+}

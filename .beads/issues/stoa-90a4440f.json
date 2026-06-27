@@ -1,0 +1,26 @@
+{
+  "id": "stoa-90a4440f",
+  "title": "SQLite persistence: add [database] section to reader config",
+  "description": "Add [database] path and core_path fields to reader config. Replace make_pool_with_reader_migrations and make_pool_with_core_migrations in server_stores.rs with on-disk pool construction. [database] section is required; startup fails with clear error if absent. Enable WAL mode on both pools. Blocked on: stoa-1413739e.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:40:16Z",
+  "updated_at": "2026-05-01T04:54:16Z",
+  "closed_at": "2026-04-24T06:07:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1413739e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:41:32"
+    },
+    {
+      "depends_on_id": "stoa-818737e7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:00:10"
+    }
+  ]
+}

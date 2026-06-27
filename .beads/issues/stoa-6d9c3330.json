@@ -1,0 +1,33 @@
+{
+  "id": "stoa-6d9c3330",
+  "title": "pipeline: wire GroupFilter into PipelineCtx + run_pipeline() group loop",
+  "description": "## What\nWire GroupFilter into PipelineCtx and apply group filtering in run_pipeline() before appending to the group log; update transit/main.rs startup to build GroupFilter from config and pass to pipeline.\n\n## Algorithm\n1. In crates/transit/src/peering/pipeline.rs, add field to PipelineCtx: group_filter: Option<Arc<GroupFilter>>  (or borrow; check lifetime constraints)\n2. In run_pipeline(), in the group loop (currently lines ~390-426), add before GroupName::new(): if let Some(ref filter) = ctx.group_filter { if !filter.accepts(group_name_str) { tracing::debug!(group = %group_name_str, \"skipped: not matched by group filter\"); continue; } }\n3. In crates/transit/src/main.rs startup code: after Config::validate() succeeds, call GroupFilter::new(&config.groups.names).expect(\"config already validated\") to build filter; wrap in Arc; pass to PipelineCtx in all run_pipeline() call sites\n4. If config.groups.names is empty: GroupFilter::new would return Err \u2014 but Config::validate() already rejects empty names (so this expect is safe; add comment explaining why)\n5. Update any test helpers that construct PipelineCtx to pass group_filter: None (no filter = accept all groups, preserving existing test behavior)\n\n## Defensive programming rules\n- group_filter: None means accept all groups (backward-compatible default for tests)\n- Never panic in the hot path; the filter is pre-validated at startup\n- Log filtered groups at debug level only, never info (high volume)\n- If all groups of an article are filtered, the article's IPFS block is still stored \u2014 only log entries are skipped\n- No unwrap() in the pipeline code path; use expect() only where invariant is documented\n\n## Agent team\nStandard: Agent R (read pipeline.rs PipelineCtx + run_pipeline(), main.rs startup), Agent I (implement above algorithm), Agent V (cargo test --workspace + clippy)\n\n## Tests\nTests are in whss.7 (integration). whss.5 just needs cargo test --workspace to pass clean.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-26T23:24:54Z",
+  "updated_at": "2026-05-01T04:52:01Z",
+  "closed_at": "2026-04-27T00:13:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-2afba66a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 16:25:33"
+    },
+    {
+      "depends_on_id": "stoa-710b040f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 16:25:34"
+    },
+    {
+      "depends_on_id": "stoa-efbe068a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 16:24:54"
+    }
+  ]
+}

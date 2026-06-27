@@ -1,0 +1,13 @@
+{
+  "id": "stoa-dd3b1368",
+  "title": "Persistent operator signing key: keygen and storage",
+  "description": "Persist the operator signing key across restarts so article signatures remain verifiable.\n\nWhy this issue exists:\nThe signing key is currently regenerated on every startup, making all previously signed articles unverifiable after a restart. A stable key must be generated once, stored on disk, and loaded on subsequent starts.\n\nWhat needs to be done:\n- keygen subcommand for transit and reader (generates and saves a raw 32-byte ed25519 seed)\n- Unify key file format to raw 32 bytes across both daemons\n- Deterministic HLC node_id derived from signing key so it is also stable across restarts\n- Enforce signing_key_path on non-loopback bind (refuse to start without a key file)\n- RUNBOOK.md key generation and backup instructions",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T19:59:01Z",
+  "updated_at": "2026-05-01T04:52:11Z",
+  "closed_at": "2026-04-24T02:36:19Z"
+}

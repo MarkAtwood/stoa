@@ -1,0 +1,12 @@
+{
+  "id": "stoa-6effdffc",
+  "title": "sqlite_storage: cid_to_bytes trivial wrapper adds no value",
+  "description": "group_log/sqlite_storage.rs: cid_to_bytes is a one-line private fn wrapping cid.to_bytes(). Inline the call or add a doc comment if there is a specific encoding reason for the wrapper.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:25:38Z",
+  "updated_at": "2026-05-01T05:00:32Z",
+  "closed_at": "2026-04-28T21:56:09Z"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "stoa-13919a17",
+  "title": "transit: gossipsub sender_peer_id not verified against transport identity",
+  "description": "When a tip advertisement arrives via gossipsub, the sender_peer_id field in the message is taken at face value without verifying it against the libp2p transport-layer peer identity. A peer can forge any sender_peer_id to inject tip advertisements attributed to other peers.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T23:45:46Z",
+  "updated_at": "2026-05-01T04:53:50Z",
+  "closed_at": "2026-04-25T01:17:44Z"
+}

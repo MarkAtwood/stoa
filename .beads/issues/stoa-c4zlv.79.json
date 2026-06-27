@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T18:22:05Z",
+  "compaction_level": 0,
+  "content_hash": "e0b52f73ab8ba2b1f017867a0602f938bedf831eae04d027dcc843e655078758",
+  "created_at": "2026-05-01T15:21:33Z",
+  "created_by": "Mark Atwood",
+  "description": "Scenario: async task holding the auth_failure_tracker std::sync::Mutex panics (e.g. due to an unexpected None unwrap in record_failure). std::sync::Mutex becomes poisoned; all subsequent .lock() calls return Err and are silently ignored via .unwrap_or(false) in lifecycle.rs. After a single task panic, auth failure tracking stops entirely \u2014 the lockout mechanism is silently disabled for all future sessions. Use tokio::sync::Mutex to eliminate poison semantics in async code, or convert the tracked-set eviction to not require a guard across an await point.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.79",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "std::sync::Mutex used for auth_failure_tracker in async context \u2014 poison risk",
+  "updated_at": "2026-05-01T18:22:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:21:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "4a6435eb-f3f7-5909-acce-e12aeb1e003b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

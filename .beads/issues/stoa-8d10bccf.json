@@ -1,0 +1,20 @@
+{
+  "id": "stoa-8d10bccf",
+  "title": "two drain tasks in transit main.rs share identical 80-line pipeline body",
+  "description": "transit/src/main.rs has two nearly-identical closures (ingestion_handle ~lines 728-811, staging_drain_opt ~lines 847-951): both call run_pipeline, both notify IPNS, both execute the same remote_pin_jobs INSERT OR IGNORE SQL. Every new post-ingestion step must be added twice. The two have already diverged in subtle ways. Maintenance consequence: pipeline enhancement requires two parallel edits that will drift.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:10:14Z",
+  "updated_at": "2026-05-01T04:53:45Z",
+  "closed_at": "2026-04-27T03:01:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:10:14"
+    }
+  ]
+}

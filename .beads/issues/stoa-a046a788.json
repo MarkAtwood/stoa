@@ -1,0 +1,12 @@
+{
+  "id": "stoa-a046a788",
+  "title": "core: check_key_file_permissions only rejects world-readable, not group-readable",
+  "description": "check_key_file_permissions checks mode & 0o004 (world read) but not mode & 0o040 (group read). A key file with permissions 0o640 passes the check but is readable by any process in the same Unix group.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T23:46:10Z",
+  "updated_at": "2026-05-01T04:59:03Z",
+  "closed_at": "2026-04-25T00:03:14Z"
+}

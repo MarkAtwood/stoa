@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "d052f100e7fe6900688a35c81851247b7fb20cdb3704c077dd54bbc865be14c2",
+  "created_at": "2026-05-03T13:05:58Z",
+  "created_by": "Mark Atwood",
+  "description": "util.rs split_headers_body() scans bytes with a manual loop testing starts_with at each byte position. For large articles the inner loop runs len(article) times. The existing codebase already uses memchr::memmem::Finder (in mime_parser.rs). Using Finder::new(b\"\\r\\n\\r\\n\").find() would reduce the search to a SIMD-accelerated single pass.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.97",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "core: split_headers_body uses O(n) byte-by-byte loop; memchr would be faster",
+  "updated_at": "2026-05-03T13:05:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "069ddd15-86a3-5ae5-b113-20f69dd19482",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

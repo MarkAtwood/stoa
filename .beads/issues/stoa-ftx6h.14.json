@@ -1,0 +1,33 @@
+{
+  "close_reason": "External oracle test added: Python cryptography generates sig, Rust verify_x_sig verifies it. extract_sig_header excision confirmed correct against independent vector.",
+  "closed_at": "2026-05-03T13:57:20Z",
+  "compaction_level": 0,
+  "content_hash": "c29915c1579d67baf2b31d77cb7c499178a8dae08da9ca212ea97f29cfadf3cb",
+  "created_at": "2026-05-03T13:02:11Z",
+  "created_by": "Mark Atwood",
+  "description": "In x_sig.rs::sign_article (test helper), the signature is computed over the original article_bytes (before the sig header is inserted). In verify_x_sig, verification uses article_without_sig (bytes with the sig header excised). These are the same only if the sig header is appended in the exact location that extract_sig_header later excises. However sign_article inserts the sig header immediately before the final CRLF separator, while extract_sig_header removes the header line using byte offsets in the UTF-8 header section. If a signed article is modified (e.g. extra whitespace) or if sign_article's insert_at offset does not match extract_sig_header's excise range exactly, verification will fail. The test oracle (sign then verify) is not an independent oracle \u2014 it can mask off-by-one bugs in the round-trip. There are no test vectors from an external signing tool (openssl, python-cryptography).",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "verify: X-Stoa-Sig signs article-without-sig-header but sign_article signs original bytes",
+  "updated_at": "2026-05-03T13:57:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:02:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "9387b1f6-6703-5157-8a86-ee165621f41b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

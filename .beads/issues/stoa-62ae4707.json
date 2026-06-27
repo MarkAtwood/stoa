@@ -1,0 +1,21 @@
+{
+  "id": "stoa-62ae4707",
+  "title": "UnsupportedMethod misused for wrong multicodec",
+  "description": "In parse_did_key step 4, a non-Ed25519 multicodec prefix (e.g. P-256 did:key) returns DidSigError::UnsupportedMethod with a message about 'multicodec prefix mismatch'. But did:key is a supported method -- the issue is the key type within that method. This conflates two distinct failure modes in one variant. The variant should be renamed UnsupportedKeyType, or the mismatch should be InvalidKeyEncoding, so callers can distinguish 'wrong DID method entirely' from 'right method, unsupported key algorithm'. As a side effect, DidSigError::VerificationFailed is unreachable from verify_did_sig (it always returns Ok(false) on failure) -- either promote it to Err or delete the variant.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T04:59:35Z",
+  "updated_at": "2026-05-01T04:56:13Z",
+  "closed_at": "2026-04-23T07:06:16Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-062e13cb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:59:34"
+    }
+  ]
+}

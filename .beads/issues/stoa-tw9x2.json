@@ -1,0 +1,23 @@
+{
+  "close_reason": "all steps complete",
+  "closed_at": "2026-05-02T22:21:48Z",
+  "compaction_level": 0,
+  "content_hash": "02c51377ed40b599c00554ceac9c47eaabceb9ab910e8b6d6705e15e63fbf682",
+  "created_at": "2026-05-02T22:02:25Z",
+  "created_by": "Mark Atwood",
+  "description": "Third pass review of stoa-2xeks after fixes from iteration 2.",
+  "ephemeral": 0,
+  "id": "stoa-tw9x2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Review iteration 3: MTA-STS/REQUIRETLS/STARTTLS",
+  "updated_at": "2026-06-26T20:26:38Z"
+}

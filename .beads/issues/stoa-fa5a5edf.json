@@ -1,0 +1,27 @@
+{
+  "id": "stoa-fa5a5edf",
+  "title": "Wire IpnsPublisher into main.rs drain task",
+  "description": "In main.rs: 1. If config.ipns.enabled, create mpsc::channel::<IpnsEvent>(256). 2. Extract ipfs_for_ipns = rust_store.ipfs_handle() before boxing. 3. Spawn tokio task: IpnsPublisher::new(ipfs_for_ipns).run(ipns_rx). 4. In drain task Ok arm: after pinning events, if ipns enabled, for each group in result.groups, send IpnsEvent {group, cid: result.cid} to ipns_tx. Use try_send, log warn on channel full. 5. If config.ipns.disabled, do not allocate channel or spawn task. Thread ipns_tx: Option<mpsc::Sender<IpnsEvent>> through the drain task closure. Why: hooks IPNS publishing to the article ingestion lifecycle.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T06:28:14Z",
+  "updated_at": "2026-05-01T04:56:20Z",
+  "closed_at": "2026-04-23T06:36:47Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-74573660",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 23:28:13"
+    },
+    {
+      "depends_on_id": "stoa-fbd3e97c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 23:28:35"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-ab337112",
+  "title": "Add rust-toolchain.toml pinning stable toolchain channel",
+  "description": "Create rust-toolchain.toml at workspace root specifying channel=stable and components=[rustfmt, clippy]. This ensures all contributors and CI use the same toolchain version. Artifact: rust-toolchain.toml.\n\nAcceptance: `rustup show` respects the file; CI workflow picks it up automatically",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:44:06Z",
+  "updated_at": "2026-05-01T04:54:59Z",
+  "closed_at": "2026-04-20T06:00:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-f9590951",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:44:06"
+    }
+  ]
+}

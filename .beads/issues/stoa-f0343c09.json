@@ -1,0 +1,27 @@
+{
+  "id": "stoa-f0343c09",
+  "title": "Fault injection: IPFS unavailable during ingestion",
+  "description": "Write an integration test that starts the transit store-and-forward pipeline with an IPFS mock that fails every write with IpfsNotReachable. Assert: (1) IHAVE returns a transient error code (400-series), not 200; (2) no article is added to the log; (3) no panic; (4) when IPFS is restored (mock re-enabled), subsequent IHAVE succeeds. Artifact: transit/tests/fault_ipfs_unavailable.rs.\n\nAcceptance criteria:\n- All four assertions pass\n- Test is deterministic\n- Test completes in under 10 seconds",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:48:28Z",
+  "updated_at": "2026-05-01T04:57:54Z",
+  "closed_at": "2026-04-20T05:25:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-a1bf40fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:54:21"
+    },
+    {
+      "depends_on_id": "stoa-d42769ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:48:28"
+    }
+  ]
+}

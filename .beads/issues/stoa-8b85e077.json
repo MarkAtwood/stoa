@@ -1,0 +1,21 @@
+{
+  "id": "stoa-8b85e077",
+  "title": "DECISION: signing key file readable check at startup not request time",
+  "description": "config.rs validate() calls std::fs::metadata() on operator.signing_key_path if it is set, and the comment explains the intent: 'Better to catch this at startup than discover it when an article arrives.' A missing or unreadable signing key at article time causes silent article loss (pipeline error) rather than a clear startup failure. Checking at startup converts a runtime failure-mode into a configuration error caught before any traffic is processed.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:32:22Z",
+  "updated_at": "2026-05-01T05:00:07Z",
+  "closed_at": "2026-04-27T16:38:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:32:21"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "2f71d8384d19ecf32842da639e31a8b9d3c625948eb4a017a4e83275cdfad7d3",
+  "created_at": "2026-05-03T13:04:52Z",
+  "created_by": "Mark Atwood",
+  "description": "server.rs uses a Semaphore to cap total concurrent connections but has no per-source-IP rate limiting. A remote host can open MAX_CONNECTIONS simultaneous connections or rapidly cycle connections to exhaust the semaphore and deny service to other senders. RFC 5321 \u00a74.5.3.2 recommends rate controls. Without per-IP rate limiting, a single malicious peer can prevent all other inbound delivery. Fix: add a per-IP token bucket or sliding-window counter before accepting the connection.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.56",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "smtp: no inbound connection rate limiting on port 25",
+  "updated_at": "2026-05-03T13:04:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:04:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "686c9f7e-9ecc-5f5e-9867-615d429986be",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

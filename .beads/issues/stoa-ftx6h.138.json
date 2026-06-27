@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "861aae008613c1d555d30b7cf4060da01207b0e502c0d9c682cb99653bd897b1",
+  "created_at": "2026-05-03T13:07:07Z",
+  "created_by": "Mark Atwood",
+  "description": "CredentialStore::check always calls bcrypt::verify even for unknown users, using a precomputed dummy_hash at the same cost factor as the production hashes. The cost is extracted dynamically (make_dummy_hash reads from the entries map), so it automatically tracks production cost as operators rotate bcrypt cost factors. The integration test 'unknown_user_check_takes_bcrypt_time_not_microseconds' validates this timing property. This is a correct and well-implemented defense against username enumeration via timing.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.138",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "good: auth CredentialStore timing-equalization uses precomputed dummy hash at same cost",
+  "updated_at": "2026-05-03T13:07:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:07:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "94406b6e-736d-50f6-9148-a8e20ca2e092",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

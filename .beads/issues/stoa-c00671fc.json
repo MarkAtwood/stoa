@@ -1,0 +1,20 @@
+{
+  "id": "stoa-c00671fc",
+  "title": "POST pipeline stages are clearly separated with explicit error boundaries",
+  "description": "reader/post/pipeline.rs and lifecycle.rs: each POST pipeline stage (validate \u2192 sign \u2192 write-to-IPFS \u2192 assign-article-number \u2192 append-log \u2192 index-overview) is a distinct async function. Failure at any stage short-circuits the rest with a structured error. A contributor might want to merge stages for 'efficiency' \u2014 resist this. The separation means IPFS writes only happen after validation, article numbers only assigned after IPFS commit, and overview index only written after log append. Inlining the stages would obscure the invariants.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T16:57:10Z",
+  "updated_at": "2026-05-01T04:55:30Z",
+  "closed_at": "2026-04-22T23:11:28Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-33df35ca",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 09:57:10"
+    }
+  ]
+}

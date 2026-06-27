@@ -1,0 +1,19 @@
+{
+  "id": "stoa-c92240fc",
+  "title": "SearchSnippet/get loads all articles from all groups into memory",
+  "description": "server.rs SearchSnippet/get arm calls list_all_articles() which returns every (group, article_num, cid) tuple in the entire database into a HashMap in memory. This is done for every SearchSnippet/get call. At scale (millions of articles) this is a very large allocation. Fix: look up the group+num for only the emailIds in the request rather than loading the entire corpus.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:39:57Z",
+  "updated_at": "2026-05-01T04:55:08Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:39:57"
+    }
+  ]
+}

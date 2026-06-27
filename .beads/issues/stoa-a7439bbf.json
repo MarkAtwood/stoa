@@ -1,0 +1,20 @@
+{
+  "id": "stoa-a7439bbf",
+  "title": "SEC1: starttls_requested bool signal is fragile across function boundary",
+  "description": "In lifecycle.rs, run_command_loop signals STARTTLS upgrade intent to its caller (run_plain_session) by setting ctx.starttls_requested = true immediately before returning. The caller checks this flag after the loop. This is an implicit side-channel: the flag is meaningful only when the loop returned due to STARTTLS. The return type is () so callers cannot match exhaustively on exit reason. Any future contributor adding a new early-return path must know to leave starttls_requested = false, or trace back to the caller. Suggested fix: change the return type to a CommandLoopExit enum (Quit, Eof, Error, StartTls, Timeout) so the caller match-exhaustively handles all exit reasons without relying on a side-channel flag.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T23:44:39Z",
+  "updated_at": "2026-05-01T04:54:00Z",
+  "closed_at": "2026-04-24T00:00:30Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4206df49",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 16:44:39"
+    }
+  ]
+}

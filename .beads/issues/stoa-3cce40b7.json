@@ -1,0 +1,33 @@
+{
+  "id": "stoa-3cce40b7",
+  "title": "f120.7: wire SmtpRelayQueue into JMAP Email/set create handler",
+  "description": "Wire the SmtpRelayQueue into the JMAP Email/set create handler so articles are relayed to SMTP peers after being written to IPFS.\n\n**What:** After handle_email_create writes article to IPFS, if smtp_relay_queue is Some and article has To:/Cc: recipients, enqueue the article for SMTP relay delivery.\n\n**Algorithm:**\n1. Read crates/mail/src/email/set.rs fully, specifically handle_email_create (lines ~117-203)\n2. Read crates/mail/src/config.rs to understand DeliveryConfig reference in AppState\n3. Extend handle_email_create signature: add smtp_queue: Option<&Arc<SmtpRelayQueue>> parameter\n4. After write_article_to_ipfs() succeeds (around line 201):\n   a. Extract To: and Cc: header values from the article (parse RFC 5322 addresses from to/cc fields if present in the JMAP create_map)\n   b. If rcpt_list is non-empty and smtp_queue is Some:\n      - Extract MAIL FROM from from_email (the From: header value already parsed on line ~189)\n      - Call smtp_queue.enqueue(article.as_bytes(), &mail_from, &rcpt_list).await\n      - On Err: tracing::warn!(creation_id=%id, 'smtp relay enqueue failed: {e}') \u2014 non-fatal, do NOT fail the JMAP response\n5. Update all callers of handle_email_create to pass smtp_queue from AppState (or None if not configured)\n6. Add smtp_relay_queue: Option<Arc<SmtpRelayQueue>> field to AppState or wherever the JMAP handler is initialized\n7. Initialize SmtpRelayQueue in server startup if delivery.smtp_relay_peers is non-empty\n\n**Defensive programming rules:**\n- SMTP enqueue failure MUST NOT cause handle_email_create to return an error \u2014 it is fire-and-forget\n- Never log To: or Cc: addresses at warn/error level (privacy)\n- If smtp_relay_peers is empty, skip silently (no log)\n- MAIL FROM: use the first address from the From: field, not raw header string\n\n**Tests:**\n- Test: handle_email_create with smtp_queue=None does not attempt delivery (oracle: no files in temp queue_dir)\n- Test: handle_email_create with smtp_queue=Some and article with To: header \u2014 queue_dir gets .env file after call (oracle: file system check)\n- Test: handle_email_create with smtp_queue=Some but IPFS write fails \u2014 no enqueue (oracle: file system empty)\n- Test: handle_email_create with smtp_queue=Some but article has no To: or Cc: \u2014 no enqueue (oracle: file system empty)\n\n**Acceptance:**\n- cargo test -p usenet-ipfs-mail passes\n- cargo test -p usenet-ipfs-smtp passes\n- cargo clippy --workspace -- -D warnings passes\n- Integration: Email/set create with To: recipient enqueues article in relay queue",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T18:31:47Z",
+  "updated_at": "2026-05-01T04:56:36Z",
+  "closed_at": "2026-04-23T19:06:56Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-45ac2399",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 11:32:48"
+    },
+    {
+      "depends_on_id": "stoa-a9a4ad6f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 11:32:49"
+    },
+    {
+      "depends_on_id": "stoa-d8edbbe6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 11:31:47"
+    }
+  ]
+}

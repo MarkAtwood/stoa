@@ -1,0 +1,19 @@
+{
+  "id": "stoa-2e99e99a",
+  "title": "block_cache evict_for: O(N) count+sum query per eviction iteration \u2014 quadratic for full caches",
+  "description": "block_cache.rs evict_for(): the loop re-runs 'SELECT COUNT(*), SUM(byte_size)' on every iteration. For a cache at max_entries with many blocks to evict, this is O(k) full-table scans where k is the number of entries evicted. With SQLite and 1M entries the query itself is fast, but it is unnecessary \u2014 the caller already knows incoming_bytes and can track a running total locally after reading the initial count+sum once, subtracting each evicted entry's byte_size as it goes.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:44:36Z",
+  "updated_at": "2026-05-01T04:58:16Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:44:35"
+    }
+  ]
+}

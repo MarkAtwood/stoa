@@ -1,0 +1,19 @@
+{
+  "id": "stoa-8fc2026c",
+  "title": "SEC6: Atomic file write order for crash-safe queue operations",
+  "description": "relay_queue.rs enqueue (lines 152-201) writes .msg then .env with explicit comment (lines 157-167) documenting crash scenarios. Reverse order (.env first) would orphan .env files without .msg after crash. This pattern is correct, documented, and defensible against future contributors suggesting 'simplification' by reordering.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:22:24Z",
+  "updated_at": "2026-05-01T04:55:20Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0b13a613",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:22:24"
+    }
+  ]
+}

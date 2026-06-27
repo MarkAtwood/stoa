@@ -1,0 +1,20 @@
+{
+  "id": "stoa-a37ab724",
+  "title": "pipeline writes article to IPFS before msgid dedup check \u2014 duplicate article gets stored",
+  "description": "In run_pipeline (pipeline.rs), step 1 calls ipfs.put_raw() BEFORE step 2 calls msgid_map.insert(). There is a race: two concurrent pipeline invocations for the same article (e.g. from two simultaneous peering sessions that both passed check_ingest before either stored) will both write to IPFS and both call msgid_map.insert(). The second msgid_map.insert() will hit ON CONFLICT DO NOTHING and silently succeed, leaving a duplicate IPFS block orphaned with no articles-table row. The pipeline IPFS write should not happen before the msgid uniqueness is ensured.",
+  "status": "in_progress",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:37:26Z",
+  "updated_at": "2026-05-01T04:56:45Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:37:25"
+    }
+  ]
+}

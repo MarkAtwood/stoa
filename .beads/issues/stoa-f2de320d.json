@@ -1,0 +1,33 @@
+{
+  "id": "stoa-f2de320d",
+  "title": "imap: STORE command handler (flag manipulation)",
+  "description": "Create crates/imap/src/commands/store.rs. STORE changes flags for a sequence set. Algorithm: (1) require Selected state; (2) reject if readonly (EXAMINE) -> tagged NO [CANNOT]; (3) resolve sequence set to CIDs; (4) for each CID: (a) get current flags from imap_flags; (b) apply StoreType: FLAGS (replace), +FLAGS (add), -FLAGS (remove); (c) update imap_flags table; (d) unless SILENT modifier: send * N FETCH (FLAGS (new_flag_list)); (5) tagged OK. Supported flags: Answered Flagged Deleted Seen Draft and user keywords (max 100, max 64 chars each). Defensive: unknown flag atom -> bad; SQL error -> tagged NO; readonly -> NO [CANNOT].",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T07:18:10Z",
+  "updated_at": "2026-05-01T04:56:34Z",
+  "closed_at": "2026-04-23T07:51:07Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-190004c4",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:21:24"
+    },
+    {
+      "depends_on_id": "stoa-3741bca1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:18:10"
+    },
+    {
+      "depends_on_id": "stoa-394b1635",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:21:23"
+    }
+  ]
+}

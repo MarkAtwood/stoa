@@ -1,0 +1,20 @@
+{
+  "id": "stoa-043e3d17",
+  "title": "metrics: lazy_static! in mail crate vs LazyLock in smtp crate",
+  "description": "Why this issue exists: mail/metrics.rs uses lazy_static! while smtp/metrics.rs uses std::sync::LazyLock (stable since Rust 1.80). The mail crate carries an unnecessary dependency for functionality now in std.\n\nWhat needs to be done: Migrate mail/metrics.rs from lazy_static! to std::sync::LazyLock.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:29:11Z",
+  "updated_at": "2026-05-01T04:54:09Z",
+  "closed_at": "2026-04-28T21:20:31Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:29:11"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-a8f729c4",
+  "title": "from_content_returns_err_for_empty_username lacks message content assertion",
+  "description": "store.rs:from_content_returns_err_for_empty_username checks matches!(err, CredentialStoreError::EmptyUsername{..}) but never asserts on err.to_string() content. The parallel test for MalformedLine does assert the message. Inconsistent pattern \u2014 a future contributor changing the Display format for EmptyUsername won't get a failing test, breaking the contract that error messages are tested.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T20:31:47Z",
+  "updated_at": "2026-05-01T04:51:25Z",
+  "closed_at": "2026-04-30T20:35:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-44ba837b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:31:46"
+    }
+  ]
+}

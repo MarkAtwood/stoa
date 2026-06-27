@@ -1,0 +1,13 @@
+{
+  "id": "stoa-14057691",
+  "title": "Review round 1: n1z4 JMAP multi-user INBOX",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:58:52Z",
+  "updated_at": "2026-05-01T04:59:37Z",
+  "closed_at": "2026-04-30T05:29:50Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 Three real issues found. (1) Silent mail loss: fallback smtp store deliver errors swallowed with .ok() and no log in two places in session.rs. (2) Performance: list_user_mailboxes called once per Email/query and once per Mailbox/get with no caching \u2014 O(requests) DB queries. (3) Architecture gap: smtp:{row_id} ID scheme documented only in a single doc comment; no module-level explanation of the two ID spaces and their lifecycle guarantees. The smtp<->JMAP bridge config (mail_db_path) is documented in config.rs with a clear doc comment. MailboxRights per-role constructors are explicit and maintainable. provision_user_mailboxes failure is logged as warn before proceeding \u2014 acceptable. Overall complexity is manageable for a solo maintainer with the above fixes applied."
+}

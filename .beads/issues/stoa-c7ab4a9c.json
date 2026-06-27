@@ -1,0 +1,19 @@
+{
+  "id": "stoa-c7ab4a9c",
+  "title": "NntpQueue drain_once: DKIM sign path allocates injected+DKIM bytes separately from inject_source_header",
+  "description": "In queue.rs drain_once, the code calls inject_source_header() which allocates a Vec, then if a DKIM signer exists it allocates another Vec (signed) with header prepended. So the happy path for DKIM does two full allocations and two copies of the article body. SmtpRelayQueue does the same thing. Suggested rewrite: pre-size the final buffer to header_estimate + inject_header_len + article_len in inject_source_header if a signer is known, or accept &mut Vec from the caller. Minor but consistent with the codebase's care about allocation (use Vec::with_capacity throughout).",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:38:57Z",
+  "updated_at": "2026-05-01T05:00:22Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d94f2708",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:38:57"
+    }
+  ]
+}

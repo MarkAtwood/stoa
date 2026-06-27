@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T00:32:18Z",
+  "compaction_level": 0,
+  "content_hash": "1d231ce5c04c45813c0bfdb8eefa02ac7fbb87ae20e2fc00f3952ed5e1f9476b",
+  "created_at": "2026-05-03T00:12:39Z",
+  "created_by": "Mark Atwood",
+  "description": "relay_client.rs calls stoa_core::util::nntp_dot_stuff to dot-stuff the SMTP DATA body. RFC 5321 \u00a74.5.2 and RFC 3977 both specify the same dot-stuffing algorithm, so the reuse is correct. But without a comment, a reader who sees nntp_dot_stuff in an SMTP file will wonder if this is a mistake. The call site comment should say: RFC 5321 \u00a74.5.2 specifies the same dot-stuffing as NNTP (RFC 3977 \u00a73.1.1.1); the shared function is correct.",
+  "ephemeral": 0,
+  "id": "stoa-3xdjv.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "nntp_dot_stuff used in SMTP path without bridging comment",
+  "updated_at": "2026-05-03T00:32:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T17:12:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-3xdjv",
+      "id": "42052816-ee93-585a-92e8-7625c7d85774",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

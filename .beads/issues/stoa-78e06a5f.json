@@ -1,0 +1,20 @@
+{
+  "id": "stoa-78e06a5f",
+  "title": "resolve_secret_or_literal duplicated in transit and reader s3_store \u2014 bug fixes need two edits",
+  "description": "Scenario: a bug is found in resolve_secret_or_literal (e.g. Windows CRLF handling, secretx error message leaking a secret path, or trim_end_matches needing to be trim). The fix must be applied in both crates/transit/src/peering/s3_store.rs and crates/reader/src/post/s3_store.rs. The maintenance consequence: every future fix or enhancement to secret resolution is a two-file edit. Fix: extract resolve_secret_or_literal into stoa-core (or a shared stoa-util crate) and import from there.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T02:12:08Z",
+  "updated_at": "2026-05-01T04:53:24Z",
+  "closed_at": "2026-04-28T02:14:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5cb0829f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 19:12:08"
+    }
+  ]
+}

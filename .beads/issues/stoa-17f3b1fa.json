@@ -1,0 +1,13 @@
+{
+  "id": "stoa-17f3b1fa",
+  "title": "lmdb: path stuck in OPEN_PATHS after failed env open",
+  "description": "## Bug\n\nIn LmdbBlockDb::open(), the canonicalized path is inserted into OPEN_PATHS before EnvOpenOptions::new().open() is called. If the open (or subsequent write_txn/create_database/commit) fails, the function returns Err via ?, but the path is not removed from OPEN_PATHS. The Drop impl only runs when LmdbBlockDb is successfully constructed.\n\nResult: after any failure in the open() method between the OPEN_PATHS insert and the Ok(Self{...}) return, the path is permanently locked in OPEN_PATHS. The process cannot retry opening the same LMDB environment without restarting.\n\n## Fix\n\nUse a cleanup guard (a struct that removes the path from OPEN_PATHS in its Drop), and defuse the guard only on successful construction.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T18:44:36Z",
+  "updated_at": "2026-05-01T04:53:27Z",
+  "closed_at": "2026-04-27T18:45:40Z"
+}

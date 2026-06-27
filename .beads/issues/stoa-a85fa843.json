@@ -1,0 +1,21 @@
+{
+  "id": "stoa-a85fa843",
+  "title": "Article size limit bypass via CRLF reformatting in dot-unstuffing",
+  "description": "transit/peering/session.rs:257: read_dot_stuffed checks size as buf.len() + output_line.len(), where output_line is the trimmed line (stripped of \\r\\n). The check uses pre-reformat length. When the line is later re-added with \\r\\n appended via format!(), the actual stored bytes can exceed MAX_ARTICLE_BYTES by 2 per line (LF-only input gets \\r\\n). An article sent as MAX_ARTICLE_BYTES-1 bytes of LF-terminated lines can slip through the size check. Fix: measure output_line.len() after formatting (including the \\r\\n suffix) before adding to buf.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T16:55:42Z",
+  "updated_at": "2026-05-01T04:55:45Z",
+  "closed_at": "2026-04-21T17:15:30Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-33df35ca",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 09:55:42"
+    }
+  ]
+}

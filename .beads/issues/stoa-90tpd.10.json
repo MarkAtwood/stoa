@@ -1,0 +1,91 @@
+{
+  "acceptance_criteria": "cargo test -p stoa-integration-tests -- startup_guard passes; binary exits 1 with actionable message on dev-mode + non-loopback; binary succeeds on dev-mode + loopback",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T08:00:56Z",
+  "compaction_level": 0,
+  "content_hash": "ed1757d3db19319771f0618747c644b4ba9fc8a7d76cb271d315a4f4bf7e3ec5",
+  "created_at": "2026-05-04T06:33:33Z",
+  "created_by": "Mark Atwood",
+  "description": "## What\nIntegration tests that exercise the complete startup guard by spawning the actual stoa-reader binary and asserting process exit behavior based on config + listen address combinations.\n\n## Algorithm\n1. Find crates/integration-tests/ and review how existing integration tests spawn binaries. Read Cargo.toml for integration-tests.\n2. Create a new test file: crates/integration-tests/tests/startup_guard.rs (or add to existing config test file).\n3. Test cases using Command::new(env!('CARGO_BIN_EXE_stoa-reader')) or similar:\n   Case A: dev-mode config + loopback listen.addr \u2192 binary starts successfully (check_only mode if available, or detect successful bind + kill immediately).\n   Case B: dev-mode config + non-loopback listen.addr (0.0.0.0:PORT) \u2192 binary exits with status 1, stderr contains 'error: stoa-reader is configured in dev mode'.\n4. Use a temp dir for a minimal config file. The config must have no auth section (triggering is_dev_mode()) and a non-loopback addr for Case B.\n5. Oracle for expected behavior: the epic acceptance criteria + the guard condition (is_dev_mode() && !is_loopback). These are NOT derived from the implementation \u2014 they are derived from the epic spec.\n6. Assert: process exit code == 1 for Case B. Assert: stderr contains the error substring.\n7. cargo test -p stoa-integration-tests -- startup_guard must pass.\n\n## Defensive programming rules\n- Tests spawn real binaries; use a timeout (10 seconds) to prevent hanging if the guard is not triggered.\n- Bind to an OS-assigned port (port 0 or a test-specific port unlikely to conflict) for the loopback-success case.\n- Clean up tempfiles in test teardown.\n\n## Tests\n- startup_guard_dev_mode_nonloopback_exits_1 \u2014 Oracle: epic acceptance criteria ('Starting with auth.bypass=true in production mode fails with a fatal error at startup')\n- startup_guard_dev_mode_loopback_starts_ok \u2014 Oracle: epic acceptance criteria ('Starting with the same flag in development mode succeeds with a loud warning') \u2014 note: loopback is the dev context here",
+  "ephemeral": 0,
+  "id": "stoa-90tpd.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "E2E: dev-mode startup guard integration tests",
+  "updated_at": "2026-05-04T08:00:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T23:33:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-90tpd.7",
+      "id": "0f2ce018-b6b9-5063-a220-c3d5e15d728d",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-03T23:33:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-90tpd.5",
+      "id": "34e49976-1af7-5a3c-8857-ab8e9f554f11",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-03T23:33:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-90tpd.6",
+      "id": "49ed46f9-ec0f-5635-a4f1-b86fe7fe73d5",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-03T23:33:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-90tpd.4",
+      "id": "60fc4731-12c3-50ee-b8ee-c08ff4ccc13b",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-03T23:33:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-90tpd",
+      "id": "76702105-e208-5cc4-9270-2a7f866f92e1",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-03T23:33:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-90tpd.9",
+      "id": "b3290f4e-d740-5650-bd01-82d6b31360aa",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-03T23:33:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-90tpd.3",
+      "id": "b552b381-b8ba-5d0f-ad03-e42ed5c1dc7e",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-03T23:33:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-90tpd.8",
+      "id": "d90670ee-1406-5e53-8f10-fe856a8f50cc",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

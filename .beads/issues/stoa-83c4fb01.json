@@ -1,0 +1,13 @@
+{
+  "id": "stoa-83c4fb01",
+  "title": "SMTP: no mail loop detection (missing Received: hop count check)",
+  "description": "smtp/src/relay.rs and the inbound SMTP handler do not count Received: headers to detect mail loops. A looping message can circulate indefinitely, consuming CPU and storage. Fix: before accepting a message for relay or local delivery, count Received: headers; reject with 554 if count >= 25 (RFC 5321 \u00a76.3 recommended limit).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T14:38:56Z",
+  "updated_at": "2026-05-01T05:00:41Z",
+  "closed_at": "2026-04-27T15:05:18Z"
+}

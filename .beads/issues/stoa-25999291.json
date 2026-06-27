@@ -1,0 +1,27 @@
+{
+  "id": "stoa-25999291",
+  "title": "Tests: provenance routing \u2014 group log presence by source",
+  "description": "Test suite verifying the group log branching logic with all four injection sources.\n\nWhat: crates/reader/tests/injection_provenance_tests.rs\n\nOracle: directly query group_log and article_numbers SQLite tables after ingest; expected presence/absence derived from the is_peerable() spec, not from the code under test.\n\nTests:\n1. nntp_post_writes_group_log: inject article with NntpPost source; assert group log has one entry for this article CID.\n2. smtp_newsgroups_writes_group_log: SmtpNewsgroups source; assert group log entry present.\n3. smtp_sieve_writes_group_log: SmtpSieve source; assert group log entry present.\n4. smtp_listid_no_group_log: SmtpListId source; assert group log has zero entries for this CID.\n5. smtp_listid_readable_via_nntp: SmtpListId source; assert article appears in article_numbers and overview (reader can serve it).\n6. mixed_batch: inject one SmtpListId and one NntpPost; assert exactly one group log entry (the NntpPost); both appear in article_numbers.\n7. old_queue_file_defaults_to_sieve: deserialize NntpQueue envelope JSON with no injection_source field; assert it defaults to SmtpSieve and writes group log entry.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:58:31Z",
+  "updated_at": "2026-05-01T04:54:02Z",
+  "closed_at": "2026-04-24T00:48:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-46d6c408",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:58:30"
+    },
+    {
+      "depends_on_id": "stoa-deef2c6b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:58:49"
+    }
+  ]
+}

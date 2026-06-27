@@ -1,0 +1,20 @@
+{
+  "id": "stoa-85c6ba00",
+  "title": "parse_args: while let + args.next() should use for arg in &mut args",
+  "description": "smtp/main.rs, imap/main.rs, and mail/main.rs all use 'while let Some(arg) = args.next()' to iterate args. clippy::while_let_on_iterator flags this. The idiomatic form is 'for arg in args.by_ref()' (or 'for arg in &mut args'), which lets the loop body still call args.next() to consume the value argument after --config. The while let form works but misleads readers into thinking this is not a standard iteration.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:16:17Z",
+  "updated_at": "2026-05-01T04:55:16Z",
+  "closed_at": "2026-05-01T00:31:43Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5be7a2c5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:16:16"
+    }
+  ]
+}

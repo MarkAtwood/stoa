@@ -1,0 +1,14 @@
+{
+  "id": "stoa-ae1c536c",
+  "title": "Review round 1: full-text search epic (9tz)",
+  "description": "Review all code added in epic stoa-85f5ab08 (full-text search)",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T02:36:35Z",
+  "updated_at": "2026-05-01T04:54:22Z",
+  "closed_at": "2026-04-23T07:07:07Z",
+  "notes": "Confidence: 85% no missed critical bugs. P0=0 P1=3 P2=6 opinion=5. Running out of real complaints: yes"
+}

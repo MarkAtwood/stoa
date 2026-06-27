@@ -1,0 +1,12 @@
+{
+  "id": "stoa-5051c043",
+  "title": "staging: call reset_claims() at drain task startup",
+  "description": "At staging drain task startup in main.rs, pending_count() is logged but reset_claims() is never called. Any articles claimed by a prior crashed run remain claimed forever \u2014 they will never be re-drained, losing articles that arrived during the crash window. Fix: call staging.reset_claims().await before entering the drain loop.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T20:14:03Z",
+  "updated_at": "2026-05-01T04:53:55Z",
+  "closed_at": "2026-04-24T20:23:11Z"
+}

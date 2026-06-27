@@ -1,0 +1,13 @@
+{
+  "id": "stoa-b423778f",
+  "title": "Audit: GC executor TOCTOU between IPFS write and pin registration",
+  "description": "Static review did not trace whether GC can run between put_raw() in transit/peering/pipeline.rs:180 and the subsequent pin registration or group log append. If GC fires in that window, a just-written article could be collected before it is pinned, causing a dangling CID in the group log.\n\nStep 1 \u2014 Trace (read only, no code change):\nRead retention/gc_executor.rs and retention/pin_client.rs together. Identify what lock or transaction boundary (if any) prevents GC from collecting a CID that has been put_raw() but not yet appended to the group log.\n\nStep 2 \u2014 Outcome:\n- If a window exists: file a P0 bug with the exact code path, then write a test using a mock IPFS store that triggers GC mid-pipeline and asserts the article is not lost.\n- If no window exists: document the mechanism that prevents it (add a comment if it is non-obvious) and close this issue.\n\nDo not write code before completing Step 1.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T17:05:00Z",
+  "updated_at": "2026-05-01T04:59:04Z",
+  "closed_at": "2026-04-21T17:27:57Z"
+}

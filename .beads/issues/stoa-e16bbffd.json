@@ -1,0 +1,21 @@
+{
+  "id": "stoa-e16bbffd",
+  "title": "AUTH BYPASS: pre-dispatch match processes data commands without auth check",
+  "description": "In lifecycle.rs run_command_loop, the pre-dispatch match processes Article/Head/Body/Stat/Group/Over/Hdr/Search/Xcid/Xverify/Xget/List(Active)/StartTls/AuthinfoPass/AuthinfoSaslOauthbearer before dispatch() is called. None of these arms check ctx.state == SessionState::Authenticating. When auth.required=true a client in Authenticating state can issue GROUP, ARTICLE, OVER, SEARCH, etc. and receive real data, bypassing the auth gate enforced only inside dispatch(). Trigger: connect with auth.required=true; send GROUP comp.lang.rust before AUTHINFO. Expected: 480. Actual: 211 group selected response.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:36:01Z",
+  "updated_at": "2026-05-01T04:56:58Z",
+  "closed_at": "2026-05-01T04:46:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:36:01"
+    }
+  ]
+}

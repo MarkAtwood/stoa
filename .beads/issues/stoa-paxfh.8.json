@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T05:09:40Z",
+  "compaction_level": 0,
+  "content_hash": "8927a95463425501ac80daf909cd6cc4d7bfdff33dbe717befe4038cd5952c29",
+  "created_at": "2026-05-04T05:05:27Z",
+  "created_by": "Mark Atwood",
+  "description": "reindex.rs:131-148 \u2014 extract_message_id_bytes uses text.lines() which splits on bare \\n/\\r\\n and never joins RFC 5322 continuation lines (lines starting with SP/HTAB). An article with a folded Message-ID header (e.g. 'Message-ID:\\r\\n <id@example.com>\\r\\n') is accepted and stored by the live ingest path via extract_body_msgid (ingestion.rs:119), which correctly handles folding. During disaster-recovery reindex, the same article's Message-ID is not extracted \u2014 extract_message_id_bytes returns None \u2014 and the article is counted as skipped_not_article instead of being re-indexed. Result: after a reindex run, folded-Message-ID articles are invisible to msgid_map, breaking duplicate detection and group-log lookups for those articles.\n\nCorrect behavior: extract_message_id_bytes should handle RFC 5322 folding the same way extract_body_msgid does, or delegate to it directly.",
+  "ephemeral": 0,
+  "id": "stoa-paxfh.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "S0: reindex extract_message_id_bytes misses folded Message-ID",
+  "updated_at": "2026-05-04T05:09:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T22:05:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-paxfh",
+      "id": "e4c6a77c-5560-5de5-9223-8ff6a7808f5c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "stoa-5cde2362",
+  "title": "secretsx integration: replace signing key loading with SecretStore::from_uri",
+  "description": "Replace load_or_generate_signing_key in server_stores.rs and transit main with SecretStore::from_uri call. URI configured as [operator] signing_key_uri (e.g. secretsx://file//etc/usenet-ipfs/signing.key). Default to secretsx://file// path from existing signing_key_path. Blocked on: stoa-c0b7a31e.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:44:50Z",
+  "updated_at": "2026-05-01T04:51:27Z",
+  "closed_at": "2026-04-26T21:47:00Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-c0b7a31e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:47:43"
+    },
+    {
+      "depends_on_id": "stoa-f0b9ff15",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 13:46:50"
+    }
+  ]
+}

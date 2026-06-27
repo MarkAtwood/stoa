@@ -1,0 +1,13 @@
+{
+  "id": "stoa-436e4a3a",
+  "title": "Review: full project pre-merge deep review",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T15:38:24Z",
+  "updated_at": "2026-05-01T04:54:45Z",
+  "closed_at": "2026-04-22T18:57:01Z",
+  "notes": "Maintainer risk: HIGH \u2014 Two production-path hardcoded secrets (signing key, HLC node ID) make operator deployments indistinguishable and signing useless. The unbounded article read is a trivial DoS. These are not theoretical \u2014 they fire on first deployment.\nConfidence: 25% chance of a missed P1 bug. Uncertainty driven by: (a) transit main.rs gossip reconciliation path \u2014 the 'MUST call verify_entry()' TODO comment was not followed up to confirm whether backfill will eventually merge unverified entries; (b) mail/jmap crate got lighter treatment than core/reader/transit. Would raise confidence if: transit backfill fetch implementation is reviewed when it lands, and a JMAP conformance test is added."
+}

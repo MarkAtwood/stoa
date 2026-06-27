@@ -1,0 +1,13 @@
+{
+  "id": "stoa-e38f5cd8",
+  "title": "Review: full project code review",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T21:35:10Z",
+  "updated_at": "2026-05-01T04:54:34Z",
+  "closed_at": "2026-04-22T18:56:59Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 Two P1 security/DoS vectors (NUL in message-id, uncapped newsgroups) are in validation code that was presumably carefully reviewed. The articles-table GC hole is a real storage leak under failure conditions. The stale comment is a maintenance trap. P2 issues (wildmat, race) are bounded by current deployment scale but will hurt under adversarial clients. SMTP/sieve/mail crates appear clean \u2014 no P0/P1 bugs found after comprehensive read.\n\nMaintainer risk revised: MEDIUM-HIGH \u2014 Found 2 additional P1 bugs after deeper read: (1) blacklist system fully implemented but never integrated into accept path \u2014 blacklisted peers can still inject articles; (2) PeerRateLimiter dead code \u2014 per-connection limit only, parallel connections bypass global per-IP intent. Both are fully tested infrastructure that was built but not wired up. This is a category of bug that's hard to catch in review \u2014 the tests pass because the modules are correct in isolation.\n\nFinal confidence after reading ALL files: ~5% chance of missed bug. Coverage: read transit/main.rs accept_loop, transit/peering/peer_registry.rs (PeerRegistry instantiated only in cli/peers.rs display path, record_accepted/record_rejected never called from session), transit/gossip/swarm.rs (no bugs, best-effort channel acceptable). e4j.11 extended: not only is is_blacklisted never called, consecutive_failures also stays 0 because record_rejected is never called from session \u2014 blacklist would never auto-trigger even if check were wired in."
+}

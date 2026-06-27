@@ -1,0 +1,20 @@
+{
+  "id": "stoa-79ec5066",
+  "title": "LmdbBlockStore missing Debug derive",
+  "description": "In post/lmdb_store.rs, LmdbBlockStore has no #[derive(Debug)] and no manual Debug impl. RocksBlockStore has a manual impl; LmdbBlockStore should have the same for consistency.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:28:45Z",
+  "updated_at": "2026-05-01T04:54:08Z",
+  "closed_at": "2026-04-28T22:01:07Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:28:45"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "stoa-bcd3aa45",
+  "title": "PeerRateLimiter behind std Mutex \u2014 async tasks hold lock across await points implicitly",
+  "description": "session.rs: shared.peer_rate_limiter is Arc<std::sync::Mutex<PeerRateLimiter>>. Each TAKETHIS and IHAVE handler calls .lock().unwrap().check() \u2014 that specific call is non-async and releases the lock immediately, so no await-while-locked bug exists today. However PeeringShared is pub and any future maintainer adding an await between lock acquisition and release will cause a deadlock or panic. A tokio::sync::Mutex or a redesign to hold the lock for exactly one check per article should be documented with a DECISION comment.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:38:03Z",
+  "updated_at": "2026-05-01T04:52:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:38:03"
+    }
+  ]
+}

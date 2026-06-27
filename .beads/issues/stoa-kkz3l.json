@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "16c7e74606532919e35ad9ba3efab117cffd15b7b6d3e36e0c4d8dedf6a33fe5",
+  "created_at": "2026-05-03T13:08:35Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\nstore/overview.rs::OverviewStore consistently casts u64 article_number to i64 for SQLite storage (as i64) and back (as u64). If article_number exceeds i64::MAX (9223372036854775807), the cast silently wraps, corrupting the stored number. The same pattern appears in ArticleNumberStore.\\n\\nSQLite integers are signed 64-bit; sqlx requires i64 for binding. The cast is necessary but the overflow is unguarded.\\n\\n## Acceptance Criteria\\n\\nAdd an overflow check: if article_number > i64::MAX as u64, return an error rather than silently wrapping. In practice article numbers this large are impossible, but the check documents the assumption.",
+  "ephemeral": 0,
+  "id": "stoa-kkz3l",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Rust idiom: OverviewStore uses i64 cast for u64 article numbers without overflow check",
+  "updated_at": "2026-05-03T13:08:35Z"
+}

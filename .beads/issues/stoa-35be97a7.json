@@ -1,0 +1,21 @@
+{
+  "id": "stoa-35be97a7",
+  "title": "crates/sieve: skeleton + sieve-rs dependency",
+  "description": "Create crates/sieve/ as a lib crate wrapping sieve-rs 0.7. Add to workspace. Cargo.toml deps: sieve-rs 0.7, mail-parser 0.11 (for RFC 5322 parsing), tracing. Declare public API surface in src/lib.rs: pub struct CompiledScript(sieve_rs::Sieve); pub struct SieveEngine; pub enum SieveAction { Keep, FileInto(String), Discard, Reject(String) }; pub fn compile(script_bytes: &[u8]) -> Result<CompiledScript, String>; pub fn evaluate(script: &CompiledScript, raw_message: &[u8], envelope_from: &str, envelope_to: &str) -> Vec<SieveAction>. The evaluate fn: build a sieve_rs::Runtime, create a filter from the compiled script, feed the raw message bytes via mail-parser, run the event loop collecting fileinto/keep/discard/reject events into SieveAction, return the list. If the script produces no terminal action, append SieveAction::Keep (implicit keep per RFC 5228 \u00a72.10.2).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T05:06:55Z",
+  "updated_at": "2026-05-01T04:57:41Z",
+  "closed_at": "2026-04-21T05:10:00Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9d47a214",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 22:06:55"
+    }
+  ]
+}

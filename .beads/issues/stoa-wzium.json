@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "ced37c9ba25f0aca2a11f9926e95d4426cc5a83152bb836e9923617f3981d926",
+  "created_at": "2026-05-02T15:56:44Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why this issue exists\n\nStoa-auth validates OIDC JWTs and checks `exp` and `nbf` claims against the current time. It is not confirmed whether a clock skew tolerance is applied and, if so, how large it is. An unbounded skew tolerance (or no check at all) means expired tokens are accepted indefinitely.\n\nSOC2 CC6.1 requires that authentication tokens are validated correctly, including temporal bounds.\n\n## What needs to be done\n\n- Audit the JWT validation path in stoa-auth: find where `exp` and `nbf` are checked.\n- Confirm a clock skew allowance is applied. If not, add one.\n- Cap the skew allowance at 60 seconds (standard recommendation; some stricter frameworks require 30s).\n- Make the skew allowance configurable (default 60s, configurable down to 0 for stricter deployments).\n- Emit an `audit=true` tracing event when a token is rejected due to expiry (not for skew-within-tolerance accepts \u2014 that would be too noisy).\n- Write tests: token expired 30s ago accepted (within skew), token expired 90s ago rejected (outside skew).\n\n## Acceptance criteria\n\n- Clock skew tolerance applied to `exp` and `nbf` checks\n- Skew capped at 60 seconds by default\n- Configurable to stricter values\n- Token expired > skew seconds ago is rejected\n- Test covers both within-skew (accept) and outside-skew (reject) cases\n\n## Design notes\n\nRegulatory refs: SOC2 CC6.1. RFC 7519 \u00a74.1.4 permits implementations to provide 'a small leeway, usually no more than a few minutes'. 60s is the widely-used upper bound. Do not use system time directly \u2014 use a `Clock` trait to enable deterministic testing.",
+  "ephemeral": 0,
+  "id": "stoa-wzium",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "OIDC JWT clock skew bound",
+  "updated_at": "2026-05-02T15:56:44Z"
+}

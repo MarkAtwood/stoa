@@ -1,0 +1,21 @@
+{
+  "id": "stoa-80bb2b3c",
+  "title": "imap: STARTTLS not advertised or handled on plain port",
+  "description": "crates/imap/src/session/commands.rs and mod.rs \u2014 STARTTLS is never advertised in CAPABILITIES on the plaintext port and no CommandBody::StartTls arm exists. RFC 3501 \u00a76.2.1 requires STARTTLS on the plaintext port when TLS is configured. Compliant clients see LOGINDISABLED + no STARTTLS and refuse to authenticate, making the plain port unusable.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:27:10Z",
+  "updated_at": "2026-05-01T04:58:30Z",
+  "closed_at": "2026-04-28T17:07:59Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:27:09"
+    }
+  ]
+}

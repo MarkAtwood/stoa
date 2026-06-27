@@ -1,0 +1,21 @@
+{
+  "id": "stoa-a4ee2beb",
+  "title": "ConfigError missing #[non_exhaustive] in both reader and imap",
+  "description": "reader::config::ConfigError and imap::config::ConfigError are public enums with no #[non_exhaustive] attribute. Adding a new error variant (e.g. TlsConfig, BackendConfig) is a breaking change for any code that exhaustively matches on them. Since both enums are in library-facing code and are actively growing (reader config has 12+ validation branches), they should be #[non_exhaustive] now. Adding #[non_exhaustive] later is also a breaking change for callers using _ wildcard patterns that would otherwise warn. The safe window is before the first external consumer.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:57:54Z",
+  "updated_at": "2026-05-01T04:52:58Z",
+  "closed_at": "2026-04-30T18:04:10Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-65dc6723",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 10:57:53"
+    }
+  ]
+}

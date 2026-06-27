@@ -1,0 +1,21 @@
+{
+  "id": "stoa-dfadc69f",
+  "title": "transit Config has stale allow(dead_code)",
+  "description": "crates/transit/src/config.rs line 79-81: Config struct has #[allow(dead_code)] with comment 'server logic will consume them as epics are implemented.' The server is implemented and these fields are consumed. The blanket allow(dead_code) suppresses real compiler warnings and implies the struct is mostly unused. Remove it; annotate only genuinely unused fields with a scoped allow and explanation.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:11:54Z",
+  "updated_at": "2026-05-01T04:53:50Z",
+  "closed_at": "2026-04-27T17:41:56Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:11:53"
+    }
+  ]
+}

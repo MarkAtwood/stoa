@@ -1,0 +1,12 @@
+{
+  "id": "stoa-0c0017ef",
+  "title": "Review: stoa entire project full pass",
+  "status": "in_progress",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:30:12Z",
+  "updated_at": "2026-05-01T04:52:35Z",
+  "notes": "Support-crates review confidence calibration: P0 bugs (nbf validation, ENABLE state, uidvalidity cast) \u2014 high confidence, RFC citations confirmed. P1 tasks (non_exhaustive, Display impls, STARTTLS, Debug format leakage) \u2014 high confidence, straightforward API/protocol issues. P2 efficiency (regex cache eviction) \u2014 medium confidence, actual impact depends on Sieve script diversity in production. P4 GOOD decisions \u2014 confirmed against RFC text and Rust API docs. One false positive filed and immediately closed (stoa-0c0017ef.96: auth_failures increment). Review covered: stoa-auth (oidc, store, config, client_cert_store, trusted_issuer_store), stoa-tls (lib.rs), stoa-verify (dkim, types, lib), stoa-imap (session/mod, session/commands, session/mailbox, config, listener), stoa-sieve-native (evaluator), stoa-lmdb (lib.rs)."
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-df7cd05f",
+  "title": "Admin CLI: integration tests",
+  "description": "Integration tests: start a test reader daemon, run ctl status/peers/groups/reload against it, verify output format and --json flag. Test non-zero exit when endpoint unreachable. Blocked on: stoa-4640ef2a.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:46:16Z",
+  "updated_at": "2026-05-01T04:51:54Z",
+  "closed_at": "2026-04-24T07:17:26Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4a899c3f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:00:55"
+    }
+  ]
+}

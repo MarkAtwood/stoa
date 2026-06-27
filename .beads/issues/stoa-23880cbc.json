@@ -1,0 +1,20 @@
+{
+  "id": "stoa-23880cbc",
+  "title": "OIDC: multiple provider support",
+  "description": "Support multiple [[auth.oidc_providers]] entries. Try each provider's JWKS in order until one validates the token. A token that matches any configured provider is accepted. Blocked on: stoa-e279bbe7.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:43:42Z",
+  "updated_at": "2026-05-01T04:51:52Z",
+  "closed_at": "2026-04-28T09:20:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e279bbe7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:45:00"
+    }
+  ]
+}

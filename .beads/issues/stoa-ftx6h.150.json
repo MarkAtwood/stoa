@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T14:36:00Z",
+  "compaction_level": 0,
+  "content_hash": "01bccecffc6040cc8857f853242131ebff4e91b031e73ec3ab50923db0fbdeb6",
+  "created_at": "2026-05-03T13:07:36Z",
+  "created_by": "Mark Atwood",
+  "description": "cmd_log_tip calls percent_encode(group) to build the query string. percent_encode's unreserved set is ALPHA / DIGIT / - _ . ~ + . It does not encode '#' (fragment delimiter) or '?' (query delimiter). A group name containing '#' would be interpreted by the HTTP layer as a fragment, truncating the query. A group name with '?' would split the query string. Real Usenet group names (RFC 3977) cannot contain these characters, but a future extension or operator error could pass such a string. The comment about '+' being preserved for newsgroup names is correct, but '#' and '?' should also be documented as safe-to-exclude (because they cannot appear in valid group names) rather than silently relying on this invariant.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.150",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ctl: percent_encode does not encode '#' or '?' characters in group names",
+  "updated_at": "2026-05-03T14:36:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:07:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "2ba1ff14-1e7b-5a7d-bbc0-f2c23d1f052c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

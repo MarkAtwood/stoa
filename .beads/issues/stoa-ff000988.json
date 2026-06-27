@@ -1,0 +1,13 @@
+{
+  "id": "stoa-ff000988",
+  "title": "Review-2: consolidate CredentialStore convergence check",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T18:26:32Z",
+  "updated_at": "2026-05-01T04:52:58Z",
+  "closed_at": "2026-04-30T19:58:12Z",
+  "notes": "NOT CONVERGED: 1 P2 finding filed (stoa-ff000988.1: from_content uses parse_bcrypt_cost without length check while config validation uses looks_like_bcrypt_hash \u2014 inconsistency allows short-but-prefixed hashes to slip into the credential store via credential_file path, failing silently at auth time rather than at load time).\nIdiom rating: ACCEPTABLE \u2014 the codebase follows most Rust conventions well. The three P1 findings are mechanical fixes (thiserror, PathBuf, unwrap comment). No unsafe, no Box<dyn Error> in library APIs, no gratuitous clones, iterators are idiomatic throughout. The ConfigError manual impl is the most impactful gap.\nRust idiom confidence: 85% chance of missed issue. Least confident flags: sp5s.3 (PathBuf migration may interact with secretx: URI handling which expects String). Uncertainty driven by: lifecycle.rs was read in chunks (too large for single read) \u2014 the POST pipeline tail (lines ~1100 onward) and helper functions were not reviewed; any idiom issues there were not seen."
+}

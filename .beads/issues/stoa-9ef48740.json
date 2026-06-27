@@ -1,0 +1,21 @@
+{
+  "id": "stoa-9ef48740",
+  "title": "AuthinfoUser cert-bypass block is copy-pasted in dispatch.rs Authenticating and Active branches",
+  "description": "In crates/reader/src/session/dispatch.rs, the cert fingerprint bypass and trusted-issuer bypass blocks appear identically in both the Authenticating arm (lines ~57-76) and the Active-state AuthinfoUser arm (lines ~158-176). The only difference is that the Authenticating arm also sets ctx.state = SessionState::Active. All the fingerprint lookup, case-insensitive compare, ctx.authenticated_user = ... assignment, and Response::authentication_accepted() return are duplicated.\n\nSuggested rewrite: extract a helper fn:\n\n  fn try_cert_auth(\n      ctx: &mut SessionContext,\n      username: &str,\n      cert_store: &ClientCertStore,\n      trusted_issuer_store: &TrustedIssuerStore,\n  ) -> Option<Response>\n\nThe helper sets ctx.state and ctx.authenticated_user and returns Some(Response::authentication_accepted()) on success, None otherwise. Both dispatch arms call it and return early if Some. The Authenticating arm must also transition ctx.state, which the helper can handle unconditionally (Active is already the correct destination from either branch).",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:13:14Z",
+  "updated_at": "2026-05-01T04:57:24Z",
+  "closed_at": "2026-04-27T17:27:50Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:13:14"
+    }
+  ]
+}

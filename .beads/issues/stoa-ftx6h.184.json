@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "2dcd80f0f2b7c264c6e4d170f2ced5a6103073166924c31861bb7b574e482f20",
+  "created_at": "2026-05-03T13:10:36Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: every test file that constructs PeeringShared with a struct literal will fail to compile when a new field is added to PeeringShared, making refactors unnecessarily painful. What: fault_queue_full.rs, rfc4644_streaming.rs, and other test files construct PeeringShared via exhaustive struct literal syntax. PeeringShared should provide a builder or Default impl so tests only need to set the fields they care about.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.184",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "PeeringShared struct literal construction in tests will break on any field addition",
+  "updated_at": "2026-05-03T13:10:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:10:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "0d0622d7-46b9-58c7-9c6f-8054f8a2efba",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

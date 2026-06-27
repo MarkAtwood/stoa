@@ -1,0 +1,27 @@
+{
+  "id": "stoa-f43fd193",
+  "title": "Set up headless NNTP test harness with slrn expect scripts",
+  "description": "Create a test harness that starts a reader daemon on a random port, runs slrn in batch/script mode (slrn has --batch and scoring/hook support), and captures its output for assertion. Alternatively use a Tcl expect or Python pexpect script to drive slrn. Artifact: tests/harness/ directory with: start_reader.sh, slrn_driver.py (or .tcl), and a Makefile target.\n\nAcceptance criteria:\n- Harness starts reader on ephemeral port, connects slrn, runs a canned command sequence, checks output\n- Harness is idempotent: successive runs with same data produce identical assertions\n- Harness tears down reader process on exit (including on test failure)\n- Documented dependency list: slrn version, expect/pexpect version",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:15:38Z",
+  "updated_at": "2026-05-01T04:58:11Z",
+  "closed_at": "2026-04-20T13:08:47Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-55db6c35",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:15:37"
+    },
+    {
+      "depends_on_id": "stoa-6c293cc9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:16"
+    }
+  ]
+}

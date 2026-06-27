@@ -1,0 +1,20 @@
+{
+  "id": "stoa-52e79859",
+  "title": "XGET fetches arbitrary IPFS blocks with no group membership check",
+  "description": "Command::Xget calls ipfs_store.get_raw() with a user-supplied CID, no group membership check. Any authed NNTP user fetches any IPFS block the server can reach. Fossilizes once clients depend on it.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:13:51Z",
+  "updated_at": "2026-05-01T04:53:42Z",
+  "closed_at": "2026-04-27T02:37:58Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:13:51"
+    }
+  ]
+}

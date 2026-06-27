@@ -1,0 +1,21 @@
+{
+  "id": "stoa-e26613a9",
+  "title": "smtp: secretx credential failure is warn-not-exit, server starts uncredentialed",
+  "description": "smtp/src/server.rs uses warn!() and continues when any secretx step fails (invalid URI, retrieval error, non-UTF-8 content). All other callers (mail/main.rs, reader/store/server_stores.rs, transit/main.rs) treat secretx errors as fatal and exit(1). In smtp, if auth.credential_file is a secretx: URI and the retrieval fails, the daemon starts with an empty credential store. If AUTH is required or expected, all SMTP clients will be rejected silently \u2014 the admin sees only a WARN log, not a crash.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-26T21:55:40Z",
+  "updated_at": "2026-05-01T04:56:40Z",
+  "closed_at": "2026-04-26T21:58:10Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1490b957",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 14:55:39"
+    }
+  ]
+}

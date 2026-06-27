@@ -1,0 +1,21 @@
+{
+  "id": "stoa-297ca58a",
+  "title": "run_post_pipeline checks .code \\!= 240 instead of using Result \u2014 fragile success check",
+  "description": "lifecycle.rs run_post_pipeline: 'let validation = complete_post(...); if validation.code \\!= 240 { return validation; }'. complete_post() returns a Response directly instead of Result. If complete_post ever returns a different 2xx code for success (e.g., 200 for a valid article on a read-only server), the check silently rejects valid articles. Any future refactor that adds a new success case is forced to remember this check or break silently. Scenario: contributor adds a new complete_post return path for accepted-but-redirect, uses code 203, articles rejected with no warning. Fix: change complete_post to return Result<(), Response> so the type system enforces success/failure.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T14:06:36Z",
+  "updated_at": "2026-05-01T04:54:45Z",
+  "closed_at": "2026-04-21T14:42:38Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ad28b4f3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 07:06:36"
+    }
+  ]
+}

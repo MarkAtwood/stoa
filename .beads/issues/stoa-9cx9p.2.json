@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T22:40:30Z",
+  "compaction_level": 0,
+  "content_hash": "acb507612734737689b95f7f516765dd9b52ff14b8af9e6a3454c8e6031d4f85",
+  "created_at": "2026-05-02T22:25:38Z",
+  "created_by": "Mark Atwood",
+  "description": "fetch_mta_sts_policy_body checks for '://' and '/' in the domain argument but does not check for '@'. In RFC 3986, '@' in the host component of a URL separates userinfo from the actual host. A domain value like 'evil.com@target.com' produces URL 'https://mta-sts.evil.com@target.com/.well-known/mta-sts.txt', where the actual TLS connection target is 'target.com' (not 'mta-sts.evil.com'). This allows a crafted domain argument to redirect the policy fetch to an unintended host. The current call site (do_deliver via enforce_for_delivery) derives the domain from rfind('@') on the RCPT address, which limits direct exploitation, but the fetcher function's own guard is incomplete and cannot be trusted in isolation. The domain guard should add '@' to the blocklist.\n\n## Context\nmta_sts_fetcher.rs line 32. RFC 3986 \u00a73.2.1: authority component is [userinfo@]host[:port]. A '@' in the domain inserts a userinfo component, changing the effective host.",
+  "ephemeral": 0,
+  "id": "stoa-9cx9p.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mta_sts_fetcher: '@' character not blocked in domain validation allows URL userinfo injection",
+  "updated_at": "2026-05-02T22:40:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T15:25:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-9cx9p",
+      "id": "c5c951e4-e856-5098-a99e-d0cf1180c2a9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

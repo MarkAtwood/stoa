@@ -1,0 +1,27 @@
+{
+  "id": "stoa-b4790deb",
+  "title": "Implement feed negotiation: which groups each peer serves",
+  "description": "On session establishment, exchange a group list with each peer (similar to NNTP LIST ACTIVE but in the peering protocol). Record which groups each peer serves in SQLite. Use this to route IHAVE only to peers that serve the relevant group. Artifact: transit/src/peering/feed_negotiation.rs.\n\nAcceptance: group list exchange completes within 5 seconds of connection; groups not served by peer are not sent to that peer; group list is refreshed periodically (configurable interval)",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:46:09Z",
+  "updated_at": "2026-05-01T04:54:57Z",
+  "closed_at": "2026-04-20T04:57:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-55b3ce25",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:46:09"
+    },
+    {
+      "depends_on_id": "stoa-59415e4f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:47:59"
+    }
+  ]
+}

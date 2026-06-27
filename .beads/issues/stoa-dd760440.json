@@ -1,0 +1,19 @@
+{
+  "id": "stoa-dd760440",
+  "title": "reindex: ensure_msgid_map creates bare table without migration \u2014 schema out of sync with migrations",
+  "description": "reindex.rs ensure_msgid_map(): runs CREATE TABLE IF NOT EXISTS msgid_map with only (message_id, cid) columns. The canonical msgid_map table (created by migrations) likely has additional columns. If reindex runs against a fresh pool that never ran migrations, the table it creates is missing those columns. Subsequent code that inserts via migrations or queries the canonical schema will fail with 'no such column'. The ensure_msgid_map function should be removed; callers should run migrations first. This is a divergent schema definition problem.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:44:55Z",
+  "updated_at": "2026-05-01T04:52:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:44:55"
+    }
+  ]
+}

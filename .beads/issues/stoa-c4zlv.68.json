@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T17:33:55Z",
+  "compaction_level": 0,
+  "content_hash": "b5ec120a68221c9355d0e623032552c95b6a16edb1cd1c9b41efe24e410c67cd",
+  "created_at": "2026-05-01T15:21:11Z",
+  "created_by": "Mark Atwood",
+  "description": "sieve_admin.rs contains a user_exists function that only checks whether the username equals GLOBAL_SCRIPT_KEY (a single constant). It does not query the credential store or any user database. Any request for a per-user script under a name that is not the global key will be rejected as 'user not found', making per-user Sieve scripts impossible to manage via the admin API.\n\nThe function name 'user_exists' implies a real user lookup, making the intent unclear to maintainers. If per-user script management is intentionally out of scope for v1, the function should be removed and the check should be inlined and clearly commented. If per-user management is intended, the function must query the actual user store.\n\nFix: either inline the GLOBAL_SCRIPT_KEY comparison with a comment explaining it is intentionally the only supported key, or wire user_exists to the AuthConfig credential store.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.68",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "smtp: user_exists in sieve_admin checks global key, not real users",
+  "updated_at": "2026-05-01T17:33:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:21:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "05a25738-3e0e-5593-a6ba-16281f28838c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

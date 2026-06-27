@@ -1,0 +1,27 @@
+{
+  "id": "stoa-51b5d4b1",
+  "title": "Write operator retention and GC guide",
+  "description": "Write docs/operator/retention.md: how to configure pinning rules, how GC works, how to interpret the GC audit log, how to recover from accidental unpinning, how to estimate storage usage. Artifact: docs/operator/retention.md.\n\nAcceptance criteria: a reader of this doc can configure a pinning policy for a small multi-group server; GC audit log format documented with example output",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:45:37Z",
+  "updated_at": "2026-05-01T04:58:00Z",
+  "closed_at": "2026-04-20T12:55:48Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0fdae308",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:45:36"
+    },
+    {
+      "depends_on_id": "stoa-100ee93e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:47:31"
+    }
+  ]
+}

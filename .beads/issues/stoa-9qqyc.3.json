@@ -1,0 +1,34 @@
+{
+  "acceptance_criteria": "cargo test -p stoa-transit -- rnews_config passes; no [listen] required",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T02:51:17Z",
+  "compaction_level": 0,
+  "content_hash": "d5e196af44c69a3076e73b263641cc91d689b174e1769ee7971d300fdfe84556",
+  "created_at": "2026-05-04T02:47:23Z",
+  "created_by": "Mark Atwood",
+  "description": "What: Define RnewsConfig \u2014 a stripped-down config for stoa-rnews that does NOT require [listen], [gc], or [pinning].\nFile: new crates/transit/src/rnews_config.rs; add pub mod rnews_config to crates/transit/src/lib.rs.\nAlgorithm:\n1. Create crates/transit/src/rnews_config.rs\n2. Re-use existing types from crates/transit/src/config.rs: DatabaseConfig, BackendConfig, IpfsConfig, LogConfig, GroupsConfig, OperatorConfig.\n3. Define:\n   #[derive(Debug, Deserialize)]\n   pub struct RnewsConfig {\n     pub database: DatabaseConfig,        // reuse existing \u2014 already has defaults\n     pub backend: Option<BackendConfig>,  // optional: if absent + no ipfs.url, fail validation\n     pub ipfs: Option<IpfsConfig>,        // legacy fallback\n     pub groups: Option<GroupsConfig>,    // None = accept all groups\n     pub operator: OperatorConfig,        // needs signing_key_path and hostname\n     pub log: LogConfig,                  // reuse existing \u2014 has defaults\n   }\n   impl RnewsConfig {\n     pub fn from_file(path: &Path) -> Result<Self, ConfigError> { ... }\n     pub fn validate(&self) -> Result<(), ConfigError> {\n       // Must have either backend or ipfs.url \u2014 else fail\n       // Must NOT require listen, gc, or pinning\n     }\n   }\n4. Add pub mod rnews_config to lib.rs.\nDefensive rules: Config parse errors must return ConfigError (not panic). Use serde(default) for optional fields with sensible defaults.\nTests:\n- test_rnews_config_minimal_valid: parse TOML with only database+backend+operator fields; assert Ok\n- test_rnews_config_no_listen_required: no [listen] section; assert Ok\n- test_rnews_config_fails_without_storage: no backend and no ipfs.url; assert Err",
+  "ephemeral": 0,
+  "id": "stoa-9qqyc.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "RnewsConfig: stoa-rnews config struct",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T19:47:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-9qqyc",
+      "id": "3a7ec489-f070-5ac8-8f14-995fe9be2df4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

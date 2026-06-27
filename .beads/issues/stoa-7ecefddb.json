@@ -1,0 +1,20 @@
+{
+  "id": "stoa-7ecefddb",
+  "title": "reader's SmtpRelayQueue always passes None for dkim_signer \u2014 relay path never signs",
+  "description": "crates/reader/src/store/server_stores.rs:385 constructs SmtpRelayQueue with hardcoded None for dkim_signer. The reader crate has no DKIM config and no mechanism to wire a signer. Consequence: any message posted via the reader's NNTP POST path and relayed via SmtpRelayQueue (relay_queue.rs:try_deliver_one) is sent unsigned, regardless of what the smtp binary's delivery.dkim config says. The two binaries share SmtpRelayQueue but the reader has no DKIM key wiring. This is a silent gap: no warning is logged, no config error is raised.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:36:44Z",
+  "updated_at": "2026-05-01T04:58:43Z",
+  "closed_at": "2026-04-30T23:46:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-64675b0e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:36:44"
+    }
+  ]
+}

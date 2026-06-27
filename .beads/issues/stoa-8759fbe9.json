@@ -1,0 +1,21 @@
+{
+  "id": "stoa-8759fbe9",
+  "title": "SEC-R2: /log-tip queries wrong pool and nonexistent table",
+  "description": "In transit/src/admin.rs, build_log_tip_json (line 410) queries 'SELECT MAX(sequence_number), cid FROM group_log WHERE group_name = ?' but: (1) this table does not exist in either migration set \u2014 the core schema uses log_entries/group_tips, transit schema has articles/peers/peer_groups; (2) the dispatch at line 264 passes transit_pool rather than core_pool. The module doc comment at line 82 says core_pool holds 'msgid_map, group_log'. The /log-tip endpoint silently returns 404 for all groups at runtime. This is a pre-existing functional bug (not introduced by the c3z.8 fix), but it means the /log-tip admin endpoint has never worked and the table/column schema does not match any migration.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T14:12:30Z",
+  "updated_at": "2026-05-01T05:01:04Z",
+  "closed_at": "2026-04-22T14:20:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-c4a48573",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 07:12:29"
+    }
+  ]
+}

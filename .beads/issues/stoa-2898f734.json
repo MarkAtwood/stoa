@@ -1,0 +1,21 @@
+{
+  "id": "stoa-2898f734",
+  "title": "Follow/Undo{Follow} bypass HTTP Signature verification",
+  "description": "Trigger: POST /ap/groups/{g}/inbox with Follow or Undo{Follow} activity. verify_http_signature is only called for Create activities. Follow and Undo activities are dispatched without signature verification even when verify_http_signatures=true. Any attacker who knows a group name can subscribe or unsubscribe arbitrary actors, pollute the follower store, and trigger Accept deliveries to arbitrary inboxes without a valid signature.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T17:40:03Z",
+  "updated_at": "2026-05-01T04:58:30Z",
+  "closed_at": "2026-04-28T18:08:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-08d918a1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 10:40:03"
+    }
+  ]
+}

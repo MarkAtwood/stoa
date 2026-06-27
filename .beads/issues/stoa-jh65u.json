@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "76bb5bfbdc5415b24078b844396d9770c2dd3e4e4406426412ba51287011585b",
+  "created_at": "2026-05-03T13:08:21Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\nstore/group_cache.rs::GroupMetadataCache::insert() evicts the oldest entry by calling entries.iter().min_by_key(|(_, e)| e.inserted_at) which is O(n). With MAX_CACHE_ENTRIES=10_000, each insertion at capacity requires a full scan.\\n\\nAn LRU structure (e.g. linked-hashmap) or an indexed priority queue would give O(log n) eviction.\\n\\n## Acceptance Criteria\\n\\nReplace the O(n) min scan with an O(log n) alternative. The lru crate provides LruCache<K,V> as a drop-in.",
+  "ephemeral": 0,
+  "id": "stoa-jh65u",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Rust idiom: GroupMetadataCache uses HashMap with O(n) oldest-entry eviction",
+  "updated_at": "2026-05-03T13:08:21Z"
+}

@@ -1,0 +1,13 @@
+{
+  "id": "stoa-08d918a1",
+  "title": "Review: fix P0 correctness issues from stoa-5aa74b0a",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T17:37:55Z",
+  "updated_at": "2026-05-01T04:53:11Z",
+  "closed_at": "2026-04-28T21:58:17Z",
+  "notes": "Maintainer risk: HIGH \u2014 ActivityPub inbound/outbound paths have several issues that will generate repeated user reports: Accept{Follow} deliveries go to wrong inboxes (actors never get accepted), public keys are fetched on every Create (performance), and group name validation diverges from core. The Follow signature bypass is also an unadvertised security gap.\nConfidence: 15% chance of missed bug. Least confident flags: b5ja.5 (RFC 5322 From format \u2014 validate_post_headers may actually reject invalid From and the AP injection path may have separate validation not traced here). Uncertainty driven by: did not trace the full write_ipld_article_to_ipfs \u2192 build_article path to confirm whether From: format is validated at the IPLD layer. Would raise confidence if: ran cargo test --workspace and inspected build_article validation logic."
+}

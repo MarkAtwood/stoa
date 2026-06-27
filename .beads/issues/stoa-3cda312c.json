@@ -1,0 +1,21 @@
+{
+  "id": "stoa-3cda312c",
+  "title": "prepend_path_header splits entire article into Vec<&[u8]>",
+  "description": "O(N) ALLOCATION ON INGESTION HOT PATH \u2014 prepend_path_header (ingestion.rs:184) calls article_bytes.split(|&b| b==b'\\n').collect() to build a Vec<&[u8]> of all lines before scanning for Path:. This allocates a heap Vec proportional to the number of lines in the article on every ingest, even for articles whose Path: header is in the first two lines. Fix: replace the split+collect with a direct line-by-line scan that stops as soon as Path: is found or the blank line is reached, eliminating the Vec allocation entirely.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:09:43Z",
+  "updated_at": "2026-05-01T04:56:04Z",
+  "closed_at": "2026-04-27T16:10:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:09:43"
+    }
+  ]
+}

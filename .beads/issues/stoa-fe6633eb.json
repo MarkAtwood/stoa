@@ -1,0 +1,28 @@
+{
+  "id": "stoa-fe6633eb",
+  "title": "sieve-native: evaluator \u2014 RFC 5228 core commands and tests",
+  "description": "Implement the evaluator that walks a Script (Vec<Stmt>) and dispatches on command names. All Sieve knowledge lives here \u2014 the parser knows nothing.\n\nWhat: src/evaluator.rs + src/message.rs\n\nEvaluation model:\n  A Script is a Vec<Stmt>. Each Stmt is a Vec<Form> whose first element is always Word(name).\n  The evaluator dispatches on the name string:\n\n  fn eval_stmt(stmt: &Stmt, ctx: &mut Ctx) -> StmtResult\n    match stmt.as_slice() {\n      [Word(cmd), rest @ ..] => match cmd.as_str() {\n        \"require\"  => check_extensions(rest),\n        \"if\"       => eval_if(rest, ctx),\n        \"fileinto\" => eval_fileinto(rest, ctx),\n        \"reject\"   => eval_reject(rest, ctx),\n        \"discard\"  => Ok(StmtResult::Discard),\n        \"keep\"     => Ok(StmtResult::Keep),\n        \"stop\"     => Ok(StmtResult::Stop),\n        \"set\"      => eval_set(rest, ctx),     // variables extension\n        other       => Err(UnknownCommand(other)),\n      }\n    }\n\n  fn eval_test(stmt: &Stmt, ctx: &Ctx) -> bool\n    match stmt.as_slice() {\n      [Word(\"header\"),   rest @ ..] => eval_header_test(rest, ctx),\n      [Word(\"address\"),  rest @ ..] => eval_address_test(rest, ctx),\n      [Word(\"envelope\"), rest @ ..] => eval_envelope_test(rest, ctx),\n      [Word(\"exists\"),   rest @ ..] => eval_exists_test(rest, ctx),\n      [Word(\"size\"),     rest @ ..] => eval_size_test(rest, ctx),\n      [Word(\"allof\"),    rest @ ..] => eval_allof(rest, ctx),\n      [Word(\"anyof\"),    rest @ ..] => eval_anyof(rest, ctx),\n      [Word(\"not\"),      rest @ ..] => !eval_test(&rest[0], ctx),\n      [Word(\"true\")]               => true,\n      [Word(\"false\")]              => false,\n      _                             => false,   // unknown test = false (fail-safe)\n    }\n\n  Tags are just Form::Tag values in the rest slice \u2014 extract them with a helper:\n    fn take_tag<'a>(rest: &'a [Form], name: &str) -> Option<(&'a Form, &'a [Form])>\n  This is the entire dispatch mechanism. No match arms for grammar structure.\n\n  eval_if(rest): rest = [test_stmt, Block(then), optionally Block(else)]\n    Pull first Stmt from rest \u2192 run eval_test.\n    Pull Block(then) \u2192 eval_stmt_list if true.\n    Look for Word(\"elsif\") or Word(\"else\") in remaining rest.\n\nmessage.rs:\n  fn extract_headers(raw: &[u8]) -> Vec<(String, String)>   // scan up to first blank line; fold continuations\n  fn address_part(value: &str, part: &Form) -> &str          // Form::Tag(\"localpart\"|\"domain\"|\"all\")\n\nComparator helpers (no external crate):\n  fn matches_is(a: &str, b: &str, casemap: bool) -> bool\n  fn matches_contains(haystack: &str, needle: &str, casemap: bool) -> bool\n  fn matches_glob(value: &str, pattern: &str, casemap: bool) -> bool  // * = any, ? = one, \\* \\? = literal\n\npub fn compile(script: &[u8]) -> Result<CompiledScript, String>   \u2192 tokenize + read_script; check require decls\npub fn evaluate(script: &CompiledScript, ...) -> Vec<SieveAction> \u2192 build Ctx, eval_stmt_list, append Keep if no disposition\n\nDefensive rules:\n  - Scan headers only (stop at blank line); never read body.\n  - Unknown extension in require \u2192 compile error.\n  - Malformed address \u2192 treat address-part as empty string.\n  - No unwrap() in production paths.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:24:08Z",
+  "updated_at": "2026-05-01T04:54:07Z",
+  "closed_at": "2026-04-24T03:23:20Z",
+  "notes": "**Regex extension (draft-ietf-sieve-regex)**\n\nAdd alongside the RFC 5228 match types. sieve-rs uses fancy-regex (supports lookahead/lookbehind); use the same crate so the cross-validation oracle produces identical results on edge-case patterns.\n\nCargo.toml addition: fancy-regex = \"0.13\"\n\nChanges to evaluator.rs:\n1. Add MatchType::Regex to the match type enum (or handle inline as a Tag variant).\n2. In take_match_type(): Tag(\"regex\") \u2192 MatchType::Regex.\n3. In the comparator dispatch:\n     MatchType::Regex => matches_regex(value, pattern, casemap)\n4. fn matches_regex(value: &str, pattern: &str, casemap: bool) -> bool\n     Build fancy_regex::Regex from pattern (case-insensitive flag if casemap).\n     Return regex.is_match(value).unwrap_or(false).\n\nCompile-time validation (in compile()):\n   After parse, walk the Script and for every Stmt containing Tag(\"regex\") as a match type, extract the pattern Str(s) and call fancy_regex::Regex::new(s). If Err, return compile error with the pattern and error message. Bad regex patterns are caught at upload time, not at first message evaluation.\n\nrequire [\"regex\"] must be declared; compile error if :regex used without it.\n\nAdd \"regex\" to known_extensions list alongside \"fileinto\" and \"variables\".",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1dcfbf49",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:24:08"
+    },
+    {
+      "depends_on_id": "stoa-dbc6c005",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:25:13"
+    }
+  ]
+}

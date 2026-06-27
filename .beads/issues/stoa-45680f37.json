@@ -1,0 +1,20 @@
+{
+  "id": "stoa-45680f37",
+  "title": "NNTP OVER: invalid range input \u2192 501 not Range(0,0)",
+  "description": "5w3.23: in dispatch.rs or lifecycle.rs, OVER/XOVER with non-numeric or reversed range silently becomes Range(0,0). Must return 501 Syntax error per RFC 3977. Fix: parse OVER argument; if missing digits or lo>hi, return 501 immediately.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T19:45:26Z",
+  "updated_at": "2026-05-01T04:59:07Z",
+  "closed_at": "2026-04-22T21:05:00Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-f6d57892",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 12:45:26"
+    }
+  ]
+}

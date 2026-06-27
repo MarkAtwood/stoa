@@ -1,0 +1,21 @@
+{
+  "id": "stoa-c1edc4a3",
+  "title": "auth/trusted_issuer_store: verify_and_extract_cn never returns Err",
+  "description": "crates/auth/src/trusted_issuer_store.rs \u2014 verify_and_extract_cn() signature is Result<Option<String>, String> but the function never returns Err(_); all failure paths return Ok(None). This is a lie in the type signature: callers who pattern-match on Err will write dead code, and callers who use ? will not propagate errors. The correct signature is Option<String>. If Err is intentionally reserved for future use, a comment to that effect should be present.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:23:00Z",
+  "updated_at": "2026-05-01T04:53:20Z",
+  "closed_at": "2026-04-28T17:50:43Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:22:59"
+    }
+  ]
+}

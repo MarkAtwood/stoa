@@ -1,0 +1,27 @@
+{
+  "id": "stoa-87af7878",
+  "title": "Admin endpoint: GET /ipns \u2192 node IPNS path and group index",
+  "description": "Add GET /ipns to admin.rs. Calls build_ipns_json(pool, ipfs) which: 1. Gets the node peer_id from ipfs.identity() -> Keypair -> PeerId. 2. Formats the IPNS path as /ipns/<peer-id-as-cid> (base36 encoding). 3. Queries articles table for the most recent cid per group_name. Returns JSON: {\"ipns_path\":\"/ipns/k2...\",\"groups\":{\"comp.lang.rust\":\"<cid>\"}}. Extend start_admin_server() to accept an optional Arc<rust_ipfs::Ipfs> (Option<Arc<Ipfs>>). If None, return 503 {\"error\":\"ipns not configured\"}. Wire ipfs_for_ipns into start_admin_server in main.rs. Why: lets operators find their node's stable IPNS address to share.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T06:28:15Z",
+  "updated_at": "2026-05-01T04:56:21Z",
+  "closed_at": "2026-04-23T06:46:56Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-74573660",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 23:28:14"
+    },
+    {
+      "depends_on_id": "stoa-fbd3e97c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 23:28:36"
+    }
+  ]
+}

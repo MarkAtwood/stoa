@@ -1,0 +1,21 @@
+{
+  "id": "stoa-7ad30364",
+  "title": "imap: build_credential_store does sync file I/O on tokio thread",
+  "description": "imap/src/main.rs build_credential_store is a sync fn called from async main; it calls merge_from_file which uses std::fs::read_to_string. Blocking file I/O on a tokio worker thread stalls the runtime. Only happens at startup so it rarely causes problems in practice, but it violates the project rule of no sync I/O on the main task pool and will cause confusion if the credential_file is slow (network mount, etc.).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:26:17Z",
+  "updated_at": "2026-05-01T04:52:26Z",
+  "closed_at": "2026-04-30T19:35:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-031471c6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 12:26:17"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "id": "stoa-7ee51425",
+  "title": "E2E: SMTP session with daemon routing and header fallback",
+  "description": "End-to-end integration test covering both the daemon-up and daemon-down paths through a live SMTP session.\n\nWhat: crates/smtp/tests/sieve_daemon_e2e.rs\n\nTest 1 \u2014 daemon_up_routes_via_script:\n1. Start sieve-daemon on a temp Unix socket using std::process::Command (or spawn the daemon in-process if architecture allows).\n2. Configure smtp session with socket_path pointing to the daemon.\n3. Upload a sieve script via admin API: 'require [\"fileinto\"]; fileinto \"newsgroup:comp.test\";'\n4. Send a full SMTP DATA transaction (EHLO/MAIL FROM/RCPT TO/DATA/QUIT).\n5. Assert: message appears in the NNTP queue under comp.test; 250 OK returned; INBOX is empty.\n\nTest 2 \u2014 daemon_down_falls_back_to_list_id_header:\n1. Configure smtp with a socket_path that does not exist (daemon not running).\n2. Send SMTP transaction with message containing 'List-ID: Test List <test.lists.example.com>'.\n3. Assert: message enqueued to newsgroup:test.lists.example.com; no SMTP error (250 OK); warn log emitted.\n\nTest 3 \u2014 daemon_down_falls_back_to_newsgroups_header:\n1. Same unreachable daemon config.\n2. Send message with 'Newsgroups: comp.lang.rust'.\n3. Assert: enqueued to newsgroup:comp.lang.rust.\n\nTest 4 \u2014 daemon_down_no_relevant_headers_delivers_to_inbox:\n1. Unreachable daemon, message with no newsgroup/list headers.\n2. Assert: delivered to INBOX (Keep behaviour).\n\nOracle: NNTP queue contents and INBOX message count are checked directly via the same store APIs used in existing smtp integration tests.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:18:52Z",
+  "updated_at": "2026-05-01T05:00:45Z",
+  "closed_at": "2026-04-23T20:25:31Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4b467109",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:19:11"
+    },
+    {
+      "depends_on_id": "stoa-d1d5d8e9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:18:51"
+    },
+    {
+      "depends_on_id": "stoa-e5e4e756",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:19:10"
+    }
+  ]
+}

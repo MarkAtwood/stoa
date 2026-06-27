@@ -1,0 +1,20 @@
+{
+  "id": "stoa-ca835446",
+  "title": "cleanup_tmp_files and cleanup_orphan_msg_files use inconsistent filename matching",
+  "description": "cleanup_tmp_files uses file_name().ends_with() to match .msg.tmp and .env.tmp (correct for compound extensions). cleanup_orphan_msg_files uses path.extension() == 'msg' (correct for simple extension). The inconsistency will confuse future contributors: a contributor adding a new file type will see two different patterns and may copy the wrong one, getting a subtle file-matching bug. One canonical pattern should be chosen and used throughout.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:18:13Z",
+  "updated_at": "2026-05-01T04:59:13Z",
+  "closed_at": "2026-05-01T01:23:07Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-81b33f87",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:18:13"
+    }
+  ]
+}

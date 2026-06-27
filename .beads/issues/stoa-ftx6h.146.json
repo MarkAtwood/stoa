@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "0246b44bd767954a021bc18662f49f265442ae4b9f668136606b684b5f0742a6",
+  "created_at": "2026-05-03T13:07:21Z",
+  "created_by": "Mark Atwood",
+  "description": "wildmat.rs wildmat_match() allocates a (pat_len+1) x (text_len+1) Vec<Vec<bool>> on every call. For the common case (GROUP command matching a group name against a filter of tens of patterns), this is called once per group per command. A single flat Vec<bool> with manual row indexing, or a stack-allocated array for short patterns, would avoid the inner Vec allocations.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.146",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "core: wildmat DP uses Vec<Vec<bool>> allocation on every call",
+  "updated_at": "2026-05-03T13:07:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:07:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "63fbb39a-211a-52b6-b248-e8dd2cc50a28",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

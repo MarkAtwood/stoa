@@ -1,0 +1,13 @@
+{
+  "id": "stoa-7ba673c4",
+  "title": "fix(transit): handle RFC 5322 folded Message-ID in extract_body_msgid",
+  "description": "extract_body_msgid in ingestion.rs does not handle RFC 5322 header folding. A folded Message-ID header (value on continuation line starting with SP/HTAB) causes extract_body_msgid to return Some(\"\"), which body_msgid.is_empty() converts to a dedup bypass \u2014 the same article can be ingested repeatedly. A malicious peer can use this to force unbounded IPFS writes while satisfying the mandatory-header check. Fix: collect continuation lines in extract_body_msgid.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:06:12Z",
+  "updated_at": "2026-05-01T04:59:02Z",
+  "closed_at": "2026-04-27T05:19:45Z"
+}

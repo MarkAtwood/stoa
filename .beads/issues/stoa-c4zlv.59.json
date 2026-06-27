@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T18:12:20Z",
+  "compaction_level": 0,
+  "content_hash": "0e504d6542f7f2032e55732018100093d4bf2c14a29b5069dced05278a5d6c59",
+  "created_at": "2026-05-01T15:20:49Z",
+  "created_by": "Mark Atwood",
+  "description": "oidc.rs iterates JWKS keys and only decodes entries with kty=RSA. Keys with kty=EC (ES256, ES384, ES512) are silently skipped. If an OIDC provider rotates to an EC signing key (common with modern providers such as Google, Microsoft, Auth0) all JWT validation fails with UnsupportedKeyType and every OIDC-authenticated request is rejected. There is no warning in the config documentation or at startup.\n\nTrigger: configure a trusted OIDC issuer that signs tokens with an EC key (kty=EC, alg=ES256).\n\nFix: add EC key support using the jsonwebtoken crate's DecodingKey::from_ec_components, or at minimum log a startup warning when the JWKS endpoint returns only EC keys so the operator knows the integration will not work.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.59",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "auth: OIDC JWKS only supports RSA keys; EC keys silently unsupported",
+  "updated_at": "2026-05-01T18:12:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:20:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "990b537e-b141-55b1-ad5e-84da8a9df959",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

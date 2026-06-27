@@ -1,0 +1,33 @@
+{
+  "id": "stoa-cc2c43b4",
+  "title": "Implement per-group pinning policy configuration and evaluation",
+  "description": "Define the policy DSL in TOML: [[pinning.rules]] with fields: groups (glob or 'all'), max_age_days (optional), max_article_bytes (optional), action ('pin' or 'skip'). Rules are evaluated in order; first match wins. Implement PolicyEvaluator::should_pin(article_meta: &ArticleMeta) -> bool. Artifact: transit/src/retention/policy.rs.\n\nAcceptance:\n- action='pin' with no conditions pins all articles in matched groups\n- max_age_days excludes articles older than threshold\n- max_article_bytes excludes articles larger than threshold\n- Glob matching on group names: 'comp.*' matches 'comp.lang.rust'\n- No matching rule \u2192 article is not pinned (explicit opt-in, not opt-out)\n- Unit tests: every rule type and combination",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:16:09Z",
+  "updated_at": "2026-05-01T04:58:09Z",
+  "closed_at": "2026-04-20T06:42:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-03ea3305",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:16:39"
+    },
+    {
+      "depends_on_id": "stoa-3287c8c4",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:16:08"
+    },
+    {
+      "depends_on_id": "stoa-334c73a0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:54:10"
+    }
+  ]
+}

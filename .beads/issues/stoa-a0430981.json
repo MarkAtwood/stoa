@@ -1,0 +1,21 @@
+{
+  "id": "stoa-a0430981",
+  "title": "test names say stub for correct RFC responses",
+  "description": "dispatch.rs: test_group_selected_next_returns_stub implies NEXT returning 423 is a placeholder. 423 is the correct RFC 3977 response when no article exists. 'Stub' misleads contributors into thinking the test is temporarily wrong. Rename to test_next_with_no_article_returns_423 and audit other stub-named tests.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:14:36Z",
+  "updated_at": "2026-05-01T04:53:59Z",
+  "closed_at": "2026-04-27T17:43:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:14:36"
+    }
+  ]
+}

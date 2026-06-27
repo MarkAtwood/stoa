@@ -1,0 +1,21 @@
+{
+  "id": "stoa-e15e7755",
+  "title": "OTel: trace spans for POST pipeline stages",
+  "description": "Add child spans within the POST pipeline: receive_article, validate_headers, sign_article, ipfs_block_put, group_log_append. Each span records its duration and outcome. Parent span covers the full POST command. Blocked on: stoa-fb85a082.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:41:41Z",
+  "updated_at": "2026-05-01T04:51:49Z",
+  "closed_at": "2026-04-28T07:23:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-fb85a082",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:41:40"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Implemented: migration 0015 drops unused mta_sts_cache table; domain validation extended with #?[] guards + 4 new tests. Committed 694a088.",
+  "closed_at": "2026-05-02T23:44:05Z",
+  "compaction_level": 0,
+  "content_hash": "825abb449979cc79a0556e61d8f27a1e261cff2e6d5d95db9240402683826c3c",
+  "created_at": "2026-05-02T23:08:07Z",
+  "created_by": "Mark Atwood",
+  "description": "mta_sts_fetcher.rs:32-34 rejects '://', '/', '@' in domain but not '#' (fragment), '[' (IPv6 brackets), '?' (query string), or '%' (percent-encoding). A domain containing '#' causes the fragment to silently elide the path component. A domain containing '[' could confuse URL authority parsing on some backends. The domain at this callsite comes from a DNS RCPT address that has already passed SMTP validation, making exploitation implausible in practice \u2014 but the comment says 'SSRF note' and the guard is presented as a security boundary, which it isn't. Fix by using a stricter allowlist (hostname chars only: [a-zA-Z0-9.-]) or add the missing chars to the reject list.",
+  "ephemeral": 0,
+  "id": "stoa-wfcj7.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "fetch_mta_sts_policy_body domain validation incomplete \u2014 '#', '[', '?' not rejected",
+  "updated_at": "2026-05-02T23:44:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T16:08:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-wfcj7",
+      "id": "be799879-caf2-54a2-bfb0-3a41d4549872",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

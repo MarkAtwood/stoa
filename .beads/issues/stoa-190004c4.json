@@ -1,0 +1,39 @@
+{
+  "id": "stoa-190004c4",
+  "title": "imap: LIST and STATUS command handlers",
+  "description": "Add LIST/STATUS to crates/imap/src/commands/mailbox.rs. LIST: (1) reject if not Authenticated -> NO; (2) call ArticleNumberStore::list_groups() to get all (group_name, low, high); (3) filter by list reference and mailbox pattern (support * wildcard: anything, % wildcard: not crossing hierarchy separator '.'); (4) for each matching group, send * LIST (\\HasNoChildren) '.' group_name; (5) send tagged OK. STATUS: (1) look up group; (2) compute requested items: MESSAGES=EXISTS count, RECENT=0, UNSEEN=count of articles without \\Seen in imap_flags for this user, UIDVALIDITY from imap_uid_validity, UIDNEXT=next_uid; (3) send * STATUS mailbox (MESSAGES N UIDNEXT M UIDVALIDITY V); (4) tagged OK. Defensive: LIST with empty reference and '*' returns all; unknown mailbox in STATUS -> tagged NO [NONEXISTENT].",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T07:17:50Z",
+  "updated_at": "2026-05-01T04:56:34Z",
+  "closed_at": "2026-04-23T07:43:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-310a64d6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:21:17"
+    },
+    {
+      "depends_on_id": "stoa-3741bca1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:17:50"
+    },
+    {
+      "depends_on_id": "stoa-6f7202da",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:21:16"
+    },
+    {
+      "depends_on_id": "stoa-e4c4816d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:21:15"
+    }
+  ]
+}

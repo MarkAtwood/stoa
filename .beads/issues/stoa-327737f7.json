@@ -1,0 +1,20 @@
+{
+  "id": "stoa-327737f7",
+  "title": "server_stores::new_mem and new_mem_no_search are near-duplicate 90-line functions",
+  "description": "In store/server_stores.rs, new_mem and new_mem_no_search are ~90 lines each and differ only in whether TantivySearchIndex is constructed. The shared logic should be extracted into a single builder or an enum parameter so the duplication does not drift. Current state: any change to the shared init path must be made twice.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:27:05Z",
+  "updated_at": "2026-05-01T04:58:36Z",
+  "closed_at": "2026-04-28T21:41:45Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:27:04"
+    }
+  ]
+}

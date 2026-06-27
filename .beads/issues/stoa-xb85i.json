@@ -1,0 +1,40 @@
+{
+  "compaction_level": 0,
+  "content_hash": "1ac07eda81abb3213826a7b0e61de0c2b20f531d446201362e48b9df776e2b5f",
+  "created_at": "2026-05-01T19:56:45Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why\n\nSome operators have large PST archives they cannot or do not want to migrate \u2014 legal holds, compliance archives, or simply too much data to re-ingest. A read-only PST backend lets stoa serve JMAP Email/get and NNTP ARTICLE requests directly from .pst files in a local directory or a bucket of downloaded PSTs, without any upfront conversion.\n\nThis complements the PST import path (stoa-vg6w9): import is for active migration; this backend is for long-term read-only archival access.\n\n## What\n\nImplement PstBlockStore as a read-only IpfsBlockStore (writable = false always).\n\n**Indexing:** On open, enumerate all .pst files in the configured directory, walk every message in each PST, compute CID (SHA-256 of raw message bytes), and record CID \u2192 (pst_path, internal_node_id) in a SQLite sidecar index (pst_index.db in the root directory). Index is rebuilt when a PST file's mtime changes or a new PST appears.\n\n**Read path (get_raw):** Look up CID in sidecar, open the PST file, extract message bytes for that node, return them.\n\n**Write path:** Return a clear error \u2014 this backend is always read-only. Operators must configure it with writable = false in the composite backend list.\n\n**Bucket of PSTs (S3/GCS/Azure):** Out of scope for initial implementation. Requires downloading PSTs to a local cache directory first; too expensive to access on-the-fly. Document that the PST backend works on local directories only; use the composite backend to pair it with a writable cloud backend.\n\n**Config:**\n```toml\n[[backend]]\ntype = \"pst\"\npath = \"/archive/pst-files\"\nwritable = false\n```\n\n## Implementation\n\nUses readpst subprocess (same as stoa-vg6w9 Option A) for message extraction, or libpst FFI if that is implemented first. The indexing pass uses readpst to enumerate message IDs and extract bytes; the sidecar maps CIDs to PST-internal node references.\n\nAlternative: run readpst once per PST file to produce a Maildir cache alongside the PST, then serve from the Maildir cache. Simpler (reuses MaildirBlockStore); costs disk space equal to the PST size.\n\n## Acceptance\n\n- PstBlockStore implements IpfsBlockStore with get_raw working and put_raw returning an error\n- CID index is built at startup and cached in pst_index.db\n- New .pst files dropped into the directory are picked up on next startup (or on a SIGHUP)\n- Integration test reads a known message from a sample PST by CID\n- writable = false is enforced \u2014 put_raw returns IpfsWriteError::WriteFailed with a clear message",
+  "ephemeral": 0,
+  "id": "stoa-xb85i",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "The index build time for large PSTs (multi-GB) could be significant. Consider a progress log at startup. The Maildir-cache approach (readpst once \u2192 MaildirBlockStore) may be simpler and more robust than maintaining the CID\u2192node sidecar directly.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "PST read-only block store backend",
+  "updated_at": "2026-06-26T20:26:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T12:56:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-wl22t",
+      "id": "b51aff43-2f86-515a-8b27-681a8cdcf223",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-01T12:56:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-wqxq6",
+      "id": "f22f1578-059b-576f-b8a5-62a5633d1f84",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

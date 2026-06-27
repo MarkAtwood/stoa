@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "5d96fa27b85e7f71e56e3d3c0e631580c8fbe5c8995af2a557473bab9f2cfb5c",
+  "created_at": "2026-05-03T13:06:07Z",
+  "created_by": "Mark Atwood",
+  "description": "GLOBAL_SCRIPT_KEY is defined as '_global' in config.rs and documented as 'the reserved username for the server-wide global Sieve script'. However, sieve_admin.rs user_exists() contains a special-case for GLOBAL_SCRIPT_KEY using a case-insensitive comparison while all other username comparisons are exact-match. The special-casing is not mentioned in the constant's doc comment, creating a hidden behavioral divergence. Fix: add a doc comment on the special-case branch explaining why case-insensitive comparison is used for this key, and add a note to GLOBAL_SCRIPT_KEY's doc comment that it is compared case-insensitively on inbound admin requests.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.103",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "smtp: GLOBAL_SCRIPT_KEY documentation vs behavior inconsistency",
+  "updated_at": "2026-05-03T13:06:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "596524c3-f956-586a-81bb-6cf456925b4d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

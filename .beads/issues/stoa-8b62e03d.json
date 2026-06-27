@@ -1,0 +1,21 @@
+{
+  "id": "stoa-8b62e03d",
+  "title": "SQLite backup: --restore flag on daemon binaries",
+  "description": "Add --restore <backup_file...> flag to transit and reader. Before normal startup, copy specified backup files to configured database paths. Verify each backup is a valid SQLite file before overwriting. Blocked on: stoa-8acd5dd9.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:45:44Z",
+  "updated_at": "2026-05-01T04:56:41Z",
+  "closed_at": "2026-04-27T20:52:28Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-8acd5dd9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:45:43"
+    }
+  ]
+}

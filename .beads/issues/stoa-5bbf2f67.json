@@ -1,0 +1,21 @@
+{
+  "id": "stoa-5bbf2f67",
+  "title": "Authentication-Results prepend copies entire message body (up to 25 MiB)",
+  "description": "session.rs: 'let mut prefixed = header_line.into_bytes(); prefixed.extend_from_slice(&raw_bytes); raw_bytes = prefixed;'. For a 25 MiB message, this is a full 25 MiB allocation + copy on every auth-enabled delivery. In the hot path of every inbound message. Expected impact: with 100 concurrent connections each delivering a large message, this is ~2.5 GiB of transient allocation. Fix: carry the header separately as a Vec<u8> alongside raw_bytes through the pipeline, and prepend only when writing to the final destination (queue or store::deliver).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T13:31:35Z",
+  "updated_at": "2026-05-01T04:57:38Z",
+  "closed_at": "2026-04-21T16:35:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9f393084",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 06:31:34"
+    }
+  ]
+}

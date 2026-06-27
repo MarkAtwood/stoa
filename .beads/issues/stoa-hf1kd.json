@@ -1,0 +1,32 @@
+{
+  "compaction_level": 0,
+  "content_hash": "37ed90d7ed77e54572a313b0c81215c5339446a93ae046eab9162413b61c2613",
+  "created_at": "2026-05-01T20:11:30Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why\n\nAll SQLite tables that store per-message state (mailboxes, messages, article numbers, overview, flags, change log, subscriptions) currently assume a single user. Multi-user requires each table to be scoped to a user_id.\n\n## What\n\nAdd user_id column and update primary keys / indexes for:\n\n- mailboxes table: (user_id, mailbox_id) PK\n- messages table: (user_id, message_id) \u2014 or per-user message_number within a mailbox\n- article_numbers: (user_id, group_name, article_number) PK\n- overview: (user_id, group_name, article_number) PK\n- user_flags: already has user_id \u2014 verify it is correctly scoped\n- state / change_log: (user_id, ...) PK\n- subscription_store: (user_id, ...) PK\n\nWrite SQLite migrations for each table. All queries in the corresponding store modules gain a user_id parameter.\n\nBlock store (CIDs) is NOT per-user \u2014 blocks are shared across users (content-addressed dedup). Only the metadata tables are per-user.\n\n## Acceptance\n\n- All store modules accept user_id at the query boundary\n- Two users can have independent mailboxes with the same article stored once in the block store\n- Migrations run cleanly on existing single-user databases (existing rows assigned to the default user_id=1)",
+  "ephemeral": 0,
+  "id": "stoa-hf1kd",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "The block store sharing is important for storage efficiency \u2014 if alice and bob both receive the same email, it is stored once as a CID and both users have a metadata row pointing to it.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Per-user storage isolation in SQLite",
+  "updated_at": "2026-06-26T20:26:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T13:12:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-n39yl",
+      "id": "bb7a029f-7a91-58af-9c77-327067fd4487",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

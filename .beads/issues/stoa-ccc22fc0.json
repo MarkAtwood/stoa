@@ -1,0 +1,14 @@
+{
+  "id": "stoa-ccc22fc0",
+  "title": "NNTP CID extension suite: leaky content-addressing extensions",
+  "description": "Why: usenet-ipfs stores articles as IPLD blocks addressed by CID. Standard newsreaders never see this. But CID-aware tools (archival scripts, Corundum indexer, IPFS pinning automation) benefit from being able to discover and verify CIDs via NNTP without a separate API. These extensions are purely additive: they expose content-addressing metadata only, never topology or infrastructure state. Standard clients that never send an X command and never read X-Usenet-IPFS-* headers see zero behavior change.\n\nScope: five extensions across two categories \u2014\n  Passive (article headers): X-Usenet-IPFS-CID, X-Usenet-IPFS-Root-CID\n  Active (X-commands): XCID, XVERIFY, ARTICLE cid:<cidv1>\nAll advertised in CAPABILITIES. All implemented in usenet-ipfs-reader.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T19:35:54Z",
+  "updated_at": "2026-05-01T04:59:48Z",
+  "closed_at": "2026-04-21T00:04:10Z",
+  "design": "Extensions categorized as: (1) passive headers added to ARTICLE/HEAD responses \u2014 zero protocol risk; (2) X-prefixed commands per RFC 3977 \u00a77.2 \u2014 clients must explicitly opt in. Prohibited: topology, DHT, CRDT internals, pin/GC state."
+}

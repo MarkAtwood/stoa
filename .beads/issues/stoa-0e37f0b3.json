@@ -1,0 +1,13 @@
+{
+  "id": "stoa-0e37f0b3",
+  "title": "transit: remove unused serde_ipld_dagcbor dependency",
+  "description": "serde_ipld_dagcbor = \"=0.6.4\" is declared in crates/transit/Cargo.toml but has no uses in crates/transit/src/ after the XCID handler was removed in Round 12 (XCID was the only consumer). Unused dependencies slow compile times and add supply-chain surface area.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T08:48:01Z",
+  "updated_at": "2026-05-01T04:53:30Z",
+  "closed_at": "2026-04-27T09:05:15Z"
+}

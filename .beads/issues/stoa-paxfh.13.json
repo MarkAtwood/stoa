@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "378a7dfb5d13724a5bf553bbd5ccc96152369905664ad10c7fd4a1f69bcdd3fe",
+  "created_at": "2026-05-04T05:05:44Z",
+  "created_by": "Mark Atwood",
+  "description": "Reviewed all files in scope for commits 919d3b7 and fe84570:\n- crates/transit/src/import/rnews.rs\n- crates/transit/src/rnews_config.rs\n- crates/transit/src/rnews_main.rs\n- crates/transit/src/peering/pipeline.rs\n- crates/transit/src/peering/ingestion.rs\n- crates/transit/src/import/reindex.rs\n- crates/transit/tests/rnews_ingest.rs\n- crates/core/src/group_log/types.rs\n- crates/core/src/group_log/append.rs\n- crates/core/src/group_log/verify.rs\n- crates/core/src/group_log/sqlite_storage.rs\n- crates/core/src/validation.rs\n\nChecklist results:\n1. Silent data loss \u2014 none. Articles without Message-ID are correctly counted as rejected (not silently dropped). Compressed batch parser propagates UnsupportedCompression correctly.\n2. Panics on well-formed input \u2014 none. All arithmetic is checked; unwrap_or_default() on SystemTime gives 0 (not a panic).\n3. Byte offset arithmetic \u2014 correct. pos += nl+1 advances past the newline; checked_add guards overflow; article_end bounds-checked against input.len().\n4. Folded-header fix in pipeline.rs \u2014 correct for both Message-ID and Newsgroups cases. Early-exit only fires when current==0 AND both fields already accumulated.\n5. HlcTimestamp promotion DB consistency \u2014 wall_ms stored as i64, reconstructed with logical=0 node_id=[0;8]. verify_entry monotonicity check still correct: child with same wall_ms but non-zero logical passes (child > db_parent). Negative-ts guard in get_entry prevents silent wrap.\n6. validate_message_id <= 0x20 \u2014 correct. Covers all C0 controls (0x00-0x1F) plus space (0x20). DEL (0x7F) is rejected separately. Space test confirmed in test suite.\n7. EX_TEMPFAIL (75) \u2014 only fired when transient > 0. PipelineError::Permanent is counted as rejected, not transient. Correct separation.\n8. .take(limit+1) gzip cap \u2014 reads exactly limit+1 bytes max, then checks out.len() > limit. Correctly rejects limit+1 bytes. Does not silently truncate (read_to_end is bounded by the take).\n\nOne P1 risk filed as stoa-paxfh.8: reindex.rs extract_message_id_bytes does not handle folded Message-ID headers (disaster-recovery path only).",
+  "ephemeral": 0,
+  "id": "stoa-paxfh.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "S0: no P0 correctness bugs found in rnews commits",
+  "updated_at": "2026-05-04T05:05:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T22:05:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-paxfh",
+      "id": "dd961955-f767-54ca-8ebe-d55b50a01a42",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "stoa-44ca51b2",
+  "title": "suck_pull: cursor updated even when 0 articles fetched \u2014 NEWNEWS window silently shrinks",
+  "description": "suck_pull.rs line 219: update_cursor(pool, group, now_unix).await? runs unconditionally at end of each group loop, even when NEWNEWS returned an error code (summary.failed += 1; continue) that left msgids empty. If NEWNEWS fails for a group, the cursor is still advanced to now_unix, meaning the next pull will not re-try articles from the window that failed. Articles in the [old_cursor, now_unix] window are silently skipped forever. Should only update cursor when NEWNEWS succeeds (code 230) and processing completes without total failure.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:43:43Z",
+  "updated_at": "2026-05-01T04:52:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:43:42"
+    }
+  ]
+}

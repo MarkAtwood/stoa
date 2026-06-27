@@ -1,0 +1,19 @@
+{
+  "id": "stoa-a6a6beaf",
+  "title": "decision: DKIM seed zeroized after Ed25519Key construction is correct",
+  "description": "main.rs decodes the DKIM seed bytes, constructs the Ed25519Key, then calls seed.zeroize() to wipe the raw key material from memory. This is the correct defence-in-depth pattern for cryptographic key handling in Rust. No issue needed.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:42:06Z",
+  "updated_at": "2026-05-01T04:58:17Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:42:05"
+    }
+  ]
+}

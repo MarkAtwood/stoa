@@ -1,0 +1,19 @@
+{
+  "id": "stoa-faf64386",
+  "title": "GOOD: SqliteStore startup schema version check rejects future-version databases",
+  "description": "sqlite_store.rs: reads PRAGMA user_version at open() and rejects anything != 0 or 1. Column probe also verifies schema before accepting traffic. Old binary against migrated DB fails fast at startup rather than silently corrupting data.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:48:50Z",
+  "updated_at": "2026-05-01T04:54:38Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:48:50"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-8d6b7585",
+  "title": "MalformedLine variant conflates missing-colon and empty-username",
+  "description": "CredentialStoreError::MalformedLine is returned for both 'line has no colon' and 'username field is empty after trimming'. These are distinct operator errors. A caller who wants to generate different error recovery advice (e.g., 'check file format' vs 'check your username') cannot distinguish them without parsing the Display string, which breaks if the message changes. The fix is a separate variant or a bool/enum field like MalformedLine { label, line_num, reason: MalformedReason }. Low urgency because no current caller matches on the variant \u2014 but once any does, adding a field is a breaking API change.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:02:58Z",
+  "updated_at": "2026-05-01T04:52:24Z",
+  "closed_at": "2026-04-30T19:12:50Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-cdbe09c1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 12:02:58"
+    }
+  ]
+}

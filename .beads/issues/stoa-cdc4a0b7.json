@@ -1,0 +1,27 @@
+{
+  "id": "stoa-cdc4a0b7",
+  "title": "Implement POST command handler and article receiver",
+  "description": "Implement the POST command handler: respond 340 (send article), receive the dot-terminated article stream, parse headers and body, hand off to the validation pipeline. Respond 240 on success, 441 if posting not permitted, 44x on specific failures. Artifact: reader/src/session/commands/post.rs.\n\nAcceptance:\n- POST with no group selected returns 441 (posting not permitted) if operator has disabled it\n- Article stream terminated by CRLF.CRLF is read completely before validation begins\n- Article with no Newsgroups: header returns 441 with descriptive text\n- Article larger than configured limit returns 441 with size-exceeded message\n- Dot-unstuffing applied to article body before validation",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:14:00Z",
+  "updated_at": "2026-05-01T04:53:30Z",
+  "closed_at": "2026-04-20T03:42:14Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-41676187",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:08"
+    },
+    {
+      "depends_on_id": "stoa-7148f086",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:13:59"
+    }
+  ]
+}

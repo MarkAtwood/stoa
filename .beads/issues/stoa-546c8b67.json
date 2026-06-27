@@ -1,0 +1,33 @@
+{
+  "id": "stoa-546c8b67",
+  "title": "Fault injection: SQLite write failure mid-pipeline",
+  "description": "Write an integration test that injects a SQLite failure (using a mock storage that fails on the Nth write) into the transit ingestion pipeline. Assert: (1) article is not partially committed (atomicity); (2) IPFS pin is not left orphaned after SQLite failure; (3) the transit daemon continues operating after the failure. Artifact: transit/tests/fault_sqlite_failure.rs.\n\nAcceptance criteria:\n- No partial state after simulated failure\n- IPFS mock verifies pin was rolled back\n- Subsequent articles are processed correctly\n- Test is deterministic",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:49:10Z",
+  "updated_at": "2026-05-01T04:57:52Z",
+  "closed_at": "2026-04-20T05:35:25Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-a1bf40fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:54:23"
+    },
+    {
+      "depends_on_id": "stoa-d42769ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:49:10"
+    },
+    {
+      "depends_on_id": "stoa-f0343c09",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:49:55"
+    }
+  ]
+}

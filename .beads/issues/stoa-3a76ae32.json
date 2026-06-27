@@ -1,0 +1,21 @@
+{
+  "id": "stoa-3a76ae32",
+  "title": "SMTP: add prometheus metrics module and /metrics route",
+  "description": "SMTP crate has zero metrics. Add prometheus=0.14 to Cargo.toml. Create crates/smtp/src/metrics.rs with: SMTP_CONNECTIONS_TOTAL counter, SMTP_MESSAGES_ACCEPTED_TOTAL counter, SMTP_MESSAGES_REJECTED_TOTAL counter (label: reason), SMTP_DATA_BYTES_TOTAL counter. Instrument session.rs connection accept and DATA handler. Add GET /metrics route to the Sieve admin Axum router in sieve_admin.rs (no auth required for metrics). Use prometheus::TextEncoder.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T21:08:23Z",
+  "updated_at": "2026-05-01T04:59:54Z",
+  "closed_at": "2026-04-22T21:30:50Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-049fb5cd",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 14:08:23"
+    }
+  ]
+}

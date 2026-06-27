@@ -1,0 +1,33 @@
+{
+  "id": "stoa-cb03c639",
+  "title": "imap: SEARCH command handler (flag and header criteria)",
+  "description": "Create crates/imap/src/commands/search.rs. SEARCH evaluates criteria against all messages in selected mailbox. Algorithm: (1) require Selected state; (2) get all article numbers in group from ArticleNumberStore::group_range(); (3) for each article, evaluate SearchKey recursively: ALL -> always match; SEEN/UNSEEN -> check imap_flags; FLAGGED/UNFLAGGED -> check imap_flags; UID(set) -> check uid; SequenceSet -> check seq number; SUBJECT/FROM/TO/BODY/TEXT -> use OverviewStore query_by_range and string search; BEFORE/ON/SINCE(date) -> parse OverviewRecord.date and compare; LARGER/SMALLER(n) -> compare byte_count from overview; AND(keys) -> intersection; OR(a,b) -> union; NOT(k) -> complement; (4) send * SEARCH seq1 seq2 ...; (5) tagged OK. Limit: max OR/AND nesting depth 10; time limit 5s via tokio::time::timeout; on timeout send * SEARCH (empty) and tagged NO [INUSE].",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T07:18:19Z",
+  "updated_at": "2026-05-01T04:56:35Z",
+  "closed_at": "2026-04-23T07:51:08Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-190004c4",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:21:26"
+    },
+    {
+      "depends_on_id": "stoa-3741bca1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:18:19"
+    },
+    {
+      "depends_on_id": "stoa-394b1635",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:21:25"
+    }
+  ]
+}

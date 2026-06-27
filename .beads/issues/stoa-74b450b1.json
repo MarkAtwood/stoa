@@ -1,0 +1,21 @@
+{
+  "id": "stoa-74b450b1",
+  "title": "Peer block fetch: fill gaps found by gossip reconciliation",
+  "description": "Gossip reconciliation already computes a want-set (CIDs advertised by a peer that the local node does not have) but the fetch step is stubbed. The log line is: `v1: peer block fetch not yet implemented`. A new node joining the network receives tip advertisements, computes wants, and then does nothing. It stays empty indefinitely.\n\nThis is a must-have for any real deployment.\n\n## How fetching works\n\nThe existing peering connection (NNTP over TCP) is the fetch channel. Transit peers are already connected; adding a fetch command over the existing session avoids a second connection.\n\nAdd `XCID <cid>` to the transit peering command set:\n- Requester sends `XCID bafyrei...`\n- Responder looks up the block in its store and replies:\n  - `224 Block follows (CID)` + block bytes + `.` terminator \u2014 if found\n  - `430 No such block` \u2014 if not found locally\n- Requester receives bytes, verifies CID (SHA-256 of received bytes must match requested CID), runs block through `run_pipeline`\n\n`XCID` must be advertised in the transit peering CAPABILITIES response so peers can degrade gracefully if the remote doesn't support it yet.\n\n## Reconciliation trigger\n\nWhen `handle_tip_advertisement` computes a non-empty want-set, it currently logs a warning and stops. Instead it should send want CIDs to a fetch task via an mpsc channel. The fetch task:\n\n1. Deduplicates wants (same CID may arrive from multiple peers)\n2. Picks a peer to fetch from (the peer that sent the advertisement, falling back to any connected peer)\n3. Sends `XCID <cid>` over that peer's session\n4. On success: runs block through `run_pipeline` (write to store, update msgid_map, append to group log, publish gossip tip)\n5. On `430`: tries next available peer; after all peers exhausted, logs warning and drops the want\n6. On connection error: requeues the want with backoff\n\n## Concurrency and backpressure\n\n- Maximum concurrent fetches: configurable (`[peering] max_concurrent_fetches`, default 8)\n- Want queue bounded (drop oldest wants if queue full \u2014 tip reconciliation will re-discover them)\n- Per-peer rate limiting: respect existing `PeerRateLimiter`\n\n## Ordering concern\n\nBlocks in the group log form a DAG (entries have `parent_cids`). Fetching a tip may require fetching parent blocks first. For v1: fetch tip blocks only; log entries with missing parents are appended with empty `parent_cids` and reconciliation re-runs on the next gossip cycle. Full DAG traversal is a follow-on.\n\n## What does NOT need to change\n\n- `run_pipeline` \u2014 fetched blocks go through the same path as received blocks\n- Block store \u2014 fetch is a read on the remote, a write on the local; no new store operations\n- Gossip topic subscription \u2014 unchanged\n\n## Acceptance criteria\n- Integration test: two transit nodes, node A ingests an article, node B starts empty, B receives tip advertisement from A, B fetches and stores the article, B can serve the article via NNTP ARTICLE command\n- CID verification: a block whose bytes do not hash to the requested CID is rejected with a warning and not stored\n- `430` response from peer does not crash or hang the fetch task\n- Fetch respects `max_concurrent_fetches` limit (test with a burst of 50 wants)",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T16:32:07Z",
+  "updated_at": "2026-05-01T04:51:58Z",
+  "closed_at": "2026-04-23T22:26:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ba00cbee",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 12:59:47"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Decision recorded \u2014 no code change needed",
+  "closed_at": "2026-05-02T20:37:30Z",
+  "compaction_level": 0,
+  "content_hash": "85725591ab07da7c3252c730d9c1f5ab230dfe5bf2b17ff8ffa36a10b9d171cc",
+  "created_at": "2026-05-02T20:34:15Z",
+  "created_by": "Mark Atwood",
+  "description": "enforce_for_delivery returns Ok(()) on DNS errors and HTTPS fetch errors, only logging warnings. This is the correct RFC 8461 \u00a72 behaviour: 'policy fetch failures MUST NOT prevent message delivery'. A contributor might suggest returning Err to be safe \u2014 that would be wrong and cause delivery failures for all domains with transient DNS problems.",
+  "ephemeral": 0,
+  "id": "stoa-kkbqv.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "fail-open on DNS/HTTPS errors correctly implements RFC 8461 \u00a72",
+  "updated_at": "2026-05-02T20:37:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T13:34:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-kkbqv",
+      "id": "9baea5ed-5cbe-54b8-9808-9670d1e2ce9b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

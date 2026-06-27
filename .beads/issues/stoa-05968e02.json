@@ -1,0 +1,28 @@
+{
+  "id": "stoa-05968e02",
+  "title": "Write test vectors for article IPLD schema \u2014 root node, MIME node, metadata",
+  "description": "Produce fixed test vectors (known input bytes -> known expected CIDs and DAG-CBOR output) for: a plain text/plain article (no MIME), a quoted-printable encoded text article, a multipart/alternative article (text/plain + text/html), and an article with a binary part (binary flag). Vectors must be derived independently (not from the code under test) \u2014 use a reference IPLD/DAG-CBOR library (Python ipld-cbor or js-dag-cbor) to compute expected values.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T01:49:47Z",
+  "updated_at": "2026-05-01T04:55:33Z",
+  "closed_at": "2026-04-20T02:53:24Z",
+  "notes": "Size: M. Depends on Issue H (root node builder).",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3203a6fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 18:50:04"
+    },
+    {
+      "depends_on_id": "stoa-88506f2e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 18:49:46"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-9bb47b6a",
+  "title": "ActivityPub: HTTP Signatures and follower management",
+  "description": "Implement HTTP Signatures (draft-cavage-http-signatures) for outbound activity signing using the operator signing key. Implement Follow/Accept/Undo Follow for group actor follower management. Store followers in SQLite. Blocked on: stoa-e70f7626.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:46:30Z",
+  "updated_at": "2026-05-01T04:59:38Z",
+  "closed_at": "2026-04-28T13:08:10Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e70f7626",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:48:39"
+    }
+  ]
+}

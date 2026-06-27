@@ -1,0 +1,20 @@
+{
+  "id": "stoa-a5a80e1c",
+  "title": "strip_did_sig_header leaves folded continuation lines",
+  "description": "crates/reader/src/post/did_verify.rs: strip_did_sig_header (line 326) splits on bare '\\n' and removes only lines whose lowercased form starts with 'x-usenet-ipfs-did-sig:'. Per RFC 5322 \u00a72.2.3, header folding means a continuation line begins with SP or HTAB and is logically part of the preceding header. If the X-Usenet-IPFS-DID-Sig header is folded, strip_did_sig_header removes only the first line and leaves the continuation line(s) in the output. The bytes passed to verify_strict then differ from what the author originally signed (which contained no DID-Sig header), causing valid folded-header signatures to fail verification. Correct behavior: after identifying the start line of the DID-Sig header, also remove all immediately following lines that begin with SP or HTAB.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T04:59:46Z",
+  "updated_at": "2026-05-01T04:56:18Z",
+  "closed_at": "2026-04-23T05:58:58Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-062e13cb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:59:46"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-690692fb",
+  "title": "transit pipeline creates only genesis log entries (no parent chain)",
+  "description": "## What / Why\nIn crates/transit/src/peering/pipeline.rs, every LogEntry is created with parent_cids: vec![] (empty), regardless of existing tips. This means the per-group Merkle-CRDT never forms a DAG from transit ingestion \u2014 each article appears as a genesis entry, so the group log degenerates into an unlinked set of roots instead of a chain.\n\n## Trigger \u2192 Bad Behavior\nAny article ingested via transit peering (IHAVE/TAKETHIS) \u2192 LogEntry stored with no parents \u2192 reconcile() between peers will send all entries as WANT every time (no shared ancestry) \u2192 O(n) reconciliation traffic for n articles instead of O(delta) \u2192 log invariant (monotonic chain per group) is violated.\n\n## Fix\nBefore calling log.append(), call log.list_tips(group) and pass the result as parent_cids in the new LogEntry. This is what the reader's append_to_groups() already does correctly.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T03:07:24Z",
+  "updated_at": "2026-05-01T04:59:27Z",
+  "closed_at": "2026-04-27T03:37:44Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e2297bae",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 20:07:24"
+    }
+  ]
+}

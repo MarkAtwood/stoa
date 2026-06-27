@@ -1,0 +1,21 @@
+{
+  "id": "stoa-43f5f0db",
+  "title": "Benchmark raw rust-libp2p + custom bitswap in a minimal Rust harness",
+  "description": "Implement the minimal bitswap exchange needed to add/get a single CID block using raw rust-libp2p, without iroh or rust-ipfs. Run same 10,000-iteration benchmark. Artifact: minimal bitswap implementation, benchmark binary, results markdown.\n\nAcceptance:\n- Compiles on stable Rust edition 2021\n- Implements Want/Have/Block exchange for a single CID\n- Benchmark runs headlessly with cargo bench\n- Results file with same metrics as iroh and rust-ipfs benchmarks\n- LOC count of the bitswap implementation recorded (proxy for maintenance burden)",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:09:10Z",
+  "updated_at": "2026-05-01T04:53:00Z",
+  "closed_at": "2026-04-20T00:32:02Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-8a1b0177",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:09:10"
+    }
+  ]
+}

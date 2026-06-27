@@ -1,0 +1,19 @@
+{
+  "id": "stoa-d51cb611",
+  "title": "relay_queue.rs enqueue comment mis-states crash behavior for .msg-without-.env",
+  "description": "relay_queue.rs enqueue doc comment (lines 115-120) states: 'Crash between the two renames: .msg exists, .env does not. The drain skips this .msg (no .env partner) and the file is retried on the next startup scan.' The drain does not scan .msg files \u2014 it only scans .env files. The comment incorrectly describes the crash recovery behavior. This is the same issue as the orphan-.msg bug (stoa-5be7a2c5.2) but distinct as a documentation problem: even after the bug is fixed, the comment would need to accurately describe what happens.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:12:49Z",
+  "updated_at": "2026-05-01T04:54:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5be7a2c5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:12:48"
+    }
+  ]
+}

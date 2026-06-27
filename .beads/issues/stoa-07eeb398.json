@@ -1,0 +1,20 @@
+{
+  "id": "stoa-07eeb398",
+  "title": "inconsistent extension-check idiom between cleanup_tmp_files and cleanup_orphan_msg_files",
+  "description": "cleanup_tmp_files uses path.to_str().is_some_and(|s| s.ends_with('.msg.tmp') || s.ends_with('.env.tmp')) while cleanup_orphan_msg_files was fixed in round-5 to use path.extension().is_some_and(|e| e == 'msg'). These two functions do the same kind of work at startup; a contributor who copies either will create the same inconsistency again. The to_str() path also has the latent non-UTF-8 skip-silently bug that round-5 was explicitly fixing.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:04:23Z",
+  "updated_at": "2026-05-01T04:52:41Z",
+  "closed_at": "2026-05-01T01:07:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-187c7afd",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:04:23"
+    }
+  ]
+}

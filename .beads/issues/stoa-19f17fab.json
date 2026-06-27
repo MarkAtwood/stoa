@@ -1,0 +1,11 @@
+{
+  "id": "stoa-19f17fab",
+  "title": "feat(imap): STARTTLS upgrade path",
+  "description": "The IMAP session dispatch currently returns 502 (Command unavailable) for STARTTLS in all session states. The NNTP reader has a working STARTTLS upgrade (in lifecycle.rs), but the IMAP crate does not implement the mid-session TLS handshake upgrade at all.\n\nWhy this matters: STARTTLS is required for IMAP4rev2 (RFC 9051 \u00a74) and expected by all standard IMAP clients on port 143. Without it, clients must use implicit TLS (port 993) or transmit credentials in cleartext.\n\nWhat needs to be done:\n1. Wire STARTTLS into imap/src/session/mod.rs: when the server is in Not-Authenticated state and a TLS acceptor is present, respond with [CAPABILITY ...] OK Begin TLS (RFC 9051 \u00a79.1 capability), then perform the TLS handshake using the same pattern as the reader's run_session_post_starttls.\n2. Advertise STARTTLS in capability_list() only when TLS is available and the session is not already TLS.\n3. Remove the 502 stub and replace with proper state-machine handling (STARTTLS rejected if already TLS, rejected in Authenticated/Selected state per RFC 9051 \u00a76.2.1).\n4. Add e2e smoke tests: STARTTLS upgrade, double-STARTTLS rejection, STARTTLS-then-LOGIN.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T03:07:23Z",
+  "updated_at": "2026-05-01T05:00:57Z"
+}

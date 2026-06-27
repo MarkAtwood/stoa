@@ -1,0 +1,32 @@
+{
+  "id": "stoa-ec149e8c",
+  "title": "sieve-daemon: Axum server with /health, /check, /filter",
+  "description": "Implement the full sieve-daemon binary: Axum on a Unix socket serving three endpoints.\n\nWhat: crates/sieve-daemon/src/main.rs + filter.rs + config.rs\n\nRequest/response types (serde JSON):\n  POST /filter  body: { script_b64: String, message_b64: String, envelope_from: String, envelope_to: String }\n                resp: { actions: [ {type: \"Keep\"} | {type: \"FileInto\", folder: String} | {type: \"Discard\"} | {type: \"Reject\", reason: String} ] }\n  POST /check   body: { script_b64: String }\n                resp: 200 {} | 422 { error: String }\n  GET  /health  resp: 200 {}\n\nAlgorithm:\n1. config.rs: read socket_path from env var SIEVE_DAEMON_SOCKET (fallback /run/usenet-ipfs/sieve.sock) or parse a minimal toml config if --config flag given.\n2. filter.rs: CompiledScriptCache = Arc<Mutex<HashMap<[u8;32], Arc<CompiledScript>>>> keyed on sha256(script_bytes).\n3. handle_filter(): base64-decode script + message; check cache by sha256 key; if miss compile and insert; call usenet_ipfs_sieve::evaluate(); map Vec<SieveAction> to JSON actions.\n4. handle_check(): base64-decode script; call usenet_ipfs_sieve::compile(); return 200 or 422+error.\n5. main.rs: bind tokio::net::UnixListener to socket_path (remove stale socket file if exists); axum::serve with Router.\n6. SIGTERM handler: tokio::signal::unix to accept SIGTERM, call server shutdown.\n\nDefensive rules:\n- Validate base64 decode before any sieve call; return 400 on bad input.\n- Catch compile errors: return 422 not 500.\n- Never log script content or message body (may contain secrets/PII).\n- Socket file permissions: 0600 after bind (chmod via std::fs).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:17:25Z",
+  "updated_at": "2026-05-01T05:00:44Z",
+  "closed_at": "2026-04-23T20:25:26Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-000b86de",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:19:01"
+    },
+    {
+      "depends_on_id": "stoa-6ec467b9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:19:00"
+    },
+    {
+      "depends_on_id": "stoa-d1d5d8e9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:17:25"
+    }
+  ]
+}

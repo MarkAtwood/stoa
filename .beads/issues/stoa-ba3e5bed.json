@@ -1,0 +1,21 @@
+{
+  "id": "stoa-ba3e5bed",
+  "title": "SMTP: AUTH command not implemented (submission port non-conformant)",
+  "description": "smtp/session.rs: AUTH command not in the match statement. Clients on port 587 attempting AUTH receive 500 (command unrecognized). RFC 5321 submission requires AUTH. Fix: implement AUTH PLAIN and AUTH LOGIN, gated on TLS being active; advertise AUTH in EHLO only after STARTTLS upgrade. Since STARTTLS is not yet implemented, document this gap and the dependency.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:34:08Z",
+  "updated_at": "2026-05-01T04:59:42Z",
+  "closed_at": "2026-04-23T00:34:49Z",
+  "notes": "Implementation tracked in stoa-31947539.6 (deferred on STARTTLS)",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:34:08"
+    }
+  ]
+}

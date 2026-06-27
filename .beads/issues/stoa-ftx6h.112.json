@@ -1,0 +1,32 @@
+{
+  "closed_at": "2026-05-03T13:06:26Z",
+  "compaction_level": 0,
+  "content_hash": "b07d05619c7713aba53396ace370c71dc3aa1f47c6b3a68a0de9d929b477cbb3",
+  "created_at": "2026-05-03T13:06:21Z",
+  "created_by": "Mark Atwood",
+  "description": "Placeholder: need to verify ParseError in parse_error.rs implements Display and std::error::Error. From the usage in lexer.rs (return Err(ParseError { message, line, col })) and form.rs (ParseError { message: '...'.to_string(), line: 0, col: 0 }), it appears ParseError is a plain struct. Need to confirm it implements Display (so String::from(err) works as called in lib.rs::compile via .map_err(String::from)).",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.112",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve-native: parse_error.rs module not read -- checking if ParseError derives standard traits",
+  "updated_at": "2026-05-03T13:06:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "d6f4c2d3-4c4e-5343-b496-5797b7038348",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

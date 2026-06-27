@@ -1,0 +1,33 @@
+{
+  "close_reason": "decision records, no code change required",
+  "closed_at": "2026-05-02T14:07:08Z",
+  "compaction_level": 0,
+  "content_hash": "9146c2ced5d78f9f58f6653d6b22584e8ea0b2e65418fec9ac87341e9b679f57",
+  "created_at": "2026-05-02T14:02:30Z",
+  "created_by": "Mark Atwood",
+  "description": "Metrics (JMAP_REQUESTS_TOTAL, JMAP_REQUEST_DURATION_SECONDS, EMAIL_QUERY_RESULTS) are recorded inside StoaHandler::call(), not at the Dispatcher level. This is correct \u2014 if moved to jmap-server Dispatcher it would require upstream changes to a shared crate. The per-method timing and Prometheus labels are preserved exactly. A contributor might suggest moving metrics into the Dispatcher; that would couple the generic server to stoa-specific metrics.",
+  "ephemeral": 0,
+  "id": "stoa-o0dg1.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Per-method metrics preserved through adapter layer \u2014 correct design",
+  "updated_at": "2026-05-02T14:07:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T07:02:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-o0dg1",
+      "id": "7352cc21-380d-56f8-beb0-0df5c2fd2c5d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

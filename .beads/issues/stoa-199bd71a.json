@@ -1,0 +1,27 @@
+{
+  "id": "stoa-199bd71a",
+  "title": "Transit IHAVE/TAKETHIS path: call verify_article at ingest",
+  "description": "Wire verification into the transit peering ingest pipeline.\n\nWhat: crates/transit/src/peering/pipeline.rs (the staging\u2192IPFS pipeline)\n\nSame pattern as W3A: after article CID is known and article is committed to IPFS, call verify_article() non-fatally. Same verify_store + dkim_resolver fields added to whatever shared state struct transit uses (PeeringShared or equivalent).\n\nChanges mirror W3A exactly \u2014 same verify_article() function, same non-fatal pattern, same None-in-tests default.\n\nDefensive rules: identical to W3A.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:48:52Z",
+  "updated_at": "2026-05-01T05:00:58Z",
+  "closed_at": "2026-04-24T02:12:02Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-8c33ec19",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:49:57"
+    },
+    {
+      "depends_on_id": "stoa-f07d2b75",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:48:52"
+    }
+  ]
+}

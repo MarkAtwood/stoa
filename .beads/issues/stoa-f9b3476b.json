@@ -1,0 +1,13 @@
+{
+  "id": "stoa-f9b3476b",
+  "title": "Review: test additions for tls and transit",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-26T22:54:35Z",
+  "updated_at": "2026-05-01T04:59:07Z",
+  "closed_at": "2026-04-26T22:55:10Z",
+  "notes": "No findings. Code is correct, tests have independent oracles, no new API surface introduced.\nConfidence: 98% no missed bugs. Remaining uncertainty is that validate_uri_syntax_invalid_secretx_is_err relies on secretx 0.3.0 behavior for empty-backend URIs \u2014 verified empirically, not from a written spec."
+}

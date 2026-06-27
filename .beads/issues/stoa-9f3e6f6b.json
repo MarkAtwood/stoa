@@ -1,0 +1,19 @@
+{
+  "id": "stoa-9f3e6f6b",
+  "title": "SEC0: no correctness issues found",
+  "description": "Full correctness review of b1bc (config.rs DkimConfig, queue.rs NntpQueue signing, relay_queue.rs SmtpRelayQueue signing, main.rs startup, dkim_e2e.rs tests). RFC 6376/8463 compliance verified. Seed zeroization correct. Signing failure semantics (NNTP=defer, relay=dead-letter) correct. No correctness bugs found.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:23:12Z",
+  "updated_at": "2026-05-01T04:54:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0b13a613",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:23:12"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "stoa-3e7d6b6b",
+  "title": "CA runtime expiry bypass when clock pre-epoch",
+  "description": "verify_and_extract_cn computes now_secs via ASN1Time::now().timestamp() (wraps OffsetDateTime::now_utc().unix_timestamp()). If the system clock is set before 1970-01-01, unix_timestamp() returns a negative i64. The guard 'now_secs > issuer.not_after_secs' then evaluates false for any CA with not_after_secs > 0, bypassing the runtime expiry check and allowing an expired CA to authenticate leaf certs. Fix: assert now_secs > 0 before the loop, or use saturating comparison that treats a pre-epoch clock as expired.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T10:02:45Z",
+  "updated_at": "2026-05-01T04:56:59Z",
+  "closed_at": "2026-04-27T10:20:43Z"
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-db5d094d",
+  "title": "CoreError alias origin undocumented",
+  "description": "crates/core/src/error.rs line 280 defines 'pub type CoreError = ValidationError'. The comment says 'Backwards-compatibility alias. New code should use ValidationError directly.' A new contributor has no context: what was CoreError before the rename, which external callers still rely on it, and whether it will be removed. Clarify origin and removal plan in the doc comment.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:10:38Z",
+  "updated_at": "2026-05-01T04:53:49Z",
+  "closed_at": "2026-04-27T17:40:59Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:10:38"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T18:26:40Z",
+  "compaction_level": 0,
+  "content_hash": "8f180bbbdc6a5bf82abab722aa969fc417d30673f4b0a1b43fb693a7c93302a2",
+  "created_at": "2026-05-01T15:18:43Z",
+  "created_by": "Mark Atwood",
+  "description": "In email/set.rs handle_keyword_update, when the email id cannot be parsed as a CID, a notFound error is returned. RFC 8621 \u00a74.1.2 specifies that if the id format is invalid, the correct error type is invalidArguments, not notFound. notFound implies the id is a valid format but the object does not exist; an unparseable non-CID id should be invalidArguments.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_keyword_update: non-CID email IDs return notFound instead of invalidArguments",
+  "updated_at": "2026-05-01T18:26:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:18:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "5113aef2-5e12-5074-be73-a4de844ae9c5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

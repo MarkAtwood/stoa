@@ -1,0 +1,20 @@
+{
+  "id": "stoa-99d5c997",
+  "title": "SEC7-R2: calibration",
+  "description": "Confidence: 90% the shipped round-1 fixes are correct and no new bugs introduced. Remaining bug probability: ~10%, arising from two areas that warrant a second look but are not confirmed bugs:\n\n1. suck_pull.rs msgid normalization: NEWNEWS returns Message-IDs that already include angle brackets (e.g. <foo@bar>). The code lowercases the entire trimmed string including the angle brackets and sends it verbatim as ARTICLE <foo@bar> - this is correct RFC 3977 usage. However, to_ascii_lowercase() on a Message-ID changes the local-part case, which by RFC 5321 is case-sensitive (though in practice usenet implementations treat them as case-insensitive). Not a bug in practice, but the normalization choice is opinionated. Note: there are no angle-bracket stripping or reattachment bugs - the code sends whatever NEWNEWS returned (lowercased) directly as the ARTICLE argument.\n\n2. suck_pull.rs fetch_article discards article content (marked 'storage handled elsewhere') but there is no code path that actually stores articles fetched via ARTICLE command. The article body is read and dropped. This looks like the storage integration is incomplete/deferred rather than a regression from round-1, but it means suck_pull is a no-op for actual article ingestion. This is not a new bug introduced in round 1; it was pre-existing.\n\n3. session.rs sentinel cache: the sentinel (None entry) for a bad Sieve script is never evicted except by an explicit admin API write/activate. If an operator uploads a bad script, fixes it via the admin API (which does remove), then later a delivery happens - correct. But if the operator removes the script entirely (DELETE), the cache entry is also invalidated. The logic appears correct. No bug found.\n\n4. sieve_admin.rs auth: constant-time comparison is correct. The loopback-check using rsplit_once(':') correctly handles IPv6 brackets. No issue found.\n\n5. transit/admin.rs DB pool fix: the split transit_pool / core_pool is clean, queries go to the right pool. No issue.\n\n6. reader/server_stores.rs stable node_id: three-priority chain (config > file > generate+persist) is logically correct. The file-existence check before read has a TOCTOU window (file could be deleted between exists() and read()), but this is not exploitable in a single-operator daemon context and is the normal Rust idiom. Not a real bug.\n\nRunning out of real complaints: YES. The remaining 10% uncertainty is mostly around the suck_pull storage gap (pre-existing, not a round-1 regression) and the TOCTOU non-issue. Round-1 fixes are clean and the test coverage for the changed surfaces is good.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T14:12:18Z",
+  "updated_at": "2026-05-01T05:01:03Z",
+  "closed_at": "2026-04-22T14:20:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-c4a48573",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 07:12:18"
+    }
+  ]
+}

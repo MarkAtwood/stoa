@@ -1,0 +1,32 @@
+{
+  "closed_at": "2026-05-03T13:04:38Z",
+  "compaction_level": 0,
+  "content_hash": "7aa0d8322d50449dcdd026cdc5bf2ef333eb83d20764cca91600baca25569aa9",
+  "created_at": "2026-05-03T13:04:29Z",
+  "created_by": "Mark Atwood",
+  "description": "In trusted_issuer.rs test helper store_with_trusted_ca_cert_path(), the code does: let (tmp, path) = ca_der_to_pem_file(CA_CERT_DER); ... let store = TrustedIssuerStore::from_config(&[entry])...; drop(tmp); store. The NamedTempFile tmp is dropped explicitly before the store is returned. TrustedIssuerStore::from_config reads and parses the file at construction time (it stores the parsed SPKI/subject bytes, not the file path). So the store does NOT hold a reference to the file after construction; the drop is safe here. This is actually correct behavior -- flagging only because the explicit drop after construction is confusing to readers who may think the store holds a file reference. The code should add a comment explaining why the early drop is safe.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.44",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "auth: trusted_issuer.rs store_with_trusted_ca_cert_path drops tempfile before store is used",
+  "updated_at": "2026-05-03T13:04:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:04:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "487f47fc-a71a-5f0d-80bb-774783434da2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

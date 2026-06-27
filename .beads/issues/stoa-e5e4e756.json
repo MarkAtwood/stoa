@@ -1,0 +1,26 @@
+{
+  "id": "stoa-e5e4e756",
+  "title": "sieve-daemon: unit tests for filter handler and script cache",
+  "description": "Test suite for the sieve-daemon filter handler, independent of the client code.\n\nWhat: crates/sieve-daemon/tests/filter_tests.rs (or inline mod tests in filter.rs)\n\nTests (oracle: run same scripts through usenet_ipfs_sieve::evaluate directly in the test):\n1. fileinto_routes_to_folder: script 'fileinto \"INBOX.work\";' \u2192 action FileInto(folder=INBOX.work)\n2. reject_returns_reason: script 'reject \"no spam\";' \u2192 action Reject(reason=no spam)\n3. discard_action: script 'discard;' \u2192 action Discard\n4. implicit_keep: script with condition that never matches \u2192 action Keep\n5. compile_error_returns_422: send invalid sieve syntax \u2192 HTTP 422 response\n6. cache_hit_skips_recompile: send same script twice; inject spy counter into cache; assert compile called once\n7. check_endpoint_valid: POST /check with valid script \u2192 200\n8. check_endpoint_invalid: POST /check with bad syntax \u2192 422 + error string\n\nEach test spins up a live Axum server on a temp Unix socket path (use tempfile::TempDir for cleanup).\nOracle: expected action is derived by running the same script through usenet_ipfs_sieve::evaluate() in the test itself \u2014 both paths (direct and via HTTP) must agree.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:17:55Z",
+  "updated_at": "2026-05-01T05:00:45Z",
+  "closed_at": "2026-04-23T20:25:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d1d5d8e9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:17:55"
+    },
+    {
+      "depends_on_id": "stoa-ec149e8c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:19:04"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "cargo test -p stoa-reader -p stoa-transit passes; allow_http=true with credentials on non-loopback is now a ConfigError::Validation; clippy clean",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T07:45:59Z",
+  "compaction_level": 0,
+  "content_hash": "6016292fd7f791db316a34e08c22f565d0dd6aba6e3440e06d15ce04aaac7fcf",
+  "created_at": "2026-05-04T06:32:33Z",
+  "created_by": "Mark Atwood",
+  "description": "## What\nAdd a fatal startup guard in reader and transit config validation: if backend.webdav.allow_http=true (or azure/s3 allow_http=true) AND credentials are configured AND the endpoint host is non-loopback, abort with a fatal error.\n\n## Algorithm\n1. Read crates/reader/src/config.rs validate() \u2014 find the WebDAV, Azure, S3 backend validation arms.\n2. Read crates/transit/src/config.rs validate() \u2014 same.\n3. For WebDAV: add after existing allow_http check:\n     if webdav.allow_http.unwrap_or(false)\n         && webdav.password.is_some()\n         && !is_loopback_url_host(&webdav.url)\n     {\n         return Err(ConfigError::Validation(\n             format!('backend.webdav.allow_http = true with credentials configured transmits \\\nyour password in cleartext to {}. Set allow_http = false or change the URL to https://', webdav.url)\n         ));\n     }\n4. Add is_loopback_url_host(url: &str) -> bool helper (extract host from URL, call IpAddr::parse or check 'localhost'). Place in the same config.rs or use stoa_core::util if Gap W0A is done first.\n5. Apply the same pattern to AzureBackendConfig (allow_http + access_key present + non-loopback endpoint).\n6. For S3: add a warning (not yet fatal \u2014 S3 credentials are passed in config but the endpoint is typically forced to AWS). Add a warn! for now, document that a future guard will make it fatal once endpoint-checking logic is stable.\n7. cargo fmt; cargo clippy clean; cargo test --workspace clean.\n\n## Defensive programming rules\n- URL parsing must not panic; on parse error, return false (treat as non-loopback \u2192 more restrictive). No unwrap() without comment.\n- The error message must include the URL (censored if it contains embedded credentials, but show the host).\n- Key material (password, secret_access_key) must NOT appear in the error message or log.\n\n## Tests\nAdd unit tests in reader/src/config.rs test module:\n- test_webdav_allow_http_with_password_nonloopback: Config with webdav allow_http=true, password='secret', url='http://storage.example.com/dav' \u2192 validate() returns Err(ConfigError::Validation(...)).  Oracle: the guard condition.\n- test_webdav_allow_http_with_password_loopback: same but url='http://127.0.0.1:8080/dav' \u2192 validate() returns Ok(). Oracle: loopback is safe.\n- test_webdav_allow_http_no_password: allow_http=true, no password, non-loopback url \u2192 validate() returns Ok(). Oracle: no credential to expose.\n- test_azure_allow_http_with_key_nonloopback: Azure allow_http=true, access_key set, endpoint='http://myprod.blob.core.windows.net' \u2192 validate() returns Err(). Oracle: same guard.",
+  "ephemeral": 0,
+  "id": "stoa-90tpd.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "core/reader/transit: fatal guard for allow_http=true with credentials",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T23:32:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-90tpd",
+      "id": "44a4be6f-f12c-50b9-ad56-809dfa3d59bc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

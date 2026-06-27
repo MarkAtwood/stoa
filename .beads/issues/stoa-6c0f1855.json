@@ -1,0 +1,12 @@
+{
+  "id": "stoa-6c0f1855",
+  "title": "Integrate crate-secretsx for secret management",
+  "description": "Why: All operator-configured secrets (signing keys, API tokens, admin bearer tokens, TLS keys) are currently read as plaintext strings from TOML config files or bare file paths. This forces operators to store sensitive material on disk in the config directory with no HSM, vault, or cloud KMS support. crate-secretsx (at ../crate-secretsx) provides a backend-agnostic SecretStore/SigningBackend trait family with URI dispatch (secretx:file:, secretx:env:, secretx:aws-sm:, secretx:pkcs11:, secretx:aws-kms:, etc.) that lets operators choose how secrets are stored without changing application code. What to do: Migrate all four secret categories \u2014 operator signing key, external pinning API keys, admin bearer tokens, TLS private keys \u2014 to accept secretx: URIs in config, resolving them at startup via the secretx crate.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-26T20:44:42Z",
+  "updated_at": "2026-05-01T04:51:59Z",
+  "closed_at": "2026-04-26T20:46:58Z"
+}

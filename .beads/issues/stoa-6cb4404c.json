@@ -1,0 +1,20 @@
+{
+  "id": "stoa-6cb4404c",
+  "title": "AuthFailureTracker missing Debug derive",
+  "description": "In auth_limiter.rs, AuthFailureTracker has no #[derive(Debug)]. Any struct wrapping it or storing it in a larger type cannot derive Debug unless they implement it manually. Failure to derive Debug is idiomatic Rust boilerplate debt.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:28:11Z",
+  "updated_at": "2026-05-01T04:54:06Z",
+  "closed_at": "2026-04-28T21:59:31Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:28:11"
+    }
+  ]
+}

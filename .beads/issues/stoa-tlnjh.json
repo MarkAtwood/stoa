@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "41ed5fef3ec941ca3335709205ff0a30a30ef7efad118d2c33251f1ad3cd8116",
+  "created_at": "2026-05-02T15:56:23Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why this issue exists\n\nStoa reads config files (TOML) that contain secrets: database credentials, signing keys, AWS credentials, SMTP relay passwords. If those files are world-readable (mode 0644 or 0666), any local user on the host can read all secrets.\n\nSOC2 CC6.1 requires that access to sensitive configuration is restricted to authorised principals. An auditor will check file permissions on config files.\n\n## What needs to be done\n\n- At startup, stat the config file path and check that permissions are 0600 or 0640 (owner read-only or owner+group read).\n- If permissions are 0644 or wider, emit a warning log (not fatal by default, fatal in production mode).\n- In production mode (see dev mode guard epic), abort with a fatal error if config file is world-readable.\n- Also check that the file is owned by the process's effective UID or a designated service user.\n- Apply the same check to any separate secrets file or key file referenced from the config.\n- Write a test that creates a temp config file with 0644 permissions and verifies the warning/error.\n\n## Acceptance criteria\n\n- World-readable config files produce a fatal error in production mode\n- World-readable config files produce a logged warning in dev mode\n- File ownership check runs alongside permission check\n- Test covers both 0600 (pass) and 0644 (fail) cases\n\n## Design notes\n\nRegulatory refs: SOC2 CC6.1. Use `std::fs::metadata()` + `Permissions::mode()` (unix). On Windows, check ACL \u2014 but stoa is Linux-first so unix perms are the primary path.",
+  "ephemeral": 0,
+  "id": "stoa-tlnjh",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Config file permission check at startup",
+  "updated_at": "2026-05-02T15:56:23Z"
+}

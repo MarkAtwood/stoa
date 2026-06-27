@@ -1,0 +1,65 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T19:30:52Z",
+  "compaction_level": 0,
+  "content_hash": "214b661521a57c40602c7d75fbecd9ad40afeba49cb5cb041728b5447d0008c6",
+  "created_at": "2026-05-02T17:39:24Z",
+  "created_by": "Mark Atwood",
+  "description": "Wire the MTA-STS enforcement logic into crates/smtp/src/relay_client.rs do_deliver() before the TCP connect at line 118. Sequence: (1) extract recipient domain from envelope, (2) call DNS TXT lookup, (3) if policy id found, check cache; if cache miss or expired, fetch policy via HTTPS, store in cache, (4) call check_mx_against_policy on the peer hostname, (5) if enforce mode and MX not matched: return MtaStsError::MxNotMatched (do not connect), (6) after TLS handshake: if enforce mode and TLS failed: return error, do NOT fall back to plaintext, (7) if testing mode and TLS failed: log failure, record TLSRPT event, proceed. No behavioral change if no MTA-STS policy found for domain.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wire MTA-STS check into relay_client do_deliver()",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T10:40:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.18",
+      "id": "0ff7f431-473c-521d-8f15-b6e28754e5b6",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T10:39:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks",
+      "id": "2fedc323-c6cc-5032-a0d6-6b6c307e974d",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-02T10:40:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.17",
+      "id": "4ab24057-a072-52a8-baa4-a1ed5fedbd7f",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T10:40:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.19",
+      "id": "505bcd0d-fe48-5bb4-9f0e-ee93e9ddc396",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T10:40:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.15",
+      "id": "517b5829-d910-5c8b-b844-93c9405523c0",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

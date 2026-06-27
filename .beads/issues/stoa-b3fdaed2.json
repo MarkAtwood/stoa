@@ -1,0 +1,13 @@
+{
+  "id": "stoa-b3fdaed2",
+  "title": "Config: operator signing key path (not ephemeral)",
+  "description": "The operator Ed25519 signing key is currently generated with OsRng at every startup (transit/main.rs:113) and discarded on exit. This means every restart produces a new key, which breaks article signature verification for any previously-ingested article. Need a config entry to load a persistent key from disk.\n\nAdd [operator] section to transit config:\n  signing_key_path = \"/etc/usenet-ipfs/operator.pem\"\n\nload_signing_key() already exists in crates/reader/src/post/sign.rs \u2014 reuse it (or move to core). Config validation should fail fast if the path is missing or unreadable at startup rather than silently using an ephemeral key.\n\nKeep the ephemeral fallback for dev/test mode only, clearly documented as insecure.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T22:33:37Z",
+  "updated_at": "2026-05-01T04:54:32Z",
+  "closed_at": "2026-04-21T22:54:08Z"
+}

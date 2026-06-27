@@ -1,0 +1,20 @@
+{
+  "id": "stoa-7d007154",
+  "title": "verify/x_sig: extract_sig_header builds format string on every line",
+  "description": "crates/verify/src/x_sig.rs extract_sig_header() line 134 \u2014 format\\!(\"{SIG_HEADER}:\") allocates a new String for the prefix 'X-Stoa-Sig:' on every call to extract_sig_header. This prefix is constant; it should be a const &str so the allocation is eliminated. The resulting prefix check on line 161 can use a const comparison.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:23:34Z",
+  "updated_at": "2026-05-01T04:55:48Z",
+  "closed_at": "2026-04-28T20:21:21Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:23:33"
+    }
+  ]
+}

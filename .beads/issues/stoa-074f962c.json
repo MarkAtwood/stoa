@@ -1,0 +1,12 @@
+{
+  "id": "stoa-074f962c",
+  "title": "verify: DnsError.domain field lost on SQLite round-trip",
+  "description": "DnsError includes a domain field for diagnostics, but the SQLite serialization stores only the error kind, dropping the domain. On reload the domain is empty string. This makes DNS error diagnostics useless after a restart.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T23:47:01Z",
+  "updated_at": "2026-05-01T04:51:58Z",
+  "closed_at": "2026-04-25T00:09:39Z"
+}

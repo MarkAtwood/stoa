@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "8c56028bff1e64259d141ddbab6b0eb4d0eed27156608b735fd6e511007882c0",
+  "created_at": "2026-06-13T06:42:45Z",
+  "created_by": "Mark Atwood",
+  "description": "stoa-imap has zero observability instrumentation \u2014 no metrics, no traces, no Prometheus endpoint, nothing. Needs: Prometheus metrics (connection counts, command durations, auth failures at minimum), /metrics endpoint, and full OTel SDK integration matching transit/reader pattern. Files: crates/imap/Cargo.toml, new crates/imap/src/metrics.rs, new crates/imap/src/telemetry.rs, crates/imap/src/main.rs.",
+  "ephemeral": 0,
+  "id": "stoa-aalmj",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Add observability to stoa-imap (metrics + OTel)",
+  "updated_at": "2026-06-13T06:42:45Z"
+}

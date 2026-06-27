@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "593d89381e41b4137a1cf4dfe9b5c9b410a8bd6341e1bf53a0c23cb917a85643",
+  "created_at": "2026-05-05T04:40:47Z",
+  "created_by": "Mark Atwood",
+  "description": "stoa-smtp and stoa-transit do not drain active sessions on SIGTERM \u2014 connections are cancelled immediately rather than allowed to complete. This is a partial fix from stoa-c6s4x which handled the mail/axum drain but left smtp and transit incomplete.\n\n## stoa-smtp\n\nRisk: mid-DATA hard kill on large message submissions. Client receives TCP reset, must reconnect and re-upload entire message. Standard SMTP clients retry but it's wasteful and annoying for large attachments (up to max_message_bytes, default 25MB).\n\nFix: thread a CancellationToken through run_server and each session task. On SIGTERM: stop accepting new connections, signal existing sessions to finish current command then exit cleanly, enforce drain_timeout_secs before force-kill.\n\n## stoa-transit (higher priority)\n\nRisk: articles accepted via CHECK\u2192238 (offered, server said it wants them) but not yet written to block store are silently lost on hard kill. The peering peer already sent TAKETHIS and got 239 (or is expecting it) \u2014 article is gone with no indication to the peer.\n\nFix: same CancellationToken approach, but drain must also flush the ingestion queue (pending block_put + group log appends) before exiting. This is the drain the existing [peering] drain_timeout_secs config already describes \u2014 it just needs to be wired into the actual shutdown path properly.\n\n## Exit code\n\nCurrently a hard kill exits 0 (looks clean, isn't). Should exit 1 if drain timeout fired with sessions still active, same as the reader already does.\n\n## Note\nTransit is higher priority than smtp \u2014 lost articles in the ingestion queue are silent data loss. Smtp mid-DATA kills are recoverable by the client.",
+  "ephemeral": 0,
+  "id": "stoa-qyv6z",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "fix: per-session graceful drain on SIGTERM for smtp and transit",
+  "updated_at": "2026-05-05T04:40:47Z"
+}

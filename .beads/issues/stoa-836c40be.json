@@ -1,0 +1,19 @@
+{
+  "id": "stoa-836c40be",
+  "title": "DECISION RECORD: DKIM implementation choices worth defending",
+  "description": "1. seed.zeroize() after Ed25519Key construction (main.rs:205) \u2014 correct; key material not retained in heap longer than needed. 2. DkimConfig::Debug impl redacts key_seed_b64 \u2014 correct; prevents accidental log leakage. 3. RFC 8463 \u00a7A.2 test vectors used as oracle throughout \u2014 correct test discipline; external reference, not self-derived. 4. Config validate() decodes both base64 fields at startup and rejects wrong lengths \u2014 good fail-fast behavior. 5. from_seed_and_public_key validates keypair consistency (ring enforces seed->pubkey match) \u2014 misconfigured keypairs caught at startup. 6. Relay path dead-letters on DKIM failure \u2014 correct; prevents infinite retry with a broken signer.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:37:40Z",
+  "updated_at": "2026-05-01T04:54:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-64675b0e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:37:40"
+    }
+  ]
+}

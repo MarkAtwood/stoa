@@ -1,0 +1,20 @@
+{
+  "id": "stoa-1c73f68d",
+  "title": "Core crate: article format, CID scheme, serialization, Message-ID map, signing",
+  "description": "Implement the usenet-ipfs-core rlib: article wire format types, CID computation, canonical serialization, Message-ID to CID mapping in SQLite, and ed25519 signature creation and verification. This crate is the shared foundation for both the transit and reader binaries. All error types live here.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:09:33Z",
+  "updated_at": "2026-05-01T04:53:02Z",
+  "closed_at": "2026-04-20T05:57:26Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-a2023a88",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:09:32"
+    }
+  ]
+}

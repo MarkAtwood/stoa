@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "strip_suffix(&suffix) used \u2014 no redundant .as_str() call",
+  "closed_at": "2026-05-02T22:00:11Z",
+  "compaction_level": 0,
+  "content_hash": "c3a155bc88a118c8700c61fb3386455c54a95c17b81df88b667b3d68d2a527e7",
+  "created_at": "2026-05-02T21:43:14Z",
+  "created_by": "Mark Atwood",
+  "description": "mta_sts_mx.rs line 16: mx.strip_suffix(suffix.as_str()) \u2014 suffix is a String, which auto-derefs to &str via Deref<Target=str>. The explicit .as_str() call is redundant (clippy::explicit_auto_deref / needless_as_str). Use &suffix or just suffix.as_str() replaced by letting Deref coerce. No engineering consequence, but it signals unfamiliarity with Deref coercions.",
+  "ephemeral": 0,
+  "id": "stoa-owq35.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mta_sts_mx.rs: redundant .as_str() call on String",
+  "updated_at": "2026-05-02T22:00:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:43:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-owq35",
+      "id": "cd3a43c1-5c3e-553c-be53-122547042cf2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

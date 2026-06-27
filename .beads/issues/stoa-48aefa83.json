@@ -1,0 +1,20 @@
+{
+  "id": "stoa-48aefa83",
+  "title": "percent_encode: byte-level iteration is the only correct approach",
+  "description": "The fix from char-iteration to byte-iteration in percent_encode is not merely correct \u2014 it's the only correct approach for percent-encoding. The old code iterated chars and cast to u32, producing single-byte percent-escapes for non-ASCII scalars (e.g. U+00E9 \u2192 %E9). RFC 3986 requires percent-encoding of UTF-8 bytes (U+00E9 \u2192 %C3%A9). The new code iterates s.as_bytes() which is exactly right. A future contributor might propose 'simplifying' this back to chars() \u2014 this decision should be defended on the grounds that percent-encoding is defined over octets, not Unicode scalars.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T18:15:28Z",
+  "updated_at": "2026-05-01T04:57:20Z",
+  "closed_at": "2026-04-24T18:29:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4f3e1b5a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-24 11:15:28"
+    }
+  ]
+}

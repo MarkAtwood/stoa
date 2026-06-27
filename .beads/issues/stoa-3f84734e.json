@@ -1,0 +1,19 @@
+{
+  "id": "stoa-3f84734e",
+  "title": "feat(mail): mailbox hierarchy \u2014 News/*, List/*, special-use, RFC 6154",
+  "description": "Users connecting via IMAP or JMAP see a flat list of newsgroup names at the mailbox root with no recognizable structure. Standard email clients cannot navigate this. This epic implements the full three-tree mailbox hierarchy that makes stoa usable as a primary email client.\n\nTarget structure:\n- INBOX, Sent, Drafts, Trash, Junk, Archive \u2014 personal email, RFC 6154 special-use flags\n- List/<list-name> \u2014 mailing list traffic, auto-created per List-Id: header\n- News/<group-name> \u2014 Usenet newsgroups (e.g. News/comp.lang.rust)\n\nWhy this exists: without this structure, a user cannot read email through any standard client. The INBOX provisioning (n1z4.1\u20133) delivers messages; this epic provides the folder structure and routing that puts them in the right place.\n\nChild issues cover: News/* prefix and NAMESPACE delimiter change, RFC 6154 special-use IMAP flags, List/* auto-creation, Sieve routing rule, and IMAP LIST hierarchy flags.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T03:53:47Z",
+  "updated_at": "2026-05-01T04:52:21Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-172aef57",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 20:54:41"
+    }
+  ]
+}

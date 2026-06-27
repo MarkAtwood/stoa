@@ -1,0 +1,21 @@
+{
+  "id": "stoa-37aa419f",
+  "title": "routing::extract_message_id is dead code \u2014 confusing future contributors",
+  "description": "extract_message_id is pub, has tests, but is never called from any other module (not in lib.rs re-exports, not called from session.rs or main.rs). A contributor seeing this function would assume it's part of the routing API contract and avoid removing it, or write new code calling it unnecessarily. Scenario: contributor adds deduplication logic using extract_message_id instead of looking at how routing actually works. Maintenance consequence: accumulating orphaned surface area. Fix: either use it or remove it. If it's being kept for a future epic, document that explicitly with a comment referencing the issue.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T13:31:08Z",
+  "updated_at": "2026-05-01T04:54:47Z",
+  "closed_at": "2026-04-21T13:52:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9f393084",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 06:31:07"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "stoa-712348f1",
+  "title": "transit: drain_one has no exclusive-claim, multi-worker doubles process articles",
+  "description": "## Problem\nstaging.rs drain_one() fetches the oldest row with a plain SELECT...ORDER BY...LIMIT 1 without atomically marking it as in-flight. When drain_workers > 1, multiple workers can concurrently pick the SAME oldest row, read its file, and both attempt to process it through the IPFS pipeline. Both write the same block (idempotent) but both attempt group-log append, which \u2014 combined with the concurrent append TOCTOU \u2014 risks duplicate or orphaned log entries. The second complete() call attempts to delete an already-deleted file and row.\n\n## Acceptance criteria\n- drain_one atomically marks a row as in-flight using a status column (e.g. UPDATE...RETURNING) before returning it, so no two workers can claim the same row\n- OR limit drain_workers to 1 in config validation and document this invariant\n- Test: two concurrent drain_one calls never return the same article",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T19:00:56Z",
+  "updated_at": "2026-05-01T04:53:55Z",
+  "closed_at": "2026-04-24T19:59:17Z"
+}

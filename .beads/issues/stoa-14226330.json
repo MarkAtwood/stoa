@@ -1,0 +1,20 @@
+{
+  "id": "stoa-14226330",
+  "title": "list_user_mailboxes called on every Email/query request",
+  "description": "In server.rs, Email/query calls list_user_mailboxes on every request to check if the mailbox_id is a special folder. Mailbox/get calls it again separately. Both are full DB round-trips with no caching. At modest load this is a hot path. Mitigation: fetch once per request batch dispatch and reuse the result.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:00:48Z",
+  "updated_at": "2026-05-01T04:59:33Z",
+  "closed_at": "2026-04-30T05:28:14Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-14057691",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:00:48"
+    }
+  ]
+}

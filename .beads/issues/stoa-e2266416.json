@@ -1,0 +1,21 @@
+{
+  "id": "stoa-e2266416",
+  "title": "verify_entry never called during peering ingestion \u2014 LogEntry signatures unenforced",
+  "description": "group_log/verify.rs has a fully working verify_entry() that checks operator_signature, parent existence, and HLC monotonicity. But check_ingest() in transit/peering/ingestion.rs (the ingestion validation gate) never calls it. The run_pipeline() path also does not call verify_entry. Trigger: malicious peer sends IHAVE/TAKETHIS with a LogEntry whose operator_signature is zeroed, forged, or missing. Bad behavior: entry is accepted, stored, and propagated with no signature verification. The signature field is populated during local POST but ignored during peer ingest, making it non-binding. The security contract (operator controls what enters their group log) is not enforced for inbound articles.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T14:06:03Z",
+  "updated_at": "2026-05-01T04:55:43Z",
+  "closed_at": "2026-04-21T14:38:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ad28b4f3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 07:06:02"
+    }
+  ]
+}

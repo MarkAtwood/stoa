@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T17:58:59Z",
+  "compaction_level": 0,
+  "content_hash": "d13c9f572987771791f0ecacf51cbeb29286e77cc7de7e73d46a2abbe4743b4f",
+  "created_at": "2026-05-01T15:21:37Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: main.rs classify_pipeline_error() matches on .contains(\"missing Message-ID header\") and .contains(\"log entry signature self-check failed\") to distinguish permanent from transient pipeline errors. run_pipeline returns String errors. Bad behavior: any refactor that changes these error message strings (typo fix, wording change, i18n) silently turns permanent failures into transient ones, causing the staging drain to retry articles forever until max retries is hit rather than purging them immediately. Strongly typed error variants from pipeline.rs would eliminate this fragility.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.80",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "classify_pipeline_error matches on fragile error-string substrings instead of typed errors",
+  "updated_at": "2026-05-01T17:58:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:21:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "2179357d-ab5e-5369-ac46-41bb12080f69",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

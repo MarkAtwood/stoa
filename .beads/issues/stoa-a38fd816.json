@@ -1,0 +1,21 @@
+{
+  "id": "stoa-a38fd816",
+  "title": "Benchmark iroh as IPFS client in a minimal Rust harness",
+  "description": "Produce a standalone Rust binary in a scratch workspace that uses iroh to add a 1 KB block, retrieve it by CID, and pin it. Measure add/get latency over 10,000 iterations. Record peak RSS, steady-state RSS, and p99 latency. The artifact is a benchmark binary and a results markdown file.\n\nAcceptance:\n- iroh dependency compiles on stable Rust with edition 2021\n- Benchmark runs headlessly in CI with cargo bench\n- Results file records p50/p99/p999 latency and RSS at steady state\n- No panics or IPFS daemon required (embedded node or HTTP API must be documented)",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:09:03Z",
+  "updated_at": "2026-05-01T04:53:00Z",
+  "closed_at": "2026-04-20T00:31:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-8a1b0177",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:09:02"
+    }
+  ]
+}

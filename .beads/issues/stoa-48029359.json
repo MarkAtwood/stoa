@@ -1,0 +1,20 @@
+{
+  "id": "stoa-48029359",
+  "title": "Document and harden format!(\"{cap}\") for CapabilityEnable string dispatch",
+  "description": "mod.rs line 474 converts a typed CapabilityEnable value to a string via format!(\"{cap}\") then passes the string to handle_enable() for case-insensitive comparison. This is fragile in two ways: (1) if the imap-types Display impl for CapabilityEnable changes output format (e.g. adds prefix, changes case rules, or the variant is renamed), the comparison in handle_enable silently stops matching and ENABLE IMAP4rev2 becomes a silent no-op with no test failure; (2) the pattern is invisible \u2014 a reader sees format!(\"{cap}\") and cannot tell this is intentional dispatch-by-display rather than a diagnostic string. There is no comment explaining why a typed match arm is not used instead. The root cause is the same upstream gap as x7ki.3 (no typed Capability::Imap4Rev2 / CapabilityEnable::Imap4Rev2 variant), but the fragility is distinct: the conversion from typed cap to string is the load-bearing step and it silently degrades. Fix: add a comment above the format! call explaining the workaround and its failure mode. When upstream ships a typed CapabilityEnable::Imap4Rev2 variant, replace the format!/handle_enable string dispatch with a typed match arm so the compiler enforces correctness.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:25:13Z",
+  "updated_at": "2026-05-01T04:55:41Z",
+  "closed_at": "2026-04-30T02:51:48Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9d37d25b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:25:13"
+    }
+  ]
+}

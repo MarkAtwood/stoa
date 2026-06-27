@@ -1,0 +1,12 @@
+{
+  "id": "stoa-90c3b573",
+  "title": "fix(mail): validate mailboxIds keys as RFC 3977 group names in email/set",
+  "description": "create_one_email uses mailboxIds keys directly as newsgroup names in the Newsgroups: header. A key containing a comma (e.g. 'alt.test,From: injected') splits into spurious groups after strip_crlf removes newlines. Fix: reject mailboxIds keys that fail validate_group_name.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:46:24Z",
+  "updated_at": "2026-05-01T04:55:55Z",
+  "closed_at": "2026-04-27T05:55:40Z"
+}

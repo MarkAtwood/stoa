@@ -1,0 +1,19 @@
+{
+  "id": "stoa-dae6e645",
+  "title": "timing-safe dummy-hash pattern: decision comment in check() is correct and should be preserved",
+  "description": "The DECISION(rbe3.81) comment block in CredentialStore::check() is exactly the right level of documentation for a timing-safe design: it names the threat (timing oracle), the mitigation (always verify dummy hash at same cost), and the invariant that must not be violated (no early return for missing user, cost must track production cost). A future contributor might 'simplify' this to an early return for unknown users. The comment makes the reason for the pattern explicit and durable. This is correct; do not remove or shorten it.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:39:25Z",
+  "updated_at": "2026-05-01T04:58:29Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-eee41a47",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 12:39:25"
+    }
+  ]
+}

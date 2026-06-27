@@ -1,0 +1,20 @@
+{
+  "id": "stoa-4d36f07f",
+  "title": "Add bs58 dep to reader Cargo.toml",
+  "description": "Add bs58 = '0.4' to [dependencies] in crates/reader/Cargo.toml. This crate provides base58btc encoding/decoding needed to decode did:key multibase identifiers (did:key uses the 'z' multibase prefix which is base58btc). No other changes.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T04:05:20Z",
+  "updated_at": "2026-05-01T05:00:52Z",
+  "closed_at": "2026-04-23T04:20:45Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-c06fa970",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:05:19"
+    }
+  ]
+}

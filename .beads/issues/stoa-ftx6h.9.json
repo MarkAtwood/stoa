@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T13:32:06Z",
+  "compaction_level": 0,
+  "content_hash": "823ae10d2c96ca58dcd0bc5d896600dc01b3c26861c5bbdcc72f7d143375cecc",
+  "created_at": "2026-05-03T13:02:02Z",
+  "created_by": "Mark Atwood",
+  "description": "verify_http_signature() in inbound.rs rebuilds the signed string using the 'headers' parameter from the Signature header itself. A sender can omit critical headers (e.g. '(request-target)' or 'date') from the headers= list and the server will verify a signature over a stripped signed string, allowing replay across different paths or stale requests. The server must enforce a minimum set of required headers regardless of what the sender advertises.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "HTTP sig: signed-headers spec not cross-checked against sig header",
+  "updated_at": "2026-05-03T13:32:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:02:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "aaa96d16-f65f-59e2-b363-193a92196409",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

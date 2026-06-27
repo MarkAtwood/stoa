@@ -1,0 +1,20 @@
+{
+  "id": "stoa-c479180e",
+  "title": "allow_http + credentials combination not warned at runtime",
+  "description": "Config validation rejects http:// without allow_http=true, but when allow_http=true is explicitly set and credentials are configured, no warning is emitted. Azure backend emits tracing::warn! in this case. WebDAV with credentials and allow_http=true should also warn: credentials will be transmitted in plaintext. Add tracing::warn! in WebDavStore::new / WebDavBlockStore::new when allow_http=true and password is Some.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T03:31:13Z",
+  "updated_at": "2026-05-01T04:58:22Z",
+  "closed_at": "2026-04-28T03:34:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9a70e499",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 20:31:13"
+    }
+  ]
+}

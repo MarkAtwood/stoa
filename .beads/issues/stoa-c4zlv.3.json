@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already fixed in commit d848962: message_id sanitization now includes '\\r' and '\\n' in the replace chain at inbound.rs:107",
+  "closed_at": "2026-05-01T15:46:06Z",
+  "compaction_level": 0,
+  "content_hash": "2e86bc4297a76991958410d6f7168ae80b2c4b75f24bdd479e2824ad92b3fa6e",
+  "created_at": "2026-05-01T15:17:12Z",
+  "created_by": "Mark Atwood",
+  "description": "In inbound.rs note_to_article, the message_id is constructed from note_id via sanitization (replacing some chars) but the result is embedded directly into the article bytes without a CRLF strip: article.push_str(&format!(\"Message-ID: {message_id}\\r\\n\")). The sanitized value replaces / and some chars but does NOT strip \\r or \\n from the sanitized result. An adversarially crafted note id that survives the replace chain containing encoded CRLF sequences (%0d%0a for example, which are not replaced) could inject headers. The safe_irt variable for In-Reply-To IS stripped of CR/LF, but message_id is not.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "inbound note_to_article: message_id not sanitised before embedding in header",
+  "updated_at": "2026-05-01T15:46:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:17:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "e18c543a-d563-581b-8c70-00f780ed405a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

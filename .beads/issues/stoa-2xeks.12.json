@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "parse_angle_addr refactored to return ESMTP params; REQUIRETLS extracted in MAIL FROM handler; all tests pass",
+  "closed_at": "2026-05-02T17:51:24Z",
+  "compaction_level": 0,
+  "content_hash": "d2b4570b4f936a6fe72f6c1fe0004a3949a6f122e78431a0de8260e762343f23",
+  "created_at": "2026-05-02T17:38:31Z",
+  "created_by": "Mark Atwood",
+  "description": "crates/smtp/src/session.rs parse_angle_addr() at line 1258 currently discards all ESMTP parameters after the closing '>'. Refactor parse_angle_addr to return (addr: String, params: HashMap<String, Option<String>>) so ESMTP parameters are preserved. Update MAIL FROM handler (lines 422-455) to extract the REQUIRETLS parameter (a flag with no value per RFC 8689 \u00a72) and store it in session state. Document clearly: this is a breaking change to the parse_angle_addr signature; update all callers.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "REQUIRETLS MAIL FROM parameter parser",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T10:38:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks",
+      "id": "fd1e3cca-8b39-546e-946f-74868903fd64",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

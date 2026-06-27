@@ -1,0 +1,13 @@
+{
+  "id": "stoa-1d6277f3",
+  "title": "Fix pre-existing clippy -D warnings failures in reader crate",
+  "description": "cargo clippy -p stoa-reader --lib -- -D warnings fails with 7 pre-existing issues not related to recent changes: redundant closures in post/lmdb_store.rs (lines 45,57,68,86), needless-range-loop in post/injection.rs:93, explicit-auto-deref in session/lifecycle.rs (lines 74,202). These were present before the rate-limit hardening commits. Fix them to get clean clippy gate.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T18:32:30Z",
+  "updated_at": "2026-05-01T04:57:21Z",
+  "closed_at": "2026-04-24T18:40:56Z"
+}

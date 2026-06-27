@@ -1,0 +1,21 @@
+{
+  "id": "stoa-e0ae5392",
+  "title": "accept_loop is_tls: bool param should be enum",
+  "description": "main.rs accept_loop takes is_tls: bool to distinguish plain TCP from implicit TLS listeners. A bool param obscures intent at call sites (accept_loop(listener, config, stores, true) vs accept_loop(listener, config, stores, false)). A two-variant enum ListenerKind { Plain, Tls } makes call sites self-documenting and prevents future bool-ordering bugs if the signature grows. Stays wrong: future callers will guess which bool means what.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:25:05Z",
+  "updated_at": "2026-05-01T04:53:17Z",
+  "closed_at": "2026-04-28T18:40:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:25:05"
+    }
+  ]
+}

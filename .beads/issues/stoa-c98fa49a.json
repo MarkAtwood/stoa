@@ -1,0 +1,20 @@
+{
+  "id": "stoa-c98fa49a",
+  "title": "SearchSnippet/get: Tantivy snippet extractor integration",
+  "description": "Extend TantivySearchIndex with a snippet extraction method: given email_id (CID) and filter terms, fetch article from IPFS, run terms through Tantivy SnippetGenerator, return highlighted subject and preview with matched terms wrapped in asterisks (*term*). Return empty snippet if search index not configured. Blocked on: stoa-1c1a8cdf.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:43:40Z",
+  "updated_at": "2026-05-01T04:51:26Z",
+  "closed_at": "2026-04-28T11:09:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1c1a8cdf",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:43:49"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-5f5ad8b2",
+  "title": "vec![addr.clone()] in parse_email_addrs: use iter::once",
+  "description": "In parse_email_addrs, MailAddr::Single arm does vec![info.addr.clone()] which allocates a Vec<String> just to flat_map over it. Idiomatic Rust: std::iter::once(info.addr.clone()) avoids the heap allocation. Similarly Group arm could use addrs.iter().map(|i| i.addr.clone()) without collect then re-iterate \u2014 it already does this. Only the Single arm needs fixing.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:00:14Z",
+  "updated_at": "2026-05-01T04:52:11Z",
+  "closed_at": "2026-05-01T03:03:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3c6890ad",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:00:13"
+    }
+  ]
+}

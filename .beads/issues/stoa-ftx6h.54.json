@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T14:57:28Z",
+  "compaction_level": 0,
+  "content_hash": "9074492e5c05bf84eee08c5115b370f960a5db0aec6baf77349c12f508177619",
+  "created_at": "2026-05-03T13:04:48Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this issue exists: When ActivityPub HTTP signature verification is disabled (verify_http_signatures=false in config), any unauthenticated remote server can POST arbitrary Follow/Create activities to inbox endpoints with no authentication whatsoever. The flag is intended for development/testing only, but there is no log warning emitted at startup when it is disabled. An operator who ships this flag in production will have no indication in logs that verification is off.\n\nWhat needs to be done: In the ActivityPub initialization path (ActivityPubState::new or the config loading code), emit a prominent warn!() log entry if verify_http_signatures is false: 'ActivityPub HTTP signature verification is DISABLED \u2014 all inbound activities are accepted without authentication'. This matches the pattern used for dev-mode auth in server.rs.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.54",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "verify_http_signatures=false has no ops warning at startup",
+  "updated_at": "2026-05-03T14:57:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:04:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "90350b60-b677-56be-b5df-ee0eb0ea887e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "stoa-aa7d2e5f",
+  "title": "from_content/merge_from_content accept plaintext passwords silently",
+  "description": "CredentialStore::from_content() and merge_from_content() in crates/auth/src/store.rs parse user:hash lines but never call parse_bcrypt_cost. A credential file containing plaintext passwords (e.g. 'alice:mypassword') is accepted with no error. bcrypt::verify then always returns false so that user can never authenticate. The startup panic guard only covers from_credentials(); the file-load paths have no equivalent check.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T09:07:41Z",
+  "updated_at": "2026-05-01T04:56:57Z",
+  "closed_at": "2026-04-27T09:38:11Z"
+}

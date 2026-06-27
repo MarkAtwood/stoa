@@ -1,0 +1,21 @@
+{
+  "id": "stoa-4d54a358",
+  "title": "decode_msgid_from_url missing %20 decode makes inbound In-Reply-To incorrect",
+  "description": "Trigger: inbound Create{Note} activity whose object.inReplyTo is a stoa article URL where the original message-id contained a space (percent-encoded as %20 by percent_encode_msgid). decode_msgid_from_url decodes %3C/%3E/%40/%2F but not %20. The reconstructed In-Reply-To header retains literal %20 instead of a space, corrupting the threading chain. Standard message-IDs do not contain spaces (RFC 5322 forbids them in the local-part), so this is low-probability but the encode/decode pair is still incorrect by inspection.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T17:40:15Z",
+  "updated_at": "2026-05-01T04:58:31Z",
+  "closed_at": "2026-04-28T18:08:29Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-08d918a1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 10:40:15"
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "id": "stoa-fbfbc97b",
+  "title": "Implement bcrypt credential checker with constant-time comparison",
+  "description": "What: Implement an async credential check function that verifies username+password against bcrypt-hashed entries, using constant-time comparison for the username lookup.\nAlgorithm:\n1. In crates/reader/src/session/commands/auth.rs (or a new file auth_store.rs):\n   a. Define CredentialStore { entries: HashMap<String, String> } where value is bcrypt hash\n   b. fn CredentialStore::load_from_config(users: &[UserConfig]) -> Self\n      - For each user: store (lowercase username, bcrypt_hash) pair\n   c. async fn CredentialStore::check(username: &str, password: &str) -> bool:\n      - Look up by normalized username\n      - If not found: call bcrypt::verify(\"dummy\", dummy_hash) to prevent timing oracle on username\n      - If found: call bcrypt::verify(password, stored_hash).unwrap_or(false)\n      - Do NOT short-circuit on username not found without doing a bcrypt verify (timing attack)\n2. Add CredentialStore to ServerStores:\n   pub credential_store: Arc<CredentialStore>\n   Populated from config.auth.users in new_mem() (can be empty)\n3. The credential check in dispatch.rs currently calls check_credentials() which does string ==\n   Change it to call ctx.credential_store.check(user, pass).await\nDefensive: always call bcrypt::verify even when user not found (use a hardcoded dummy hash); username comparison is case-insensitive; never log passwords.\nAcceptance: test_wrong_password_rejected and test_correct_password_accepted pass; cargo test clean.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T00:33:30Z",
+  "updated_at": "2026-05-01T04:59:18Z",
+  "closed_at": "2026-04-21T00:58:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-53e41c25",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:33:30"
+    },
+    {
+      "depends_on_id": "stoa-5cc4cac8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:20"
+    },
+    {
+      "depends_on_id": "stoa-ab5a36b7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:19"
+    },
+    {
+      "depends_on_id": "stoa-b502bcb7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:20"
+    },
+    {
+      "depends_on_id": "stoa-de7d4842",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:18"
+    }
+  ]
+}

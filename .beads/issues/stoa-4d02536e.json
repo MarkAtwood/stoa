@@ -1,0 +1,39 @@
+{
+  "id": "stoa-4d02536e",
+  "title": "Implement article number synthesis in SQLite per (group, server)",
+  "description": "Implement the SQLite store that assigns and records local sequential article numbers: assign_number(group: &str, cid: &Cid) -> u64 (idempotent: same CID always gets same number within a group). Implement lookup_cid(group: &str, number: u64) -> Option<Cid>. Implement group_range(group: &str) -> (low: u64, high: u64). Artifact: reader/src/store/article_numbers.rs.\n\nAcceptance:\n- Article numbers start at 1 and increment monotonically per group\n- assign_number is idempotent: same (group, cid) pair always returns same number\n- group_range returns correct low and high after a sequence of inserts\n- SQLite migration creates the table on first run\n- Unit tests cover: assign, lookup, range, idempotency, multi-group isolation",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:13:29Z",
+  "updated_at": "2026-05-01T04:53:27Z",
+  "closed_at": "2026-04-20T03:41:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-165bbf73",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:13:29"
+    },
+    {
+      "depends_on_id": "stoa-45d8dea3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:08"
+    },
+    {
+      "depends_on_id": "stoa-9f7a23fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:53:26"
+    },
+    {
+      "depends_on_id": "stoa-fc317007",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:53:26"
+    }
+  ]
+}

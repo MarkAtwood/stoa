@@ -1,0 +1,20 @@
+{
+  "id": "stoa-82a74cfb",
+  "title": "new_with_store marked test-only in doc but is pub and used by wrappers",
+  "description": "ObjectStoreBackend::new_with_store and ObjectStoreBlockBackend::new_with_store both have doc comments saying 'Intended for unit tests; production constructors live in the backend modules.' But these functions are pub (not pub(crate) or #[cfg(test)]), and are called by production code in the Azure, GCS, and S3 wrapper constructors. The doc comment is actively misleading. Either the doc should be corrected to reflect that this is the canonical construction path for all object-store backends, or the production path should be refactored so the function is truly test-only.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T02:38:17Z",
+  "updated_at": "2026-05-01T04:51:23Z",
+  "closed_at": "2026-04-28T06:40:14Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-938166bc",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 19:38:17"
+    }
+  ]
+}

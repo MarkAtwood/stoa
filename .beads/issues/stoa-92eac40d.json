@@ -1,0 +1,13 @@
+{
+  "id": "stoa-92eac40d",
+  "title": "Review-convergence-v6",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:13:26Z",
+  "updated_at": "2026-05-01T04:52:25Z",
+  "closed_at": "2026-04-30T19:58:14Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 one P0 test regression will produce false CI green if the test suite doesn't run reader config tests; one silent IMAP auth failure vector if credential_file is used; otherwise well-bounded scope\nIdiom rating: ACCEPTABLE \u2014 the BuildStoreError manual Display/From is the main non-idiomatic choice; everything else is correct Rust. The .to_string()/.to_owned() on literals is a minor clippy-level nit.\nConfidence: 10% chance of missed bug. Least confident flags: IMAP credential_file gap is real but only triggers if an operator configures credential_file in an IMAP-only deployment. Uncertainty driven by: not running cargo test to confirm the stale assertion actually fails (the string mismatch is obvious from reading code). Would raise confidence if: ran cargo test -p stoa-reader to confirm P0 failure.\nRust idiom confidence: 15% chance of missed issue. Least confident flags: the .to_string() vs .to_owned() in smtp is real but clippy catches it; no missed lifetime or ownership issues. Uncertainty driven by: not running cargo clippy."
+}

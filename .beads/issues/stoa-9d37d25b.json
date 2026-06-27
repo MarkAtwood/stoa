@@ -1,0 +1,14 @@
+{
+  "id": "stoa-9d37d25b",
+  "title": "Review round 1: IMAP4rev2 (drrd)",
+  "description": "Review round 1 for epic stoa-db727e07 (IMAP4rev2 RFC 9051 support). Covers: ext_namespace feature flag, imap4rev2_enabled SessionContext field, max_command_size security fix, IMAP4REV2+NAMESPACE capability advertisement, ENABLE IMAP4rev2 handler, NAMESPACE command handler, and all associated tests.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:23:33Z",
+  "updated_at": "2026-05-01T04:53:09Z",
+  "closed_at": "2026-04-30T02:53:19Z",
+  "notes": "Confidence: 15% chance of missed bug. The review is thorough: 19 issues filed covering P1 (alpha pin), a real P2 protocol conformance bug (x7ki.16, RECENT sent after IMAP4rev2 ENABLE violating RFC 9051 \u00a77.3.2), maintainability risks at P2 (fragile format! dispatch, missing upgrade comments), and documented decisions. The P3/P4 elegance and readability items all have real engineering basis (DRY, rustdoc correctness, contributor confusion) \u2014 none are pure opinion. The one area with residual uncertainty is STARTTLS upgrade path: the code advertises LOGINDISABLED on plain connections and AUTH on TLS, but there is no STARTTLS command handler \u2014 clients that probe STARTTLS will get BAD, which is spec-conformant for an implementation that provides implicit-TLS only. This was not flagged as a bug but could confuse clients; it is a scope decision, not a missed bug. Running out of real complaints: yes."
+}

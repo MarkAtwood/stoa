@@ -1,0 +1,13 @@
+{
+  "id": "stoa-1c1a8cdf",
+  "title": "jmap: implement SearchSnippet/get",
+  "description": "Why: SearchSnippet/get (RFC 8621 \u00a75.4) returns highlighted text snippets for search results. Without it, clients show search matches as undifferentiated email summaries with no context for why they matched. The TantivySearchIndex is already wired for Email/query text filtering; snippets are a natural extension. What: Implement handle_search_snippet_get(account_id, filter, email_ids). For each email_id in the request: fetch the article from IPFS, run the filter terms through the snippet extractor, return {emailId, subject: Option<String>, preview: Option<String>} with matched terms highlighted using JMAP's asterisk convention (*term*). If TantivySearchIndex is not configured, return empty snippets rather than an error.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T14:25:44Z",
+  "updated_at": "2026-05-01T04:56:42Z",
+  "closed_at": "2026-04-28T11:09:33Z"
+}

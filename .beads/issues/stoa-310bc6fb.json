@@ -1,0 +1,20 @@
+{
+  "id": "stoa-310bc6fb",
+  "title": "ConfigError wraps String instead of structured fields",
+  "description": "smtp/config.rs and reader/config.rs define ConfigError with variants Io(String), Parse(String), Validation(String) where the single field is a free-form error message string. Error variants that wrap String lose structure: callers who want to distinguish a validation error about a specific field from one about TLS config have to parse the string. Structured variants (e.g. Validation { field: &'static str, reason: String } or per-category variants) would let callers match without string parsing, and thiserror-derived Display would produce the same human-readable output. The String-wrapping pattern is acceptable in application glue code, but here it is duplicated in two separate config modules with identical structure \u2014 a shared error type with thiserror would eliminate the duplication.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:43:07Z",
+  "updated_at": "2026-05-01T05:00:23Z",
+  "closed_at": "2026-05-01T00:45:12Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d94f2708",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:43:07"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-0cfab66a",
+  "title": "STARTTLS pipeline check relies on BufReader buffer \u2014 may miss pipelined data after flush",
+  "description": "In lifecycle.rs run_command_loop() (line 568): \\!reader.buffer().is_empty() is used to detect pipelined data after STARTTLS. This checks what has already been read into the BufReader's internal buffer. However, if the client sends STARTTLS and then immediately sends more data but the kernel TCP receive buffer hasn't been copied into the BufReader buffer yet (the read_line() call happened to drain exactly the STARTTLS line with no extra bytes buffered), reader.buffer() is empty even though pipelined commands are in flight. This is an inherent race in any implementation that checks buffered data rather than flushing and waiting. RFC 4642 says the server MUST ensure the client sees the 382 before the TLS handshake; this check tries to detect bad clients but cannot catch all cases. The protection is best-effort \u2014 document it as such rather than implying it's a reliable guarantee.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T06:00:33Z",
+  "updated_at": "2026-05-01T04:59:58Z",
+  "closed_at": "2026-04-27T08:28:29Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-650091d3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 23:00:32"
+    }
+  ]
+}

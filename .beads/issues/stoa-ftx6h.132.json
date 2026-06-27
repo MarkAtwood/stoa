@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "09acc0b006bc30c6e93858da70296f7b29175812495e7118caec8a40940f9801",
+  "created_at": "2026-05-03T13:06:53Z",
+  "created_by": "Mark Atwood",
+  "description": "In stoa-sieve/src/lib.rs::evaluate, Runtime::new() is called on every evaluation. If Runtime construction is expensive (initialization of a sieve-rs runtime), this creates unnecessary overhead for high-volume SMTP filtering where the same script is evaluated against thousands of messages. Runtime should be cached or made static if the sieve-rs API permits it. Impact: depends on sieve-rs Runtime construction cost; not profiled.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.132",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "sieve: stoa-sieve evaluate() creates a new Runtime on every call",
+  "updated_at": "2026-05-03T13:06:53Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "f9fb620a-aa76-5869-b357-a762073ac84c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

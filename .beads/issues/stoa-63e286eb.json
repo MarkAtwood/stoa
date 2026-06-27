@@ -1,0 +1,21 @@
+{
+  "id": "stoa-63e286eb",
+  "title": "DECISION: Canonical stability regression test uses hand-built expected bytes",
+  "description": "The stability_regression test in core/canonical.rs builds the expected bytes by hand from the format specification, byte by byte, explicitly not from the implementation. The test comment states: 'the expected bytes were computed by hand from the format specification above, not derived from the implementation'. This is an independent oracle. If canonical_bytes() has a bug that would produce different bytes, this test catches it. A future contributor might simplify the test to just verify idempotency (call canonical_bytes twice and compare), which would prove nothing about correctness and would miss any systematic encoding error.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:16:34Z",
+  "updated_at": "2026-05-01T04:55:59Z",
+  "closed_at": "2026-04-27T15:39:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:16:34"
+    }
+  ]
+}

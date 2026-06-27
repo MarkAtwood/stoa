@@ -1,0 +1,13 @@
+{
+  "id": "stoa-baf03d4e",
+  "title": "R3-SEC4: is_dev_mode ignores client_certs/trusted_issuers",
+  "description": "auth/config.rs is_dev_mode() returns true when !required and no users/credential_file, even if client_certs or trusted_issuers are configured. JMAP middleware bypasses all auth in this case. Fix: also check client_certs.is_empty() and trusted_issuers.is_empty().",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T15:32:14Z",
+  "updated_at": "2026-05-01T04:54:24Z",
+  "closed_at": "2026-04-22T15:39:00Z"
+}

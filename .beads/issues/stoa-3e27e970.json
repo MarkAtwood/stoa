@@ -1,0 +1,20 @@
+{
+  "id": "stoa-3e27e970",
+  "title": "[readability] PeerHealthState::select_peer() round-robin logic is underdocumented",
+  "description": "The round-robin peer selection algorithm in relay_health.rs (lines 87-118) works correctly but the logic is subtle and poorly documented:\n\nLines 110-115 find the first eligible peer index >= rr_index, then wrap to position 0 in the *eligible* list if none qualify. The next rr_index is then set to (chosen_idx + 1) % n, where rr_index is tracked in the full peer list space, not the eligible list space.\n\nThis design ensures that even if a peer is repeatedly flapping up/down, the next selection will advance through the full list, not just the eligible subset. However:\n\n1. Why is rr_index stored as a position in the full peer list rather than relative to the eligible list?\n2. Why does unwrap_or(0) wrap to position 0 of the *eligible* list instead of wrapping rr_index?\n\nThis confusion will cause a future maintainer to either misunderstand the behavior or introduce bugs during refactoring. The docstring at line 79-86 describes the eligibility criteria but not the selection order or how wrapping works.\n\nRecommendation: Add a detailed comment block explaining the round-robin design (e.g., why rr_index is in peer list space, what wrapping behavior ensures).",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T19:14:09Z",
+  "updated_at": "2026-05-01T05:00:31Z",
+  "closed_at": "2026-04-28T10:19:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-11ae5322",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 12:14:08"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "stoa-7cce4032",
+  "title": "Implement peer health tracking and uptime scoring",
+  "description": "Track per-peer: last_seen timestamp updated on each successful exchange, articles_accepted/rejected counters incremented on IHAVE outcomes, consecutive_failures counter reset on success and incremented on timeout. Expose peer_score(peer_id) -> f64 (higher = healthier). Artifact: transit/src/peering/peer_registry.rs.\n\nAcceptance: score function is deterministic given the same inputs; unit test: peer with 100% accept rate scores higher than peer with 50% rate; consecutive_failures capped at a max (no overflow)",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:45:52Z",
+  "updated_at": "2026-05-01T04:54:57Z",
+  "closed_at": "2026-04-20T04:45:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-55b3ce25",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:45:51"
+    },
+    {
+      "depends_on_id": "stoa-59415e4f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:47:13"
+    }
+  ]
+}

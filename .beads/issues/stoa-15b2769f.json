@@ -1,0 +1,15 @@
+{
+  "id": "stoa-15b2769f",
+  "title": "feat(smtp): DKIM signing of outbound messages",
+  "description": "stoa-smtp must DKIM-sign every message it sends outbound, on both egress paths: SMTP relay to external MTAs, and NNTP injection to stoa-reader.\n\nDKIM (RFC 6376) signs with the server operator's domain key. The signature travels with the message and is verifiable by any recipient or downstream relay that can query DNS. Signing NNTP articles is non-standard but technically valid \u2014 DKIM operates on RFC 5322 messages and news articles are RFC 5322 messages. Downstream systems that understand DKIM can verify article provenance without stoa-specific tooling.\n\nScope:\n- SMTP relay path: sign before handing to SmtpRelayClient\n- NNTP injection path: sign before handing to NntpClientConfig / queue\n- Config: signing_key_path (secretx-aware), selector, signing_domain, headers_to_sign\n- Key loading at startup (same secretx pattern as tls.key_path)\n- Use mail-auth crate (already a workspace dep in stoa-reader/stoa-smtp) for DkimSigner\n\nDesign notes:\n- signing_domain may differ from smtp hostname (common: envelope domain vs MX hostname)\n- headers_to_sign must include From, Subject, Date, Message-ID at minimum; To, Cc recommended\n- body canonicalization: relaxed/relaxed is the modern default (RFC 6376 \u00a73.4)\n- l= (body length limit) tag: do NOT use \u2014 creates partial-body bypass\n- NNTP articles: use same DkimSigner; d= is the operator domain; any verifier treating the article as RFC 5322 can verify\n- Signing key should be ed25519 (a=ed25519-sha256, RFC 8463) not RSA \u2014 matches stoa's existing ed25519-dalek usage and is smaller/faster",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T21:46:00Z",
+  "updated_at": "2026-05-01T04:55:23Z",
+  "closed_at": "2026-04-30T23:31:20Z",
+  "notes": "Review converged after 4 rounds. Final review: stoa-3fb034ab (round 4). Round 4 fixed: SmtpRelayQueue doc inconsistency, DKIM failure missing metrics, env read Err() swallowed, #[non_exhaustive] on SmtpRelayError, dead-letter move duplication, inc_relay_attempt ordering. Round 4: P0=0 P1=0 P2=0 after fixes. Running out of real complaints.",
+  "design": "ed25519-sha256 (RFC 8463) only. No RSA, no dual-signing. Operators who need RSA compatibility are not the target deployment. Legacy verifiers that ignore unknown algorithms are acceptable; they fall back to IP reputation as they always have."
+}

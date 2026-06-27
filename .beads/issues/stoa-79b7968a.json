@@ -1,0 +1,20 @@
+{
+  "id": "stoa-79b7968a",
+  "title": "subscriptions/user_flags user_id retention undocumented",
+  "description": "Migrations 0011/0012 dropped user_id from mailbox_messages and user_mailboxes, but subscriptions and user_flags tables retain user_id columns. This is intentional design for single-operator per-user state (subscriptions and flags are per-user even though mailbox content is shared), but there is NO comment in the code explaining this.\n\nFuture maintainer reading the 'simplify to single-user' epic will see user_id in these tables and think they're stale, risking accidental removal and data corruption.\n\nRequired fix: Add a doc comment to subscriptions.rs and flags.rs explaining that user_id is retained because subscriptions and keyword flags are per-user state, even in single-operator mode. Example: '/// Manages per-user newsgroup subscriptions.\\n/// Note: user_id is retained even in single-operator mode because each authenticated\\n/// session maintains its own subscription list (equivalent to a newsreader profile).'",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T07:09:34Z",
+  "updated_at": "2026-05-01T04:55:35Z",
+  "closed_at": "2026-04-30T07:17:08Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-17ee367f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 00:09:33"
+    }
+  ]
+}

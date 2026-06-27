@@ -1,0 +1,21 @@
+{
+  "id": "stoa-60231f8b",
+  "title": "SEC-TESTS: bt5.10 msgid normalization test missing insert-then-lookup roundtrip",
+  "description": "The test case_insensitive_msgid_duplicate_detected (transit/src/peering/ingestion.rs line 286) tests that offering '<ABC@example.com>' after inserting '<abc@example.com>' returns Duplicate. This is a good test for duplicate detection. However the test manually inserts the normalized (lowercase) key directly via map.insert('<abc@example.com>', &cid). It does NOT test whether the ingestion pipeline itself normalizes the key on INSERT. If the normalization only happens on LOOKUP (not on INSERT), an article inserted as '<ABC@example.com>' would be stored under that key and subsequent offers of '<abc@example.com>' would miss. The test needs a companion: insert via the full pipeline (check_ingest with uppercase msgid), then offer the lowercase variant, and verify Duplicate is returned. Oracle: the two message-id strings '<ABC@example.com>' and '<abc@example.com>' are known test vectors; Duplicate is the only correct result per RFC 5536.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T13:53:11Z",
+  "updated_at": "2026-05-01T04:56:15Z",
+  "closed_at": "2026-04-22T14:06:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b816309",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 06:53:11"
+    }
+  ]
+}

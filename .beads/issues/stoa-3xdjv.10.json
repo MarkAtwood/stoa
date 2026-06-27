@@ -1,0 +1,33 @@
+{
+  "close_reason": "Decision record \u2014 no code change needed",
+  "closed_at": "2026-05-03T00:16:49Z",
+  "compaction_level": 0,
+  "content_hash": "4b4099d4778407881949f4558cb696e09e91d9e5576f16234e4709176f4fab5f",
+  "created_at": "2026-05-03T00:13:02Z",
+  "created_by": "Mark Atwood",
+  "description": "parse_mta_sts_policy() rejects policy files with duplicate 'mode' or 'max_age' fields (PolicyParseFailed). Without this check, a crafted policy with 'mode: enforce ... mode: none' could silently downgrade enforcement if the parser uses last-wins semantics. RFC 8461 \u00a73.2 does not explicitly prohibit repeated fields, but silently accepting them is a security risk. A contributor might 'simplify' by removing the duplicate check. Keep it \u2014 the security benefit outweighs the marginal spec strictness.",
+  "ephemeral": 0,
+  "id": "stoa-3xdjv.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "duplicate mode/max_age field rejection prevents security downgrade in policy parser",
+  "updated_at": "2026-05-03T00:16:49Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T17:13:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-3xdjv",
+      "id": "743529c8-2fff-5a1d-b478-c64db3a4d997",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

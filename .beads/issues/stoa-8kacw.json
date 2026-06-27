@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "172245beaa7c93157b979b782d264edfe2812068ceacf47a841a747d8b4049fc",
+  "created_at": "2026-06-13T06:39:47Z",
+  "created_by": "Mark Atwood",
+  "description": "Stoa's content-addressed block store (CIDv1 SHA-256 DAG-CBOR) is the natural backend for JMAP FileNode (draft-ietf-jmap-filenode). FileNode is a named reference to a blob with metadata (MIME type, size, parent directory, permissions) \u2014 a thin indexing layer on top of what stoa already has. The hard part (content-addressed blob storage, upload/download, CID-based references) is done. Need: FileNode data type, FileNode/get, /set, /changes, /query, /queryChanges methods, directory hierarchy, and the urn:ietf:params:jmap:filenode capability. Stoa's existing jmap-cid capability (urn:stoa:jmap:cid) already exposes CIDs to clients, which complements FileNode's sha256 field from draft-atwood-jmap-cid-00.",
+  "ephemeral": 0,
+  "id": "stoa-8kacw",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Implement JMAP FileNode on top of CID block store",
+  "updated_at": "2026-06-13T06:39:47Z"
+}

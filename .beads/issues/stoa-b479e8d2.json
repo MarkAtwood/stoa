@@ -1,0 +1,27 @@
+{
+  "id": "stoa-b479e8d2",
+  "title": "provision: singleton mailbox set, no user_id",
+  "description": "## Why\nprovision_user_mailboxes is called per JMAP request and takes a user_id. With the shared-mailbox schema, there is one set of six special folders for the whole server, provisioned once at startup.\n\n## What\n\n### provision.rs rewrites\n- Remove user_id parameter from mailbox_id_for_user (or replace with a server-constant).\n  Decision needed: mailbox IDs can remain SHA-256 derived but seeded from role alone (not user_id), since there is only one user context. Simpler: use hardcoded stable IDs generated once and stored in the new mailboxes table.\n- Rename provision_user_mailboxes to provision_mailboxes(); no user_id argument.\n  INSERT OR IGNORE INTO mailboxes (mailbox_id, role, name, sort_order) VALUES (...) \u2014 same 6 rows, no user_id.\n- Remove resolve_user_id entirely (no longer needed).\n- Remove list_user_mailboxes user_id param; query becomes SELECT ... FROM mailboxes ORDER BY sort_order.\n- Call provision_mailboxes() once at JmapStores::new() or server startup, not per request.\n\n### mail/src/server.rs\n- Remove the resolve_user_id + provision_user_mailboxes block from route_method.\n- Remove user_id local variable from route_method entirely.\n- Update Mailbox/get, Email/query, Email/get arms to not pass user_id.\n\n## Acceptance criteria\n- provision_mailboxes() creates 6 rows in mailboxes on first run, is idempotent on subsequent runs.\n- route_method has no user_id variable and no resolve_user_id call.\n- All tests pass.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:13:58Z",
+  "updated_at": "2026-05-01T04:52:22Z",
+  "closed_at": "2026-04-30T06:36:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-7dded951",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:14:31"
+    },
+    {
+      "depends_on_id": "stoa-a58a4ea1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:14:42"
+    }
+  ]
+}

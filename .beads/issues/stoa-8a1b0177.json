@@ -1,0 +1,20 @@
+{
+  "id": "stoa-8a1b0177",
+  "title": "Spike: select IPFS client library for usenet-ipfs",
+  "description": "Choose between iroh, rust-ipfs, and raw rust-libp2p + custom bitswap as the IPFS client library. The decision blocks all implementation work that touches article storage or CID computation. Each candidate must be benchmarked in an identical minimal test harness before the decision is recorded.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:08:56Z",
+  "updated_at": "2026-05-01T04:52:55Z",
+  "closed_at": "2026-04-20T01:08:50Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-a2023a88",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:08:55"
+    }
+  ]
+}

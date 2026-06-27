@@ -1,0 +1,21 @@
+{
+  "id": "stoa-2faddf15",
+  "title": "SEC-TESTS: bt5.6 signing key wrong-length has no test",
+  "description": "The fix for bt5.6 added length validation in load_or_generate_signing_key() (reader/src/store/server_stores.rs lines 205-213): it now returns Err if the signing key file does not contain exactly 32 bytes. There is no #[test] covering this error path. The function is private (fn load_or_generate_signing_key) but the behavior is observable via ServerStores::from_config() which is public. A test must: write a tempfile with 31 bytes, call load_or_generate_signing_key (or ServerStores::from_config() with a path pointing to the tempfile), and assert the result is Err with text containing '32 bytes'. Similarly, a 33-byte file should also be tested. This is a startup-failure safety invariant \u2014 if an operator accidentally provides a truncated key file the daemon must refuse to start with a clear error, not panic or use a wrong key. Without a test, a future refactor could silently remove the length check. Oracle: the error text 'must contain exactly 32 bytes' is the defined sentinel in the implementation.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T13:52:49Z",
+  "updated_at": "2026-05-01T04:56:15Z",
+  "closed_at": "2026-04-22T14:02:30Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b816309",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 06:52:49"
+    }
+  ]
+}

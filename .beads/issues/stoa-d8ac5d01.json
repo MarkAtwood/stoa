@@ -1,0 +1,19 @@
+{
+  "id": "stoa-d8ac5d01",
+  "title": "Migration 0011 preserves old mailbox_id computation, code expects new computation",
+  "description": "Old code computed mailbox_id = SHA-256(user_id || role). New code computes mailbox_id = SHA-256(role). Migration 0011 copies OLD mailbox_id values from user_mailboxes to the new mailboxes table. When new provision_mailboxes code runs after migration, it tries to INSERT rows with the NEW mailbox_id values. But INSERT OR IGNORE skips (role is UNIQUE) so the database retains OLD mailbox_id values. If code later expects mailbox_id = SHA-256(role) and compares/rebuilds/validates IDs, it will find mismatches. The test provision_inbox_has_correct_id (line 145-156) expects the new ID, which will fail on an upgraded system. Correct behavior: either (a) update migration to recompute IDs as hash(role), or (b) update provision_mailboxes to keep old computation if user_id rows still exist.",
+  "status": "open",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T07:07:22Z",
+  "updated_at": "2026-05-01T04:58:41Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-17ee367f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 00:07:22"
+    }
+  ]
+}

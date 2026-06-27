@@ -1,0 +1,13 @@
+{
+  "id": "stoa-e70f7626",
+  "title": "[epic] ActivityPub federation \u2014 bridge newsgroups to the Fediverse",
+  "description": "Why: The Corundum integration (planned, not v1) will define an rfc822+mime activity type whose content reference is a usenet-ipfs article root CID. ActivityPub federation is the natural complement: posting to a newsgroup fans out to ActivityPub followers on Mastodon, Pleroma, Misskey etc., and ActivityPub Create activities targeting a group address are injected as articles. This bridges the Usenet world to the modern federated social web.\\n\\nWhat:\\n- Each newsgroup is represented as an ActivityPub Actor (type: Group or Service) with a stable URL.\\n- Inbound: ActivityPub Create{Note} activities addressed to a group actor are translated to RFC 5322 articles and injected via the POST pipeline.\\n- Outbound: each new article ingested to a group is published as an ActivityPub Create{Note} activity to the group actor's followers.\\n- WebFinger endpoint for group actor discovery.\\n- HTTP Signatures (Mastodon-compatible) for outbound activity signing.\\n- Article CID included in the activity as a custom property (as per Corundum rfc822+mime design).\\n- Federated replies: if an article has In-Reply-To, the corresponding ActivityPub activity includes inReplyTo.\\n- Configurable per-group: some groups may not be federated.\\n\\nNote: This epic is closely related to the planned Corundum integration. Design choices here must not foreclose the Corundum rfc822+mime activity type. Coordinate before implementing.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T02:24:17Z",
+  "updated_at": "2026-05-01T04:59:25Z",
+  "closed_at": "2026-04-28T13:20:41Z"
+}

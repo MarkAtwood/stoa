@@ -1,0 +1,12 @@
+{
+  "id": "stoa-f7c1e62b",
+  "title": "fix(core): tip_count unchecked as u64 cast in sqlite_storage",
+  "description": "sqlite_storage.rs tip_count() at line 236 uses row.0 as u64 on the i64 from COUNT(*). Inconsistent with the negative-value guard used elsewhere in the file (get_entry line 129). While COUNT cannot go negative in normal operation, a corrupt DB would silently wrap to a huge value.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:23:08Z",
+  "updated_at": "2026-05-01T04:59:55Z",
+  "closed_at": "2026-04-27T05:29:58Z"
+}

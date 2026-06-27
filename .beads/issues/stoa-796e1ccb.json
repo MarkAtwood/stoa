@@ -1,0 +1,20 @@
+{
+  "id": "stoa-796e1ccb",
+  "title": "STARTTLS handler has no comment explaining why it always returns 454",
+  "description": "session.rs STARTTLS arm returns 454 with no comment. A contributor seeing this will assume it's a stub they should complete, or file a bug report. The advertise-but-reject logic is especially confusing because EHLO does advertise STARTTLS when configured. What would make it clear: a comment like '// STARTTLS negotiation not yet implemented (v1 scope); above bug stoa-9f393084.3 tracks removing this from the EHLO advertisement until it is.'.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T13:32:09Z",
+  "updated_at": "2026-05-01T04:53:06Z",
+  "closed_at": "2026-04-23T00:28:50Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9f393084",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 06:32:09"
+    }
+  ]
+}

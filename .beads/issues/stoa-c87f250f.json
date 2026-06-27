@@ -1,0 +1,20 @@
+{
+  "id": "stoa-c87f250f",
+  "title": "kk7.5: Document session stubs + config.example.toml",
+  "description": "What: Add doc comments to jmap/session.rs documenting known unimplemented endpoints, and create crates/mail/config.example.toml.\n\nAlgorithm:\n1. In crates/mail/src/jmap/session.rs, add a module-level doc comment before the struct definitions explaining:\n   - uploadUrl is advertised but /jmap/upload is not implemented in v1\n   - eventSourceUrl is advertised but /jmap/eventsource is not implemented in v1\n   - A future epic covers push notifications and uploads\n   - base_url MUST be set to the external hostname in production for all URLs to work\n\n2. Create crates/mail/config.example.toml with:\n   [listen]\n   addr = \"0.0.0.0:8080\"\n   base_url = \"https://mail.example.com\"  # REQUIRED: external hostname for browser clients\n\n   [cors]\n   enabled = true\n   allowed_origins = [\"*\"]  # or list specific origins for production\n\n   [database]\n   path = \"/var/lib/usenet-ipfs/mail/mail.db\"\n\n   [auth]\n   required = true\n   [[auth.users]]\n   username = \"alice\"\n   password_hash = \"b2$...\"  # bcrypt hash\n\n   [tls]\n   # cert_path = \"/etc/ssl/mail.crt\"\n   # key_path = \"/etc/ssl/mail.key\"\n\n   [log]\n   level = \"info\"\n   format = \"json\"\n\nDefensive programming:\n- config.example.toml must not contain real credentials or real cert paths\n- Doc comments must not reveal security-sensitive implementation details\n\nAcceptance: cargo check passes; config.example.toml is valid TOML that parses as Config.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T03:26:40Z",
+  "updated_at": "2026-05-01T04:57:13Z",
+  "closed_at": "2026-04-23T03:29:11Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6ee3ac2a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 20:26:39"
+    }
+  ]
+}

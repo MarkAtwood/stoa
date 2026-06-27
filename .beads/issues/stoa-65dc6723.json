@@ -1,0 +1,13 @@
+{
+  "id": "stoa-65dc6723",
+  "title": "Review: refactor(auth): consolidate CredentialStore and bcrypt validation",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:44:58Z",
+  "updated_at": "2026-05-01T04:52:59Z",
+  "closed_at": "2026-04-30T19:58:10Z",
+  "notes": "Idiom rating: ACCEPTABLE \u2014 Core logic is well-structured and the security-sensitive paths (bcrypt timing equalization, zeroizing) are handled correctly. The main idiom gaps are: ConfigError wrapping String instead of typed sources (filed ob4s.6), missing #[non_exhaustive] on ConfigError (ob4s.7), Vec<String> for a two-value mechanism set (ob4s.9), and the &Option<String> parameter that should be Option<&str> (ob4s.10). These are real maintainability issues, not style preferences.\nRust idiom confidence: 85% chance of missed issue. Least confident flags: the &Option<String> vs Option<&str> finding (ob4s.10) is correct but minor; the Vec<String> mechanisms finding (ob4s.9) has an engineering basis but is lower priority if no external callers deserialize the config today. Uncertainty driven by: could not see the full imap session driver to verify whether mechanisms is actually validated at runtime or only at capability advertisement time; did not read stoa_core::signing or stoa_smtp to check for additional unwrap patterns outside the in-scope files."
+}

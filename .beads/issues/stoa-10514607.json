@@ -1,0 +1,20 @@
+{
+  "id": "stoa-10514607",
+  "title": "staging and block_cache to_string_lossy silently corrupts non-UTF8 configured paths",
+  "description": "staging.rs try_stage (line 143-146) and block_cache.rs do_cache_put (line 174-177) both compute file paths via PathBuf::join(...).to_string_lossy().into_owned(). On Linux, if config.path contains non-UTF-8 directory components, to_string_lossy silently replaces bytes with U+FFFD. The file may be created at a path different from what is stored in SQLite. drain_one reads back the corrupted string and fails to open the file, leaving articles permanently stuck in staging with no error distinguishable from transient I/O failure. Fix: reject non-UTF-8 paths at config validation time (easy), or use Path throughout and store paths as BLOB in SQLite.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T06:00:45Z",
+  "updated_at": "2026-05-01T04:53:32Z",
+  "closed_at": "2026-04-27T07:56:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-35ec26bb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 23:00:44"
+    }
+  ]
+}

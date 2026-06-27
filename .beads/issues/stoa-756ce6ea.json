@@ -1,0 +1,20 @@
+{
+  "id": "stoa-756ce6ea",
+  "title": "Email/changes: wire StateStore state into existing get/query responses",
+  "description": "Replace hardcoded state '0' in Email/get, Email/query, Mailbox/get, Mailbox/query responses with real monotonic state integers from StateStore. State increments on article ingest and group subscription changes. Blocked on: stoa-d43a7b19.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:43:10Z",
+  "updated_at": "2026-05-01T04:51:51Z",
+  "closed_at": "2026-04-28T09:04:25Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d43a7b19",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:43:12"
+    }
+  ]
+}

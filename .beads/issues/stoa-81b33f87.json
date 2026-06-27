@@ -1,0 +1,13 @@
+{
+  "id": "stoa-81b33f87",
+  "title": "Review: relay_queue.rs round-7 fix",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:17:48Z",
+  "updated_at": "2026-05-01T04:59:13Z",
+  "closed_at": "2026-05-01T01:25:00Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 Two inconsistent filename-matching patterns and a silent failure path will generate future maintenance errors. The non_exhaustive gap is a latent API-locking risk.\nConfidence: 10% chance of missed bug. Least confident flags: 3rc7.2 (file_name() None is practically impossible on real filesystems \u2014 the bug path requires a path that has no final component, which cannot happen with tokio::fs::read_dir entries). Uncertainty driven by: no visibility into the relay_client.rs deliver_via_relay implementation or actual file system behaviors under load. Would raise confidence if: integration test for partial dead/ scan failure and metrics, and if cleanup_tmp_files had test coverage for the mid-scan-error break path.\nIdiom rating: ACCEPTABLE \u2014 The code is competent async Rust. The main idiom issues are: (1) duplicate type definitions (EnvelopeFile/RelayEnvelope) that force unnecessary clones, (2) missing type alias for the verbose DkimSigner type, (3) missing Debug on the public struct, (4) the unwrap_or_default() silent fallback on clock failure. None rise to NEEDS-WORK level individually, but together they indicate the author didn't step back to look at the overall type design.\nRust idiom confidence: 85% chance of no missed issue. Least confident flags: 3rc7.15 (DkimSigner may simply not implement Debug, making this unfixable without a manual impl \u2014 that changes the cost/benefit). Uncertainty driven by: not reading the mail_auth crate API to confirm what derives are available on DkimSigner."
+}

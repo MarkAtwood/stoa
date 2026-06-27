@@ -1,0 +1,21 @@
+{
+  "id": "stoa-d7d89bb0",
+  "title": "no parent_cids count limit per log entry (amplification vector)",
+  "description": "append.rs iterates over entry.parent_cids with no upper bound. An adversary could craft a log entry with thousands of parent CIDs, causing O(n) DB lookups per parent, O(n) SQL inserts in insert_entry, and O(n) BFS enqueue in backfill. backfill.rs also has no per-entry parent count limit. Add MAX_PARENT_CIDS = 100 and validate len <= MAX_PARENT_CIDS in both verify_entry() and append().",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T10:39:59Z",
+  "updated_at": "2026-05-01T04:52:03Z",
+  "closed_at": "2026-04-27T10:42:56Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-788640b7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 03:39:59"
+    }
+  ]
+}

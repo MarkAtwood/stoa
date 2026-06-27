@@ -1,0 +1,21 @@
+{
+  "id": "stoa-00566a8f",
+  "title": "Reader: NNTP session state machine and command dispatch",
+  "description": "The NNTP session is stateful: authentication state, TLS state, current group, current article pointer. Model this as an explicit state machine. The command dispatcher enforces which commands are valid in each state (e.g. ARTICLE requires an authenticated session if auth is configured; GROUP must precede NEXT/LAST). Proper state management prevents a whole class of protocol bugs.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:45:59Z",
+  "updated_at": "2026-05-01T04:53:51Z",
+  "closed_at": "2026-04-20T03:15:02Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-a910128d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:45:58"
+    }
+  ]
+}

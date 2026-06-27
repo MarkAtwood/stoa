@@ -1,0 +1,39 @@
+{
+  "id": "stoa-fc317007",
+  "title": "Implement Merkle-CRDT append operation for group log",
+  "description": "Implement append(entry: LogEntry) on GroupLog: compute the CID of the new entry (canonical serialization + SHA2-256), set parent_cids to current tip set, update tip set to {new_cid}, persist entry to storage. Artifact: src/group_log/append.rs in usenet-ipfs-core.\n\nAcceptance:\n- append() is idempotent for duplicate entries (same CID, no-op)\n- append() maintains the invariant: every entry's parent_cids exist in the log\n- Concurrent appends on two replicas diverge into a multi-tip state\n- Unit test: single-node sequence produces a valid chain\n- Unit test: concurrent appends produce a valid DAG",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:10:32Z",
+  "updated_at": "2026-05-01T04:53:10Z",
+  "closed_at": "2026-04-20T03:37:00Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-238a85c1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:11:03"
+    },
+    {
+      "depends_on_id": "stoa-45d8dea3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:02"
+    },
+    {
+      "depends_on_id": "stoa-a12b8b7b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:10:32"
+    },
+    {
+      "depends_on_id": "stoa-c5fa1e24",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:11:04"
+    }
+  ]
+}

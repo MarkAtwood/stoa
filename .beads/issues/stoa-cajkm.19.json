@@ -1,0 +1,33 @@
+{
+  "close_reason": "decision recorded",
+  "closed_at": "2026-05-04T08:12:08Z",
+  "compaction_level": 0,
+  "content_hash": "9cfb771f8bef1194c795c6ea127cfcdcc5663f3c3757d354b2d27fd4f037b2bc",
+  "created_at": "2026-05-04T08:04:52Z",
+  "created_by": "Mark Atwood",
+  "description": "Good decision: util.rs nntp_dot_stuff carries an explicit doc-comment prohibition: 'Do NOT add a second implementation elsewhere \u2014 divergent dot-stuffing logic causes article corruption that is difficult to diagnose.' Centralising the implementation and documenting the prohibition at the source prevents the class of bug where transit and reader produce different wire bytes for the same article, which would be a silent correctness failure invisible to unit tests.",
+  "ephemeral": 0,
+  "id": "stoa-cajkm.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "DECISION: nntp_dot_stuff is single canonical impl",
+  "updated_at": "2026-05-04T08:12:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T01:04:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-cajkm",
+      "id": "40e4e260-e591-590e-a556-627fd0d0e198",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

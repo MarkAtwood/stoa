@@ -1,0 +1,20 @@
+{
+  "id": "stoa-e030080e",
+  "title": "imap: enable ext_namespace feature on imap-next",
+  "description": "Enable the ext_namespace Cargo feature on the imap-next dependency in crates/imap/Cargo.toml. Without this flag, Capability::Namespace, CommandBody::Namespace, and Data::Namespace are all behind #[cfg(feature=\"ext_namespace\")] and do not compile. This is a prerequisite for both the NAMESPACE capability advertisement and the NAMESPACE command handler.\n\nChange: crates/imap/Cargo.toml line ~25:\n  imap-next = \"0.3.4\"\nbecomes:\n  imap-next = { version = \"0.3.4\", features = [\"ext_namespace\"] }\n\nAcceptance: cargo build -p stoa-imap succeeds; Capability::Namespace and CommandBody::Namespace are in scope.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:03:38Z",
+  "updated_at": "2026-05-01T04:52:05Z",
+  "closed_at": "2026-04-30T02:09:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-db727e07",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:03:37"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "stoa-25fa28e0",
+  "title": "Timing-safe dummy hash tracks production cost factor",
+  "description": "make_dummy_hash() extracts the cost factor from actual configured hashes so the dummy bcrypt work matches real bcrypt work as operators rotate cost factors. The DECISION comment in check() explicitly prohibits adding an early-return for missing users and explains why. A future contributor who reads 'always verify even for unknown users' without the comment might add the early return thinking they're optimizing. The comment prevents this class of timing-oracle regression. Worth defending.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:04:02Z",
+  "updated_at": "2026-05-01T04:51:38Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-cdbe09c1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 12:04:02"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-457c34df",
+  "title": "Codec magic numbers 0x55/0x71/0x12 scattered with no constants",
+  "description": "Multiple files in core and transit hardcode IPFS multicodec byte values (0x55 RAW, 0x71 DAG-CBOR, 0x12 SHA2-256) with no single source of truth. Search shows these appear inline in cid_util.rs, ipld/blocks.rs, transit pipeline.rs, and tests. If the codec strategy ever changes (e.g., adding Blake3 for a secondary hash), grep-and-replace is error-prone and the relationship between the hex literals and the multicodec registry is invisible to a reader. Suggested rewrite: add a constants module in core (e.g., core::ipld::CODEC_DAG_CBOR: u64 = 0x71) and replace all inline literals.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T15:45:23Z",
+  "updated_at": "2026-05-01T04:55:13Z",
+  "closed_at": "2026-04-21T16:47:07Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-436e4a3a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 08:45:23"
+    }
+  ]
+}

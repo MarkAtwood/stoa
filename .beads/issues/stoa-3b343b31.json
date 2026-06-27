@@ -1,0 +1,21 @@
+{
+  "id": "stoa-3b343b31",
+  "title": "percent_encode in stoa-ctl is incorrect for non-ASCII chars; should use urlencoding crate",
+  "description": "ctl/src/main.rs:212 percent_encode uses char as u32 for the code point, which produces single-byte encoding (e.g. U+00E9 \u2192 %E9). RFC 3986 requires UTF-8 encoding first (U+00E9 = C3 A9 \u2192 %C3%A9). Group names are currently ASCII-only so this never triggers, but the function is wrong and is a maintenance target. Replace with the urlencoding crate (already in the Rust ecosystem, no version risk): urlencoding::encode(s).into_owned(). The hand-rolled function also diverges from what stoa-ctl test vectors verify.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T16:35:15Z",
+  "updated_at": "2026-05-01T04:53:47Z",
+  "closed_at": "2026-04-24T17:54:44Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3840252d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-24 09:35:15"
+    }
+  ]
+}

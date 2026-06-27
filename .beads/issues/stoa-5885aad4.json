@@ -1,0 +1,21 @@
+{
+  "id": "stoa-5885aad4",
+  "title": "smtp max_script_bytes default undocumented; consequence of exceeding not stated",
+  "description": "smtp/config.rs: default 65_536 bytes for max_script_bytes is not explained (why 64 KiB?). The config comment says 'Maximum size' but does not say what happens when exceeded (HTTP 413? silent truncation?). Add a comment explaining the rationale and the enforcement behavior.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T13:10:58Z",
+  "updated_at": "2026-05-01T04:53:26Z",
+  "closed_at": "2026-04-22T15:21:11Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-b770251a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 06:10:58"
+    }
+  ]
+}

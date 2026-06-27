@@ -1,0 +1,20 @@
+{
+  "id": "stoa-f72d653b",
+  "title": "Graceful shutdown uses only tokio stdlib primitives",
+  "description": "The entire graceful shutdown path in both binaries \u2014 signal handling (tokio::signal::ctrl_c, tokio::signal::unix::signal), connection limiting (tokio::sync::Semaphore), channel-based drain (tokio::sync::mpsc), and timeout (tokio::time::timeout) \u2014 uses only primitives already available in tokio itself. No tokio-util, no async-shutdown, no triggered, no stop-token crate is introduced. This keeps the dependency surface minimal and avoids version pinning conflicts that are common in async Rust ecosystems. Alternative rejected: tokio_util::sync::CancellationToken, which is the most commonly recommended approach in tokio ecosystem documentation. It would require adding tokio-util as a direct dependency (it is already a transitive dependency, but pinning a direct dependency creates a version constraint). The semaphore + channel approach achieves the same result with types already in scope.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T05:25:07Z",
+  "updated_at": "2026-05-01T04:56:30Z",
+  "closed_at": "2026-04-24T05:46:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ebc6ad28",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 22:25:07"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "stoa-d72d1688",
+  "title": "mail: Email/get returns hardcoded state 0",
+  "description": "handle_email_get always returns state: \\\"0\\\" as the JMAP state token regardless of the actual database state. JMAP clients use the state token to detect changes and avoid re-fetching. A static value means clients never detect server-side changes.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T23:47:11Z",
+  "updated_at": "2026-05-01T04:51:58Z",
+  "closed_at": "2026-04-25T02:07:25Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "stoa-af270fb5",
+  "title": "Implement operator key generation tool",
+  "description": "Implement a CLI tool (transit keygen or a standalone binary) that generates an ed25519 keypair, writes the private key to a PEM file (mode 0600) and the public key to a separate PEM file, and prints the public key fingerprint (SHA256 of the DER-encoded public key, hex). Artifact: transit/src/cli/keygen.rs or tools/keygen/src/main.rs.\n\nAcceptance:\n- Generated private key file has mode 0600\n- Generated public key file has mode 0644\n- Fingerprint printed to stdout matches openssl pkey -pubin -fingerprint output\n- --output-dir flag specifies output directory\n- Attempting to overwrite existing key files fails with error (--force flag required)",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:17:25Z",
+  "updated_at": "2026-05-01T04:58:06Z",
+  "closed_at": "2026-04-20T05:26:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-626fffaa",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:18"
+    },
+    {
+      "depends_on_id": "stoa-8013af16",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:17:25"
+    }
+  ]
+}

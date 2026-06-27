@@ -1,0 +1,20 @@
+{
+  "id": "stoa-a8e74ee0",
+  "title": "GCS both sa_path and sa_key silently accepted",
+  "description": "When both service_account_path and service_account_key are set in [backend.gcs], the builder applies both. The object_store GCS builder's behavior when both are set is last-one-wins (key is applied after path), but this is undocumented and unvalidated. The config layer does not reject this combination, so operators who mistakenly set both get no error \u2014 they silently get the service_account_key credential with service_account_path quietly ignored (or vice versa if builder order changes). The CLAUDE.md doc says 'Exactly one credential source should be configured' but this invariant is never enforced. Both transit (gcs_store.rs) and reader (post/gcs_store.rs) are affected.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T02:36:10Z",
+  "updated_at": "2026-05-01T04:51:44Z",
+  "closed_at": "2026-04-28T02:47:52Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-938166bc",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 19:36:10"
+    }
+  ]
+}

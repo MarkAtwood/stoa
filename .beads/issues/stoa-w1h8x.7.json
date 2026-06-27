@@ -1,0 +1,33 @@
+{
+  "close_reason": "Positive observation \u2014 no action required.",
+  "closed_at": "2026-05-02T21:44:38Z",
+  "compaction_level": 0,
+  "content_hash": "d769e9917daf21558a060d3cba7ff699e9397e6c7ad999afb62846109defd8f7",
+  "created_at": "2026-05-02T21:42:44Z",
+  "created_by": "Mark Atwood",
+  "description": "fetch_mta_sts_policy_body enforces redirect::Policy::none() and double-checks the redirect status code explicitly. The comment explains why (attacker redirect to controlled server). A future contributor might think 'just follow redirects for robustness' \u2014 this must not change. RFC 8461 \u00a73.3 is unambiguous: the policy MUST be fetched without following redirects. The defence-in-depth (reqwest policy + explicit status check) is correct.",
+  "ephemeral": 0,
+  "id": "stoa-w1h8x.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "No-redirect policy in fetch_url is well-defended and mandatory",
+  "updated_at": "2026-05-02T21:44:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:42:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-w1h8x",
+      "id": "216ed17c-afd4-5d06-9f4e-d86569dcf192",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

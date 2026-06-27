@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Changed recipient_domain to use rsplit_once('@')",
+  "closed_at": "2026-05-03T02:48:43Z",
+  "compaction_level": 0,
+  "content_hash": "088c61bc3a67b4326d1ac6119856da800fdd43fba5cedd048ca085cc9e9a57d8",
+  "created_at": "2026-05-03T02:41:12Z",
+  "created_by": "Mark Atwood",
+  "description": "recipient_domain in relay_client.rs uses addr.rfind('@').map(|i| &addr[i + 1..]). Since Rust 1.52, str::rsplit_once is the idiomatic way to split on the last occurrence: addr.rsplit_once('@').map(|(_, domain)| domain). Both produce the same result but rsplit_once communicates the intent ('split on the last @, take the right side') directly without the manual index arithmetic.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.29.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "recipient_domain uses rfind('@') + manual slice; rsplit_once('@') is cleaner",
+  "updated_at": "2026-05-03T02:48:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T19:41:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.29",
+      "id": "0e090593-0a8c-5dbd-8b63-d92e1b3513da",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

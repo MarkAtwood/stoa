@@ -1,0 +1,20 @@
+{
+  "id": "stoa-3287c8c4",
+  "title": "Retention: pinning integration, expiration policy, GC semantics, audit log",
+  "description": "Implement explicit retention for articles in IPFS. Every stored article must be either operator-pinned (covered by a pinning policy rule) or subject to GC. 'It is in IPFS' is not a retention strategy. This epic covers: pinning API integration, per-group expiration policy configuration, GC evaluation, GC execution, and an immutable audit log of all pin and unpin operations.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:15:47Z",
+  "updated_at": "2026-05-01T04:58:11Z",
+  "closed_at": "2026-04-20T12:35:59Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-a2023a88",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:15:46"
+    }
+  ]
+}

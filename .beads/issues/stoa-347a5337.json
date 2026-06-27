@@ -1,0 +1,20 @@
+{
+  "id": "stoa-347a5337",
+  "title": "Slow command logging: Prometheus histograms and configurable threshold",
+  "description": "Expose nntp_command_duration_seconds{command} and jmap_method_duration_seconds{method} Prometheus histograms. Always recorded regardless of threshold. [log] slow_command_threshold_ms config field (default 1000, 0=disable WARN events, histogram still records). Blocked on: stoa-73bdf558.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:45:27Z",
+  "updated_at": "2026-05-01T04:57:00Z",
+  "closed_at": "2026-04-28T10:35:22Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-73bdf558",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:48:04"
+    }
+  ]
+}

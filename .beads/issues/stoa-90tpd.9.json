@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "cargo build --workspace passes; all 5 main.rs files emit environment classification in startup log; RuntimeEnvironment::from_env() used in each; clippy clean",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T07:56:55Z",
+  "compaction_level": 0,
+  "content_hash": "0d5ef6dfddd1769492fe725887581dbfc77e9dddd60d6b1cd929b8dad7d38f80",
+  "created_at": "2026-05-04T06:33:17Z",
+  "created_by": "Mark Atwood",
+  "description": "## What\nAdd an info!() startup banner to all five daemons that logs the active RuntimeEnvironment classification (production / development / test). This satisfies the epic acceptance criterion: 'Environment classification appears in startup log.'\n\n## Algorithm\n1. Ensure stoa-core dep is present in all five Cargo.toml files (reader, transit, mail, smtp, imap). Each already depends on stoa-core; verify.\n2. In each main.rs, after tracing subscriber .init() call and before the main service starts, add:\n   let env_class = stoa_core::RuntimeEnvironment::from_env();\n   if env_class.is_dev() {\n       tracing::warn!(\n           environment = env_class.as_str(),\n           binary = env!('CARGO_PKG_NAME'),\n           version = env!('CARGO_PKG_VERSION'),\n           'runtime environment: development mode active'\n       );\n   } else {\n       tracing::info!(\n           environment = env_class.as_str(),\n           binary = env!('CARGO_PKG_NAME'),\n           version = env!('CARGO_PKG_VERSION'),\n           'runtime environment: production'\n       );\n   }\n3. Read each main.rs to find the correct insertion point (after tracing init, before bind).\n4. cargo fmt; cargo clippy clean; cargo test --workspace clean.\n\n## Defensive programming rules\n- RuntimeEnvironment::from_env() must not panic (it reads STOA_ENV with .as_deref() + match, production is default).\n- No key material in the log line.\n- The warn! for dev mode is intentional \u2014 it must be visible in default log configs.\n\n## Tests\nThis bead is primarily behavioral (log output). Unit tests for RuntimeEnvironment are in W0B. Integration verification is in the E2E bead. No new unit tests required here beyond confirming the code compiles and cargo test passes.",
+  "ephemeral": 0,
+  "id": "stoa-90tpd.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "all daemons: startup banner with environment classification",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T23:33:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-90tpd",
+      "id": "2f438f27-ae4c-5d91-9407-08a77cc5da7f",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-03T23:33:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-90tpd.2",
+      "id": "742d8831-84a0-5a71-a10a-469911d04450",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "id": "stoa-0b13a613",
+  "title": "Review round 1: feat(smtp): DKIM signing of outbound messages",
+  "status": "in_progress",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:21:18Z",
+  "updated_at": "2026-05-01T04:52:49Z"
+}

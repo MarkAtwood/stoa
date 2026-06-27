@@ -1,0 +1,19 @@
+{
+  "id": "stoa-b492cf89",
+  "title": "RFC 8463 test key vectors are hardcoded correctly from the RFC appendix",
+  "description": "Both test_dkim_signer() functions in queue.rs and relay_queue.rs hardcode the RFC 8463 \u00a7A.2 test keypair as raw byte literals with comments pointing to the RFC and the base64 representations. This is correct per the project's test vector discipline: vectors come from a named external source (the RFC), are hardcoded, and are not derived from the code under test. A contributor might suggest generating a random key in the test fixture. Do not accept that change \u2014 it would make the test self-validating.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:40:04Z",
+  "updated_at": "2026-05-01T05:00:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d94f2708",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:40:03"
+    }
+  ]
+}

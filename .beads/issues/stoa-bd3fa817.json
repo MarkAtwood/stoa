@@ -1,0 +1,33 @@
+{
+  "id": "stoa-bd3fa817",
+  "title": "Implement DHT-based tip discovery fallback",
+  "description": "Implement DHT tip storage: when a transit node appends to a group log, it puts the current tip CID into the DHT under key derived from the group name. Implement find_tips_via_dht(group_name: &str) -> Vec<Cid>: query DHT for the group key and return all tip CIDs found. Used by nodes that have been offline and cannot rely on gossipsub. Artifact: transit/src/gossip/dht_tips.rs.\n\nAcceptance criteria:\n- dht_key_for_group(group_name) produces a stable, deterministic key\n- put_tip and get_tip round-trip correctly in a two-node test\n- find_tips_via_dht returns empty vec gracefully if DHT has no entry (not an error)\n- Integration test: node A puts tip, node B (no gossipsub connection) finds it via DHT",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:11:53Z",
+  "updated_at": "2026-05-01T04:55:02Z",
+  "closed_at": "2026-04-20T05:11:21Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-347ba0f6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:11:53"
+    },
+    {
+      "depends_on_id": "stoa-353f02ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:12:20"
+    },
+    {
+      "depends_on_id": "stoa-a2eb4b11",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:53:04"
+    }
+  ]
+}

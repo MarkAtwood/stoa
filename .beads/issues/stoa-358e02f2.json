@@ -1,0 +1,21 @@
+{
+  "id": "stoa-358e02f2",
+  "title": "AGPL-3.0 viral license via sieve-rs not documented outside a Cargo.toml comment",
+  "description": "crates/sieve/Cargo.toml has: '# sieve-rs is AGPL-3.0-only \u2014 intentional, approved by project owner'. Any binary that links usenet-ipfs-sieve is AGPL-licensed. usenet-ipfs-smtp links sieve. AGPL requires operators running the binary as a network service to provide source to their users. Scenario: a contributor adds features to usenet-ipfs-smtp thinking it is MIT/Apache; they are actually submitting AGPL code. A user deploys it commercially without reading Cargo.toml. The information is currently in exactly one place (an inline comment) where no external contributor or user will find it. Fix: document in README, CLAUDE.md, and the crate's own lib.rs doc comment that usenet-ipfs-smtp is AGPL-licensed due to the sieve-rs dependency.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T14:06:45Z",
+  "updated_at": "2026-05-01T04:54:45Z",
+  "closed_at": "2026-04-21T14:46:25Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ad28b4f3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 07:06:44"
+    }
+  ]
+}

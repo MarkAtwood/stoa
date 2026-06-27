@@ -1,0 +1,32 @@
+{
+  "id": "stoa-4b467109",
+  "title": "smtp: drop usenet-ipfs-sieve dep; change license to MIT; update CLAUDE.md",
+  "description": "Remove the AGPL dep from smtp and update all license declarations.\n\nWhat: crates/smtp/Cargo.toml, CLAUDE.md\n\nAlgorithm:\n1. crates/smtp/Cargo.toml: remove 'usenet-ipfs-sieve = { path = \"../sieve\" }' line; change license field from 'AGPL-3.0-only' to 'MIT'.\n2. Verify 'cargo tree -p usenet-ipfs-smtp' contains no reference to sieve-rs or usenet-ipfs-sieve.\n3. CLAUDE.md license section: update to reflect that usenet-ipfs-smtp is now MIT; only usenet-ipfs-sieve and usenet-ipfs-sieve-daemon remain AGPL.\n4. cargo build --workspace must succeed with no sieve-rs in the smtp dep tree.\n\nDefensive rules:\n- Do not remove the dep until W3A and W3B are complete (this bead depends on both).\n- Verify with 'cargo tree' not just by eyeballing Cargo.toml.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:18:37Z",
+  "updated_at": "2026-05-01T05:00:46Z",
+  "closed_at": "2026-04-23T20:25:30Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9b4209f8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:19:10"
+    },
+    {
+      "depends_on_id": "stoa-cb3ad37e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:19:09"
+    },
+    {
+      "depends_on_id": "stoa-d1d5d8e9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:18:36"
+    }
+  ]
+}

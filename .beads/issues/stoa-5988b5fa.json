@@ -1,0 +1,20 @@
+{
+  "id": "stoa-5988b5fa",
+  "title": "Round 2: no new P0/P1 correctness bugs found",
+  "description": "Fixes verified correct across escape_tantivy_query, truncate_at_char_boundary, empty text filter, and Since/Before 501 response. All implementations are defensible and match RFC specifications.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T03:12:36Z",
+  "updated_at": "2026-05-01T04:53:31Z",
+  "closed_at": "2026-04-23T03:15:00Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-32a269b6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 20:12:36"
+    }
+  ]
+}

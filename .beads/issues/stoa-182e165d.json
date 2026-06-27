@@ -1,0 +1,13 @@
+{
+  "id": "stoa-182e165d",
+  "title": "R3-SEC2: epoch_to_rfc2822 wrong for negative timestamps",
+  "description": "core/util.rs: sec=secs%60 uses truncating division; for secs<0 gives negative result, cast to u32 wraps. Fix: use rem_euclid(60) for sec, min, hour.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T15:32:10Z",
+  "updated_at": "2026-05-01T04:58:53Z",
+  "closed_at": "2026-04-22T15:34:07Z"
+}

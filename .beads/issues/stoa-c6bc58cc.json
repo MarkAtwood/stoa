@@ -1,0 +1,21 @@
+{
+  "id": "stoa-c6bc58cc",
+  "title": "DECISION: Trusted peer key lookup uses constant-time comparison",
+  "description": "auth.rs checks trusted keys with ct_eq not ==. Timing differences leak byte positions enabling key enumeration. Replacing with plain equality passes tests but adds timing oracle.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:11:17Z",
+  "updated_at": "2026-05-01T04:56:02Z",
+  "closed_at": "2026-04-27T16:12:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:11:16"
+    }
+  ]
+}

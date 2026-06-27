@@ -1,0 +1,33 @@
+{
+  "id": "stoa-cb7a1115",
+  "title": "Implement STARTTLS and AUTHINFO PLAIN",
+  "description": "Implement STARTTLS: respond 382, upgrade TCP connection to TLS using configured cert/key. Implement AUTHINFO USER/PASS: validate credentials from config file, set authenticated flag on session. Implement AUTHINFO SASL PLAIN. Artifact: reader/src/session/commands/auth.rs.\n\nAcceptance:\n- STARTTLS works with a self-signed cert in testing\n- AUTHINFO USER/PASS returns 281 on success, 481 on failure\n- Commands requiring authentication return 480 if not authenticated\n- TLS version negotiated is TLS 1.2 minimum",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:13:49Z",
+  "updated_at": "2026-05-01T04:53:29Z",
+  "closed_at": "2026-04-20T11:53:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-165bbf73",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:13:49"
+    },
+    {
+      "depends_on_id": "stoa-41676187",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:14:59"
+    },
+    {
+      "depends_on_id": "stoa-9fa62fe9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:20"
+    }
+  ]
+}

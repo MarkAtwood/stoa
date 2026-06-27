@@ -1,0 +1,14 @@
+{
+  "id": "stoa-f07d2b75",
+  "title": "Article signature verification: X-Usenet-IPFS-Sig + DKIM",
+  "description": "Verify cryptographic signatures on inbound articles, accumulate keys, and surface results through NNTP and JMAP.\n\nWhy this issue exists:\nArticles arrive with signing headers (X-Usenet-IPFS-Sig, DKIM-Signature) but nothing currently checks them. Verification results need to be stored locally and surfaced to readers. Keys accumulate in a local store as articles flow in. S/MIME is schema-reserved for v2 (cert_der column present but unused).\n\nArchitecture:\n- New usenet-ipfs-verify crate (MIT): VerificationResult types, SQLite ops, both verifiers\n- mail-auth (Apache-2.0, Stalwart) for DKIM: handles DNS TXT lookup, canonicalization, RSA+ed25519 verify\n- ed25519-dalek (already in tree) for X-Usenet-IPFS-Sig\n- Two new tables in core DB: article_verifications + seen_keys (with cert_der reserved)\n- Verify at ingest in reader POST path and transit IHAVE/TAKETHIS path; never block on failure\n- Synthesize X-Usenet-IPFS-Verified: header on NNTP ARTICLE read (not stored in article bytes)\n- JMAP Email/get: x-usenet-ipfs-verifications property\n- Group log entry: optional verification_cid pointing to DAG-CBOR attestation block (shared-if-easy)\n\nFailure policy: dns-error, no-key, and fail results are all recorded; article always accepted.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:47:20Z",
+  "updated_at": "2026-05-01T05:00:59Z",
+  "closed_at": "2026-04-24T02:20:11Z",
+  "notes": "v2 scope: Autocrypt (keydata= OpenPGP key in header) and S/MIME (X.509 cert in MIME body) are both deferred to v2. The seen_keys schema accommodates both: cert_der BLOB for S/MIME X.509, and key_type 'openpgp' for Autocrypt OpenPGP keys. No schema migration needed when v2 lands."
+}

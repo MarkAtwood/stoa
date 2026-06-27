@@ -1,0 +1,20 @@
+{
+  "id": "stoa-04958dc3",
+  "title": "Email/set create: text_body not sanitized for bare NUL bytes",
+  "description": "email/set.rs create_one_email applies strip_crlf to subject and from_email but not to text_body. A body with a bare NUL byte would produce a malformed RFC 5322 article. The security policy says treat all input as attacker-controlled; text_body should at minimum be validated to exclude NUL bytes before being written to IPFS.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:59:36Z",
+  "updated_at": "2026-05-01T04:52:15Z",
+  "closed_at": "2026-04-27T07:56:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-18ecb995",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 22:59:36"
+    }
+  ]
+}

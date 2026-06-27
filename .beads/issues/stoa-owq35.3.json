@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed: use rsplit_once(':') instead of split(':').next() for correct IPv6 literal handling",
+  "closed_at": "2026-05-02T20:21:45Z",
+  "compaction_level": 0,
+  "content_hash": "43813c245beea0314c678d4d7dfcfed9aaaa2a34ef08bc740501b25b1d89c23f",
+  "created_at": "2026-05-02T20:17:34Z",
+  "created_by": "Mark Atwood",
+  "description": "server.rs:361 uses raw_host.split(':').next() to strip the port from the Host header. An IPv6 Host header like '[::1]:443' produces '[' as the domain, never matching any configured domain. RFC 7230 \u00a75.4 specifies IP-literal form '[addr]:port'. Fix: strip brackets and port properly before the domain lookup.",
+  "ephemeral": 0,
+  "id": "stoa-owq35.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mta_sts_handler Host header parsing breaks on IPv6 literal addresses",
+  "updated_at": "2026-05-02T20:21:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T13:17:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-owq35",
+      "id": "703b628f-69ab-5fcf-b9a9-803609105b41",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

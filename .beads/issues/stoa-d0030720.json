@@ -1,0 +1,20 @@
+{
+  "id": "stoa-d0030720",
+  "title": "wildmat_match: replace O(m^n) backtracking with linear",
+  "description": "e4j.5: current wildmat implementation backtracks exponentially on patterns like '*a*a*a*a*a*a*' against long strings. Fix: rewrite match_wildmat using iterative DP or memoized recursion. Must pass all existing wildmat tests.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T19:45:35Z",
+  "updated_at": "2026-05-01T04:59:10Z",
+  "closed_at": "2026-04-22T21:05:20Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-f6d57892",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 12:45:34"
+    }
+  ]
+}

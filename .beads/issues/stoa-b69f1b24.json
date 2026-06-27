@@ -1,0 +1,20 @@
+{
+  "id": "stoa-b69f1b24",
+  "title": "Deferred: binary groups and CID-manifest NZB equivalent (v2 placeholder)",
+  "description": "Placeholder epic for v2 binary group support. Binary groups (alt.binaries.*), yEnc encoding/decoding, and an NZB-equivalent CID manifest format are explicitly out of scope for v1. This epic exists to document the deferred design intent and prevent the work from being forgotten. No implementation issues should be filed or started under this epic until the v1 text-only system is stable and released.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:17:13Z",
+  "updated_at": "2026-05-01T04:52:37Z",
+  "closed_at": "2026-04-20T16:49:47Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-a2023a88",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:17:12"
+    }
+  ]
+}

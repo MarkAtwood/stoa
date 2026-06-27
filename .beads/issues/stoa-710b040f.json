@@ -1,0 +1,26 @@
+{
+  "id": "stoa-710b040f",
+  "title": "wildmat: GroupFilter unit tests (independent oracle)",
+  "description": "## What\nWrite a comprehensive unit test module for GroupFilter and WildmatPattern in crates/core/src/wildmat.rs, using RFC 3977 \u00a74.1 test vectors as the independent oracle.\n\n## Algorithm\nAgent T derives expected values from RFC 3977 \u00a74.1 and the epic acceptance criteria BEFORE reading the implementation from whss.2.\n\nTest vectors to encode (oracle: RFC 3977 \u00a74.1 + epic acceptance criteria):\n1. comp.* matches comp.lang.rust: true\n2. comp.* matches alt.test: false\n3. * matches anything (including dots): true\n4. alt.? matches alt.a: true; matches alt.ab: false\n5. Exact bare name alt.test matches alt.test: true; matches alt.test2: false\n6. Case insensitive: COMP.LANG.RUST matches comp.*: true\n7. Ordered list [\"comp.*\", \"sci.*\", \"!alt.binaries.*\", \"alt.test\"]: alt.binaries.pictures \u2192 false (negation matched)\n8. Same list: alt.test \u2192 true (exact positive match after negation miss)\n9. Same list: comp.lang.rust \u2192 true (first positive match)\n10. Same list: rec.music \u2192 false (default deny, no pattern matched)\n11. All-negation [\"!comp.*\"]: GroupFilter::new returns Err(AllNegation)\n12. GroupFilter::accepts(\"\") \u2192 false\n\n## Defensive programming rules\n- Test module uses #[cfg(test)] \n- No test may use the code under test as its own oracle \u2014 expected values are hardcoded from RFC\n- Each test has a single assertion with a descriptive name\n\n## Agent team\nTester-only: Agent T (write tests from RFC 3977 without reading whss.2 implementation), Agent V (run tests against whss.2 implementation)\n\n## Tests\nThe tests ARE the deliverable. All 12 test vectors enumerated above, each as a named #[test] function.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-26T23:24:29Z",
+  "updated_at": "2026-05-01T04:52:01Z",
+  "closed_at": "2026-04-26T23:53:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1ab0f019",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 16:25:32"
+    },
+    {
+      "depends_on_id": "stoa-efbe068a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 16:24:29"
+    }
+  ]
+}

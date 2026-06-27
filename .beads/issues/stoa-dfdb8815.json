@@ -1,0 +1,19 @@
+{
+  "id": "stoa-dfdb8815",
+  "title": "from_file/merge_from_file accept impl AsRef<Path>",
+  "description": "Previous API took &str for path, forcing callers to do .to_str().unwrap(). The refactor changed to impl AsRef<Path> which accepts &str, &Path, PathBuf, and NamedTempFile::path() directly. Tests no longer call .to_str().unwrap(). A future contributor might suggest reverting to &str for simplicity \u2014 the AsRef<Path> form is strictly better: it handles non-UTF-8 paths on Unix, removes the unwrap() at every call site, and matches std::fs API conventions.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:04:10Z",
+  "updated_at": "2026-05-01T04:51:38Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-cdbe09c1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 12:04:10"
+    }
+  ]
+}

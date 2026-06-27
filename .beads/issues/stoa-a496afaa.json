@@ -1,0 +1,19 @@
+{
+  "id": "stoa-a496afaa",
+  "title": "cleanup_tmp_files: successful removal logged as warn instead of info",
+  "description": "relay_queue.rs lines 215-218: 'removed orphan tmp file from previous crash' is logged as warn!(). An orphan tmp file after a crash is the expected recovery path \u2014 it is informational, not anomalous. warn!() implies something unexpected that needs operator attention. info!() is the correct level for 'found and cleaned up a crash artifact'. The failure case (could not remove) should remain warn!(). Suggested rewrite: change warn!(...'removed orphan tmp file...') to info!(...).",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:56:29Z",
+  "updated_at": "2026-05-01T04:58:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-18bf2fce",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:56:28"
+    }
+  ]
+}

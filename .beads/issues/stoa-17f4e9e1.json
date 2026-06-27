@@ -1,0 +1,12 @@
+{
+  "id": "stoa-17f4e9e1",
+  "title": "smtp: missing Received: header on inbound messages (RFC 5321 \u00a74.4 violation)",
+  "description": "Why: RFC 5321 \u00a74.4 requires every MTA that accepts a message to prepend a Received: header with the peer IP, EHLO domain, receiving hostname, and timestamp. The SMTP session handler (session.rs) never constructs or prepends this header. Without it, mail clients and spam filters cannot trace the message path, and strict RFC-checking receivers may reject messages.\\n\\nWhat: After accepting a message in the DATA handler, prepend:\\n  Received: from <ehlo_domain> (<peer_ip>)\\n    by <config.hostname> with ESMTP\\n    ; <RFC 2822 timestamp>\\nInsert it before queueing the message bytes.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T01:52:30Z",
+  "updated_at": "2026-05-01T04:57:30Z",
+  "closed_at": "2026-04-22T21:05:37Z"
+}

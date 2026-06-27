@@ -1,0 +1,19 @@
+{
+  "id": "stoa-9313d32e",
+  "title": "key_rotate.rs: signature over rotation article produced but not stored \u2014 article sent unsigned",
+  "description": "key_rotate.rs cmd_key_rotate() line 129: let _signature = old_signing_key.sign(&article_bytes); The signature is computed but discarded (prefixed _). The article_bytes returned to the caller has no X-Stoa-Sig header or any other signature attachment. A rotation announcement without a signature cannot be verified by receiving peers and is indistinguishable from a forged rotation. The comment says 'signing happens in the caller' but the only callers (main.rs) send the article bytes directly without adding a signature. The signature must be appended to the article before it is published.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:45:05Z",
+  "updated_at": "2026-05-01T04:52:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:45:04"
+    }
+  ]
+}

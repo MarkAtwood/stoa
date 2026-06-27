@@ -1,0 +1,27 @@
+{
+  "id": "stoa-238a85c1",
+  "title": "Define group log entry and log head types in usenet-ipfs-core",
+  "description": "Define LogEntry (hlc_timestamp, article_cid, operator_signature, parent_cids: Vec<Cid>), LogHead (group_name, tip_cid, entry_count), and GroupName (validated string type). Artifact: src/group_log/types.rs in usenet-ipfs-core.\n\nAcceptance:\n- All types compile with no warnings\n- GroupName validates RFC 3977 group name format on construction (returns error on invalid)\n- LogEntry's parent_cids allows DAG branching (Vec, not Option<single>)\n- Serialize/Deserialize derived or implemented",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:10:19Z",
+  "updated_at": "2026-05-01T04:53:07Z",
+  "closed_at": "2026-04-20T00:33:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b57af1d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:01"
+    },
+    {
+      "depends_on_id": "stoa-a12b8b7b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:10:19"
+    }
+  ]
+}

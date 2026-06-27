@@ -1,0 +1,21 @@
+{
+  "id": "stoa-45d84267",
+  "title": "group.rs STAT msgid stub returns 430 with no comment explaining it is a stub",
+  "description": "## What / Why\nIn crates/reader/src/session/commands/group.rs stat_article(), the message-id branch silently returns 430 with just a code comment 'Message-ID form: no group required; return 430 stub.' A reader of this code has no obvious way to know this is intentionally incomplete rather than the correct final behavior. The existing comment does say 'stub' but does not indicate what the correct behavior should be or why it was left incomplete.\n\n## Fix\nAdd a TODO comment pointing to the tracking issue, e.g.: // TODO(usenet-ipfs-XXXX): STAT <msgid> must query msgid_map; returns 430 stub until wired up.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T03:10:01Z",
+  "updated_at": "2026-05-01T04:59:13Z",
+  "closed_at": "2026-04-27T17:14:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e2297bae",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 20:10:01"
+    }
+  ]
+}

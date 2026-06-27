@@ -1,0 +1,27 @@
+{
+  "id": "stoa-da45c369",
+  "title": "Filesystem backend: FsStore and FsBlockStore implementation",
+  "description": "Implement FsStore: IpfsStore (transit) and FsBlockStore: IpfsBlockStore (reader) using tokio::fs. put: compute CID, write to <path>/<CID>.tmp then rename (atomic). skip if file already exists. get: read <path>/<CID>, map ENOENT to None. delete: unlink, return Immediate. Soft cap enforcement if max_bytes configured. Blocked on: stoa-cc6d42a7.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:43:04Z",
+  "updated_at": "2026-05-01T04:51:51Z",
+  "closed_at": "2026-04-28T01:15:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5c9f1a38",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:43:04"
+    },
+    {
+      "depends_on_id": "stoa-cc6d42a7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:43:04"
+    }
+  ]
+}

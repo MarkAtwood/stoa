@@ -1,0 +1,13 @@
+{
+  "id": "stoa-185e20da",
+  "title": "Review: relay_queue round-6 fixes",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:08:39Z",
+  "updated_at": "2026-05-01T04:52:27Z",
+  "closed_at": "2026-05-01T01:25:31Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 The break-on-entry-error pattern across all three directory scans is a latent bug class that any contributor will copy into future scan loops. The widened .tmp deletion contract is not documented and has no test distinguishing old from new behaviour.\nConfidence: 10% chance of missed bug. Least confident flags: yevk.2 (broader .tmp deletion may be intentional design decision, not a bug \u2014 the dir is operator-controlled). Uncertainty driven by: cannot see git history of round-6 or the PR description to know if widening the .tmp deletion was deliberate. Would raise confidence if: round-6 commit message or PR body explains the intent of the extension() change.\nIdiom rating: ACCEPTABLE \u2014 The relay_queue.rs code itself is idiomatically sound. The Rust-specific issues (missing Debug, non_exhaustive, pub visibility on test helper, leaky Arc<Mutex>) are in supporting types (relay_health.rs, relay_error.rs, config.rs) that fall within the review scope. No unsafe, no gratuitous clones, no iterator anti-patterns in the implementation code.\nRust idiom confidence: 15% chance of missed issue. Least confident flags: yevk.14 (structured error fields) \u2014 this is a genuine trade-off; the all_variants_classified test shows the author thought carefully about exhaustiveness, and some SMTP clients don't distinguish within 4xx/5xx ranges anyway. Uncertainty driven by: cannot see how callers consume SmtpRelayError outside relay_queue.rs \u2014 if all callers only check is_transient()/is_permanent(), the String wrapping is fine."
+}

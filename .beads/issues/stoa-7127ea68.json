@@ -1,0 +1,14 @@
+{
+  "id": "stoa-7127ea68",
+  "title": "R3: incomplete bt5.23 \u2014 token issuance has no per-user limit",
+  "description": "token_store.rs issue() has no count check. Before INSERT, SELECT COUNT(*) of active tokens for username; if >= 10 return Err(sqlx::Error::Protocol('token limit exceeded')).",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T15:31:54Z",
+  "updated_at": "2026-05-01T04:59:24Z",
+  "closed_at": "2026-04-22T15:33:58Z",
+  "notes": "parent: stoa-b2c6109d"
+}

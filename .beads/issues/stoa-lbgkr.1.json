@@ -1,0 +1,32 @@
+{
+  "compaction_level": 0,
+  "content_hash": "83d48e94a278bbf93cfc6bdd5fcf16cca824b58a266a2688b956d347665e1a8d",
+  "created_at": "2026-05-04T23:39:55Z",
+  "created_by": "Mark Atwood",
+  "defer_until": "2099-01-01T08:00:00Z",
+  "description": "Spin up two in-process stoa-transit instances bound to loopback TCP ports. Have instance A connect to instance B and execute the full RFC 4644 streaming session: MODE STREAM \u2192 203, CHECK <msgid> \u2192 238, TAKETHIS <msgid> + dot-stuffed body \u2192 239. Verify the article lands in instance B's msgid_map and block store. Also exercise the duplicate path: CHECK of an already-held article \u2192 438. This closes gap 1 and gap 2 from the interop audit (wire framing untested at TCP level; no transit-to-transit peering test).",
+  "ephemeral": 0,
+  "id": "stoa-lbgkr.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "deferred",
+  "timeout_ns": 0,
+  "title": "test: full MODE STREAM/CHECK/TAKETHIS TCP success path, stoa-to-stoa",
+  "updated_at": "2026-05-04T23:40:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T16:39:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-lbgkr",
+      "id": "e76843cf-7db1-52ab-8e44-3779f2548b74",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

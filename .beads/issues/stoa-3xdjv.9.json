@@ -1,0 +1,33 @@
+{
+  "close_reason": "Decision record \u2014 no code change needed",
+  "closed_at": "2026-05-03T00:16:49Z",
+  "compaction_level": 0,
+  "content_hash": "06933d4af78062c6c0b63d76cb9205454478e133f3bfd00a4aecea1fc7497e33",
+  "created_at": "2026-05-03T00:13:01Z",
+  "created_by": "Mark Atwood",
+  "description": "do_deliver() in relay_client.rs performs the MTA-STS and REQUIRETLS checks before TcpStream::connect(). A policy violation in enforce mode never opens a TCP connection to the peer. This is the correct ordering per RFC 8461 \u00a74: the sending MTA MUST NOT connect if the recipient domain publishes an enforce-mode policy and TLS cannot be guaranteed. A future contributor might move the check post-connect for 'efficiency'. Do not move it \u2014 the intent is to never initiate a connection that will be refused.",
+  "ephemeral": 0,
+  "id": "stoa-3xdjv.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MTA-STS check before TCP connect is the correct ordering",
+  "updated_at": "2026-05-03T00:16:49Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T17:13:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-3xdjv",
+      "id": "3d994766-33eb-5e25-9f38-ceee8091c36f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

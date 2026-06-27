@@ -1,0 +1,20 @@
+{
+  "id": "stoa-99065123",
+  "title": "EnvelopeFile and RelayEnvelope are structurally identical \u2014 one should wrap the other",
+  "description": "EnvelopeFile { mail_from: String, rcpt_to: Vec<String> } and RelayEnvelope { mail_from: String, rcpt_to: Vec<String> } are structurally identical types. try_deliver_one creates a RelayEnvelope by cloning from an EnvelopeFile. These should either be unified (EnvelopeFile derives Serialize+Deserialize used on disk; RelayEnvelope is the same type or a From conversion), or one should be removed. The clone in try_deliver_one at lines 429-431 is pure boilerplate that a From impl or type alias would eliminate.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:20:05Z",
+  "updated_at": "2026-05-01T04:59:22Z",
+  "closed_at": "2026-05-01T01:23:48Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-81b33f87",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:20:05"
+    }
+  ]
+}

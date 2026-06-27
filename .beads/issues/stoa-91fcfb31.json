@@ -1,0 +1,20 @@
+{
+  "id": "stoa-91fcfb31",
+  "title": "track: file imap-types upstream issue for StatusDataItemName::Size",
+  "description": "File a GitHub issue against duesee/imap-codec requesting StatusDataItemName::Size and StatusDataItem::Size(u64) variants, following the pattern of StatusDataItemName::Deleted and StatusDataItem::DeletedStorage which were added as a feature-gated extension.\n\nThe issue should note: (1) RFC 8438 STATUS=SIZE and RFC 9051 baseline require this, (2) StatusDataItemName has no Other escape hatch so the extension cannot be implemented without a library change, (3) suggest feature flag ext_status_size following the project's existing pattern.\n\nAlso create a separate Beads issue under this epic tracking the deferred STATUS=SIZE implementation, blocked on the upstream library adding the variant.\n\nAcceptance: GitHub issue filed at duesee/imap-codec with clear problem statement and suggested API; Beads tracking issue created.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:03:43Z",
+  "updated_at": "2026-05-01T04:52:05Z",
+  "closed_at": "2026-04-30T02:09:43Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-db727e07",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:03:43"
+    }
+  ]
+}

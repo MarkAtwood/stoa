@@ -1,0 +1,19 @@
+{
+  "id": "stoa-aad498fd",
+  "title": "drain_once Err arm now logs warning: correct fix, not a no-op",
+  "description": "The round-6 change to drain_once converts 'if let Ok(mut rd) = ...' to 'match ... { Ok => ..., Err(e) => warn\\!(...) }'. This is exactly correct: the previous silent discard meant that if dead/ became inaccessible (permissions change, fs error) the metric would silently stay stale at zero with no operator signal. The warn\\! fires at most once per drain cycle (every retry_interval), which is an appropriate rate for an infrastructure alert. A future contributor might suggest removing the warn to reduce log noise \u2014 defend it: silent metric staleness is worse than a periodic log line.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:10:27Z",
+  "updated_at": "2026-05-01T04:51:41Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-185e20da",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:10:27"
+    }
+  ]
+}

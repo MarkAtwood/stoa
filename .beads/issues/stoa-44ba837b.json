@@ -1,0 +1,13 @@
+{
+  "id": "stoa-44ba837b",
+  "title": "Review: stoa-526bc4c6 CredentialStore merge",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T20:26:52Z",
+  "updated_at": "2026-05-01T04:52:26Z",
+  "closed_at": "2026-04-30T20:39:49Z",
+  "notes": "Section 0: No correctness bugs. Config::from_file() calls validate() in all three services before credential store construction; from_credentials panic is unreachable from normal startup. is_dev_mode() fix (client_certs + trusted_issuers) is correct and consistent across stoa_auth::AuthConfig and reader's AuthConfig.\nMaintainer risk: MEDIUM \u2014 The CredentialStore type is correctly deduplicated. The main gap is the builder logic (secretx handling) duplicated in 3 places with smtp not updated to match the new pattern. No security exposure from this inconsistency, but operational inconsistency risk if divergence accumulates.\nConfidence: 10% chance of missed bug. Least confident flags: none. Uncertainty driven by: smtp credential building code in server.rs not fully reviewed for correctness \u2014 only scanned. Would raise confidence if: full smtp/server.rs audit run. No safety issues; the main gap is the builder duplication.\nIdiom rating: ACCEPTABLE \u2014 Core auth crate (store.rs, config.rs) is idiomatic. imap and reader refactored cleanly. smtp/server.rs was not updated by aubi and has pre-NLL if-let-ref and nested match chains instead of ?. Not wrong, but inconsistent.\nRust idiom confidence: 10% chance of missed issue. Least confident flags: smtp/server.rs \u2014 only scanned credential-building block. Uncertainty driven by: smtp/server.rs full scope not audited."
+}

@@ -1,0 +1,13 @@
+{
+  "id": "stoa-6c83bdbc",
+  "title": "reader/dispatch: remove dead AuthinfoPass/check_credentials code",
+  "description": "dispatch.rs has AuthinfoPass branches at lines ~90 and ~205, and a check_credentials() helper calling verify_bcrypt_sync(). These are dead code: lifecycle.rs intercepts Command::AuthinfoPass at line 551, processes it completely, and calls continue \u2014 so dispatch() never sees AuthinfoPass in production. The verify_bcrypt_sync() function and check_credentials() helper, plus the AuthinfoPass match arms in dispatch(), should be removed. Also remove the DUMMY_HASH OnceLock from credentials.rs once verify_bcrypt_sync() is gone.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T20:40:29Z",
+  "updated_at": "2026-05-01T04:51:56Z",
+  "closed_at": "2026-04-24T20:53:20Z"
+}

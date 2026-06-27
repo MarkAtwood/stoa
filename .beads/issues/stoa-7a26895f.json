@@ -1,0 +1,20 @@
+{
+  "id": "stoa-7a26895f",
+  "title": "NNTP OVER range: invalid input silently becomes Range(0,0) instead of 501",
+  "description": "reader/session/command.rs:254,258,262: parse_range() uses unwrap_or(0) on parse failures. OVER abc-def is parsed as Range(0, 0) and processed as a valid range rather than returning 501 (Syntax error). RFC 3977 \u00a78.3.2 requires 501 for malformed range syntax. Fix: return Err on parse failure; dispatch sends 501.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:35:10Z",
+  "updated_at": "2026-05-01T04:59:49Z",
+  "closed_at": "2026-04-22T21:05:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:35:10"
+    }
+  ]
+}

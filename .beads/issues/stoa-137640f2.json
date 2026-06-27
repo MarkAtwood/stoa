@@ -1,0 +1,20 @@
+{
+  "id": "stoa-137640f2",
+  "title": "GOOD: whitelist_check helper isolates logic for fast unit tests",
+  "description": "The test helper whitelist_check() in config.rs tests extracts the normalization + CIDR containment logic as a pure synchronous function. Tests T4-T8 that use it are plain #[test] functions (not #[tokio::test]), so they run without spawning a runtime, without binding TCP sockets, and without the async overhead of drive_session_ext. This isolation also makes the tests more precise: they target only the IP normalization and CIDR lookup logic, not the full session lifecycle. The alternative \u2014 testing whitelist behavior through the full drive_session_ext harness \u2014 would require engineering IPv4-mapped peer addresses in test connections (which depends on OS dual-stack socket behavior) and would conflate session behavior with the IP lookup logic being tested. The helper approach gives fast, deterministic, portable tests with a clear oracle.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:47:49Z",
+  "updated_at": "2026-05-01T04:58:58Z",
+  "closed_at": "2026-04-30T15:55:59Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b4887c1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:47:49"
+    }
+  ]
+}

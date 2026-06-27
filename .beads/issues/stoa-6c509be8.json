@@ -1,0 +1,20 @@
+{
+  "id": "stoa-6c509be8",
+  "title": "SEC4: double if-let on AuthinfoPass looks like bug",
+  "description": "In lifecycle.rs run_command_loop (~lines 443-490), the AuthinfoPass command is handled with two consecutive if let Command::AuthinfoPass(...) = cmd blocks. The first checks config.auth.required && \\!ctx.tls_active and issues 483/continue; the second (if the first did not fire) extracts the password. This pattern looks like a missed else-if or a code duplication mistake. A reader must notice that the first block's continue prevents the second from executing in the rejection case, and that the two if-let bindings are intentionally separate because the first needs a unit match (to check TLS) and the second needs the password value. A single if let with an early return inside, or an explanatory comment, would make the intent obvious.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T23:43:52Z",
+  "updated_at": "2026-05-01T04:53:39Z",
+  "closed_at": "2026-04-24T00:04:55Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4206df49",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 16:43:52"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-4a60fd32",
+  "title": "na4h: add ipnet dep + peer_whitelist to Config",
+  "description": "## What\nAdd ipnet crate dependency and peer_whitelist config field.\n\n## Algorithm\n1. Add to crates/smtp/Cargo.toml: `ipnet = { version = \"2\", features = [\"serde\"] }`\n2. Add to Config struct in config.rs: `#[serde(default)] pub peer_whitelist: Vec<IpNet>` (import ipnet::IpNet)\n3. Add to Config::validate(): iterate peer_whitelist and verify each entry is valid (they will already be parsed by serde, so this is a belt-and-suspenders check \u2014 but also add a clear startup error if the TOML value fails to parse as IpNet via a custom serde error)\n4. Add doc comment on the field explaining: \"Trusted peer CIDRs. Connections from these IPs bypass DNSBL, FCrDNS, and greylisting. Empty by default. IPv4 and IPv6 CIDRs supported. Invalid CIDR is a fatal startup error.\"\n5. cargo build -p stoa-smtp; cargo clippy -p stoa-smtp -- -D warnings\n\n## Defensive rules\n- #[serde(default)] is mandatory \u2014 absence of peer_whitelist in TOML must not fail deserialization\n- serde will emit a clear error if a CIDR string fails to parse (ipnet FromStr error becomes a serde error); this is sufficient \u2014 no need to re-validate in validate()\n- Do NOT add peer_whitelist to any test Config struct \u2014 the #[serde(default)] means tests use empty vec automatically\n\n## Tests\nNone for this bead \u2014 config parsing is tested in na4h.3",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:33:50Z",
+  "updated_at": "2026-05-01T04:55:32Z",
+  "closed_at": "2026-04-30T15:38:57Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1d9d418c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:33:49"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "stoa-f94f7088",
+  "title": "transit: HLC not persisted across restarts (monotonicity violation)",
+  "description": "The HybridLogicalClock is initialized from SystemTime::now() on each startup. If the system clock goes backwards or a restart happens within the same wall-clock millisecond, the HLC can issue timestamps lower than those already committed to the log, violating the HLC monotonicity invariant that CRDT reconciliation depends on.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T23:45:41Z",
+  "updated_at": "2026-05-01T04:53:50Z",
+  "closed_at": "2026-04-25T00:57:37Z"
+}

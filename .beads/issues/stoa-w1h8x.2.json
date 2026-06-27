@@ -1,0 +1,33 @@
+{
+  "close_reason": "Analysis: hickory 0.26.0-alpha.1 wraps NXDomain in ProtoErrorKind::NoRecordsFound with response_code=NXDomain (error.rs line 614-636). The existing NoRecordsFound { .. } pattern already catches it. No code change needed.",
+  "closed_at": "2026-05-02T21:48:30Z",
+  "compaction_level": 0,
+  "content_hash": "f52492519a0f25c12f5c1f444673d0ce86446ca679f1dcd5c749a3aac929e035",
+  "created_at": "2026-05-02T21:42:13Z",
+  "created_by": "Mark Atwood",
+  "description": "mta_sts_dns.rs:28 only matches ProtoErrorKind::NoRecordsFound to return Ok(None) (no MTA-STS). But NXDomain (the subdomain _mta-sts.example.com does not exist at all) is a separate ProtoErrorKind variant. An NXDomain response falls through to Err(DnsLookupFailed), which in enforce_for_delivery logs a warning and allows delivery \u2014 but that is already the correct outcome. The real consequence is that the warning is noisy and misleading for every domain that simply has no _mta-sts subdomain. RFC 8461 \u00a73.1 treats both NXDOMAIN and no STSv1 record as 'no policy'; the distinction matters for clean logging and correct semantics. Fix: match both NoRecordsFound and NxDomain (or its equivalent in hickory) to Ok(None).",
+  "ephemeral": 0,
+  "id": "stoa-w1h8x.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "NXDomain on _mta-sts lookup causes DnsLookupFailed instead of Ok(None)",
+  "updated_at": "2026-05-02T21:48:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:42:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-w1h8x",
+      "id": "2b57873f-58cb-5ee9-9dd9-2267103265a2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

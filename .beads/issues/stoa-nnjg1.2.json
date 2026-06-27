@@ -1,0 +1,41 @@
+{
+  "acceptance_criteria": "All methods registered. Chat/set create-dedup works. State token deltas correct. PresenceStatus singleton auto-created. Integration test covers send flow end to end.",
+  "compaction_level": 0,
+  "content_hash": "93848b43a72d8c25e0cc71531f69aedf591021a7c02e1a1ff142bb1ae7a704b6",
+  "created_at": "2026-05-02T16:31:25Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why this issue exists\n\nWith the schema and bridge in place, stoa needs to implement all owner-side JMAP Chat methods so that JMAP Chat clients can create, read, and manage chats and messages. This is the API surface that clients talk to.\n\n## Capability registration\n\nAdd `urn:ietf:params:jmap:chat` to the JMAP session object returned by `GET /.well-known/jmap`. Include the account-level capability object with:\n- `maxBodyBytes`, `maxAttachmentBytes`, `maxAttachmentsPerMessage`\n- `maxGroupMembers`\n- `supportedBodyTypes: [\"text/plain\"]`\n- `supportsThreads: false` (v1)\n- `ownerUserId` (the owner's email address)\n\nRegister all chat method names in the `Dispatcher` alongside the existing mail methods.\n\n## Methods to implement\n\n### Chat methods\n\n**`Chat/get`** \u2014 return Chat objects by id. Compute `unreadCount` from `read_positions`.\n\n**`Chat/changes`** \u2014 return changed/destroyed chat ids since a state token.\n\n**`Chat/set`**:\n- `create` with `kind: \"direct\"`: check for existing direct chat with `contactId`, return existing if found\n- `create` with `kind: \"group\"`: assign dc_group_id (new UUID), set owner as admin member, send `Peer/groupUpdate` is out of scope \u2014 just create locally and the outbound bridge handles informing members on first message\n- `update`: `muted`, `muteUntil`, `receiveTypingIndicators`, `pinnedMessageIds`, `messageExpirySeconds`, `receiptSharing`; group admins: `name`, `addMembers`, `removeMembers`\n\n**`Chat/query`** \u2014 filter by `kind`, `muted`. Default sort: `last_message_at` descending.\n\n**`Chat/queryChanges`**\n\n**`Chat/typing`** \u2014 ephemeral; not stored. Deliver typing push event to connected clients of this account. Rate-limit to one call per chat per 3 seconds; excess silently discarded.\n\n### Message methods\n\n**`Message/get`** \u2014 return Message objects. Include `reactions` map from `chat_reactions`.\n\n**`Message/changes`**\n\n**`Message/set`**:\n- `create`: insert row, trigger outbound bridge\n- `update` body edit: push revision to edit history, set `edited_at`, trigger outbound bridge with edit payload (Delta Chat `Chat-Edit:` header if supported, otherwise new message with edited content)\n- `update` reactions: add/remove `chat_reactions` row\n- `update` readAt: set `read_at`, fire MDN if needed, update `read_positions`\n- `update` deletedAt with `deletedForAll`: set `deleted_at`, clear body and attachments, trigger outbound bridge with delete payload\n- `destroy`: local-only delete\n\n**`Message/query`** \u2014 filter by `chatId` (required unless `hasMention: true`), `hasAttachment`, `hasMention`. Default sort: `received_at` ascending.\n\n**`Message/queryChanges`**\n\n### ChatContact methods\n\n**`ChatContact/get`**\n\n**`ChatContact/changes`**\n\n**`ChatContact/set`** \u2014 `update` only: `blocked`, `displayName`. Create/destroy return `forbidden`.\n\n**`ChatContact/query`** \u2014 filter by `blocked`. Default sort: `last_seen_at` descending.\n\n**`ChatContact/queryChanges`**\n\n### ReadPosition methods\n\n**`ReadPosition/get`**\n\n**`ReadPosition/changes`**\n\n**`ReadPosition/set`** \u2014 `update` only: `lastReadMessageId`. Create/destroy return `forbidden`. Server sets `last_read_at` and recomputes `Chat.unreadCount`.\n\n### PresenceStatus methods\n\n**`PresenceStatus/get`** \u2014 returns the singleton record; server creates it if absent.\n\n**`PresenceStatus/changes`**\n\n**`PresenceStatus/set`** \u2014 `update` only: `presence`, `statusText`, `statusEmoji`, `expiresAt`, `receiptSharing`. Create/destroy return `forbidden`.\n\n## State token management\n\nEach method family has its own state token stored in the existing `state_version` table (or a parallel `chat_state_version` table). Tokens are bumped on every mutation and on inbound bridge events. `/changes` methods return added/updated/destroyed id lists since the supplied token.\n\n## Error handling\n\n- `notFound` for unknown ids\n- `forbidden` for create/destroy on singleton types\n- `rateLimited` for `Chat/typing` excess calls\n- `invalidArguments` for `Message/query` without `chatId` and without `hasMention: true`\n- `maxSizeExceeded` for body exceeding `maxBodyBytes`\n\n## Acceptance criteria\n\n- All listed methods registered in Dispatcher and return correct responses\n- `Chat/set` create direct: second create with same contactId returns existing chat, not a new one\n- `Message/set` create: outbound bridge triggered (verified in integration test)\n- `ReadPosition/set` update: `Chat.unreadCount` reflects new cursor\n- `PresenceStatus/get` returns singleton even if never explicitly created\n- State tokens advance on mutation; `/changes` returns correct delta\n- Unit tests for each method using an in-memory `MailStore` mock",
+  "design": "All methods are registered in the existing Dispatcher \u2014 same dispatch infrastructure as mail methods. Chat state tokens are separate from mail state tokens (different type names in the state_version table). The PresenceStatus singleton is auto-created on first get if absent \u2014 same pattern as ReadPosition.",
+  "ephemeral": 0,
+  "id": "stoa-nnjg1.2",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "JMAP Chat: owner-side methods",
+  "updated_at": "2026-06-26T20:26:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T09:31:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-nnjg1.1",
+      "id": "94452338-4589-530a-8e1a-5928ee341acc",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T09:31:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-nnjg1",
+      "id": "ca37efd3-65b4-5f24-a288-0d55d01263a4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

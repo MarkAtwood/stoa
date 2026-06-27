@@ -1,0 +1,20 @@
+{
+  "id": "stoa-885eab15",
+  "title": "PUT /admin/sieve validates (compile) before storing \u2014 correct order",
+  "description": "sieve_admin.rs put_script compiles the script with usenet_ipfs_sieve::compile() before calling store::save_script(). Returns 422 on compile error. This means a stored script is guaranteed compilable at the time it was stored (modulo Sieve library bugs). The sieve_for_user fallback to Keep on compile error at delivery time is defensive but should rarely fire. A contributor might suggest removing the compile-before-store check as 'redundant' because delivery already has a fallback. Defend: the compile check surfaces errors immediately to the operator at upload time rather than silently defaulting to Keep at delivery. The fallback at delivery is for library version skew, not for catching bad scripts.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T13:32:38Z",
+  "updated_at": "2026-05-01T04:54:51Z",
+  "closed_at": "2026-04-23T00:16:06Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9f393084",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 06:32:37"
+    }
+  ]
+}

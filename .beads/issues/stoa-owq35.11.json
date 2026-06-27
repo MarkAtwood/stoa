@@ -1,0 +1,33 @@
+{
+  "close_reason": "Positive observation \u2014 no action required.",
+  "closed_at": "2026-05-02T21:44:39Z",
+  "compaction_level": 0,
+  "content_hash": "02cf5e8e0563aa5b59ba6367d9972fadc0cff697e6e1e2d0df9a09356d18f057",
+  "created_at": "2026-05-02T20:18:29Z",
+  "created_by": "Mark Atwood",
+  "description": "enforce_for_delivery checks the in-memory cache before performing any DNS or HTTPS I/O. This design: (1) makes the enforcer unit-testable without live DNS (seed_cache test helper), (2) prevents test hangs, (3) reduces latency on hot paths. A future contributor might suggest 'always revalidate against DNS' \u2014 resist this. RFC 8461 \u00a74.2 explicitly says to cache and use the cached policy. The cache-first approach is both correct and necessary for test isolation.",
+  "ephemeral": 0,
+  "id": "stoa-owq35.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "cache-first design in MtaStsEnforcer prevents DNS hangs in tests",
+  "updated_at": "2026-05-02T21:44:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T13:18:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-owq35",
+      "id": "a854f9d2-6a65-5508-89c7-ef28cf278af3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

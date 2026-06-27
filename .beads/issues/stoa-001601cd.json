@@ -1,0 +1,20 @@
+{
+  "id": "stoa-001601cd",
+  "title": "Two near-identical RocksDB impls create dual-maintenance burden",
+  "description": "rocks_store.rs in transit/ and reader/ are 85% identical \u2014 same open(), same spawn_blocking pattern, same key scheme, same test suite. Any bug fix or tuning change must be applied twice. This follows the established pattern of all other backends in the codebase so it is not a new structural issue, but worth calling out. Suggested approach if it becomes painful: a shared RocksDb handle struct in stoa-core with both IpfsStore and IpfsBlockStore thin wrappers. Not worth the refactor now.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T04:04:08Z",
+  "updated_at": "2026-05-01T04:51:33Z",
+  "closed_at": "2026-04-28T10:14:12Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-b29a7f1c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 21:04:07"
+    }
+  ]
+}

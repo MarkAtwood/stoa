@@ -1,0 +1,12 @@
+{
+  "id": "stoa-4a899c3f",
+  "title": "Admin CLI: usenet-ipfs-ctl operator tool",
+  "description": "A purpose-built CLI that talks to the admin HTTP endpoint so operators do not need to curl JSON by hand.\n\nWhy this issue exists:\nThe admin HTTP endpoint exposes /health, /stats, /peers, /log-tip, /metrics, /reload but requires curl and manual JSON parsing. Operators need a usenet-ipfs-ctl binary for day-to-day operations.\n\nWhat needs to be done:\n- New usenet-ipfs-ctl binary with global flags (--addr, --format)\n- ctl status and ctl version commands\n- ctl peers and ctl groups commands\n- ctl log-tip, ctl reload, ctl metrics commands\n- Integration tests against a live admin server",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T19:59:22Z",
+  "updated_at": "2026-05-01T04:56:33Z",
+  "closed_at": "2026-04-24T07:17:30Z"
+}

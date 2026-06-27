@@ -1,0 +1,20 @@
+{
+  "id": "stoa-4bd59795",
+  "title": "sieve-native/lexer: Vec-char allocation avoidable with Peekable iterator",
+  "description": "crates/sieve-native/src/lexer.rs line 34 collects source to Vec<char> for index access. A Peekable<Chars> would avoid the O(n) allocation while still supporting single-char lookahead.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:26:45Z",
+  "updated_at": "2026-05-01T04:55:47Z",
+  "closed_at": "2026-04-28T21:31:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:26:44"
+    }
+  ]
+}

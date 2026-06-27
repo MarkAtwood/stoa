@@ -1,0 +1,32 @@
+{
+  "id": "stoa-75cffbbf",
+  "title": "Tests: parse_did_key + verify_did_sig with external vectors",
+  "description": "What: Write tests for parse_did_key and verify_did_sig using externally-generated test vectors.\n\nTest vector generation (external oracle \u2014 run ONCE with Python, hardcode results):\nUse Python cryptography library to generate:\n  from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey\n  import base64, struct\n  # Ed25519 multicodec prefix\n  MULTICODEC_ED25519 = b'\\xed\\x01'\n  key = Ed25519PrivateKey.generate()  # use fixed test seed for reproducibility\n  pub_bytes = key.public_key().public_bytes_raw()\n  multibase_payload = MULTICODEC_ED25519 + pub_bytes\n  import base58\n  did_key_str = 'did:key:z' + base58.b58encode(multibase_payload).decode()\n  article = b'From: alice@example.com\\r\\nSubject: DID test\\r\\n\\r\\nBody.\\r\\n'\n  sig = key.sign(article)\n  sig_b64 = base64.urlsafe_b64encode(sig).rstrip(b'=').decode()\n\nTests:\n1. parse_did_key_valid: given hardcoded did:key, returns Ok(verifying_key) that matches expected public key bytes\n2. parse_did_key_unsupported_method: did:web:example.com -> Err(UnsupportedMethod)\n3. parse_did_key_bad_multicodec: base58btc-encoded 32 bytes with wrong multicodec prefix -> Err(InvalidKeyEncoding) or Err(UnsupportedMethod)\n4. parse_did_key_wrong_key_length: truncated key -> Err(InvalidKeyEncoding)\n5. verify_did_sig_valid: hardcoded article + correct sig -> Ok(true)\n6. verify_did_sig_wrong_sig: same article, sig bytes XOR'd -> Ok(false)\n7. verify_did_sig_wrong_article: correct sig but different article bytes -> Ok(false)\n8. verify_did_sig_format_error: header_value with no space -> Err(InvalidFormat)\n9. verify_did_sig_with_did_sig_header_present: article includes the X-Usenet-IPFS-DID-Sig header itself, verify_did_sig strips it and still returns Ok(true)\n\nAll hardcoded test vectors must come from the Python oracle above. Include the Python code as a comment in the test file showing how vectors were generated (but do not run Python at test time \u2014 tests must be offline).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T04:06:16Z",
+  "updated_at": "2026-05-01T05:00:51Z",
+  "closed_at": "2026-04-23T04:27:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-39b7ae86",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:07:07"
+    },
+    {
+      "depends_on_id": "stoa-891b1900",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:07:06"
+    },
+    {
+      "depends_on_id": "stoa-c06fa970",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:06:16"
+    }
+  ]
+}

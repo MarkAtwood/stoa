@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T17:33:53Z",
+  "compaction_level": 0,
+  "content_hash": "3a9fab138c6ed828d8b093503c00572243bb374bb59392b154fddf42b49eff2a",
+  "created_at": "2026-05-01T15:21:00Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: import/reindex.rs extract_message_id_bytes only matches the literals 'Message-ID:' and 'Message-Id:'. RFC 5322 requires case-insensitive header name matching; valid capitalizations like 'message-id:', 'MESSAGE-ID:', or 'Message-id:' are not matched. Bad behavior: articles with non-canonical Message-ID capitalization are silently skipped during reindex, leaving their CIDs unmapped in msgid_map. The articles are stored in IPFS but unreachable by Message-ID lookup.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.63",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "reindex.rs Message-ID extraction is not case-insensitive",
+  "updated_at": "2026-05-01T17:33:53Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:21:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "4cb43269-b81a-5664-afdc-2c86447b9895",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

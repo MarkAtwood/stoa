@@ -1,0 +1,20 @@
+{
+  "id": "stoa-ef985139",
+  "title": "redundant type annotation on dkim_signer in smtp main",
+  "description": "smtp/main.rs line 199 declares 'let dkim_signer: Option<Arc<mail_auth::dkim::DkimSigner<mail_auth::common::crypto::Ed25519Key, mail_auth::dkim::Done>>>' with the full generic written out explicitly. Type inference would resolve this from the if/else arms without the annotation. Removing the annotation reduces line length and noise. Idiomatic Rust omits redundant type annotations that inference can resolve.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:43:24Z",
+  "updated_at": "2026-05-01T04:55:13Z",
+  "closed_at": "2026-05-01T02:13:48Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4315538d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:43:23"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-28ee5a6b",
+  "title": "if let Some(ref path) uses deprecated ref-binding style",
+  "description": "server_stores.rs build_credential_store uses 'if let Some(ref path) = auth.credential_file' (explicit ref pattern). Since Rust 2021 match ergonomics, the idiomatic form is 'if let Some(path) = &auth.credential_file', which is what clippy::pattern_type_mismatch / clippy::needless_borrow recommends. The ref keyword in patterns is rarely needed since edition 2018 and is a signal the author was writing older-style code.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:58:37Z",
+  "updated_at": "2026-05-01T04:55:26Z",
+  "closed_at": "2026-04-30T18:04:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-65dc6723",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 10:58:36"
+    }
+  ]
+}

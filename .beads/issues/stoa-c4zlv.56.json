@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T17:53:54Z",
+  "compaction_level": 0,
+  "content_hash": "9c7e9a0c064230e849cab509beedfd0c602697cd630fcd5a4fcd8016166e162f",
+  "created_at": "2026-05-01T15:20:41Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: peering/backpressure.rs records EMA as two separate atomic operations: load(Relaxed) then store(Relaxed). Two concurrent callers can both load the same old value, compute updated EMAs independently, and each store their own result. Bad behavior: one update is lost (classic lost-update race). The EMA metric can drift from the true value under concurrent load. The metric drives admittance decisions and backpressure logging, so a stale EMA can cause under-throttling.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.56",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "EMA backpressure monitor has non-atomic read-modify-write race",
+  "updated_at": "2026-05-01T17:53:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:20:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "e1c85f46-6bb7-5f03-a5a3-f5614ee78994",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

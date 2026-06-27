@@ -1,0 +1,32 @@
+{
+  "closed_at": "2026-05-04T03:22:07Z",
+  "compaction_level": 0,
+  "content_hash": "82f04621cedf262cb79bf4b961ae51a4f5b738a9163e50670d3e4af2174fe53a",
+  "created_at": "2026-05-04T03:21:53Z",
+  "created_by": "Mark Atwood",
+  "description": "Duplicate of stoa-tlvh9.1 and stoa-tlvh9.2 (build_store duplication). Readability angle already captured there.",
+  "ephemeral": 0,
+  "id": "stoa-tlvh9.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "build_store_for_rnews: unexplained duplication of build_store",
+  "updated_at": "2026-05-04T03:22:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T20:21:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-tlvh9",
+      "id": "c80a56bb-a32c-5ba3-a98a-2167731f86ef",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-59afe2ab",
+  "title": "Per-group metrics: log lag, storage, and activity gauges",
+  "description": "Add group_log_entries_total{group} gauge (current log length), group_log_lag{group, peer} gauge (entries behind peer, 0 when reconciled), group_storage_bytes{group} gauge (sampled estimate), group_last_activity_timestamp{group} gauge. High-cardinality guard: disable per-group metrics and emit warning if >500 groups active. Blocked on: stoa-9c8bc44d.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:42:10Z",
+  "updated_at": "2026-05-01T04:56:51Z",
+  "closed_at": "2026-04-28T00:50:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9c8bc44d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:42:09"
+    }
+  ]
+}

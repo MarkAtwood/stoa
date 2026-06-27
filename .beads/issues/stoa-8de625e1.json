@@ -1,0 +1,20 @@
+{
+  "id": "stoa-8de625e1",
+  "title": "relay_queue: inc_relay_attempt called before DKIM signing \u2014 attempt semantics ambiguous",
+  "description": "inc_relay_attempt is called (line ~432) before DKIM signing. If DKIM fails, no network call is made \u2014 'attempt' is counted but no delivery was tried. Consider renaming the metric or moving the call to after successful signing. Alternatively, add a separate DKIM_failure counter so the telemetry is unambiguous.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:29:39Z",
+  "updated_at": "2026-05-01T04:51:41Z",
+  "closed_at": "2026-05-01T02:32:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3fb034ab",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 19:29:39"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "stoa-334c73a0",
+  "title": "Implement per-group pinning policy engine",
+  "description": "Implement PolicyEngine that evaluates whether a given article CID should be pinned, based on rules from config: pin_all_groups: bool, pin_groups: [list], max_age_days: u32, max_size_bytes: u64. Implement should_pin(article: &ArticleMetadata) -> bool. Artifact: transit/src/retention/policy.rs.\n\nAcceptance:\n- pin_all_groups=true pins everything regardless of other rules\n- pin_groups=[list] pins only articles in those groups\n- max_age_days excludes articles older than threshold\n- Rules are AND'd: an article must satisfy all applicable rules to be pinned\n- Unit tests for each rule and combination",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:13:10Z",
+  "updated_at": "2026-05-01T04:55:01Z",
+  "closed_at": "2026-04-20T04:58:06Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4c1d2d50",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:13:09"
+    },
+    {
+      "depends_on_id": "stoa-9f52c865",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:14:04"
+    }
+  ]
+}

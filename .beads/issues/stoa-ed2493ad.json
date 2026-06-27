@@ -1,0 +1,27 @@
+{
+  "id": "stoa-ed2493ad",
+  "title": "Implement session lifecycle: accept to handshake to command loop to teardown",
+  "description": "Implement the full per-connection async task: (1) send 200/201 greeting, (2) STARTTLS upgrade if client requests it, (3) AUTHINFO handshake if auth_required, (4) command loop (read line, parse, dispatch, write response, repeat), (5) teardown on QUIT or connection close, (6) update session metrics on close. Artifact: reader/src/session/lifecycle.rs.\n\nAcceptance: connection enters command loop after successful handshake; QUIT sends 205 and closes; abrupt client disconnect is handled cleanly (no panic); per-session span in tracing includes peer_addr and session duration",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:46:32Z",
+  "updated_at": "2026-05-01T04:54:02Z",
+  "closed_at": "2026-04-20T03:14:25Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-00566a8f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:46:31"
+    },
+    {
+      "depends_on_id": "stoa-4e410713",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:47:15"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "ce0f22d98b74a451db2ed51e7486e10273de43e3e9b9e8420cfc787a6711c6a3",
+  "created_at": "2026-05-04T03:21:34Z",
+  "created_by": "Mark Atwood",
+  "description": "rnews.rs:56-58 \u2014 The comment says .take(limit+1) enforces the cap 'without allocating the full oversized output first' and 'without allocating beyond limit+1'. This is misleading. read_to_end() DOES buffer all bytes read into 'out' (up to limit+1 bytes), so it WILL allocate up to ~50 MiB on the heap for a near-limit batch. What .take() actually prevents is reading MORE than limit+1 bytes from the GzDecoder \u2014 it stops the streaming decode early. The allocation of limit+1 bytes is not avoided. Fix: rewrite the comment to say what .take() actually does: 'stops the streaming decoder after limit+1 bytes, so the decompressor never reads beyond that point; the output buffer still grows to at most limit+1 bytes.'",
+  "ephemeral": 0,
+  "id": "stoa-tlvh9.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "decompress_gunbatch: misleading comment about allocation",
+  "updated_at": "2026-05-04T03:21:34Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T20:21:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-tlvh9",
+      "id": "580df745-2257-57f0-8686-ea33a04570cb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

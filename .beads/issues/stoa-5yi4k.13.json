@@ -1,0 +1,33 @@
+{
+  "close_reason": "Positive observation only \u2014 no code change required.",
+  "closed_at": "2026-05-02T21:25:32Z",
+  "compaction_level": 0,
+  "content_hash": "28b72732cd6dacbb5370b1bb81d031927b544b6c3647f70cb2dd465dbcf1ab02",
+  "created_at": "2026-05-02T21:18:24Z",
+  "created_by": "Mark Atwood",
+  "description": "mta_sts_fetcher.rs enforces three security invariants correctly: no redirects (Policy::none()), WebPKI-only cert validation (system roots, no custom CA), and a body size cap. Each invariant has an RFC citation in the doc comment. The SSRF note is honest about what is and is not mitigated. A contributor might suggest 'simplify by using the default client' \u2014 the no-redirect policy is the reason this cannot be done, and the doc comment makes that clear.",
+  "ephemeral": 0,
+  "id": "stoa-5yi4k.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Security invariants for fetch_url are well-engineered and documented",
+  "updated_at": "2026-05-02T21:25:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:18:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-5yi4k",
+      "id": "3c0e603a-8c2e-5c9e-ba64-a63216cb0f6e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "compaction_level": 0,
+  "content_hash": "e9452938bdeff17a27bab30739c3f98f274ff3002e1618337eb554b1b6db79d3",
+  "created_at": "2026-05-04T23:39:39Z",
+  "created_by": "Mark Atwood",
+  "defer_until": "2099-01-01T08:00:00Z",
+  "description": "Full RFC 4644 MODE STREAM / CHECK / TAKETHIS interop test coverage over real TCP. The success path (CHECK\u2192238, TAKETHIS\u2192239) is only tested at function-call level today; dot-stuffing and response framing are untested at the TCP level. Four child issues needed (see below).",
+  "ephemeral": 0,
+  "id": "stoa-lbgkr",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "deferred",
+  "timeout_ns": 0,
+  "title": "epic: IHAVE/TAKETHIS wire interop tests",
+  "updated_at": "2026-06-26T20:26:38Z"
+}

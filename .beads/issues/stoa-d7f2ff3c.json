@@ -1,0 +1,20 @@
+{
+  "id": "stoa-d7f2ff3c",
+  "title": "Import block in auth.rs test module is inconsistent with rest of crate",
+  "description": "crates/imap/src/session/auth.rs test module (lines 314-322) constructs stoa_auth::config::UserCredential using an inline qualified path with no use declaration at the top of the test module. Other test modules in this crate (e.g. e2e_smoke.rs) group all imports at the top of the module with explicit use statements.\n\nThe make_store() helper would be more readable if it imported the type explicitly:\n  use stoa_auth::config::UserCredential;  (or crate::config::UserCredential via the re-export)\nand then constructed UserCredential { ... } without the full path inline.\n\nThis is a minor consistency issue: the rest of the crate's test modules declare imports at the top rather than inlining full qualified paths at the point of use. The aubi commit introduced this divergence.\n\nFile: crates/imap/src/session/auth.rs lines 304-323 (test module header and make_store helper).",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T16:52:21Z",
+  "updated_at": "2026-05-01T04:54:19Z",
+  "closed_at": "2026-04-30T16:57:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-45f3f588",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 09:52:20"
+    }
+  ]
+}

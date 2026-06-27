@@ -1,0 +1,13 @@
+{
+  "id": "stoa-46d6c408",
+  "title": "Injection provenance: local-only storage for List-ID-routed articles",
+  "description": "Tag every article with its injection source and use that to decide whether it enters the group log (peerable via IHAVE/TAKETHIS) or stays reader-local only.\n\nWhy this issue exists:\nArticles injected from email via List-ID routing are locally filed email messages, not Usenet articles. Propagating them via IHAVE/TAKETHIS to peers is wrong: it pollutes the Usenet feed with mailing list traffic and risks duplicates if peers also receive the same emails via their own SMTP relay.\n\nRouting policy:\n  NntpPost        (NNTP POST command)                    \u2192 group log + IPFS  (peerable)\n  SmtpNewsgroups  (SMTP with explicit Newsgroups: header) \u2192 group log + IPFS  (peerable)\n  SmtpSieve       (SMTP routed by sieve fileinto)         \u2192 group log + IPFS  (peerable)\n  SmtpListId      (SMTP routed by List-ID fallback)       \u2192 IPFS + reader tables only (local)\n\nImplementation:\n- InjectionSource enum in core\n- Source flows through NntpQueue envelope (SMTP path) and direct POST path\n- Reader ingest pipeline branches: group log entry written only for peerable sources\n- Group log entry gains informational injection_source field for the peerable cases\n- Transit peering unaffected: it only replicates the group log, which never contains SmtpListId articles",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:57:52Z",
+  "updated_at": "2026-05-01T04:54:03Z",
+  "closed_at": "2026-04-24T00:45:46Z"
+}

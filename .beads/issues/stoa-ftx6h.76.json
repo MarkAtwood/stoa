@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "aa290b974fdacf656f4bb1f6db2c2851899ea10f439b7d50cce25577a7ac7071",
+  "created_at": "2026-05-03T13:05:25Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this issue exists: state/version.rs bump_state() issues two SQL statements: INSERT ON CONFLICT DO UPDATE to increment the counter, then a separate SELECT to read the new value. Even without the TOCTOU race (filed separately as a P0 correctness bug), this is an unnecessary round trip on every state-mutating JMAP method call.\n\nWhat needs to be done: SQLite \u22653.35 supports RETURNING. Replace both statements with: INSERT INTO state_versions (type, version) VALUES (?, 1) ON CONFLICT(type) DO UPDATE SET version = version + 1 RETURNING version. One statement, one round trip, race-free.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.76",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "bump_state: replace two-query INSERT+SELECT with single RETURNING query",
+  "updated_at": "2026-05-03T13:05:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "ffb964a2-cbc0-58e5-a41f-a9dae82b503c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

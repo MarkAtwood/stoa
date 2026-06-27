@@ -1,0 +1,27 @@
+{
+  "id": "stoa-c9f089fe",
+  "title": "Implement in-memory LogStorage for testing",
+  "description": "Implement MemLogStorage: a HashMap-based in-memory implementation of LogStorage. Thread-safe via tokio::sync::RwLock. Suitable for deterministic unit tests without SQLite. Artifact: core/src/group_log/mem_storage.rs.\n\nAcceptance: all LogStorage methods implemented and pass a shared test suite; insert/get/tips roundtrip correctly; concurrent inserts do not deadlock",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:44:59Z",
+  "updated_at": "2026-05-01T04:53:37Z",
+  "closed_at": "2026-04-20T03:26:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-26dc1ae3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:45:41"
+    },
+    {
+      "depends_on_id": "stoa-9233c63e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:44:58"
+    }
+  ]
+}

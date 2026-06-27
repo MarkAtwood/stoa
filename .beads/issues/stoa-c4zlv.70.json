@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T19:08:23Z",
+  "compaction_level": 0,
+  "content_hash": "ed558665c3857046f0952c379ab1c575b766b931ceb72b8b47c87bcc16fbb42c",
+  "created_at": "2026-05-01T15:21:14Z",
+  "created_by": "Mark Atwood",
+  "description": "Scenario: server carries a large group set (millions of articles). store/article_numbers.rs::list_all_articles executes SELECT group_name, article_number, cid FROM article_numbers ORDER BY group_name, article_number and fetches all rows into a Vec<Row> in one call. On a server with 10M articles this allocates several hundred MB on startup for the backfill pass. No pagination or streaming is available. A server with insufficient RAM will OOM before reaching the listen loop.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.70",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "list_all_articles loads entire article dataset into memory",
+  "updated_at": "2026-05-01T19:08:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:21:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "23b30e42-9358-5120-91f7-33f27786e842",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

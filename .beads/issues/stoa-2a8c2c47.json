@@ -1,0 +1,20 @@
+{
+  "id": "stoa-2a8c2c47",
+  "title": "PinningApiKey::resolve() is the right pattern for secretx-capable config types",
+  "description": "PinningApiKey owns its own secretx resolution via a resolve(self, label) method rather than having main.rs inline the secretx API. This is the correct design: the type knows its own encoding (UTF-8 string), provides a single place to change resolution behavior, and the Debug/Display redaction works correctly throughout. A future contributor might suggest moving resolution to main.rs for consistency with other fields \u2014 resist this: the type-method approach is better and should be extended to other secretx-capable types when they graduate from simple string to domain types.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-26T22:24:42Z",
+  "updated_at": "2026-05-01T04:59:01Z",
+  "closed_at": "2026-04-26T22:34:17Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-2f59ab0d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 15:24:41"
+    }
+  ]
+}

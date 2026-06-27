@@ -1,0 +1,11 @@
+{
+  "id": "stoa-949eedcb",
+  "title": "circuit_breaker::opens_after_failure_threshold flaky under parallel test execution",
+  "description": "The test passes in isolation (5/5 runs) but fails intermittently when cargo test --workspace runs all tests in parallel. Likely a timing sensitivity: the circuit breaker window reset depends on elapsed time and parallel test load causes spurious delays. Root cause: test uses real time.sleep or Instant::now() without mocking the clock.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:44:05Z",
+  "updated_at": "2026-05-01T04:52:09Z"
+}

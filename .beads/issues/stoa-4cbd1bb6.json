@@ -1,0 +1,20 @@
+{
+  "id": "stoa-4cbd1bb6",
+  "title": "secretx:// URI support in Azure/GCS is consistent and correct",
+  "description": "Both Azure access_key and GCS service_account_key support secretx:// URIs via resolve_secret_uri, with config-time URI syntax validation. This is consistent with S3 (from the previous commit) and means all cloud backends follow the same secret injection pattern. A contributor might suggest supporting only environment variables or only file-based secrets. The secretx:// abstraction should be kept as-is \u2014 it allows Vault, AWS SSM, env vars, and files through a single interface without branching in the config.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T02:38:56Z",
+  "updated_at": "2026-05-01T04:51:33Z",
+  "closed_at": "2026-04-28T06:29:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-938166bc",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 19:38:56"
+    }
+  ]
+}

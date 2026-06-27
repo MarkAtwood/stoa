@@ -1,0 +1,41 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T18:58:28Z",
+  "compaction_level": 0,
+  "content_hash": "79c76de43a98f95074ea0e4d5f37bdec06c4363cd833e561e1fcf0ead32a87e4",
+  "created_at": "2026-05-02T17:38:53Z",
+  "created_by": "Mark Atwood",
+  "description": "Unit tests for parse_mta_sts_policy using hand-written RFC 8461 \u00a73.2 fixtures. Required cases: full valid enforce policy, valid testing policy, valid none policy, multiple mx lines parsed correctly, unknown fields silently ignored, version not first line (must fail), missing mode (must fail), missing mx (must fail), max_age at 0 boundary and 31557600 boundary, max_age exceeding 31557600 (must fail), body exactly at 64 KiB limit (must succeed), body at 64 KiB + 1 byte (must fail). Test vectors must be inline string literals, not generated from the parser under test.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Tests: MTA-STS policy file parser",
+  "updated_at": "2026-05-02T18:58:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T10:39:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.6",
+      "id": "25a04684-46ab-52ee-8890-912f534ffe19",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T10:38:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks",
+      "id": "cf5e1162-88b2-5f91-a1eb-05f6db33c093",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

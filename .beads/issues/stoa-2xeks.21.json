@@ -1,0 +1,49 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T19:19:07Z",
+  "compaction_level": 0,
+  "content_hash": "0d462b19bb511e6ca43a0b698a267c499af0fa241235d6efda8547ee7b0fa0d1",
+  "created_at": "2026-05-02T17:39:13Z",
+  "created_by": "Mark Atwood",
+  "description": "Unit tests for REQUIRETLS EHLO advertisement and MAIL FROM parsing. EHLO tests: REQUIRETLS present in capability list when is_tls=true, REQUIRETLS absent when is_tls=false. MAIL FROM parser tests: 'MAIL FROM:<user@example.com> REQUIRETLS' extracts requiretls=true; 'MAIL FROM:<user@example.com> SIZE=1000 REQUIRETLS' extracts both params; 'MAIL FROM:<user@example.com>' has requiretls=false; 'MAIL FROM:<user@example.com> REQUIRETLS' on plaintext session is rejected with 530 5.7.0. Use SMTP session test harness already present in crates/smtp/src/.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Tests: REQUIRETLS EHLO and MAIL FROM",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T10:39:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks",
+      "id": "290abc11-0d6e-5ee1-8865-aa961b52f345",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-02T10:40:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.11",
+      "id": "c8ebf3da-0061-5772-902d-469589f56d30",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T10:40:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.12",
+      "id": "df156460-9fcd-56a5-99a3-5fc7b14fe318",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

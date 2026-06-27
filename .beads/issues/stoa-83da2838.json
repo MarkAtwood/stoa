@@ -1,0 +1,20 @@
+{
+  "id": "stoa-83da2838",
+  "title": "sign_article must NOT add nonce \u2014 CID idempotency requires deterministic signing",
+  "description": "reader/src/post/sign.rs:73-74: the comment 'Do NOT add a nonce or timestamp to the signature; that would break CID idempotency and cause duplicate articles in IPFS' captures a non-obvious invariant. Ed25519 via ed25519-dalek uses RFC 8032 deterministic signing: same key + same bytes \u2192 same signature \u2192 same CID. A future contributor might see 'deterministic Ed25519' and think 'security concern, we should add per-signature randomness' (as in Ed25519ph or with a random nonce). That change would make every sign_article call produce a different CID even for the same article, making the msgid_map\u2192CID mapping ambiguous and causing duplicates in IPFS on retry. The no-nonce constraint must stay and the comment is load-bearing documentation.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T21:41:35Z",
+  "updated_at": "2026-05-01T04:55:30Z",
+  "closed_at": "2026-04-22T22:25:42Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e38f5cd8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 14:41:35"
+    }
+  ]
+}

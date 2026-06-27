@@ -1,0 +1,21 @@
+{
+  "id": "stoa-bf158e98",
+  "title": "Test: sign-then-verify roundtrip through group log",
+  "description": "No test currently verifies that the POST pipeline produces a group log entry whose operator_signature passes verify_entry(). This test would have caught o0r.2 immediately and will catch any future regression in the sign\u2192log\u2192verify chain.\n\nWrite an integration test in crates/reader/tests/ or crates/integration-tests/ that:\n1. Stands up a reader instance with a real signing key\n2. POSTs a valid article through the full pipeline (validate \u2192 sign \u2192 IPFS write \u2192 assign article number \u2192 append log)\n3. Reads the resulting LogEntry from the group log storage\n4. Calls core::group_log::verify::verify_entry() on it\n5. Asserts the result is Ok\n\nThe test must use a real LogStorage (SQLite) and a real signing key \u2014 no mocks. Independent oracle: verify_entry() is the oracle; the test fails if the signature field is empty or does not verify.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T17:04:33Z",
+  "updated_at": "2026-05-01T04:59:17Z",
+  "closed_at": "2026-04-21T17:27:57Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-c187bce8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 10:05:04"
+    }
+  ]
+}

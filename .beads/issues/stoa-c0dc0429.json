@@ -1,0 +1,20 @@
+{
+  "id": "stoa-c0dc0429",
+  "title": "extract_header_value in lifecycle.rs does not unfold RFC 5322 folded headers",
+  "description": "lifecycle.rs extract_header_value() (line 1282) splits on lines() and matches prefix but does NOT unfold continuation lines (RFC 5322 \u00a72.2.3). overview.rs extract_overview() correctly handles folded headers via a manual unfolding loop. A Message-ID header that is folded (standards-legal) would not be extracted, leaving message_id empty in lookup_article_content_by_number and lookup_article_by_cid, causing the X-Stoa-DID-Verified header lookup to query by empty string and silently fail. The two implementations diverge on this point and the inconsistency is a maintenance trap.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:59:14Z",
+  "updated_at": "2026-05-01T05:00:05Z",
+  "closed_at": "2026-04-27T07:56:44Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-650091d3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 22:59:13"
+    }
+  ]
+}

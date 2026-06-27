@@ -1,0 +1,21 @@
+{
+  "id": "stoa-2f298f7d",
+  "title": "reader: no per-user/IP rate limiting on AUTHINFO PASS attempts",
+  "description": "reader/session/context.rs limits auth failures per-session (MAX_AUTH_FAILURES=5), but not per-user or per-IP across sessions. 100 connections x 5 attempts = 500 password tries. Document this as a known v1 limitation or add server-level per-IP tracking.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T13:09:39Z",
+  "updated_at": "2026-05-01T04:54:29Z",
+  "closed_at": "2026-04-22T14:27:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-b770251a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 06:09:38"
+    }
+  ]
+}

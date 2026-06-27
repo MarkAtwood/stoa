@@ -1,0 +1,21 @@
+{
+  "id": "stoa-618c0d13",
+  "title": "mail config: stringly-typed log.format and verify_http_signatures",
+  "description": "Why this issue exists: In crates/mail/src/config.rs, LogConfig.format is a String (values 'json' or 'text') and ActivityPubConfig.verify_http_signatures is also a String (values 'true' or 'false'). Both should be typed enums or bool respectively, catching invalid config values at deserialization time instead of at runtime.\n\nWhat needs to be done: Replace LogConfig.format with an enum (e.g. LogFormat { Json, Text }) with serde rename_all. Replace verify_http_signatures String with bool. Update all callsites.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:25:33Z",
+  "updated_at": "2026-05-01T04:53:17Z",
+  "closed_at": "2026-04-28T19:20:45Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:25:33"
+    }
+  ]
+}

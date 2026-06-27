@@ -1,0 +1,22 @@
+{
+  "id": "stoa-a378656d",
+  "title": "Add X-Usenet-IPFS-Root-CID header for multi-block DAG articles",
+  "description": "Why: large articles (or future binary articles) may be stored as multi-block IPLD DAGs with a root CID that links to content blocks. X-Usenet-IPFS-CID gives the content CID; X-Usenet-IPFS-Root-CID gives the DAG root that links everything. For single-block articles (all v1 text articles), these two values are identical and Root-CID is omitted to avoid noise.\n\nWhat: if the stored article has a separate root CID distinct from the content CID (i.e. it is a multi-block DAG), inject X-Usenet-IPFS-Root-CID: <root-cidv1> into ARTICLE and HEAD responses. For single-block articles, omit the header. This allows Corundum and IPLD traversal tools to start from the root and walk the DAG rather than assuming a flat single-block structure.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T19:36:19Z",
+  "updated_at": "2026-05-01T04:54:49Z",
+  "closed_at": "2026-04-21T00:04:09Z",
+  "design": "Requires schema support in the article storage model for a root_cid field separate from content_cid. In v1, all articles are single-block so this header is never emitted; the field and injection logic are implemented but always produce no output. This future-proofs the reader for v2 binary support without protocol changes.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ccc22fc0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 12:37:33"
+    }
+  ]
+}

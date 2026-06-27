@@ -1,0 +1,21 @@
+{
+  "id": "stoa-e6ddf6c1",
+  "title": "wildmat: full (m+1)*(n+1) bool matrix allocated per pattern-string match call",
+  "description": "## What / Why\nIn crates/core/src/wildmat.rs, matches_wildmat_prefolded() allocates a Vec<bool> of size (m+1)*(n+1) on every call. For LIST ACTIVE responses with thousands of groups and dozens of wildmat patterns, this produces many allocations per request.\n\n## Fix\nFor patterns without wildcards, use a simple case-insensitive string comparison. For short patterns or groups, consider a two-row rolling DP (only the current and previous rows are needed), reducing allocation to O(min(m,n)) instead of O(m*n). Profile first to confirm this is a real hot path.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T03:09:40Z",
+  "updated_at": "2026-05-01T04:59:24Z",
+  "closed_at": "2026-04-27T15:26:22Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e2297bae",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 20:09:39"
+    }
+  ]
+}

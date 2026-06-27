@@ -1,0 +1,23 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T00:08:04Z",
+  "compaction_level": 0,
+  "content_hash": "a092159941a4292fc1663e8dca26b853588c9ddfa9d01a9d9543f085476be7f4",
+  "created_at": "2026-05-03T23:00:39Z",
+  "created_by": "Mark Atwood",
+  "description": "stoa-mail uses a hand-rolled route_method (~400 lines) instead of implementing the JmapBackend trait from jmap-server and using the four generic handlers (handle_get, handle_changes, handle_query, handle_query_changes). This causes protocol compliance bugs and code duplication. Epic to refactor stoa-mail to implement JmapBackend and use the generic handlers.",
+  "ephemeral": 0,
+  "id": "stoa-z8tz8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Adopt JmapBackend trait in stoa-mail",
+  "updated_at": "2026-06-26T20:26:38Z"
+}

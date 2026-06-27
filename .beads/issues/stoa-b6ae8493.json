@@ -1,0 +1,21 @@
+{
+  "id": "stoa-b6ae8493",
+  "title": "RemotePinClient: IPFS Remote Pinning API client",
+  "description": "What: Implement RemotePinClient that calls the IPFS Remote Pinning API (POST /pins, GET /pins/{requestid}, DELETE /pins/{requestid}) with timeout and Retry-After support.\n\nAlgorithm:\n1. In crates/transit/src/retention/remote_pin_client.rs, add:\n\npub struct RemotePin { pub request_id: String, pub status: RemotePinStatus }\npub enum RemotePinStatus { Queued, Pinning, Pinned, Failed }\n\nimpl RemotePinStatus {\n    pub fn is_terminal(&self) -> bool { matches!(self, Pinned | Failed) }\n}\n\npub enum RemotePinError {\n    Http(String),         -- network/HTTP error\n    RateLimited(u64),     -- 429; contains Retry-After seconds\n    ServiceError(u16, String),  -- 4xx/5xx with status code + body\n    InvalidResponse(String),    -- unexpected response format\n}\n\npub struct RemotePinClient {\n    client: reqwest::Client,\n    base_url: String,    -- e.g. https://api.pinata.cloud\n    api_key: PinningApiKey,\n}\n\nimpl RemotePinClient {\n    pub fn new(base_url: impl Into<String>, api_key: PinningApiKey, connect_timeout: Duration, request_timeout: Duration) -> Result<Self, String>\n    -- builds reqwest::Client with both timeouts set\n\n    pub async fn submit_pin(&self, cid: &str, name: &str) -> Result<RemotePin, RemotePinError>\n    -- POST {base_url}/pins with JSON body {cid, name}\n    -- Returns 202 with PinStatus JSON\n    -- Handle 429: return RemotePinError::RateLimited(retry_after_secs)\n    -- Handle 401: return RemotePinError::ServiceError(401, ...)\n    -- Parse response JSON for requestid and status fields\n\n    pub async fn check_status(&self, request_id: &str) -> Result<RemotePin, RemotePinError>\n    -- GET {base_url}/pins/{request_id}\n    -- Returns 200 with PinStatus JSON\n    -- Handle 404: return RemotePinError::ServiceError(404, 'not found')\n    -- Parse status field into RemotePinStatus\n\n    pub async fn delete_pin(&self, request_id: &str) -> Result<(), RemotePinError>\n    -- DELETE {base_url}/pins/{request_id}\n    -- Returns 202; ignore body\n}\n\n2. JSON structures (use serde_json for deserialization):\n   {\"requestid\": \"...\", \"status\": \"queued|pinning|pinned|failed\", \"pin\": {\"cid\": \"...\", \"name\": \"...\"}}\n\nDefensive programming:\n- Authorization header uses api_key.as_bearer_header() \u2014 NEVER log the header value\n- Log only: status code, endpoint host, CID, request_id (all non-sensitive)\n- Parse status field case-insensitively\n- Set both connect_timeout AND total timeout on reqwest client\n- On 429: parse Retry-After header (integer seconds or HTTP date); default to 60s if absent\n- On unknown status string: treat as Pinning (safe conservative default)",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T05:36:10Z",
+  "updated_at": "2026-05-01T04:57:06Z",
+  "closed_at": "2026-04-23T05:45:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-56c514a3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 22:36:10"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "stoa-e45bdf32",
+  "title": "from_credentials precondition doc: 'Config::validate()' is ambiguous \u2014 which Config?",
+  "description": "store.rs from_credentials doc says 'Config::validate() call' but there are three separate Config::validate() implementations (reader, smtp, imap). A new crate author wiring in a fourth service won't know they need to add their own validate() check. The precondition should list the three call sites explicitly or link to them, so a new crate author knows to add their own.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:15:27Z",
+  "updated_at": "2026-05-01T04:51:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-92eac40d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 12:15:27"
+    }
+  ]
+}

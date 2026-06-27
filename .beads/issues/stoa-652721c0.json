@@ -1,0 +1,21 @@
+{
+  "id": "stoa-652721c0",
+  "title": "DECISION: HLC node_id derived from operator signing key, not libp2p peer ID",
+  "description": "main.rs derives the HLC node_id by SHA-256 hashing the Ed25519 operator public key and taking the first 8 bytes. The comment explains the rationale: this makes node_id stable across restarts as long as the operator key file is unchanged, and globally unique assuming Ed25519 keys are not reused. Using the libp2p peer_id would couple node identity to the IPFS backend (and would break for non-Kubo backends). Using a random value per restart would make HLC timestamps non-comparable between runs.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:32:57Z",
+  "updated_at": "2026-05-01T05:00:04Z",
+  "closed_at": "2026-04-27T16:36:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:32:56"
+    }
+  ]
+}

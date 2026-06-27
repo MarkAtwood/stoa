@@ -1,0 +1,19 @@
+{
+  "id": "stoa-3b72c889",
+  "title": "session.rs: AUTH on port 587 cleartext sends 534 but continues session \u2014 no forced disconnect",
+  "description": "session.rs AUTH handler: when is_tls=false and a client sends AUTH, the response is 534 and the session continues. RFC 4954 recommends 530 or 534 and the client should not retry. However, a pipelining client that sends EHLO+AUTH+MAIL FROM simultaneously will get: 250 (EHLO), 534 (AUTH), and then the MAIL FROM is processed against session state that is still Greeted. If credential_store is non-empty, the MAIL FROM will get 530 Authentication required. If empty, the MAIL FROM is accepted. This creates a confusing error sequence for pipelining clients. More importantly, if AUTH fails with 534 but the session keeps running, a client can try AUTH multiple times with different mechanisms without any rate limiting or disconnection.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:35:37Z",
+  "updated_at": "2026-05-01T04:52:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:35:37"
+    }
+  ]
+}

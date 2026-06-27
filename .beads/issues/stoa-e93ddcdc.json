@@ -1,0 +1,20 @@
+{
+  "id": "stoa-e93ddcdc",
+  "title": "feed_handler: limit parameter accepts u64::MAX from client, silent truncation on arithmetic",
+  "description": "feed.rs feed_handler: query.limit is an Option<u64>, capped at 500 via .min(500). However, effective_low is computed as effective_high.saturating_sub(limit.saturating_sub(1)).max(low) where limit is u64. If effective_high < limit, saturating_sub returns 0, then max(low) clamps to low \u2014 correct. But the query_range call then runs with effective_low=low and effective_high=effective_high, which may return up to (effective_high-low+1) records regardless of the 500 cap. The cap applies to limit but effective range is computed differently and may exceed limit when effective_high is set from the before cursor. Scenario: effective_high from before cursor lands 600 items from low; effective_low gets clamped by max(low), returning 600 items.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:58:53Z",
+  "updated_at": "2026-05-01T04:52:14Z",
+  "closed_at": "2026-04-27T07:56:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-18ecb995",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 22:58:53"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "stoa-85fe68eb",
+  "title": "fix(sieve-native): log regex execution errors instead of silent fail-open",
+  "description": "str_matches_regex_pat in crates/sieve-native/src/evaluator.rs line 435 calls re.is_match(value).unwrap_or(false). fancy_regex::Regex::is_match returns Err when the engine exceeds execution limits (catastrophic backtracking / ReDoS guard). Swallowing the error and returning false means a Sieve :regex rule that triggers the backtracking limit silently fails open \u2014 spam with a payload designed to cause backtracking passes through the filter without any indication of failure. Fix: log the error before returning false so operators can detect that a Sieve script has a vulnerable regex pattern.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T04:43:59Z",
+  "updated_at": "2026-05-01T04:53:38Z",
+  "closed_at": "2026-04-27T04:44:54Z"
+}

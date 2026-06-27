@@ -1,0 +1,12 @@
+{
+  "id": "stoa-da2b1738",
+  "title": "transit: staging capacity check is TOCTOU",
+  "description": "The staging area checks available capacity before accepting an article, but the check and the write are not atomic. Concurrent sessions can both pass the check and both write, exceeding the configured staging limit.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T23:47:36Z",
+  "updated_at": "2026-05-01T05:00:16Z",
+  "closed_at": "2026-04-25T01:27:10Z"
+}

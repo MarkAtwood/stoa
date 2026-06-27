@@ -1,0 +1,34 @@
+{
+  "id": "stoa-d22935c3",
+  "title": "Add header_map_cid field to ArticleRootNode struct",
+  "description": "Why: the HeaderMapNode block needs a CID reference in the ArticleRootNode so it is reachable via IPLD DAG traversal from the article root. Without this, the block exists in IPFS but is orphaned and unreachable by path.\n\nWhat: in crates/core/src/ipld/root_node.rs, add the field:\n  header_map_cid: Cid   // after header_cid, before body_cid\nto ArticleRootNode. The field is a DAG-CBOR CIDv1 (codec 0x71) pointing to the HeaderMapNode block. No schema_version bump \u2014 no production instances exist.\n\nThe field order in the struct determines DAG-CBOR serialization order (serde_ipld_dagcbor respects declaration order). Placing header_map_cid between header_cid and body_cid keeps the two header-related CIDs adjacent.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T23:26:03Z",
+  "updated_at": "2026-05-01T04:58:53Z",
+  "closed_at": "2026-04-20T23:47:59Z",
+  "design": "No schema_version bump. The stability oracle CID for ArticleRootNode (TV1_EXPECTED_ROOT_CID in test_vectors.rs) must be recomputed and updated since the schema changed \u2014 cite the re-computation method in the updated stability constant comment. Recompute: (1) verify RAW CIDs with Python hashlib, (2) run build_article with new schema, (3) cross-check root CID with ipfs dag get.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1c76e14c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 16:26:29"
+    },
+    {
+      "depends_on_id": "stoa-d270e3e5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 16:26:36"
+    },
+    {
+      "depends_on_id": "stoa-fa57346d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 16:26:37"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-8a637537",
+  "title": "9tz.8: JMAP Email/query text filter",
+  "description": "What: Add text filter to JMAP Email/query handler in crates/mail/src/email/query.rs.\n\nNote: RFC 8621 \u00a74.4.1 does not define a standard text property. We add an extension property named 'text' (matches headers + body per RFC spirit) following RFC 8621's extensibility rules.\n\nAlgorithm:\n1. In crates/mail/src/email/query.rs, add parameter search_index: Option<&Arc<TantivySearchIndex>> to handle_email_query(). This requires making the function async.\n   New signature:\n   pub async fn handle_email_query(\n       entries: &[EmailOverviewEntry],\n       filter: Option<&serde_json::Value>,\n       position: u64,\n       limit: Option<u64>,\n       state: &str,\n       search_index: Option<&Arc<TantivySearchIndex>>,\n   ) -> serde_json::Value\n\n2. In the filter handling block, after existing filters (after, before, from, subject), add:\n   if let Some(text_val) = filter.get(\"text\").and_then(|v| v.as_str()) {\n       if let Some(idx) = search_index {\n           // query all groups for this text\n           let cid_set: std::collections::HashSet<String> = ...;\n           // For each article in entries, keep if its cid (as string) is in cid_set\n           // OR if search is unavailable, skip filter (don't reject results)\n           match idx.search_all_groups(text_val, 50000, 4096).await {\n               Ok(cids) => {\n                   let cid_set: HashSet<_> = cids.into_iter().collect();\n                   entries_filtered.retain(|e| cid_set.contains(&e.cid.to_string()));\n               }\n               Err(_) => { /* search unavailable \u2014 return unfiltered rather than error */ }\n           }\n       } else {\n           // search not configured; return empty list with an informative state\n           // Alternatively: ignore the filter (behavior choice: ignore = less surprising)\n       }\n   }\n\n3. Add search_all_groups method to TantivySearchIndex (or use search_in_group with empty group):\n   pub async fn search_all(query: &str, max: usize, max_query_len: usize) -> Result<Vec<String>, SearchError>\n   Returns Vec<String> of message_ids (stored field).\n\n4. Update call sites in crates/mail/src/server.rs to pass search_index:\n   handle_email_query(&entries, filter, 0, None, &state, jmap.search_index.as_ref().map(|x| x.as_ref())).await\n\n5. Update JmapStores in crates/mail/src/server.rs or similar to include:\n   pub search_index: Option<Arc<TantivySearchIndex>>,\n   Wire it in from main config at startup.\n\nDefensive rules: If search_index is None, ignore 'text' filter (return all results for other filters). Never panic. Never log text filter value. 'text' with empty string \u2192 return no filter change (all results).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T01:21:33Z",
+  "updated_at": "2026-05-01T05:00:38Z",
+  "closed_at": "2026-04-23T02:17:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-85f5ab08",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 18:21:32"
+    }
+  ]
+}

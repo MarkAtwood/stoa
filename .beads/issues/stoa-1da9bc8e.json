@@ -1,0 +1,21 @@
+{
+  "id": "stoa-1da9bc8e",
+  "title": "auth/config: UserCredential missing Clone",
+  "description": "crates/auth/src/config.rs \u2014 UserCredential derives Debug and Deserialize but not Clone. All sibling types (ClientCertEntry, TrustedIssuerEntry, OidcProviderConfig) derive Clone. Callers that need to copy a credential list (e.g. arc-cloning config) will hit a compilation error. Missing Clone forces gratuitous Arc wrapping or repeated deserialization.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:22:36Z",
+  "updated_at": "2026-05-01T04:53:21Z",
+  "closed_at": "2026-04-28T17:44:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:22:36"
+    }
+  ]
+}

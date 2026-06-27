@@ -1,0 +1,32 @@
+{
+  "compaction_level": 0,
+  "content_hash": "44771d10768a0059a237b5ae2291d7dca31be8cdbdb4214f5d30bdd2b08bbcb3",
+  "created_at": "2026-05-04T23:39:58Z",
+  "created_by": "Mark Atwood",
+  "defer_until": "2099-01-01T08:00:00Z",
+  "description": "The production send_ihave_on_conn outbound push path has no test against a live server \u2014 only a mocked directory-scan summary is tested. Write a test that spins up a minimal in-process NNTP server accepting IHAVE, then exercises the full outbound sender: connect, send IHAVE <msgid>, get 335, send dot-stuffed body, get 235. Also cover 435 (duplicate) and 436 (transient reject) response handling. Covers gap 5 from the interop audit.",
+  "ephemeral": 0,
+  "id": "stoa-lbgkr.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "deferred",
+  "timeout_ns": 0,
+  "title": "test: outbound IHAVE sender against a live server",
+  "updated_at": "2026-05-04T23:40:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T16:39:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-lbgkr",
+      "id": "086782f5-7832-5c6f-96be-42eb567e17fc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

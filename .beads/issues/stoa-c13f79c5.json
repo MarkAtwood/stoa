@@ -1,0 +1,19 @@
+{
+  "id": "stoa-c13f79c5",
+  "title": "parse_message_id_and_newsgroups does not handle folded headers \u2014 misses multi-line Newsgroups",
+  "description": "pipeline.rs parse_message_id_and_newsgroups scans headers line-by-line but does not handle RFC 5322 header folding (continuation lines starting with SP or HTAB). A Newsgroups header folded across two lines will have its second line silently ignored, causing the pipeline to store the article under only the first group. compare: ingestion.rs extract_body_msgid correctly handles folding. parse_message_id_and_newsgroups needs the same folding logic.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:39:24Z",
+  "updated_at": "2026-05-01T04:52:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:39:23"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T23:59:13Z",
+  "compaction_level": 0,
+  "content_hash": "1c4780212f3b59995ff8da2eaf6aa45b73cd99c84b2e072b5d56797219034825",
+  "created_at": "2026-05-02T23:08:20Z",
+  "created_by": "Mark Atwood",
+  "description": "MtaStsEnforcer uses Mutex<HashMap<String,(CachedStsEntry,Instant)>>. Every restart discards all cached policies. On startup all outbound deliveries will trigger a live DNS + HTTPS fetch before the first delivery to each domain. Under high restart rate this creates load on remote policy servers and adds latency on every post-restart delivery burst. The deleted DB migration suggests the DB-backed design was the intended fix. This is not a bug but is a design gap that should be documented as a known limitation (or the DB cache should be wired in).",
+  "ephemeral": 0,
+  "id": "stoa-wfcj7.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MtaStsEnforcer in-memory cache lost on restart \u2014 enforcer design note",
+  "updated_at": "2026-05-02T23:59:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T16:08:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-wfcj7",
+      "id": "fe538da9-a594-5bc6-ae22-1e6a1409c42e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

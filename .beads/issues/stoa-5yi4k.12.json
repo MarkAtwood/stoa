@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "MtaStsError: replaced DnsTxtInvalid(String) with DnsTxtMultipleRecords/DnsTxtMissingId/DnsTxtIdTooLong/DnsTxtIdInvalid/DnsLookupFailed; added PolicyFetchRedirectForbidden/PolicyFetchHttpError/PolicyFetchTooLarge. fetch_url now takes &str. All 291 smtp + 254 mail tests pass.",
+  "closed_at": "2026-05-02T21:31:05Z",
+  "compaction_level": 0,
+  "content_hash": "c6d8dd0f97b30791b31bb073a44f5a6f9f584d542f4097b8eac83d23a1ef9ad0",
+  "created_at": "2026-05-02T21:18:09Z",
+  "created_by": "Mark Atwood",
+  "description": "mta_sts_fetcher.rs fetch_url(url: String, ...) takes ownership of the URL string. The caller (fetch_mta_sts_policy_body) constructs the URL and moves it in; tests construct and move. client.get(&url) borrows it. The parameter should be &str \u2014 the function does not need ownership. Taking &str avoids forcing callers to construct an owned String before calling.",
+  "ephemeral": 0,
+  "id": "stoa-5yi4k.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "fetch_url takes owned String; &str suffices",
+  "updated_at": "2026-05-02T21:31:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:18:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-5yi4k",
+      "id": "a05336af-aae3-53cb-8a50-91d768d57ecc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

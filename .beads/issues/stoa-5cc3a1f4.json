@@ -1,0 +1,21 @@
+{
+  "id": "stoa-5cc3a1f4",
+  "title": "signing fns return String not SigningError",
+  "description": "signing.rs: load_signing_key, load_signing_key_from_bytes, write_signing_key all return Result<_, String> instead of Result<_, SigningError>. This inconsistency means callers cannot pattern-match on error variants, the errors are incompatible with the ? operator when the enclosing function returns SigningError, and the stringly-typed errors bypass the SigningError Display impl. Idiomatic Rust would use the existing SigningError type (adding a variant for IO/permission errors if needed) and impl From<SigningError> for UsenetIpfsError is already in place.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:21:02Z",
+  "updated_at": "2026-05-01T04:53:21Z",
+  "closed_at": "2026-04-28T18:39:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:21:01"
+    }
+  ]
+}

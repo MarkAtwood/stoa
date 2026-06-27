@@ -1,0 +1,26 @@
+{
+  "id": "stoa-ac9b2d31",
+  "title": "SQLite persistence: startup directory and writability checks",
+  "description": "Before running migrations, verify configured directories exist and are writable. Fail fast with path-specific error if DB cannot be opened. Log resolved absolute path of each DB at INFO. Blocked on: stoa-1413739e.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:40:31Z",
+  "updated_at": "2026-05-01T04:58:49Z",
+  "closed_at": "2026-04-24T06:07:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1413739e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:42:10"
+    },
+    {
+      "depends_on_id": "stoa-818737e7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:00:07"
+    }
+  ]
+}

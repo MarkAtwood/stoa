@@ -1,0 +1,20 @@
+{
+  "id": "stoa-f92cf148",
+  "title": "Ceph RADOS block store backend",
+  "description": "Implement RadosBlockStore using Ceph's RADOS object store as a block store backend. RADOS provides distributed, replicated, erasure-coded object storage with no single point of failure. CID string is the RADOS object ID.\n\nDepends on: stoa-5c9f1a38 (pluggable backend selector).\n\n## Why\n\nThe right choice for operators already running Ceph or willing to deploy it. RADOS handles replication, erasure coding, placement groups, and failure domains transparently. The API is exactly the right abstraction: `rados_write_full(key, data)` / `rados_read(key, buf)`. A CID string is a valid RADOS object ID. For a transit node serving multiple article feeds at high volume, RADOS absorbs write bursts and fans reads across OSDs.\n\n## What needs doing\n\n- Add Ceph RADOS Rust bindings: `ceph` crate or raw FFI against `librados` (evaluate \u2014 `ceph` crate may lag OpenZFS/Quincy/Reef versions)\n- Add `[backend.rados]` config section: `config_file` (path to ceph.conf, default `/etc/ceph/ceph.conf`), `pool` (RADOS pool name), `namespace` (optional, for multi-tenant clusters), `keyring` (path to client keyring, or use default)\n- Implement `RadosStore: IpfsStore` and `RadosBlockStore: IpfsBlockStore`\n  - `put`: `rados_write_full(ctx, cid_str, data)` \u2014 idempotent (overwrites if same CID already present, which is safe since blocks are content-addressed)\n  - `get`: `rados_read(ctx, cid_str, buf)`; map ENOENT \u2192 `None` / `NotFound`\n  - `delete`: `rados_remove(ctx, cid_str)` \u2014 for GC\n  - delete returns DeletionOutcome::Immediate \u2014 rados_remove completes synchronously from the application's perspective; get() returns NotFound immediately after (Ceph may buffer internally but the object is logically gone)\n- IPNS: disable (RADOS has no DHT publication concept)\n- Startup: connect to cluster, verify pool exists and client has read/write capability; fail fast with cluster status in the error message\n- Run I/O context on a dedicated tokio blocking thread (librados calls are synchronous C)\n\n## GC / delete semantics\n\nDeletionOutcome::Immediate. rados_remove is a synchronous call. The object is inaccessible as soon as it returns successfully. No grace period. Ceph handles its own internal reclaim (PG scrubbing, erasure coding cleanup) transparently \u2014 this does not affect application-level accessibility.\n\n## Acceptance criteria\n- Integration test against a single-node Ceph cluster (ceph/demo Docker image) or a mock\n- Round-trip test: put block, get block, assert bytes match\n- Failure test: pool does not exist \u2192 startup error names the pool and suggests `rados mkpool`\n- Benchmark: compare put/get latency against filesystem and LMDB backends\n- delete() removes the object; get() returns NotFound immediately after\n- delete() on an OID that does not exist returns Ok(DeletionOutcome::Immediate) without error (idempotent \u2014 RADOS ENOENT on remove maps to success)",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T16:18:08Z",
+  "updated_at": "2026-05-01T05:00:50Z",
+  "closed_at": "2026-04-28T12:22:38Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5c9f1a38",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 09:18:15"
+    }
+  ]
+}

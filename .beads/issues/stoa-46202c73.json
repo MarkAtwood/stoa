@@ -1,0 +1,21 @@
+{
+  "id": "stoa-46202c73",
+  "title": "STAT <msgid> in group.rs returns 430 stub regardless of msgid_map",
+  "description": "## What / Why\nIn crates/reader/src/session/commands/group.rs, stat_article() for the message-id form always returns Response::no_article_with_message_id() (430) regardless of whether the article exists. The comment says 'msgid form: return 430 stub'. RFC 3977 \u00a76.2.4 requires STAT <msgid> to return 223 if the article exists or 430 if it does not.\n\n## Risk\nNewsreaders that use STAT <msgid> to check article existence before fetching (e.g. to skip known articles) will get 430 for every article, causing them to re-fetch every article they already have or skip fetching entirely. This breaks standard client behavior.\n\n## Fix\nWire stat_article's msgid branch to msgid_map.lookup_by_msgid(). This requires the store to be passed into stat_article, or the lookup must be done in lifecycle.rs before calling stat_article.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T03:09:14Z",
+  "updated_at": "2026-05-01T04:59:15Z",
+  "closed_at": "2026-04-27T04:04:31Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e2297bae",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 20:09:14"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-52708570",
+  "title": "cleanup_orphan_msg: .ends_with('.msg') matches .msg.tmp",
+  "description": "cleanup_orphan_msg_files (relay_queue.rs:252) filters with path.to_str().is_some_and(|s| s.ends_with(\".msg\")), which also matches .msg.tmp files. The comment on the line explicitly says 'not .msg.tmp' but the predicate does not enforce it. A .msg.tmp file has no .env partner, so it would be treated as an orphan and moved to dead/ on any run where cleanup_tmp_files did not already delete it (e.g. if cleanup_tmp_files fails early or a .msg.tmp is created concurrently). The drain_once loop at line 322 uses path.extension().is_some_and(|e| e == \"env\") which correctly uses the OS extension semantics. cleanup_orphan_msg_files should use path.extension().is_some_and(|e| e == \"msg\") for correctness and consistency.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:59:41Z",
+  "updated_at": "2026-05-01T04:58:25Z",
+  "closed_at": "2026-05-01T01:01:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-18bf2fce",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:59:41"
+    }
+  ]
+}

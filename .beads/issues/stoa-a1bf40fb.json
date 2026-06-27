@@ -1,0 +1,45 @@
+{
+  "id": "stoa-a1bf40fb",
+  "title": "Implement store-and-forward pipeline: receive -> IPFS -> log -> gossipsub",
+  "description": "Implement the pipeline that runs after a valid article is received: (1) write to IPFS and obtain CID, (2) insert into Message-ID->CID map, (3) append to each group log named in Newsgroups:, (4) publish tip advertisement over gossipsub, (5) record metrics. The pipeline is async and the IHAVE handler waits for IPFS write before responding 235. Artifact: transit/src/peering/pipeline.rs.\n\nAcceptance:\n- 235 response only after IPFS write and log append succeed\n- If IPFS write fails, article is not added to log; 400-series error returned\n- Newsgroups: field with multiple groups appends to each log\n- Pipeline metrics: articles_ingested_total, ipfs_write_latency_seconds\n- Integration test: inject article, verify CID in IPFS and entry in group log",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:12:52Z",
+  "updated_at": "2026-05-01T04:55:01Z",
+  "closed_at": "2026-04-20T04:40:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-44686efa",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:06"
+    },
+    {
+      "depends_on_id": "stoa-45d8dea3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:05"
+    },
+    {
+      "depends_on_id": "stoa-8fe9296c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:13:58"
+    },
+    {
+      "depends_on_id": "stoa-cd52a365",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:12:51"
+    },
+    {
+      "depends_on_id": "stoa-fc317007",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:05"
+    }
+  ]
+}

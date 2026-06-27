@@ -1,0 +1,13 @@
+{
+  "id": "stoa-4e40ae3b",
+  "title": "R3-SEC2: HLC LogEntry.hlc_timestamp loses logical+node_id",
+  "description": "core/group_log/types.rs: LogEntry.hlc_timestamp is u64 (wall_ms only). verify.rs monotonicity check compares only wall_ms. Two entries at same ms with different logical counters: child fails check incorrectly. Need to store (wall_ms, logical) and compare as tuple.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T15:32:11Z",
+  "updated_at": "2026-05-01T04:54:25Z",
+  "closed_at": "2026-04-22T15:47:38Z"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-624b384a",
+  "title": "b1bc.1: Add zeroize dep to smtp/Cargo.toml",
+  "description": "Add zeroize = \"1\" to [dependencies] in crates/smtp/Cargo.toml. Required so drain-time key loading can zeroize the raw 32-byte seed bytes immediately after Ed25519Key construction.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T22:50:26Z",
+  "updated_at": "2026-05-01T04:55:23Z",
+  "closed_at": "2026-04-30T22:53:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-15b2769f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 15:50:25"
+    }
+  ]
+}

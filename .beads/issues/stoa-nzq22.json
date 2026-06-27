@@ -1,0 +1,33 @@
+{
+  "close_reason": "Thunderbird interop test added at tests/interop/thunderbird_test.sh. Uses protocol-exact emulation via thunderbird_compat.py in CI (no display), falls back to binary with DISPLAY set.",
+  "closed_at": "2026-05-05T03:13:45Z",
+  "compaction_level": 0,
+  "content_hash": "81edc0055b52233ab929e47313fce6871bd019561e4397147b4ad35791e988b6",
+  "created_at": "2026-05-05T02:33:40Z",
+  "created_by": "Mark Atwood",
+  "description": "Create tests/interop/thunderbird_test.sh that uses thunderbird --headless with a minimal profile to verify folder listing, article fetch, and post against a live stoa-reader. Thunderbird is already available at /usr/bin/thunderbird. The test must script Thunderbird's NNTP account setup, subscribe to a test group, download headers, and post, all non-interactively.",
+  "ephemeral": 0,
+  "id": "stoa-nzq22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Thunderbird headless NNTP interop test script",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:33:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-t3zm3",
+      "id": "8af77379-fa5b-5902-98d4-ae3c64ed97fc",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

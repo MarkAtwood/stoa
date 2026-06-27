@@ -1,0 +1,19 @@
+{
+  "id": "stoa-efdfcaaa",
+  "title": "Email/set create uses Newsgroups header with comma separation but RFC 5536 requires space",
+  "description": "email/set.rs create_one_email() builds the Newsgroups header as newsgroups.join(',') (comma-separated). RFC 5536 \u00a73.1.4 specifies the Newsgroups header value as a comma-space-separated list (CFWS is permitted but commas are the separator). The downstream validate_post_headers and mailparse parsers may or may not accept a bare comma without space. More importantly, the existing NNTP/JMAP roundtrip treats the Newsgroups value as the canonical group list; bare commas without space could cause parse failures on some peers.",
+  "status": "open",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:39:41Z",
+  "updated_at": "2026-05-01T04:54:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:39:41"
+    }
+  ]
+}

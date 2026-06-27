@@ -1,0 +1,19 @@
+{
+  "id": "stoa-5f088378",
+  "title": "url_to_path in cmd_restore strips all leading slashes converting absolute path to relative",
+  "description": "main.rs cmd_restore inner fn url_to_path: after stripping sqlite:// prefix it calls trim_start_matches('/') which removes ALL leading slashes. sqlite:////data/transit.db becomes data/transit.db (relative). Correct: strip exactly the sqlite:// prefix and then keep one slash for the absolute path. sqlite:///data/transit.db should yield /data/transit.db.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:38:23Z",
+  "updated_at": "2026-05-01T04:52:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:38:23"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "stoa-76417586",
+  "title": "mbox: parse_mbox_directory loads all messages into memory before processing \u2014 OOM for large archives",
+  "description": "mbox.rs: parse_mbox_directory collects all MboxMessage (including raw: Vec<u8>) from all .mbox files into a single Vec before starting the import loop. For a multi-GB mbox archive this holds the entire archive in RAM simultaneously. The module docstring claims 'Streams messages without loading the entire file into memory' \u2014 true for the file reader, but parse_mbox_directory negates this by collecting all messages across all files. Should process and forward each message as it is parsed without collecting the full list.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:44:27Z",
+  "updated_at": "2026-05-01T04:55:06Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:44:26"
+    }
+  ]
+}

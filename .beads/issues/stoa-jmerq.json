@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "6b25a27391e997e94b4ed089f940b5823a9a7082a59df7af99d9af769e8fbc54",
+  "created_at": "2026-05-03T13:08:06Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\npost/injection.rs uses format!() with String arguments to build new header lines, which allocates a String on every call. The inner helper functions (strip_all_occurrences, find_header_end, find_line_end, skip_line_terminator) work directly on bytes, which is correct. But prepend_path_header, inject_message_id, inject_injection_info, inject_injection_date all build the new line via format!() into a String and then extend_from_slice the bytes. The construction is correct but verbose.\\n\\n## Acceptance Criteria\\n\\nNo functional change needed; this is a style note. Consider using write!() to a pre-allocated Vec<u8> or bytes::BytesMut to avoid intermediate String allocation.",
+  "ephemeral": 0,
+  "id": "stoa-jmerq",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Rust idiom: many Vec<u8> round-trips via String::from_utf8_lossy in injection.rs",
+  "updated_at": "2026-05-03T13:08:06Z"
+}

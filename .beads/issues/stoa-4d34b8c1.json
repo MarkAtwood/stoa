@@ -1,0 +1,20 @@
+{
+  "id": "stoa-4d34b8c1",
+  "title": "Pin imap-types and imap-codec alpha versions with exact = constraint",
+  "description": "Cargo.toml specifies imap-types = \"2.0.0-alpha.6\" and imap-codec = \"2.0.0-alpha.7\" without the = (exact) prefix. Under Cargo SemVer rules, alpha pre-release versions are not automatically updated by cargo update (Cargo treats pre-release as strictly less than the release), but a future alpha.7 / alpha.8 of imap-types could be pulled in by cargo update if crates.io publishes it with matching major.minor.patch \u2014 because alpha versions within the same major.minor.patch are compared by their pre-release identifiers and Cargo will select the highest matching pre-release. Alpha crates routinely contain breaking API changes between point releases. A solo maintainer running cargo update months later could silently pull a build-breaking or behaviour-changing version. Fix: change to imap-types = \"=2.0.0-alpha.6\" and imap-codec = \"=2.0.0-alpha.7\" (exact pins) and add a comment explaining these are intentional alpha pins that must be updated deliberately, not via cargo update.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:25:23Z",
+  "updated_at": "2026-05-01T04:53:09Z",
+  "closed_at": "2026-04-30T02:50:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9d37d25b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:25:23"
+    }
+  ]
+}

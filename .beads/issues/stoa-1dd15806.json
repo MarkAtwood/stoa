@@ -1,0 +1,20 @@
+{
+  "id": "stoa-1dd15806",
+  "title": "group_matches_pattern uses simplified glob, not wildmat",
+  "description": "In crates/transit/src/main.rs, the function group_matches_pattern (line 1094) implements only a trailing-star prefix match, not the full wildmat algorithm. It is used to decide which pinning services receive a CID for external pinning. However, ExternalPinServiceConfig.groups is documented as 'Patterns are matched against each newsgroup' with the example comp.*, implying full wildmat semantics. An operator who uses ? or a mid-pattern * in a pinning service group filter will get incorrect results silently \u2014 the function will not match as expected. The GroupFilter abstraction and matches_wildmat function already exist in stoa_core. group_matches_pattern should either be replaced with matches_wildmat, or the documentation should be made unambiguous that only trailing-* prefix matching is supported and the config field should be named accordingly.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:30:22Z",
+  "updated_at": "2026-05-01T05:00:14Z",
+  "closed_at": "2026-04-27T00:42:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:30:22"
+    }
+  ]
+}

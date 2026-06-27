@@ -1,0 +1,20 @@
+{
+  "id": "stoa-89cea584",
+  "title": "SignatureTooShort error variant misleads for oversized signatures",
+  "description": "core/src/group_log/verify.rs: the check_signature function uses try_into() to coerce the operator_signature bytes into a [u8; 64]. The error variant name SignatureTooShort applies to all length-mismatch cases, including too-long (e.g., 65+ bytes). An operator debugging a malformed log entry sees SignatureTooShort in the error but the message also prints the actual length which may be > 64. The variant name is misleading. Suggested rewrite: rename to SignatureLengthInvalid { got: usize, expected: usize } to accurately represent both too-short and too-long cases.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T21:41:27Z",
+  "updated_at": "2026-05-01T04:55:30Z",
+  "closed_at": "2026-04-22T23:10:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e38f5cd8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 14:41:26"
+    }
+  ]
+}

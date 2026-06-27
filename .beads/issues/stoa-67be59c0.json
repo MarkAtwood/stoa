@@ -1,0 +1,13 @@
+{
+  "id": "stoa-67be59c0",
+  "title": "Review: secretx fixes \u2014 test oracle, doc, startup checks",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-26T22:50:55Z",
+  "updated_at": "2026-05-01T04:58:48Z",
+  "closed_at": "2026-04-26T22:54:18Z",
+  "notes": "Maintainer risk: LOW \u2014 The fixes are solid. The only remaining issues are missing tests for two new public API functions. No runtime correctness bugs.\nConfidence: 95% no missed bugs. Uncertainty: no integration test exercises a secretx: URI end-to-end. Would raise confidence if: a test started a server with secretx:env:TOKEN configured and verified the admin endpoint accepted connections."
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Prefix header length as 4-byte big-endian u32 before hashing to prevent split-ambiguity collisions",
+  "closed_at": "2026-05-01T15:32:09Z",
+  "compaction_level": 0,
+  "content_hash": "54dddbd91603e7b09baa81667d4603559695e5549813c905964d91a5700cd5cc",
+  "created_at": "2026-05-01T15:18:55Z",
+  "created_by": "Mark Atwood",
+  "description": "cid_for_article in crates/core/src/ipld/cid_util.rs SHA-256-hashes header_bytes ++ body_bytes with no separator. Two articles with header/body split at different offsets but identical concatenated bytes (e.g. header='AB',body='C' vs header='A',body='BC') produce the same canonical CID, silently aliasing distinct articles. The dual-CID model's dedup guarantee depends on this CID being collision-free for distinct articles. Fix: insert a fixed-length length prefix or a sentinel separator byte between header_bytes and body_bytes before hashing.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "cid_for_article: no separator causes length-extension collision",
+  "updated_at": "2026-05-01T15:32:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:18:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "91984996-591b-5ead-a111-de9d1c5df380",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

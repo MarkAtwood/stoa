@@ -1,0 +1,20 @@
+{
+  "id": "stoa-4ad15b0c",
+  "title": "Readability: best-effort indexing pattern not clearly intentional",
+  "description": "Lines 596-620 in session/lifecycle.rs implement best-effort search indexing (failures logged but POST succeeds), but the intent is not signaled clearly enough. A reader unfamiliar with the design might assume failed indexing is a bug. The doc comment says 'best-effort' but the inline pattern (log then continue) could be clearer about why we never fail the POST due to indexing failure.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T02:38:15Z",
+  "updated_at": "2026-05-01T04:53:29Z",
+  "closed_at": "2026-04-23T07:06:58Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ae1c536c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 19:38:15"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-e065d2ad",
+  "title": "chrono::parse_from_rfc2822 replaces fragile strip-day-of-week heuristic",
+  "description": "parse_from_rfc2822 handles the full RFC 2822 date grammar including optional day-of-week prefix natively. The old code stripped the prefix with find(',') which would corrupt dates in the rare case a date has no day-of-week but has a comma elsewhere. The replacement is shorter, more correct, and the right amount of code.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:00:00Z",
+  "updated_at": "2026-05-01T04:51:42Z",
+  "closed_at": "2026-05-01T03:03:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3c6890ad",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:00:00"
+    }
+  ]
+}

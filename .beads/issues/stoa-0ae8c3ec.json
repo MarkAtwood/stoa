@@ -1,0 +1,21 @@
+{
+  "id": "stoa-0ae8c3ec",
+  "title": "DNS resolver hardcoded to Cloudflare 1.1.1.1 \u2014 breaks split-horizon and air-gapped deploys",
+  "description": "MessageAuthenticator::new_cloudflare() in server.rs hardcodes 1.1.1.1 as the resolver. No config option to override. Scenario: operator uses internal DNS with split-horizon (SPF/DKIM TXT records only visible from corporate network), or is in an environment that blocks 1.1.1.1 for compliance reasons. Behavior: all SPF/DKIM/DMARC lookups fail silently \u2192 auth disabled via the warn\\!() fallback path. Operator has no way to diagnose this. Maintenance consequence: issue reports from every enterprise or air-gapped deployment that gets silently broken auth. Fix: add a resolver config option (system resolver as default is safer than Cloudflare-hardcoded).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T13:30:45Z",
+  "updated_at": "2026-05-01T04:54:48Z",
+  "closed_at": "2026-04-21T15:06:02Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9f393084",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 06:30:45"
+    }
+  ]
+}

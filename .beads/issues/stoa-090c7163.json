@@ -1,0 +1,21 @@
+{
+  "id": "stoa-090c7163",
+  "title": "DECISION: check_bearer_token uses subtle::ConstantTimeEq to prevent timing oracle",
+  "description": "admin.rs check_bearer_token() uses subtle::ConstantTimeEq for the Bearer token comparison. This prevents timing-based token enumeration. A future contributor might suggest replacing it with == for simplicity \u2014 that would be wrong. Preserve this.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T06:02:01Z",
+  "updated_at": "2026-05-01T05:00:12Z",
+  "closed_at": "2026-04-27T16:58:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-650091d3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 23:02:01"
+    }
+  ]
+}

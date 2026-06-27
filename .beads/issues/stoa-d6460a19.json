@@ -1,0 +1,19 @@
+{
+  "id": "stoa-d6460a19",
+  "title": "SEC6: DkimSigner passed as explicit Arc in constructor chain",
+  "description": "main.rs lines 181-214 and queue constructors plumb dkim_signer as Option<Arc> parameter rather than global state. Makes signing capability explicit at call site, testable, prevents hidden initialization order bugs.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:23:22Z",
+  "updated_at": "2026-05-01T04:55:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0b13a613",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:23:22"
+    }
+  ]
+}

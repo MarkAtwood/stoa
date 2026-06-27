@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "0d8381bcac36c6dddcb2f96def9226027c4d4e7f0a51afe569d40c15ead75f30",
+  "created_at": "2026-05-03T13:04:01Z",
+  "created_by": "Mark Atwood",
+  "description": "LmdbBlockDb::get() always calls v.to_vec() on the LMDB-mapped slice, allocating a Vec on every read. LMDB provides zero-copy reads: the data pointer is valid for the lifetime of the read transaction. For a block store that serves many concurrent readers (e.g. article body serving), callers that only need to hash or stream the bytes cannot avoid the allocation. Exposing a get_with callback API or a type that holds the rtxn alive alongside the slice would enable zero-copy access. Impact: each article body read allocates a Vec equal to the block size (up to tens of KB).",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.29",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "lmdb: get() copies value bytes to Vec on every read; zero-copy path not exposed",
+  "updated_at": "2026-05-03T13:04:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:04:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "a49f9e47-a3ef-5187-9d26-f6ad6f76cc47",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

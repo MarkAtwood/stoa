@@ -1,0 +1,19 @@
+{
+  "id": "stoa-3f5bb3a5",
+  "title": "looks_like_bcrypt_hash aligns validation across from_credentials/validate/from_content",
+  "description": "All three entry points (Config::validate for inline users, from_credentials for the API guard, from_content for file loading) now use the same looks_like_bcrypt_hash predicate including the length-60 check. Previously from_credentials used parse_bcrypt_cost (no length check), which could accept a syntactically valid but truncated hash string that would cause bcrypt::verify to fail silently at auth time. The alignment is correct and the comment at looks_like_bcrypt_hash explains why the length check exists.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:31:20Z",
+  "updated_at": "2026-05-01T04:51:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-031471c6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 12:31:19"
+    }
+  ]
+}

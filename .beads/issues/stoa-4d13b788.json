@@ -1,0 +1,20 @@
+{
+  "id": "stoa-4d13b788",
+  "title": "imap: build_credential_store credential_file path has no test coverage",
+  "description": "The new imap::build_credential_store dispatches on secretx: prefix vs plain path, but neither branch has a test. The EmptyUsername tests added in bcd64f5 cover auth/src/store.rs directly; they do not exercise the imap dispatch. A future refactor of the dispatch logic would have no regression guard. The reader's build_credential_store_inner is covered indirectly by e2e_smoke; imap's is not covered at all. Scenario: operator refactors the dispatch string test and silently breaks credential_file loading for imap.",
+  "status": "deferred",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:37:56Z",
+  "updated_at": "2026-05-01T04:52:52Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-eee41a47",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 12:37:56"
+    }
+  ]
+}

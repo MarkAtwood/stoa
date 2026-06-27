@@ -1,0 +1,20 @@
+{
+  "id": "stoa-0a9e5a1f",
+  "title": "ReconcileResult.have capped at MAX_HAVE with no completeness signal to caller",
+  "description": "core/group_log/reconcile.rs:64-65: BFS breaks when have.len() >= MAX_HAVE. Callers receive a vec that may be truncated with no indication. The docstring explains the algorithm but does not document the capping behavior or what callers should do when len(have)==MAX_HAVE. Fix: add a boolean is_complete field to ReconcileResult (false when capped), or document in the function doc: 'If have.len() == MAX_HAVE the result is truncated; issue another reconciliation round to retrieve remaining entries.'",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T16:56:47Z",
+  "updated_at": "2026-05-01T04:53:12Z",
+  "closed_at": "2026-04-23T00:53:00Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-33df35ca",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 09:56:46"
+    }
+  ]
+}

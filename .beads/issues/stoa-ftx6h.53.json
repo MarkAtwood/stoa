@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "941449671e6788392096d6584060c1c366363338ed6c0c20028276507372d1ef",
+  "created_at": "2026-05-03T13:04:46Z",
+  "created_by": "Mark Atwood",
+  "description": "MtaStsEnforcer holds its policy cache in a HashMap inside an Arc<Mutex<...>>. On process restart the cache is empty and every outbound delivery attempt for every domain requires a fresh DNS lookup + HTTPS policy fetch. Under MTA-STS enforce mode, if the policy server is unreachable at restart time, all outbound delivery to that domain will fail (fail-closed per RFC 8461) until the cache warms. Fix: persist the cache to a file or SQLite table on shutdown and reload on startup to avoid cold-start delivery failures.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.53",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "smtp: MTA-STS cache not persisted across process restarts",
+  "updated_at": "2026-05-03T13:04:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:04:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "8ec4774c-63c0-5017-8066-3ec22218fd40",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

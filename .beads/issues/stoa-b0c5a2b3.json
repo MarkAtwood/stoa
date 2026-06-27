@@ -1,0 +1,21 @@
+{
+  "id": "stoa-b0c5a2b3",
+  "title": "Dummy bcrypt compare on unknown username prevents timing oracle on username existence",
+  "description": "credentials.rs always runs a bcrypt comparison even when the username is not found (comparing against a precomputed dummy hash). This ensures the AUTHINFO USER/PASS round-trip takes approximately the same wall time whether the username exists or not, preventing an attacker from enumerating valid usernames via timing. A contributor might remove this as a 'pointless comparison on a None path' or as dead code when the user is not found. It is neither \u2014 it is a deliberate constant-time property. Defend: without the dummy compare, a timing measurement of ~1ms (user not found, fast path) vs ~100ms (user found, bcrypt computes) leaks the username set.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T14:07:54Z",
+  "updated_at": "2026-05-01T04:54:54Z",
+  "closed_at": "2026-04-21T16:47:02Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ad28b4f3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 07:07:54"
+    }
+  ]
+}

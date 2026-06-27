@@ -1,0 +1,13 @@
+{
+  "id": "stoa-dcaa145e",
+  "title": "Review-convergence-final: CredentialStore consolidation",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T18:53:37Z",
+  "updated_at": "2026-05-01T04:52:56Z",
+  "closed_at": "2026-04-30T19:58:14Z",
+  "notes": "Maintainer risk: LOW \u2014 Config::validate() enforces looks_like_bcrypt_hash before from_credentials is called on the production startup path. The guard inconsistency (P1.1) is a future-contributor trap, not a current exploit. The dual AuthConfig (P1.2) is a known tech-debt tradeoff justified by drain_username being NNTP-specific.\nIdiom rating: CLEAN \u2014 ownership and borrowing are correct (Arc for sharing, Zeroizing for password, impl AsRef<Path> on file constructors). Error handling uses typed thiserror enum with structured fields and #[non_exhaustive]. No gratuitous clones, no unwrap() without justification in production paths, no stringly-typed errors in the new code. spawn_blocking with unwrap_or(false) for bcrypt is the correct tokio pattern.\nConfidence: 10% chance of missed bug. Least confident flags: none \u2014 the two findings filed are both traceable to specific lines of code with concrete failure modes. Uncertainty driven by: not running cargo clippy --all-features (build time), not checking if integration tests cover the from_credentials short-hash gap. Would raise confidence if: cargo clippy -p stoa-auth clean; integration test that calls from_credentials with a short-but-parseable hash.\nRust idiom confidence: 8% chance of missed issue. Least confident flags: none. Uncertainty driven by: not running cargo clippy with --all-features on the full workspace \u2014 there may be lint warnings in other crates that use stoa_auth's new public API (CredentialStoreError variants). Checked: ownership, error handling, iterator patterns, type design, trait impls, unsafe (none present).\nNOT CONVERGED: 2 findings. P1.1: from_credentials uses parse_bcrypt_cost (no length check) but doc Preconditions say callers should validate with looks_like_bcrypt_hash (length + cost). Fix: change from_credentials guard to looks_like_bcrypt_hash. P1.2: reader AuthConfig duplicates stoa_auth::AuthConfig fields without compile-time link; only structural reason is drain_username being NNTP-specific. No P0 issues. No security exploits through current production paths."
+}

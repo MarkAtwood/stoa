@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added NOTE comment in server_stores.rs documenting that TlsrptRecorder is not yet consumed; RFC 8460 report generation deferred",
+  "closed_at": "2026-05-03T02:48:36Z",
+  "compaction_level": 0,
+  "content_hash": "a1f1d25921830d2d5210783022c0c7656a51d44d1c4da4c8cc295721243ab885",
+  "created_at": "2026-05-03T02:38:46Z",
+  "created_by": "Mark Atwood",
+  "description": "MtaStsEnforcer::record_failure() accumulates TLS failure events into the TlsrptRecorder, and the tlsrpt_recorder() getter exposes the Arc. However, build_smtp_relay_queue() in server_stores.rs creates the enforcer and passes it to SmtpRelayQueue but never retrieves the recorder or wires it to any reporting task. Result: RFC 8460 TLSRPT reports are never generated or sent, so policy failures are silently dropped rather than reported to domain owners. The enforcement and recording paths work correctly; the reporting path is entirely absent.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.29.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "TLSRPT recorder accumulated but never sent \u2014 RFC 8460 reports never generated",
+  "updated_at": "2026-05-03T02:48:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T19:38:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.29",
+      "id": "8b376afa-3fe7-580c-a004-1717b2140723",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

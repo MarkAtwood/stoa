@@ -1,0 +1,20 @@
+{
+  "id": "stoa-6f2466c2",
+  "title": "Inline Sieve delivery block in session.rs is 100 lines \u2014 extract to function",
+  "description": "session.rs lines 296-397 is a single monolithic block handling Sieve per-user evaluation, reject detection, delivery, and 250/550 response. It mixes protocol response logic with storage logic. Reading the DATA handler requires tracing through 150+ lines to understand all outcomes. Suggested rewrite: extract to 'async fn sieve_delivery(...) -> SieveOutcome' returning an enum (Accepted, Rejected(String)). The DATA handler then matches the outcome and sends the SMTP response. This also makes the sieve path unit-testable without going through the full TCP session.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T13:31:54Z",
+  "updated_at": "2026-05-01T04:54:50Z",
+  "closed_at": "2026-04-23T00:34:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9f393084",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 06:31:54"
+    }
+  ]
+}

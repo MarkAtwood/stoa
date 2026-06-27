@@ -1,0 +1,20 @@
+{
+  "id": "stoa-a82975bf",
+  "title": "Extract imap4rev2_capability() constructor to eliminate 5-site try_from duplication",
+  "description": "Capability::try_from(\"IMAP4rev2\") appears in 5 places across 2 files (commands.rs lines 35, 90, 144; mod.rs line 477; and implicitly in test assertions), each with its own .expect() message. The messages are not consistent (\"IMAP4rev2 is a valid IMAP atom and cannot fail\" vs \"IMAP4rev2 is a valid IMAP atom\"). This is a DRY violation on a fallible constructor wrapping an infallible invariant.\n\nA private fn imap4rev2_capability() -> Capability<'static> in commands.rs would centralize the construction and the single .expect(). Similarly, a fn imap4rev2_enable_cap() -> CapabilityEnable<'static> for the enable context. If the atom string ever changes (or if imap-types adds a typed variant), there is currently one production site and two test sites to update independently.\n\nAffected: crates/imap/src/session/commands.rs lines 35, 90, 144; crates/imap/src/session/mod.rs line 477.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:25:15Z",
+  "updated_at": "2026-05-01T04:58:41Z",
+  "closed_at": "2026-04-30T02:52:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9d37d25b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:25:15"
+    }
+  ]
+}

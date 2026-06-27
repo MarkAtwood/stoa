@@ -1,0 +1,13 @@
+{
+  "id": "stoa-7557f2fc",
+  "title": "parse_bcrypt_cost accepts out-of-range cost factors (0-3, >31)",
+  "description": "parse_bcrypt_cost() in crates/auth/src/store.rs returns Some(cost) for any u32 parsed from the hash string, including cost=0, cost=1, cost=2, cost=3 (below bcrypt minimum of 4) and cost=99 (above bcrypt maximum of 31). A config entry like '$2b$01$...' passes the from_credentials() guard but make_dummy_hash() then calls bcrypt::hash with cost=1, which either panics or returns an error \u2014 a different panic path with a confusing message unrelated to the misconfiguration. The guard should also reject cost<4 or cost>31.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T09:07:47Z",
+  "updated_at": "2026-05-01T04:51:46Z",
+  "closed_at": "2026-04-27T09:38:11Z"
+}

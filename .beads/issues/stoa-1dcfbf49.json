@@ -1,0 +1,13 @@
+{
+  "id": "stoa-1dcfbf49",
+  "title": "Native Sieve interpreter: replace sieve-rs with MIT crate",
+  "description": "Write a minimal MIT-licensed Sieve interpreter covering RFC 5228 core + RFC 5229 variables, replacing the AGPL sieve-rs dependency entirely. No daemon, no IPC.\n\nWhy this issue exists:\nusenet-ipfs-smtp is AGPL because it links sieve-rs (AGPL-3.0-only). Writing a focused native implementation covering only what the project needs produces a MIT crate, drops the AGPL entirely, and removes the daemon architecture.\n\nSieve (RFC 5228) is a restricted filtering language: no loops, no user-defined functions, fixed command and test sets. The subset needed is:\n  Commands: require, if/elsif/else, stop, fileinto, reject, discard, keep, set (RFC 5229)\n  Tests: header, address, envelope, exists, size, allof, anyof, not, true, false\n  Comparators/match: :is :contains :matches, :comparator, i;ascii-casemap i;octet\n  Address parts: :localpart :domain :all\n  Variables (RFC 5229): set, ${var} substitution\n\nTotal implementation: ~1250 lines in one crate, zero new deps.\n\nWhat needs to be done:\n- crates/sieve-native: new MIT crate, same public API as current usenet-ipfs-sieve (compile/evaluate/SieveAction/CompiledScript)\n- Lexer + parser producing a typed AST\n- Evaluator walking the AST against a raw RFC 5322 message\n- Variables extension\n- Test suite cross-validating against sieve-rs (dev-dep oracle)\n- Wire into smtp: drop usenet-ipfs-sieve, change smtp license to MIT, remove AGPL from workspace",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:23:25Z",
+  "updated_at": "2026-05-01T04:54:08Z",
+  "closed_at": "2026-04-24T03:56:18Z"
+}

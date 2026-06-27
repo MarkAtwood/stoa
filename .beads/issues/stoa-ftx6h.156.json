@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "7dc925cd825a5455cbdbf4b66b2d27be2d2dcd1924955592b5ccb8d26d9f27ea",
+  "created_at": "2026-05-03T13:07:54Z",
+  "created_by": "Mark Atwood",
+  "description": "find_header_boundary returns position + 4 (past CRLF-CRLF) or +2 (past LF-LF). The caller slices header_section = article_bytes[..body_start], meaning header_section includes the separator. This is functionally harmless (the loop skips blank lines) but the variable name 'header_section' is slightly misleading -- it actually contains header_section + separator. Naming it 'header_and_sep' or slicing with the pre-separator position would be clearer.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.156",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "verify: find_header_boundary returns past-separator offset causing header_section to include separator bytes",
+  "updated_at": "2026-05-03T13:07:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:07:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "cd3af25a-7a0f-5eb5-8dc3-9b7398f2fb2f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

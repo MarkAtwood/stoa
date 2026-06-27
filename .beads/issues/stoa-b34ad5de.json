@@ -1,0 +1,20 @@
+{
+  "id": "stoa-b34ad5de",
+  "title": "relay_queue: DKIM failure path does not call inc_relay_failure \u2014 metrics inconsistent",
+  "description": "In try_deliver_one, inc_relay_attempt is called before DKIM signing. If signing fails, the function returns early without calling inc_relay_failure. Result: attempt_count increments but failure_count does not \u2014 metrics dashboard shows phantom attempts with no corresponding outcomes. Operators monitoring failure rate would miss DKIM failures entirely.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:29:19Z",
+  "updated_at": "2026-05-01T04:52:10Z",
+  "closed_at": "2026-05-01T02:31:57Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3fb034ab",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 19:29:19"
+    }
+  ]
+}

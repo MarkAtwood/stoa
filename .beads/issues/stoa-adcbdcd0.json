@@ -1,0 +1,20 @@
+{
+  "id": "stoa-adcbdcd0",
+  "title": "cleanup_tmp_files: non-UTF-8 path silently skipped (asymmetry with round-5 fix)",
+  "description": "Path with non-UTF-8 component: path.to_str() returns None \u2192 !is_some_and(...) is true \u2192 skip condition fires \u2192 tmp file silently retained forever. The round-5 fix applied path.extension() to cleanup_orphan_msg_files but left cleanup_tmp_files using path.to_str().is_some_and(|s| s.ends_with('.msg.tmp') || s.ends_with('.env.tmp')). The two startup scans now have inconsistent predicate logic.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:03:16Z",
+  "updated_at": "2026-05-01T04:58:22Z",
+  "closed_at": "2026-05-01T01:07:28Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-187c7afd",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:03:15"
+    }
+  ]
+}

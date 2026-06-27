@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "b5c0ce0ef628044c7332184a8e8b50739920aea5360774ed98b3809dc3bca0f6",
+  "created_at": "2026-05-03T13:10:16Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: same mismatch as FsStore. A delete operation failing should return a semantically distinct error from a write failure. Callers that branch on WriteFailed to decide whether to retry a write will incorrectly retry on a delete error. What: rados_store.rs delete returns IpfsError::WriteFailed both for the Err branch of rados_object_remove and for the spawn_blocking JoinError. Neither is a write failure; there should be a DeleteFailed variant or ReadFailed should be reused consistently with other backends.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.181",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "rados_store::delete returns IpfsError::WriteFailed for delete errors",
+  "updated_at": "2026-05-03T13:10:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:10:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "f39b8067-b6a2-53ee-808a-a635a6ecd44d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

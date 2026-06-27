@@ -1,0 +1,12 @@
+{
+  "id": "stoa-1b57d9a5",
+  "title": "DECISION: GroupName::new_unchecked gated to test+fuzzing only",
+  "description": "article.rs: GroupName::new_unchecked is cfg-gated to #[cfg(any(test, fuzzing))]. This is the correct pattern \u2014 it allows fuzz corpora to inject arbitrary group names while preventing production code from bypassing validation. The gate is tight and intentional.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:26:30Z",
+  "updated_at": "2026-05-01T04:58:36Z",
+  "closed_at": "2026-04-28T20:06:56Z"
+}

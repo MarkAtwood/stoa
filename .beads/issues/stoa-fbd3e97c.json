@@ -1,0 +1,33 @@
+{
+  "id": "stoa-fbd3e97c",
+  "title": "ipns_publisher: IpnsPublisher struct and run loop",
+  "description": "Create crates/transit/src/retention/ipns_publisher.rs. Struct: pub struct IpnsPublisher { ipfs: rust_ipfs::Ipfs, groups: BTreeMap<String, Cid> }. Method pub fn new(ipfs: rust_ipfs::Ipfs) -> Self. Method pub async fn run(mut self, mut rx: mpsc::Receiver<IpnsEvent>). IpnsEvent = struct { group: String, cid: Cid }. In run loop: recv event, update self.groups, call update_and_publish(). Method async fn update_and_publish(&mut self): 1. call build_index_json(&self.groups) to get JSON bytes; 2. call self.ipfs.put_block(block) or equivalent to store index; 3. call self.ipfs.publish_ipns(index_path) \u2014 log warn on error, do not panic; 4. log info with groups count and ipns path. pub fn build_index_json(groups: &BTreeMap<String, Cid>) -> Vec<u8>: serialize as UTF-8 JSON {\"version\":1,\"groups\":{\"comp.lang.rust\":\"<cid>\"}}, BTreeMap ordering ensures deterministic output. Add pub mod ipns_publisher to retention/mod.rs. Why: allows stable IPNS discovery of per-group article tips.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T06:27:54Z",
+  "updated_at": "2026-05-01T04:56:19Z",
+  "closed_at": "2026-04-23T06:32:01Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-57409a9d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 23:28:34"
+    },
+    {
+      "depends_on_id": "stoa-727feef8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 23:28:33"
+    },
+    {
+      "depends_on_id": "stoa-74573660",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 23:27:54"
+    }
+  ]
+}

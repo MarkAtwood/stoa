@@ -1,0 +1,12 @@
+{
+  "id": "stoa-83858c93",
+  "title": "Version endpoint and build info",
+  "description": "Expose binary version, build date, and git SHA via an admin endpoint and a --version flag, so operators and support can always identify exactly what is running.\n\nWhy this issue exists:\nOperators running multiple instances across a fleet need to know which version each daemon is running. Support needs this for bug reports. Currently there is no version endpoint and no structured build info.\n\nScope:\n- GET /admin/version returns JSON: {version, git_sha, build_date, rust_version}\n- Version is read from Cargo.toml at compile time via env!(\"CARGO_PKG_VERSION\")\n- Git SHA and build date are injected at compile time via a build.rs script using git rev-parse HEAD and date -u\n- usenet-ipfs-transit --version and usenet-ipfs-reader --version print the same info to stdout\n- Include version fields in the startup log line at INFO\n\nAcceptance criteria:\n- GET /admin/version returns a non-empty git_sha on a clean build from a git repo\n- --version flag exits 0 and prints version, git SHA, and build date\n- Version appears in the first INFO log line at startup",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:17:33Z",
+  "updated_at": "2026-05-01T04:56:48Z",
+  "closed_at": "2026-04-28T10:24:07Z"
+}

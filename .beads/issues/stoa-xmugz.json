@@ -1,0 +1,23 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T18:39:29Z",
+  "compaction_level": 0,
+  "content_hash": "8513fc73df8daf06186f2c42ef4eb6588ec0fa39cd4233fc8e574bfb800482c2",
+  "created_at": "2026-05-01T14:24:28Z",
+  "created_by": "Mark Atwood",
+  "description": "server.rs:349-358 falls back to user_id=1 when the authenticated username is not in the DB. In single-user v1 with dev-mode this never fires, but with OIDC/credential auth enabled, an unprovisioned OIDC user would silently get user_id=1 instead of a 503. Filed from JMAP review round 1 (stoa-77a34b60).",
+  "ephemeral": 0,
+  "id": "stoa-xmugz",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "fix(mail): silent SINGLETON_USER_ID fallback when username not found",
+  "updated_at": "2026-05-01T18:39:29Z"
+}

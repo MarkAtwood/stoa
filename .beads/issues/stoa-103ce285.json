@@ -1,0 +1,20 @@
+{
+  "id": "stoa-103ce285",
+  "title": "GOOD: Sieve compile error is fail-closed with 4xx deferral",
+  "description": "smtp/session.rs sieve_for_user() returns Err on compile failure, and the caller issues 451 (temporary failure) so the sending MTA retries. The code never falls through to Keep (deliver anyway) on a compile error. The comment correctly identifies the invariant: a broken script must never allow a message through unfiltered. Two tests verify this at different levels: sieve_for_user_compile_error_returns_err (unit) and test_sieve_compile_error_sends_451 (integration). The integration test checks that 451 appears after 354 (DATA was accepted before rejection), confirming the error is in the DATA phase, not in an earlier command handling bug.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T13:53:23Z",
+  "updated_at": "2026-05-01T04:56:10Z",
+  "closed_at": "2026-04-22T14:10:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b816309",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 06:53:23"
+    }
+  ]
+}

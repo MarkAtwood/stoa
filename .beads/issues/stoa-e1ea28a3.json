@@ -1,0 +1,19 @@
+{
+  "id": "stoa-e1ea28a3",
+  "title": "unsafe impl Send/Sync for RadosStore missing independent thread-safety proof",
+  "description": "rados_store.rs lines 54-55: unsafe impl Send for RadosStore and unsafe impl Sync for RadosStore. The SAFETY comment argues IoCtx is Send+Sync and _rados is kept only to prevent Drop. However the comment does not cite a specific Ceph librados API guarantee that rados_t is safe to access from multiple threads simultaneously. The ceph crate's deliberate omission of Send/Sync is a signal that the upstream maintainer was uncertain. The comment must cite the exact librados documentation section that guarantees thread-safety of rados_t handle sharing, or the impl must be reconsidered.",
+  "status": "open",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:37:44Z",
+  "updated_at": "2026-05-01T04:54:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:37:43"
+    }
+  ]
+}

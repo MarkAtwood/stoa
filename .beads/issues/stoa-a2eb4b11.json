@@ -1,0 +1,27 @@
+{
+  "id": "stoa-a2eb4b11",
+  "title": "Implement late-join DAG backfill via parent-link traversal",
+  "description": "Implement backfill(want_cid: Cid, storage: &dyn LogStorage, fetch: impl Fn(Cid) -> Result<LogEntry>) -> Result<()>: fetch the entry for want_cid, recursively fetch all parent_cids not already in local storage, persist each. Artifact: src/group_log/backfill.rs.\n\nAcceptance:\n- backfill() fetches all ancestors not already local\n- backfill() is idempotent (already-local entries are skipped, not re-fetched)\n- backfill() handles diamond-shaped DAGs without duplicate fetches\n- backfill() returns error if fetch callback fails (caller retries)\n- Unit test: backfill a 100-entry chain from a fresh replica",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:10:51Z",
+  "updated_at": "2026-05-01T04:53:18Z",
+  "closed_at": "2026-04-20T04:02:22Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-8729e8a1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:11:12"
+    },
+    {
+      "depends_on_id": "stoa-a12b8b7b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:10:51"
+    }
+  ]
+}

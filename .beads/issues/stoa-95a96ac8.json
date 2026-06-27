@@ -1,0 +1,21 @@
+{
+  "id": "stoa-95a96ac8",
+  "title": "Audit log silently drops events on DB failure and channel overflow",
+  "description": "audit.rs: two silent drop paths. (1) flush_buffer() lines 201-207: pool.begin() failure clears buffer without retry or error. (2) log() line 125: try_send() on full channel (1000-slot) discards events and only logs a warning. Security audit events (auth attempts, GC runs, admin access) are silently lost during DB unavailability or sustained load \u2014 exactly when they matter most. False sense of completeness. Fix: (1) do not clear buffer on tx failure; retry or persist to stderr. (2) document channel overflow as a known gap, add a metric counter.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:32:58Z",
+  "updated_at": "2026-05-01T04:59:45Z",
+  "closed_at": "2026-04-22T19:21:49Z",
+  "design": "Decision: drop-and-count. Channel full: drop event, increment audit_events_dropped_total counter (Prometheus). DB failure: log error at ERROR level, clear buffer, increment counter. Do not block callers, do not spill to stderr. Rationale: blocking risks stalling auth hot path; the metric makes drops visible to operators without adding a fallback sink.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:32:57"
+    }
+  ]
+}

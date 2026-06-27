@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "cb421edde21ac5ce5d5764e037b0a87bfdd9a3d1c512f7129f0cc7b5575c0521",
+  "created_at": "2026-06-13T06:36:13Z",
+  "created_by": "Mark Atwood",
+  "description": "Identity/get, /changes, /set are registered but return unknownMethod. Identity is required for EmailSubmission \u2014 clients need a sender identity to submit from. RFC 8621 sections 6.1-6.3.",
+  "ephemeral": 0,
+  "id": "stoa-nh99f",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Implement Identity/* methods (get, changes, set)",
+  "updated_at": "2026-06-13T06:36:13Z"
+}

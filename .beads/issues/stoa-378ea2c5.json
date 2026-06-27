@@ -1,0 +1,12 @@
+{
+  "id": "stoa-378ea2c5",
+  "title": "SEC0: unknown comparator silently accepted instead of failing per RFC 5228",
+  "description": "RFC 5228 \u00a72.7.2 states: 'If a comparator name is unknown, the implementation MUST fail the script.' Currently, unknown comparators like ':comparator \"i;invalid\"' silently fall back to 'i;ascii-casemap' (the default) instead of causing the match test to fail or the script compilation to fail.\n\nLocation: crates/sieve-native/src/evaluator.rs, extract_comparator() function (lines 307-333)\n\nCurrent behavior:\n- Line 318: if s == \"i;octet\" { cmp = Comparator::Octet; }\n- If the comparator string doesn't match \"i;octet\", it remains as the default AsciiCasemap\n- This allows scripts with unknown comparators to compile and execute with wrong semantics\n\nCorrect behavior per RFC 5228:\n- Unknown comparators should cause the script to fail (either at compile time or cause the match test to return false)\n\nSeverity: P2\n- Only affects scripts with non-standard/invalid comparators\n- Well-formed Sieve scripts only use the two standard comparators: 'i;ascii-casemap' and 'i;octet'\n- Both are correctly implemented\n- Cross-validation tests pass because the oracle (sieve-rs) may have the same behavior\n\nTest coverage: No tests currently cover unknown comparators",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T04:09:09Z",
+  "updated_at": "2026-05-01T04:56:31Z",
+  "closed_at": "2026-04-24T04:20:27Z"
+}

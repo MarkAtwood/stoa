@@ -1,0 +1,27 @@
+{
+  "id": "stoa-8e2ccad4",
+  "title": "na4h: tests \u2014 whitelist bypass, IPv4-mapped normalization, invalid CIDR",
+  "description": "## What\nTests for the peer whitelist feature. Written independently of the implementation \u2014 derive expected values from the ipnet spec and RFC 4291 (IPv6 addressing).\n\n## Test cases\n\n### Config parsing tests (add to config.rs mod tests or a new test file)\n\nT1: valid_cidr_parses_ok\n  Oracle: ipnet FromStr accepts \"10.0.0.0/8\" \u2014 fact from ipnet docs\n  Setup: deserialize TOML with peer_whitelist = [\"10.0.0.0/8\", \"2001:db8::/32\"]\n  Assert: peer_whitelist.len() == 2; no error\n\nT2: invalid_cidr_fails_deserialization\n  Oracle: \"not_a_cidr\" is not a valid CIDR \u2014 trivially true\n  Setup: attempt to deserialize TOML with peer_whitelist = [\"not_a_cidr\"]\n  Assert: deserialization returns Err\n\nT3: empty_whitelist_is_default\n  Oracle: #[serde(default)] on Vec<T> produces empty vec\n  Setup: deserialize TOML without peer_whitelist key\n  Assert: peer_whitelist.is_empty()\n\n### Whitelist logic tests (add to session.rs mod tests or smtp integration test)\n\nT4: whitelisted_ip_sets_flag\n  Oracle: 192.168.1.50 is contained in 192.168.0.0/16 \u2014 per RFC 1918 + ipnet contains semantics\n  Setup: config with peer_whitelist = [\"192.168.0.0/16\"]; peer_addr = \"192.168.1.50:12345\"\n  Assert: connection_whitelisted == true\n\nT5: non_whitelisted_ip_does_not_set_flag\n  Oracle: 10.0.0.1 is NOT in 192.168.0.0/16\n  Setup: config with peer_whitelist = [\"192.168.0.0/16\"]; peer_addr = \"10.0.0.1:12345\"\n  Assert: connection_whitelisted == false\n\nT6: empty_whitelist_never_matches\n  Oracle: no CIDRs \u2192 no matches\n  Setup: config with peer_whitelist = []; any peer_addr\n  Assert: connection_whitelisted == false\n\nT7: ipv4_mapped_ipv6_matches_ipv4_cidr\n  Oracle: RFC 4291 \u00a72.5.5.2 \u2014 ::ffff:192.168.1.50 is the IPv4-mapped form of 192.168.1.50\n  Setup: config with peer_whitelist = [\"192.168.0.0/16\"]; peer_addr = \"[::ffff:192.168.1.50]:12345\"\n  Assert: connection_whitelisted == true (after normalization)\n  This is the critical regression test for the IPv4-mapped bug.\n\nT8: ipv6_cidr_matches_ipv6_addr\n  Oracle: fd00::1 is in fd00::/8 \u2014 per ipnet contains semantics\n  Setup: config with peer_whitelist = [\"fd00::/8\"]; peer_addr = \"[fd00::1]:12345\"\n  Assert: connection_whitelisted == true\n\n## Defensive rules\n- T7 is the most important test \u2014 it catches the IPv4-mapped silent failure\n- Do NOT use the whitelist check code as the oracle for any test \u2014 use ipnet docs and RFC 4291 as oracles\n- Tests must be unit tests (no TCP connection needed) \u2014 extract the normalization + check logic into a testable helper function if needed",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:33:53Z",
+  "updated_at": "2026-05-01T04:55:32Z",
+  "closed_at": "2026-04-30T15:46:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1d9d418c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:33:53"
+    },
+    {
+      "depends_on_id": "stoa-4a60fd32",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:36:26"
+    }
+  ]
+}

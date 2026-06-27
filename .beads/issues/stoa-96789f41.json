@@ -1,0 +1,20 @@
+{
+  "id": "stoa-96789f41",
+  "title": "fix(imap): cap max_command_size to prevent auth-line heap amplification",
+  "description": "Security fix. The imap-next Options::default() sets max_command_size to ~26 MiB. An attacker can send AUTHENTICATE PLAIN <26 MB base64> before any auth check, causing ~19 MiB heap allocation per connection. With 200 concurrent connections (the semaphore limit) that is ~3.8 GiB of heap allocation per attack wave.\n\nFix: in run_session_inner (session/mod.rs), after Options::default(), set options.max_command_size = 8 * 1024 (8 KiB). Add max_command_size_bytes: u64 to LimitsConfig in config.rs with a default of 8192, so it is operator-configurable. Update TOML deserialization and Config::validate to enforce max_command_size >= 256 (sane minimum).\n\nNote: imap-next requires max_literal_size <= max_command_size is NOT an invariant \u2014 they are independent limits. max_literal_size governs APPEND/literal payloads; max_command_size governs the command line itself. Verify by reading Options source before writing.\n\nAcceptance: cargo test -p stoa-imap passes; a command line exceeding 8 KiB causes CommandTooLong error, not buffering.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:03:41Z",
+  "updated_at": "2026-05-01T04:52:20Z",
+  "closed_at": "2026-04-30T02:09:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-db727e07",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:03:41"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-a6565162",
+  "title": "use zeroize::Zeroize as _ inside fn body in config validation",
+  "description": "smtp/config.rs:576 and reader/config.rs:782 both write 'use zeroize::Zeroize as _;' inside the validate() function body, just to call seed_bytes.zeroize(). Trait imports inside function bodies compile but are unusual in idiomatic Rust \u2014 they hide the dependency from the module-level use block, making it harder to see what traits a module depends on. The import should be at the module top-level (or crate level) alongside other use statements. Maintainers scanning the file for dependencies miss it. Two locations: smtp/config.rs line 576 and reader/config.rs line 782.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:42:32Z",
+  "updated_at": "2026-05-01T05:00:26Z",
+  "closed_at": "2026-05-01T00:44:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d94f2708",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:42:32"
+    }
+  ]
+}

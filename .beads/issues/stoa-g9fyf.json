@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "2e44f993f0c471b65cdb6172c24577b6171aa445037d68f25df0af3a70168909",
+  "created_at": "2026-06-13T06:36:17Z",
+  "created_by": "Mark Atwood",
+  "description": "Email/queryChanges and Mailbox/queryChanges return cannotCalculateChanges. Less critical than /changes since queryChanges is harder to implement and clients handle the fallback, but needed for full RFC 8621 compliance. RFC 8621 sections 2.5, 5.3.",
+  "ephemeral": 0,
+  "id": "stoa-g9fyf",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Implement queryChanges methods (Email, Mailbox)",
+  "updated_at": "2026-06-13T06:36:17Z"
+}

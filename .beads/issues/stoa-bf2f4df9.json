@@ -1,0 +1,21 @@
+{
+  "id": "stoa-bf2f4df9",
+  "title": "imap/listener: panic on bind failure instead of returning error",
+  "description": "crates/imap/src/listener.rs run_plain_listener() line 27 and run_tls_listener() line 82 \u2014 both call panic\\!('fatal: could not bind IMAP * listener') on TcpListener::bind failure. The callers are async tasks spawned under tokio::select\\! in main.rs. A panic inside an async task propagates only to that task, not to the process; the other arms of the select continue running. This means a bind failure on the plain listener does not kill the process \u2014 the TLS listener may start serving while the plain port is silently absent, or vice versa. The function should return a Result or call std::process::exit() instead of panic\\!().",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:22:09Z",
+  "updated_at": "2026-05-01T04:58:20Z",
+  "closed_at": "2026-04-28T16:58:45Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:22:08"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "stoa-8b9f7aba",
+  "title": "PostgreSQL BYTEA block store backend",
+  "description": "Implement PgBlockStore storing article blocks as BYTEA rows in a PostgreSQL table, using the same database connection as the metadata plane. Zero additional infrastructure for operators already running Aurora/PostgreSQL.\n\nWhy this issue exists:\nOperators deploying on Aurora Serverless v2 for metadata already have a PostgreSQL connection. Adding a blocks table to the same database gives them a complete single-infrastructure deployment \u2014 no S3 bucket, no filesystem mount, no separate daemon. For small to medium single-operator instances this is entirely reasonable. The SQLite BLOB backend established the pattern; this is the PostgreSQL equivalent.\n\n## Schema\n\nCREATE TABLE blocks (\n    cid       TEXT    NOT NULL PRIMARY KEY,\n    codec     INTEGER NOT NULL,\n    data      BYTEA   NOT NULL,\n    byte_size INTEGER NOT NULL,\n    stored_at BIGINT  NOT NULL  -- unix ms\n);\n\n## What needs doing\n\n- Add [backend.pg_blob] config section: database_url (reuses the same Aurora/PostgreSQL URL as the metadata plane; operator may configure a separate URL if preferred)\n- Implement PgStore: IpfsStore (transit) and PgBlockStore: IpfsBlockStore (reader) using sqlx with the postgres driver\n  - put: INSERT INTO blocks ... ON CONFLICT (cid) DO NOTHING \u2014 idempotent, CID is the natural unique key\n  - get: SELECT data FROM blocks WHERE cid = ? \u2014 returns the BYTEA column; map no-row to None / NotFound\n  - delete: DELETE FROM blocks WHERE cid = ? returning DeletionOutcome::Immediate\n- IPNS: disable\n- Startup: verify the blocks table exists (run migration); verify the connection is writable; fail fast if not\n- WAL / connection pool: reuse the existing sqlx PgPool from the metadata plane if the database_url matches; do not open a second connection pool to the same database\n- Migration: single migration file adding the blocks table, part of the PostgreSQL migration set from stoa-b38f9c00\n\n## Transactional consistency bonus\n\nBecause both the metadata write (article_numbers, msgid_map) and the block write (blocks table) are in the same PostgreSQL instance, they can be wrapped in a single transaction:\n- If the block write fails, the metadata entry is not committed\n- If the metadata write fails, the block is not committed\n- No orphaned CIDs in the block store with no metadata entry, and no metadata entries pointing to missing blocks\nDocument this as a design advantage in the runbook; it is unique to this backend pairing.\n\n## Size guidance (in runbook)\n\n- Suitable for: single-operator instances, small groups, up to ~50-100 GB of article bytes\n- Not suitable for: high-volume feeds, binary groups (out of scope anyway), multi-operator shared infrastructure\n- Aurora Serverless v2 autoscales storage automatically; operators do not need to pre-provision\n- For larger deployments: migrate to S3 backend (export blocks table, upload to S3, switch config)\n\n## GC / delete semantics\n\nDeletionOutcome::Immediate. PostgreSQL DELETE is transactional and synchronous. The article is inaccessible as soon as the transaction commits. No grace period.\n\n## Acceptance criteria\n- Round-trip test: put a block, get it back, assert bytes match (against a local PostgreSQL instance in CI via docker-compose)\n- Idempotent put: inserting the same CID twice does not error and does not duplicate the row\n- Transactional test: simulate a metadata write failure mid-transaction and confirm the block row was not committed\n- delete() removes the row; get() returns NotFound immediately after\n- delete() on a CID that does not exist returns Ok(DeletionOutcome::Immediate) without error\n- Reuses the existing PgPool when database_url matches the metadata plane URL",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:33:52Z",
+  "updated_at": "2026-05-01T04:56:50Z",
+  "closed_at": "2026-04-28T11:30:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5c9f1a38",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:33:55"
+    },
+    {
+      "depends_on_id": "stoa-b38f9c00",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:33:56"
+    }
+  ]
+}

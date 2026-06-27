@@ -1,0 +1,12 @@
+{
+  "id": "stoa-a7858ac6",
+  "title": "GcExecutorCandidate gc_reason is stringly typed",
+  "description": "In crates/transit/src/retention/gc_executor.rs, GcExecutorCandidate.gc_reason is a String. The only known reason is 'no_matching_rule'. This should be an enum so callers cannot construct invalid reason strings and the audit log entries are consistent.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:31:13Z",
+  "updated_at": "2026-05-01T04:51:35Z",
+  "closed_at": "2026-04-28T21:19:59Z"
+}

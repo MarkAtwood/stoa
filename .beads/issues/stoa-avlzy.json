@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "9cd98c6f961beb7b19fd32ef28002d9be7709339ac5f70eb24295dfdaee340bb",
+  "created_at": "2026-05-03T13:06:52Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\nServerStores::new_mem_impl() in server_stores.rs calls MessageAuthenticator::new_cloudflare_tls() (falling back to new_system_conf()) to create a DKIM authenticator. This creates a real DNS resolver connection (Cloudflare 1.1.1.1) during test setup. Tests using ServerStores::new_mem() may fail in network-isolated CI environments, or slow down due to DNS round-trips.\\n\\nThe DKIM authenticator is only used in the POST pipeline verification path, not in pure unit tests.\\n\\n## Acceptance Criteria\\n\\nAdd a ServerStores::new_mem_no_dkim() variant for tests that don't need DKIM verification, backed by a no-op MessageAuthenticator that never contacts DNS.",
+  "ephemeral": 0,
+  "id": "stoa-avlzy",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "server_stores.rs: new_mem() creates MessageAuthenticator with DNS resolver",
+  "updated_at": "2026-05-03T13:06:52Z"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-000d210c",
+  "title": "relay_queue cleanup_orphan_msg_files ignores .msg.tmp and .env.tmp",
+  "description": "SmtpRelayQueue.cleanup_orphan_msg_files() skips files that don't end with .msg (line 197: 'Only consider plain .msg files, not .msg.tmp'). This means .msg.tmp and .env.tmp files from a crash-during-enqueue are never cleaned up. NntpQueue.drain_once handles this inline for its own .tmp files, but SmtpRelayQueue.start_drain calls cleanup_orphan_msg_files then drain_once \u2014 drain_once only looks at .env files so .tmp files accumulate without bound across restarts. Trigger: process crash between write and rename of .msg.tmp or .env.tmp during enqueue. Bad behavior: .tmp files accumulate indefinitely in the queue directory, consuming disk space.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:38:01Z",
+  "updated_at": "2026-05-01T05:00:24Z",
+  "closed_at": "2026-05-01T00:43:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d94f2708",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:38:00"
+    }
+  ]
+}

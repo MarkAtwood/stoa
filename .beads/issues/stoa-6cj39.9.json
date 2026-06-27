@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "7ec333e3021e87a0b243f5745e5a707a0694289d5bf8007add2b769cdf865dc2",
+  "created_at": "2026-05-02T15:38:29Z",
+  "created_by": "Mark Atwood",
+  "description": "The three cloud block store backends (S3, Azure Blob, GCS) each have a native encryption-at-rest mechanism that can be activated by passing an extra field on write requests. Add optional config fields to each backend and thread them through to the storage API calls. When the field is absent, behaviour is unchanged (cloud provider default encryption applies).\n\n## Backend inventory\n\n### S3 \u2014 SSE-KMS\n  AWS offers three server-side encryption modes:\n  - SSE-S3: AWS-managed key, on by default on new buckets, no operator config needed\n  - SSE-KMS: customer-managed KMS key, adds per-object KMS API call on every PutObject/GetObject, gives CloudWatch key usage audit trail per object\n  - SSE-C: customer-provided key sent with every request \u2014 not suitable here (no KMS integration, key must travel on the wire)\n\n  SSE-KMS is the right choice for regulated customers: each block write appears in CloudWatch as a KMS event with the CID (object key), giving an auditable record of which blocks were written.\n\n  Config addition to S3BackendConfig (crates/core/src/ipfs_backend.rs):\n    /// AWS KMS key ARN or alias for SSE-KMS encryption.\n    /// Example: \"arn:aws:kms:us-east-1:123456789012:key/mrk-...\"\n    /// Omit to use the bucket default encryption (SSE-S3 or inherited).\n    #[serde(default)]\n    pub sse_kms_key_id: Option<String>,\n\n  Wire-up in s3_store.rs PutObject call:\n    .server_side_encryption(sse_kms_key_id.as_deref().map(|_| ServerSideEncryption::AwsKms))\n    .ssekms_key_id(sse_kms_key_id.clone())\n\n  GetObject does NOT need the key ID \u2014 S3 resolves it automatically from the object metadata.\n\n### Azure Blob Storage \u2014 Encryption Scope\n  Azure supports per-blob encryption scopes (a named policy in Azure Key Vault tied to a storage account). The scope name is sent as the x-ms-encryption-scope header on blob creation. If absent, the container or account default applies.\n\n  Config addition to AzureBackendConfig (crates/core/src/ipfs_backend.rs):\n    /// Azure Blob Storage encryption scope name.\n    /// Created in the Azure portal under Storage Account \u2192 Encryption \u2192 Encryption scopes.\n    /// Omit to use the container or account default.\n    #[serde(default)]\n    pub encryption_scope: Option<String>,\n\n  Wire-up in azure_store.rs put_block_blob calls:\n    The azure_storage_blobs crate supports .encryption_scope(scope) on BlockBlobClient.\n\n### GCS \u2014 CMEK (Customer-Managed Encryption Keys)\n  GCS supports per-object CMEK via Cloud KMS. The key resource name is sent as the\n  kmsKeyName field in the object insert request. If absent, the bucket default applies.\n\n  Config addition to GcsBackendConfig (crates/core/src/ipfs_backend.rs):\n    /// Cloud KMS key resource name for CMEK encryption.\n    /// Example: \"projects/my-project/locations/us/keyRings/my-ring/cryptoKeys/my-key\"\n    /// Omit to use the bucket default encryption.\n    #[serde(default)]\n    pub kms_key_name: Option<String>,\n\n  Wire-up in gcs_store.rs: pass kms_key_name on object insert if present.\n\n## Local backends \u2014 no native encryption, document explicitly\n\n  These backends have no application-level encryption option:\n  - LMDB: no encryption in liblmdb; rely on dm-crypt/LUKS on the host volume\n  - RocksDB: no encryption in the open-source rocksdb crate; Facebook's encrypted version is not publicly distributed; rely on dm-crypt/LUKS\n  - Filesystem: rely on dm-crypt/LUKS or eCryptFS\n  - SQLite: SQLCipher is a separate fork incompatible with the standard sqlite3 C library; not worth forking the dependency chain for; rely on disk encryption\n  - Kubo (IPFS): blocks stored on Kubo's local datastore; encrypt the underlying volume\n\n  Add a comment to each config struct noting the OS-level encryption requirement.\n  Add a validation warning (not error) in config.rs if a local backend is selected\n  and no note about OS encryption has been acknowledged:\n    [backend.lmdb]\n    path = \"/data/blocks\"\n    os_encryption_confirmed = true  # Required for regulated deployments\n\n## Scope\n  Changes are in crates/core/src/ipfs_backend.rs (config structs) and the three\n  store files: crates/reader/src/post/s3_store.rs, azure_store.rs, gcs_store.rs.\n  The same config structs are used by crates/transit/src/peering/ \u2014 those paths\n  need the same wire-up.\n\n## Acceptance\n  - S3: PutObject call includes x-amz-server-side-encryption: aws:kms and the key ID when sse_kms_key_id is set; omits it when not set\n  - Azure: blob create call includes encryption scope header when encryption_scope is set\n  - GCS: object insert includes kmsKeyName when kms_key_name is set\n  - All three: existing tests pass without the new config fields (fields are Option, default None)\n  - Config round-trip test: TOML with new fields deserializes correctly",
+  "ephemeral": 0,
+  "id": "stoa-6cj39.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Enable native encryption-at-rest in cloud block store backends",
+  "updated_at": "2026-05-02T15:38:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T08:38:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-6cj39",
+      "id": "9624a652-c0fb-502e-80a0-bb1d41caab3c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "stoa-4c15669d",
+  "title": "[epic] Google Cloud Storage block store backend",
+  "description": "## Why\nGCS is the dominant object store in Google Cloud and GCP-aligned deployments. Like Azure, GCS has a native API distinct from S3; using it natively gives access to GCS-specific features (object lifecycle, uniform bucket-level access, Workload Identity).\n\n## Scope\n- `[backend] type = \"gcs\"` config: bucket name, credential (service account key file or application default credentials)\n- `GcsStore: IpfsStore` backed by `object_store` GCS provider or `google-cloud-storage` crate\n- Object name = CID base32; content-type = `application/octet-stream`\n- Startup: verify bucket reachable and writable\n- Integration test against fake-gcs-server via docker-compose\n- RUNBOOK section",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T16:23:32Z",
+  "updated_at": "2026-05-01T04:51:56Z",
+  "closed_at": "2026-04-28T03:02:04Z"
+}

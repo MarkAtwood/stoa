@@ -1,0 +1,12 @@
+{
+  "id": "stoa-fbc52bfc",
+  "title": "stoa-auth: no startup validation that UserCredential passwords are bcrypt hashes",
+  "description": "CredentialStore::from_credentials() silently accepts plaintext strings in UserCredential.password. A plaintext password causes bcrypt::verify to always return false at auth time, making authentication silently fail for all users. Operators get no error at startup and only discover the problem when users cannot log in. Should validate that each password starts with a recognized bcrypt prefix (e.g. $2b$, $2a$, $2y$) at CredentialStore::from_credentials() time and return an Err rather than storing an invalid hash.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T08:48:04Z",
+  "updated_at": "2026-05-01T04:55:52Z",
+  "closed_at": "2026-04-27T09:05:16Z"
+}

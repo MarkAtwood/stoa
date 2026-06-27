@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T19:11:46Z",
+  "compaction_level": 0,
+  "content_hash": "3ea6473b4baf91b352c6aef27e10cb7bc156f87ca05b713f4b234376a5ec3750",
+  "created_at": "2026-05-01T15:19:03Z",
+  "created_by": "Mark Atwood",
+  "description": "In email/set.rs create_one_email, from_email is taken directly from the JMAP EmailAddress.email string (which may be any email address) and embedded verbatim into the From: header of the synthesised article via format\\!(). The strip_crlf call removes \\r and \\n but does not handle other RFC 5322 From: header escaping (e.g. display name quoting, non-ASCII characters, or excessively long addresses). A from address containing a colon followed by spaces (e.g. 'a: b@c.com') would produce a malformed From header. RFC 5322 requires the From field to contain a valid mailbox-list; raw injection without addr-spec validation is not safe.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/set create: from_email injected into article without MIME encoding",
+  "updated_at": "2026-05-01T19:11:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:19:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "91d4009a-65a3-5d66-96de-35566594c6bc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

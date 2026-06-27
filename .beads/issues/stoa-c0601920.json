@@ -1,0 +1,20 @@
+{
+  "id": "stoa-c0601920",
+  "title": "DECISION: smtp: prefix for dual-backend email ID routing",
+  "description": "Email IDs that start with 'smtp:' are resolved from the mailbox_messages SQLite table; anything else is parsed as a CID and fetched from IPFS. This clean namespace partition means Email/get and Email/query never need a schema migration or a flag column to know which storage backend to consult \u2014 the ID itself carries that information. Alternative rejected: a separate 'source' field in every JMAP response, which would require callers to track it out-of-band and would pollute the JMAP wire format. Tradeoff: CID strings can never start with 'smtp:' (they are base32/base58 encoded), so the prefix is permanently unambiguous.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:00:21Z",
+  "updated_at": "2026-05-01T04:59:30Z",
+  "closed_at": "2026-04-30T05:29:01Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-14057691",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:00:21"
+    }
+  ]
+}

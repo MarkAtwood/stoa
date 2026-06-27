@@ -1,0 +1,39 @@
+{
+  "id": "stoa-072af59f",
+  "title": "Implement operator ed25519 signing on POST articles",
+  "description": "After header validation and dedup check, compute canonical bytes of the article using core::canonical_bytes(), sign with the operator's ed25519 key loaded from config. Attach the base64url-encoded signature as a X-Usenet-IPFS-Sig: header. The signing key is loaded once at startup and held in a SecretKey type; never logged. Artifact: reader/src/post/sign.rs.\n\nAcceptance:\n- Signature is valid as verified by core::signing::verify()\n- Signing key is loaded from PEM file specified in config; startup fails with clear error if missing\n- Key material does not appear in any log line (unit test asserts log output)\n- X-Usenet-IPFS-Sig: header is appended to article before storage",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:14:35Z",
+  "updated_at": "2026-05-01T04:53:31Z",
+  "closed_at": "2026-04-20T03:53:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-2952e0c0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:15:35"
+    },
+    {
+      "depends_on_id": "stoa-626fffaa",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:09"
+    },
+    {
+      "depends_on_id": "stoa-7148f086",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:14:35"
+    },
+    {
+      "depends_on_id": "stoa-d79e8129",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:15:32"
+    }
+  ]
+}

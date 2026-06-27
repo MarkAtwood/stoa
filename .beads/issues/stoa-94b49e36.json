@@ -1,0 +1,21 @@
+{
+  "id": "stoa-94b49e36",
+  "title": "feat(imap): resolve tls.key_path via secretx at startup",
+  "description": "imap passes tls.key_path directly to stoa_tls::load_tls_server_config without secretx resolution. smtp and transit both resolve this at startup via secretx; imap does not. An operator storing their TLS private key in a secret manager cannot use it with imap.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T21:02:31Z",
+  "updated_at": "2026-05-01T05:00:35Z",
+  "closed_at": "2026-04-30T21:24:45Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-7b8daa1e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 14:02:31"
+    }
+  ]
+}

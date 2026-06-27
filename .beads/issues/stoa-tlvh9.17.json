@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "91636f4cb5b344aa2f7ad44c944073d4e2c8d7a9b12a6ef73cec833d09af0034",
+  "created_at": "2026-05-04T03:19:29Z",
+  "created_by": "Mark Atwood",
+  "description": "DECISION: The forbidden character test in is_valid_message_id() uses the closure |c: char| (c as u32) <= 0x20 || c == '<' || c == '>' || c as u32 == 0x7f rather than char::is_whitespace() or a regex. The bound <= 0x20 (not < 0x20) is intentional: it covers all C0 controls (0x00-0x1F) and space (0x20). NUL (0x00) is explicitly in scope. DEL (0x7F) is rejected by the separate c as u32 == 0x7f check.\n\nWHY RIGHT: Rust's char::is_whitespace() returns false for '\\0' (NUL), because Unicode does not classify NUL as whitespace. A NUL byte in a Message-ID used as a map key or in the canonical serialiser (which uses '\\x00\\n' as the header/body separator) would corrupt storage or produce an incorrect CID. The <= 0x20 formulation is both correct and self-documenting: the comment in the code spells out exactly why is_whitespace() alone is insufficient. DEL must also be rejected \u2014 it is not whitespace in Unicode but is a control character forbidden by RFC 5322 in structured header fields.\n\nALTERNATIVES REJECTED:\n- char::is_whitespace(): misses NUL \u2014 the exact character that would corrupt the canonical byte stream.\n- Regex: adds a dependency and is slower; the set of forbidden characters is small and fixed.\n- Allowlist (only permit printable ASCII 33-126): would be stricter and more correct in theory, but international Message-IDs with non-ASCII local parts exist in practice. The denylist approach rejects the dangerous characters without breaking legitimate edge cases.",
+  "ephemeral": 0,
+  "id": "stoa-tlvh9.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "forbidden closure uses (c as u32) <= 0x20 to cover NUL and space; explicit DEL check",
+  "updated_at": "2026-05-04T03:19:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T20:19:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-tlvh9",
+      "id": "59a56a9a-44b5-5125-b6fd-d389de3c102b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

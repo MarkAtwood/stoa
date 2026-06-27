@@ -1,0 +1,21 @@
+{
+  "id": "stoa-bd922f3e",
+  "title": "Write developer contributing guide",
+  "description": "Write CONTRIBUTING.md: how to set up the dev environment, how to run tests, how to run a local two-node test (transit + reader), branch naming, PR process, commit message format (conventional commits), and how to run the interop test suite. Artifact: CONTRIBUTING.md.\n\nAcceptance criteria: a new contributor can open a PR that passes CI from this guide alone; local two-node test is runnable in under 5 minutes",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:45:43Z",
+  "updated_at": "2026-05-01T04:58:00Z",
+  "closed_at": "2026-04-20T06:19:17Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-eb88262c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:45:42"
+    }
+  ]
+}

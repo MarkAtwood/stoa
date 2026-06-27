@@ -1,0 +1,20 @@
+{
+  "id": "stoa-1c17904e",
+  "title": "Dual-CID model (canonical vs root) not documented at API boundary",
+  "description": "cid_util.rs::cid_for_article() returns a RAW codec (0x55) CID from canonical bytes; ipld/builder.rs::build_article() returns a DAG-CBOR (0x71) root CID. Both are valid for the same logical article but used for different purposes (deduplication vs IPFS storage). The Message-ID\u2192CID map stores the canonical CID (correct), but the relationship is implicit. A contributor could mistakenly use the root CID as a map key or the canonical CID as an IPFS address. Fix: add module-level documentation explaining the dual-CID model and where each is used.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:36:38Z",
+  "updated_at": "2026-05-01T04:59:51Z",
+  "closed_at": "2026-04-22T23:10:47Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:36:37"
+    }
+  ]
+}

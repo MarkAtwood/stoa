@@ -1,0 +1,20 @@
+{
+  "id": "stoa-aa44d6ad",
+  "title": "[elegance] SmtpRelayQueue two-file format creates orphan-recovery burden",
+  "description": "The .env + .msg split requires separate atomic renames, creating a window where orphaned .msg files can exist. The drain loop must handle this as dead code (lines 196-199 in relay_queue.rs). A single-file format (e.g. JSON with base64-encoded bytes) would eliminate this coupling risk and the recovery logic burden.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T19:14:27Z",
+  "updated_at": "2026-05-01T05:00:30Z",
+  "closed_at": "2026-04-28T10:11:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-11ae5322",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 12:14:27"
+    }
+  ]
+}

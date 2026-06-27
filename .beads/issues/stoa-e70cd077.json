@@ -1,0 +1,33 @@
+{
+  "id": "stoa-e70cd077",
+  "title": "Implement GC candidate selection query",
+  "description": "Implement a query against the article metadata SQLite store that returns all CIDs that are: (a) stored locally, (b) not covered by any current pinning policy rule, (c) older than the configured GC grace period (default 1h after ingestion). Returns a Vec<Cid> of GC candidates. Artifact: transit/src/retention/gc_candidates.rs.\n\nAcceptance:\n- Articles covered by a pin rule are excluded from candidate set\n- Articles within grace period are excluded\n- Query is efficient (uses index on ingestion_time)\n- Unit test: insert 20 articles, pin 8, verify 12 returned as candidates",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:16:15Z",
+  "updated_at": "2026-05-01T04:58:09Z",
+  "closed_at": "2026-04-20T06:49:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3287c8c4",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:16:15"
+    },
+    {
+      "depends_on_id": "stoa-334c73a0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:54:10"
+    },
+    {
+      "depends_on_id": "stoa-cc2c43b4",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:16:43"
+    }
+  ]
+}

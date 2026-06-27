@@ -1,0 +1,21 @@
+{
+  "id": "stoa-e28abd06",
+  "title": "Transit: articles table never populated; GC and tracking non-functional",
+  "description": "transit/peering/pipeline.rs:227-237: comment explicitly states articles are NOT recorded in the articles table. GC (retention/gc_candidates.rs) queries this table and returns nothing. Admin stats show 0 articles. The retention policy engine is fully implemented but inert. The comment warns that when recording is added, ingest timestamp MUST be SystemTime::now() not the article Date header, but this invariant is unenforced by types. Fix: add the migration, implement the insert with a system-clock ingest timestamp, and add a compile-time check that the timestamp source is correct.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:35:04Z",
+  "updated_at": "2026-05-01T04:59:39Z",
+  "closed_at": "2026-04-21T19:50:22Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:35:03"
+    }
+  ]
+}

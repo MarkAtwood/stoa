@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "/.well-known/mta-sts.txt handler added to axum router; check+clippy clean",
+  "closed_at": "2026-05-02T18:04:00Z",
+  "compaction_level": 0,
+  "content_hash": "322385cccaa4f745deabd609f5df4cbacabec65f71acb8e4ddac72eddfcaa233",
+  "created_at": "2026-05-02T17:38:24Z",
+  "created_by": "Mark Atwood",
+  "description": "Add GET /.well-known/mta-sts.txt route to the axum router in crates/mail/src/server.rs (currently at build_router() ~line 265). Handler reads the per-domain MTA-STS config for the Host: header's domain and renders the policy file in RFC 8461 line format: 'version: STSv1\\nmode: <mode>\\nmx: <pattern>\\n...\\nmax_age: <seconds>\\n'. Content-Type: text/plain. Policy-id is generated as hex(sha256(policy_body)) truncated to 32 chars. Return 404 for unconfigured domains. The domain-to-policy lookup must be case-insensitive on the Host: header.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Serve /.well-known/mta-sts.txt via axum",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T10:39:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.4",
+      "id": "25cba25d-50cc-5bed-afea-559a9cec3f13",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T10:38:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks",
+      "id": "8aaee739-30c7-535e-9e69-e8bd924d03e4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

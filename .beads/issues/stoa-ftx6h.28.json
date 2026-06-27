@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "d0b3648175dac2de8b76f0e184e48aea95864534292fda07de69adc23c423a52",
+  "created_at": "2026-05-03T13:03:48Z",
+  "created_by": "Mark Atwood",
+  "description": "OidcStore::validate_jwt iterates providers in a for loop, awaiting each provider's validate_jwt serially. For a multi-provider configuration (e.g. two OIDC IdPs), the second provider is not attempted until the first completes, including its JWKS fetch latency. Using tokio::select\\! or futures::join_all with early-exit would allow concurrent provider attempts with first-match semantics. Impact at scale: negligible for 1-2 providers (common case), but O(n) latency for n providers on a cold cache.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.28",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "oidc: validate_jwt iterates providers sequentially; no concurrency on multi-provider configs",
+  "updated_at": "2026-05-03T13:03:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:03:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "88f74b59-d684-5e85-bda7-7491b8f331f2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

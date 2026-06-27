@@ -1,0 +1,21 @@
+{
+  "id": "stoa-bf629cf1",
+  "title": "Move whitelist_check test helper to session.rs tests",
+  "description": "The whitelist_check helper (config.rs:790-811) re-implements the normalization and containment logic that lives in run_session (session.rs:171-194). It is placed in config.rs tests, but config.rs owns only the data structure (Vec<IpNet>); the matching logic is session behavior.\n\nConsequence: the test helper does not call the production code path. If the logic in run_session diverges from the test helper (e.g., different fallback IP on parse failure, or different normalization rule), the tests pass but the production code is wrong.\n\nThe correct fix is: (1) extract normalize_client_ip and whitelist_contains to pub(crate) functions in session.rs, (2) move the T4-T8 tests to session.rs tests where they call those functions directly, (3) remove the reimplemented helper from config.rs.\n\nThis is coupled to stoa-6b4887c1.2 (the extraction issue).",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:47:52Z",
+  "updated_at": "2026-05-01T04:58:50Z",
+  "closed_at": "2026-04-30T15:56:58Z",
+  "notes": "SEC7 calibration: near-duplicate of stoa-6b4887c1.2 and subsumed by stoa-6b4887c1.11. The 'move tests to session.rs' prescription is the flip side of 'extract shared fn' (1onm.2). Both fixes land together. 1onm.9 adds the specific observation that the test helper is in the wrong module (config.rs owns the data structure, not the matching logic), which is a valid framing, but the actionable fix is identical to 1onm.2's fix. Resolve together with 1onm.2 and 1onm.11.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b4887c1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:47:51"
+    }
+  ]
+}

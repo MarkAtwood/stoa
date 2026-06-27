@@ -1,0 +1,39 @@
+{
+  "id": "stoa-535479bb",
+  "title": "Write test vectors for article format, CID computation, and serialization",
+  "description": "Create a test vector suite with known-good inputs and expected outputs for: article canonical serialization, CID computation, and signature verification. Vectors must come from an external reference (kubo CLI, Python cryptography library, or published spec). Artifact: core/tests/vectors/ directory with vector files and a test binary that validates each one.\n\nAcceptance:\n- At least 3 article serialization vectors from an external reference\n- At least 2 CID vectors cross-validated against kubo `ipfs block put`\n- At least 2 signature vectors cross-validated against a Python or Go ed25519 implementation\n- All vectors are offline (no network access in tests)\n- `cargo test` runs all vectors and fails if any mismatch",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:10:04Z",
+  "updated_at": "2026-05-01T04:53:07Z",
+  "closed_at": "2026-04-20T03:36:00Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1c73f68d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:10:03"
+    },
+    {
+      "depends_on_id": "stoa-45d8dea3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:10:13"
+    },
+    {
+      "depends_on_id": "stoa-5a6143a5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:10:13"
+    },
+    {
+      "depends_on_id": "stoa-626fffaa",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:10:14"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "stoa-fb616eb0",
+  "title": "JMAP Email/set: wire into dispatcher",
+  "description": "Connect the Email/set handler into the JMAP method dispatcher so email creation via JMAP is functional.\n\nWhy this issue exists:\nEmail/set (stoa-f9fd6529) was implemented but never wired into the JMAP dispatcher, so the handler is unreachable. This epic closes that gap.\n\nWhat needs to be done:\n- Wire Email/set into the JMAP method dispatch table\n- Verify end-to-end: a JMAP Email/set request creates an article",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T19:59:28Z",
+  "updated_at": "2026-05-01T04:56:33Z",
+  "closed_at": "2026-04-24T06:46:15Z"
+}

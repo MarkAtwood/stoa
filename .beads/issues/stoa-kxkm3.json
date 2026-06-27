@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "9066cc5d49755b4ab9f49c20444eb73573bee8d277139fc522d6ded1ad9e6336",
+  "created_at": "2026-05-03T13:09:16Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\npost/injection.rs defines its own find_header_end(), find_line_end(), skip_line_terminator() functions. These overlap with post/mod.rs::find_header_boundary() and split_header_body(). The duplication means bug fixes must be applied in multiple places.\\n\\n## Acceptance Criteria\\n\\nConsolidate the line-scanning helpers into post/mod.rs (or a post::util submodule) and import them from injection.rs.",
+  "ephemeral": 0,
+  "id": "stoa-kxkm3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Readability: injection.rs find_header_end / find_line_end / skip_line_terminator duplicate logic from post/mod.rs",
+  "updated_at": "2026-05-03T13:09:16Z"
+}

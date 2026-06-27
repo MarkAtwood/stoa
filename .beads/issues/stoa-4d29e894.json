@@ -1,0 +1,20 @@
+{
+  "id": "stoa-4d29e894",
+  "title": "Decision: handle_enable narrow signature is correct",
+  "description": "Reviewed whether handle_enable should take &mut SessionContext rather than &mut bool. Narrow signature is correct: the function only needs the one flag. Taking the full context would couple it to fields it never touches. No change warranted.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:26:08Z",
+  "updated_at": "2026-05-01T04:58:40Z",
+  "closed_at": "2026-04-30T02:52:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9d37d25b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:26:08"
+    }
+  ]
+}

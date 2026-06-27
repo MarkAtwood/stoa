@@ -1,0 +1,20 @@
+{
+  "id": "stoa-3811d11c",
+  "title": "wildmat: 2D Vec heap allocation on every call in hot loops",
+  "description": "wildmat_match allocates a vec of vecs on every call. This is called in two hot paths: (1) list_active and list_newsgroups in reader/src/session/commands/list.rs iterate over the full group list calling matches_wildmat per group -- on a server with tens of thousands of groups every LIST command triggers that many heap allocations; (2) GroupFilter::accepts in validation.rs is called per newsgroup per incoming article (up to MAX_NEWSGROUPS=100 groups per article). Approaches to fix: (a) Flatten the 2D Vec to a single Vec<bool> with manual index arithmetic to reduce allocator round-trips; (b) Use a stack-allocated small-vec for short group names -- group names are typically under 64 bytes and patterns under 32 bytes so the DP table is under 2048 cells; (c) For the LIST hot path, pass a pre-compiled pattern object rather than re-parsing the raw string on every group. Option (a) is the minimum viable fix with no dependency changes.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:30:26Z",
+  "updated_at": "2026-05-01T05:00:14Z",
+  "closed_at": "2026-04-27T00:43:22Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:30:26"
+    }
+  ]
+}

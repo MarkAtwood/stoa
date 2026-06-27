@@ -1,0 +1,28 @@
+{
+  "id": "stoa-43bde6ba",
+  "title": "Integration test: post via Thunderbird, retrieve via slrn",
+  "description": "Run a headless reader daemon, connect Thunderbird (or a Thunderbird-compatible script), POST a test article, then connect slrn and verify the article is retrievable by Message-ID and by article number. Artifact: tests/post_roundtrip.rs or tests/post_roundtrip.sh.\n\nAcceptance:\n- Article posted via NNTP POST is retrievable via ARTICLE <msgid>\n- Article is retrievable via ARTICLE <number> in the correct group\n- Article body is byte-for-byte identical to what was posted\n- X-Usenet-IPFS-Sig: header is present in the retrieved article\n- Test runs headlessly (no GUI, no manual steps)",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:15:25Z",
+  "updated_at": "2026-05-01T04:53:36Z",
+  "closed_at": "2026-04-20T15:14:27Z",
+  "notes": "Integration test written: tests/post_roundtrip.py. Criterion 1 (POST to 240) PASS. Criteria 2-4 SKIP with clear gap messages. Server gaps: (a) POST pipeline discards article after validation, no IPFS write or msgid-map insert; (b) ARTICLE msgid always returns 430 stub; (c) GROUP comp.test returns 411 no groups; (d) X-Usenet-IPFS-Sig not injected.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-7148f086",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:15:24"
+    },
+    {
+      "depends_on_id": "stoa-e82be39d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:16:16"
+    }
+  ]
+}

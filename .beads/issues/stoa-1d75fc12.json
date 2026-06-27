@@ -1,0 +1,32 @@
+{
+  "id": "stoa-1d75fc12",
+  "title": "b1bc.8: DKIM signing in SmtpRelayQueue::try_deliver_one",
+  "description": "What: In crates/smtp/src/relay_queue.rs, insert DKIM signing between reading article bytes and calling deliver_via_relay inside try_deliver_one.\n\nAlgorithm (inside try_deliver_one, after article_bytes are loaded, before deliver_via_relay):\n1. Check if self.dkim_signer is Some(signer):\n   a. Call signer.sign(article_bytes) \u2014 returns Result<Signature, DkimSignError>.\n   b. On Ok(sig): call sig.to_header() to get the full header line.\n      Produce signed_bytes: Vec<u8> = header.as_bytes() + article_bytes.\n   c. On Err(e): log error!('DKIM signing failed for article {}: {e}', message_id);\n      Move article to dead-letter directory (permanent failure \u2014 never retry, never send unsigned).\n      Return from try_deliver_one.\n2. If self.dkim_signer is None, use original article_bytes as-is.\n3. Call deliver_via_relay with the (possibly signed) bytes.\n\nNote on failure semantics: NNTP path uses warn+continue (retry on next cycle). SMTP relay path uses error+dead-letter (permanent failure) because SMTP relay is a one-shot delivery with strict MTA expectations.\n\nDefensive programming:\n- Never deliver unsigned when dkim_signer is Some.\n- error! log must NOT include message body.\n- Dead-letter move uses existing dead-letter path logic in relay_queue.rs.\n- No unwrap() in production path.\n\nTests (oracle: RFC 8463 test vectors):\n- test_relay_dkim_signing_prepends_header: sign a known RFC 5322 test message; verify output starts with 'DKIM-Signature:'.\n- test_relay_dkim_signing_absent: with dkim_signer=None, verify bytes are unchanged.\n- test_relay_dkim_failure_dead_letters: with a mock signer that always fails, verify article is moved to dead-letter dir and NOT delivered.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T22:51:48Z",
+  "updated_at": "2026-05-01T04:55:21Z",
+  "closed_at": "2026-04-30T23:07:28Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0b861fd5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 15:52:23"
+    },
+    {
+      "depends_on_id": "stoa-15b2769f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 15:51:48"
+    },
+    {
+      "depends_on_id": "stoa-afed91ad",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 15:52:25"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "stoa-69e0b029",
+  "title": "Fix entry_count returns tip count not log entry count",
+  "description": "group_log/sqlite_storage.rs entry_count returns COUNT(*) FROM group_tips, i.e., number of concurrent tips (~1 normally), not total log entries. LogHead.entry_count will always be ~1. Fix: count from log_entries WHERE group_name = ? instead.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T16:11:54Z",
+  "updated_at": "2026-05-01T05:00:36Z",
+  "closed_at": "2026-04-22T19:21:50Z"
+}

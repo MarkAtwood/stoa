@@ -1,0 +1,20 @@
+{
+  "id": "stoa-e052a59c",
+  "title": "Fail2ban: per-IP lockout threshold and auth_lockout event",
+  "description": "Track per-IP failure counts in a bounded in-memory map (evict oldest after 10k entries). If per-IP failures exceed threshold (default 10) within window (default 60s), emit event=auth_lockout WARN log. This is a log-only event; enforcement is the network fabric's job. Blocked on: stoa-584fdb58.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:43:01Z",
+  "updated_at": "2026-05-01T04:56:48Z",
+  "closed_at": "2026-04-27T19:55:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-584fdb58",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:44:35"
+    }
+  ]
+}

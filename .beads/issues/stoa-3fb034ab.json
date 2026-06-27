@@ -1,0 +1,13 @@
+{
+  "id": "stoa-3fb034ab",
+  "title": "Review round 4: b1bc DKIM signing (post round 3 fixes)",
+  "description": "Round 4 review of b1bc (DKIM signing) after round 3 fixes. Scope: crates/smtp/src/queue.rs, relay_queue.rs, relay_error.rs, config.rs, main.rs. Section 0 anchor: do the code changes from round 3 match the commit message and are there residual issues?",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:28:54Z",
+  "updated_at": "2026-05-01T04:52:29Z",
+  "closed_at": "2026-05-01T02:32:17Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 2 P1 docs/API issues, 2 P2 correctness issues (metrics gap, silent error swallow). Round 3 fixes introduced the doc inconsistency (auty.1) by changing peer-down semantics without updating the struct-level doc. auty.4 (#[non_exhaustive]) is pre-existing. Idiom rating: ACCEPTABLE \u2014 #[non_exhaustive] gap is the only structural issue.\nConfidence: 90% chance no missed bugs remain. Least confident: relay_health.rs round-robin under concurrent drain (not exercised by tests). Would raise confidence with: integration test that sends a 5xx and verifies peer-down=false. Idiom rating: CLEAN after #[non_exhaustive] fix. Round 4: P0=0 P1=2 (fixed) P2=2 (fixed) P3=2 (fixed). Running out of real complaints: YES."
+}

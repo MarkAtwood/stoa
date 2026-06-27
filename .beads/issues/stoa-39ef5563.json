@@ -1,0 +1,20 @@
+{
+  "id": "stoa-39ef5563",
+  "title": "group_matches_pattern duplicates wildmat logic with different semantics",
+  "description": "In crates/transit/src/main.rs, the function group_matches_pattern (line 1094) implements a simple trailing-star glob. The codebase also has the full wildmat engine in stoa_core::wildmat::matches_wildmat, which handles star anywhere in the pattern, question-mark, and is used everywhere else group patterns are matched (GroupFilter, list.rs, validate_article_ingress). A competent reader will immediately ask: why is a second, more limited pattern-matching function here instead of calling matches_wildmat? The doc comment explains the semantics but gives no rationale for not reusing the wildmat module. If the intent is to avoid importing stoa_core here for some reason, or if there is a deliberate semantic difference (e.g., trailing-star-only is intentional for pinning service group filters), that reason needs to be documented. Without it, a maintainer fixing a bug in group matching will fix it in matches_wildmat but not here, or vice versa, causing a silent behavioral divergence.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:31:18Z",
+  "updated_at": "2026-05-01T05:00:03Z",
+  "closed_at": "2026-04-27T00:42:49Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:31:18"
+    }
+  ]
+}

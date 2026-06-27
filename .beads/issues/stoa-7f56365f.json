@@ -1,0 +1,33 @@
+{
+  "id": "stoa-7f56365f",
+  "title": "build_export_car(): fetch group CIDs from DB, write CAR",
+  "description": "Implement build_export_car(pool, ipfs_store, group, limit) -> Result<Vec<u8>, String>. Query SELECT cid FROM articles WHERE group_name=? ORDER BY ingested_at_ms DESC LIMIT ? for article CIDs. Fetch each block via ipfs_store.get_raw(). Use the car_writer module to serialize as CARv1. The most-recent CID is the root. Skip CIDs whose blocks are unavailable (log warn, continue). Return complete CAR bytes.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T06:04:07Z",
+  "updated_at": "2026-05-01T04:56:14Z",
+  "closed_at": "2026-04-23T06:12:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-28f6430c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 23:04:23"
+    },
+    {
+      "depends_on_id": "stoa-3ef26c7a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 23:04:23"
+    },
+    {
+      "depends_on_id": "stoa-63a7bf68",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 23:04:07"
+    }
+  ]
+}

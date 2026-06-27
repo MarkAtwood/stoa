@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "6acd140f472682db522f957ea04a1ebae68306b234a25562fd45bbf5987b8ba7",
+  "created_at": "2026-05-02T22:25:18Z",
+  "created_by": "Mark Atwood",
+  "description": "Security and correctness review iteration 4 of the stoa-2xeks epic (MTA-STS, REQUIRETLS, SMTP STARTTLS). Scope: mta_sts_error.rs, mta_sts_dns.rs, mta_sts_fetcher.rs, mta_sts_mx.rs, mta_sts_policy.rs, relay_client.rs, server.rs.",
+  "ephemeral": 0,
+  "id": "stoa-9cx9p",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Review iteration 4: MTA-STS/REQUIRETLS/STARTTLS",
+  "updated_at": "2026-06-26T20:26:38Z"
+}

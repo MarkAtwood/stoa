@@ -1,0 +1,32 @@
+{
+  "compaction_level": 0,
+  "content_hash": "142c4d728ec4d9da5f78d301aed6a1f67b6763461c354b844e32dbf60fce8dee",
+  "created_at": "2026-05-05T00:16:01Z",
+  "created_by": "Mark Atwood",
+  "defer_until": "2099-01-01T08:00:00Z",
+  "description": "Mailbox is the primary storage object. Four types with distinct semantics:\n\npersonal: one owner, per-user Sieve script allowed, block store write, JMAP visible, quota enforced\nshared: ACL grantees, system Sieve only, block store write, JMAP visible, shared read state with per-identity flags\narchive: write-once, read-only grants only, block store write, JMAP visible, retention-locked\nrelay: no persistent store, system Sieve only, redirect actions only, JMAP invisible, never writes to block store\n\nSchema:\n  mailboxes(mailbox_id PK, display_name, mailbox_type, owner_id nullable, quota_bytes nullable, min_trust_level, created_at)\n  mailbox_addresses(mailbox_id FK, address, send_as bool, PRIMARY KEY (mailbox_id, address))\n\nmailbox_addresses is informational for send-as authorization \u2014 actual routing is in Sieve. relay mailboxes have no mailbox_addresses rows and no mailbox_grants rows. fileinto targeting a relay mailbox is a runtime error. relay mailboxes do not appear in JMAP Mailbox/get responses.",
+  "ephemeral": 0,
+  "id": "stoa-4dsqe.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "deferred",
+  "timeout_ns": 0,
+  "title": "design: mailbox types \u2014 personal, shared, archive, relay",
+  "updated_at": "2026-05-05T00:17:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T17:16:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-4dsqe",
+      "id": "403b0556-8b67-5705-b3e1-0638361e4ef4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

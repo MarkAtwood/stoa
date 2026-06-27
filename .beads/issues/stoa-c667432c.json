@@ -1,0 +1,12 @@
+{
+  "id": "stoa-c667432c",
+  "title": "DECISION: MAX_MIME_PARTS cap in mime_parser is correct",
+  "description": "mime_parser.rs: MAX_MIME_PARTS=100 caps MIME part parsing to defend against memory exhaustion. Intentional \u2014 do not raise without security rationale.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:27:40Z",
+  "updated_at": "2026-05-01T04:58:38Z",
+  "closed_at": "2026-04-28T20:06:56Z"
+}

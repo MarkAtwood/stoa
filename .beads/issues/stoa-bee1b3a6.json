@@ -1,0 +1,19 @@
+{
+  "id": "stoa-bee1b3a6",
+  "title": "sieve_admin: /metrics endpoint unauthenticated on all interfaces",
+  "description": "The /metrics Prometheus endpoint is mounted outside the bearer-token middleware in sieve_admin.rs. An operator who binds the admin API on a non-loopback address unintentionally exposes metrics to any client without authentication. The /metrics route should either be inside the auth middleware or guarded by a separate auth check.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:40:40Z",
+  "updated_at": "2026-05-01T04:52:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:40:39"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T08:14:32Z",
+  "compaction_level": 0,
+  "content_hash": "2404a07493f4cb6c5bd066d2b6c939f8cf70a3be76cabb48f92fb0c87b2000ab",
+  "created_at": "2026-05-04T08:04:17Z",
+  "created_by": "Mark Atwood",
+  "description": "Finding: `Config::validate()` in `crates/imap/src/config.rs` (line 196) has no doc comment. The method enforces several invariants: non-empty listen addr, non-empty db path, max_connections > 0, TLS cert/key must both be set or both absent, tls_addr requires cert/key, and passwords must be bcrypt hashes. A reader of the code has no way to know what the method checks without reading its full body. A short doc comment listing the invariants (or at minimum calling out the security-relevant bcrypt check) would make this immediately clear.",
+  "ephemeral": 0,
+  "id": "stoa-cajkm.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "imap config.validate() missing doc comment",
+  "updated_at": "2026-05-04T08:14:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T01:04:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-cajkm",
+      "id": "82a26d65-6063-569f-9429-49bccd72036d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

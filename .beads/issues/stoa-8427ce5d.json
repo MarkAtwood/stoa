@@ -1,0 +1,21 @@
+{
+  "id": "stoa-8427ce5d",
+  "title": "NNTP reader: no rate limiting on AUTHINFO attempts",
+  "description": "reader/session/lifecycle.rs:275-304 and dispatch.rs:48-60: no limit on failed authentication attempts per session. A client can brute-force credentials indefinitely on a single connection with no delay, lockout, or connection close. Fix: add a per-session failure counter; after N failures (e.g., 5), close the connection with 400 or return increasing delays.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:34:02Z",
+  "updated_at": "2026-05-01T04:59:42Z",
+  "closed_at": "2026-04-21T19:50:39Z",
+  "notes": "Implementation tracked in stoa-31947539.5",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:34:01"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T13:19:38Z",
+  "compaction_level": 0,
+  "content_hash": "7672c3cb971829485ed92432608dee0fecdc6fd93821571ae53e324aa4b5b3f1",
+  "created_at": "2026-05-03T13:04:49Z",
+  "created_by": "Mark Atwood",
+  "description": "In validate_stmt, when Tag('comparator') is found, the code does: if let Some(Form::Str(name)) = iter.peek() { check name } ; iter.next() (consume name). If the token after :comparator is NOT a Str (e.g. a malformed script with :comparator :something), iter.peek() does not match the if-let, the comparator name is not consumed by that branch, but then iter.next() in the else path still executes, consuming whatever token follows -- potentially skipping a valid form. On closer reading: the code does iter.next() unconditionally after the if-let block to 'consume the name (or whatever follows the tag)'. This means a :comparator tag with no following string SILENTLY drops the next token. For malformed scripts this is harmless (compile fails elsewhere), but the comment 'or whatever follows the tag' is a yellow flag.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.55",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve: validate_stmt comparator check does not consume name token when peek finds non-Str",
+  "updated_at": "2026-05-03T13:19:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:04:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "92322773-75c9-59d9-9736-6c872a50dfcd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

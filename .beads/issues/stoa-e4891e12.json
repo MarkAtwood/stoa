@@ -1,0 +1,21 @@
+{
+  "id": "stoa-e4891e12",
+  "title": "SEC2: transit JoinHandle drain is efficient",
+  "description": "Transit ingestion drain in crates/transit/src/main.rs lines 921-938 is efficient and idiomatic. Pattern: drop ingestion_sender to close channel, then tokio::time::timeout(drain_secs, ingestion_handle).await. Dropping the last sender causes ingestion_receiver.recv() to return None, terminating the while-let loop in the task. Awaiting a JoinHandle is a zero-overhead wakeup. No polling, no spin. This is the canonical Tokio pattern for draining a background task before shutdown. No efficiency concern.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T05:24:53Z",
+  "updated_at": "2026-05-01T04:57:18Z",
+  "closed_at": "2026-04-24T05:47:44Z",
+  "notes": "opinion: This is a confirmatory 'no issue' note, not a finding. It verifies transit JoinHandle drain is idiomatic and efficient. No actionable work items. No engineering basis for keeping this as an open issue requiring action.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ebc6ad28",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 22:24:53"
+    }
+  ]
+}

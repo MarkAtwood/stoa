@@ -1,0 +1,45 @@
+{
+  "id": "stoa-e1ae9889",
+  "title": "Implement IPFS block write and CID recording on POST",
+  "description": "Write the signed article bytes to IPFS as a raw block, obtain the CID. Insert (message_id, cid) into the Message-ID\u2192CID map. If the IPFS write fails, return 441 without adding to the log. Artifact: reader/src/post/ipfs_write.rs.\n\nAcceptance:\n- IPFS block write returns a stable CID for identical article bytes\n- CID is recorded in SQLite before log append begins\n- IPFS write failure returns 441; no partial state (CID must be in map before log append)\n- Integration test: POST article, verify CID retrievable via ipfs block get",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:14:56Z",
+  "updated_at": "2026-05-01T04:53:34Z",
+  "closed_at": "2026-04-20T04:01:30Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-072af59f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:15:51"
+    },
+    {
+      "depends_on_id": "stoa-45d8dea3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:10"
+    },
+    {
+      "depends_on_id": "stoa-7148f086",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:14:56"
+    },
+    {
+      "depends_on_id": "stoa-9f7a23fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:10"
+    },
+    {
+      "depends_on_id": "stoa-c3906baf",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:15:59"
+    }
+  ]
+}

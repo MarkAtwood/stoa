@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T18:33:56Z",
+  "compaction_level": 0,
+  "content_hash": "7c25616287f9916cdc98263307d0f82d2d0f5f44849b96a086a06e9f26c728eb",
+  "created_at": "2026-05-01T15:19:57Z",
+  "created_by": "Mark Atwood",
+  "description": "In crates/core/src/rate_limiter.rs, when eviction fires (every 1024 calls or at MAX_ENTRIES), the entire HashMap is scanned under the write-lock while holding it, blocking all concurrent rate-limit checks. Under a DDoS with 65536 entries the scan is O(65536) while other tasks wait. Fix: either (a) swap expired entries to a secondary structure and evict lazily per-entry outside the lock, or (b) use a two-level LRU/clock structure so eviction is O(1) amortized. At minimum document the lock hold time so operators know the worst-case latency.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.34",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "rate_limiter: eviction holds write-lock for full O(n) HashMap scan",
+  "updated_at": "2026-05-01T18:33:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:19:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "e7d39c34-946b-5320-a319-d28646ee99aa",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

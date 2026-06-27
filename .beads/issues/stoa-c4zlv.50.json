@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T17:33:49Z",
+  "compaction_level": 0,
+  "content_hash": "d116595b931c7c41268722fcdd99306e7aec4907f55f0f2cfc380fb90e1696c2",
+  "created_at": "2026-05-01T15:20:30Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: admin.rs /peers/<addr>/ping URL-decodes the path segment and passes it directly to TcpStream::connect. Any caller with access to the admin port (loopback by default, but externally reachable if admin.addr is overridden) can direct the daemon to make TCP connections to arbitrary hosts:ports. Bad behavior: SSRF \u2014 allows an attacker with admin access to probe internal network services, bypass firewall rules, or cause resource exhaustion via connection attempts to slow hosts.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.50",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SSRF via /peers/<addr>/ping admin endpoint",
+  "updated_at": "2026-05-01T17:33:49Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:20:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "d6e1765b-064f-5ccc-a020-5e7e4893139c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

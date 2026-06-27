@@ -1,0 +1,13 @@
+{
+  "id": "stoa-eee41a47",
+  "title": "Review-convergence-v8",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:36:27Z",
+  "updated_at": "2026-05-01T04:52:52Z",
+  "closed_at": "2026-04-30T19:58:13Z",
+  "notes": "Efficiency: no findings. Secretx fetch is async once at startup; bcrypt dummy hash is precomputed once. No hot-path issues introduced.\nMaintainer risk: MEDIUM \u2014 One real cross-service consistency gap (secretx URI not validated at config time for imap, where reader validates eagerly). The typing erasure in imap's build_credential_store is a pattern debt that grows if error variants are added. Test coverage gap for the new dispatch logic is the most actionable near-term item.\nConfidence: 10% chance of missed bug. Least confident flags: t4xr.1 (the missing validation is a real inconsistency but the runtime error message is clear enough that it may not be worth fixing). Uncertainty driven by: did not inspect the full secretx crate API to confirm from_uri() is cheap enough to call at validate() time. Would raise confidence if: ran the imap test suite with a bad secretx URI to confirm error surfacing.\nIdiom rating: ACCEPTABLE \u2014 No unsafe, no unwrap in production paths, no clippy-level issues introduced. The main Rust idiom gap is that imap build_credential_store uses a flat-string error type where reader uses a typed enum with thiserror. This is a consistency issue, not an unsoundness."
+}

@@ -1,0 +1,19 @@
+{
+  "id": "stoa-d28ddcf3",
+  "title": "track: STATUS=SIZE deferred \u2014 blocked on imap-types upstream",
+  "description": "STATUS=SIZE (RFC 8438 / RFC 9051 \u00a76.3.10) cannot be implemented with imap-types 2.0.0-alpha.6. StatusDataItemName and StatusDataItem have no Size variant and no Other escape hatch. The library parser will reject STATUS requests containing the SIZE item before the application sees them.\n\nBlocked on: upstream imap-types adding StatusDataItemName::Size and StatusDataItem::Size(u64), tracked in the upstream GitHub issue filed as part of this epic.\n\nWhen unblocked:\n- Add StatusDataItemName::Size arm to handle_status() in mailbox.rs\n- SQL: COALESCE(SUM(size_octets), 0) as i64, then u64::try_from() with warn on overflow\n- Add Capability::try_from(\"STATUS=SIZE\") to capability_list()\n- Update e2e tests\n\nDo not start this work until the imap-types upstream issue is resolved and a new alpha ships.",
+  "status": "deferred",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:05:08Z",
+  "updated_at": "2026-05-01T04:51:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-db727e07",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:05:08"
+    }
+  ]
+}

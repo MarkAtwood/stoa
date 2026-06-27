@@ -1,0 +1,13 @@
+{
+  "id": "stoa-6d1d4fa6",
+  "title": "mbox.rs duplicates NNTP dot-stuffing from stoa_core::util",
+  "description": "crates/transit/src/import/mbox.rs contains mbox_dot_stuff() which duplicates stoa_core::util::nntp_dot_stuff(). ihave_push.rs already calls the canonical stoa_core function. mbox.rs should do the same. Two implementations means two places to fix the CRLF regression bug that was already fixed in stoa_core.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:26:27Z",
+  "updated_at": "2026-05-01T04:52:04Z",
+  "closed_at": "2026-04-28T20:03:54Z"
+}

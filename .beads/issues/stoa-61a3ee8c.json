@@ -1,0 +1,21 @@
+{
+  "id": "stoa-61a3ee8c",
+  "title": "lookup_article_by_msgid uses 500 for internal errors \u2014 should be 503",
+  "description": "In lifecycle.rs lookup_article_by_msgid, storage errors return Response::new(500, \"Internal error: storage lookup failed\"). RFC 3977 \u00a73.3 defines 500 as 'Unknown command' and 503 as 'Program fault / internal error'. Using 500 for internal errors sends the wrong semantic signal \u2014 a client seeing 500 may retry the command thinking it sent something malformed. What would make it clear: use Response::program_fault() (code 503) for these storage error paths.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T14:07:28Z",
+  "updated_at": "2026-05-01T04:53:11Z",
+  "closed_at": "2026-04-21T14:23:38Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ad28b4f3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 07:07:28"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "stoa-f5fca077",
+  "title": "Review round 1: Peer block fetch via XCID protocol",
+  "description": "Review pass on the XCID peer block fetch implementation (muzu bead)",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T22:16:08Z",
+  "updated_at": "2026-05-01T04:52:12Z",
+  "closed_at": "2026-04-23T22:26:35Z"
+}

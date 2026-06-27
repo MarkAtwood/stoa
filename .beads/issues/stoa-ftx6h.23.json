@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T14:20:00Z",
+  "compaction_level": 0,
+  "content_hash": "13d85857038ebc6e69c9d1e39ba58d63b15e2eace2b3bcc77cb9499ff32c4278",
+  "created_at": "2026-05-03T13:03:15Z",
+  "created_by": "Mark Atwood",
+  "description": "In store.rs::record_verifications, DnsError is serialised as 'domain\\x00err' (NUL-separated). The code comments 'Domain names never contain NUL, so this is unambiguous.' DNS domain names from wire format cannot contain NUL, but the domain field of VerifResult::DnsError comes from identity.clone().unwrap_or_default() in dkim.rs, where identity is output.signature().map(|s| s.d.clone()). The mail-auth crate parses the 'd=' tag from a DKIM-Signature header. An attacker who controls the DKIM-Signature header (e.g. a relay that injects a header) could include a NUL byte in the d= value if mail-auth does not strip it. If a NUL ends up in the domain field, the NUL-split decode in parse_result will misparse the stored value, potentially associating the wrong domain with the error. Low-severity: affects logging/diagnosis only, not auth decisions.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "verify: store.rs DnsError reason encoded as domain NUL err; NUL in domain breaks decode",
+  "updated_at": "2026-05-03T14:20:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:03:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "df98b383-4d59-545a-b069-be6f86468de6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

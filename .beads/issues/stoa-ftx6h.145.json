@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "83ab06303608b1ddd56c4e66e9fa01d1a37b8ab2ea0c20a3758376013c2bd12e",
+  "created_at": "2026-05-03T13:07:20Z",
+  "created_by": "Mark Atwood",
+  "description": "validate_script recurses with a depth counter and returns an error at depth >= MAX_VALIDATE_DEPTH (32). This matches Dovecot Pigeonhole's limit. Without this, a malicious script with 10000 nested if blocks would exhaust the stack during compile(). The test 'deeply_nested_if_blocks_rejected' validates the limit at compile-time. Note: the evaluator (eval_stmt, eval_if) does NOT have a corresponding depth limit -- deeply nested scripts that somehow bypass compile-time validation (or future changes to compile()) would stack-overflow at eval time. This asymmetry should be documented.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.145",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "good: sieve-native validate_script enforces MAX_VALIDATE_DEPTH=32 to prevent stack overflow",
+  "updated_at": "2026-05-03T13:07:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:07:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "24b97ae7-ad0d-5582-9427-dfcbefed8e07",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

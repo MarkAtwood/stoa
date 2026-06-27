@@ -1,0 +1,19 @@
+{
+  "id": "stoa-e0997dc6",
+  "title": "CredentialStoreError as typed enum with non_exhaustive",
+  "description": "The error enum uses thiserror with structured fields (label, line_num, username) rather than String-wrapping variants. #[non_exhaustive] added so new variants can be added without breaking downstream matchers. This is correct library design. A future contributor might suggest simplifying to anyhow::Error or Box<dyn Error> \u2014 resist this, because callers of from_file/from_content need to distinguish BadHash from MalformedLine from Io to produce actionable operator error messages.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T18:58:28Z",
+  "updated_at": "2026-05-01T04:58:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dcaa145e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 11:58:27"
+    }
+  ]
+}

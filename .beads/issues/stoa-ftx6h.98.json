@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "f2352c242189a9264e10058cb268b83b92a774e79804a8de8409995af7a2889a",
+  "created_at": "2026-05-03T13:05:59Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this issue exists: server.rs defines const SINGLETON_USER_ID: i64 = 1 with no comment explaining why 1 is the value or that this constant is only valid for a single-user v1 deployment. Any developer reading the code must trace all uses to understand the scope constraint. The constant is used in resolve_user_id fallback (see separate P1 bug) and in route_method.\n\nWhat needs to be done: Add a doc comment: '/// Single-user v1 deployment: the only provisioned DB user ID. /// This constant must be removed when multi-user support is added.' This makes the architectural constraint explicit at the definition site.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.98",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "SINGLETON_USER_ID comment lacks single-user scope caveat",
+  "updated_at": "2026-05-03T13:05:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "0526286d-cf2a-5613-ae9b-835937481524",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

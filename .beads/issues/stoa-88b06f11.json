@@ -1,0 +1,19 @@
+{
+  "id": "stoa-88b06f11",
+  "title": "imap Cargo.toml features lack doc comments explaining what each enables",
+  "description": "Three new features added in bcd64f5 (aws, azure, gcp) enable the corresponding secretx backends for credential_file secretx: URIs. There is no doc comment on these features explaining what they do or when to enable them. A user configuring stoa-imap with credential_file = 'secretx+aws-sm://...' who gets a link error will not know they need features=['aws']. Cargo.toml feature doc comments (## prefix lines above each feature) are the idiomatic way to surface this. The reader crate (which already had secretx) should be checked for the same gap.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:38:57Z",
+  "updated_at": "2026-05-01T04:54:26Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-eee41a47",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 12:38:57"
+    }
+  ]
+}

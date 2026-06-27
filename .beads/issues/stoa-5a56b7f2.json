@@ -1,0 +1,20 @@
+{
+  "id": "stoa-5a56b7f2",
+  "title": "Sieve GLOBAL_KEY string not shared across modules",
+  "description": "The Sieve global script key '_global' is defined as a local const in crates/smtp/src/session.rs:949:\n  const GLOBAL_KEY: &str = \"_global\";\n\nBut the same string is also hardcoded in sieve_admin.rs:338 in the user_exists() validation function. This creates typo risk and makes it impossible for tests to import the constant.\n\nRequired fix: Define GLOBAL_KEY as a public const in a shared location (e.g. crates/smtp/src/lib.rs or a new crates/smtp/src/constants.rs), then import and use it in both session.rs and sieve_admin.rs. Update tests to import the constant rather than hardcoding the string.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T07:09:40Z",
+  "updated_at": "2026-05-01T04:55:34Z",
+  "closed_at": "2026-04-30T07:22:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-17ee367f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 00:09:40"
+    }
+  ]
+}

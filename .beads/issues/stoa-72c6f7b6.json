@@ -1,0 +1,27 @@
+{
+  "id": "stoa-72c6f7b6",
+  "title": "mail: Email/set update for keywords (\\Seen, \\Flagged)",
+  "description": "Wire Email/set update keyword patches to UserFlagsStore: accept {keywords: {\\Seen: true}} style patches, call set_flags for each requested id, return updated Email objects (or setErrors for not-found CIDs). Merge stored flags into keywords map in Email/get and Email/query results.\\n\\nWhy: \\Seen is how clients track read state; without this, every message appears unread on every sync.\\n\\nAcceptance: Email/set update with \\Seen=true, then Email/get for same id returns keywords: {\\Seen: true}.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T03:39:37Z",
+  "updated_at": "2026-05-01T04:53:05Z",
+  "closed_at": "2026-04-21T04:08:43Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-60a1d149",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 20:40:57"
+    },
+    {
+      "depends_on_id": "stoa-a797343d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 20:40:57"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "f5ee6a7c364599d1fbbe8ad9ad42ab9a9b11ec92eea578f066078c69f0c04941",
+  "created_at": "2026-05-03T13:06:44Z",
+  "created_by": "Mark Atwood",
+  "description": "epoch_to_rfc2822 implements the Rata Die civil-calendar algorithm with single-letter variable names (z, era, doe, yoe, y, doy, mp, d, m). A reader unfamiliar with the algorithm cannot verify the code without looking up the algorithm externally. A comment citing the Euclidean affine functions paper (Howard Hinnant's date algorithms) or howardhinnant.io/date_algorithms.html, plus renaming the most opaque names, would make this self-contained.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.125",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "core: util.rs epoch_to_rfc2822 uses raw arithmetic with opaque variable names (era, doe, yoe, doy, mp)",
+  "updated_at": "2026-05-03T13:06:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "518736bf-6602-562c-9254-bca03dcb4081",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

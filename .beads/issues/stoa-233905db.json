@@ -1,0 +1,33 @@
+{
+  "id": "stoa-233905db",
+  "title": "End-to-end: reader fetches article propagated from transit to transit",
+  "description": "Three-node test: transit A -> transit B -> reader R. Ingest an article on transit A. After propagation to B, verify that a reader connected to B can retrieve the article via ARTICLE <msgid>. Artifact: tests/e2e/full_stack_propagation.rs.\n\nAcceptance criteria:\n- Article reachable via ARTICLE <msgid> on R within 15 seconds of ingestion on A\n- Article content is byte-for-byte identical to what was ingested\n- Test is deterministic\n- Test passes with: cargo test --test full_stack_propagation",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:16:38Z",
+  "updated_at": "2026-05-01T04:58:07Z",
+  "closed_at": "2026-04-20T12:41:18Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-168e7114",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:17:00"
+    },
+    {
+      "depends_on_id": "stoa-55db6c35",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:16:38"
+    },
+    {
+      "depends_on_id": "stoa-e82be39d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:17"
+    }
+  ]
+}

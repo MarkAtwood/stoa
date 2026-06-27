@@ -1,0 +1,13 @@
+{
+  "id": "stoa-f6d57892",
+  "title": "R7 fix batch: P2 bug sweep",
+  "description": "Fix all actionable P2 bugs from the open backlog. Covers: NNTP OVER\u2192501 on invalid range, TAKETHIS in IHAVE mode, missing Received: header, Path: header not updated, JMAP hardcoded URL, OVER no LIMIT, group_select\u2192211 on invalid name, multipart part count limit, reconcile MAX_HAVE truncation flag, wildmat O(m^n)\u2192O(n*m), GC first-Newsgroups-only, header re-scan inefficiency, test codec mismatch.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T19:44:47Z",
+  "updated_at": "2026-05-01T04:59:08Z",
+  "closed_at": "2026-04-22T21:05:38Z"
+}

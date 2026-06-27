@@ -1,0 +1,20 @@
+{
+  "id": "stoa-deb0fee8",
+  "title": "SEC1: Missing operator guide for DKIM key generation",
+  "description": "Maintainer Burden \u2014 Operational Risk\n\nConfiguration documentation (config.rs:234) states that key_seed_b64 is 'base64-encoded 32-byte Ed25519 seed' but provides NO GUIDANCE on:\n  1. How to generate a valid seed (openssl? ed25519-dalek? other tools?)\n  2. How to derive the public key from the seed\n  3. Which base64 encoding to use (URL-safe vs standard \u2014 code uses standard)\n  4. What happens if seed and public key don't match\n\nWhen operators misconfigure DKIM, they see cryptic errors like 'failed to construct Ed25519 signing key' with no hints on remediation.\n\nRecommendation: Add example DKIM key generation steps to CLAUDE.md or a separate DKIM.md guide. Show command-line examples.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:22:57Z",
+  "updated_at": "2026-05-01T04:52:49Z",
+  "closed_at": "2026-04-30T23:29:11Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0b13a613",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:22:57"
+    }
+  ]
+}

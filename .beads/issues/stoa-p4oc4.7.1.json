@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "cargo test -p stoa-sieve-native -- environment; all tests pass",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T01:53:48Z",
+  "compaction_level": 0,
+  "content_hash": "153e39e1e3277ea0c3b787df98315b30da0a9a5889f6ec667b2d149b88d28192",
+  "created_at": "2026-05-04T06:08:32Z",
+  "created_by": "Mark Atwood",
+  "description": "Add 'environment' extension support to stoa-sieve-native.\n\nFile: crates/sieve-native/src/lib.rs\n\nChanges:\n1. Add 'environment' to KNOWN extensions list (line 66):\n   const KNOWN: &[&str] = &[\"fileinto\", \"reject\", \"variables\", \"regex\", \"environment\"];\n\n2. Add Environment variant to the compile/eval form handling.\n   The environment test has this grammar (RFC 5183 \u00a74):\n     ENVIRONMENT-TEST = 'environment' [MATCH-TYPE] [COMPARATOR]\n                        <item: string-list> <key-list: string-list>\n   item is the environment name; key-list is the values to match against.\n   Uses the same match-type logic as header/envelope tests (is, contains, matches, regex).\n\n3. Add SieveEnv to the evaluate() call signature:\n   pub fn evaluate(script: &[Form], message: &[u8], env: &SieveEnv) -> SieveOutcome\n   where SieveEnv is a new struct:\n   pub struct SieveEnv {\n       pub values: std::collections::HashMap<String, String>,\n   }\n   impl SieveEnv {\n       pub fn new() -> Self\n       pub fn set(&mut self, key: impl Into<String>, value: impl Into<String>)\n       pub fn get(&self, key: &str) -> &str  // returns \"\" if absent (RFC 5183 \u00a74)\n   }\n\n4. Update all existing evaluate() call sites in tests and stoa-smtp\n   to pass SieveEnv::new() (empty env, backward compatible).\n\nDefensive rules:\n- Unknown environment names return empty string, never error (RFC 5183 \u00a74)\n- environment test without require [\"environment\"] must fail at compile\n- Match types (is/contains/matches) work identically to header test\n\nTests (add to lib.rs #[cfg(test)]):\n- environment_unknown_name_returns_empty: env has no 'x', test env \"x\" \"\" \u2192 true\n- environment_known_name_matches: env has vnd.stoa.dkim-result=pass, test \"pass\" \u2192 true\n- environment_known_name_no_match: env has dkim-result=fail, test \"pass\" \u2192 false\n- environment_list_match: test against [\"pass\", \"none\"] \u2192 true when value in list\n- environment_requires_extension: script without require [\"environment\"] \u2192 compile error\n- environment_contains_match: :contains comparator works",
+  "ephemeral": 0,
+  "id": "stoa-p4oc4.7.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve-native: implement environment test (RFC 5183)",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T23:08:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p4oc4.7",
+      "id": "ff0b25b5-c883-5a6b-8490-d2e2089c3fba",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

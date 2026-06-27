@@ -1,0 +1,21 @@
+{
+  "id": "stoa-421f562c",
+  "title": "feat(smtp): resolve nntp_password via secretx at startup",
+  "description": "smtp passes config.reader.nntp_password.clone() directly to the outbound NNTP relay session. No secretx resolution. An operator cannot store the outbound NNTP auth password in a secret manager.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T21:02:39Z",
+  "updated_at": "2026-05-01T05:00:41Z",
+  "closed_at": "2026-04-30T21:24:55Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-7b8daa1e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 14:02:39"
+    }
+  ]
+}

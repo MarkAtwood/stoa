@@ -1,0 +1,13 @@
+{
+  "id": "stoa-c3967574",
+  "title": "imap e2e test config uses plaintext password, not bcrypt hash",
+  "description": "test_config() in crates/imap/tests/e2e_smoke.rs sets UserCredential.password to plaintext \"testpass\" instead of a bcrypt hash. This makes the test config invalid \u2014 CredentialStore.check() calls bcrypt::verify which requires a bcrypt hash; passing plaintext always returns false. Current smoke tests pass only because they exercise plain-connection paths (LOGINDISABLED) where auth is never attempted, so the bad config is masked. A future test that exercises auth on TLS would silently get wrong results from this bad test fixture.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T08:47:58Z",
+  "updated_at": "2026-05-01T04:52:16Z",
+  "closed_at": "2026-04-27T09:05:15Z"
+}

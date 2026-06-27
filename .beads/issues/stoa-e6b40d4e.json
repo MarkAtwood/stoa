@@ -1,0 +1,19 @@
+{
+  "id": "stoa-e6b40d4e",
+  "title": "backfill BFS issues O(parents) sequential has_entry DB queries per entry",
+  "description": "backfill.rs BFS inner loop calls storage.has_entry() once per parent CID for every entry fetched. For a chain of depth D with branching factor B this is O(D*B) sequential DB round-trips. Replace with a batch EXISTS or IN-clause query: SELECT id FROM log_entries WHERE id IN (?) for all parent IDs at once, then diff against the known set.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:37:29Z",
+  "updated_at": "2026-05-01T04:55:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:37:29"
+    }
+  ]
+}

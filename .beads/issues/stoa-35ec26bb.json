@@ -1,0 +1,13 @@
+{
+  "id": "stoa-35ec26bb",
+  "title": "Review Round 10: transit/*, verify/*",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:57:14Z",
+  "updated_at": "2026-05-01T04:53:36Z",
+  "closed_at": "2026-04-27T17:15:14Z",
+  "notes": "GOOD DESIGN: check_ingest dedup keyed on body Message-ID not envelope. ingestion.rs step 3 explicitly closes the envelope-bypass attack: a peer sending IHAVE <fresh-envelope> with Message-ID: <known-dup> in the body would bypass envelope-keyed dedup. The body-keyed approach is correct and is backed by a dedicated regression test (dedup_keyed_on_body_msgid_not_envelope). Handling of folded Message-ID headers in extract_body_msgid is also correct and well-tested.\nConfidence: ~70% chance of no missed P0/P1. Files thoroughly reviewed: session.rs, ingestion.rs, pipeline.rs, auth.rs, x_sig.rs, dkim.rs, store.rs, rate_limit.rs, staging.rs, block_cache.rs, gc.rs, gc_candidates.rs, policy.rs, suck_pull.rs, mode_stream.rs. Files not reviewed this round: admin.rs, config.rs (partially), main.rs, import/ihave_push.rs, import/mbox.rs, import/reindex.rs, backpressure.rs, feed_negotiation.rs, remote_pin_client.rs, remote_pin_worker.rs, ipns_publisher.rs, audit_log.rs, car_writer.rs, export.rs. Risk areas in unreviewed files: main.rs wiring (where suck_pull bug likely originates), admin.rs bearer token handling, remote_pin_client.rs for credential handling. Maintainer risk: MEDIUM \u2014 P0 issues are real but isolated (suck_pull never wires up storage; read_dot_stuffed normalizes LF to CRLF). The P1 XCID finding is the highest operational risk if the daemon is deployed before removal."
+}

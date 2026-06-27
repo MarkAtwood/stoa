@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "ff0f79fe362589ba02c8bc64f24accf5c296f4821fe60697906cca303cf73d8b",
+  "created_at": "2026-05-03T13:07:00Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\nstore/group_cache.rs::GroupMetadataCache::insert() calls Instant::now() in the eviction check (line 74) and then again when creating the CacheEntry (line 91). Between these two calls, some time passes. The entry's inserted_at reflects a later time than the eviction check's 'now', which means TTL measurements are slightly off: the entry appears to have been inserted after the eviction check's reference point.\\n\\nAlso, the eviction check captures 'let now = Instant::now()' and 'let ttl = self.ttl' but the inserted CacheEntry uses a fresh Instant::now(), not the same 'now' captured above.\\n\\n## Acceptance Criteria\\n\\nCapture a single Instant::now() at the start of insert() and use it for both the eviction comparison and the CacheEntry inserted_at field.",
+  "ephemeral": 0,
+  "id": "stoa-byepm",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "GroupMetadataCache::insert: Instant::now() called twice \u2014 inconsistent insertion time",
+  "updated_at": "2026-05-03T13:07:00Z"
+}

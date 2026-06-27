@@ -1,0 +1,20 @@
+{
+  "id": "stoa-243d6fc9",
+  "title": "SearchSnippet/get: implement and wire into route_method",
+  "description": "Implement handle_search_snippet_get(account_id, filter, email_ids). Return SearchSnippet{emailId, subject: Option<String>, preview: Option<String>} for each email_id. Unknown IDs silently omitted. Wire as SearchSnippet/get in route_method(). Test: known article with search term returns snippet with term highlighted. Blocked on: stoa-1c1a8cdf.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:44:07Z",
+  "updated_at": "2026-05-01T04:51:27Z",
+  "closed_at": "2026-04-28T11:09:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1c1a8cdf",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:44:10"
+    }
+  ]
+}

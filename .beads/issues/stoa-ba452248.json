@@ -1,0 +1,12 @@
+{
+  "id": "stoa-ba452248",
+  "title": "auth: dummy bcrypt hash uses DEFAULT_COST, may not match production cost",
+  "description": "## Problem\nauth/src/store.rs line ~21 computes a dummy bcrypt hash at a hardcoded DEFAULT_COST to avoid a timing oracle when a username is not found. If the operator's real password hashes were generated at a different cost (e.g. cost=12 while DEFAULT_COST=10), the dummy verify takes noticeably less time than a real failed verify, leaking whether a username exists.\n\n## Acceptance criteria\n- The dummy hash cost must be configurable to match the production bcrypt cost, OR\n- Use a pre-computed lazy_static dummy hash at the same cost as configured auth\n- Verify that the timing delta between 'user not found' and 'user found, wrong password' is \u22641ms on 1000-sample benchmark",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T18:57:48Z",
+  "updated_at": "2026-05-01T04:58:56Z",
+  "closed_at": "2026-04-24T19:56:57Z"
+}

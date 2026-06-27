@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "7e9022b67b43aa368bd5488a46e63d929e63f1756868571ad77a8e37eaa82ff3",
+  "created_at": "2026-05-03T13:05:11Z",
+  "created_by": "Mark Atwood",
+  "description": "error.rs defines StorageError with variants like Database(String), CorruptData(String), etc. All DB errors pass through .to_string() at the point of conversion (From<sqlx::Error> or inline). Callers cannot programmatically distinguish a unique constraint violation from a connection error or a timeout \u2014 all become opaque strings. This forces grep-based error handling in tests and makes it impossible to write precise match arms. Provide structured variants (e.g., StorageError::UniqueViolation, StorageError::ConnectionFailed) and preserve the original error as a source.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.66",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "core: StorageError erases all structured error information as String",
+  "updated_at": "2026-05-03T13:05:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "fcbb04ab-76a9-5e0b-9b37-4dfc2f4e8a4b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

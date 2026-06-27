@@ -1,0 +1,20 @@
+{
+  "id": "stoa-cd27f9b0",
+  "title": "rate_limiter: O(n) retain() eviction scan on every check_and_consume call",
+  "description": "## What / Why\nIn crates/core/src/rate_limiter.rs, check_and_consume() calls state.retain(|_, entry| ...) on every single request. retain() is an O(n) full HashMap scan where n is the number of tracked IPs. For an admin server with many distinct clients, this scan runs on every request even when all clients are well within their rate limits.\n\n## Fix\nReplace the always-on retain() with a periodic eviction sweep: track last_eviction: Instant, and run retain() only when now - last_eviction > eviction_interval (e.g. 60s). This makes the common case O(1) amortized instead of O(n) per call.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T03:09:38Z",
+  "updated_at": "2026-05-01T04:59:24Z",
+  "closed_at": "2026-04-27T15:12:25Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e2297bae",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 20:09:37"
+    }
+  ]
+}

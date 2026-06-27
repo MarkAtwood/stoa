@@ -1,0 +1,21 @@
+{
+  "id": "stoa-ea5894f3",
+  "title": "run_command_loop pre-intercept chain is a series of if-let guards instead of a match",
+  "description": "crates/reader/src/session/lifecycle.rs run_command_loop() (lines ~328-650) dispatches commands via a sequence of if-let / if-matches! guards before falling through to dispatch(). Each branch: checks pattern, writes response, continue. This is structurally a match on cmd that has been flattened into a chain of if-let guards.\n\nThe result: the reader has to scan ~20 conditional branches to understand command routing. Adding a new command requires finding the right place in the chain rather than adding a match arm. The intent (some commands are handled locally, others fall to dispatch) is obscured by the form.\n\nSuggested improvement: a two-level match is cleaner \u2014 first match on the command variant to determine whether to intercept locally or fall through to dispatch(). For the intercept cases, the handler returns directly. For the fallthrough, one final call to dispatch(). This makes the routing table visible at a glance and eliminates the repeated continue; pattern.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:14:18Z",
+  "updated_at": "2026-05-01T04:57:30Z",
+  "closed_at": "2026-04-27T18:36:55Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:14:17"
+    }
+  ]
+}

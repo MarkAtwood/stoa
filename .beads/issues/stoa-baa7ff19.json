@@ -1,0 +1,19 @@
+{
+  "id": "stoa-baa7ff19",
+  "title": "ihave_push/mbox: duplicate NNTP IHAVE send code \u2014 extract shared send_ihave helper",
+  "description": "ihave_push.rs:send_ihave() and mbox.rs:mbox_send_ihave() are functionally identical: both open TCP, read greeting, send IHAVE, handle 435/335, dot-stuff article, send, read final code. The only differences are the return type enum names (SendResult vs IhaveSendResult). Both live in the import/ subtree. This duplication means any NNTP protocol fix (e.g. 436 retry handling) must be applied twice. Extract a shared send_ihave function in import/mod.rs or a new import/nntp_client.rs.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:45:32Z",
+  "updated_at": "2026-05-01T04:54:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:45:32"
+    }
+  ]
+}

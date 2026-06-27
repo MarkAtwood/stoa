@@ -1,0 +1,20 @@
+{
+  "id": "stoa-c1dc4c8d",
+  "title": "Observability: structured tracing, Prometheus metrics, admin HTTP endpoint",
+  "description": "Implement production observability for both the transit and reader daemons: structured tracing with tokio-tracing (JSON format, configurable level), a Prometheus /metrics scrape endpoint, and an admin HTTP endpoint exposing health, statistics, log-tip state, and peer list. All metrics are labeled and follow Prometheus naming conventions.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:14:40Z",
+  "updated_at": "2026-05-01T04:58:14Z",
+  "closed_at": "2026-04-20T12:35:17Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-a2023a88",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:14:40"
+    }
+  ]
+}

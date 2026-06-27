@@ -1,0 +1,21 @@
+{
+  "id": "stoa-12af644e",
+  "title": "Email/query: full article list loaded into memory before pagination",
+  "description": "server.rs route_method Email/query: the overview_store.query_range loads all records between lo and hi, then handle_email_query sorts and paginates in memory. For a large group (100k articles), this allocates the full list on every query. The limit/position parameters should be pushed down to the database query in query_range. Currently the database query has no LIMIT or OFFSET, so all rows are always loaded. This matters when JMAP clients page through large mailboxes.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T06:00:18Z",
+  "updated_at": "2026-05-01T04:52:02Z",
+  "closed_at": "2026-04-27T15:26:55Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-18ecb995",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 23:00:18"
+    }
+  ]
+}

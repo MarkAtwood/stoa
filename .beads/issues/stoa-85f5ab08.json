@@ -1,0 +1,14 @@
+{
+  "id": "stoa-85f5ab08",
+  "title": "[epic] full-text search \u2014 index article subjects and bodies",
+  "description": "Why: NNTP SEARCH and JMAP Email/query currently support only header-level filtering (subject substring, from, date range). Full-text search across article bodies is a core usability feature for any serious reader. Tantivy is a pure-Rust full-text search engine well-suited for embedding.\\n\\nWhat:\\n- Add a Tantivy-based search index as a new store in usenet-ipfs-reader.\\n- Index fields: message_id, newsgroups, subject, from, date, body_text.\\n- Updated on each article ingest: extract body text from the IPFS body block and add to the index.\\n- Expose via:\\n    NNTP: SEARCH command (RFC 3977 \u00a78.7, currently unimplemented) with full-text support via free-text query syntax.\\n    JMAP: extend Email/query filter with a text property for full-text search.\\n    IMAP: SEARCH TEXT and SEARCH BODY commands (RFC 3501 \u00a76.4.4).\\n- Configurable index path and maximum index size.\\n- Index is a cache: can be rebuilt from the IPFS article store if lost.\\n- Out of scope: relevance ranking and fuzzy search in v1; exact match and boolean operators only.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T02:23:45Z",
+  "updated_at": "2026-05-01T05:00:41Z",
+  "closed_at": "2026-04-23T03:14:53Z",
+  "notes": "Review converged after 2 round(s). Final review: stoa-32a269b6."
+}

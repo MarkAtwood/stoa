@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T17:33:47Z",
+  "compaction_level": 0,
+  "content_hash": "d94d453fe5adf67ebea3abcf75426176d87db16d90cb83da1865c8c9ddde7dc6",
+  "created_at": "2026-05-01T15:19:43Z",
+  "created_by": "Mark Atwood",
+  "description": "In crates/core/src/error.rs, UsenetIpfsError, ValidationError, ProtocolError, and SigningError all derive Clone. StorageError does not. This inconsistency means StorageError values cannot be stored in Arc<StorageError> for sharing across tasks, cannot be used as the error type in futures that require Clone bounds, and cannot be trivially converted to UsenetIpfsError::Storage for uniform error handling at call sites that need to clone the error. Fix: add #[derive(Clone)] to StorageError. All variant fields (String, LogEntryId, Cid) already implement Clone.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.32",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "StorageError missing Clone unlike all other core error types",
+  "updated_at": "2026-05-01T17:33:47Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:19:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "0096fb2e-a818-5437-a3d7-39dbe90bce9f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

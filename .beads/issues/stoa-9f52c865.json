@@ -1,0 +1,33 @@
+{
+  "id": "stoa-9f52c865",
+  "title": "Implement IPFS pin API wrapper",
+  "description": "Implement PinClient: pin(cid), unpin(cid), is_pinned(cid) -> bool over the selected IPFS client library. Artifact: transit/src/retention/pin_client.rs. Must handle the case where the IPFS node is temporarily unreachable (retry with backoff, surface error after max retries).\n\nAcceptance:\n- pin() and unpin() work against a local IPFS node in an integration test\n- is_pinned() returns correct value after pin/unpin\n- Retry logic: 3 attempts with exponential backoff before returning error\n- pin() is idempotent (pinning already-pinned CID is not an error)",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:12:59Z",
+  "updated_at": "2026-05-01T04:55:01Z",
+  "closed_at": "2026-04-20T04:45:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4c1d2d50",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:12:58"
+    },
+    {
+      "depends_on_id": "stoa-a1bf40fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:14:01"
+    },
+    {
+      "depends_on_id": "stoa-c9c62a23",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:53:08"
+    }
+  ]
+}

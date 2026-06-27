@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "cargo test -p stoa-reader passes; no warn! at that location remains; eprintln + exit(1) present; clippy clean",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T07:45:59Z",
+  "compaction_level": 0,
+  "content_hash": "962972d1f77bc2b7b56947ad3d229787d91cdc53439740a23235c63bcc13e1c2",
+  "created_at": "2026-05-04T06:32:05Z",
+  "created_by": "Mark Atwood",
+  "description": "## What\nIn crates/reader/src/main.rs, change the existing dev-mode warning (lines ~349-356) from warn! to eprintln! + process::exit(1), matching the signing-key guard pattern.\n\n## Algorithm\n1. Read crates/reader/src/main.rs lines 320-370.\n2. Find the existing block:\n     if config.auth.is_dev_mode() && !is_loopback_addr(&config.listen.addr) {\n         warn!('...');\n     }\n3. Replace with:\n     if config.auth.is_dev_mode() && !is_loopback_addr(&config.listen.addr) {\n         eprintln!(\n             'error: stoa-reader is configured in dev mode (auth.required = false, no users configured) \\\nbut is listening on a non-loopback address ({}). This accepts any password from untrusted \\\nnetworks. Either: (1) change listen.addr to 127.0.0.1 for local-only use, or (2) set \\\nauth.required = true and configure auth.users or auth.credential_file.',\n             config.listen.addr\n         );\n         std::process::exit(1);\n     }\n4. cargo fmt; cargo clippy clean; cargo test --workspace clean.\n\n## Defensive programming rules\n- The error message must be actionable: tell the operator exactly what config to change.\n- Do not add any new function; modify the existing inline block only.\n- No unwrap().\n\n## Tests\nAdd to crates/reader/src/config.rs test module (or existing test file):\n- test_dev_mode_loopback_ok: config with is_dev_mode()=true and listen.addr='127.0.0.1:1119' should not trigger the guard. This is a unit test of the condition logic \u2014 since exit(1) cannot be tested in-process, test the predicate: assert!(is_dev_mode && is_loopback_addr('127.0.0.1:1119') is_loopback).\n- test_dev_mode_nonloopback_triggers: config with is_dev_mode()=true and listen.addr='0.0.0.0:1119' \u2014 test that the condition evaluates to true (the trigger condition). Oracle: the condition is (is_dev_mode && !is_loopback) which must be true for the exit path.\nNote: actual process::exit cannot be tested in-process without a subprocess. The unit tests verify the predicate, not the exit. An integration test (spawning the binary) is deferred to the E2E bead.",
+  "ephemeral": 0,
+  "id": "stoa-90tpd.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "reader: upgrade dev-mode warn to fatal abort on non-loopback",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T23:32:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-90tpd",
+      "id": "cc1d079d-0668-5818-829d-2396b9151037",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

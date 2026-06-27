@@ -1,0 +1,20 @@
+{
+  "id": "stoa-f3737fbe",
+  "title": "DECISION: INBOX rights lockdown by construction in MailboxRights",
+  "description": "inbox_defaults() hardcodes may_add_items: false, may_remove_items: false, may_rename: false, may_delete: false. The Sent folder adds may_add_items: true and may_submit: true to support copy-on-send. Each special folder role has its own named constructor that encodes the semantic constraints of that role. Alternative rejected: a single generic 'user-owned' rights set applied to all special folders. That would be permissive by default and require callers to remember to restrict the INBOX, which is an error-prone pattern. Alternative rejected: storing rights in the database. Rights for special folders are policy, not data \u2014 they are stable, derived from the role name, and do not vary per user. Encoding them as code makes them auditable and prevents privilege escalation via a DB write.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:01:15Z",
+  "updated_at": "2026-05-01T04:59:32Z",
+  "closed_at": "2026-04-30T05:29:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-14057691",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:01:14"
+    }
+  ]
+}

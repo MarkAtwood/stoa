@@ -1,0 +1,19 @@
+{
+  "id": "stoa-e837b35d",
+  "title": "GOOD: IMAP PLAIN authzid impersonation rejected",
+  "description": "stoa-imap session AUTH PLAIN handler rejects any PLAIN message where the authzid (authorization identity, field 0) is non-empty and differs from the authcid (authentication identity, field 1). This prevents a client from authenticating as user A but requesting to act as user B. Correct RFC 4616 compliance; do not remove this check.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:55:19Z",
+  "updated_at": "2026-05-01T04:54:48Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:55:19"
+    }
+  ]
+}

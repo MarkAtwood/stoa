@@ -1,0 +1,21 @@
+{
+  "id": "stoa-2c368d42",
+  "title": "auth/store: CredentialStore missing Debug",
+  "description": "crates/auth/src/store.rs \u2014 CredentialStore does not derive Debug. Idiomatic Rust derives Debug on all public types unless they contain types that do not implement Debug or for deliberate security reasons. Here HashMap<String,String> is Debug. The struct also holds the dummy_hash which should be debug-printable (or explicitly redacted with a custom Debug impl that omits the hash). Absence of Debug means the type cannot be used with {:?} in test assertions, tracing, or error contexts.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:22:52Z",
+  "updated_at": "2026-05-01T04:53:20Z",
+  "closed_at": "2026-04-28T17:40:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:22:51"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "False positive: lifecycle.rs handles Command::Over with continue before dispatch is reached. handle_over_live() correctly returns 430 for unknown msgids.",
+  "closed_at": "2026-05-01T15:26:04Z",
+  "compaction_level": 0,
+  "content_hash": "ee4760f72b450a6e1e34130aa992315d7b6d6e7cb8512cab4620d769911337bd",
+  "created_at": "2026-05-01T15:20:09Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: client sends OVER <msgid> (message-id argument form). Expected per RFC 3977 \u00a78.3.2: 430 No Article With That Message-ID. Actual: 224 Overview follows + empty dot-terminator. dispatch.rs routes Command::Over(Some(OverArg::MessageId(_))) to Response::overview_follows() instead of Response::no_article_with_message_id(). Standard newsreader clients (slrn, tin) parse the 224 body as zero articles, silently losing the error signal.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.38",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "OVER <msgid> returns 224 empty body instead of 430",
+  "updated_at": "2026-05-01T15:26:04Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:20:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "838446fe-2829-592a-9899-9bb0ee1f8ec9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

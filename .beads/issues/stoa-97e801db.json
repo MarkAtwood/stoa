@@ -1,0 +1,26 @@
+{
+  "id": "stoa-97e801db",
+  "title": "Group log: optional verification_cid in log entry + attestation block",
+  "description": "Add shared-if-easy gossip of verification results via an optional CID in the group log entry.\n\nWhat: crates/core/src/group_log.rs (LogEntry schema); crates/verify/src/attestation.rs\n\nLogEntry gains one optional field:\n  pub verification_cid: Option<Cid>   // DAG-CBOR attestation block; None if verification not performed\n\nAttestation block schema (DAG-CBOR, written to IPFS by the verifying node):\n  {\n    'article': CID,\n    'ts': u64,\n    'verifier': String,   // 'did:key:...' or node key fingerprint\n    'checks': [\n      { 'type': 'usenet-ipfs-sig', 'key_id': String, 'result': String },\n      { 'type': 'dkim', 'key_id': String, 'result': String, 'detail': String },\n    ]\n  }\n\nAlgorithm:\n1. After verify_article() runs, serialize checks to DAG-CBOR, write block to IpfsStore, get CID.\n2. Set log_entry.verification_cid = Some(attestation_cid).\n3. Peers receiving the log entry can optionally fetch the attestation block (best-effort, not required).\n4. If IpfsStore write fails: log warn, set verification_cid = None, continue (non-fatal).\n\nDAG-CBOR serialization: use serde_ipld_dagcbor (already in tree).\nThis field is optional in both directions: old peers ignore it; new peers populate it when they can.\n\nDefensive rules:\n- LogEntry DAG-CBOR must remain backward-compatible: optional field with default None.\n- Attestation block write failure must never block log entry commit.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:49:05Z",
+  "updated_at": "2026-05-01T05:00:58Z",
+  "closed_at": "2026-04-24T02:12:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-8c33ec19",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:49:58"
+    },
+    {
+      "depends_on_id": "stoa-f07d2b75",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:49:05"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "id": "stoa-117f1f31",
+  "title": "Define HeaderMapNode type and HeaderValue enum in core",
+  "description": "Why: the structured header map needs a canonical Rust type that serializes to the correct DAG-CBOR shape \u2014 string for single-occurrence headers, array for multi-occurrence headers. This type lives in usenet-ipfs-core alongside the other IPLD types.\n\nWhat: in crates/core/src/ipld/, add header_map.rs defining:\n  pub enum HeaderValue { Single(String), Multi(Vec<String>) }  with #[serde(untagged)]\n  pub type HeaderMapNode = BTreeMap<String, HeaderValue>;\nThe BTreeMap ensures sorted key order for deterministic DAG-CBOR serialization. The untagged enum serializes as either a plain CBOR text string or a CBOR array of text strings with no wrapper tag.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T23:25:31Z",
+  "updated_at": "2026-05-01T05:00:55Z",
+  "closed_at": "2026-04-20T23:43:38Z",
+  "design": "serde(untagged) on HeaderValue is the key mechanism \u2014 it tells serde_ipld_dagcbor to serialize Single(s) as just the string value, and Multi(v) as just the array, with no enum tag wrapping. BTreeMap (not HashMap) is mandatory for deterministic serialization.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1c76e14c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 16:26:27"
+    }
+  ]
+}

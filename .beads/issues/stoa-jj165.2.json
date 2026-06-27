@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "77449efb314d8005a7984738f748d6cda7fc31741680d193ddd67098c8f5f05e",
+  "created_at": "2026-05-02T14:35:00Z",
+  "created_by": "Mark Atwood",
+  "description": "Initialize the OTEL tracer provider at startup and add it as a layer on the existing tracing-subscriber stack. Flush spans on shutdown.\n\n## What to do\nIn main.rs, when config.observability.enabled is true:\n\n  1. Build an OTLP gRPC exporter pointed at config.observability.otlp_endpoint\n  2. Build a TracerProvider with a BatchSpanProcessor (not SimpleSpanProcessor \u2014 batch is required for production throughput)\n  3. Install it as the global tracer via opentelemetry::global::set_tracer_provider(...)\n  4. Build a tracing_opentelemetry::layer() and add it to the subscriber stack alongside the existing fmt layer\n\n  The subscriber becomes:\n    tracing_subscriber::registry()\n      .with(fmt_layer)          // existing human/json fmt output\n      .with(otel_layer)         // new: OTLP span export (feature-gated)\n      .init();\n\n  5. On shutdown: call opentelemetry::global::shutdown_tracer_provider()\n     BEFORE the tokio runtime exits, or in-flight spans are lost.\n     Wire into the existing graceful shutdown path in main.rs.\n\n## Why BatchSpanProcessor\nSimpleSpanProcessor blocks the calling task on every span export \u2014 latency spike on every request. BatchSpanProcessor exports asynchronously with configurable queue size and flush interval.\n\n## Acceptance\n- With features=otel and observability.enabled=true, a test request produces an OTLP export call (observable via mock OTLP server or wiremock)\n- With features=otel and observability.enabled=false, no OTLP connection is attempted\n- cargo test -p stoa-mail passes (OTLP endpoint unreachable must not panic at startup; log warning and continue)",
+  "ephemeral": 0,
+  "id": "stoa-jj165.2",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Wire OTEL tracer provider and subscriber layer in main.rs",
+  "updated_at": "2026-06-26T20:26:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T07:35:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jj165",
+      "id": "46abc58d-4348-51fd-9eb9-0ce7034e0eec",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-02T07:36:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jj165.1",
+      "id": "8010f202-fc83-50a7-a761-e572fcb586af",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

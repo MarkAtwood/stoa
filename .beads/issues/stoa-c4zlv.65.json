@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T17:33:55Z",
+  "compaction_level": 0,
+  "content_hash": "e74e0db9ee612813c2a9c8f02e2ab7ce641f6e618406278237371994b890eb86",
+  "created_at": "2026-05-01T15:21:03Z",
+  "created_by": "Mark Atwood",
+  "description": "relay_client.rs sends EHLO stoa-relay to the downstream SMTP relay. RFC 5321 \u00a74.1.1.1 requires the EHLO domain to be the actual FQDN (or address literal) of the connecting host. Many receiving MTAs validate this and may reject connections or mark them as suspicious when the EHLO domain is not the PTR record for the connecting IP. \"stoa-relay\" is not a valid FQDN and will not resolve.\n\nFix: expose an ehlo_hostname config field in SmtpRelayPeerConfig (or SmtpConfig) and pass it to the relay client. Default to the system hostname if not configured. Use it in the EHLO command.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.65",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "smtp: relay EHLO uses hardcoded \"stoa-relay\" instead of configured FQDN",
+  "updated_at": "2026-05-01T17:33:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:21:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "8eaa5e89-6adf-539c-8949-3ce8c77d9c88",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

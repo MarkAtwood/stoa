@@ -1,0 +1,33 @@
+{
+  "close_reason": "Positive observation \u2014 no action required.",
+  "closed_at": "2026-05-02T21:44:39Z",
+  "compaction_level": 0,
+  "content_hash": "8c7a1f227ebcd3d294d1f28e10f23b59a5a8f548f6f8108ad4cf5b3872b78b55",
+  "created_at": "2026-05-02T20:18:29Z",
+  "created_by": "Mark Atwood",
+  "description": "do_deliver() checks envelope.require_tls && !peer.tls before TCP connect (relay_client.rs:299-305), not just after EHLO. This is defense-in-depth: the pre-connect guard ensures a REQUIRETLS message is never sent even if the EHLO check is bypassed by a future refactor. A contributor might suggest removing the pre-connect check as redundant \u2014 keep both. The pre-connect check is the meaningful guard; the post-EHLO check validates the peer's capability.",
+  "ephemeral": 0,
+  "id": "stoa-owq35.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "REQUIRETLS pre-connect guard before TCP prevents message leakage",
+  "updated_at": "2026-05-02T21:44:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T13:18:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-owq35",
+      "id": "da87f441-c84e-53ba-bf24-ce1bbd3cbc43",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

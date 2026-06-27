@@ -1,0 +1,58 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "MTA-STS DNS TXT lookup implemented; check+clippy clean",
+  "closed_at": "2026-05-02T17:55:27Z",
+  "compaction_level": 0,
+  "content_hash": "b3e51e0dc8b8515e540c181f113f7c2a277284c2b276df0b8a4d6be6f2b58b66",
+  "created_at": "2026-05-02T17:38:03Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement lookup_mta_sts_txt(domain: &str) -> Result<Option<MtaStsTxtRecord>, MtaStsError>. Uses hickory-resolver to query _mta-sts.<domain> TXT record. Parse v=STSv1; id=<policy-id> format. Validate: v must be STSv1, id must be present and \u226432 chars, only one STSv1 record may exist (error if multiple). Return None if no TXT record. Return MtaStsError::DnsTxtInvalid for malformed records. Enforce per RFC 8461 \u00a73.1 validation rules.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MTA-STS DNS TXT record lookup",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T10:39:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.4",
+      "id": "67aec6c1-cb47-544c-859b-be30cd7c38bc",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T10:38:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks",
+      "id": "800e2c35-8152-5304-af45-fe41fde043e5",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-02T10:39:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.1",
+      "id": "8a4e8740-75dd-5970-8e81-0eea6b160f9d",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T10:39:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.3",
+      "id": "930ace75-0b15-5145-bacc-57cba5259459",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

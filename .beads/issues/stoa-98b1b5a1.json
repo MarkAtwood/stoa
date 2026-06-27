@@ -1,0 +1,19 @@
+{
+  "id": "stoa-98b1b5a1",
+  "title": "VerifiedEntry newtype enforces signature verification at type level",
+  "description": "group_log/verify.rs VerifiedEntry is a newtype that can only be constructed via verify_signature() or the cfg(test)-gated new_for_test(). This makes it impossible to pass an unverified LogEntry where a VerifiedEntry is required without going through the verification path. Correct use of Rust's type system for security invariants \u2014 no runtime checks needed at call sites.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:39:11Z",
+  "updated_at": "2026-05-01T04:58:18Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:39:11"
+    }
+  ]
+}

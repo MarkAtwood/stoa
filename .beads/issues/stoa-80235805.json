@@ -1,0 +1,27 @@
+{
+  "id": "stoa-80235805",
+  "title": "Implement GC scheduler and unpin executor",
+  "description": "Implement a periodic GC task (configurable interval, default 24h) that: (1) queries the article store for all CIDs not covered by the pinning policy, (2) calls unpin() for each, (3) logs each unpinned CID with its reason, (4) increments gc_articles_unpinned_total metric. Artifact: transit/src/retention/gc.rs.\n\nAcceptance:\n- GC runs on configured schedule (tokio interval, not cron)\n- Pinned articles are never passed to unpin()\n- GC run duration is logged and exposed as a metric\n- Unit test: insert 5 articles, pin 2, run GC, verify only 3 are unpinned",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:13:23Z",
+  "updated_at": "2026-05-01T04:55:01Z",
+  "closed_at": "2026-04-20T05:04:52Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-334c73a0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:14:06"
+    },
+    {
+      "depends_on_id": "stoa-4c1d2d50",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:13:22"
+    }
+  ]
+}

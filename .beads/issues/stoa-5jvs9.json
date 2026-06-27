@@ -1,0 +1,22 @@
+{
+  "compaction_level": 0,
+  "content_hash": "7450facef654b4bfa8310973edaa1871b1648ebd99a2ef797ead44c686810324",
+  "created_at": "2026-05-05T17:40:49Z",
+  "created_by": "Mark Atwood",
+  "defer_until": "2099-01-01T08:00:00Z",
+  "description": "Replace the ring crate with wolfcrypt-ring-compat, a drop-in ring-API-compatible crate backed by wolfCrypt. This is the FIPS 140-3 path for stoa.\n\n## What wolfcrypt-ring-compat is\n\nLocal copy at ~/WORK/wolfssl-rs/wolfcrypt-ring-compat. Exports lib name 'ring' \u2014 transparent drop-in replacement for briansmith/ring. Downstream code uses 'use ring::...' unchanged. Swap is a Cargo [patch] entry only, no source changes required.\n\nLicense: GPL-3.0-only OR LicenseRef-wolfSSL-commercial\nVersion: 1.16.5 (tracks ring versioning)\nFIPS feature: wolfcrypt-ring-compat/fips activates wolfCrypt FIPS 140-3 validated build (Certificate #4718, active, expires 2029-07-10)\n\n## Migration\n\nWorkspace Cargo.toml patch:\n  [patch.crates-io]\n  ring = { path = \"path/to/wolfcrypt-ring-compat\" }\n\nNon-FIPS build (dev/CI):\n  ring = { ..., features = [\"non-fips\"] }\n\nFIPS build (production):\n  ring = { ..., features = [\"fips\"] }\n\nNo source changes to stoa or to rustls \u2014 ring API is identical.\n\n## Spike goals\n\n1. Verify wolfcrypt-ring-compat at version 1.16.5 is API-compatible with the ring version currently in Cargo.lock\n2. Verify cargo test --workspace passes with the patch applied (non-fips feature first)\n3. Verify FIPS feature builds cleanly (requires wolfSSL FIPS C library installed)\n4. Document any gaps or version mismatches found\n5. Check wolfcrypt-ring-compat publication status \u2014 currently at ~/WORK/wolfssl-rs, docs.rs link suggests it may be published; verify\n\n## IMPORTANT\n\nwolfcrypt-ring-compat MUST NOT coexist with ring in the same dependency tree \u2014 they export the same library name and will collide. The [patch] approach replaces ring globally including in rustls and all transitive dependencies.\n\n## Constraint\n\nstoa-6oce0 (cleanup: remove glob_matches heap alloc, adopt install_ring_provider consistently) should be cancelled or updated \u2014 install_ring_provider centralises ring initialisation but if ring is being replaced entirely that function becomes wolfcrypt initialisation or disappears. Do not clean up ring usage in stoa-6oce0 until this spike resolves the backend question.",
+  "ephemeral": 0,
+  "id": "stoa-5jvs9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "deferred",
+  "timeout_ns": 0,
+  "title": "spike: replace ring with wolfcrypt-ring-compat for FIPS path",
+  "updated_at": "2026-05-05T17:41:57Z"
+}

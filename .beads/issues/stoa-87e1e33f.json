@@ -1,0 +1,19 @@
+{
+  "id": "stoa-87e1e33f",
+  "title": "from_smtp_message: datetime conversion has untested offset edge case",
+  "description": "The received_at conversion in Email::from_smtp_message does string surgery: if the string contains 'T' but does not end with 'Z', it appends 'Z'. This correctly handles a future schema change to store ISO-8601 UTC datetimes, but it silently corrupts any value that contains a non-UTC offset (e.g. '2024-01-01T12:00:00+05:30' becomes '2024-01-01T12:00:00+05:30Z', which is malformed RFC 3339). The fix is either (a) store received_at in the schema as strftime('%Y-%m-%dT%H:%M:%SZ','now') so the format contract is enforced at write time and no branch is needed, or (b) parse with chrono and re-emit, rather than ad-hoc string surgery. There are also zero unit tests for from_smtp_message's datetime path; the test coverage gap means the edge case is invisible.",
+  "status": "deferred",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:01:57Z",
+  "updated_at": "2026-05-01T04:59:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-14057691",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:01:57"
+    }
+  ]
+}

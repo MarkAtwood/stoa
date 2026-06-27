@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T14:11:55Z",
+  "compaction_level": 0,
+  "content_hash": "c417b61dc7589a33ea3160c777ef623012b3efc3a5b1fc8d2236b4b2e7d4a51b",
+  "created_at": "2026-05-03T13:03:30Z",
+  "created_by": "Mark Atwood",
+  "description": "If any thread panics while holding the OPEN_PATHS mutex lock, the mutex becomes poisoned. All subsequent calls to open_paths().lock() will return Err, and the code converts this to LmdbError::Other(\"OPEN_PATHS lock poisoned\"). Since OPEN_PATHS is a process-global OnceLock<Mutex<...>>, a single panic during an LMDB open will permanently prevent any future LMDB open in the process. The PathGuard::drop also silently ignores a poisoned mutex (if let Ok(mut set) = open_paths().lock()), meaning the path is never removed from the set (if it was even added before the panic). This could leave the process unable to open LMDB at all after a panic recovery attempt. Consider using a RwLock or catching the poison error more robustly.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.25",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "lmdb: OPEN_PATHS mutex poisoning causes all subsequent opens to fail permanently",
+  "updated_at": "2026-05-03T14:11:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:03:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "6319832a-3775-515b-a273-a6c15356183a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

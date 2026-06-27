@@ -1,0 +1,19 @@
+{
+  "id": "stoa-37adef81",
+  "title": "Clone not derived on CredentialStore",
+  "description": "Clone is intentionally not derived on CredentialStore. The comment explains why: accidental copies waste memory (bcrypt hashes + dummy hash) and would complicate future zeroize-on-drop work. The sharing pattern (Arc<CredentialStore>) is the right approach for a type that is constructed once and used across many sessions. A future contributor might add #[derive(Clone)] without reading the comment. The comment is present and should be preserved.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T18:58:35Z",
+  "updated_at": "2026-05-01T04:58:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dcaa145e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 11:58:35"
+    }
+  ]
+}

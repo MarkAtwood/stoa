@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T16:11:52Z",
+  "compaction_level": 0,
+  "content_hash": "749d150a7fe26da2506f0e175968ee123f2c65ab12b0932c45474ea5ef82a082",
+  "created_at": "2026-05-05T15:55:15Z",
+  "created_by": "Mark Atwood",
+  "description": "session.rs:144-146 comment says 'AUTH PLAIN is only advertised and accepted when is_tls = true' \u2014 stale after STARTTLS addition. Now AUTH is also advertised when tls_acceptor.is_some() (pre-TLS-upgrade) and when is_submission=true. Minor readability P3.",
+  "ephemeral": 0,
+  "id": "stoa-f8qts.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "run_session docstring still says TLS=true required for AUTH",
+  "updated_at": "2026-05-05T16:11:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-05T08:55:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-f8qts",
+      "id": "f3530d0d-fa82-5912-a21f-68e2a3fe8f43",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

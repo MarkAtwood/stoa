@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T13:21:16Z",
+  "compaction_level": 0,
+  "content_hash": "07ec2d6acfb69b0a1a66e9aafeff1334af24e4a4535328cbfa4944e6f9013d77",
+  "created_at": "2026-05-03T13:02:03Z",
+  "created_by": "Mark Atwood",
+  "description": "In decoding_key_and_alg, an EC JWK with no alg field always falls through to Algorithm::ES256 (the Some(\"ES256\") | None arm). If the JWK contains a P-384 key (crv=P-384) but no alg field, the code uses ES256 to decode a JWT that was signed with ES384 \u2014 verification will fail. RFC 7518 \u00a73.1 specifies that the algorithm should be inferred from the curve (P-256\u2192ES256, P-384\u2192ES384). The Jwk struct does not parse the crv field, so curve-based defaulting is impossible without adding crv. Mitigation: add crv to Jwk, default based on curve, or reject EC keys with no alg field rather than blindly defaulting to ES256.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "oidc: EC JWK defaults to ES256 when alg absent, regardless of curve",
+  "updated_at": "2026-05-03T13:21:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:02:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "2c4364fd-6ade-5a2e-84f6-6e2df384b819",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

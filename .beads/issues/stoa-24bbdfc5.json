@@ -1,0 +1,20 @@
+{
+  "id": "stoa-24bbdfc5",
+  "title": "#[non_exhaustive] on SmtpRelayError is correct API hygiene",
+  "description": "Adding new SmtpRelayError variants (e.g. TlsFailure, Timeout) without a breaking change requires #[non_exhaustive]. It was correctly added before the enum has more than a handful of callers. A contributor suggesting it be removed to avoid 'verbose match arms' would be wrong \u2014 the alternative is a breaking API change every time the retry policy needs a new error class.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:00:06Z",
+  "updated_at": "2026-05-01T04:51:42Z",
+  "closed_at": "2026-05-01T03:03:45Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3c6890ad",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:00:05"
+    }
+  ]
+}

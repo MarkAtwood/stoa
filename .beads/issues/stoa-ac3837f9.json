@@ -1,0 +1,28 @@
+{
+  "id": "stoa-ac3837f9",
+  "title": "Spike: choose IPLD codec for article root node (DAG-CBOR vs DAG-JSON)",
+  "description": "Choose the IPLD codec for the usenet-ipfs article root node. The two candidates are DAG-CBOR (0x71) and DAG-JSON (0x0129). Different codecs produce different CIDs for the same logical content, so this choice is permanent once articles are written to IPFS and referenced in group logs.\n\nKey constraint: Corundum uses DAG-JSON for its MVP content objects. Corundum plans to add an rfc822+mime activity type whose content reference CID points at a usenet-ipfs article root node. If usenet-ipfs uses DAG-CBOR and Corundum uses DAG-JSON, the CIDs are different and Corundum cannot reference the canonical usenet-ipfs article CID directly \u2014 it would have to wrap or re-encode.\n\nEvaluate: (1) DAG-CBOR: more compact, standard for storage-optimized IPLD, but different CID from DAG-JSON. (2) DAG-JSON: human-readable, same codec as Corundum MVP, enables direct CID cross-referencing. (3) Whether Corundum's future codec upgrade path matters here.\n\nArtifact: decision recorded in issue notes; CLAUDE.md updated; l62.2.9.1 (schema) and l62.2.9.8 (root node builder) updated to reflect chosen codec.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T02:10:45Z",
+  "updated_at": "2026-05-01T04:55:33Z",
+  "closed_at": "2026-04-20T02:35:05Z",
+  "notes": "DECISION: DAG-CBOR (codec 0x71). Rationale: (1) More compact than DAG-JSON \u2014 better for storage and bandwidth. (2) Standard for IPFS/IPLD storage \u2014 most IPFS implementations default to DAG-CBOR. (3) Corundum can reference DAG-CBOR CIDs from its DAG-JSON activities \u2014 the codec of referenced content need not match the referencing document. (4) Corundum's future upgrade path from DAG-JSON to DAG-CBOR would align both systems. Corundum consultation: Corundum stores content references as CID bytes in its own DAG-JSON; the referenced content codec is transparent to the referencing layer. Implementation: serde_ipld_dagcbor 0.6. IRREVERSIBLE once articles are written to IPFS. CLAUDE.md updated.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-88506f2e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 19:10:45"
+    },
+    {
+      "depends_on_id": "stoa-d5eea38d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 19:10:50"
+    }
+  ]
+}

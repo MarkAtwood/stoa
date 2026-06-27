@@ -1,0 +1,27 @@
+{
+  "id": "stoa-fa4817b2",
+  "title": "Implement XHDR command (RFC 2980 compat)",
+  "description": "XHDR is the pre-standard predecessor to HDR, still used by some older clients and libraries. Semantics are nearly identical to HDR; the main difference is the response code (221 vs 225) and that XHDR does not appear in CAPABILITIES. Implementing XHDR alongside HDR costs very little and ensures compatibility with clients that do not use CAPABILITIES to probe. Artifact: XHDR handler in usenet-ipfs-reader delegating to the HDR implementation.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T01:25:51Z",
+  "updated_at": "2026-05-01T04:55:12Z",
+  "closed_at": "2026-04-20T04:07:28Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-987f87c2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 18:25:51"
+    },
+    {
+      "depends_on_id": "stoa-ab09f775",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 18:26:10"
+    }
+  ]
+}

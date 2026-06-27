@@ -1,0 +1,20 @@
+{
+  "id": "stoa-a0d03dae",
+  "title": "from_smtp_message: x-stoa-cid set to smtp: id, not a CID",
+  "description": "crates/mail/src/email/types.rs Email::from_smtp_message (around line 189): the ipfs_cid field is set to Arc::clone(&id) where id = smtp_id (e.g. 'smtp:42'). The field serializes as 'x-stoa-cid' in JSON and is documented as 'IPFS root CID string (DAG-CBOR, codec 0x71)'. Setting it to a synthetic smtp: identifier is incorrect: the value is not a valid CID, clients that attempt to resolve it via IPFS will fail, and the field semantics are violated. For smtp-delivered messages there is no IPFS CID; the field should be absent (Option<Arc<str>> with skip_serializing_if) or set to None when the message was not stored in IPFS. The blob_id field having the same value is a separate concern (out of scope for this bug), but x-stoa-cid specifically claims to be a CID and must not carry a non-CID value.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:01:52Z",
+  "updated_at": "2026-05-01T04:59:36Z",
+  "closed_at": "2026-04-30T05:34:25Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-14057691",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:01:51"
+    }
+  ]
+}

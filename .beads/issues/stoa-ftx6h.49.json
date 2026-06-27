@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T13:17:01Z",
+  "compaction_level": 0,
+  "content_hash": "3b946fcec5bf2424a7a8a97d3fc8d3114923274cdd581db76ae5eaa731c64131",
+  "created_at": "2026-05-03T13:04:39Z",
+  "created_by": "Mark Atwood",
+  "description": "In audit.rs flush_buffer(), if individual INSERT statements within the transaction succeed but the final tx.commit() fails, the code increments AUDIT_EVENTS_DROPPED by buffer.len() (all events). However, when the commit fails the whole transaction is rolled back, so yes all events are lost. The comment says this is intentional. The actual bug is the opposite: if some per-chunk INSERTs fail but others succeed, the failed inserts are silently not counted \u2014 only the commit path counts. Specifically, the inner loop does 'if let Err(e) = q.execute(...) { tracing::error\\!(...) }' without incrementing the dropped counter, so insert failures within the transaction are not counted. The dropped counter is only incremented on begin() failure or commit() failure, not on individual INSERT failures.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.49",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "core: audit flush_buffer counts all buffered events as dropped on tx commit failure, even already-inserted rows",
+  "updated_at": "2026-05-03T13:17:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:04:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "f23ceb5b-4b16-5fb8-8a8d-0176c9055ec5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

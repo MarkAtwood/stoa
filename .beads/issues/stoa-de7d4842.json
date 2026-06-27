@@ -1,0 +1,21 @@
+{
+  "id": "stoa-de7d4842",
+  "title": "Add rust-ipfs = 0.15 dependency to reader Cargo.toml",
+  "description": "What: Add rust-ipfs 0.15 to crates/reader/Cargo.toml.\nAlgorithm:\n1. Open crates/reader/Cargo.toml\n2. Under [dependencies], add: rust-ipfs = \"0.15\"\n3. Run cargo build -p usenet-ipfs-reader to verify it compiles\n4. Run cargo test -p usenet-ipfs-reader to verify tests still pass\nDefensive: no feature flags unless required; additive only.\nAcceptance: cargo build clean, cargo test clean.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T00:32:00Z",
+  "updated_at": "2026-05-01T04:59:21Z",
+  "closed_at": "2026-04-21T00:36:42Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-53e41c25",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:32:00"
+    }
+  ]
+}

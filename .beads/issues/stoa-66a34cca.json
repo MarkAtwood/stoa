@@ -1,0 +1,19 @@
+{
+  "id": "stoa-66a34cca",
+  "title": "check() swallows spawn_blocking JoinError silently \u2014 no log, no comment",
+  "description": "CredentialStore::check() returns false for both wrong-password and for a JoinError (i.e. bcrypt::verify panicking in the thread pool). A JoinError is a programmer error (the verifier panicked), not an auth failure. The outer .unwrap_or(false) silently treats it as 'auth failed', with no log line and no comment. A future maintainer debugging spurious auth rejections has no signal. Should add a comment or log at warn level on JoinError.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T18:46:42Z",
+  "updated_at": "2026-05-01T04:54:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ae2d63c7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 11:46:41"
+    }
+  ]
+}

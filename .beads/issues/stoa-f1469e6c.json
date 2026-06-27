@@ -1,0 +1,20 @@
+{
+  "id": "stoa-f1469e6c",
+  "title": "SEC: security review summary \u2014 bt5.2 bt5.4 bt5.8 bt5.9 bt5.10 clear",
+  "description": "Security review of P0 bug fixes. Items reviewed: bt5.2 (transit/config.rs admin config validation): CLEAR. check_admin_config correctly blocks non-loopback without bearer_token. start_admin_server provides independent runtime enforcement. No bypass path found. bt5.4 (main.rs node_id auto-generation): CLEAR. rand_core::OsRng used correctly. std::fs::write() for 8 bytes is effectively atomic on Linux. TOCTOU window is startup-only, not exploitable in practice. bt5.8 (mail/server.rs Bearer/Basic auth): CLEAR. Malformed base64url Bearer correctly falls through to Basic. Syntactically valid Bearer that fails token verification returns 401 without downgrade to Basic. Dev mode (is_dev_mode() true) bypasses auth entirely but inserts no fake identity; handlers must use Option<Extension<AuthenticatedUser>> correctly \u2014 they do. No timing oracle created. bt5.9 (transit/admin.rs SQL): CLEAR. now_ms bound as i64 via sqlx parameterized query. No SQL injection. Rate limiter HashMap is bounded per-IP with 1-hour eviction. bt5.10 (msgid normalization): CLEAR. Lowercasing the msgid_map DB key does not affect any security property. Signatures are over DAG-CBOR content bytes, not over the map key. Original case is preserved in the stored article. Normalization prevents duplicate-ID bypass via case variation, which is a security improvement. One new finding filed as c3z.2 (P1): sieve_admin allow_non_loopback=true without bearer_token starts unauthenticated. One P2 filed as c3z.4: Sieve compile error not cached creates repeated compile calls on every delivery.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T13:50:59Z",
+  "updated_at": "2026-05-01T04:56:09Z",
+  "closed_at": "2026-04-22T14:10:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b816309",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 06:50:58"
+    }
+  ]
+}

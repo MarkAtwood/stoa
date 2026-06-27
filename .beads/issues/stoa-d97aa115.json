@@ -1,0 +1,21 @@
+{
+  "id": "stoa-d97aa115",
+  "title": "/reload returns {reloaded:true} without reloading anything",
+  "description": "Both reader/src/admin.rs:146 and transit/src/admin.rs:388 return {\"reloaded\":true} unconditionally. No config file is re-read, no state is updated. stoa-ctl reload prints 'Reloaded.' An operator who edits config and calls reload to apply it will get silent non-action. This will generate support reports. Either wire up actual reload (SIGHUP + config re-read) or return 501 Not Implemented so the operator knows to restart the daemon.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T16:34:03Z",
+  "updated_at": "2026-05-01T04:53:57Z",
+  "closed_at": "2026-04-24T16:52:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3840252d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-24 09:34:02"
+    }
+  ]
+}

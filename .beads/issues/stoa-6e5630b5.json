@@ -1,0 +1,13 @@
+{
+  "id": "stoa-6e5630b5",
+  "title": "PipelineCtx lifetime forces callers to keep trusted_keys alive",
+  "description": "In crates/transit/src/peering/pipeline.rs, PipelineCtx holds a reference to trusted_keys which creates a lifetime constraint requiring callers to keep the underlying Vec alive for the entire pipeline lifetime. This prevents storing PipelineCtx in an Arc or moving it across spawn boundaries without extra lifetime gymnastics. Own the data (Arc<Vec<VerifyingKey>>) instead of borrowing.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:30:57Z",
+  "updated_at": "2026-05-01T04:52:05Z",
+  "closed_at": "2026-04-28T20:45:25Z"
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "healthy() gate in RoutingMailer, outbound_provider_healthy{provider} Prometheus gauge, start_health_poll() background task. All 601 tests pass.",
+  "closed_at": "2026-05-05T01:17:54Z",
+  "compaction_level": 0,
+  "content_hash": "54ad2d3db7437235bc5dd9200ca760505415087a99d19803cc475c2073a2443d",
+  "created_at": "2026-05-05T00:40:28Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why this issue exists\n\nPhase 4 of epic stoa-y0p2j. Add a background health-check task that periodically probes each configured OutboundMailer provider and updates its healthy() state. RoutingMailer skips unhealthy providers without attempting delivery.\n\n## What needs to be done\n\n1. Add healthy() -> bool to OutboundMailer trait (default impl returns true)\n2. Add background task that periodically calls a health probe (noop for SMTP, provider health endpoint for HTTP APIs)\n3. SmtpRelayMailer: delegates healthy() to PeerHealthState::has_healthy_peer()\n4. Add Prometheus gauge: outbound_provider_healthy{provider} (0.0 or 1.0)\n5. RoutingMailer.send() skips providers where healthy() = false before attempting\n6. Tests: unhealthy provider is skipped; gauge is set correctly\n\n## Acceptance criteria\n\n- healthy() gate prevents delivery attempts to down providers\n- outbound_provider_healthy{provider} gauge exported\n- Background task interval configurable\n- cargo test passes",
+  "ephemeral": 0,
+  "id": "stoa-8fod3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Phase 4: provider health checking background task",
+  "updated_at": "2026-05-05T01:17:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T17:40:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-6pj10",
+      "id": "2d2b69e8-4e6d-584c-a103-da179c877bb5",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-0838d646",
+  "title": "note_to_article returns infallible Ok \u2014 error type is misleading",
+  "description": "note_to_article returns Result<_, String> but never returns Err. All missing fields fall back to defaults (empty string, placeholder values). The function signature implies failure is possible; callers pattern-match on Err, which dead code. Either the function should return the tuple directly (removing Result), or it should validate mandatory fields and return Err on failure (which would also fix the missing Date: header bug). As written, the caller in inbox.rs has a match arm that warns 'failed to translate Create{Note}' that can never fire.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T17:47:24Z",
+  "updated_at": "2026-05-01T04:58:43Z",
+  "closed_at": "2026-04-28T20:22:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-08d918a1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 10:47:24"
+    }
+  ]
+}

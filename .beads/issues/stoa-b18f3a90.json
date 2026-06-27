@@ -1,0 +1,11 @@
+{
+  "id": "stoa-b18f3a90",
+  "title": "feat(smtp): wire mail-auth application-level DNS cache",
+  "description": "## Why\n\nmail-auth 0.8 has a `ResolverCache` trait for caching parsed SPF/DKIM/DMARC TXT records at the application level. Stoa currently uses `Parameters::new()` which defaults to `NoCache` \u2014 every verification re-parses raw DNS TXT bytes into structured SPF policies and DKIM public keys even when hickory-resolver already has the raw response cached. This wastes CPU on repeated parses of the same records.\n\nThe fix is purely additive: wire a `DashMap`-backed (or `std::sync::Mutex<HashMap>`-backed) cache into the `SpfParameters` and `DkimParameters` / `DmarcParameters` calls in `crates/smtp/src/auth.rs`. mail-auth already defines the interface; stoa just needs to construct a cache and pass it via the builder methods (`.with_txt_cache()`, `.with_ipv4_cache()`, etc.).\n\n## What\n\n- Add a `DnsCache` struct in `crates/smtp/src/auth.rs` (or a new `crates/smtp/src/dns_cache.rs`) implementing `ResolverCache<Box<str>, Txt>` and the other required types.\n- Cache TTL: use the `valid_until: Instant` argument mail-auth passes to `insert()` \u2014 evict on read when expired.\n- Wire the cache into `verify_inbound`: pass `.with_txt_cache(&cache)` to `SpfParameters`, `DkimParameters`, and `DmarcParameters`.\n- Cache instance: created once at startup, stored in `Arc<DnsCache>`, cloned into each session (same pattern as `MessageAuthenticator`).\n- No external crate required beyond `dashmap` (already in workspace) or stdlib `Mutex<HashMap>`.\n\n## What stays the same\n\n- Per-connection concurrency model unchanged.\n- hickory-resolver DNS-level cache unchanged.\n- No config knob needed \u2014 the cache is always on when auth is enabled.\n\n## Acceptance criteria\n\n- `verify_inbound` passes a populated cache to all three parameter builders.\n- Cache evicts expired entries on read (respects `valid_until`).\n- Existing SPF/DKIM/DMARC tests still pass.\n- cargo fmt + clippy -D warnings + cargo test --workspace all pass clean.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:04:35Z",
+  "updated_at": "2026-05-01T05:00:49Z"
+}

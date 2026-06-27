@@ -1,0 +1,20 @@
+{
+  "id": "stoa-29e0930f",
+  "title": "XCID exposes CRDT log internals, violates Hard Design Invariant 1",
+  "description": "session.rs implements XCID and advertises it in CAPABILITIES. Hard Design Invariant 1 prohibits extensions that expose CRDT log internals. LogEntry returned by XCID contains hlc_timestamp, article_cid, operator_signature, and parent_cids. If trusted_peers is empty any connected peer can issue XCID queries.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:59:28Z",
+  "updated_at": "2026-05-01T04:53:35Z",
+  "closed_at": "2026-04-27T08:23:21Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-35ec26bb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 22:59:27"
+    }
+  ]
+}

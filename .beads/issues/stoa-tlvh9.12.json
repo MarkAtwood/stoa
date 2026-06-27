@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "e45ff7ff1195a464052910cc9286ccad20fd454c68f30f24d6894c94dd903986",
+  "created_at": "2026-05-04T03:19:17Z",
+  "created_by": "Mark Atwood",
+  "description": "rnews_main.rs:193\u2013196 and rnews_main.rs:267\u2013270 contain identical 4-line blocks:\n\n    let now_ms = std::time::SystemTime::now()\n        .duration_since(std::time::UNIX_EPOCH)\n        .unwrap_or_default()\n        .as_millis() as u64;\n\nOne occurrence seeds the HLC at startup; the other timestamps each accepted article. Both could call a one-liner helper, e.g.:\n\n    fn wall_clock_ms() -> u64 {\n        std::time::SystemTime::now()\n            .duration_since(std::time::UNIX_EPOCH)\n            .unwrap_or_default()\n            .as_millis() as u64\n    }\n\nThis is a minor mechanical issue but the duplication does mean a future change (e.g. using a monotonic source) must be made in two places.",
+  "ephemeral": 0,
+  "id": "stoa-tlvh9.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "now_ms wall-clock snippet duplicated in rnews_main",
+  "updated_at": "2026-05-04T03:19:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T20:19:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-tlvh9",
+      "id": "b992272d-6405-5759-9dd3-cf395f3f0e40",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

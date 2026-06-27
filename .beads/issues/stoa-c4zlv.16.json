@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T18:26:39Z",
+  "compaction_level": 0,
+  "content_hash": "f1063971b503ffbef53e29f4970cd5f643e7a34c3f380ce4538d8b5460939e22",
+  "created_at": "2026-05-01T15:18:38Z",
+  "created_by": "Mark Atwood",
+  "description": "In inbound.rs decode_msgid_from_url, only six percent-encoded sequences are replaced: %3C, %3c, %3E, %3e, %40, %2F, %20. A message-ID containing other percent-encodable characters (e.g. brackets, plus signs, or characters that percent_encode_msgid does not encode but that survive URL round-tripping via other paths) would be reconstructed incorrectly. The outbound percent_encode_msgid only encodes <, >, @, and space, so the decode covers the encode inverse, but it uses case-sensitive string replacement (checks %3C and %3c separately) and is fragile to any future additions. A proper percent-decode using a standard URL-decode routine would be more robust and maintainable.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "decode_msgid_from_url: incomplete percent-decode, only handles 6 sequences",
+  "updated_at": "2026-05-01T18:26:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:18:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "39b5c990-43e5-54b8-b7da-a650d3913590",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "997690da5ad0b3f5ec7a33ec469bd2a5a8fdd4b7fa3be2354233d4c310353564",
+  "created_at": "2026-06-13T06:36:15Z",
+  "created_by": "Mark Atwood",
+  "description": "Email/parse is registered but returns unknownMethod. Allows clients to parse a blob as an RFC 5322 message without storing it. RFC 8621 section 5.6.",
+  "ephemeral": 0,
+  "id": "stoa-bjere",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Implement Email/parse method",
+  "updated_at": "2026-06-13T06:36:15Z"
+}

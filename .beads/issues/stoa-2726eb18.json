@@ -1,0 +1,12 @@
+{
+  "id": "stoa-2726eb18",
+  "title": "core: concurrent group-log appends lose one entry from tip set",
+  "description": "## Problem\ngroup_log/append.rs: the has_entry check and set_tips call are not atomic. Two concurrent IHAVE sessions that both ingest different articles pointing to the same parent tip will both pass the has_entry and parent-existence checks, both call insert_entry (succeeds for different IDs), but then both call set_tips({my_id}) sequentially \u2014 the second wins and the first entry ID is permanently dropped from the tip set. The orphaned entry is in storage but unreachable during CRDT reconciliation.\n\n## Acceptance criteria\n- set_tips must be replaced with an atomic compare-and-swap (set_tips only if tips == expected), or a write lock must be held from has_entry through set_tips\n- A concurrent-append integration test must assert that both entries appear in list_tips after concurrent appends from the same parent",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T18:57:44Z",
+  "updated_at": "2026-05-01T04:56:40Z",
+  "closed_at": "2026-04-24T19:39:36Z"
+}

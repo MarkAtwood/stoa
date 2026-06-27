@@ -1,0 +1,20 @@
+{
+  "id": "stoa-fa70d533",
+  "title": "known_groups Vec scanned O(n) on every GROUP and LIST command",
+  "description": "In session/dispatch.rs, ctx.known_groups is a Vec<GroupInfo> searched with .iter().any() on every GROUP and LIST command. With thousands of groups this is O(n) per command. A HashSet or HashMap would give O(1) average lookup. The Vec also cannot enforce uniqueness.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:26:48Z",
+  "updated_at": "2026-05-01T04:55:47Z",
+  "closed_at": "2026-04-28T20:21:48Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:26:48"
+    }
+  ]
+}

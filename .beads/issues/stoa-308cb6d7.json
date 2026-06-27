@@ -1,0 +1,20 @@
+{
+  "id": "stoa-308cb6d7",
+  "title": "RADOS backend: config, startup cluster check, pool verification",
+  "description": "Add [backend.rados] config: config_file, pool, namespace, keyring. Startup: connect to cluster, verify pool exists and client has rw capability. Fail fast with cluster status in error message. Disable IPNS. Blocked on: stoa-f92cf148.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:43:28Z",
+  "updated_at": "2026-05-01T04:56:51Z",
+  "closed_at": "2026-04-28T12:22:43Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-f92cf148",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:46:42"
+    }
+  ]
+}

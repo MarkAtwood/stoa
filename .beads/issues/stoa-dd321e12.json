@@ -1,0 +1,19 @@
+{
+  "id": "stoa-dd321e12",
+  "title": "Clarify user_exists API endpoint naming",
+  "description": "The sieve_admin.rs API accepts a {username} path parameter (e.g., GET /admin/sieve/{username}) but only ever accepts '_global'. The function user_exists() (lines 333-339) validates this and rejects all other usernames with 404. However, there's no explanation for why the API surface looks like it supports multiple users when it doesn't. Add a comment explaining that the path parameter name is a legacy artifact or clarify whether per-user Sieve management is intentionally deferred to a future version.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T07:06:25Z",
+  "updated_at": "2026-05-01T04:54:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-17ee367f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 00:06:25"
+    }
+  ]
+}

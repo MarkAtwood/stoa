@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "55efa5971edfde0fa1a0ff9e2e3e1f904cc02c5c92f68a279d55080eebea8335",
+  "created_at": "2026-05-03T13:04:08Z",
+  "created_by": "Mark Atwood",
+  "description": "str_matches_regex_pat and str_matches_glob_captures use (String, bool) as the cache key in the thread-local LruCache. On every call, cache.get(&key) requires cloning the key string to construct the lookup value (since HashMap requires ownership on get, or the key must implement Borrow -- LruCache::get takes a reference so this may not clone, but cache.put(key.clone(), re) always clones). The regex pattern string can be hundreds of bytes for complex glob patterns. A small string-interning layer or using a hash of the pattern as the key would reduce allocations on the hot path. Impact: every header :regex or :matches test in a hot mail filter loop allocates and drops a String.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.31",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "sieve: regex cache key includes full anchored pattern string; key clones on every hit",
+  "updated_at": "2026-05-03T13:04:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:04:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "0be24285-3ec7-5b51-af4f-296067626d06",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

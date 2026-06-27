@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T21:22:23Z",
+  "compaction_level": 0,
+  "content_hash": "3ab5d9d456229d16175f70f04c469de12bfca02509d05ec642653cab5024abaa",
+  "created_at": "2026-05-02T21:17:42Z",
+  "created_by": "Mark Atwood",
+  "description": "mta_sts_error.rs defines TlsRequiredNotAdvertised and TlsCertInvalid(String) but neither is ever constructed. relay_client.rs returns SmtpRelayError::Permanent strings for REQUIRETLS failures; cert failures return SmtpRelayError::TlsHandshake. Dead variants mislead readers about which error paths are live and invite incorrect future usage (e.g. someone wiring them to the wrong handler).",
+  "ephemeral": 0,
+  "id": "stoa-5yi4k.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MtaStsError::TlsRequiredNotAdvertised and TlsCertInvalid are dead variants",
+  "updated_at": "2026-05-02T21:22:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:17:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-5yi4k",
+      "id": "59e25ae6-420e-5480-b474-fa4332e53ffe",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

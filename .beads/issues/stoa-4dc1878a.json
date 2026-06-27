@@ -1,0 +1,21 @@
+{
+  "id": "stoa-4dc1878a",
+  "title": "CredentialStoreError missing #[non_exhaustive] \u2014 adding a variant is breaking",
+  "description": "stoa-auth is a library crate; CredentialStoreError is pub and re-exported in lib.rs. Without #[non_exhaustive], adding any future variant (e.g. PermissionDenied, TooLarge) is a semver-breaking change for callers that exhaustively match on the error. reader::ConfigError and imap::ConfigError both have #[non_exhaustive]; CredentialStoreError should too.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T18:46:08Z",
+  "updated_at": "2026-05-01T04:52:56Z",
+  "closed_at": "2026-04-30T18:52:57Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ae2d63c7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 11:46:08"
+    }
+  ]
+}

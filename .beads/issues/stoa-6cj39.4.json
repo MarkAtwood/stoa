@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "e85aafb29c55a8f7af2a12cf261a4218a5c357cc3bddbb0271a87e8bab57c4bc",
+  "created_at": "2026-05-02T15:28:14Z",
+  "created_by": "Mark Atwood",
+  "description": "The messages table (after migration 0012) has no user_id column. Per-user DEK encryption of message content requires knowing which user owns each message, so we know which DEK to use. Re-add user_id.\n\n## Background\n  Migration 0012 dropped user_id from messages to make the table 'shared'.\n  For v1 single-user this was harmless (all messages belong to user 1).\n  For encryption and multi-user readiness, we need user_id back.\n\n## Migration\n\n  ALTER TABLE messages ADD COLUMN user_id BIGINT NOT NULL DEFAULT 1\n      REFERENCES users(id);\n  CREATE INDEX idx_messages_user ON messages (user_id);\n\n  Existing rows get user_id = 1 (the singleton user in v1 deployments).\n  The DEFAULT 1 is a migration convenience only; application code must\n  always supply the correct user_id explicitly.\n\n## Code changes\n  All INSERT paths into messages must supply user_id from the authenticated\n  caller context. Search for INSERT INTO messages in:\n    - crates/mail/src/smtp/ (inbound delivery path)\n    - crates/mail/src/email/ (JMAP Email/set, Email/import)\n  Each must be updated to pass the user_id.\n\n## Acceptance\n  - Migration runs on both SQLite and Postgres\n  - All INSERT paths supply an explicit user_id (no reliance on DEFAULT 1 at runtime)\n  - Existing tests pass (they use user_id = 1 which matches DEFAULT 1 for existing rows)",
+  "ephemeral": 0,
+  "id": "stoa-6cj39.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Add user_id to messages table (prerequisite for per-user DEK on email)",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T08:28:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-6cj39",
+      "id": "bcc01a22-a057-58b3-b8e0-4c39ef32dcbd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

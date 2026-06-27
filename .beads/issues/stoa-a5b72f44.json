@@ -1,0 +1,19 @@
+{
+  "id": "stoa-a5b72f44",
+  "title": "StorageError::Database(String) erases sqlx error type information",
+  "description": "StorageError::Database(String) in error.rs stringifies sqlx::Error on every DB failure. This throws away the error category (connection failure, constraint violation, timeout, etc.) making callers unable to distinguish recoverable from fatal storage errors. Replace with StorageError::Database(sqlx::Error) or at minimum StorageError::Database { message: String, retryable: bool }. The stringly-typed variant also makes automated error classification for metrics impossible.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:37:00Z",
+  "updated_at": "2026-05-01T04:52:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:37:00"
+    }
+  ]
+}

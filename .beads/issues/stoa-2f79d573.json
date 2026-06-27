@@ -1,0 +1,19 @@
+{
+  "id": "stoa-2f79d573",
+  "title": "tmp file deletion (not quarantine) is semantically correct",
+  "description": "cleanup_tmp_files deletes .msg.tmp and .env.tmp files rather than moving them to dead/. This is semantically correct: a .tmp file represents an in-progress atomic write that never completed the rename step, so no committed record ever existed. There is no data to recover. A future contributor might suggest 'why not move to dead/ for operator inspection' \u2014 the answer is that there is nothing useful in a partial write: the content was never committed, and moving it to dead/ would pollute the dead/ queue with unrecoverable artifacts. The doc comment in the source explains this correctly.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:57:26Z",
+  "updated_at": "2026-05-01T04:58:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-18bf2fce",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:57:25"
+    }
+  ]
+}

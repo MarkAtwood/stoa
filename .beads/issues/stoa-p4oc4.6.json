@@ -1,0 +1,80 @@
+{
+  "acceptance_criteria": "cargo test -p stoa-transit --test dns_auth_cache_e2e; all 8 tests pass",
+  "compaction_level": 0,
+  "content_hash": "74f11fa8c94fd51cdea744365c4b938d24abb9a9dd229dc45c0a157afed7e92e",
+  "created_at": "2026-05-04T06:00:23Z",
+  "created_by": "Mark Atwood",
+  "description": "Integration tests covering all four evidence types.\n\nFile: new crates/transit/tests/dns_auth_cache_e2e.rs\n\nTests:\n1. test_dkim_key_cached_at_ingest \u2014 DKIM-Signature \u2192 active row + CID blob\n2. test_dkim_key_deduplicates \u2014 second call updates last_seen_ms, no duplicate CID\n3. test_dkim_key_tombstone_on_rotation \u2014 NODATA \u2192 existing row flipped to 'rotated'\n4. test_dkim_key_revoked_empty_p \u2014 empty p= \u2192 key_status='revoked', key_bytes=NULL\n5. test_spf_record_cached \u2014 article From: alice@example.com, DNS returns v=spf1 include:... \u2192 active SPF row + CID\n6. test_spf_tombstone \u2014 previously cached SPF, DNS returns NODATA \u2192 status='rotated'\n7. test_dmarc_record_cached \u2014 _dmarc.example.com TXT \u2192 active DMARC row, policy field set\n8. test_arc_selectors_cached \u2014 ARC-Message-Signature header \u2192 evidence_type='arc' row\n\nOracle: hand-constructed TXT strings; known base64 test vectors for p= decoding.\nInfrastructure: temp SQLite pool + run_migrations; MemIpfsStore; mock DNS.",
+  "ephemeral": 0,
+  "id": "stoa-p4oc4.6",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "E2E tests: DKIM, SPF, DMARC cache lifecycle (hit, dedup, tombstone, revoke)",
+  "updated_at": "2026-06-26T20:26:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T23:00:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p4oc4.1",
+      "id": "0f917cd6-8ac8-59c9-b594-ccbbb1834388",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-03T23:00:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p4oc4",
+      "id": "137a8422-fc1c-58f1-a15d-4b6a09aace67",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-03T23:00:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p4oc4.2",
+      "id": "4480c872-ed1f-5322-bbed-08ac46de63b8",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-03T23:00:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p4oc4.3",
+      "id": "4c86d412-33a0-5968-911e-365c9dcc9394",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-03T23:00:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p4oc4.4",
+      "id": "564ac2df-2b8a-514e-8d7f-346e9b681561",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-03T23:10:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p4oc4.9",
+      "id": "877c3379-c241-55eb-a60d-9a5d2e8ba6c4",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-03T23:00:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p4oc4.5",
+      "id": "bbf2d0cd-5c0f-572d-97bc-155ca1609c16",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

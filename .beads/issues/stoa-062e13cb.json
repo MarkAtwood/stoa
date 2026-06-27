@@ -1,0 +1,13 @@
+{
+  "id": "stoa-062e13cb",
+  "title": "Review round 1: 58r DID author verification",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T04:58:21Z",
+  "updated_at": "2026-05-01T04:54:20Z",
+  "closed_at": "2026-04-23T07:06:47Z",
+  "notes": "SEC1 review complete. Two risks filed. Verdict: the folded-header bug (bg9.9) is the only genuine correctness risk \u2014 strip_did_sig_header and extract_did_sig both fail silently when X-Usenet-IPFS-DID-Sig is RFC 5322-folded, which any standard MTA may do given the header length. Missing Python version in test vector comment (bg9.12) is low-probability but trivial to fix. The other three checklist items are clean: did:key-only is clearly documented with an explicit UnsupportedMethod error variant and docstring excluding did:web; NULL did_sig_valid from the ALTER TABLE migration is correctly handled as Option<i64>/Option<bool> throughout with no code path that assumes non-NULL; bs58 version requirement '0.4' is a caret range capped at <0.5.0 and the lock file confirms 0.4.0 is resolved, no breaking update risk.\nConfidence: 85% chance no additional P0 bugs remain in the two did_* files specifically. The three confirmed P0s (bg9.8, bg9.11, bg9.14) share a root cause: both extract_did_sig (did_passthrough.rs) and strip_did_sig_header (did_verify.rs) are naive line-splitters that ignore RFC 5322 folding. Once that root cause is fixed, the P0 surface collapses. Remaining risk: (1) verify_did_sig passes full article_bytes to strip_did_sig_header but the test harness only exercises the non-folded case with a perfectly formed article, so a folded-header round-trip has never been tested \u2014 this is covered by bg9.8/bg9.14. (2) The signature covers article bytes with the DID-Sig header stripped, but strip_did_sig_header returns bytes with \\n separators even if input was \\r\\n (out_lines.join('\\n')), meaning the signed bytes on the verifier side differ from what the author signed if the author used \\r\\n \u2014 this is a latent P0 not yet filed. Overall: one probable missed P0 (CRLF normalisation in strip_did_sig_header destroys line endings). Filing as bg9.18.\nCORRECTION to confidence note: the previously suspected CRLF normalisation bug in strip_did_sig_header is NOT real. split('\\n') retains the trailing \\r in each kept segment; join('\\n') then reintroduces \\n, correctly reconstructing \\r\\n sequences. No bytes are destroyed. The three confirmed P0s remain bg9.8, bg9.11, bg9.14. The folding root cause (bg9.8 + bg9.14) is the only structural gap. Revised confidence: 90% chance no further P0 bugs are in these two files beyond the three already filed."
+}

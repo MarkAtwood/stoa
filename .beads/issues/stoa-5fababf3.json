@@ -1,0 +1,21 @@
+{
+  "id": "stoa-5fababf3",
+  "title": "DECISION: GroupName validated defence-in-depth at ingress",
+  "description": "validate_article_ingress() re-validates each Newsgroups entry through GroupName::new() even though GroupName is a validated newtype that should reject invalid names at construction. The comment explicitly explains why: this catches values injected via unchecked constructors, deserialization paths, or future API changes. Defence-in-depth at trust boundaries means a bug in one layer does not silently pass malformed group names into the CRDT log.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:31:10Z",
+  "updated_at": "2026-05-01T05:00:11Z",
+  "closed_at": "2026-04-27T16:38:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:31:09"
+    }
+  ]
+}

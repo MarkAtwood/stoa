@@ -1,0 +1,50 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T03:20:49Z",
+  "compaction_level": 0,
+  "content_hash": "43301407d2a34956126642380cc6d47fd2e157d1cf1232d1111d4304942e5a23",
+  "created_at": "2026-05-05T02:32:07Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why this issue exists\n\nNeed integration tests that make HTTP requests to the JMAP server and admin servers and assert all six security headers are present with correct values. Should cover both TLS-active (HSTS present) and non-TLS (HSTS absent) scenarios for JMAP.\n\n## Acceptance criteria\n\n- Test asserts X-Content-Type-Options, X-Frame-Options, Referrer-Policy, CSP, Permissions-Policy on every endpoint\n- Test asserts HSTS present only when TLS config is active\n- Tests in crates/integration-tests or crates/mail/tests",
+  "ephemeral": 0,
+  "id": "stoa-j931k.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "integration test: assert all six security headers on JMAP and admin responses",
+  "updated_at": "2026-05-05T03:20:49Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:32:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-j931k.2",
+      "id": "07ae6f44-0226-51d9-9d65-582a716d05a9",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:32:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-j931k",
+      "id": "538da289-14ba-5c76-b798-c0337c0d9cb4",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T19:32:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-j931k.1",
+      "id": "dde771c0-50a3-5c87-9e6f-94fe73329f7d",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

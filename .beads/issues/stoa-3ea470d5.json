@@ -1,0 +1,20 @@
+{
+  "id": "stoa-3ea470d5",
+  "title": "NntpQueue drain not aligned to relay_queue explicit-match pattern",
+  "description": "queue.rs drain_once uses 'while let Ok(Some(entry)) = dir.next_entry().await' (line 198). This commit updated relay_queue.rs to use explicit match Ok(Some)/Ok(None)/Err for the same loop pattern \u2014 precisely because the while-let silently drops errors. The NntpQueue was not aligned. The two queue implementations now differ in error handling posture for identical code structure. Rewrite NntpQueue drain_once read_dir loop to match relay_queue.rs pattern with warn! on Err and break.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:44:35Z",
+  "updated_at": "2026-05-01T04:58:22Z",
+  "closed_at": "2026-05-01T02:12:10Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4315538d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:44:34"
+    }
+  ]
+}

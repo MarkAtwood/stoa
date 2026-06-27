@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "d677a4e4be6d710cd5885f3e5a445ff91566eefd39c74f3300b26e0c46c8b02d",
+  "created_at": "2026-05-03T13:07:14Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\nThe now_rfc2822() / epoch_to_rfc2822() helper is implemented three times: once in tests/e2e_data_flow.rs (now_rfc2822), once in tests/fault_store_errors.rs (epoch_to_rfc2822), and the implementation in stoa_core::util::epoch_to_rfc2822 already exists. The test helpers reinvent the wheel and are not tested themselves.\\n\\n## Acceptance Criteria\\n\\nRemove the local now_rfc2822/epoch_to_rfc2822 functions from both test files. Use stoa_core::util::epoch_to_rfc2822 directly.",
+  "ephemeral": 0,
+  "id": "stoa-3rcvn",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "e2e test: now_rfc2822() duplicated in e2e_data_flow.rs and fault_store_errors.rs",
+  "updated_at": "2026-05-03T13:07:14Z"
+}

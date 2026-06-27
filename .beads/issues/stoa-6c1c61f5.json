@@ -1,0 +1,27 @@
+{
+  "id": "stoa-6c1c61f5",
+  "title": "Add release workflow: tag, build, publish binaries as GitHub releases",
+  "description": "Add .github/workflows/release.yml triggered on tag push (v*.*.*). Builds release binaries for linux-amd64, linux-arm64. Packages each binary with example configs and README. Creates a GitHub release with the binaries attached. Artifact: .github/workflows/release.yml.\n\nAcceptance: pushing a v0.1.0 tag creates a GitHub release with attached tarballs; release is a draft until manually published",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:45:29Z",
+  "updated_at": "2026-05-01T04:58:00Z",
+  "closed_at": "2026-04-20T06:11:25Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-46c3ae0b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:46:04"
+    },
+    {
+      "depends_on_id": "stoa-f72ce147",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:45:29"
+    }
+  ]
+}

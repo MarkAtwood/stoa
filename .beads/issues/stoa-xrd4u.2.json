@@ -1,0 +1,34 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T16:12:04Z",
+  "compaction_level": 0,
+  "content_hash": "90a12e45cdda2747f858455bb27edd59a9f629ec476105ae2f4ebbad7679fb62",
+  "created_at": "2026-05-04T05:05:15Z",
+  "created_by": "Mark Atwood",
+  "description": "In crates/core/src/group_log/types.rs, LogEntry::operator_signature is Vec<u8>. Ed25519 signatures are always exactly 64 bytes. Using Vec<u8> loses the static size guarantee, allocates on the heap per entry, and requires runtime length checks downstream. Change to [u8; 64] or introduce a newtype Ed25519Signature([u8; 64]) that derives the needed traits. Downstream construction sites will need updating.",
+  "ephemeral": 0,
+  "id": "stoa-xrd4u.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Pre-existing: operator_signature Vec<u8> predates this PR. Deferring.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "LogEntry.operator_signature should be [u8;64] not Vec<u8>",
+  "updated_at": "2026-05-05T16:12:04Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T22:05:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-xrd4u",
+      "id": "83f27336-08c4-50fe-b839-86dfb213a6cf",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

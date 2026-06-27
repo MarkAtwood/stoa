@@ -1,0 +1,33 @@
+{
+  "id": "stoa-353f02ef",
+  "title": "Implement libp2p swarm initialization and gossipsub config",
+  "description": "Initialize a tokio-backed libp2p Swarm with gossipsub enabled. Configuration: mesh_n=6, mesh_n_low=4, mesh_n_high=12, heartbeat_interval=1s, max_transmit_size=1MB. Expose a GossipHandle for sending and receiving messages. Artifact: transit/src/gossip/swarm.rs.\n\nAcceptance criteria:\n- Swarm compiles and starts on a random TCP port\n- Two swarm instances can connect to each other in an integration test\n- Gossipsub config values are read from the operator TOML config (not hardcoded)\n- Shutdown is clean (all tasks join)",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:11:21Z",
+  "updated_at": "2026-05-01T04:55:05Z",
+  "closed_at": "2026-04-20T04:16:07Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-347ba0f6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:11:21"
+    },
+    {
+      "depends_on_id": "stoa-60070901",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:02"
+    },
+    {
+      "depends_on_id": "stoa-c9c62a23",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:53:02"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "stoa-647268de",
+  "title": "Pluggable backend: factory functions in transit and reader",
+  "description": "Write factory function in transit: build_store(config: &BackendConfig) -> Arc<dyn IpfsStore>. Write factory in reader: build_block_store(config: &BackendConfig) -> Arc<dyn IpfsBlockStore>. Both dispatch on backend type, return stub Err for unimplemented backends. Also return Option<IpnsStrategy>. Blocked on: stoa-5c9f1a38.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:42:53Z",
+  "updated_at": "2026-05-01T04:52:11Z",
+  "closed_at": "2026-04-24T06:45:14Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5c9f1a38",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:42:53"
+    },
+    {
+      "depends_on_id": "stoa-da58a499",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:00:34"
+    }
+  ]
+}

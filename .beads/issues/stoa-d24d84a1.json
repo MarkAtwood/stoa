@@ -1,0 +1,21 @@
+{
+  "id": "stoa-d24d84a1",
+  "title": "peering: ed25519 challenge-response authentication",
+  "description": "No IP allowlists (NAT/translation breaks them; network fabric is the right place for that). Use the existing operator ed25519 signing keypair for peer identity. Protocol (mutual \u2014 both sides authenticate): (1) each side sends 32 random bytes as a nonce; (2) each side signs (remote_nonce || local_pubkey_bytes) with its ed25519 operator key; (3) each side verifies the signature against its configured trusted_peers list. Signing over (nonce || local_pubkey) prevents relay attacks. Config: trusted_peers = ['ed25519:base64pubkey', ...] in [peering]. Adding a peer = share their operator pubkey out-of-band, add to list. Same trust model as SSH authorized_keys. Reuses the same key the peer uses to sign articles into the group log \u2014 peer transport identity and article signing identity are the same entity by design. Reject connections from peers not in trusted_peers with no protocol-level explanation (don't leak the reason).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:44:41Z",
+  "updated_at": "2026-05-01T04:58:54Z",
+  "closed_at": "2026-04-22T03:49:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-31947539",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:44:40"
+    }
+  ]
+}

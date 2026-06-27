@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T02:48:44Z",
+  "compaction_level": 0,
+  "content_hash": "6410ac0ea815f8540f23b7065a02667686776353beeeebfec13080fca7eb28d6",
+  "created_at": "2026-05-03T02:39:32Z",
+  "created_by": "Mark Atwood",
+  "description": "The relay queue uses write-to-tmp then rename for both .msg and .env, writes .msg before .env (so the drain only sees complete pairs), and runs cleanup_tmp_files + cleanup_orphan_msg_files on startup. This correctly handles all crash windows: crash mid-enqueue leaves only a .tmp (deleted on restart) or only a .msg without .env (moved to dead/). A future contributor might suggest simplifying to direct writes \u2014 this must be resisted: direct writes are not atomic and create a window where the drain could attempt to deliver a partial message. The ordering (.msg first) is also load-bearing: drain scans for .env files as the trigger; missing .msg is handled gracefully.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.29.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Relay queue crash-safety design: atomic tmp\u2192rename, .msg-before-.env, orphan cleanup",
+  "updated_at": "2026-05-03T02:48:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T19:39:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.29",
+      "id": "89940593-6ac9-5ca5-97d3-0ce97dd87b03",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

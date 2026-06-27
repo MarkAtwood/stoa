@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T13:17:01Z",
+  "compaction_level": 0,
+  "content_hash": "ddde1dc3a2ace9e02921dcc75bcceddd269b667e0875ea1ec6d60ebf877003a9",
+  "created_at": "2026-05-03T13:02:29Z",
+  "created_by": "Mark Atwood",
+  "description": "AuthConfig::is_operator does a direct string equality check (u == username) against operator_usernames. Usernames derived from OIDC claims (email, sub) are not normalized to lowercase at the point they are checked against the operator list. If an operator configures operator_usernames = [\"Admin@example.com\"] but the OIDC token produces username = \"admin@example.com\" (lowercased by some IdPs), the check fails. Conversely, CredentialStore normalizes usernames to ASCII-lowercase at load time; there is an inconsistency between the two code paths. Fix: normalize to ASCII-lowercase in is_operator or at the point the username is extracted from the OIDC claim.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "auth: is_operator comparison is case-sensitive; operator_usernames from OIDC may have mixed case",
+  "updated_at": "2026-05-03T13:17:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:02:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "37c41cd1-7f7a-5332-800b-2d9902bf0a03",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

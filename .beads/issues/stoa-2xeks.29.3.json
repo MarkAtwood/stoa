@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added opportunistic retain-based eviction in enforce_for_delivery cache lookup block",
+  "closed_at": "2026-05-03T02:48:38Z",
+  "compaction_level": 0,
+  "content_hash": "87bf0eaba482ab6f368982ad02d12440e187b08b1fb4743f095cc9cc33397ae8",
+  "created_at": "2026-05-03T02:39:03Z",
+  "created_by": "Mark Atwood",
+  "description": "The MtaStsEnforcer HashMap cache inserts one entry per unique recipient domain and never removes stale entries. The cache hit path uses .filter(|(_, valid_until)| Instant::now() < *valid_until) to skip expired entries, but never calls .remove() on them. On a server with long uptime sending to many distinct domains, the cache grows monotonically: expired entries accumulate as dead weight. Fix: periodically sweep the cache for expired entries (e.g., in load_fresh_policy after insert, or in a separate background task), or cap the cache size with LRU eviction.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.29.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MtaStsEnforcer cache never evicts expired entries \u2014 unbounded memory growth",
+  "updated_at": "2026-05-03T02:48:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T19:39:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.29",
+      "id": "e0441636-40f9-5c5e-a59e-c3e27ed78f15",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

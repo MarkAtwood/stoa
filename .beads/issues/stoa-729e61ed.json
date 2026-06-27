@@ -1,0 +1,20 @@
+{
+  "id": "stoa-729e61ed",
+  "title": "Cryptographic hash-based stable mailbox IDs",
+  "description": "Mailbox IDs are derived deterministically from role names using SHA-256 hashed to 16 bytes and BASE32_NOPAD encoded, producing constant 26-character IDs. Includes cross-language oracle (Python) for test vector validation. This prevents ID spoofing and ensures stability across restarts.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T07:06:01Z",
+  "updated_at": "2026-05-01T04:55:37Z",
+  "closed_at": "2026-04-30T07:14:43Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-17ee367f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 00:06:01"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-d11eb2e9",
+  "title": "Sieve admin HTTP API has no authentication",
+  "description": "smtp/src/sieve_admin.rs:60-100: the Sieve admin HTTP API has zero built-in authentication. Config validation warns on non-loopback bind but does not prevent it. If an operator binds to 0.0.0.0:4190 (intentionally or by mistake), any network attacker can read, write, or delete Sieve scripts for all users \u2014 injecting a reject rule drops all mail for a user. Fix: require a bearer token (like the transit admin endpoint) or at minimum add a config flag that requires explicit opt-in to network exposure.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T16:56:02Z",
+  "updated_at": "2026-05-01T04:54:42Z",
+  "closed_at": "2026-04-21T17:43:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-33df35ca",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 09:56:01"
+    }
+  ]
+}

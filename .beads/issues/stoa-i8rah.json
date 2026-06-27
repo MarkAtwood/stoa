@@ -1,0 +1,22 @@
+{
+  "compaction_level": 0,
+  "content_hash": "a3b2b2ca011d347935750e0fe9def7a76c146bfd17ee693c8ea1e8e7a0a10684",
+  "created_at": "2026-05-01T19:49:11Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why\n\nMega.nz offers 20GB free encrypted cloud storage, making it the only major object store with a substantial free tier. For small self-hosted NNTP deployments (personal servers, hobbyist nodes), this removes the cost barrier entirely. At 5KB average article size, 20GB holds ~4 million articles.\n\nMega also provides client-side E2E encryption transparently \u2014 all content stored in Mega is encrypted at rest without stoa needing to implement encryption separately.\n\n## What\n\nImplement MegaBlockStore for both crates/reader/src/post/ and crates/transit/src/peering/ implementing IpfsBlockStore / IpfsStore respectively.\n\nConfig:\n- mega.email \u2014 Mega account email\n- mega.password \u2014 Mega account password (used for key derivation; never sent to Mega servers)\n- mega.folder \u2014 remote folder path to store blocks under (e.g. /stoa/blocks)\n\nStorage layout: one file per block, named <cid>.block, inside the configured folder. Mirrors the FsBlockStore naming convention for conceptual consistency.\n\n## Implementation options\n\nNo official Rust Mega API client exists. Two approaches:\n\n**Option A \u2014 megatools subprocess (pragmatic first cut):** Shell out to megaput / megacat / megarm from the megatools package. Adds a system dependency (apt install megatools). All I/O via spawn_blocking + Command. Simple to implement; not suitable for high-throughput but adequate for personal deployments.\n\n**Option B \u2014 native Mega HTTP API (proper implementation):** Implement the Mega JSON API directly over reqwest. The API is reverse-engineered but stable (used by all official Mega clients). More work upfront; no system dependency; better performance.\n\nStart with Option A to validate the backend contract; migrate to Option B if there is demand.\n\n## Caveats\n\n- Mega enforces rate limits and bandwidth quotas on free accounts. This backend is not suitable for high-traffic transit nodes.\n- The encryption key is derived from the Mega account password. Losing the account loses access to the blocks. Document this clearly.\n- Mega is not an S3-compatible API and cannot use the existing ObjectStoreBlockBackend shared implementation.\n\n## Acceptance\n\n- MegaBlockStore implements IpfsBlockStore\n- put_raw, put_block, get_raw, delete all work against a real Mega account in integration tests (gated behind a feature flag or environment variable to avoid requiring credentials in CI)\n- Config parsing accepts [backend.mega] section\n- megatools is documented as a system dependency in the README",
+  "ephemeral": 0,
+  "id": "stoa-i8rah",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Feature-gate the integration tests behind STOA_TEST_MEGA_EMAIL / STOA_TEST_MEGA_PASSWORD env vars so CI does not require a Mega account.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Mega.nz block store backend",
+  "updated_at": "2026-05-01T19:49:11Z"
+}

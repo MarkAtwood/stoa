@@ -1,0 +1,13 @@
+{
+  "id": "stoa-18ecb995",
+  "title": "Review: mail/imap/auth crates Round 10",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:56:39Z",
+  "updated_at": "2026-05-01T04:52:14Z",
+  "closed_at": "2026-04-27T17:15:20Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 The biggest risk is the two-crate auth config split (IMAP vs stoa-auth) that will confuse operators. The date filter format bug (RFC 2822 vs RFC 3339) will silently return wrong results for all real data. The IMAP dummy hash cost mismatch is a timing oracle. None are immediately exploitable remotely given the typical deployment model, but they are real bugs.\nConfidence: 25% chance of missed bug. Uncertainty driven by: (1) did not read the stoa-core ipld types fully to verify ArticleRootNode serialization edge cases, (2) did not check what list_groups() returns for empty groups precisely (the exact type of lo/hi as i64 vs u64 matters for the underflow finding), (3) the IMAP imap_flags DB table is created but never written by the current STORE handler (all flags go to user_flags in the mail crate) \u2014 unclear if this is intentional dead schema. Would raise confidence if: ran cargo test --workspace and observed which tests currently pass/fail, and confirmed list_groups() return type from stoa-reader."
+}

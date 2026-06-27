@@ -1,0 +1,27 @@
+{
+  "id": "stoa-c54ec033",
+  "title": "imap: essential extensions (IDLE, UIDPLUS, CONDSTORE, QRESYNC, LITERAL+, SPECIAL-USE, MOVE)",
+  "description": "Implement the seven extensions that modern MUAs depend on for correct and efficient operation. Without these, clients break or perform unacceptably.\\n\\n- IDLE (RFC 2177): server push for new mail; without it clients must poll.\\n- UIDPLUS (RFC 4315): APPENDUID/COPYUID response codes so clients can track messages across APPEND and COPY without re-scanning.\\n- CONDSTORE (RFC 4551): HIGHESTMODSEQ lets clients fetch only changed flags since last sync; essential for large mailboxes.\\n- QRESYNC (RFC 7162): quick resync after disconnect using saved HIGHESTMODSEQ and UID validity; critical for mobile clients.\\n- LITERAL+ (RFC 7888): non-synchronising literals; eliminates extra round-trip on APPEND of large messages.\\n- SPECIAL-USE (RFC 6154): LIST \\Inbox \\Sent \\Trash \\Drafts \\Junk role flags; without it clients guess folder names and break.\\n- MOVE (RFC 6851): atomic mailbox move command; without it clients do COPY + STORE \\Deleted + EXPUNGE which is non-atomic.\\n\\nNote: CONDSTORE and QRESYNC are activated via ENABLE (tracked in the interop extensions issue). Implement ENABLE first.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T02:02:09Z",
+  "updated_at": "2026-05-01T05:00:42Z",
+  "closed_at": "2026-04-23T08:06:26Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3741bca1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 19:02:39"
+    },
+    {
+      "depends_on_id": "stoa-5667016b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 19:02:48"
+    }
+  ]
+}

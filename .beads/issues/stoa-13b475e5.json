@@ -1,0 +1,13 @@
+{
+  "id": "stoa-13b475e5",
+  "title": "resolve_secret_uri returns Result<_, String> not typed error",
+  "description": "crates/core/src/secret.rs: resolve_secret_uri returns Result<Option<String>, String>. String errors in library APIs lose type information, cannot be matched by callers, and violate the project convention of typed error enums. Fix: define a SecretError enum (or add a SecretResolution variant to ProtocolError/StorageError) and return Result<Option<String>, SecretError>.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:24:47Z",
+  "updated_at": "2026-05-01T04:53:18Z",
+  "closed_at": "2026-04-28T18:39:51Z"
+}

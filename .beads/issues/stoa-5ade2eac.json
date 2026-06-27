@@ -1,0 +1,13 @@
+{
+  "id": "stoa-5ade2eac",
+  "title": "[epic] Ceph RADOS block store backend",
+  "description": "## Why\nCeph is the dominant self-hosted distributed storage system. While Ceph's RADOS Gateway exposes an S3-compatible API (covered by the S3 backend), the native RADOS API bypasses the gateway entirely \u2014 lower latency, no extra process, direct access to the object store. Important for operators running Ceph on-prem who want to avoid gateway overhead.\n\n## Scope\n- `[backend] type = \"rados\"` config: ceph.conf path, pool name, user/keyring\n- `RadosStore: IpfsStore` backed by `ceph-rust` or direct `librados` FFI bindings\n- Object name = CID base32; stored in a dedicated RADOS pool\n- Startup: verify pool exists and is writable\n- Integration test against a single-node Ceph cluster (ceph/demo docker image)\n- RUNBOOK section covering pool creation and auth caps",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T16:23:39Z",
+  "updated_at": "2026-05-01T04:51:56Z",
+  "closed_at": "2026-04-28T04:39:58Z"
+}

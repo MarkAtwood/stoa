@@ -1,0 +1,20 @@
+{
+  "id": "stoa-7175235a",
+  "title": "Adding crates/auth to workspace members fixes silent build exclusion",
+  "description": "crates/auth was absent from the workspace Cargo.toml members array, so cargo build --workspace and cargo test --workspace silently skipped it. Auth tests were never run in isolation and any compilation error in stoa_auth would only surface when a dependent crate was built. The fix \u2014 adding crates/auth to members \u2014 is the correct approach. The alternative of leaving auth out of the workspace and relying on dependent-crate compilation to exercise it is worse: auth tests are invisible to workspace tooling and the crate cannot be addressed by name in cargo commands. Workspace membership is right for any crate sharing the same release cadence.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:12:38Z",
+  "updated_at": "2026-05-01T04:51:37Z",
+  "closed_at": "2026-04-30T17:15:10Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-577b3bd5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 10:12:38"
+    }
+  ]
+}

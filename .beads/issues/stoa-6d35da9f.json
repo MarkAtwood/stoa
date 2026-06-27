@@ -1,0 +1,21 @@
+{
+  "id": "stoa-6d35da9f",
+  "title": "TLS cert expiry: re-check on config reload",
+  "description": "On SIGHUP or POST /admin/reload, re-read and re-check all configured TLS cert expiry dates. Emit appropriate WARN/ERROR events if new certs are close to expiry. Update Prometheus gauges. Blocked on: stoa-da4c51f7.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:43:27Z",
+  "updated_at": "2026-05-01T04:56:46Z",
+  "closed_at": "2026-04-28T08:03:21Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-da4c51f7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:44:51"
+    }
+  ]
+}

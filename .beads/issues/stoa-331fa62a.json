@@ -1,0 +1,13 @@
+{
+  "id": "stoa-331fa62a",
+  "title": "NUL allowed in mandatory header fields",
+  "description": "validate_article_ingress checks NUL in extra_headers but not in from/date/subject/path. canonical_bytes() uses \\x00\\n as header/body separator relying on NUL being absent from all header values (canonical.rs line 21). An article with NUL in h.from, h.date, h.subject, or h.path passes validation but corrupts the canonical stream. Fix: add \\x00 check to the mandatory_fields loop (same as extra_headers loop line 227).",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T09:10:40Z",
+  "updated_at": "2026-05-01T04:51:46Z",
+  "closed_at": "2026-04-27T09:38:10Z"
+}

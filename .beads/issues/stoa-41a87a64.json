@@ -1,0 +1,13 @@
+{
+  "id": "stoa-41a87a64",
+  "title": "mail: position argument ignored in Email/query",
+  "description": "Email/query accepts a position argument for pagination but ignores it, always returning from the start of the result set. Clients requesting paginated results receive duplicate data.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T23:47:19Z",
+  "updated_at": "2026-05-01T04:59:39Z",
+  "closed_at": "2026-04-25T02:07:27Z"
+}

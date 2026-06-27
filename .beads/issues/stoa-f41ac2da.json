@@ -1,0 +1,20 @@
+{
+  "id": "stoa-f41ac2da",
+  "title": "SEC3: starttls_requested should be loop return value",
+  "description": "In lifecycle.rs, run_command_loop signals the caller that STARTTLS was requested by setting ctx.starttls_requested = true then returning. This is an out-of-band side-channel on SessionContext rather than a return value. The flag is write-once from one code path, only meaningful for the window between loop exit and the caller checking it, and it persists on SessionContext for the entire post-upgrade session where it has no meaning. If a future caller of run_command_loop forgets to check the flag, the STARTTLS upgrade silently fails. A return enum (LoopExit { Done, StartTlsRequested }) would eliminate the flag from SessionContext entirely and make the control flow explicit. starttls_available is correctly on SessionContext and should stay. Tradeoff: requires changing run_command_loop signature and return type, touching two call sites.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T23:43:45Z",
+  "updated_at": "2026-05-01T04:57:10Z",
+  "closed_at": "2026-04-24T00:02:47Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4206df49",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 16:43:45"
+    }
+  ]
+}

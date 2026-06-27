@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "35fa70c8ed36ffa2396b2f59e3772e8592d40a89b256dfe08c835b771aa42e82",
+  "created_at": "2026-05-04T05:59:10Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why\n\nDKIM public keys, SPF policies, and DMARC policies live in DNS and\nare routinely rotated or removed. Once gone, signed emails cannot be\nre-verified and the authentication posture at delivery time is\nunrecoverable. stoa sees all of this at ingest time and can cache it\nbefore it disappears.\n\n## What\n\nAt article/message ingest, for each arriving item:\n\n**DKIM** \u2014 for each DKIM-Signature header, extract d= and s=, fetch\n{s}._domainkey.{d} TXT, store raw TXT as CID blob + parsed fields.\n\n**SPF** \u2014 extract envelope From domain (or From: header domain), fetch\n{domain} TXT records matching v=spf1, store raw TXT as CID blob.\n\n**DMARC** \u2014 extract From: header domain, fetch _dmarc.{domain} TXT,\nstore raw TXT as CID blob + parsed p= policy field.\n\n**ARC** \u2014 extract ARC-Message-Signature headers, same DKIM-style\nselector lookup for each hop's signing key. (Same code path as DKIM.)\n\n## Unified table design\n\nAll evidence types share one table with an evidence_type discriminator:\n\n```sql\nCREATE TABLE IF NOT EXISTS dns_auth_cache (\n    evidence_type TEXT    NOT NULL,  -- 'dkim' | 'spf' | 'dmarc' | 'arc'\n    domain        TEXT    NOT NULL,\n    selector      TEXT    NOT NULL,  -- DKIM/ARC selector; '' for SPF/DMARC\n    record_cid    TEXT    NOT NULL,  -- CID of raw TXT blob; '' for tombstone\n    first_seen_ms INTEGER NOT NULL,\n    last_seen_ms  INTEGER NOT NULL,\n    ttl_secs      INTEGER,\n    algorithm     TEXT,              -- 'rsa'|'ed25519'; NULL for SPF/DMARC\n    key_bytes     BLOB,              -- public key bytes; NULL for SPF/DMARC\n    policy        TEXT,              -- raw policy string for SPF/DMARC; NULL for DKIM\n    record_status TEXT    NOT NULL DEFAULT 'active',  -- 'active'|'rotated'|'revoked'\n    PRIMARY KEY (evidence_type, domain, selector, record_cid)\n);\n```\n\n## Design decisions (already agreed)\n\n- Raw TXT as CID blob + parsed fields in SQL\n- DNS TTL stored at fetch time\n- Compound PK preserves full rotation history\n- Tombstone rows when DNS returns NODATA for a known record\n- DnsAuthCache struct called from pipeline.rs via Option<&DnsAuthCache> in PipelineCtx\n- No background re-poll; ingest-driven only",
+  "ephemeral": 0,
+  "id": "stoa-p4oc4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "DNS authentication evidence cache: DKIM keys, SPF, DMARC records",
+  "updated_at": "2026-06-26T20:26:38Z"
+}

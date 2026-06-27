@@ -1,0 +1,39 @@
+{
+  "id": "stoa-648b2878",
+  "title": "End-to-end integration test suite (transit + reader)",
+  "description": "Unit and component tests pass but there are no tests that run both binaries together and verify real NNTP traffic flows end-to-end. This epic adds: a two-node local test harness (one transit, one reader), RFC 3977 conformance tests driven by slrn/tin, and a transit-to-transit propagation test. Why: integration gaps between transit and reader are the most likely source of production failures; conformance testing with real clients is required by the project spec.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T00:16:59Z",
+  "updated_at": "2026-05-01T04:59:19Z",
+  "closed_at": "2026-04-21T02:37:42Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3b419c5e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:17:27"
+    },
+    {
+      "depends_on_id": "stoa-78cc8aec",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:17:28"
+    },
+    {
+      "depends_on_id": "stoa-948d9f88",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:17:28"
+    },
+    {
+      "depends_on_id": "stoa-9513813d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:17:27"
+    }
+  ]
+}

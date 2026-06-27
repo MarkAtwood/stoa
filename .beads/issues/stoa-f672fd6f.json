@@ -1,0 +1,20 @@
+{
+  "id": "stoa-f672fd6f",
+  "title": "auth/store: bcrypt timing equalization fails for empty store",
+  "description": "crates/auth/src/store.rs make_dummy_hash() falls back to bcrypt::DEFAULT_COST when no hashes are configured. CredentialStore::empty() is the case where the store has zero users. When from_credentials() is called with a non-empty list the dummy hash is computed at the correct cost, but if a caller constructs a store with from_credentials(&[]) (empty slice), make_dummy_hash also uses DEFAULT_COST \u2014 correct. However if CredentialStore::empty() is used in a code path where AUTH is still attempted (dev_mode = false but no users), the dummy hash cost may differ from a separately-configured production store used in parallel, leaking whether the empty-store or non-empty-store path is taken. Low-probability, but the timing contract is broken in that edge case.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:22:00Z",
+  "updated_at": "2026-05-01T04:58:20Z",
+  "closed_at": "2026-04-28T16:57:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:22:00"
+    }
+  ]
+}

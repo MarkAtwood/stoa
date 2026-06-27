@@ -1,0 +1,13 @@
+{
+  "id": "stoa-ee901dbd",
+  "title": "fix(did_verify): strip_did_sig_header corrupts non-UTF-8 bytes",
+  "description": "strip_did_sig_header in crates/reader/src/post/did_verify.rs uses String::from_utf8_lossy to convert article bytes to a string before splitting on newlines. from_utf8_lossy silently replaces invalid UTF-8 sequences (e.g. Latin-1 bytes in legacy Usenet articles) with U+FFFD (3 bytes: EF BF BD). The reconstructed bytes differ from the original article, so a valid DID signature over the original bytes fails verification. Fix: operate directly on &[u8] using split(|&b| b == b'\\n') and eq_ignore_ascii_case on bytes, avoiding any UTF-8 conversion.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T04:18:10Z",
+  "updated_at": "2026-05-01T04:53:39Z",
+  "closed_at": "2026-04-27T04:27:56Z"
+}

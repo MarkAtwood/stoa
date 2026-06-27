@@ -1,0 +1,20 @@
+{
+  "id": "stoa-5b72fb8a",
+  "title": "group_select silently sets current_group=None on invalid GroupName, still returns 211",
+  "description": "reader/src/session/commands/group.rs:37: ctx.current_group = GroupName::new(gd.name.clone()).ok(). If GroupName validation fails, .ok() returns None. Lines 38-40 then set state=GroupSelected and return 211. The client is told the group was selected, but ctx.current_group is None. Any subsequent command that reads ctx.current_group (OVER, ARTICLE <number>, NEXT, LAST) will get None and behave as if no group is selected \u2014 returning 412 instead of the expected result. The session is in an inconsistent state that appears as a 211 success. In practice this only fires if the group cache contains an invalid group name. Fix: treat GroupName::new failure as an internal error (tracing::error + return 503) rather than silently setting None.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T22:01:31Z",
+  "updated_at": "2026-05-01T04:57:31Z",
+  "closed_at": "2026-04-22T21:05:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e38f5cd8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 15:01:30"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "52f233023c12824121b418daaec5f02863bd2d59dd03fae454deeeaca9ac1bdd",
+  "created_at": "2026-05-04T03:19:10Z",
+  "created_by": "Mark Atwood",
+  "description": "rnews_main.rs:36\u201375: parse_args() is a 40-line manual loop over std::env::args() to handle exactly two flags (--config, --check). The happy path is buried in match arms, and adding a new flag requires more boilerplate. stoa-ctl already depends on clap 4 with derive, so clap is already a proven pattern in this repo.\n\nSuggested approach: replace parse_args() with a #[derive(Parser)] struct:\n\n    #[derive(clap::Parser)]\n    struct Args {\n        #[arg(long)]\n        config: PathBuf,\n        #[arg(long)]\n        check: bool,\n    }\n\nThis shrinks ~40 lines to ~8, generates --help automatically, and makes the CLI contract visible at a glance. Add clap = { version = \"4\", features = [\"derive\"] } to crates/transit/Cargo.toml.",
+  "ephemeral": 0,
+  "id": "stoa-tlvh9.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "hand-rolled arg parser obscures CLI contract",
+  "updated_at": "2026-05-04T03:19:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T20:19:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-tlvh9",
+      "id": "bfd9ec43-cfdd-5569-8393-2221b9380cb4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

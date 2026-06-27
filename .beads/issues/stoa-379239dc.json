@@ -1,0 +1,13 @@
+{
+  "id": "stoa-379239dc",
+  "title": "Inject Path header in reader POST pipeline",
+  "description": "## Why\\nreader run_post_pipeline stores articles to IPFS without a Path header (RFC 5536 \u00a73.1 mandatory). transit prepend_path_header adds Path only at transit ingestion time, not at reader POST time.\\n\\n## What\\n1. Add hostname: String field to ReaderConfig (default to system hostname or 'localhost')\\n2. In run_post_pipeline, call prepend_path_header (or equivalent) before sign_article so the signed article includes Path:\\n3. Update tests to verify Path header present in stored article\\n\\n## Acceptance\\n- Article stored via reader POST contains Path header\\n- Path header is covered by operator signature\\n- Config migration: hostname optional with sane default",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T04:06:42Z",
+  "updated_at": "2026-05-01T04:55:58Z",
+  "closed_at": "2026-04-27T15:35:28Z"
+}

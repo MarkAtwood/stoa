@@ -1,0 +1,33 @@
+{
+  "close_reason": "False positive: lifecycle.rs handles Command::Hdr with continue before dispatch is reached. handle_hdr_live() correctly returns 430 for unknown msgids.",
+  "closed_at": "2026-05-01T15:26:07Z",
+  "compaction_level": 0,
+  "content_hash": "4ea873bbba23fa120c30c1eea98f61b814717a15c35c2731995b4bf88ea61a2b",
+  "created_at": "2026-05-01T15:20:15Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: client sends HDR Subject <msgid> where the message-id is known or unknown. Expected per RFC 3977 \u00a78.5.3: 430 No Article With That Message-ID when the article is absent. Actual: dispatch.rs branch Command::Hdr { range_or_msgid: Some(msgid), .. } where msgid starts with '<' returns Response::hdr_follows(vec\\![]) \u2014 225 with empty body \u2014 regardless of whether the article exists. Clients that use HDR for article deduplication receive a false empty-list success.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.41",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "HDR <msgid> returns 225 empty body instead of 430",
+  "updated_at": "2026-05-01T15:26:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:20:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "338753ff-f7e9-57ad-97c1-6fd5f8846058",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

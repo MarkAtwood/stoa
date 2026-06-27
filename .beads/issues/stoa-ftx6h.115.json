@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "34c2e04b8219971c56fae8f01997b61e694e14d8bbc3713de078a5849af3f294",
+  "created_at": "2026-05-03T13:06:27Z",
+  "created_by": "Mark Atwood",
+  "description": "hlc.rs HlcClock::receive() has a three-level nested if/else structure comparing wall_ms and logical counters. The logic is correct but hard to follow because the branch conditions are spread across three levels. Flattening into a match on (wall_ms.cmp(&other.wall_ms), logical.cmp(&other.logical)) with exhaustive arms, or extracting a max_hlc helper, would make the causal ordering logic immediately readable.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.115",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "core: hlc.rs receive() has deeply nested if/else chain; extract to match or helper",
+  "updated_at": "2026-05-03T13:06:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "11ffd67b-f3cc-5185-974d-19d6bff218f9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

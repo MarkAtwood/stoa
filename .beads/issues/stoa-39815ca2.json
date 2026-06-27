@@ -1,0 +1,13 @@
+{
+  "id": "stoa-39815ca2",
+  "title": "auth: is_dev_mode() ignores client_certs and trusted_issuers",
+  "description": "## Problem\nconfig.rs is_dev_mode() only checks users.is_empty() && credential_file.is_none(). If an operator configures client_certs or trusted_issuers (cert-based auth) but leaves users empty, is_dev_mode() returns true, which bypasses auth entirely.\n\n## Security impact\nAn operator deploying cert-based-only authentication silently gets an open server.\n\n## Fix\nis_dev_mode() must return true only when ALL auth mechanisms are unconfigured: users empty, credential_file None, client_certs empty, trusted_issuers empty.\n\n## Acceptance criteria\n- is_dev_mode() returns false when client_certs is non-empty\n- is_dev_mode() returns false when trusted_issuers is non-empty\n- Unit tests cover all four combinations",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T18:55:47Z",
+  "updated_at": "2026-05-01T04:51:53Z",
+  "closed_at": "2026-04-24T19:10:17Z"
+}

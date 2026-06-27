@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T15:34:28Z",
+  "compaction_level": 0,
+  "content_hash": "7ca301086adb63c19610e096d71ac20cb45c7f66f069cb3662744f552122887f",
+  "created_at": "2026-05-03T13:05:28Z",
+  "created_by": "Mark Atwood",
+  "description": "ipld/root_node.rs stores ArticleMetadata.newsgroups as Vec<String>. GroupName is a validated newtype that enforces RFC 3977 group name rules. By using Vec<String>, any code that reads a root node from IPFS gets unvalidated group names that could contain arbitrary content. The field should be Vec<GroupName> or the deserialization path should validate each string at read time.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.78",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "core: newsgroups stored as Vec<String> in ArticleRootNode, not Vec<GroupName>; validation lost",
+  "updated_at": "2026-05-03T15:34:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "64a5e0f6-60fd-54e4-8980-4165cc8aab05",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

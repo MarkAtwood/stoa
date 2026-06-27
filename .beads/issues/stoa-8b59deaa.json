@@ -1,0 +1,20 @@
+{
+  "id": "stoa-8b59deaa",
+  "title": "dead-letter Vec allocation before count is unnecessary",
+  "description": "relay_queue.rs drain_once lines 212-219: builds a Vec<DirEntry> (heap-allocating all dead-dir entries) then immediately calls .iter().filter().count() and discards the Vec. The entries Vec is not used for anything else. A direct streaming count without collecting would avoid the allocation: increment a counter in the while-let loop without pushing to Vec. Dead-letter dir is rarely large so not a hot-path issue, but the current code reads as if the Vec is needed.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:53:21Z",
+  "updated_at": "2026-05-01T04:55:17Z",
+  "closed_at": "2026-04-30T23:57:45Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-64675b0e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:53:21"
+    }
+  ]
+}

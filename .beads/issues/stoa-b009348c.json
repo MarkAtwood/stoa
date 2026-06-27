@@ -1,0 +1,19 @@
+{
+  "id": "stoa-b009348c",
+  "title": "export.rs: build_export_car uses ORDER BY ingested_at_ms DESC but sets first found block as root \u2014 root is newest, not most useful",
+  "description": "export.rs: articles are selected newest-first (ORDER BY ingested_at_ms DESC) and the first block found in IPFS becomes the single CAR root. The comment says 'The most-recent article CID whose block is found becomes the single root.' For a CAR file intended as an archive slice, using the newest article as the root is counterintuitive \u2014 CAR roots normally represent the entry point into a DAG, which for a flat list is typically the oldest (first) or an aggregate manifest, not the newest. This choice is undocumented in any design decision. Not a correctness bug but may surprise importers that use the root to determine download order.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:46:03Z",
+  "updated_at": "2026-05-01T04:54:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:46:02"
+    }
+  ]
+}

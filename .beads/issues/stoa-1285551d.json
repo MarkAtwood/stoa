@@ -1,0 +1,13 @@
+{
+  "id": "stoa-1285551d",
+  "title": "main.rs admin port bound twice at startup",
+  "description": "In crates/transit/src/main.rs, the admin port is bound once in run_startup_checks and again in start_admin_server. The first bind is a connectivity check; the listener is dropped and re-created. On a heavily loaded system the port could be taken by another process in the window between the two binds. The startup check should pass the bound listener to start_admin_server instead of re-binding.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:30:40Z",
+  "updated_at": "2026-05-01T05:00:47Z",
+  "closed_at": "2026-04-28T18:24:22Z"
+}

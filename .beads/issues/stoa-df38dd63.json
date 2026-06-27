@@ -1,0 +1,21 @@
+{
+  "id": "stoa-df38dd63",
+  "title": "f120.2: SmtpRelayError \u2014 typed error enum for relay delivery",
+  "description": "Add a typed error enum for SMTP relay delivery operations in crates/smtp/src/relay_error.rs.\n\n**What:** Define SmtpRelayError enum covering all failure modes of the outbound relay client.\n\n**Algorithm:**\n1. Create crates/smtp/src/relay_error.rs\n2. Define:\n   pub enum SmtpRelayError {\n     Transient(String),   // 4xx response \u2014 retry with backoff\n     Permanent(String),   // 5xx response \u2014 do not retry for this message\n     TlsHandshake(String), // TLS negotiation failed\n     Io(std::io::Error),  // network I/O error\n     AuthFailed,          // SMTP AUTH rejected (535)\n     ProtocolError(String), // malformed SMTP response from peer\n   }\n3. impl std::fmt::Display for SmtpRelayError \u2014 display code + reason string but never raw SMTP text\n4. impl std::error::Error for SmtpRelayError\n5. Add fn is_transient(&self) -> bool \u2014 returns true for Transient and Io (network errors)\n6. Add fn is_permanent(&self) -> bool \u2014 returns true for Permanent, AuthFailed, ProtocolError\n7. mod relay_error; pub use relay_error::SmtpRelayError; in lib.rs\n\n**Defensive programming rules:**\n- Error messages must never include raw SMTP response text (could contain partial credential echo)\n- is_transient() and is_permanent() must be mutually exclusive and exhaustive (all variants covered)\n- TlsHandshake is neither transient nor permanent for retry purposes \u2014 it marks the peer down\n\n**Tests:**\n- Test: SmtpRelayError::Transient('temporary failure') displays without crashing\n- Test: is_transient() returns true for Transient, false for Permanent\n- Test: is_permanent() returns true for Permanent and AuthFailed, false for Transient\n- Test: SmtpRelayError Display output does not contain the word 'password' or 'credentials' (oracle: string comparison)\n- All variants covered by match in test (exhaustive check)\n\n**Acceptance:**\n- cargo test -p usenet-ipfs-smtp passes\n- cargo clippy -p usenet-ipfs-smtp -- -D warnings passes  \n- cargo fmt --all produces no changes\n- is_transient() and is_permanent() cover all variants with no overlap",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T18:30:15Z",
+  "updated_at": "2026-05-01T04:56:37Z",
+  "closed_at": "2026-04-23T18:37:02Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d8edbbe6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 11:30:15"
+    }
+  ]
+}

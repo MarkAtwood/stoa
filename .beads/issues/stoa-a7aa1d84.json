@@ -1,0 +1,20 @@
+{
+  "id": "stoa-a7aa1d84",
+  "title": "sqlite_storage: ts as u64 cast unchecked for negative",
+  "description": "## Trigger\\nA negative i64 hlc_timestamp in the log_entries SQLite table (from database corruption or future tooling bug) is cast to u64 at sqlite_storage.rs line ~126 via ts as u64, wrapping to a very large timestamp value.\\n\\n## Bad behavior\\nThe log entry would appear to have a timestamp far in the future, corrupting Merkle-CRDT time ordering and potentially causing reconciliation to reject the entry as having an implausible timestamp.\\n\\n## Fix\\nAdd a guard: if ts < 0 { return Err(StorageError::Corrupt(format!(\"negative hlc_timestamp {} in entry {:?}\", ts, id_bytes))); }. This gives a clear diagnostic on corruption rather than silent data corruption.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T04:11:53Z",
+  "updated_at": "2026-05-01T04:53:39Z",
+  "closed_at": "2026-04-27T04:12:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d43159c9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 21:11:52"
+    }
+  ]
+}

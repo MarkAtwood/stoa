@@ -1,0 +1,20 @@
+{
+  "id": "stoa-4d0cccd2",
+  "title": "audit/research_1c8.1.md references deleted credentials.rs path",
+  "description": "audit/research_1c8.1.md line 4 still reads '- crates/reader/src/store/credentials.rs (233 lines)'. This is stale: the file was deleted by aubi.3. A future developer reading the audit trail may check for this file, not find it, and be confused about the source of truth. The file should be updated to record that the type now lives in crates/auth/src/store.rs (stoa-auth), or the stale line should be removed.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T16:51:18Z",
+  "updated_at": "2026-05-01T04:53:01Z",
+  "closed_at": "2026-04-30T16:56:29Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-45f3f588",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 09:51:18"
+    }
+  ]
+}

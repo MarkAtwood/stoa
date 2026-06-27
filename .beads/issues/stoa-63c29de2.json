@@ -1,0 +1,19 @@
+{
+  "id": "stoa-63c29de2",
+  "title": "EnvelopeFile doc missing note that fields contain PII email addresses",
+  "description": "EnvelopeFile has a one-line doc comment but no note that mail_from and rcpt_to contain PII email addresses. A future contributor adding a debug log of the struct would not be warned. Add a doc note: '/// Note: fields contain PII (sender/recipient email addresses) \u2014 do not log in production.' This is especially relevant now that Debug is derived.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:56:40Z",
+  "updated_at": "2026-05-01T04:54:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-18bf2fce",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:56:39"
+    }
+  ]
+}

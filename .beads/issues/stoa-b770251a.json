@@ -1,0 +1,13 @@
+{
+  "id": "stoa-b770251a",
+  "title": "Review: auth, smtp, sieve, reader, transit, core -- full code review",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T13:04:35Z",
+  "updated_at": "2026-05-01T04:54:32Z",
+  "closed_at": "2026-04-22T15:21:21Z",
+  "notes": "Maintainer risk: HIGH \u2014 Three independent P0 data-correctness bugs (GC always pins, enqueue ignores return causing silent article loss, auth middleware auth bypass), plus HLC identity breakage on key rotation. Any one of these causes user-visible data loss or incorrect behavior without warning.\nConfidence: 25% chance of missed bug. Uncertainty driven by: (1) core/ipld/mime_parser.rs was not fully readable due to truncated read \u2014 multipart parsing edge cases may have more issues; (2) transit/peering/session.rs enqueue return-value finding needs code verification before fix \u2014 could not confirm the exact call site in the provided excerpt; (3) group_log/reconcile.rs full logic not verified against CRDT theory. Would raise confidence if: full source of mime_parser.rs, session.rs enqueue call site, and reconcile.rs were verified by running the test suite.\nReview converged after 2 round(s). Final review: stoa-c4a48573. P0=0, P1=0, P2=0. SEC7 confirmed running out of real complaints."
+}

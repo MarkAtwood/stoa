@@ -1,0 +1,20 @@
+{
+  "id": "stoa-afa90d63",
+  "title": "WAL mode + max_connections(4) is correct for the read pattern",
+  "description": "WAL mode allows concurrent readers while a writer holds the write lock, which matches the stoa read pattern (many NNTP readers, occasional article ingest). max_connections(4) is a reasonable pool size. A future contributor might suggest synchronous=FULL for durability; Normal is correct here \u2014 WAL provides crash safety and Normal avoids the fsync overhead that would hurt article ingest throughput.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T01:47:57Z",
+  "updated_at": "2026-05-01T04:51:31Z",
+  "closed_at": "2026-04-28T01:55:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-aa592c93",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 18:47:57"
+    }
+  ]
+}

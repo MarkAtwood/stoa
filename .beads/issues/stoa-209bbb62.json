@@ -1,0 +1,12 @@
+{
+  "id": "stoa-209bbb62",
+  "title": "validation.rs: is_valid_message_id duplicates validate_message_id logic",
+  "description": "crates/core/src/validation.rs: private is_valid_message_id and public validate_message_id implement the same format check independently. If the rules diverge, one will silently accept what the other rejects. Fix: implement one and delegate from the other, or remove is_valid_message_id and have call sites use validate_message_id().is_ok().",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:25:44Z",
+  "updated_at": "2026-05-01T04:51:33Z",
+  "closed_at": "2026-04-28T21:37:26Z"
+}

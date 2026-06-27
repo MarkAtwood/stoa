@@ -1,0 +1,20 @@
+{
+  "id": "stoa-d45d3bfb",
+  "title": "Re-export UserCredential placement: move to lib.rs or alongside AuthConfig",
+  "description": "In crates/imap/src/config.rs lines 4-6, pub use stoa_auth::config::UserCredential; is placed at the top of the file before all struct definitions. This is the least discoverable position for a re-export: a reader encounters a bare pub use before seeing the AuthConfig struct that uses the type.\n\nTwo better alternatives:\n1. Move the re-export to crates/imap/src/lib.rs (idiomatic location for crate-level re-exports, consistent with how stoa-auth itself re-exports from its lib.rs).\n2. Move it immediately above the AuthConfig struct definition, so the type appears next to its sole use site in config.rs.\n\nThe current placement next to the use serde::Deserialize; imports visually implies it is just another import, not a deliberate public API surface.\n\nFile: crates/imap/src/config.rs lines 1-6.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T16:51:51Z",
+  "updated_at": "2026-05-01T04:58:36Z",
+  "closed_at": "2026-04-30T16:56:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-45f3f588",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 09:51:51"
+    }
+  ]
+}

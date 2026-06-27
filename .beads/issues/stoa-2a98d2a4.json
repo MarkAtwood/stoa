@@ -1,0 +1,27 @@
+{
+  "id": "stoa-2a98d2a4",
+  "title": "Wire group-log reconciliation on inbound gossip tips",
+  "description": "When the gossipsub event loop receives a tip advertisement, trigger group_log reconciliation: compare local tip vs received tip, initiate backfill if behind. Wire the backfill logic (already in core::group_log::backfill) to the transit IPFS store to fetch missing blocks. Why: without reconciliation, peers never sync their group logs and articles received over gossip are lost.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T00:13:48Z",
+  "updated_at": "2026-05-01T04:59:16Z",
+  "closed_at": "2026-04-21T02:05:21Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1d3ce3b1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:14:18"
+    },
+    {
+      "depends_on_id": "stoa-e861c46f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:14:13"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-f8e0bf65",
+  "title": "sieve_admin list_scripts response built with manual format!() instead of serde",
+  "description": "smtp/src/sieve_admin.rs:113-124: JSON response is constructed as format!(r#\"{\"name\":{:?},\"active\":{}}\"\", name, active). This is fragile: script names with backslashes or Unicode escapes will produce malformed JSON if :? escaping diverges from JSON escaping rules. Rewrite: define struct ListScriptResponse { name: String, active: bool } with #[derive(Serialize)], return Vec<ListScriptResponse> via axum Json<> extractor.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T16:56:35Z",
+  "updated_at": "2026-05-01T04:55:15Z",
+  "closed_at": "2026-04-22T23:32:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-33df35ca",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 09:56:35"
+    }
+  ]
+}

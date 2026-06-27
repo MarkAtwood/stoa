@@ -1,0 +1,21 @@
+{
+  "id": "stoa-ea38926b",
+  "title": "refactor(mail): replace inline credential building with stoa_auth::build_credential_store",
+  "description": "mail/main.rs still uses the old inline pattern: CredentialStore::from_credentials + manual secretx block with nested match chains and if let Some(ref path). Should be replaced with stoa_auth::build_credential_store (the same standardisation applied to smtp, reader, and imap in the aubi/gzag work).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T21:02:21Z",
+  "updated_at": "2026-05-01T05:00:41Z",
+  "closed_at": "2026-04-30T21:24:42Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-7b8daa1e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 14:02:21"
+    }
+  ]
+}

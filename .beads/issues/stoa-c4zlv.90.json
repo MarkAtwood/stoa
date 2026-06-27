@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T18:33:54Z",
+  "compaction_level": 0,
+  "content_hash": "1586638da43341226cb7c9a5354f700fa71e20c94d6e5a3590fb219b8efca51c",
+  "created_at": "2026-05-01T15:22:23Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: group_metrics.rs run_group_metrics_sampler() updates per-group gauges each tick but never calls gauge.remove() when a group is GC'd or disappears from the articles table. Bad behavior: stale gauge values for deleted groups persist in the Prometheus metrics endpoint until the daemon is restarted. Operators monitoring group-level article counts will see phantom non-zero values for groups that no longer exist, leading to false alerts.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.90",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "group_metrics sampler retains stale gauge values for GC'd groups indefinitely",
+  "updated_at": "2026-05-01T18:33:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:22:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "7ee83f04-397d-59bb-8972-5031e4393f4b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

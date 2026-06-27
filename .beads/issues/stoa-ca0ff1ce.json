@@ -1,0 +1,20 @@
+{
+  "id": "stoa-ca0ff1ce",
+  "title": "SEC1: xcid_client fetch_entry has no timeout on peer connect or protocol exchange",
+  "description": "In xcid_client.rs, try_fetch_from_peer calls TcpStream::connect with no timeout (line 112), and run_xcid_protocol reads the server greeting and XCID response with no timeout (lines 145-164). If a peer accepts the TCP connection but then stalls (hung process, network blackhole), the fetch blocks indefinitely. The fetch_entry loop tries peers in order, so a single hung peer blocks all subsequent peers from being tried. In a multi-peer config, one unhealthy peer can make all XCID fetches fail for as long as the hung connection persists. Fix: wrap TcpStream::connect and each read_line in tokio::time::timeout with a configurable deadline (default ~10s).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T23:44:48Z",
+  "updated_at": "2026-05-01T04:54:00Z",
+  "closed_at": "2026-04-24T00:00:50Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4206df49",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 16:44:48"
+    }
+  ]
+}

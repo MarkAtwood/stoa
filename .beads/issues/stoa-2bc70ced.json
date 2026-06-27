@@ -1,0 +1,13 @@
+{
+  "id": "stoa-2bc70ced",
+  "title": "R6 fix batch: P1 quick+medium bugs",
+  "description": "Fix all quick and medium P1 bugs from the open backlog. Covers: entry_count semantics (5w3.5), HLC far-future timestamp rejection (5w3.6), SMTP missing Message-ID synthesis (dwp), audit log drop counter (5w3.4), and mailparse multipart replacement (6l6). Deferred: 5w3.14 (blocked on STARTTLS), 5w3.7 (pre-backfill), 5w3.9 (arch decision pending).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T18:59:27Z",
+  "updated_at": "2026-05-01T04:59:03Z",
+  "closed_at": "2026-04-22T19:21:54Z"
+}

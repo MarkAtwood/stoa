@@ -1,0 +1,21 @@
+{
+  "id": "stoa-1d27214e",
+  "title": "S3 block store backend",
+  "description": "Implement S3-compatible object storage as a selectable block store backend.\n\nWhy this issue exists:\nOperators running in cloud environments (AWS, Backblaze, MinIO) need to store article blocks in object storage instead of a local IPFS node. This is the S3 implementation of the pluggable backend trait.\n\nWhat needs to be done:\n- Evaluate object_store vs aws-sdk-s3, implement S3Store using chosen crate\n- S3ManifestWriter, startup bucket check, and config section\n- Lifecycle tagging GC mode and explicit delete mode\n- MinIO docker-compose integration test and RUNBOOK",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T19:59:15Z",
+  "updated_at": "2026-05-01T04:51:54Z",
+  "closed_at": "2026-04-28T02:11:14Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-da58a499",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:00:44"
+    }
+  ]
+}

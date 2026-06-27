@@ -1,0 +1,21 @@
+{
+  "id": "stoa-df6345fd",
+  "title": "DECISION: PinningApiKey Debug impl redacts the secret value",
+  "description": "config.rs test external_pin_service_parses asserts that the Debug output of PinningApiKey does not contain the raw token string ('secret-token'). This confirms that the type's Debug implementation is redacted, preventing API keys from appearing in panic messages, log lines that format config structs, or test output. This is a security-by-design choice enforced by an automated test.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:33:20Z",
+  "updated_at": "2026-05-01T05:00:01Z",
+  "closed_at": "2026-04-27T16:36:26Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:33:19"
+    }
+  ]
+}

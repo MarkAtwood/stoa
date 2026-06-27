@@ -1,0 +1,12 @@
+{
+  "id": "stoa-78cc7814",
+  "title": "smtp: document that Newsgroups: header does not auto-route to NNTP",
+  "description": "Incoming SMTP email with a Newsgroups: header is NOT automatically injected into NNTP. This is intentional: auto-routing on that header would allow any authenticated SMTP user to inject articles into arbitrary newsgroups without explicit operator policy. Operators who want email\u2192newsgroup routing must write explicit Sieve rules using fileinto 'newsgroup:X'. This issue documents this decision and tracks adding a comment in the code and/or operator documentation.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T03:02:19Z",
+  "updated_at": "2026-05-01T04:55:47Z",
+  "closed_at": "2026-04-22T23:32:37Z"
+}

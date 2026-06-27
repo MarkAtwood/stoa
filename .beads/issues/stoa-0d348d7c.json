@@ -1,0 +1,21 @@
+{
+  "id": "stoa-0d348d7c",
+  "title": "IMAP main.rs ignores credential_file; credential_file documented but never loaded",
+  "description": "imap/src/main.rs calls CredentialStore::from_credentials(&config.auth.users) only. The stoa_auth::AuthConfig has a credential_file field (documented as 'Loaded at startup') but IMAP never reads it. An operator who configures auth.credential_file in imap.toml will get silent auth failure for all file-sourced users. Reader and smtp both handle credential_file; IMAP does not.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:14:36Z",
+  "updated_at": "2026-05-01T04:52:25Z",
+  "closed_at": "2026-04-30T19:20:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-92eac40d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 12:14:35"
+    }
+  ]
+}

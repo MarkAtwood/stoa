@@ -1,0 +1,39 @@
+{
+  "id": "stoa-f6e2c4aa",
+  "title": "Implement GROUP, NEXT, LAST, STAT",
+  "description": "Implement GROUP groupname: select group, return 211 with count/low/high/name, update session cursor. Implement NEXT: advance cursor to next article, return 223. Implement LAST: retreat cursor, return 223. Implement STAT [msgid|number]: return 223 without body. Artifact: reader/src/session/commands/group.rs.\n\nAcceptance:\n- GROUP on unknown group returns 411\n- GROUP on empty group returns 211 with count=0\n- NEXT at end of group returns 421\n- LAST at beginning of group returns 422\n- Session state (current group, current article) persists across commands",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:13:08Z",
+  "updated_at": "2026-05-01T04:53:25Z",
+  "closed_at": "2026-04-20T03:48:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-41676187",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:14:17"
+    },
+    {
+      "depends_on_id": "stoa-4d02536e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:15:17"
+    },
+    {
+      "depends_on_id": "stoa-987f87c2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:13:08"
+    },
+    {
+      "depends_on_id": "stoa-fc317007",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:53:24"
+    }
+  ]
+}

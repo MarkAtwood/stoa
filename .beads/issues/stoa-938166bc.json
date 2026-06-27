@@ -1,0 +1,13 @@
+{
+  "id": "stoa-938166bc",
+  "title": "Review: Azure/GCS backend commit",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T02:31:38Z",
+  "updated_at": "2026-05-01T04:52:18Z",
+  "closed_at": "2026-04-28T06:40:19Z",
+  "notes": "Maintainer risk: HIGH \u2014 probe delete silently swallowed means GC permission not verified at startup; GCS dual-credential is a silent footgun; allow_http in production is unguarded. The probe duplication across 6 modules is the highest maintenance debt item.\nConfidence: 15% chance of missed bug. Uncertainty driven by: (1) not having run against a live Azure or GCS endpoint \u2014 the object_store builder behavior when both service_account_path and service_account_key are set is read from source code analysis, not empirical verification; (2) the put_block CID mismatch issue depends on whether any caller in the reader POST path can reach put_block with attacker-controlled CID \u2014 I traced the call graph but did not read every upstream caller. Would raise confidence if: read the full reader POST path from NNTP command handler to put_block call to confirm CID provenance; run the Azurite emulator integration test against the startup probe."
+}

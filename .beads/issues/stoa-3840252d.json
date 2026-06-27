@@ -1,0 +1,13 @@
+{
+  "id": "stoa-3840252d",
+  "title": "Review: feat(backend)+feat(lmdb) pluggable store + LMDB + ctl CLI",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T16:33:38Z",
+  "updated_at": "2026-05-01T04:53:58Z",
+  "closed_at": "2026-04-24T18:08:00Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 Four P1 issues, three of which cause silent wrong behavior: the /reload stub lies to the operator, S3/Filesystem unimplemented types can reach startup, and reader config lets the daemon start without any configured block store. The LMDB validation gap is a startup panic waiting to happen. Nothing that causes data loss, but operator trust issues.\nConfidence: 20% chance of missed bug. Uncertainty driven by: (1) did not read transit/src/main.rs build_store() factory to confirm S3/Filesystem panic vs compile error \u2014 the issue is real but the exact failure mode is unverified; (2) did not read reader/src/main.rs to confirm how the reader handles no-backend config at runtime; (3) heed crate version not verified \u2014 unsafe impl Send/Sync on LmdbBlockDb may be genuinely needed if this heed version doesn't provide them. Would raise confidence with: 30 min reading main.rs factory functions and heed 0.20 source."
+}

@@ -1,0 +1,27 @@
+{
+  "id": "stoa-73e86c06",
+  "title": "Spike: evaluate Hashcash PoW stamp as spam mitigation",
+  "description": "Evaluate Hashcash (RFC 2289-style X-Hashcash: header) as a mechanism to rate-limit POST spam. Assess: (1) CPU cost to compute a valid stamp at bit-difficulties 20, 24, 28; (2) verification cost at the server; (3) compatibility with standard newsreader clients (can they add the header?); (4) resistance to GPU/ASIC attacks. Artifact: docs/spam_mitigation_pow.md with benchmark data.\n\nAcceptance:\n- Benchmark data: time to compute stamp at 20/24/28 bits on a reference laptop\n- Server verification time measured and documented\n- Compatibility with slrn, Thunderbird documented (can they add X-Hashcash: header?)\n- Conclusion: recommend adopt/reject with rationale\n- No production code written (spike only)",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:17:40Z",
+  "updated_at": "2026-05-01T04:58:05Z",
+  "closed_at": "2026-04-20T12:18:22Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-8013af16",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:17:40"
+    },
+    {
+      "depends_on_id": "stoa-ec0ce60a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:18:12"
+    }
+  ]
+}

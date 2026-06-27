@@ -1,0 +1,20 @@
+{
+  "id": "stoa-c7aa35dc",
+  "title": "find_header_end uses manual index loop over byte slice",
+  "description": "queue.rs find_header_end() advances through bytes with a manual index variable 'i' and inner while-loop 'while i < bytes.len() && bytes[i] != b'\\n' { i += 1; } i += 1;'. Idiomatic Rust would use bytes.windows(4).position(|w| w == b\"\\r\\n\\r\\n\") for the primary case and then handle the \\n\\n case with a second pass, or use a memchr-family scan. The manual index loop also contains an implicit assumption that incrementing past a \\n cannot overflow len \u2014 safe because of the outer while guard, but the invariant is not obvious. The function is pub(crate) so the surface is limited, but as written it is the kind of thing Clippy's clippy::indexing_slicing lint would flag.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:43:37Z",
+  "updated_at": "2026-05-01T05:00:32Z",
+  "closed_at": "2026-05-01T00:45:20Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d94f2708",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:43:36"
+    }
+  ]
+}

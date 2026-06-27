@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "e0c312ff5a23864c7e877341ca061af88af8a4499858617a0b3f65347dc89f34",
+  "created_at": "2026-05-03T13:06:38Z",
+  "created_by": "Mark Atwood",
+  "description": "injection_source.rs InjectionSource Display impl returns 'NntpPost', 'SmtpNewsgroups', etc. (PascalCase). The serde Serialize/Deserialize would produce snake_case if rename_all were applied. Log messages and audit records that format an InjectionSource via Display will show PascalCase while any serialized form would be snake_case. Pick one casing and be consistent; at minimum add a comment explaining the intentional divergence.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.122",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "core: InjectionSource Display uses PascalCase strings instead of matching the serde snake_case rename",
+  "updated_at": "2026-05-03T13:06:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "b8cfb882-0955-5be1-8580-e5ad5b0b7073",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

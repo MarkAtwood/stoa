@@ -1,0 +1,32 @@
+{
+  "id": "stoa-046720c8",
+  "title": "b1bc.7: DKIM signing in NntpQueue::drain_once",
+  "description": "What: In crates/smtp/src/queue.rs, insert DKIM signing between inject_source_header and the post_article call inside drain_once.\n\nAlgorithm (inside drain_once, after inject_source_header produces ):\n1. Check if self.dkim_signer is Some(signer):\n   a. Call signer.sign(&article_bytes) \u2014 returns Result<Signature, DkimSignError>.\n   b. On Ok(sig): call sig.to_header() to get the full 'DKIM-Signature: ...\\r\\n' string.\n      Prepend it to article_bytes: create new Vec<u8> = header.as_bytes() + article_bytes.\n   c. On Err(e): log warn!('DKIM signing failed, deferring article {}: {e}', message_id);\n      continue to next file (skip this article \u2014 it will be retried on next drain cycle).\n2. If self.dkim_signer is None, use article_bytes as-is.\n3. Call post_article with the (possibly signed) article bytes.\n\nDefensive programming:\n- Never send an unsigned article when dkim_signer is Some \u2014 always hold on failure.\n- warn! log must include message_id but NOT any message body content.\n- DKIM-Signature header prepended before all other headers (standard placement: first header).\n- No unwrap() \u2014 all Err paths are handled.\n\nTests (oracle: RFC 8463 Appendix A test vector):\n- test_dkim_signing_prepends_header: sign a known test message with a test ed25519 keypair; verify output bytes start with 'DKIM-Signature:'.\n- test_dkim_signing_header_format: verify the signed output contains 'v=1' and 'a=ed25519-sha256' in the DKIM-Signature header.\n- test_dkim_signing_absent: with dkim_signer=None, verify article bytes are passed through unchanged.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T22:51:45Z",
+  "updated_at": "2026-05-01T04:55:21Z",
+  "closed_at": "2026-04-30T23:07:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0b861fd5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 15:52:20"
+    },
+    {
+      "depends_on_id": "stoa-15b2769f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 15:51:45"
+    },
+    {
+      "depends_on_id": "stoa-3a109745",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 15:52:22"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "stoa-e6caf0ca",
+  "title": "IMAP/JMAP: Email/get lacks maxObjectsInGet enforcement",
+  "description": "mail/src/server.rs Email/get handler does not enforce maxObjectsInGet: 500 limit. Client can send an unbounded ID list, driving one IPFS fetch per ID with no cap. Fix: slice the incoming ids array to min(ids.len(), 500) before processing, return total count in response.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T08:02:09Z",
+  "updated_at": "2026-05-01T04:58:59Z",
+  "closed_at": "2026-04-27T14:53:36Z"
+}

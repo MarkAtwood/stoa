@@ -1,0 +1,33 @@
+{
+  "close_reason": "P3 style nit (body.to_string()); deferred.",
+  "closed_at": "2026-05-02T21:44:41Z",
+  "compaction_level": 0,
+  "content_hash": "c881e34a8fc7f8f2e59249befc2706d91b2b39434fe15b2b3794bb0f4659cd37",
+  "created_at": "2026-05-02T21:43:19Z",
+  "created_by": "Mark Atwood",
+  "description": "mta_sts_fetcher.rs line 161 (test): let body_str = body.to_string() where body is a &str literal. The idiomatic form for converting &str to String is .to_owned() (clippy::str_to_string). .to_string() works but goes through the Display trait \u2014 .to_owned() is the direct conversion that signals intent.",
+  "ephemeral": 0,
+  "id": "stoa-owq35.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mta_sts_fetcher.rs test: body.to_string() on &str literal",
+  "updated_at": "2026-05-02T21:44:41Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:43:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-owq35",
+      "id": "cf185b9a-5167-545b-b21e-a73f1614bfd2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

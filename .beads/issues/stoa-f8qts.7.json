@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T16:11:57Z",
+  "compaction_level": 0,
+  "content_hash": "aa214a3ea68bd8bbeacdc3a3e311dae95ebb50c78b00992164334bbe934c9d4b",
+  "created_at": "2026-05-05T15:55:28Z",
+  "created_by": "Mark Atwood",
+  "description": "docker.yml metadata-action tag: 'type=raw,value=latest,enable=${{ github.ref == refs/heads/main }}' \u2014 this pushes :latest on every main commit, not only semver releases. For a server binary this means :latest tracks the tip of main which may be pre-release. Standard practice is :latest only on versioned tag. P3 ops.",
+  "ephemeral": 0,
+  "id": "stoa-f8qts.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Dockerfile: latest tag emitted on every push to main (not just semver)",
+  "updated_at": "2026-05-05T16:11:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-05T08:55:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-f8qts",
+      "id": "63886e1f-9e8e-51e6-8d95-dda692ff832a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

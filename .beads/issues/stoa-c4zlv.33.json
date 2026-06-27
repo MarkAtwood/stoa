@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T17:33:48Z",
+  "compaction_level": 0,
+  "content_hash": "8bc0b192e823bea95fa899b91912c3a7a2429564a704371eedd9ffba0537cf00",
+  "created_at": "2026-05-01T15:19:49Z",
+  "created_by": "Mark Atwood",
+  "description": "In crates/core/src/group_log/backfill.rs, if want_id is already locally present the function returns Ok(0) immediately without checking whether want_id is already in the group tip set. If the tip set is stale (e.g. after the crash scenario in append), the entry is present but not a tip, and backfill silently reports success without advancing tips. Callers that rely on backfill to make want_id reachable via list_tips will be silently wrong. Fix: after detecting the entry is present, check whether it is already a tip and if not call advance_tips (or at minimum document the limitation clearly).",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.33",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "backfill: already-present want_id returns Ok(0) without checking tip staleness",
+  "updated_at": "2026-05-01T17:33:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:19:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "ebf444c4-e403-59a3-81ab-450a6bda5680",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

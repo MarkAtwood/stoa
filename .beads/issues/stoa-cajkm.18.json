@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T08:11:02Z",
+  "compaction_level": 0,
+  "content_hash": "ba2462cf2771ba4e883f5209ac6da9a9ab16ebaefa8fc302d7a6e305ae24435d",
+  "created_at": "2026-05-04T08:04:50Z",
+  "created_by": "Mark Atwood",
+  "description": "Finding: RuntimeEnvironment (stoa_core/src/env.rs) classifies the process as Production/Development/Test based on STOA_ENV. The startup banners in all five daemons emit this classification. But the security guards that abort on dangerous configs (dev-mode auth on non-loopback) do NOT consult RuntimeEnvironment \u2014 they check config.auth.is_dev_mode() && !is_loopback_addr(). So it is possible to run with STOA_ENV=production but have auth dev-mode active on a loopback address (legitimate dev/test), or conversely to run STOA_ENV=development but still have full auth configured (no guard fires, which is fine). The two systems are orthogonal and that is probably correct, but nowhere is it written down.\n\nRisk: A future maintainer sees RuntimeEnvironment::is_dev() and assumes 'if I set STOA_ENV=development I am in dev mode and the guards will behave differently'. They would be wrong \u2014 the guards are purely config-based. This leads to confusion when trying to understand why a STOA_ENV=development daemon still refuses to start (because the auth guard fires on the listen address, not the env var). Conversely they might expect that STOA_ENV=production would tighten guards, and be surprised it does not.\n\nSuggested fix: Add a comment in env.rs near RuntimeEnvironment explaining that RuntimeEnvironment controls logging/banner only; startup security guards (auth dev-mode, signing key, admin token) are config-structure-based and do not consult this enum. This is a two-line comment, not a code change.",
+  "ephemeral": 0,
+  "id": "stoa-cajkm.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "No documentation of gap between RuntimeEnvironment and address-based guards",
+  "updated_at": "2026-05-04T08:11:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T01:04:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-cajkm",
+      "id": "1c5bbd5b-e8e6-5bce-a545-68c982ea1db0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

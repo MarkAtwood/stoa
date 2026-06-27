@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T16:21:36Z",
+  "compaction_level": 0,
+  "content_hash": "b02372d20a7e288eed60f61e4756991a6f484cd45a389acfd189ce8dc7b16789",
+  "created_at": "2026-05-01T15:16:58Z",
+  "created_by": "Mark Atwood",
+  "description": "In server.rs route_method Email/changes, since_seq is parsed from sinceState via .parse().unwrap_or(0). An attacker-supplied sinceState that is not a valid decimal integer (e.g. a very large number, negative, or garbage) silently falls back to seq=0, returning the entire change log rather than returning a cannotCalculateChanges error. RFC 8620 \u00a75.2 requires returning cannotCalculateChanges when sinceState is not recognised; returning all entries since epoch violates the contract and may leak data to a client that expected only incremental results.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/changes sinceState accepts arbitrary strings silently",
+  "updated_at": "2026-05-01T16:21:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:16:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "3e1db418-a156-52d4-813f-b2982093c11d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

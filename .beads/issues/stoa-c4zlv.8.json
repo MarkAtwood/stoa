@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T17:33:40Z",
+  "compaction_level": 0,
+  "content_hash": "f5167ab8cc4f6eebb7f68b34ed3545a62d4ffc1d787cab02d111e5c9087ddf0c",
+  "created_at": "2026-05-01T15:17:42Z",
+  "created_by": "Mark Atwood",
+  "description": "In http_sign.rs, sign_post returns Box<dyn std::error::Error + Send + Sync>. The rsa crate errors that could arise from signing do implement std::error::Error, but the boxing erases the chain. More importantly, from_pem and to_pem return rsa::pkcs1::Error which does not implement the std::error::Error source() chain; callers see only the Display but lose the original cause. This makes debugging key format failures opaque in production logs.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "http_sign.rs: sign_post drops error source chain",
+  "updated_at": "2026-05-01T17:33:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:17:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "b955dbdd-7deb-59c3-91a9-ca8ed81c4eb5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

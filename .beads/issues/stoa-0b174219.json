@@ -1,0 +1,26 @@
+{
+  "id": "stoa-0b174219",
+  "title": "Expose X-Usenet-IPFS-DID-Verified in NNTP ARTICLE response",
+  "description": "What: When serving ARTICLE (and HEAD) responses, if did_sig_valid is Some in the OverviewRecord, add X-Usenet-IPFS-DID-Verified: true|false header to the response.\n\nAlgorithm:\n1. Find the ARTICLE/HEAD command handler in crates/reader/src/session/ (likely commands/article.rs or handlers/article.rs)\n2. When retrieving the article to serve, also look up the OverviewRecord via overview_store.query_by_msgid() or similar to get did_sig_valid\n3. If did_sig_valid is Some(true): inject header 'X-Usenet-IPFS-DID-Verified: true' into the response headers before the blank line\n4. If did_sig_valid is Some(false): inject header 'X-Usenet-IPFS-DID-Verified: false'\n5. If did_sig_valid is None: do not add the header (absent = no DID sig was present)\n6. Advertise X-USENET-IPFS-DID-VERIFIED in CAPABILITIES response (find where capabilities are listed and add it)\n\nDefensive programming:\n- Header injection must not break RFC 5322 header format\n- Only add header if overview lookup succeeds \u2014 on lookup failure, silently omit rather than failing the ARTICLE command\n- The X- prefix marks this as an extension; standard clients will ignore it per RFC 3977 \u00a73.3\n- Log at debug level if header injection happens, not info",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T04:06:44Z",
+  "updated_at": "2026-05-01T05:00:53Z",
+  "closed_at": "2026-04-23T04:39:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-70a82188",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:07:09"
+    },
+    {
+      "depends_on_id": "stoa-c06fa970",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:06:43"
+    }
+  ]
+}

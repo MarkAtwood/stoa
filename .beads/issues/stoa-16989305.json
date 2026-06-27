@@ -1,0 +1,20 @@
+{
+  "id": "stoa-16989305",
+  "title": "reader drain: remaining-connections count has TOCTOU window",
+  "description": "In crates/reader/src/main.rs (around line 344-349), the drain timeout arm re-queries semaphore_drain.available_permits() after the timeout has already fired:\n\n    Err(_) => {\n        let remaining = max_connections - semaphore_drain.available_permits();\n        warn!(remaining_connections = remaining, \"drain timeout exceeded\");\n        std::process::exit(1);\n    }\n\nBetween the timeout expiring and this re-query, additional sessions may\nhave released permits, so the logged remaining_connections can be lower\nthan the actual count at timeout \u2014 potentially even zero, which would\nproduce a misleading 'timed out with 0 connections remaining' log line.\n\nFix: capture the remaining count before entering the timeout future, or\naccept the count is approximate and note it in the log message. The\nwarning message should make clear it is a snapshot count at timeout, not\na precise count.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T05:24:47Z",
+  "updated_at": "2026-05-01T04:57:17Z",
+  "closed_at": "2026-04-24T05:47:49Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ebc6ad28",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 22:24:47"
+    }
+  ]
+}

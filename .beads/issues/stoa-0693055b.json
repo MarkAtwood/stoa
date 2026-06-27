@@ -1,0 +1,13 @@
+{
+  "id": "stoa-0693055b",
+  "title": "imap: handle_status silently swallows DB errors",
+  "description": "mailbox.rs:167 calls fetch_optional().await.unwrap_or(None), converting any DB error to None. IMAP STATUS then silently returns 'mailbox not found' when the DB is broken, instead of surfacing the error. Fix: match the Result and warn+return None on Err.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-25T02:30:00Z",
+  "updated_at": "2026-05-01T04:51:59Z",
+  "closed_at": "2026-04-25T02:30:18Z"
+}

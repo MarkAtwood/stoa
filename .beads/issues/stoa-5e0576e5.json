@@ -1,0 +1,20 @@
+{
+  "id": "stoa-5e0576e5",
+  "title": "transit config: GcConfig.schedule is a free string, never validated",
+  "description": "transit/src/config.rs GcConfig.schedule is a String with no cron-expression validation. The GcConfig struct has an #[allow(dead_code)] attribute indicating it is read but not yet consumed. When GC is implemented and begins parsing this field, any existing deployed config with a typo (e.g. '0 3 * *' missing a field) will fail at runtime rather than at startup. Maintenance consequence: the config format will fossilize without ever being validated; operators will discover malformed cron expressions only when GC silently fails to run.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:11:20Z",
+  "updated_at": "2026-05-01T04:53:44Z",
+  "closed_at": "2026-04-27T02:37:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:11:19"
+    }
+  ]
+}

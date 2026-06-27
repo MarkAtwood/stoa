@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T13:21:52Z",
+  "compaction_level": 0,
+  "content_hash": "81c771c4968425d1bd3a03a889d7b6ca41978b62f79a1931c400c080eabd01cc",
+  "created_at": "2026-05-03T13:04:33Z",
+  "created_by": "Mark Atwood",
+  "description": "In queue.rs, the DKIM signature header is prepended to the message body by calling rotate_right(sig_line.len()) on the full message Vec<u8>. rotate_right on a Vec performs an O(n) in-place byte shift over the entire message contents. For a 10 MB message this is a 10 MB memory move on every drain cycle for every message. Fix: build the output buffer by concatenating the signature bytes followed by the original message bytes (two-part write or Vec::with_capacity + extend), avoiding the O(n) shift entirely.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.46",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "smtp: DKIM signing uses O(n) rotate_right to prepend header",
+  "updated_at": "2026-05-03T13:21:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:04:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "b2fef0dc-9657-5b47-84e6-1db43967b884",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

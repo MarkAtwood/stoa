@@ -1,0 +1,20 @@
+{
+  "id": "stoa-cc431cc0",
+  "title": "SEC6: pipeline detection before STARTTLS upgrade",
+  "description": "In lifecycle.rs run_command_loop, the STARTTLS handler checks reader.buffer().is_empty() before sending the 382 response and returning to the caller for the TLS handshake. RFC 4642 forbids pipelining after STARTTLS; if the client has already queued commands in the TCP receive buffer, those bytes would be processed as TLS handshake bytes, enabling command injection or a STARTTLS stripping attack. The check correctly rejects the connection rather than silently tolerating pipelined data. Non-obvious because the buffer check must happen before the 382 is sent -- once 382 is flushed, the client begins TLS and any subsequently buffered bytes are the TLS ClientHello, not NNTP commands. Decision: close with 502 rather than ignore buffered data.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T23:43:59Z",
+  "updated_at": "2026-05-01T04:53:40Z",
+  "closed_at": "2026-04-24T00:04:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4206df49",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 16:43:58"
+    }
+  ]
+}

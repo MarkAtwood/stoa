@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "7bc8a0a4b9d7acba4d6faf556bedb50895e9867b6603ea77d05cd7cc7a9e102a",
+  "created_at": "2026-05-03T13:09:59Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: shelling out to aws introduces a runtime dependency on the aws CLI binary being on PATH, makes error propagation brittle (exit code only), and prevents progress reporting. The aws crate (or object_store S3 backend already in the dependency tree) provides a proper async API. What: backup_scheduler.rs s3_upload_backup uses tokio::process::Command to invoke aws s3 cp. The S3 object_store backend is already a dependency for the S3 store backend. Reuse it for backup uploads.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.178",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "backup_scheduler shells out to aws s3 cp instead of using SDK",
+  "updated_at": "2026-05-03T13:09:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:09:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "d4862bb8-68d1-591c-b6e2-e38f9e782a4e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

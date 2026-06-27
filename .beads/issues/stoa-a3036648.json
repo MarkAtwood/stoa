@@ -1,0 +1,20 @@
+{
+  "id": "stoa-a3036648",
+  "title": "transit config.rs: cert_sha256 format not validated at config load",
+  "description": "transit/src/config.rs PeerEntry validates that cert_sha256 is present when tls=true, but does not validate its format. The field is documented as 'colon-separated lowercase hex bytes e.g. aa:bb:cc:...' but any non-empty string passes config validation. A misconfigured fingerprint (wrong length, wrong separator, uppercase) will not be caught at startup and will only fail at TLS handshake time with a cryptic connection error \u2014 or silently fail to match and accept all peers. Maintenance consequence: operators will file bugs about TLS not working with no clear path to the misconfigured cert_sha256.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:11:13Z",
+  "updated_at": "2026-05-01T04:53:44Z",
+  "closed_at": "2026-04-27T02:37:22Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:11:12"
+    }
+  ]
+}

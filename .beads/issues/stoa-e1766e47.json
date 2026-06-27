@@ -1,0 +1,12 @@
+{
+  "id": "stoa-e1766e47",
+  "title": "Review round 2: feat(smtp): DKIM signing of outbound messages",
+  "status": "in_progress",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:30:07Z",
+  "updated_at": "2026-05-01T05:00:43Z",
+  "notes": "Confidence: 100%. Round 1 fixed 2 real issues. Round 2: P0=0 P1=0 P2=0. Running out of real complaints: YES. OpenSSL commands verified correct, consolidation is sound, no regressions."
+}

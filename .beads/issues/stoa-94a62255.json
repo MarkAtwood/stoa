@@ -1,0 +1,20 @@
+{
+  "id": "stoa-94a62255",
+  "title": "Transit: ingestion task panic logged as clean drain (JoinHandle Ok(_) swallows JoinError)",
+  "description": "In crates/transit/src/main.rs lines 930-933, the match on drain_result uses Ok(_) which matches both Ok(Ok(())) (clean task exit) and Ok(Err(JoinError)) (task panic). When the ingestion task panics, drain_result is Ok(Err(JoinError)), which falls into the Ok(_) arm and logs 'ingestion task drained cleanly'. This silently swallows a task panic and gives the operator a false clean-exit signal. The process then continues to the 'usenet-ipfs-transit stopped' log and exits with code 0. Fix: match Ok(Ok(())) explicitly and match Ok(Err(e)) as a separate arm that logs the panic reason and exits non-zero.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T05:27:06Z",
+  "updated_at": "2026-05-01T04:56:29Z",
+  "closed_at": "2026-04-24T05:46:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ebc6ad28",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 22:27:06"
+    }
+  ]
+}

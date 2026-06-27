@@ -1,0 +1,20 @@
+{
+  "id": "stoa-f00086f7",
+  "title": "dead/ metrics gauge undercounts on read_dir entry Err",
+  "description": "drain_once dead/ scan: Err branch at line 352 breaks the loop, setting the gauge to the partial count seen so far. Any entries after the failed entry are not counted. RELAY_DEAD_LETTER_DEPTH will silently report a number lower than the true dead-letter count, which defeats the purpose of the metric (alert on accumulation).",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:17:57Z",
+  "updated_at": "2026-05-01T04:59:16Z",
+  "closed_at": "2026-05-01T01:22:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-81b33f87",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:17:57"
+    }
+  ]
+}

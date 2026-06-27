@@ -1,0 +1,20 @@
+{
+  "id": "stoa-06b1de67",
+  "title": "strip_did_sig_header belongs in did_passthrough",
+  "description": "strip_did_sig_header in did_verify.rs does header-level byte manipulation and explicitly cross-references did_passthrough::DID_SIG_HEADER to do it. Header extraction and filtering are did_passthrough.rs's job; did_verify.rs should call a function exported from did_passthrough rather than doing the filtering itself. Move strip_did_sig_header (and export it, or give verify_did_sig a stripped-bytes parameter) so did_verify.rs contains only crypto logic and the module boundary matches the intended separation.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T04:59:28Z",
+  "updated_at": "2026-05-01T04:56:12Z",
+  "closed_at": "2026-04-23T07:06:30Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-062e13cb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:59:27"
+    }
+  ]
+}

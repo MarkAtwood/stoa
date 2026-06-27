@@ -1,0 +1,27 @@
+{
+  "id": "stoa-df63abb0",
+  "title": "usenet-ipfs-verify crate: skeleton, types, and SQLite store",
+  "description": "New MIT crate with the VerificationResult types and the store layer that reads/writes the two verification tables.\n\nWhat: crates/verify/Cargo.toml + src/lib.rs + src/store.rs + src/types.rs\n\ntypes.rs:\n  pub enum CheckType { UsenetIpfsSig, Dkim }\n  pub enum VerifyResult { Pass, Fail, NoKey, DnsError }\n  pub struct VerificationRecord {\n      pub check_type: CheckType,\n      pub key_id: Option<String>,   -- sha256:<hex>\n      pub result:   VerifyResult,\n      pub detail:   Option<String>,\n      pub verified_at: i64,\n  }\n  pub struct SeenKey {\n      pub key_id:        String,\n      pub key_type:      String,\n      pub key_data:      Vec<u8>,\n      pub cert_der:      Option<Vec<u8>>,   -- NULL in v1\n      pub identity:      Option<String>,\n      pub first_seen:    i64,\n      pub last_seen:     i64,\n      pub article_count: i64,\n  }\n\nstore.rs (VerifyStore):\n  pub struct VerifyStore { pool: Arc<SqlitePool> }\n  pub async fn record_verification(&self, cid: &Cid, rec: &VerificationRecord)\n    -- upserts seen_keys if key_id is Some (insert-or-ignore for new key; update last_seen+article_count if exists)\n    -- inserts into article_verifications\n  pub async fn get_verifications(&self, cid: &Cid) -> Vec<VerificationRecord>\n  pub async fn get_key(&self, key_id: &str) -> Option<SeenKey>\n\nlib.rs: re-exports types + store; declares pub mod verifiers (empty stubs for W1A/W1B to fill)\n\nCargo.toml: MIT license; deps: sqlx, cid, tracing, serde (for key_id helpers)\n\nDefensive rules:\n- key_id computation: sha256 of raw SubjectPublicKeyInfo bytes, hex-encoded, prefixed 'sha256:'.\n- record_verification must not fail on duplicate article_cid+check_type (INSERT OR REPLACE).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:47:48Z",
+  "updated_at": "2026-05-01T05:00:58Z",
+  "closed_at": "2026-04-24T01:09:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0b50c972",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:49:51"
+    },
+    {
+      "depends_on_id": "stoa-f07d2b75",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:47:47"
+    }
+  ]
+}

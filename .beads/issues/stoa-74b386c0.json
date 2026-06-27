@@ -1,0 +1,21 @@
+{
+  "id": "stoa-74b386c0",
+  "title": "STARTTLS: advertise and complete TLS upgrade on reader and transit",
+  "description": "TLS infrastructure (certificate loading, rustls configuration) is wired in both reader and transit but `STARTTLS` is not advertised in `CAPABILITIES` and the in-session TLS upgrade is not implemented. Credentials and article content go in the clear. Cautious operators will not deploy without TLS.\n\n## Scope\n\nThree surfaces need TLS:\n\n| Surface | Protocol | What's needed |\n|---------|----------|--------------|\n| Reader \u2192 newsreader client | NNTP STARTTLS (RFC 4642) | Upgrade existing TCP connection mid-session |\n| Reader \u2192 newsreader client | NNTPS port 563 | Immediate TLS on accept |\n| Transit \u2192 transit peer | NNTP peering over TLS | Outbound TLS connect, inbound TLS accept |\n\n## Reader STARTTLS (RFC 4642)\n\nWhen `[tls] cert_path` and `key_path` are configured:\n\n1. Add `STARTTLS` to the `CAPABILITIES` response\n2. On `STARTTLS` command:\n   - Reply `382 Continue with TLS negotiation`\n   - Perform TLS handshake on the existing TCP stream using `tokio-rustls`\n   - On handshake success: reset session state (clear auth, re-send greeting is NOT required per RFC 4642 \u00a72.2; just proceed with TLS-wrapped stream)\n   - On handshake failure: close connection (do not fall back to plaintext)\n3. After upgrade, `STARTTLS` must not appear in `CAPABILITIES` (already upgraded)\n4. `AUTHINFO` after `STARTTLS` proceeds normally over the encrypted channel\n\nIf `[tls]` is absent or cert/key cannot be loaded, `STARTTLS` is silently omitted from `CAPABILITIES` (plaintext-only mode). Startup warning if `[auth] required = true` but TLS is not configured.\n\n## Reader NNTPS (port 563)\n\nOptional second listener for immediate TLS (no STARTTLS negotiation). Add to reader config:\n\n```toml\n[tls]\ncert_path = \"/etc/ssl/certs/nntp.pem\"\nkey_path  = \"/etc/ssl/private/nntp.key\"\nnntps_addr = \"0.0.0.0:563\"  # optional; omit to disable\n```\n\nWhen `nntps_addr` is set, accept connections on that address and wrap immediately in TLS before the NNTP greeting. All session logic is identical to the post-STARTTLS path.\n\n## Transit peering TLS\n\nThe existing `[tls]` section in transit config already has `cert_path` / `key_path`. Extend peering to use TLS when configured:\n\n- **Inbound**: if TLS is configured, wrap accepted peering connections in TLS before the NNTP handshake\n- **Outbound**: each `[peers]` address entry gains an optional `tls = true` flag; when set, dial with TLS\n\n```toml\n[[peers.peer]]\naddr = \"transit2.example.com:119\"\ntls  = true\n```\n\nCertificate validation: by default, validate against system roots. Allow per-peer `ca_cert` override for self-signed peering certs (common in private operator networks).\n\n## What does NOT change\n\n- Session command handling \u2014 identical pre- and post-TLS\n- Auth logic \u2014 unchanged; TLS is a transport concern\n- `usenet-ipfs-tls` crate \u2014 already has the rustls configuration; wire it in, do not rewrite\n\n## Acceptance criteria\n- `CAPABILITIES` includes `STARTTLS` when cert/key are configured; omits it when not\n- `STARTTLS` upgrade succeeds with a self-signed cert; client can `AUTHINFO USER` after upgrade\n- `STARTTLS` on an already-TLS session returns `502 Command unavailable`\n- NNTPS listener accepts immediate TLS connections; standard newsreader (slrn or tin) connects successfully\n- Handshake failure closes the connection cleanly without logging the plaintext of any subsequent data\n- Transit-to-transit peering works over TLS with a self-signed cert and explicit `ca_cert` override",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T16:32:30Z",
+  "updated_at": "2026-05-01T04:59:00Z",
+  "closed_at": "2026-04-23T23:34:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5eacdeb9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 12:59:35"
+    }
+  ]
+}

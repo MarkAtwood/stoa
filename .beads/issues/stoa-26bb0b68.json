@@ -1,0 +1,21 @@
+{
+  "id": "stoa-26bb0b68",
+  "title": "POST msgid validator allows multiple @: article stored with malformed key",
+  "description": "TRIGGER: A POST client sends an article with Message-ID containing multiple @ signs, e.g. <local@domain@extra>. BEHAVIOR: reader/src/post/validate_headers.rs is_valid_message_id uses splitn(2, '@') so it sees local='local' and domain='domain@extra', both non-empty, and accepts the article. crates/core/src/validation.rs validate_message_id counts @ signs and rejects anything not exactly one. The accepted article flows into the pipeline with a msgid key that the transit ingestion path would reject at its stricter check, producing inconsistent storage or a pipeline abort after IPFS write already completed.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:11:27Z",
+  "updated_at": "2026-05-01T04:56:43Z",
+  "closed_at": "2026-04-27T01:43:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:11:27"
+    }
+  ]
+}

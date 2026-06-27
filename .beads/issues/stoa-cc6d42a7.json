@@ -1,0 +1,21 @@
+{
+  "id": "stoa-cc6d42a7",
+  "title": "Local filesystem block store backend",
+  "description": "Implement FilesystemBlockStore storing one file per block in a configured directory, named by CID string. No network dependency. Intended for single-node deployments, development, and offline testing.\n\nDepends on: pluggable backend epic (stoa-5c9f1a38).\n\n## What needs doing\n\n- Implement `FsStore: IpfsStore` (transit) and `FsBlockStore: IpfsBlockStore` (reader) using `tokio::fs`\n  - `put`: compute CID locally, write `<path>/<CID>` atomically (write to `<CID>.tmp` then rename); skip if file already exists\n  - `get`: read `<path>/<CID>`; map ENOENT \u2192 `None` / `NotFound`\n- Add `[backend.filesystem]` config section: `path` (required), `max_bytes` (optional soft cap)\n- IPNS: disable (log a one-time info message at startup that IPNS is not available with filesystem backend)\n- Soft cap enforcement: if `max_bytes` is set, refuse `put` when the directory total exceeds the limit; return `WriteFailed` so the pipeline can shed load rather than silently filling disk\n- Verify `path` exists and is writable at startup; fail fast if not\n- Runbook section: recommended directory layout, disk sizing guidance, GC (manual or cron `find ... -mtime +N -delete`)\n\n## GC / delete semantics\n\ndelete(cid) unlinks the file at <path>/<CID>. DeletionOutcome::Immediate \u2014 the file is gone as soon as unlink() returns. get() returns NotFound immediately after.\n\nThere is no grace period. The GC policy (max_age_days) is the operator's mechanism for ensuring articles are old enough before deletion. Operators who need a grace period should use the S3 lifecycle mode instead.\n\n## Acceptance criteria\n- Round-trip test: put a block, get it back, assert bytes match (no network required, uses tempdir)\n- Atomic write test: simulate a crash mid-write (truncated .tmp file) and verify the block is absent (not partially present) after recovery\n- Works on a fresh empty directory with no prior state\n- delete() removes the file; get() returns NotFound immediately after\n- delete() on a CID that does not exist returns Ok(DeletionOutcome::Immediate) without error (idempotent)",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T16:08:50Z",
+  "updated_at": "2026-05-01T04:59:47Z",
+  "closed_at": "2026-04-28T01:15:45Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5c9f1a38",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 09:08:54"
+    }
+  ]
+}

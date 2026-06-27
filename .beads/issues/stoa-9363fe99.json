@@ -1,0 +1,26 @@
+{
+  "id": "stoa-9363fe99",
+  "title": "sao.3: feed endpoint integration tests",
+  "description": "What: Write integration tests for the feed endpoints in crates/mail/src/server.rs or a new test file.\n\nOracle: RSS 2.0 spec (rssboard.org), Atom 1.0 RFC 4287 \u2014 expected XML structure derived from spec, not from the code under test.\n\nTests (use the existing spawn_server + reqwest pattern from server.rs test module):\n\nTest 1: feed_rss_returns_xml_for_known_group\n  - Pre-condition: post an article to the in-memory stores (use the OverviewStore directly, insert a test OverviewRecord)\n  - GET /feed/comp.test.rss\n  - Assert: 200 OK\n  - Assert: Content-Type contains application/rss+xml\n  - Assert: body starts with \"<?xml\" or contains \"<rss\"\n  - Assert: body contains the group name\n  - Assert: body contains the article subject (escaped if needed)\n  - Assert: body contains \"<item>\" element\n\nTest 2: feed_atom_returns_xml_for_known_group\n  - Same setup\n  - GET /feed/comp.test.atom\n  - Assert: 200 OK  \n  - Assert: Content-Type contains application/atom+xml\n  - Assert: body contains \"<feed\" and \"<entry>\"\n  - Assert: body contains the article subject\n\nTest 3: feed_invalid_group_name_returns_400\n  - GET /feed/../etc/passwd.rss\n  - Assert: 400 Bad Request\n\nTest 4: feed_nonexistent_group_returns_empty_feed\n  - GET /feed/no.such.group.atom\n  - Assert: 200 OK (empty feed, not 404)\n  - Assert: Content-Type contains application/atom+xml\n  - Assert: body does NOT contain \"<entry>\"\n\nTest 5: feed_path_without_extension_returns_404\n  - GET /feed/comp.test (no .rss or .atom suffix)\n  - Assert: 404 Not Found\n\nTest 6: xml_special_chars_are_escaped\n  - Insert an article with subject \"<XSS>&test\\\"\n  - GET /feed/comp.test.rss\n  - Assert: body contains \"&lt;XSS&gt;&amp;test\" (or equivalent escaped form)\n  - Assert: body does NOT contain literal \"<XSS>\"\n\nDefensive programming:\n- Tests must use real OverviewStore (in-memory SQLite via ServerStores::new_mem or direct OverviewStore construction) \u2014 not mocked\n- Tests must not rely on specific article numbers\n- XML escaping test uses independent oracle (HTML entity encoding rules, not the code under test)\n\nAcceptance: all 6 tests pass with cargo test --package usenet-ipfs-mail",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T03:47:06Z",
+  "updated_at": "2026-05-01T04:57:12Z",
+  "closed_at": "2026-04-23T03:54:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-a1c38061",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 20:47:05"
+    },
+    {
+      "depends_on_id": "stoa-d46a1edc",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 20:47:10"
+    }
+  ]
+}

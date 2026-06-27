@@ -1,0 +1,32 @@
+{
+  "compaction_level": 0,
+  "content_hash": "8b0e750c4ecf7073709f22f0981380bb75576a4175aa955a1bf75e7afd8ed64a",
+  "created_at": "2026-05-05T00:17:19Z",
+  "created_by": "Mark Atwood",
+  "defer_until": "2099-01-01T08:00:00Z",
+  "description": "Current stoa-smtp has one DKIM key for one domain. Multi-domain requires per-domain keys.\n\nSchema:\n  dkim_keys(domain FK references domains(domain), selector, private_key blob or secretx URI, created_at, PRIMARY KEY (domain))\n\nSigning decision: sign outbound mail with key for envelope_from domain. If no key exists for that domain: configurable behavior \u2014 sign with default key, sign without domain alignment, or refuse to send. Default should be refuse (misconfigured domain is an operator error, not a silent degradation).\n\nKey rotation: new selector + new key, publish new DNS record, keep old key for TTL window (typically 48h), then remove old. Admin API: generate new key, return public key for DNS TXT record, schedule old key removal.\n\nConfig migration: existing [delivery.dkim] single-key config maps to a dkim_keys row for the configured domain on first start. No breaking change.",
+  "ephemeral": 0,
+  "id": "stoa-4dsqe.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "deferred",
+  "timeout_ns": 0,
+  "title": "design: per-domain DKIM keys",
+  "updated_at": "2026-05-05T00:17:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T17:17:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-4dsqe",
+      "id": "5c37dbff-f202-5d74-9e11-b4e84176e597",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

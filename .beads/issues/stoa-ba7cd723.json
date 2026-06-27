@@ -1,0 +1,20 @@
+{
+  "id": "stoa-ba7cd723",
+  "title": "msgid_map duplicate check precedes IPFS write; no orphaned CIDs possible",
+  "description": "reader/post/log_append.rs checks for duplicate message-ID before writing to IPFS and msgid_map. If IPFS write fails, msgid_map is never updated \u2014 a missing entry means 'CID unreachable by ID' but IPFS block may exist (recoverable by reindex). The inverse (msgid_map entry without IPFS block) would be unrecoverable. The ordering is deliberately defensive.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T13:11:31Z",
+  "updated_at": "2026-05-01T04:56:08Z",
+  "closed_at": "2026-04-22T14:47:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-b770251a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 06:11:31"
+    }
+  ]
+}

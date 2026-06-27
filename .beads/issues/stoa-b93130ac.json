@@ -1,0 +1,20 @@
+{
+  "id": "stoa-b93130ac",
+  "title": "check_admin_addr returns Result<(), String>",
+  "description": "reader/config.rs check_admin_addr() is a public function that returns Result<(), String>. String as an error type in a public API signature is a code smell for library code: callers cannot match on error variants or inspect error structure. The error is currently only used for a startup abort message, but if a caller ever needs to handle this programmatically (distinguish 'non-loopback' from 'missing token') they cannot. The function should return Result<(), ConfigError> (using the existing Validation variant), or a dedicated AdminConfigError. This is the pattern flagged under 'Box<dyn Error> in library API signatures' in the review protocol \u2014 String is even less structured than Box<dyn Error>.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:00:02Z",
+  "updated_at": "2026-05-01T04:52:42Z",
+  "closed_at": "2026-05-01T01:01:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-18bf2fce",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:00:01"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "stoa-974f2eb6",
+  "title": "Implement operator key rotation workflow",
+  "description": "Document and implement key rotation: (1) generate new keypair with keygen tool, (2) update config to point to new key file, (3) publish a signed announcement article on a designated group (usenet.ipfs.keyrotation) with old key signing the new public key. Implement the announcement article format and the transit command to publish it. Artifact: docs/key_rotation.md and transit/src/cli/key_rotate.rs.\n\nAcceptance:\n- Rotation announcement article signed with old key, contains new public key\n- Announcement article stored in IPFS and appended to usenet.ipfs.keyrotation group log\n- docs/key_rotation.md explains the process step by step\n- Operator can rotate without downtime (old key still valid until announcement propagates)",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:17:32Z",
+  "updated_at": "2026-05-01T04:58:06Z",
+  "closed_at": "2026-04-20T05:55:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-8013af16",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:17:32"
+    },
+    {
+      "depends_on_id": "stoa-af270fb5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:18:10"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T19:08:23Z",
+  "compaction_level": 0,
+  "content_hash": "a67242c553c38348d2db78e1a1b74d338b8f787543c8533457530030eae70a71",
+  "created_at": "2026-05-01T15:21:08Z",
+  "created_by": "Mark Atwood",
+  "description": "Scenario: server restarts after ingesting a large number of articles. store/backfill.rs::backfill_overview calls overview_store.query_range for each article individually, then fetches each article's wire bytes from IPFS one at a time. On a server with 100k articles this means 100k sequential DB queries and 100k sequential IPFS block fetches at startup, blocking readiness for minutes. The article_numbers store already has a list_all_articles method that loads all rows in one query.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.67",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "backfill_overview makes O(n) DB round-trips and O(n) IPFS fetches at startup",
+  "updated_at": "2026-05-01T19:08:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:21:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "8ff815ee-440a-5dd7-98ac-f5e0a8850a40",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

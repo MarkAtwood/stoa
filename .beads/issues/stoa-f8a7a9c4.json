@@ -1,0 +1,19 @@
+{
+  "id": "stoa-f8a7a9c4",
+  "title": "from_credentials panic semantics with documented precondition: correct design choice",
+  "description": "from_credentials panics on invalid hashes rather than returning Err. This is correct because an invalid hash at this call site is a programmer error (precondition violated, not user input), and catching it at startup with Config::validate() is the intended path. The alternative \u2014 returning Result \u2014 would force every call site to unwrap() or handle an error that should not occur in correct code. The precondition doc added in commit 7eee338 is the right way to communicate this. A contributor might suggest returning Err; the precondition doc explains why that design is wrong for this specific function.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:15:43Z",
+  "updated_at": "2026-05-01T04:51:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-92eac40d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 12:15:43"
+    }
+  ]
+}

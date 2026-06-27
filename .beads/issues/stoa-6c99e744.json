@@ -1,0 +1,12 @@
+{
+  "id": "stoa-6c99e744",
+  "title": "core/group_log: append.rs does not verify parent signatures",
+  "description": "crates/core/src/group_log/append.rs checks parent entry existence but does not call verify_entry() on the parent before appending a new entry. A fabricated or unsigned parent can be in the log and new entries will be appended on top of it. An operator can append entries without triggering signature verification, breaking the append-only authenticated log invariant.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T21:03:56Z",
+  "updated_at": "2026-05-01T04:53:52Z",
+  "closed_at": "2026-04-24T22:19:46Z"
+}

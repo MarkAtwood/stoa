@@ -1,0 +1,20 @@
+{
+  "id": "stoa-cd0e0515",
+  "title": "GOOD: Sieve reject reason sanitized before SMTP response injection",
+  "description": "smtp/session.rs filters the Sieve reject reason to printable ASCII + space only (c.is_ascii_graphic() || *c == ' ') and caps it at 200 characters before including it in the 550 response line. The comment explicitly names the threat: a malicious Sieve script containing embedded CRLF sequences could inject additional SMTP response lines. The is_ascii_graphic() call correctly excludes CR (0x0d) and LF (0x0a). This is a real SMTP response injection prevention, not a cosmetic filter. The 200-char cap prevents an arbitrarily long reject string from bloating the response.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T13:53:15Z",
+  "updated_at": "2026-05-01T04:56:10Z",
+  "closed_at": "2026-04-22T14:10:07Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b816309",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 06:53:15"
+    }
+  ]
+}

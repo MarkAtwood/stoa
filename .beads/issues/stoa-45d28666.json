@@ -1,0 +1,27 @@
+{
+  "id": "stoa-45d28666",
+  "title": "9tz.10: E2E test: POST article, SEARCH finds it",
+  "description": "What: End-to-end integration test: POST an article, verify NNTP SEARCH finds it by body content, and JMAP Email/query text filter finds it.\n\nAlgorithm:\n1. In crates/reader/tests/ add e2e_search.rs (or add to existing integration test):\n   - Start in-memory stores via ServerStores::new_mem()\n   - POST an article with known body text 'frobnicator hypothesis'\n   - Call NNTP SEARCH BODY 'frobnicator' \u2192 verify response contains the article number\n   - Call NNTP SEARCH BODY 'nonexistent_xyz_term_999' \u2192 verify empty result\n   - Call JMAP Email/query with filter: {\"text\": \"frobnicator\"} \u2192 verify returned email ID matches\n\n2. Test oracle: 'frobnicator hypothesis' is hand-chosen to be unique; its presence in results is independent of the code under test (the oracle is the known article content, not the indexer output fed back in).\n\n3. Also test: SEARCH while no group selected \u2192 412 response.\n\n4. Also test: search when index_dir is None \u2192 503 response.\n\nDefensive rules: Do not use search results as oracles for further searches. Use hand-crafted expected article numbers.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T01:21:59Z",
+  "updated_at": "2026-05-01T05:00:39Z",
+  "closed_at": "2026-04-23T02:36:28Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-85f5ab08",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 18:21:59"
+    },
+    {
+      "depends_on_id": "stoa-8d24a039",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 18:21:59"
+    }
+  ]
+}

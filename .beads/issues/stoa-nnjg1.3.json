@@ -1,0 +1,41 @@
+{
+  "acceptance_criteria": "SSE stream working. State-change delivered <100ms. Typing suppression works. Keepalive cleans dead connections. Load test passes.",
+  "compaction_level": 0,
+  "content_hash": "0e1a56f73dbd7cd05a0a67e4d1d3cccd3e5f6746aba9baa6a2008285300ac152",
+  "created_at": "2026-05-02T16:31:49Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why this issue exists\n\nChat without real-time push is polling. The JMAP Chat spec requires EventSource (RFC 8620 \u00a77.3) for state-change delivery and defines typing and presence as ephemeral push events. Without push, clients must poll `Message/changes` on a timer \u2014 unusable for interactive chat.\n\n## What needs to be done\n\n### Phase 1 \u2014 JMAP EventSource (SSE) state-change events\n\nRFC 8620 \u00a77.3 defines the `/events` endpoint. When a client connects, it receives a stream of `StateChange` events whenever the server state for any of the client's subscribed types changes.\n\nImplement `GET /jmap/events` (or the URL from the Session `eventSourceUrl` template):\n\n- Accept `types` query parameter (comma-separated type names to watch; `*` for all)\n- Accept `closeafter` and `ping` parameters per RFC 8620\n- On connection, add the client to an in-memory subscriber set per account\n- When the bridge layer or any `/set` method bumps a state token, notify all connected EventSource clients for that account\n- Send:\n  ```\n  event: state\n  data: {\"@type\":\"StateChange\",\"changed\":{\"<accountId>\":{\"Message\":\"<token>\",\"Chat\":\"<token>\",\"ChatContact\":\"<token>\"}}}\n  ```\n- Send keepalive ping every 30 seconds (configurable) to detect dead connections\n- On client disconnect, remove from subscriber set\n\nUse a `tokio::sync::broadcast` channel per account; the SSE handler is the receiver, the bridge/set handlers are senders. Bounded channel; slow clients are dropped rather than causing backpressure.\n\n### Phase 2 \u2014 Typing events\n\n`Chat/typing` (defined in the methods epic) already accepts and validates the request. This phase wires up delivery.\n\nWhen `Chat/typing` is called:\n- Deliver a `typing` SSE event to all connected clients of this account (other than the requesting connection) for the given chatId:\n  ```\n  event: typing\n  data: {\"chatId\":\"<id>\",\"senderId\":\"<contact-id>\",\"typing\":<bool>}\n  ```\n- Check each recipient client's `receiveTypingIndicators` for this chat; suppress delivery if false\n- Not stored; not replayed on reconnect\n\nThe event is delivered only to local clients (owner's connected sessions). Delivering typing events to remote Delta Chat users is out of scope \u2014 Delta Chat has no equivalent server-to-server typing notification mechanism.\n\n### Phase 3 \u2014 Presence events\n\nWhen `PresenceStatus/set` updates the owner's presence:\n- Deliver a `presence` SSE event to all connected clients of this account:\n  ```\n  event: presence\n  data: {\"contactId\":\"<owner-id>\",\"presence\":\"<state>\",\"lastActiveAt\":\"<ts>\",\"statusText\":\"<string>|null\",\"statusEmoji\":\"<string>|null\"}\n  ```\n\nPresence propagation to remote peers (Delta Chat users or other JMAP Chat servers) is out of scope for v1.\n\n### Phase 4 \u2014 JMAP push subscriptions (RFC 8620 \u00a77.2) \u2014 stretch goal\n\nRFC 8620 defines a `PushSubscription` mechanism for out-of-band push delivery (Web Push / VAPID). This enables mobile clients to receive notifications when not connected via EventSource.\n\n- `PushSubscription/get`, `PushSubscription/set`, `PushSubscription/changes`\n- On state change, POST to the client's `url` with the StateChange payload\n- VAPID-sign the push message if the session advertises `urn:ietf:params:jmap:webpush-vapid`\n\nPhase 4 is a stretch goal; Phases 1\u20133 are required for v1.\n\n## Acceptance criteria\n\n- `GET /jmap/events` returns a valid EventSource stream\n- State-change event delivered to connected client within 100ms of a `Message/set` create\n- Typing event delivered to other connected sessions of the same account\n- `receiveTypingIndicators: false` suppresses typing delivery for that chat\n- Keepalive ping sent on schedule; dead connections cleaned up\n- Presence event delivered on `PresenceStatus/set` update\n- Load test: 100 concurrent SSE connections on one account; all receive events without backpressure stall",
+  "design": "tokio::sync::broadcast per account is the right primitive: fan-out to N connected clients, bounded buffer, slow receivers are dropped cleanly. The SSE endpoint is a long-lived axum handler that holds the broadcast receiver. State-change notifications are fire-and-forget from the writer side \u2014 the bridge and /set handlers do not wait for SSE delivery.",
+  "ephemeral": 0,
+  "id": "stoa-nnjg1.3",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "JMAP Chat: push and SSE",
+  "updated_at": "2026-06-26T20:26:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T09:31:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-nnjg1.1",
+      "id": "157ba777-7a88-5cab-a64c-34543d76df63",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T09:31:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-nnjg1",
+      "id": "8f4724b8-fdae-517d-ae2c-0ed004e7e93c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

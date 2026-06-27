@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T17:53:55Z",
+  "compaction_level": 0,
+  "content_hash": "4e80f7d2566dc051b4ea815bc0deb201fad106aa1b1390e48188ef3954fce3f9",
+  "created_at": "2026-05-01T15:22:30Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: peering/pipeline.rs inserts into the articles table with ON CONFLICT (cid) DO NOTHING. If the same CID arrives via a different message path (e.g. cross-posted article with different Newsgroups header, or an article relayed through a different peer), the second insertion is silently ignored. Bad behavior: the articles table row retains the group_name from the first insertion, not from subsequent arrivals. GC tracking uses this group_name to evaluate pin policy \u2014 the wrong group means GC may incorrectly keep or delete the article based on the wrong group's policy.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.91",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "articles ON CONFLICT (cid) DO NOTHING silently drops group_name for duplicate CID",
+  "updated_at": "2026-05-01T17:53:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:22:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "8916888e-7851-5d23-8050-56d7ec316305",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "stoa-4f183217",
+  "title": "jmap: implement RFC 9404 Blob/get and Blob/copy",
+  "description": "Why: RFC 9404 (JMAP Blob Management) adds Blob/get and Blob/copy as standard JMAP methods. Blob/get is the API-layer complement to the existing HTTP download endpoint \u2014 clients that prefer JSON API calls over HTTP GETs (e.g. CLI tools, server-side integrations) can use it. Blob/copy enables cross-account blob operations. Both methods use the CID as the blob ID, consistent with the existing x-usenet-ipfs-cid design. What: (1) Implement Blob/get: for each blob_id, parse as CID, fetch raw block from IPFS, return {id, data: base64url} in the response. (2) Implement Blob/copy: copy blob from source account to destination \u2014 for usenet-ipfs this is a no-op (CIDs are global) but must return the correct JMAP response shape. (3) Advertise urn:ietf:params:jmap:blob in session capabilities. (4) Wire both into route_method().",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T14:25:54Z",
+  "updated_at": "2026-05-01T04:51:25Z",
+  "closed_at": "2026-04-28T10:51:05Z"
+}

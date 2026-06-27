@@ -1,0 +1,19 @@
+{
+  "id": "stoa-a96d633c",
+  "title": "NNTP AUTHINFO PASS logged on partial match failure \u2014 password in error string",
+  "description": "nntp_client.rs do_post lines 103-105: when AUTHINFO PASS is rejected, the error returned is format!(\"AUTHINFO PASS failed: {}\", line.trim_end()). The variable 'line' contains the full server response including the NNTP response code and message. While the password itself is not in the response, the same pattern at line 81 for AUTHINFO USER includes the username in the format string sent to the writer, which would not be logged. The real risk: the password itself is written to the stream via format!(\"AUTHINFO PASS {password}\\r\\n\") at line 95. If the stream write fails (Err path at line 96), the error propagated is from .map_err(|e| format!(\"failed to send AUTHINFO PASS: {e}\")), which does not include the password. This is actually safe. However, the AUTHINFO USER command at line 81 sends the username literally: format!(\"AUTHINFO USER {username}\\r\\n\"). This is correct. No actual password logging found, but the risk is that future error path changes could expose the password since it is interpolated into the command string at line 95 in a format! call.",
+  "status": "open",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:33:27Z",
+  "updated_at": "2026-05-01T04:57:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:33:27"
+    }
+  ]
+}

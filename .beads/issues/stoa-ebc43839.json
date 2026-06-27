@@ -1,0 +1,26 @@
+{
+  "id": "stoa-ebc43839",
+  "title": "imap: implement NAMESPACE command handler",
+  "description": "Implement the NAMESPACE command (RFC 2342) in crates/imap/src/session/mailbox.rs and wire it into the dispatch loop in mod.rs.\n\nAlgorithm:\n1. In mailbox.rs, add: pub fn handle_namespace() -> Data<'static>\n   - personal: vec![Namespace::new(IString::try_from(\"\").expect(\"empty string is valid IString\"), Some(QuotedChar::try_from('.').expect(\"dot is valid QuotedChar\")))]\n   - other: vec![]\n   - shared: vec![]\n   - return Data::namespace(personal, vec![], vec![]).expect(\"valid namespace args\")\n2. In mod.rs, add CommandBody::Namespace arm before the _ => catch-all (currently around line 514):\n   CommandBody::Namespace => match ctx.state {\n       ImapState::Authenticated { .. } | ImapState::Selected { .. } => {\n           server.enqueue_data(handle_namespace());\n           server.enqueue_status(Status::ok(Some(tag), None, \"NAMESPACE complete\").expect(\"static ok\"));\n       }\n       _ => { /* send NO */ }\n   },\n3. Add handle_namespace to the use mailbox::{...} import in mod.rs.\n4. All types (Namespace, IString, QuotedChar) are available after ext_namespace feature is enabled.\n\nDefensive rules: NAMESPACE must be rejected in NotAuthenticated state with tagged NO. No user input is reflected in the NAMESPACE response \u2014 hardcoded values only.\n\nAcceptance: cargo test -p stoa-imap passes; new unit tests (separate bead) verify response structure and wrong-state rejection.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:04:18Z",
+  "updated_at": "2026-05-01T04:52:06Z",
+  "closed_at": "2026-04-30T02:19:18Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-db727e07",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:04:17"
+    },
+    {
+      "depends_on_id": "stoa-e030080e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:05:19"
+    }
+  ]
+}

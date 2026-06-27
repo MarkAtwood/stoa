@@ -1,0 +1,20 @@
+{
+  "id": "stoa-eb2ac072",
+  "title": "Integration test comment references non-existent file",
+  "description": "rados_store.rs line 143 says 'Integration tests live in tests/rados_integration.rs (CI: ceph/demo docker image)' but that file does not exist. This is a documentation lie that will confuse a contributor who looks for it. Fix: change to 'No integration tests yet \u2014 requires a live Ceph cluster or the ceph/demo docker image'.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T04:33:58Z",
+  "updated_at": "2026-05-01T05:00:32Z",
+  "closed_at": "2026-04-28T04:39:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3e19dbfc",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 21:33:57"
+    }
+  ]
+}

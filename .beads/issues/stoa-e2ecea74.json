@@ -1,0 +1,20 @@
+{
+  "id": "stoa-e2ecea74",
+  "title": "Timing-safe auth: dummy bcrypt always runs for unknown usernames",
+  "description": "reader/store/credentials.rs:99-113: check() always runs bcrypt::verify() even for unknown usernames, using a precomputed dummy hash. This prevents timing oracles that distinguish 'user not found' from 'wrong password'. A contributor simplifying this to short-circuit on missing user would re-introduce the timing leak. Defend this unconditionally.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:36:57Z",
+  "updated_at": "2026-05-01T04:59:51Z",
+  "closed_at": "2026-04-22T22:53:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:36:57"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "stoa-1d3ce3b1",
+  "title": "Start gossipsub swarm and per-hierarchy topic subscriptions in transit main",
+  "description": "Call the gossip::swarm builder from main.rs, subscribe to all configured hierarchy topics (usenet.hier.<hier>), and start the gossipsub event loop task. Wire inbound tip advertisements to group_log reconciliation (call reconcile() on received tips). Why: tip propagation and group-log convergence are the core gossip mechanism; nothing reconciles until the swarm runs.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T00:13:41Z",
+  "updated_at": "2026-05-01T04:54:52Z",
+  "closed_at": "2026-04-21T01:38:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-057bc47b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:14:17"
+    },
+    {
+      "depends_on_id": "stoa-e861c46f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:14:12"
+    }
+  ]
+}

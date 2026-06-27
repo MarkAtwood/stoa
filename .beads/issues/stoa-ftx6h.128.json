@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "5cbc60f2eead72995a67881698e48d5ce15e5d6833434590cbde94d727f37771",
+  "created_at": "2026-05-03T13:06:46Z",
+  "created_by": "Mark Atwood",
+  "description": "activitypub/inbox.rs fetch_actor_inbox() applies ACTOR_FETCH_MAX_BYTES=65536 in two places: (1) rejects up front if Content-Length header exceeds the cap, (2) rejects after buffering if the actual body exceeds the cap. This two-layer guard correctly handles both cooperative servers (Content-Length present) and servers that omit Content-Length. The fallback to {actor_url}/inbox on any failure is the correct Mastodon-compatible behavior. This is a well-executed defense-in-depth pattern.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.128",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "decision: ActivityPub fetch_actor_inbox enforces 64KiB body cap correctly",
+  "updated_at": "2026-05-03T13:06:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "ebdb0c61-1364-5355-9077-840b379cbb2a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-969522ca",
+  "title": "queue/relay_queue: .map_or(false, ...) should be .is_some_and(...)",
+  "description": "queue.rs lines 363, 386, 403 and relay_queue.rs lines 475, 513, 548, 553, 690 (all in test blocks): extension().map_or(false, |x| x == ext) is the pre-1.70 idiom. Since Rust 1.70 the idiomatic form is extension().is_some_and(|x| x == ext). Clippy flags this as clippy::option_map_or_none.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:36:39Z",
+  "updated_at": "2026-05-01T04:55:17Z",
+  "closed_at": "2026-04-30T23:45:45Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-64675b0e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:36:39"
+    }
+  ]
+}

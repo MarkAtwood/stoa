@@ -1,0 +1,21 @@
+{
+  "id": "stoa-ba97294a",
+  "title": "Timestamp u64\u2192i64 cast silently truncates in SQLite storage",
+  "description": "sqlite_storage.rs:44-49: hlc_timestamp is u64 cast to i64 for INSERT. debug_assert catches truncation in debug builds but release builds proceed silently if hlc_timestamp > i64::MAX (year ~292M CE). Timestamp ordering breaks and DAG state becomes incoherent. Fix: return Err instead of assert, or enforce the invariant at HlcClock construction time.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T16:55:32Z",
+  "updated_at": "2026-05-01T04:55:43Z",
+  "closed_at": "2026-04-21T17:15:21Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-33df35ca",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 09:55:31"
+    }
+  ]
+}

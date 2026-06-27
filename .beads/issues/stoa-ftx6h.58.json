@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T14:57:26Z",
+  "compaction_level": 0,
+  "content_hash": "e261e75fad08de6c57382ae461903065f97b11bb570a1da021d4bdfdd79e2e6a",
+  "created_at": "2026-05-03T13:04:56Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this issue exists: server.rs resolve_user_id() maps a username to a DB user ID. When the username is not found in the database, it silently falls back to SINGLETON_USER_ID=1 with only a warn!() log. This means any authenticated user with a username that has not been provisioned in the DB will be silently granted access to user ID 1's data. In a multi-user deployment this is a cross-account data access bug.\n\nWhat needs to be done: resolve_user_id() should return an Err (\u2192 403 or 404) when the user is not found, not silently substitute the singleton. The singleton fallback was appropriate when v1 was genuinely single-user-only, but now that the code has a real user lookup path the fallback is a latent authorization hole. Document the single-user-only scope constraint with a compile-time guard or an explicit config check.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.58",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "resolve_user_id: silent fallback to SINGLETON_USER_ID=1 for unknown users",
+  "updated_at": "2026-05-03T14:57:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:04:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "80a41298-9061-5b4a-90e3-697abc40f5c3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-d615a26c",
+  "title": "Comment bcrypt cost factor 4 in e2e_smoke.rs test helper",
+  "description": "In tests/e2e_smoke.rs, test_config() calls bcrypt::hash(\"testpass\", 4). The cost factor 4 is the minimum accepted by the bcrypt crate and is used here to keep test startup fast, but there is no comment explaining this. A new contributor following the production default (cost 12) would not understand why 4 is used and might assume it is the recommended security level. A brief comment -- e.g. \"cost 4 = bcrypt minimum, chosen for fast test startup\" -- would prevent confusion.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:25:26Z",
+  "updated_at": "2026-05-01T04:54:12Z",
+  "closed_at": "2026-04-30T02:52:42Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9d37d25b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:25:25"
+    }
+  ]
+}

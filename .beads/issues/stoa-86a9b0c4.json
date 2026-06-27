@@ -1,0 +1,20 @@
+{
+  "id": "stoa-86a9b0c4",
+  "title": "transit signature verification is best-effort non-fatal: forged articles accepted silently",
+  "description": "## What / Why\nIn crates/transit/src/peering/pipeline.rs, signature verification on ingested articles is explicitly best-effort and non-fatal: a verification failure is logged at WARN level but the article is accepted and written to IPFS and the group log. The comment says 'Signature verification is best-effort (non-fatal).' This means a peer can send an article with an invalid or missing X-Stoa-Sig and it will be stored as if it were legitimate.\n\n## Risk\nAn adversarial peer (or a misconfigured one) can inject unsigned or forged articles into the group log. These will be replayed to readers and other peers. The security claim that all stored articles carry a valid operator signature is violated at the transit layer.\n\n## Fix\nDocument this as an intentional design decision if inter-operator trust is not required at the transit layer (i.e., each operator verifies only their own reader-posted articles). If transit verification is required, change the failure path to IngestResult::Rejected. Add a config flag to control behavior.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T03:08:57Z",
+  "updated_at": "2026-05-01T04:59:14Z",
+  "closed_at": "2026-04-27T03:38:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e2297bae",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 20:08:56"
+    }
+  ]
+}

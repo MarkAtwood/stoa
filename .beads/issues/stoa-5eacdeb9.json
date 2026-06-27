@@ -1,0 +1,13 @@
+{
+  "id": "stoa-5eacdeb9",
+  "title": "STARTTLS: TLS upgrade for reader and transit",
+  "description": "Add TLS support to both daemons so all wire traffic can be encrypted.\n\nWhy this issue exists:\nReader currently runs plaintext NNTP on port 119. Transit peering is also plaintext. Both need STARTTLS (RFC 4642) on existing connections and NNTPS on port 563, plus runbook documentation for cert setup.\n\nWhat needs to be done:\n- Add STARTTLS to CAPABILITIES and implement the command handler in the reader\n- Implement NNTPS second listener (port 563) in the reader\n- Add TLS for transit peering (inbound + outbound)\n- Integration test with a real NNTP client\n- RUNBOOK.md TLS configuration and cert setup",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T19:58:27Z",
+  "updated_at": "2026-05-01T04:51:55Z",
+  "closed_at": "2026-04-23T23:42:24Z"
+}

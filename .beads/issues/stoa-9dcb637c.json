@@ -1,0 +1,20 @@
+{
+  "id": "stoa-9dcb637c",
+  "title": "Gossipsub hierarchy-level topics prevent subscription explosion for large hierarchies",
+  "description": "Transit subscribes to usenet.hier.<first_component> topics (e.g., usenet.hier.comp for all comp.* groups). An alternative would be per-group topics. Per-group topics would require each peer to maintain O(groups_served) subscriptions \u2014 for a server carrying even 100 groups in comp.* that is 100 libp2p topic subscriptions vs 1. Gossipsub has practical limits on the number of topics a node can actively maintain mesh memberships for. A contributor might suggest 'more targeted per-group subscriptions to reduce noise' \u2014 this is wrong: the noise is handled by the in-topic filter (gossip/filter.rs) which already dispatches by group_name from the JSON payload.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T14:07:47Z",
+  "updated_at": "2026-05-01T04:54:54Z",
+  "closed_at": "2026-04-22T23:33:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ad28b4f3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 07:07:46"
+    }
+  ]
+}

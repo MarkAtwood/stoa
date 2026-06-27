@@ -1,0 +1,12 @@
+{
+  "id": "stoa-2ced404d",
+  "title": "auth: is_dev_mode() ignores client_certs and trusted_issuers config",
+  "description": "is_dev_mode() returns true when the users list is empty, which disables authentication. But client_certs and trusted_issuers are separate auth mechanisms \u2014 a config with no users but with TLS client cert auth configured incorrectly enables dev mode and bypasses the cert auth.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T23:47:32Z",
+  "updated_at": "2026-05-01T04:51:59Z",
+  "closed_at": "2026-04-25T01:20:58Z"
+}

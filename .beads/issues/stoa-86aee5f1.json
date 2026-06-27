@@ -1,0 +1,20 @@
+{
+  "id": "stoa-86aee5f1",
+  "title": "MIME parser: limit multipart part count (DoS)",
+  "description": "5w3.25: parse_multipart has no limit on subpart count. A message with 100000 boundaries causes unbounded work. Fix: add MAX_MIME_PARTS=100; after accumulating 100 parts, stop and return what was parsed (truncate, not error).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T19:45:34Z",
+  "updated_at": "2026-05-01T04:59:10Z",
+  "closed_at": "2026-04-22T21:05:18Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-f6d57892",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 12:45:33"
+    }
+  ]
+}

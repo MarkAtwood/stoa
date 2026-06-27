@@ -1,0 +1,32 @@
+{
+  "compaction_level": 0,
+  "content_hash": "a6c14ed207828daeaf11498bf0a285c5c6ac14b66cced533a0fed34d0eb271cf",
+  "created_at": "2026-05-01T19:46:03Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why\n\nJMAP Email/get requests for bodyStructure, textBody, htmlBody, attachments, and preview currently require fetching the raw article block from the block store and re-parsing the MIME structure on every request. On cloud backends (S3, GCS, Azure) this is a network round-trip per email. On local backends (fs, LMDB) it is a disk read and CPU parse per request.\n\nThe overview store is already the sidecar pattern for NNTP fields (Subject, From, Date, Message-ID, References, Bytes, Lines \u2014 parsed once at ingest, never re-parsed). It does not yet store parsed MIME structure.\n\nThis is the MIX insight applied to stoa: parse once at ingest, cache the structure, serve from the cache forever.\n\n## What\n\nAdd a body_structure column (JSON blob, nullable) to the overview SQLite table. Populate it at ingest time when the article is parsed for the NNTP overview fields. Serve JMAP bodyStructure, textBody, htmlBody, attachments, and preview from the cached JSON instead of re-fetching and re-parsing the raw block.\n\n## Design\n\n- Column type: TEXT (SQLite JSON). Nullable for backward compatibility with existing rows.\n- Schema: add via a new sqlx migration in crates/reader/migrations/.\n- Population: in the overview backfill path and the POST ingest path, after parsing headers for the NNTP overview fields, also serialize the parsed MIME tree to JSON and store it.\n- Read path: MailBackend::get_objects<Email> checks for a cached body_structure; if present, deserializes and returns it; if absent (legacy row), falls back to fetching and parsing the raw block.\n- The JSON structure should match jmap_mail_types::EmailBodyPart so the MailBackend impl can deserialize directly without a conversion step.\n\n## Acceptance\n\n- New migration adds body_structure column with no breakage to existing rows\n- JMAP Email/get bodyStructure is served from the cache (no block store fetch) for articles ingested after the migration\n- Legacy rows (body_structure IS NULL) fall back to the block-fetch path without error\n- cargo test --workspace passes",
+  "ephemeral": 0,
+  "id": "stoa-0fp1v",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "See also: stoa-vlhpg (JMAP crate integration) \u2014 the MailBackend::get_objects<Email> read path is where the cache hit/miss logic lives. This issue should be implemented after or alongside stoa-vlhpg.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Cache parsed MIME body structure in overview table",
+  "updated_at": "2026-05-01T19:46:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T12:46:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-vlhpg",
+      "id": "c7f07976-cbb1-57b4-b9a6-c1ca46152f3a",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

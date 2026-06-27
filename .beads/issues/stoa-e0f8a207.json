@@ -1,0 +1,27 @@
+{
+  "id": "stoa-e0f8a207",
+  "title": "SQLite BLOB backend: SqliteStore and SqliteBlockStore implementation",
+  "description": "Implement SqliteStore: IpfsStore and SqliteBlockStore: IpfsBlockStore. put: INSERT OR IGNORE INTO blocks. get: SELECT data WHERE cid = ?. delete: DELETE WHERE cid = ?, return Immediate. WAL mode. Blocked on: stoa-23dd89e2.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:44:02Z",
+  "updated_at": "2026-05-01T04:59:33Z",
+  "closed_at": "2026-04-28T01:45:42Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-23dd89e2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:44:01"
+    },
+    {
+      "depends_on_id": "stoa-5c9f1a38",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:44:01"
+    }
+  ]
+}

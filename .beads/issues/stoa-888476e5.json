@@ -1,0 +1,21 @@
+{
+  "id": "stoa-888476e5",
+  "title": "test whitelist_check duplicates session.rs normalization",
+  "description": "config.rs:790-811 defines a whitelist_check test helper that copies IPv4-mapped IPv6 normalization from session.rs:179-194. Two independent copies of the same algorithm exist. If session.rs changes normalization, config.rs tests will not catch the regression. Mitigation: extract into a shared pub(crate) function.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:48:22Z",
+  "updated_at": "2026-05-01T04:58:57Z",
+  "closed_at": "2026-04-30T15:55:35Z",
+  "notes": "SEC7 calibration: duplicate of stoa-6b4887c1.11. Both describe the same root cause (whitelist_check in config.rs duplicates session.rs normalization, tests exercise the copy not production). 1onm.11 is the canonical finding at P1 with stronger framing. 1onm.16 adds nothing beyond 1onm.11 except lower priority. Treat as duplicate; resolve when 1onm.11 is fixed.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b4887c1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:48:21"
+    }
+  ]
+}

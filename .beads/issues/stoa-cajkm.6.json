@@ -1,0 +1,33 @@
+{
+  "close_reason": "decision recorded",
+  "closed_at": "2026-05-04T08:12:10Z",
+  "compaction_level": 0,
+  "content_hash": "101402fb19fb0ab4cbb71e19ed3b9dc59becd03b40af66f4a096d6637885304d",
+  "created_at": "2026-05-04T08:04:19Z",
+  "created_by": "Mark Atwood",
+  "description": "Good decision: both is_loopback_addr and is_loopback_url_host in util.rs return false on any parse error. The comments state this explicitly ('fail-safe \u2014 do not grant loopback privileges to unrecognised input'). The invariant means that a malformed or exotic address string can never accidentally satisfy a loopback check and bypass a security guard. The same pattern holds for is_loopback_url_host where a URL missing '://' is treated as non-loopback.",
+  "ephemeral": 0,
+  "id": "stoa-cajkm.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "DECISION: parse errors default to non-loopback",
+  "updated_at": "2026-05-04T08:12:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T01:04:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-cajkm",
+      "id": "16507798-77f1-5831-a94d-dcfcc51386a8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

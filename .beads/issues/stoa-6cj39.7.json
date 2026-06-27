@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "4f7481519557f2b98615ddb96a6cbfe9d70a77daff8ca327d43c28f43be68d69",
+  "created_at": "2026-05-02T15:28:59Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement the right-to-erasure path. When a user is deleted, destroying their DEK makes all encrypted personal data permanently unreadable \u2014 no need to find and delete every row. The ON DELETE CASCADE on user_encryption_keys handles DEK deletion automatically when the users row is deleted.\n\n## What needs to happen on user deletion (in order)\n\n  1. Revoke all bearer_tokens for the user\n  2. Delete the users row\n     \u2192 ON DELETE CASCADE deletes user_encryption_keys row (DEK destroyed)\n     \u2192 ON DELETE CASCADE deletes subscriptions, user_flags rows\n  3. The messages rows with this user_id remain in the DB but are now\n     unreadable: their ciphertext cannot be decrypted without the DEK.\n     This is acceptable \u2014 the data is cryptographically erased even if\n     the row bytes persist.\n  4. Optionally: a background cleanup job removes orphaned messages rows\n     after a retention period. Not required for GDPR compliance (the\n     ciphertext is meaningless without the key) but reduces storage waste.\n\n## Gap to document: Tantivy full-text search index\n  The search index stores derived content (email text snippets) that are\n  NOT encrypted. Deleting the DEK does not erase these index entries.\n  Options:\n  A. Delete the user's index entries on account deletion (preferred \u2014 implement\n     a per-user index segment deletion in TantivySearchIndex).\n  B. Document the gap and accept that indexed snippets survive erasure.\n  Decision deferred \u2014 document as a known gap in the erasure guarantee\n  with a filed follow-up issue. Do not ship the erasure feature while\n  claiming complete erasure if option B is chosen.\n\n## Deletion endpoint\n  There is currently no user deletion endpoint in stoa-mail. Implement:\n    DELETE /jmap/auth/user/{username}\n  Operator-only (is_operator check). Returns 204 on success.\n  Emits an audit event: event.type = admin.user_deleted, username = %target.\n\n## Test\n  1. Create user, send message, verify message is readable\n  2. Delete user via DELETE /jmap/auth/user/{username}\n  3. Verify: users row gone, user_encryption_keys row gone\n  4. Verify: messages row still exists in DB but decrypt attempt returns error\n  5. Verify: audit event emitted",
+  "ephemeral": 0,
+  "id": "stoa-6cj39.7",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "GDPR cryptographic erasure: user deletion destroys DEK and orphans encrypted data",
+  "updated_at": "2026-06-26T20:26:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T08:28:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-6cj39",
+      "id": "23a278d8-0846-50a0-a15a-ce0899293e8e",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-02T08:29:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-6cj39.5",
+      "id": "44a3295a-4f08-53a8-8ae3-3dd28f936af9",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

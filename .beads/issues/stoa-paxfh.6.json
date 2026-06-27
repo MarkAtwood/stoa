@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T05:11:19Z",
+  "compaction_level": 0,
+  "content_hash": "80be6f87203ae3a6cf17431ab961a536e68aada6f6d1a1ddfb773b89361fc059",
+  "created_at": "2026-05-04T05:05:22Z",
+  "created_by": "Mark Atwood",
+  "description": "In rnews_main.rs the article processing loop increments `accepted` on `run_pipeline` Ok (line 318), but `run_pipeline` returns Ok with `groups: []` when the group filter rejects every Newsgroup in the article (or when every group name is invalid). The operator sees 'accepted' in the batch-complete log line but the article is invisible to the reader: it has a CID in msgid_map and the articles table, but zero group-log entries. This is the 'appears to work but does nothing' pattern for group-filtered deployments.\n\nFix: after `run_pipeline` succeeds, check whether `result.groups.is_empty()`. If so, log a warn with the message-id and increment `rejected` rather than `accepted`, or add a distinct `filtered` counter with a summary log line. Either way the operator can diagnose from logs alone.",
+  "ephemeral": 0,
+  "id": "stoa-paxfh.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "rnews_main: group-filtered article counted as 'accepted' but has no group log entries",
+  "updated_at": "2026-05-04T05:11:19Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T22:05:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-paxfh",
+      "id": "17e9fd81-1974-5d88-9429-8cf2ce212884",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

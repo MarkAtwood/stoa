@@ -1,0 +1,12 @@
+{
+  "id": "stoa-c4a52110",
+  "title": "transit: SQLite pool max_connections hardcoded at 8",
+  "description": "Why: SqlitePoolOptions::new().max_connections(8) in main.rs:414 (open_pool) is hardcoded for both the core and transit pools. Operators on low-resource hardware or high-concurrency deployments have no way to tune this.\\n\\nWhat: Add database.max_connections (default 8) to TransitConfig; pass to open_pool(). Same pattern should be applied to the mail and reader binaries.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T01:50:54Z",
+  "updated_at": "2026-05-01T04:55:33Z",
+  "closed_at": "2026-04-22T22:53:44Z"
+}

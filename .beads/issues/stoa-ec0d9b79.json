@@ -1,0 +1,19 @@
+{
+  "id": "stoa-ec0d9b79",
+  "title": "reader AuthConfig duplicates stoa_auth::AuthConfig fields",
+  "description": "crates/reader/src/config.rs defines its own AuthConfig with required, users, credential_file, client_certs, trusted_issuers, oidc_providers (plus NNTP-specific drain_username). crates/auth/src/config.rs also defines AuthConfig with the same fields except drain_username. The is_dev_mode implementations are in sync now but must be maintained in parallel. If a new auth mechanism (e.g. WebAuthn, mTLS issuer) is added to stoa_auth::AuthConfig, the reader's AuthConfig and is_dev_mode must be manually updated. There is no compile-time link between them. A contributor who adds a field to stoa_auth::AuthConfig will not be reminded to update crates/reader/src/config.rs. The drain_username field is the only structural reason reader cannot use stoa_auth::AuthConfig directly. Consider moving drain_username into a reader-specific wrapper or extension struct so the shared AuthConfig can be used and field parity is enforced by the type system.",
+  "status": "deferred",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T18:57:37Z",
+  "updated_at": "2026-05-01T04:52:55Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dcaa145e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 11:57:37"
+    }
+  ]
+}

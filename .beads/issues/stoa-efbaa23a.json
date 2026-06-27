@@ -1,0 +1,13 @@
+{
+  "id": "stoa-efbaa23a",
+  "title": "R3-SEC3: mailboxIds newsgroup names not injection-validated",
+  "description": "mail/email/set.rs: create_one_email extracts newsgroup names from JMAP mailboxIds keys, joins with comma, writes into Newsgroups header without validate_header_value. A key with embedded CRLF injects extra header lines.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T15:32:12Z",
+  "updated_at": "2026-05-01T04:54:25Z",
+  "closed_at": "2026-04-22T15:33:41Z"
+}

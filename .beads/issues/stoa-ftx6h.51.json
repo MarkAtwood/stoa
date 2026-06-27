@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T14:18:14Z",
+  "compaction_level": 0,
+  "content_hash": "1d1278cf9c1191f000b730ffe56ed643976d9d8db1dc990a9f584256e7443c4a",
+  "created_at": "2026-05-03T13:04:41Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this issue exists: email/set.rs handle_email_set() returns a response with hardcoded 'oldState': '0' and 'newState': '0'. The caller in server.rs route_method does override these after the fact, but this creates a fragile two-step contract: any code path that returns early from handle_email_set (e.g. on validation error) will leak the hardcoded '0' values to clients. RFC 8621 \u00a74.3 requires accurate old/new state on all responses including partial failures.\n\nWhat needs to be done: Pass the current state into handle_email_set so it can embed the correct values directly, or have the function return a typed struct rather than a serde_json::Value blob so the caller cannot forget to patch it.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.51",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/set: create returns hardcoded oldState/newState 0 before caller override",
+  "updated_at": "2026-05-03T14:18:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:04:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "9925f24f-c3b8-5710-9812-25768c10ebea",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

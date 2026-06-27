@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "467264c7484a43929af6ee41a991038f716cd93cb0b7196c15890714927ef3b6",
+  "created_at": "2026-05-03T13:06:06Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this issue exists: email/set.rs handle_email_set() returns hardcoded 'oldState': '0', 'newState': '0' with an inline comment that these are overridden by the caller. Without reading server.rs, it is unclear why placeholder values are used or whether the override always happens. A future refactor that moves the call site could silently break state reporting.\n\nWhat needs to be done: Replace the inline comment with a clearer one: '// Placeholder values; caller (route_method) patches in real old/new state after this returns. // See the P1 issue: pass state explicitly to eliminate this indirection.' Better yet, eliminate the pattern by passing state as a parameter (filed as stoa-ftx6h.51).",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.102",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Email/set: oldState/newState '0' literals lack explaining comment",
+  "updated_at": "2026-05-03T13:06:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "792c951d-5906-5cad-804d-02b641a0ea78",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

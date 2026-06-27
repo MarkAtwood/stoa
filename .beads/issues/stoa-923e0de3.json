@@ -1,0 +1,19 @@
+{
+  "id": "stoa-923e0de3",
+  "title": "nntp_client: error type is String rather than a typed error",
+  "description": "post_article returns Result<_, String>. Callers cannot distinguish IO errors, auth failures, 436 transient errors, or 435 permanent errors without string-parsing the message. Define a typed NntpClientError enum so drain_once in queue.rs can match on error kind rather than string-matching.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:41:44Z",
+  "updated_at": "2026-05-01T04:55:07Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:41:43"
+    }
+  ]
+}

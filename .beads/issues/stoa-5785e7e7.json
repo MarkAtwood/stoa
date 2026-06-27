@@ -1,0 +1,20 @@
+{
+  "id": "stoa-5785e7e7",
+  "title": "LMDB doesn't log 'IPNS unavailable' but SQLite and filesystem do \u2014 inconsistent and misleading",
+  "description": "Scenario: operator reads startup logs after switching from Kubo to SQLite or filesystem backend. They see 'sqlite backend active \u2014 IPNS unavailable with this backend'. IPNS is a Kubo daemon concept, not a block store concept; this stoa is not an IPFS node and never offered IPNS to operators. The message will generate support questions ('what is IPNS?', 'how do I enable IPNS?'). LMDB backend logs nothing, making the inconsistency visible. The maintenance consequence: recurring support issue and false expectation. Fix: remove the IPNS warning entirely, or replace with a factual note ('Kubo IPNS publishing not available without kubo backend') only if the codebase actually had IPNS support at some point.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T01:47:29Z",
+  "updated_at": "2026-05-01T04:52:17Z",
+  "closed_at": "2026-04-28T01:55:29Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-aa592c93",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 18:47:29"
+    }
+  ]
+}

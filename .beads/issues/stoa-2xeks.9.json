@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "MTA-STS MX pattern matcher implemented; check+clippy clean; 12 unit tests pass standalone; test binary blocked by pre-existing sieve_admin/tls Config.mta_sts breakage from separate in-progress work",
+  "closed_at": "2026-05-02T18:02:24Z",
+  "compaction_level": 0,
+  "content_hash": "40c1d9f644aa0e4276cb958e7b3e52599c621fe01575ed8431b0ae147deb4ab3",
+  "created_at": "2026-05-02T17:38:20Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement mx_matches_pattern(mx_hostname: &str, pattern: &str) -> bool per RFC 8461 \u00a74.1 (which references RFC 6125 \u00a76.4 wildcard matching). Rules: exact match (no wildcard) is case-insensitive ASCII hostname comparison. Wildcard pattern '*.example.com' matches 'foo.example.com' but NOT 'foo.bar.example.com' and NOT 'example.com' \u2014 wildcard covers exactly one label. No other wildcard forms are valid. The check_mx_against_policy(mx: &str, patterns: &[String]) -> bool function returns true if any pattern matches. Used before TLS connect to verify the MX is in the policy.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MTA-STS MX pattern matcher",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T10:39:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.3",
+      "id": "42c489bc-b538-5b7e-b3b1-943b975a870f",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T10:38:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks",
+      "id": "f4f5b126-c95d-523a-bebe-1cb6834afae9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

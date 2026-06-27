@@ -1,0 +1,33 @@
+{
+  "compaction_level": 0,
+  "content_hash": "5838618d0733347d0c534dcd0ac1826c98de6c56db6500e179a3234c460c695b",
+  "created_at": "2026-05-05T00:26:36Z",
+  "created_by": "Mark Atwood",
+  "defer_until": "2099-01-01T08:00:00Z",
+  "description": "Mechanism for asserting that multiple OIDC provider accounts (LF SSO, GitHub, GSuite, live.com, etc.) belong to the same person. Three linking methods, all producing identity_providers rows pointing at the same identity_id.\n\n## Method 1: User self-links (primary method)\n\nBoth authentications happen in the same browser session. Proves control of both accounts simultaneously. No admin required, no email correlation, cryptographically sound.\n\nFlow:\n  1. Alice is logged in via LF SSO (session has identity_id=alice)\n  2. She navigates to account settings \u2192 Link another identity\n  3. She initiates OAuth flow for GitHub\n  4. GitHub returns token with sub=github-12345\n  5. stoa sees current session identity_id=alice + new (issuer=github, sub=github-12345)\n  6. INSERT into identity_providers (identity_id=alice, issuer=github, sub=github-12345, linked_by='user-confirmed', linked_via_session=current_session_id)\n  7. Future GitHub logins resolve to alice's identity_id\n\n## Method 2: Admin asserts (operational fallback)\n\nAdmin API call linking two existing identity_providers records to the same identity_id. Used for bulk migration, legacy account merges, or when user self-linking is not possible. Full audit trail required \u2014 admin sub recorded in linked_by.\n\n## Method 3: SCIM + email auto-link (managed IdPs only)\n\nWhen SCIM provisions a user with email=alice@linuxfoundation.org and a login via another managed-tier provider also presents email=alice@linuxfoundation.org, auto-link if both sides are managed tier and email is foundation-issued. Never auto-link across trust tiers or with self-reported emails.\n\n## Trust asymmetry \u2014 linking does not elevate\n\nSession trust level is determined by which provider was used for THIS authentication, not by what is linked to the identity. Alice linking GitHub to her LF SSO identity does not make her GitHub sessions managed-tier. Hardware > managed > verified > federated applies per-session per-authentication.\n\n## Schema addition\n\n  ALTER TABLE identity_providers ADD COLUMN\n      linked_via_session TEXT;  -- session id that performed the link; NULL for SCIM/admin\n\n## API endpoints\n\n  POST /account/link-provider\n    \u2192 initiates OAuth flow for new provider\n    \u2192 on callback: verify state param, extract issuer+sub from new token\n    \u2192 check new provider not already linked to a DIFFERENT identity_id (conflict error)\n    \u2192 INSERT identity_providers row\n    \u2192 return updated provider list\n\n  DELETE /account/link-provider/{issuer}/{sub}\n    \u2192 unlink a provider from current identity\n    \u2192 blocked if: last provider of any tier (no login method would remain)\n    \u2192 blocked if: last managed-tier provider AND identity has managed-tier mailbox grants\n       \u2192 requires admin to perform instead, with explicit reason\n    \u2192 audit log row on every unlink\n\n  POST /admin/identities/{identity_id}/link-provider (admin method 2)\n    \u2192 admin asserts link without OAuth ceremony\n    \u2192 records linked_by='admin', granted_by=admin_sub\n\n## Conflict handling\n\nIf the new provider token resolves to an identity_providers row already linked to a DIFFERENT identity_id:\n  \u2192 if other identity is inactive: admin can merge, user cannot\n  \u2192 if other identity is active: hard conflict, requires admin resolution\n  \u2192 never silently merge two active identities\n\n## Orphan prevention\n\nCannot unlink last managed-tier provider if identity has any mailbox_grants on managed-tier mailboxes. System returns 409 with list of affected mailboxes. Admin must either: reassign those grants, downgrade mailbox min_trust_level, or explicitly force-unlink with reason recorded in audit log.",
+  "ephemeral": 0,
+  "id": "stoa-4dsqe.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Identity ID is UUIDv7 \u2014 assigned by stoa at first contact (SCIM or first login), stable forever, not derived from any IdP attribute.\n\nDID linking: when DID support is added, the linking ceremony for DIDs follows the same pattern as IdP provider linking but uses a DID challenge-response instead of OAuth. Flow:\n  1. Alice is logged in (has active session with UUIDv7 identity_id)\n  2. She initiates 'Link a DID' from account settings\n  3. stoa generates a random challenge nonce\n  4. Alice signs the nonce with her DID's private key\n  5. stoa resolves the DID document, verifies the signature\n  6. On success: INSERT into identity_dids (identity_id=alice, did=did:key:z6Mk...)\n\nSame trust asymmetry applies: linking a DID does not change session trust level. DID trust tier TBD when implementing \u2014 did:key with hardware key storage could qualify as hardware tier; did:web is at most verified.\n\nSame orphan prevention applies: cannot unlink last managed/hardware credential if managed mailboxes depend on it.\n\nConflict handling: a DID already linked to a different active identity_id is a hard conflict requiring admin resolution \u2014 same as IdP provider conflict.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "deferred",
+  "timeout_ns": 0,
+  "title": "design: identity linking ceremony \u2014 multi-provider same-person assertion",
+  "updated_at": "2026-05-05T00:36:41Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T17:26:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-4dsqe",
+      "id": "388774c2-b9fe-54a1-bb6e-7272224812ea",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

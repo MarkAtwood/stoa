@@ -1,0 +1,12 @@
+{
+  "id": "stoa-7b8daa1e",
+  "title": "feat: secretx coverage gaps \u2014 tls keys, smtp passwords, mail credentials",
+  "description": "Six places in the codebase hold secrets without secretx support: imap/mail tls.key_path, smtp sieve_admin.bearer_token, smtp outbound passwords (nntp_password + relay peer), and mail credential building still using the old inline pattern instead of stoa_auth::build_credential_store.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T21:02:18Z",
+  "updated_at": "2026-05-01T05:00:40Z",
+  "closed_at": "2026-04-30T21:25:02Z"
+}

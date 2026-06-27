@@ -1,0 +1,13 @@
+{
+  "id": "stoa-281f4979",
+  "title": "validation.rs precondition comment wrong file",
+  "description": "The precondition comment at validation.rs:188 says unfolding is done in 'reader/session/command.rs'. That file does not perform header unfolding \u2014 it only strips trailing CRLF from command lines. Header unfolding is done in lifecycle.rs (extract_header_value) and did_passthrough.rs. validate_article_ingress is not called anywhere in crates/reader. The comment misleads future callers about which code satisfies the precondition and may cause the precondition to go unsatisfied on a new POST/IHAVE path.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T10:03:02Z",
+  "updated_at": "2026-05-01T04:51:45Z",
+  "closed_at": "2026-04-27T10:20:44Z"
+}

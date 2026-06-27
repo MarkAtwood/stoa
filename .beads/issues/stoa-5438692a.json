@@ -1,0 +1,19 @@
+{
+  "id": "stoa-5438692a",
+  "title": "from_credentials and from_content use different bcrypt validators",
+  "description": "from_credentials uses parse_bcrypt_cost() to validate passwords (no length check); from_content uses looks_like_bcrypt_hash() (length check + cost check). These are inconsistent. A reader expecting uniform validation behaviour across both constructors will be confused. Suggested fix: change from_credentials to use looks_like_bcrypt_hash() in its guard. This removes the inconsistency, tightens the validation contract, and makes the doc comment accurate without changing runtime behaviour on any real bcrypt hash (which is always >= 60 chars).",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T18:57:52Z",
+  "updated_at": "2026-05-01T04:58:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dcaa145e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 11:57:51"
+    }
+  ]
+}

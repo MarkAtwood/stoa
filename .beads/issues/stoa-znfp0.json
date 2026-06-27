@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T22:21:48Z",
+  "compaction_level": 0,
+  "content_hash": "49c6aeced9bd5678ffc8f6ad74a0536d7c6ffb14bb172744c8f99c971461b99d",
+  "created_at": "2026-05-02T22:02:30Z",
+  "created_by": "Mark Atwood",
+  "description": "In mta_sts_dns.rs, the id= validation checks len() > 32 and all-alphanumeric, but does NOT reject an empty string. RFC 8461 \u00a73.1 defines id as 1*(%d48-57 / %d65-90 / %d97-122) \u2014 one or more characters. An empty id= (from a TXT record like 'v=STSv1; id=') passes both guards because 0 is not > 32 and vacuous all() returns true. The empty id= would then be stored in the cache as the policy_id, breaking rotation detection (any new id= would differ from empty string, triggering unnecessary re-fetches on every delivery).\n\nFix: add a check if id.is_empty() { return Err(MtaStsError::DnsTxtMissingId); } (or a new DnsTxtIdInvalid, either is reasonable) before or after the length check. Add a test case for id= with empty value.\n\nSeverity: P2 \u2014 RFC correctness violation; not directly exploitable but causes incorrect behaviour with a malformed TXT record.",
+  "ephemeral": 0,
+  "id": "stoa-znfp0",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mta_sts_dns: empty id= accepted (RFC 8461 violation)",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T15:03:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jwahq",
+      "id": "2fc4d3fc-ab12-5cd3-8751-2787c0d1c16f",
+      "metadata": {},
+      "type": "relates-to"
+    }
+  ]
+}

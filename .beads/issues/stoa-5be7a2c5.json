@@ -1,0 +1,13 @@
+{
+  "id": "stoa-5be7a2c5",
+  "title": "Review: DKIM b1bc+kk4e round-3",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:08:16Z",
+  "updated_at": "2026-05-01T04:52:46Z",
+  "closed_at": "2026-05-01T01:26:52Z",
+  "notes": "Maintainer risk: HIGH \u2014 Three P0 bugs (DKIM-over-stripped-header, orphan-.msg-data-loss, non-atomic-.env). Plus P1: duplicated validation, missing type alias, unclear public_key_b64 semantics, inconsistent dead-letter behavior between NNTP and relay queues, missing peer_down_secs=0 guard.\nConfidence: 15% chance of missed bug. Least confident flags: public_key_b64 mismatch behavior (depends on mail_auth internals not audited). Uncertainty driven by: could not verify whether mail_auth::Ed25519Key::from_seed_and_public_key validates key-pair consistency or silently accepts mismatched keys; could not run the test suite to confirm the DKIM-over-stripped-header bug produces a failed verification. Would raise confidence if: ran cargo test for smtp and reader crates, inspected mail_auth source for from_seed_and_public_key behavior.\nIdiom rating: ACCEPTABLE \u2014 The code is structurally sound with correct ownership, appropriate unsafe-free design, proper zeroize usage, and well-placed #[non_exhaustive] on error enums. Three real idiom gaps filed: ConfigError variants stringify original error types (losing recovery ability for library callers), extract_message_id uses an empty-string sentinel instead of Option<String>, and config.rs validate() uses UFCS zeroize calls inconsistently with the rest of the codebase. Three clippy-level issues filed: while_let_on_iterator in parse_args (3 copies), map_or(false,f) vs is_some_and in tests, and UFCS zeroize. No unsafe, no unwrap() in non-trivial paths, no Box<dyn Error> in library signatures.\nRust idiom confidence: 12% chance of missed issue. Least confident flags: ConfigError::Io(String) finding \u2014 in a binary crate context, String errors are acceptable; the finding is valid only because stoa-smtp is a lib crate with public API. Uncertainty driven by: did not run cargo clippy on the actual codebase to verify all lint hits; did not inspect the full DkimSigner type chain in mail-auth crate to confirm the type alias scope; could not verify whether relay_queue.rs test closures trigger the map_or clippy lint in the project's clippy configuration."
+}

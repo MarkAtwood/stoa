@@ -1,0 +1,12 @@
+{
+  "id": "stoa-ff6bb67d",
+  "title": "fix(transit): return None for non-UTF-8 continuation in extract_body_msgid",
+  "description": "extract_body_msgid silently drops non-UTF-8 continuation lines, returning a truncated Message-ID as the dedup key. A malicious peer can use this to bypass dedup by sending a Message-ID whose continuation fragment is non-UTF-8. Fix: return None (unwrap_or_default \u2192 empty string \u2192 mandatory header check rejects it) when any continuation fragment is invalid UTF-8.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:46:26Z",
+  "updated_at": "2026-05-01T04:55:54Z",
+  "closed_at": "2026-04-27T05:55:40Z"
+}

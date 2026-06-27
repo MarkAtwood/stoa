@@ -1,0 +1,27 @@
+{
+  "id": "stoa-d1500994",
+  "title": "Write IPFS mock server for tests that don't need real IPFS",
+  "description": "Define a MockIpfsClient implementing the IPFS client trait (from the spike decision). The mock: stores blocks in a HashMap, simulates configurable failure modes (always fail, fail every Nth call, delay every call by Xms). All unit and integration tests that don't specifically test IPFS behavior use the mock. Artifact: core/src/ipfs/mock.rs (or test-only module).\n\nAcceptance: mock implements the full IPFS client trait; failure injection configurable per test; no network I/O in mock; mock resets state between tests; all existing tests that use a real IPFS node are annotated with #[ignore] unless IPFS_TEST=1 set",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:49:42Z",
+  "updated_at": "2026-05-01T04:57:50Z",
+  "closed_at": "2026-04-20T06:31:11Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-326b7650",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:49:42"
+    },
+    {
+      "depends_on_id": "stoa-c9c62a23",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:53:33"
+    }
+  ]
+}

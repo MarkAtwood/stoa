@@ -1,0 +1,27 @@
+{
+  "id": "stoa-9f7a23fb",
+  "title": "Implement Message-ID to CID mapping store in SQLite",
+  "description": "Implement the SQLite-backed store that maps Usenet Message-IDs to IPFS CIDs and vice versa. Uses sqlx. All SQL lives in this module; no SQL elsewhere. Artifact: src/msgid_map.rs in usenet-ipfs-core with sqlx migrations in core/migrations/.\n\nAcceptance:\n- insert(message_id, cid) and lookup_by_msgid(message_id) -> Option<Cid> work correctly\n- lookup_by_cid(cid) -> Option<String> works correctly\n- Duplicate insert is idempotent (same CID) or returns error (different CID)\n- Migration runs with `sqlx migrate run` on a fresh database\n- Unit tests cover insert, lookup, duplicate, and missing-key cases",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:09:58Z",
+  "updated_at": "2026-05-01T04:53:07Z",
+  "closed_at": "2026-04-20T03:36:29Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1c73f68d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:09:58"
+    },
+    {
+      "depends_on_id": "stoa-45d8dea3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:10:10"
+    }
+  ]
+}

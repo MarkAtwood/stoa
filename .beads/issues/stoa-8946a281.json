@@ -1,0 +1,33 @@
+{
+  "id": "stoa-8946a281",
+  "title": "RFC 3977 conformance: OVER/XOVER overview correctness",
+  "description": "Test OVER with range, with single article number, and with message-ID. Test XOVER as alias. Verify all 7 tab-separated fields are present: Subject, From, Date, Message-ID, References, :bytes, :lines. Verify field values match article headers. Artifact: tests/conformance/over_xover.py.\n\nAcceptance criteria:\n- OVER 1-10 returns 10 lines for a 10-article group\n- All 7 required fields present in every line\n- XOVER returns identical output to OVER for same range\n- OVER with missing article numbers in range skips them (no error)\n- Thunderbird's message list pane correctly populates from the OVER output",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:16:04Z",
+  "updated_at": "2026-05-01T04:58:10Z",
+  "closed_at": "2026-04-20T13:15:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-55db6c35",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:16:04"
+    },
+    {
+      "depends_on_id": "stoa-cb2f6457",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:54:14"
+    },
+    {
+      "depends_on_id": "stoa-f43fd193",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:16:46"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed: escape '%', '_', '\\' in the literal prefix before building LIKE pattern; added ESCAPE '\\\\' to SQL. Test handle_list_underscore_in_reference_matches_literally confirms underscore is matched literally.",
+  "closed_at": "2026-05-03T13:59:12Z",
+  "compaction_level": 0,
+  "content_hash": "f840f781924ed253bf312294c9bd5fab03cc7c83a261a394441102107fccf9e3",
+  "created_at": "2026-05-03T13:05:11Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this issue exists: imap/src/session/mailbox.rs handle_list() constructs a DB LIKE pattern from the client-supplied mailbox reference name. The reference name is bound via sqlx .bind() which prevents SQL injection, but the LIKE-special characters '%' and '_' within the literal prefix portion are not escaped (e.g. with '\\' as ESCAPE char). A client sending LIST \"a_b\" \"*\" would match 'a1b', 'axb', etc. in addition to 'a_b'. In practice IMAP folder names rarely contain '_', but RFC 3501 \u00a76.3.8 specifies that the reference argument is a literal string prefix, not a pattern.\n\nWhat needs to be done: Escape '%' and '_' in the reference name before constructing the LIKE pattern, then append '%' to match any suffix. Use ESCAPE '\\' in the SQL.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.67",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "IMAP LIST: LIKE metacharacters in mailbox prefix not escaped before DB query",
+  "updated_at": "2026-05-03T13:59:12Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "239e507a-4b31-5322-b86e-e3497372cd12",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

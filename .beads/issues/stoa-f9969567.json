@@ -1,0 +1,21 @@
+{
+  "id": "stoa-f9969567",
+  "title": "type=lmdb without [backend.lmdb] not caught at config validation",
+  "description": "Both transit and reader validate type='kubo' requires [backend.kubo], but do not validate type='lmdb' requires [backend.lmdb]. If an operator writes [backend] type=\"lmdb\" without a [backend.lmdb] subsection, lmdb field is None and startup code that unwraps it will panic. The Kubo precedent at transit/src/config.rs:524 should be repeated for Lmdb.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T16:33:48Z",
+  "updated_at": "2026-05-01T04:53:57Z",
+  "closed_at": "2026-04-24T16:52:44Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3840252d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-24 09:33:48"
+    }
+  ]
+}

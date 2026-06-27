@@ -1,0 +1,26 @@
+{
+  "id": "stoa-bac12c82",
+  "title": "verify: DKIM verifier via mail-auth",
+  "description": "Implement DKIM verification using the mail-auth crate (Apache-2.0).\n\nWhat: crates/verify/src/verifiers/dkim.rs; add mail-auth to Cargo.toml\n\nAlgorithm:\n1. Add to crates/verify/Cargo.toml: mail-auth = { version = \"0.5\", default-features = false, features = [\"dkim\", \"resolver\"] }\n2. Build a mail_auth::Resolver once (or accept one as a parameter for testability).\n   In production: Resolver::new_system_conf().\n   In tests: Resolver with a mock or pre-seeded TXT records.\n3. Parse message: mail_auth::AuthenticatedMessage::parse(raw_bytes)\n   If parse fails: return VerificationRecord { result: Fail, detail: Some(\"parse error\") }.\n4. resolver.verify_dkim(&message).await returns Vec<DkimOutput>.\n   For each DkimOutput:\n   a. Extract domain (d= tag), selector (s= tag).\n   b. Extract public key bytes from DkimOutput (mail-auth exposes these from the DNS record).\n   c. key_id = sha256:<hex(pubkey_bytes)>.\n   d. key_type = 'dkim-rsa' or 'dkim-ed25519' based on algorithm.\n   e. result = Pass if dkim_output.result() == DkimResult::Pass, else Fail.\n   f. detail = 'domain=<d=> selector=<s=>'.\n   g. On DNS error (DkimResult::TempError / PermError with DNS cause): result = DnsError.\n5. Call store.record_verification() for each signature found.\n   If no DKIM-Signature header: record one row with result=NoKey.\n\npub async fn verify_dkim(raw: &[u8], resolver: &Resolver, store: &VerifyStore, cid: &Cid) -> Vec<VerificationRecord>\n\nDefensive rules:\n- DNS failure never panics; record DnsError and return.\n- Multiple DKIM-Signature headers produce multiple records (one per signature).\n- Key bytes must be snapshotted even on Fail (key was present, sig was bad \u2014 still want the key).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:48:17Z",
+  "updated_at": "2026-05-01T05:01:01Z",
+  "closed_at": "2026-04-24T01:09:31Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-df63abb0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:49:53"
+    },
+    {
+      "depends_on_id": "stoa-f07d2b75",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:48:17"
+    }
+  ]
+}

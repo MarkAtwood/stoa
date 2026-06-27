@@ -1,0 +1,20 @@
+{
+  "id": "stoa-412f7c1e",
+  "title": "SEC7: calibration \u2014 round 1",
+  "description": "Confidence assessment: ~15% chance of a missed bug in the P0 fixes as a whole. The individual fixes are well-scoped and each has a matching test. The highest residual risk is in the suck_pull msgid normalization gap (c3z.5) and the sieve_admin unauthenticated start path (c3z.2) \u2014 both filed as separate P1 issues by other reviewers, so they are captured. The admin /stats wrong-pool issue (c3z.8) is pre-existing and not introduced by bt5.9; it lowers confidence in operator observability but not in correctness of the fixes themselves. Opinion findings filed: 0. All findings from other reviewers have engineering basis that would survive a code review comment thread \u2014 none are stylistic preferences. Running out of real complaints: no, two real P1 issues (c3z.2, c3z.5) and one P2 (c3z.4) remain open. Good engineering decisions identified: 6 \u2014 RFC 2046 boundary termination check, Bearer/Basic fallthrough safety, rate limiter IP keying, admin config validate-at-parse-time, Sieve reject reason sanitization, Sieve compile fail-closed with 4xx deferral, TAKETHIS stream drain on too-large.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T13:53:43Z",
+  "updated_at": "2026-05-01T04:56:11Z",
+  "closed_at": "2026-04-22T14:09:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b816309",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 06:53:42"
+    }
+  ]
+}

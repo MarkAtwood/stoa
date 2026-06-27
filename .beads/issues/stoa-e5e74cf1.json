@@ -1,0 +1,38 @@
+{
+  "id": "stoa-e5e74cf1",
+  "title": "E2E: post article, verify sig+DKIM, check NNTP and JMAP surfaces",
+  "description": "End-to-end test covering the full verification pipeline from ingest to surface exposure.\n\nWhat: crates/integration-tests/tests/verification_e2e.rs\n\nTest 1 \u2014 sig_pass_visible_in_nntp:\n1. Start in-process reader with verify_store and a known ed25519 signing key.\n2. POST a valid article with correct X-Usenet-IPFS-Sig header (signed with the known key).\n3. ARTICLE command on the posted message.\n4. Assert: response contains 'X-Usenet-IPFS-Verified: usenet-ipfs-sig=pass'.\n5. Assert: article_verifications row in SQLite has result='pass'.\n6. Assert: seen_keys row present with correct key_id.\n\nTest 2 \u2014 sig_fail_visible_in_nntp:\n1. Same setup, but tamper article body after signing (flip one byte).\n2. Assert: X-Usenet-IPFS-Verified: usenet-ipfs-sig=fail in ARTICLE response.\n3. Assert: article was still accepted (250 OK on POST) \u2014 verification failure does not reject.\n\nTest 3 \u2014 no_sig_no_header:\n1. POST article with no X-Usenet-IPFS-Sig header.\n2. ARTICLE response: X-Usenet-IPFS-Verified header absent entirely.\n\nTest 4 \u2014 jmap_verifications_property:\n1. POST signed article via NNTP.\n2. Fetch via JMAP Email/get.\n3. Assert: x-usenet-ipfs-verifications contains entry with type='usenet-ipfs-sig' result='pass'.\n\nDKIM tests are unit-level (W2); E2E DKIM requires live DNS which is not available in CI.\nDKIM E2E: one additional test using a local mock resolver injected into the pipeline \u2014 pre-seeded with a TXT record; POST article with a matching DKIM-Signature; assert dkim=pass in NNTP header.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:49:42Z",
+  "updated_at": "2026-05-01T05:00:59Z",
+  "closed_at": "2026-04-24T02:20:06Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-15a88713",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:50:03"
+    },
+    {
+      "depends_on_id": "stoa-76d99821",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:50:04"
+    },
+    {
+      "depends_on_id": "stoa-97e801db",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:50:05"
+    },
+    {
+      "depends_on_id": "stoa-f07d2b75",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:49:41"
+    }
+  ]
+}

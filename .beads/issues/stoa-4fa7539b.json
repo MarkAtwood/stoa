@@ -1,0 +1,21 @@
+{
+  "id": "stoa-4fa7539b",
+  "title": "GC runner unpins but does not delete articles row \u2014 orphaned CID re-selected every run",
+  "description": "gc.rs GcRunner::run_once calls pin_client.unpin() but never deletes the row from the articles table. gc_executor.rs run_gc_executor DOES delete the row, but GcRunner::run_once (called by start_gc_scheduler) does not call gc_executor \u2014 it calls pin_client.unpin() directly. Result: unpinned CIDs remain in the articles table and are re-selected as GC candidates on every subsequent hourly run, triggering redundant unpin calls indefinitely. Correctness invariant: after GC, unpinned CIDs must be removed from the articles table and msgid_map (as gc_executor already knows).",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:36:39Z",
+  "updated_at": "2026-05-01T04:56:52Z",
+  "closed_at": "2026-05-01T04:31:25Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:36:39"
+    }
+  ]
+}

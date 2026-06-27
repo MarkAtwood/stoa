@@ -1,0 +1,19 @@
+{
+  "id": "stoa-e77677c7",
+  "title": "Migration 0011 data loss: multiple users' mailboxes discarded",
+  "description": "Migration 0011_drop_user_id_mailboxes.sql discards mailboxes for all users except the one with MIN(user_id). When multiple users exist with provisioned mailboxes, only one user's mailboxes are preserved; all others are lost. This is data loss. Either: (a) preserve all users' mailboxes by adapting the schema to have a stable mailbox_id per role (not per user), (b) fail the migration with an error if multiple users exist, or (c) provide explicit operator migration instructions. Current location: lines 11-13 of migration file.",
+  "status": "open",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T07:06:29Z",
+  "updated_at": "2026-05-01T04:58:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-17ee367f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 00:06:28"
+    }
+  ]
+}

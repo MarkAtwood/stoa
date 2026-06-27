@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T18:39:26Z",
+  "compaction_level": 0,
+  "content_hash": "1a265fe8fd19fcaea333312a406d5d6e5e45521b2a86aec48ad216df3843dffb",
+  "created_at": "2026-05-01T15:20:03Z",
+  "created_by": "Mark Atwood",
+  "description": "In crates/core/src/audit.rs flush_buffer, each AuditEvent in the batch is inserted with a separate sqlx::query(...).execute(&mut *tx) call inside a for-loop. For a batch of N events this is N round-trips to SQLite inside a single transaction, but each round-trip still incurs prepare+bind+step overhead. A VALUES multi-row INSERT or QueryBuilder::push_values reduces this to a single statement. See the pattern already used in sqlite_storage.rs set_tips (lines 216-221) for the idiomatic approach.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.35",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "audit flush_buffer: one INSERT per event instead of bulk INSERT",
+  "updated_at": "2026-05-01T18:39:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:20:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "57124bfb-1a74-50e5-bb62-f5b166e3ae01",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

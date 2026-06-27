@@ -1,0 +1,22 @@
+{
+  "id": "stoa-88506f2e",
+  "title": "Core: article IPLD schema \u2014 header/body split, MIME parsed representation, derived metadata",
+  "description": "Define and implement the structured DAG-CBOR article root node replacing the prior flat-block design. The root node links to separate header, body, MIME, and metadata sub-blocks. Wire bytes are preserved verbatim; MIME parsing and derived metadata are layered as additional IPLD links. Schema is versioned and forward-compatible.\n\nThe article root node (DAG-CBOR) contains:\n  header_cid    -> raw block: verbatim RFC 5536 wire headers\n  body_cid      -> raw block: verbatim NNTP body bytes\n  mime_cid      -> IPLD node | null: single-part or multipart MIME parsed representation\n  metadata:     message_id, newsgroups, hlc_timestamp, operator_signature, byte_count, line_count, content_type_summary\n\nWire bytes (header_cid, body_cid) are always preserved verbatim for exact NNTP replay. The mime_cid subtree stores decoded/parsed content for direct access without re-parsing. Schema is versioned; new fields do not break existing CIDs. v1 scope is text-only MIME with binary parts flagged but not further parsed.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T01:49:01Z",
+  "updated_at": "2026-05-01T04:55:14Z",
+  "closed_at": "2026-04-20T02:53:49Z",
+  "notes": "Corundum integration context (not v1, but design for it): Corundum will extend its activity type system with an 'rfc822+mime' ATD (Activity Type Definition). A Corundum activity of this type will carry a content reference whose CID points directly at a usenet-ipfs article root node. This makes usenet-ipfs articles first-class content objects in the Corundum federation.\n\nFor this to work, the article root node must be: (1) addressed by a stable CIDv1 SHA-256 CID, (2) traversable by standard IPLD tooling regardless of codec, (3) canonically serialized per RFC 8785 + Corundum Chapter 31, and (4) carry sufficient metadata (message_id, newsgroups, content_type_summary, hlc_timestamp) for Corundum to render a preview without fetching sub-blocks.\n\nIPLD codec decision (DAG-CBOR vs DAG-JSON): unresolved. Corundum MVP uses DAG-JSON. Different codecs produce different CIDs. A spike must decide before l62.2.9.8 (root node builder) is implemented. See l62.2.9.10 (spike to be filed).\n\nPrior art: Corundum's two-tier chunk/epoch timeline (mutable current chunk of up to 256 entries + sealed immutable epochs with Merkle root) is directly comparable to the usenet-ipfs Merkle-CRDT group log. The entry structure (seq, prev, contentHash, retention) should inform the usenet-ipfs group log entry design.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1c73f68d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 18:49:00"
+    }
+  ]
+}

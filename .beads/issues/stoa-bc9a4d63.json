@@ -1,0 +1,27 @@
+{
+  "id": "stoa-bc9a4d63",
+  "title": "feat(mail): JMAP mailbox role property for special folders",
+  "description": "**What:** Make Mailbox/get return the six special-use mailboxes (with their RFC 8621 role strings and myRights) alongside newsgroup mailboxes.\n\n**Algorithm:**\n1. Add MailboxRights struct to mailbox/types.rs with 9 Boolean fields (all required per RFC 8621 \u00a72): mayReadItems, mayAddItems, mayRemoveItems, maySetSeen, maySetKeywords, mayCreateChild, mayRename, mayDelete, maySubmit \u2014 derive Serialize\n2. Add my_rights: MailboxRights field to Mailbox struct (rename = 'myRights'); define two constructors: MailboxRights::newsgroup_defaults() (all true except maySubmit=false) and MailboxRights::inbox_defaults() (mayReadItems+maySetSeen+maySetKeywords=true; mayAddItems+mayRemoveItems+mayCreateChild+mayRename+mayDelete+maySubmit=false for INBOX; Sent: mayAddItems+maySubmit=true; Drafts: mayAddItems=true; Trash/Junk: mayAddItems+mayRemoveItems=true; Archive: mayAddItems=true)\n3. Add list_user_mailboxes(pool: &AnyPool, user_id: i64) -> Result<Vec<SpecialMailbox>, sqlx::Error> in mailbox/get.rs: SELECT mailbox_id, role, name, sort_order FROM user_mailboxes WHERE user_id = ?; return Vec<SpecialMailbox { id: String, role: String, name: String, sort_order: u32 }>\n4. Add Mailbox::from_special(special: &SpecialMailbox) -> Self: sets role = Some(special.role.clone()), my_rights = MailboxRights for that role, total_emails=0, unread_emails=0, is_subscribed=true, parent_id=None\n5. Modify handle_mailbox_get signature to accept special_mailboxes: &[SpecialMailbox] parameter; build combined list (special first, then newsgroups); apply ids filter; populate accountId from caller (not null)\n6. Fix accountId in handle_mailbox_get response: accept account_id: &str parameter, set in JSON response instead of null (RFC 8620 \u00a73.4 requires accountId to echo the request value)\n7. In route_method() Mailbox/get arm: call list_user_mailboxes, pass to handle_mailbox_get along with canonical_account_id\n8. In Mailbox/set: reject create/update with role that conflicts with existing user_mailboxes row (PRIMARY KEY enforces uniqueness at DB level; catch sqlx Error::Database unique-constraint and return invalidProperties JSON)\n\n**Defensive programming rules:**\n- RFC 8621 \u00a72 MUST NOT: at most one mailbox per role per account \u2014 enforced by PRIMARY KEY (user_id, role); application must translate DB unique violation to invalidProperties response\n- list_user_mailboxes error is not fatal: log warning and return empty list (newsgroups still show)\n- myRights must always have all 9 fields populated \u2014 never omit any field even if false\n- accountId in response must NEVER be null \u2014 always echo canonical_account_id from the session\n\n**Agent team:** R reads mailbox/get.rs, mailbox/types.rs, server.rs Mailbox/get arm; I implements; T writes tests.\n\n**Tests:**\n- MailboxRights::newsgroup_defaults() serializes with all 9 fields. Oracle: known expected JSON\n- Mailbox/get JSON includes myRights on every mailbox (special and newsgroup)\n- INBOX myRights: mayReadItems=true, mayAddItems=false, mayRemoveItems=false. Oracle: RFC 8621 \u00a72\n- handle_mailbox_get with special + newsgroup: combined list has 6 + N entries; special entries have non-null role; newsgroup entries have null role\n- accountId in response is NOT null: equals the passed-in canonical_account_id string\n- ids filter includes special folder id: found in list with correct role and myRights",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T03:53:25Z",
+  "updated_at": "2026-05-01T04:53:08Z",
+  "closed_at": "2026-04-30T05:30:17Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-172aef57",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 20:53:25"
+    },
+    {
+      "depends_on_id": "stoa-77165bba",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 20:54:39"
+    }
+  ]
+}

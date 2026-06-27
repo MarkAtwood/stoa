@@ -1,0 +1,20 @@
+{
+  "id": "stoa-979d80fd",
+  "title": "Config reload: POST /admin/reload endpoint",
+  "description": "Add POST /admin/reload to admin HTTP server. Triggers same reload logic as SIGHUP. Returns JSON {changed: [field_names], errors: [parse_errors]}. Blocked on: stoa-d99f02f9.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:40:22Z",
+  "updated_at": "2026-05-01T04:56:57Z",
+  "closed_at": "2026-04-28T08:36:55Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d99f02f9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:41:39"
+    }
+  ]
+}

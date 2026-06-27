@@ -1,0 +1,20 @@
+{
+  "id": "stoa-de0a2ae8",
+  "title": "Doc comments on #[cfg(test)] private helpers are misleading",
+  "description": "In crates/transit/src/peering/pipeline.rs, the functions parse_newsgroups (line 547) and extract_message_id (line 561) are decorated with #[cfg(test)] and are therefore test-only helpers. However, both have triple-slash doc comments placed after the #[cfg(test)] attribute. The convention for #[cfg(test)] helpers is to use plain double-slash comments rather than doc comments, since these functions are not part of the public or private API \u2014 they are scaffolding. A reader scanning the file will see the doc-comment markers and assume these are intended as documented API entry points, then be puzzled that they are gated on cfg(test). The comments should be changed from doc-comments to plain comments to match the test-helper convention.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:31:08Z",
+  "updated_at": "2026-05-01T05:00:05Z",
+  "closed_at": "2026-04-28T10:19:49Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:31:08"
+    }
+  ]
+}

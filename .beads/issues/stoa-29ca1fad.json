@@ -1,0 +1,21 @@
+{
+  "id": "stoa-29ca1fad",
+  "title": "aubi: re-export stoa_auth::UserCredential from reader config",
+  "description": "## What\nReplace the locally-defined UserCredential struct in crates/reader/src/config.rs with a re-export of stoa_auth::UserCredential.\n\n## Why\nreader's crate::config::UserCredential and stoa_auth::UserCredential have identical fields (username: String, password: String) but are different types. server_stores.rs calls CredentialStore::from_credentials(&auth.users) where auth.users: Vec<crate::config::UserCredential>. After removing the duplicate CredentialStore, from_credentials expects Vec<stoa_auth::UserCredential>. A re-export makes auth.users the correct type with zero call-site changes.\n\n## Algorithm\n1. Read /home/mark/PROJECT/stoa/crates/reader/src/config.rs \u2014 find the UserCredential struct definition.\n2. Replace:\n   pub struct UserCredential { pub username: String, pub password: String, }\n   (and any derives/attributes) with:\n   pub use stoa_auth::UserCredential;\n3. Remove any now-dead derive/serde attributes that were on the local struct.\n4. Verify stoa-auth is already in reader/Cargo.toml (it is).\n5. Run: cargo build -p stoa-reader 2>&1; echo EXIT:$?\n\n## Defensive rules\n- If reader's AuthConfig has a 'users: Vec<UserCredential>' field, the re-export must be visible at the module level where AuthConfig is defined.\n- Do not change any other config types.\n- If the local UserCredential had serde attributes that stoa_auth::UserCredential lacks, check stoa_auth::UserCredential's definition first.\n\n## Acceptance\ncargo build -p stoa-reader clean; no UserCredential struct literal in reader/src/config.rs",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T16:19:01Z",
+  "updated_at": "2026-05-01T04:52:23Z",
+  "closed_at": "2026-04-30T16:24:57Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-526bc4c6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 09:19:01"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "stoa-2511b2e4",
+  "title": "mail/set: hardcoded Date header in create_one_email",
+  "description": "In crates/mail/src/email/set.rs create_one_email(), the Date header is hardcoded to 'Mon, 01 Jan 2024 00:00:00 +0000'. All articles created via JMAP Email/set will have the wrong date, breaking newsreader sorting, threading, and RFC 5322 conformance. The timestamp variable is already computed (as ms since epoch) for the Message-ID \u2014 it must be formatted as RFC 2822 for the Date header.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T20:14:06Z",
+  "updated_at": "2026-05-01T05:01:05Z",
+  "closed_at": "2026-04-24T20:23:12Z"
+}

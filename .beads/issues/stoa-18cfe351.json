@@ -1,0 +1,13 @@
+{
+  "id": "stoa-18cfe351",
+  "title": "core: audit_logger_non_blocking test is timing-racy",
+  "description": "The test drops AuditLoggerHandle then sleeps 300ms before checking event count. On a loaded machine the logger may not have flushed all events in 300ms \u2014 observed failure: 103/200 events stored. Root cause: tokio::spawn JoinHandle is discarded so there's no way to await logger completion. Fix: store JoinHandle in AuditLoggerHandle, add async shutdown() method, use it in the test instead of sleep.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-25T02:17:01Z",
+  "updated_at": "2026-05-01T04:51:59Z",
+  "closed_at": "2026-04-25T02:18:07Z"
+}

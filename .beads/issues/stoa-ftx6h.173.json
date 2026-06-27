@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "763e6493c5871fb4619e2e276d83d91c41031c5a2c2cff60e12bdca2cb317153",
+  "created_at": "2026-05-03T13:09:26Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: unused parameters add noise and may indicate the parameter was intended to perform a mode check that was never implemented. What: mode_stream.rs handle_mode_stream takes _current_mode: PeeringMode but the leading underscore suppresses the warning rather than removing the parameter or using it. RFC 4644 \u00a72.2 says MODE STREAM can only be sent once; if _current_mode is not used to enforce this, the no-op suppression is hiding a missing guard.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.173",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "_current_mode unused parameter in handle_mode_stream",
+  "updated_at": "2026-05-03T13:09:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:09:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "bb66ca23-c5a0-538f-8420-2d44c03edebe",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

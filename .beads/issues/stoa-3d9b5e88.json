@@ -1,0 +1,33 @@
+{
+  "id": "stoa-3d9b5e88",
+  "title": "S3 backend: lifecycle tagging GC mode and explicit delete mode",
+  "description": "Implement two GC modes configured by [backend.s3] gc_mode. lifecycle mode: delete() calls PutObjectTagging to set retention-class=expired, returns Deferred{86400}. delete mode: calls DeleteObject, returns Immediate. Blocked on: stoa-2b3b563d.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:47:27Z",
+  "updated_at": "2026-05-01T04:56:39Z",
+  "closed_at": "2026-04-28T02:11:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1d27214e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:00:43"
+    },
+    {
+      "depends_on_id": "stoa-2b3b563d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:47:27"
+    },
+    {
+      "depends_on_id": "stoa-5c9f1a38",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:47:27"
+    }
+  ]
+}

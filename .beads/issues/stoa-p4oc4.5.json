@@ -1,0 +1,40 @@
+{
+  "acceptance_criteria": "cargo test -p stoa-transit passes; stoa-transit binary builds",
+  "compaction_level": 0,
+  "content_hash": "ea14db510d45cbfc85371f14ebe656011f272087a3ed728ab01dff681f71fd95",
+  "created_at": "2026-05-04T06:00:09Z",
+  "created_by": "Mark Atwood",
+  "description": "Add DnsAuthCache to PipelineCtx and call cache_from_article in run_pipeline.\n\nFiles: crates/transit/src/peering/pipeline.rs, crates/transit/src/main.rs, crates/transit/src/rnews_main.rs\n\npipeline.rs:\n  Add to PipelineCtx: pub dns_auth_cache: Option<&'a DnsAuthCache>\n  In run_pipeline, after verify_article:\n    if let Some(cache) = ctx.dns_auth_cache { cache.cache_from_article(article_bytes).await; }\n\nmain.rs:\n  Construct at startup: let dns_auth_cache = DnsAuthCache::new(transit_pool.clone(), Arc::clone(&ipfs), Arc::clone(&dns_cache));\n  Add to PipelineCtx: dns_auth_cache: Some(&dns_auth_cache)\n\nrnews_main.rs:\n  Add to PipelineCtx: dns_auth_cache: None (stoa-rnews has no dns_cache)\n\nDefensive rules:\n  Option<&DnsAuthCache> means None disables caching with no change to existing callers.\n  cache_from_article never propagates errors so pipeline error contract unchanged.\n  All existing tests pass with dns_auth_cache: None.",
+  "ephemeral": 0,
+  "id": "stoa-p4oc4.5",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Wire DnsAuthCache into pipeline.rs",
+  "updated_at": "2026-06-26T20:26:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T23:00:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p4oc4",
+      "id": "3809ce95-b952-51a9-b5cf-c05017754318",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-03T23:00:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p4oc4.4",
+      "id": "4b1ef146-0922-50b0-8076-a20b711b077a",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

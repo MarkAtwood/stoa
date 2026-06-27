@@ -1,0 +1,33 @@
+{
+  "close_reason": "stoa-5yi4k.4: MtaStsEnforcer now owns a TokioResolver built once in new(); lookup_mta_sts_txt takes &TokioResolver parameter. stoa-5yi4k.6: fetch_url now uses response.chunk() loop with inline size check \u2014 body capped during streaming, not after full buffering. All 291 tests pass.",
+  "closed_at": "2026-05-02T21:33:43Z",
+  "compaction_level": 0,
+  "content_hash": "98523b02612eb807fd1be9961843bc0fc8b447ec42c77aa1513a4d8416a8a762",
+  "created_at": "2026-05-02T21:17:43Z",
+  "created_by": "Mark Atwood",
+  "description": "mta_sts_fetcher.rs:78 calls response.bytes().await which reads the entire body into memory, then checks len > max_body_bytes on line 83. A server without Content-Length that streams >64 KiB will fill memory before the check fires. Fix: use bytes_stream() with a running counter and abort when the limit is exceeded. The comment 'Read body with byte cap' is misleading \u2014 the cap is applied after buffering, not during.",
+  "ephemeral": 0,
+  "id": "stoa-5yi4k.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "fetch_url reads full response body before enforcing size limit \u2014 unbounded buffer",
+  "updated_at": "2026-05-02T21:33:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:17:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-5yi4k",
+      "id": "99ab506b-2fee-5bf3-bc20-42bf6f689c01",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

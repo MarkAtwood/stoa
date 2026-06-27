@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T03:27:48Z",
+  "compaction_level": 0,
+  "content_hash": "10d2b927a9beb34ef2cdd5026f6c9bec033ff258d86a84d76332876a322ae845",
+  "created_at": "2026-05-04T03:19:09Z",
+  "created_by": "Mark Atwood",
+  "description": "rnews_main.rs:322-329 \u2014 The only end-of-run summary (accepted/rejected/transient counts) is emitted at tracing::info!. If the operator configures log.level = 'warn' (common in production to reduce noise), or sets RUST_LOG=warn, the batch completes with zero visible output \u2014 no confirmation the batch ran, no counts. At 3am this looks identical to a hung or killed process. Better approach: emit the summary unconditionally to stderr via eprintln! in addition to (or instead of) tracing::info!, or use tracing::warn! when transient > 0 or rejected > 0 so abnormal outcomes are always visible.",
+  "ephemeral": 0,
+  "id": "stoa-tlvh9.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "batch summary only at INFO level \u2014 invisible at warn/error",
+  "updated_at": "2026-05-04T03:27:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T20:19:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-tlvh9",
+      "id": "1801686e-130f-55f7-ad60-25e5ca75a861",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

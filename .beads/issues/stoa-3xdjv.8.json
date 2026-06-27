@@ -1,0 +1,33 @@
+{
+  "close_reason": "Decision record \u2014 no code change needed",
+  "closed_at": "2026-05-03T00:16:49Z",
+  "compaction_level": 0,
+  "content_hash": "95d87e4d252d0e50ceb555807114b54186945e19ae3bf36823e04825c411a3d4",
+  "created_at": "2026-05-03T00:13:00Z",
+  "created_by": "Mark Atwood",
+  "description": "load_fresh_policy enforces effective_age = max_age.max(60) regardless of the policy's max_age field. max_age: 0 would cause a live DNS+HTTPS re-fetch on every outbound delivery \u2014 a remote domain could use this as an amplification vector. The 60s floor is documented in a comment. A reviewer might suggest respecting max_age: 0 exactly per RFC 8461. Do not remove the floor; the RFC does not prohibit a minimum enforcement TTL, and the DNS id= check every ID_CHECK_INTERVAL already provides timely policy-rotation detection without the amplification risk.",
+  "ephemeral": 0,
+  "id": "stoa-3xdjv.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "60s minimum cache TTL in load_fresh_policy is correct anti-amplification hardening",
+  "updated_at": "2026-05-03T00:16:49Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T17:13:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-3xdjv",
+      "id": "a3de4494-d8fa-5937-a5f3-2c9cc787ce49",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

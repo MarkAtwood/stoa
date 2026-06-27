@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "7bfb7c71b9626fccb78a20ce2c3a2918948c99c9509b8a25ddd98d874d367d38",
+  "created_at": "2026-05-03T13:05:41Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\nstore/overview.rs::message_ids_since() fetches ALL rows from the overview table (WHERE message_id \\!= '') and then filters by wildmat and date in Rust. For a server with millions of articles, NEWNEWS will cause a full table scan every call.\\n\\nThe date_header column stores RFC 2822 strings, not Unix timestamps, so SQL cannot filter by date directly. The fix requires storing the parsed date as a Unix timestamp column, adding an index on it, and pushing the filter into SQL.\\n\\n## Acceptance Criteria\\n\\nAdd a date_ts column (integer, indexed) to the overview table. Populate it at insert time. query in message_ids_since uses WHERE date_ts > ? instead of fetching all rows.",
+  "ephemeral": 0,
+  "id": "stoa-5yit9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "overview::message_ids_since full table scan: no date-based index",
+  "updated_at": "2026-05-03T13:05:41Z"
+}

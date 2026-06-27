@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "6993eb38b2cfee9a955a251f647da38ec9fe660369973f73a39e057d86efb122",
+  "created_at": "2026-05-02T14:35:52Z",
+  "created_by": "Mark Atwood",
+  "description": "ServerStatus/get, Peer/get, and GroupLog/get are restricted to operators. Non-operator access is silently rejected with a 'forbidden' JMAP error today. Add an audit event so privilege escalation attempts are visible.\n\n## Current code (route_method, server.rs ~line 1373)\n  \"ServerStatus/get\" => {\n      if !is_operator {\n          return serde_json::to_value(MethodError::forbidden()).unwrap_or(json!({}));\n      }\n      ...\n  }\n  (Same pattern for Peer/get and GroupLog/get)\n\n## Audit events to add\n\n  On operator-gate rejection:\n    tracing::warn!(\n        audit         = true,\n        event.type    = \"authz.forbidden\",\n        method        = %method,       // \"ServerStatus/get\" etc.\n        username      = %username,\n        source_ip     = %source_ip,    // forwarded from JmapCaller\n        \"operator gate: access denied\",\n    );\n\n  On operator-gate success (admin method actually called):\n    tracing::info!(\n        audit         = true,\n        event.type    = \"admin.method_called\",\n        method        = %method,\n        username      = %username,\n        \"operator method invoked\",\n    );\n\n## JmapCaller changes needed\n  source_ip must be added to JmapCaller (String) so it is available inside\n  route_method. Currently JmapCaller has username but not source_ip.\n  Populate it from the request extension set by B1.\n\n## Acceptance\n- Test: non-operator calling ServerStatus/get \u2192 authz.forbidden audit event emitted\n- Test: operator calling ServerStatus/get \u2192 admin.method_called audit event emitted\n- username and method fields are correct in both cases",
+  "ephemeral": 0,
+  "id": "stoa-jj165.6",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Add audit events at JMAP operator-gate rejections",
+  "updated_at": "2026-06-26T20:26:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T07:35:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jj165",
+      "id": "c7a77416-363a-59f0-a2db-e22cbd292638",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-02T07:36:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jj165.4",
+      "id": "eebc1ebe-3233-5fa9-b9af-3223a2491b09",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

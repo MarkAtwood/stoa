@@ -1,0 +1,21 @@
+{
+  "id": "stoa-1d3b3de4",
+  "title": "SEC-TESTS: bt5.12 QP oracle uses RFC 2045 example but body content not verified byte-exact",
+  "description": "The test test_qp_decoding_rfc2045_example (core/src/ipld/mime_parser.rs) uses the RFC 2045 \u00a76.7 quoted-printable soft-line-break example. The oracle (expected string) is 'Now'\"'\"'s the time for all folk to come to the aid of their country.' This is correct per RFC 2045. However the test finds the decoded block by CID match (searching parsed.blocks for the entry whose CID == sp.decoded_cid) which is circular: the CID is derived from the decoded bytes using the same make_raw_block() function under test. If make_raw_block() were to produce wrong bytes but correct CID arithmetic, the test would still pass. The test should additionally verify the decoded bytes byte-exact against the known expected string WITHOUT going through the CID lookup. Current code does: let (_, block_bytes) = parsed.blocks.iter().find(|(cid,_)| *cid == sp.decoded_cid) \u2014 this CID lookup is self-referential if the CID computation is also wrong. The test should assert block_bytes == expected_bytes using a direct index or position, not CID matching.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T13:53:39Z",
+  "updated_at": "2026-05-01T04:56:17Z",
+  "closed_at": "2026-04-22T14:02:17Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b816309",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 06:53:38"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T03:28:06Z",
+  "compaction_level": 0,
+  "content_hash": "a8ee47dc5158e883a0fc400931a888364b648c0e7ebb438ce0fa4b192ca5a612",
+  "created_at": "2026-05-04T03:19:13Z",
+  "created_by": "Mark Atwood",
+  "description": "rnews_main.rs:225 \u2014 stdin_bytes.len() is compared against MAX_BATCH_DECOMPRESSED_BYTES before calling parse_rnews_batch. For a compressed '#! gunbatch' batch the on-disk/on-wire compressed size can legitimately exceed 50 MiB (e.g. 1000 articles of near-1-MiB each, compressed to ~60% = ~600 MiB compressed). The check at line 225 rejects the batch before parse_rnews_batch even sees it, so the gunbatch decompressor \u2014 which enforces the real security cap via .take(limit+1) \u2014 is never reached. The correct pre-read bound for stdin should be MAX_BATCH_DECOMPRESSED_BYTES multiplied by some worst-case compression ratio (e.g. 2x), or the stdin check should be removed entirely and the protection left to decompress_gunbatch. As written, any compressed batch whose compressed size > 50 MiB is silently rejected even when its decompressed content is within the allowed 50 MiB.",
+  "ephemeral": 0,
+  "id": "stoa-tlvh9.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SEC0: stdin size check rejects valid compressed gunbatch",
+  "updated_at": "2026-05-04T03:28:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T20:19:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-tlvh9",
+      "id": "a4d25581-bcda-57a3-9b6c-07ba8fdc2bec",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

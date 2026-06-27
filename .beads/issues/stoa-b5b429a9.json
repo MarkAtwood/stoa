@@ -1,0 +1,21 @@
+{
+  "id": "stoa-b5b429a9",
+  "title": "accept_loop / accept_loop_tls structural duplication in reader/main.rs",
+  "description": "reader/main.rs has two near-identical functions: accept_loop (plain TCP) and accept_loop_tls (NNTPS implicit TLS). The only differences are the tls_acceptor parameter type and the is_tls bool passed to run_session. All semaphore acquire, listener.accept, tokio::spawn, permit drop, and error-handling logic is verbatim copy-pasted (~40 lines each).\n\nSuggested rewrite: one function with an implicit_tls: bool flag:\n\n  async fn accept_loop(\n      listener: TcpListener,\n      semaphore: Arc<Semaphore>,\n      config: Arc<Config>,\n      stores: Arc<ServerStores>,\n      tls_acceptor: Option<Arc<TlsAcceptor>>,\n      implicit_tls: bool,\n  )\n\nNNTPS call: accept_loop(tls_listener, ..., Some(acceptor), true). Plain call: accept_loop(listener, ..., tls_acceptor, false). Backpressure, logging, and permit-drop changes only need to be made once.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:13:02Z",
+  "updated_at": "2026-05-01T04:57:23Z",
+  "closed_at": "2026-04-27T17:45:08Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:13:02"
+    }
+  ]
+}

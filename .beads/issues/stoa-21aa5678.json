@@ -1,0 +1,20 @@
+{
+  "id": "stoa-21aa5678",
+  "title": "dkim.rs: mail-auth parse failure on valid-NNTP RFC-5322-invalid articles generates spurious ParseError",
+  "description": "verify_dkim_headers in dkim.rs returns a ParseError with 'mail-auth could not parse the article as an RFC 5322 message' whenever AuthenticatedMessage::parse returns None. NNTP articles are RFC 5536 not RFC 5322 \u2014 they may have headers that are valid per RFC 5536 but rejected by a strict RFC 5322 parser (e.g. malformed MIME headers, oversized Newsgroups values). An article with no DKIM-Signature headers but non-RFC-5322 formatting would produce a ParseError in the verification store even though there was nothing to verify. Operators will see ParseError rows for every non-RFC-5322-compliant article and may incorrectly conclude their articles are malformed. Fix: distinguish 'parse failed' from 'no DKIM headers' \u2014 check for DKIM-Signature presence before attempting full parse, or treat None-parse as 'no DKIM' rather than ParseError when no DKIM-Signature bytes are present.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T06:01:06Z",
+  "updated_at": "2026-05-01T04:53:31Z",
+  "closed_at": "2026-04-27T08:26:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-35ec26bb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 23:01:05"
+    }
+  ]
+}

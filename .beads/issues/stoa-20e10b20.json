@@ -1,0 +1,12 @@
+{
+  "id": "stoa-20e10b20",
+  "title": "Review Round 13: session fixes and IMAP auth migration",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T08:41:44Z",
+  "updated_at": "2026-05-01T04:52:16Z",
+  "closed_at": "2026-04-27T09:05:19Z"
+}

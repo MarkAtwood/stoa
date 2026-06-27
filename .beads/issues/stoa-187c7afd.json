@@ -1,0 +1,13 @@
+{
+  "id": "stoa-187c7afd",
+  "title": "Review: relay_queue cleanup_orphan predicate fix",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:03:05Z",
+  "updated_at": "2026-05-01T04:52:41Z",
+  "closed_at": "2026-05-01T01:25:44Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 inconsistent idiom between the two startup scan functions is the main vector; a contributor copy-pastes the wrong predicate style. Security surface is low (local filesystem only).\nConfidence: 15% chance of missed bug. Least confident flags: if9z.1 (non-UTF-8 paths are a theoretical concern on Linux where filenames can contain arbitrary bytes \u2014 practically the queue dir is written by this code so filenames are always ASCII). Uncertainty driven by: cannot see other callers of cleanup_tmp_files or how the queue dir might be externally modified. Would raise confidence if: integration test with a non-UTF-8 filename in the queue dir.\nIdiom rating: CLEAN \u2014 the changed predicate (path.extension().is_some_and(|e| e == 'msg')) is idiomatic Rust; correct OsStr comparison via PartialEq<str>, no allocations, no unsafe. The surrounding function is idiomatic. The only idiom concern is the unchanged cleanup_tmp_files using to_str() which was already captured as a P1 maintainer-burden finding.\nRust idiom confidence: 90% chance of no missed issue. Least confident flags: none in the changed code itself. Uncertainty driven by: async read_dir behavior across platforms not exercised by the test suite."
+}

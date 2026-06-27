@@ -1,0 +1,12 @@
+{
+  "id": "stoa-73bdf558",
+  "title": "Slow command logging",
+  "description": "Log NNTP commands and JMAP method calls that exceed a configurable latency threshold, so operators can identify and diagnose performance problems.\n\nWhy this issue exists:\nWith no slow-command logging, a newsreader client that hangs on ARTICLE or OVER is nearly impossible to diagnose. Operators need to know which commands are slow, for which groups, and how often, without enabling full DEBUG logging on a production instance.\n\nScope:\n- After each NNTP command completes, if elapsed time > threshold, emit a structured log event at WARN: event=slow_command, command, group (if applicable), article_num or msgid (if applicable), elapsed_ms, remote_ip\n- After each JMAP method call completes, if elapsed time > threshold, emit: event=slow_jmap_method, method, elapsed_ms, account_id\n- Configurable threshold per daemon in [log] section: slow_command_threshold_ms = 500 (default: 1000, 0 = disabled)\n- Also expose as a Prometheus histogram: nntp_command_duration_seconds{command} and jmap_method_duration_seconds{method}\n- The histogram is always recorded (not gated on the threshold) to enable p99 tracking in Grafana\n\nAcceptance criteria:\n- An ARTICLE command that takes 1100ms with default threshold emits a slow_command WARN event\n- nntp_command_duration_seconds histogram is present in /metrics for each command type seen\n- slow_command_threshold_ms = 0 disables the WARN events but the histogram still records\n- No PII (username, article content) appears in slow command log events",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:17:42Z",
+  "updated_at": "2026-05-01T04:56:49Z",
+  "closed_at": "2026-04-28T10:35:19Z"
+}

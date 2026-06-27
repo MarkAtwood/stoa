@@ -1,0 +1,27 @@
+{
+  "id": "stoa-4a6dd7bb",
+  "title": "na4h: whitelist check in run_session with IPv4-mapped normalization",
+  "description": "## What\nImplement the actual whitelist check inside run_session. Normalize IPv4-mapped IPv6 addresses before checking. Set connection_whitelisted local variable for use by future greylisting code.\n\n## Algorithm\n1. In session.rs, after client_ip is extracted (currently lines 171-174), add normalization:\n   ```rust\n   let client_ip = match client_ip {\n       IpAddr::V6(v6) => v6.to_ipv4_mapped()\n           .map(IpAddr::V4)\n           .unwrap_or(IpAddr::V6(v6)),\n       v4 => v4,\n   };\n   ```\n   Note: use to_ipv4_mapped() (not to_ipv4()) \u2014 the former only matches the ::ffff:0:0/96 range (true IPv4-mapped), the latter also matches deprecated ::0:0/96 IPv4-compatible addresses. to_ipv4_mapped() is correct.\n\n2. Immediately after normalization, compute:\n   ```rust\n   let connection_whitelisted = config.peer_whitelist.iter()\n       .any(|net| net.contains(&client_ip));\n   ```\n\n3. Add a tracing log line:\n   ```rust\n   if connection_whitelisted {\n       info!(peer = %peer_addr, \"connection whitelisted \u2014 spam filters bypassed\");\n   }\n   ```\n\n4. The connection_whitelisted variable is now available throughout run_session for future use by greylisting (mgzn epic). Leave a comment: `// used by greylisting (stoa-ef702cf6) to bypass RCPT TO delay`\n\n5. For now, the variable is not yet consumed (no DNSBL/FCrDNS/greylist to bypass yet) \u2014 the compiler will warn about unused variable. Suppress with `let _ = connection_whitelisted;` OR prefix with `#[allow(unused_variables)]` if clippy objects. Prefer `let _connection_whitelisted = ...` to preserve the name for future use.\n\n## Defensive rules\n- Use to_ipv4_mapped(), NOT to_ipv4() \u2014 see algorithm note\n- The check must come AFTER normalization, not before\n- No unwrap() on the normalization path \u2014 the match handles all cases\n- connection_whitelisted must never be used to skip AUTH \u2014 authentication is always required regardless of whitelist status. Add a comment to this effect.\n\n## Tests\nWritten in na4h.3 \u2014 this bead just implements.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:33:52Z",
+  "updated_at": "2026-05-01T04:55:32Z",
+  "closed_at": "2026-04-30T15:43:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1d9d418c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:33:51"
+    },
+    {
+      "depends_on_id": "stoa-4a60fd32",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:36:25"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "stoa-cf8f66c9",
+  "title": "Implement automatic peer blacklisting on repeated rejections",
+  "description": "If a peer's consecutive_failures exceeds a configurable threshold (default 10), set blacklisted_until to now + configurable duration (default 1 hour). Blacklisted peers are not dialed; inbound connections from blacklisted peers are rejected with 400. Blacklist entries expire automatically. Artifact: transit/src/peering/blacklist.rs.\n\nAcceptance: blacklisting triggers after threshold consecutive failures; blacklist expires after configured duration; operator can manually unblacklist via CLI; blacklist events are logged at warn level",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:45:57Z",
+  "updated_at": "2026-05-01T04:54:57Z",
+  "closed_at": "2026-04-20T04:57:01Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-55b3ce25",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:45:57"
+    },
+    {
+      "depends_on_id": "stoa-7cce4032",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:47:57"
+    }
+  ]
+}

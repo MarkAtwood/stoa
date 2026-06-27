@@ -1,0 +1,21 @@
+{
+  "id": "stoa-f4935992",
+  "title": "NntpQueue success: .env removal failure silently ignored",
+  "description": "queue.rs drain_once delivery success path (line 255): 'let _ = tokio::fs::remove_file(&env_path).await;' discards errors. If .env removal fails, the .env file remains but its paired .msg is already deleted. The NntpQueue drain iterates .msg files so the orphaned .env never triggers re-delivery. It accumulates indefinitely with no log, no metric, no operator signal. Unlike SmtpRelayQueue which logs warn on file removal failure, the NntpQueue is fully silent. No startup scan exists to clean up orphaned .env files.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:43:30Z",
+  "updated_at": "2026-05-01T04:57:35Z",
+  "closed_at": "2026-05-01T02:06:44Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4315538d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:43:30"
+    }
+  ]
+}

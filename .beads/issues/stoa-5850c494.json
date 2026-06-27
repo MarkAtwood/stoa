@@ -1,0 +1,20 @@
+{
+  "id": "stoa-5850c494",
+  "title": "SEC2: fingerprint compared as colon-hex string",
+  "description": "In xcid_client.rs, PinnedCertVerifier::verify_server_cert() calls cert_sha256_colon() which formats the 32-byte SHA-256 digest as a 95-character colon-separated hex string, then compares that string to self.expected_sha256 (also a 95-char string). The correct approach is to parse expected_sha256 once at construction time into [u8; 32] and compare the raw digest bytes directly (32-byte memcmp vs 95-char string compare). The current form also allocates a Vec<String> of 32 single-byte strings on every TLS handshake just to join them.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T23:44:03Z",
+  "updated_at": "2026-05-01T04:56:32Z",
+  "closed_at": "2026-04-24T00:01:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4206df49",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 16:44:02"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "262486daecfe51eb6e678d75c2922dcad38d2e48ce97fcf5f18e50a589c5fa02",
+  "created_at": "2026-05-03T13:05:21Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\npost/mod.rs::find_header_boundary() uses two nested loops: the outer loop tries every position, and bytes.starts_with() scans up to 4 bytes. For articles without a blank-line separator (malformed), the outer loop runs n times. While the inner scan is bounded to 4 bytes, a missing-separator article causes n iterations of the outer loop. For normal articles this is fine. However, the same function is called 4-6 times per article in the POST pipeline (injection.rs, did_passthrough.rs, sign.rs, ipfs_write.rs, smtp_relay.rs) \u2014 each call rescans from the start.\\n\\n## Acceptance Criteria\\n\\nCache the boundary offset in a wrapper, or pass the already-computed offset through the pipeline to avoid repeated O(n) scans.",
+  "ephemeral": 0,
+  "id": "stoa-a8ybn",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "find_header_boundary quadratic scan: O(n^2) on no-separator articles",
+  "updated_at": "2026-05-03T13:05:21Z"
+}

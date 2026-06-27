@@ -1,0 +1,20 @@
+{
+  "id": "stoa-623d68c3",
+  "title": "SEC4: RUNBOOK omits reason client cert auth is NNTPS-only",
+  "description": "RUNBOOK.md states that client certificate authentication is only available on NNTPS connections (not STARTTLS-upgraded plain connections) but gives no reason. An operator who configures client certs and uses STARTTLS will see silent authentication failure with no diagnostic. The RUNBOOK should explain that client cert data is extracted at accept_tls time (before the session starts) for NNTPS connections, and that the current post-STARTTLS path (run_session_post_starttls in lifecycle.rs) does extract client cert data \u2014 so the limitation is worth verifying in code. If the limitation is real, the RUNBOOK should say so plainly so operators know to use the NNTPS port for cert-auth clients.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T23:44:45Z",
+  "updated_at": "2026-05-01T04:53:46Z",
+  "closed_at": "2026-04-24T00:02:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4206df49",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 16:44:44"
+    }
+  ]
+}

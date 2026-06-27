@@ -1,0 +1,20 @@
+{
+  "id": "stoa-53fb3923",
+  "title": "DKIM signs X-Stoa-Injection-Source header which reader strips on receipt",
+  "description": "In queue.rs drain_once: inject_source_header() is called first, then signer.sign(&article) signs the result. The X-Stoa-Injection-Source header is included in the DKIM canonical form. The reader strips that header before storing the article. Any downstream verifier (or the reader itself) checking DKIM on the stored/forwarded article will see a hash mismatch on the body's signed header list. The signature is cryptographically valid at send time but structurally wrong: it covers an ephemeral transport header that is stripped in transit. Fix: sign before injecting the source header, or exclude X-Stoa-Injection-Source from the signed headers list.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:10:56Z",
+  "updated_at": "2026-05-01T04:58:37Z",
+  "closed_at": "2026-05-01T00:23:14Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5be7a2c5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:10:56"
+    }
+  ]
+}

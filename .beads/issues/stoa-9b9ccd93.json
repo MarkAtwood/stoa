@@ -1,0 +1,13 @@
+{
+  "id": "stoa-9b9ccd93",
+  "title": "R3-SEC0: admin HTTP no read timeout \u2014 slow-loris",
+  "description": "transit/admin.rs: read_line loops with no tokio::time::timeout. Also no header count limit and no request-line length limit. Wrap the connection handler in tokio::time::timeout(30s). Add header count limit (100) and request-line length check.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T15:32:14Z",
+  "updated_at": "2026-05-01T04:54:24Z",
+  "closed_at": "2026-04-22T15:39:05Z"
+}

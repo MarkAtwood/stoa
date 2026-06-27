@@ -1,0 +1,20 @@
+{
+  "id": "stoa-16c0f5e7",
+  "title": "startup write-sentinel test in SmtpRelayQueue::new catches permission errors early",
+  "description": "relay_queue.rs SmtpRelayQueue::new writes and removes a .write_test sentinel in both queue_dir and queue_dir/dead before accepting the queue as valid. This is correct defensive design: it surfaces permission errors at startup rather than at first enqueue (which could be hours later under low traffic). The Unix test new_fails_when_queue_dir_is_not_writable covers this. A future contributor might consider removing it as 'unnecessary overhead' \u2014 it is not; the early-failure guarantee is worth the two file ops.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:45:33Z",
+  "updated_at": "2026-05-01T04:58:21Z",
+  "closed_at": "2026-05-01T02:14:20Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4315538d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:45:32"
+    }
+  ]
+}

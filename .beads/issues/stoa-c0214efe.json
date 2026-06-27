@@ -1,0 +1,20 @@
+{
+  "id": "stoa-c0214efe",
+  "title": "MailboxRights: 3 distinct bit patterns hidden behind 7 constructors",
+  "description": "inbox_defaults and newsgroup_defaults are bit-for-bit identical; drafts_defaults, trash_defaults, and archive_defaults are all identical; junk_defaults already delegates to trash_defaults but the other two duplicates do not. This means adding a new field (e.g. may_expunge) requires touching 5+ constructors instead of 1. A const-based or builder approach (e.g. three named const values plus a small set of flag overrides) would make field additions a single-site change and make the identity of the three real permission sets visible in code. Current design is a latent maintenance trap, not just style.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:01:10Z",
+  "updated_at": "2026-05-01T04:59:32Z",
+  "closed_at": "2026-04-30T05:29:29Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-14057691",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:01:10"
+    }
+  ]
+}

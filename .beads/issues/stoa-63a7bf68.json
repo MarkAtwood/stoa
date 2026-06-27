@@ -1,0 +1,13 @@
+{
+  "id": "stoa-63a7bf68",
+  "title": "[epic] CAR file export \u2014 portable group archive format",
+  "description": "Why: IPFS Content Addressable aRchive (CAR) files are the standard portable format for exporting IPFS DAG content. Exporting a newsgroup's article history as a CAR file gives operators a verifiable, self-contained archive that can be imported into any IPFS node, stored offline, or handed to an archival service. Every block in the CAR is content-addressed so integrity is provable.\\n\\nWhat:\\n- Add a transit admin API endpoint: GET /admin/export/car?group=<name>[&since=<cid>]\\n- The export traverses the group's Merkle-CRDT log from the tip, collects all article root CIDs and their sub-blocks (header, body), and serialises them as a CARv1 or CARv2 file.\\n- Streaming response \u2014 do not buffer the entire archive in memory.\\n- Optional since= parameter to export only entries added after a known CID (incremental export).\\n- CARv2 index for fast random access by CID.\\n- Rust crate: iroh-car or car (from ipld ecosystem) for CAR serialisation.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T02:22:48Z",
+  "updated_at": "2026-05-01T04:55:39Z",
+  "closed_at": "2026-04-23T06:21:04Z"
+}

@@ -1,0 +1,19 @@
+{
+  "id": "stoa-cc920723",
+  "title": "GOOD: car_writer tests use external byte oracles not self-oracles",
+  "description": "car_writer.rs varint tests use LEB128 spec byte sequences. CAR header test uses hand-computed CBOR bytes. Not self-oracles \u2014 correct test discipline.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:49:36Z",
+  "updated_at": "2026-05-01T04:54:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:49:35"
+    }
+  ]
+}

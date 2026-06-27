@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "c99a14dd1096abbf5c4417fa238580c46cbfbdc2fac4a8602f27588750514c12",
+  "created_at": "2026-05-03T13:09:34Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: GcReason is exported in the public API and used in audit logs and the GC report; filling it with a static value regardless of the actual reason that triggered GC is misleading to operators reading those reports. What: gc.rs and the retention_roundtrip test always assign gc_reason: GcReason::NoMatchingRule to candidates regardless of whether the true reason is expiry, size limit, or no matching pin rule. The GcReason enum has variants for these cases but they are never populated dynamically.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.174",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "GcReason::NoMatchingRule used as static placeholder instead of actual reason",
+  "updated_at": "2026-05-03T13:09:34Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:09:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "71fa0257-72c1-5354-87d4-2b7cee218cd2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

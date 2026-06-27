@@ -1,0 +1,20 @@
+{
+  "id": "stoa-b1cd7768",
+  "title": "entry_count() returns tip count, not entry count (wrong semantics)",
+  "description": "group_log/storage.rs: LogStorage::entry_count() queries log_tips table (count of DAG tips), not total log entries. For a group with 1000-entry history branched into 2 tips, returns 2, not 1000. Method name implies total count. Any caller using this for retention policy, metrics, or size estimates will be wildly wrong. Fix: rename to tip_count() and add a separate total_entry_count() that traverses the DAG, or update the docstring to make the semantic unmistakable.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:33:07Z",
+  "updated_at": "2026-05-01T04:59:45Z",
+  "closed_at": "2026-04-22T19:21:48Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:33:06"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T13:50:33Z",
+  "compaction_level": 0,
+  "content_hash": "1d9766372867480eab837b49dbd52b30a77e9d740495b8c7d8a3505cd6b4a9f6",
+  "created_at": "2026-05-03T13:02:08Z",
+  "created_by": "Mark Atwood",
+  "description": "In the Authenticating state, dispatch() handles AUTHINFO USER but does NOT handle AUTHINFO PASS (falls through to the wildcard _ => Response::authentication_required()). So a client that sends AUTHINFO PASS without first sending AUTHINFO USER gets 480 Authentication Required, not 482 Authentication commands issued out of sequence. RFC 4643 \u00a72.2 requires 482 when PASS is received before USER. This returns the wrong error code and confuses newsreader clients that parse the 48x codes to decide whether to retry.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "AUTHINFO PASS not blocked in Authenticating state if OAUTHBEARER not configured",
+  "updated_at": "2026-05-03T13:50:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:02:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "224e937d-b237-5d77-8653-1eeb277b460b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "id": "stoa-357078d5",
+  "title": "smtp: sieve_client.rs \u2014 Unix socket HTTP client + header fallback",
+  "description": "Implement the two halves of sieve_client.rs: daemon client and header-based fallback.\n\nWhat: crates/smtp/src/sieve_client.rs (new file)\n\nPart A \u2014 Daemon client:\n  pub async fn eval_via_daemon(\n      cfg: &SieveDaemonConfig,\n      script_bytes: &[u8],\n      raw_message: &[u8],\n      envelope_from: &str,\n      envelope_to: &str,\n  ) -> Result<Vec<SieveAction>, SieveClientError>\n  \n  Algorithm:\n  1. Build hyper client with custom connector: UnixConnector wraps tokio::net::UnixStream::connect(socket_path). Use hyper-util (already in dep tree via axum) or implement connector directly.\n  2. Base64-encode script and message; serialize to JSON.\n  3. POST to http://localhost/filter via the Unix connector (authority is ignored, all requests go to the socket).\n  4. Apply connect_timeout_ms and request_timeout_ms via tokio::time::timeout.\n  5. Deserialize response; map JSON action objects to Vec<SieveAction>.\n  6. On connection error / timeout: return Err(SieveClientError::Unreachable).\n\n  pub async fn check_via_daemon(cfg: &SieveDaemonConfig, script_bytes: &[u8]) -> Result<(), String>\n  \u2014 Same connector; POST /check; 200\u2192Ok(()); 422\u2192Err(error string).\n\nPart B \u2014 Header fallback:\n  pub fn fallback_routing(raw_message: &[u8]) -> Vec<SieveAction>\n  \n  Algorithm:\n  1. Scan raw_message bytes line by line (stop at first blank line = end of headers).\n  2. Collect header values for (case-insensitive): Newsgroups, List-ID, X-List-ID, X-Listid, X-List-Id.\n  3. Priority: if Newsgroups present, split on ',' trim whitespace \u2192 FileInto(\"newsgroup:{name}\") for each.\n  4. Else if any List-* header present, take first non-empty:\n     - Extract content inside <...> if angle brackets present; else use raw value.\n     - Normalize: trim, lowercase, replace any char not in [a-z0-9.-] with '.', collapse runs of '.'.\n     - Return [FileInto(\"newsgroup:{normalized}\")].\n  5. If nothing found: return [Keep].\n  \n  SieveClientError enum: Unreachable, Timeout, Protocol(String).\n\nDefensive rules:\n- Never log message content or envelope addresses at INFO level; only count/metric at DEBUG.\n- Treat all input bytes as untrusted; do not parse beyond the header section.\n- Fallback must be infallible (no I/O, no unwrap that can fail).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:17:43Z",
+  "updated_at": "2026-05-01T05:00:44Z",
+  "closed_at": "2026-04-23T20:25:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-000b86de",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:19:03"
+    },
+    {
+      "depends_on_id": "stoa-6ec467b9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:19:02"
+    },
+    {
+      "depends_on_id": "stoa-d1d5d8e9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:17:43"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T16:11:53Z",
+  "compaction_level": 0,
+  "content_hash": "9ba475cd28e27593b835e2b1a4dd28038a229a33ffa6f7bd16161d14c64c2259",
+  "created_at": "2026-05-05T15:55:07Z",
+  "created_by": "Mark Atwood",
+  "description": "routing_mailer.rs:65 glob_matches('*.example.com', 'example.com') returns true. DNS glob semantics (RFC 1034) say * matches exactly one label so bare domain should not match. Test comment says 'bare domain also matches' \u2014 intentional but undocumented in operator guide. Can silently misroute apex-domain mail through wrong provider.",
+  "ephemeral": 0,
+  "id": "stoa-f8qts.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "glob *.example.com matches bare example.com (non-standard)",
+  "updated_at": "2026-05-05T16:11:53Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-05T08:55:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-f8qts",
+      "id": "71b2489e-2f11-50a7-829d-a1c2e4108710",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

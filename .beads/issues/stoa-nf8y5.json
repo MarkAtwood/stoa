@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "0056f235e9d84b636fe7e9c21fe672c16a827773c72d81e759a6d0e8d80d0b6e",
+  "created_at": "2026-05-03T13:08:42Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\npost/ipfs_write.rs defines FailingIpfsStore inside a #[cfg(test)] mod tests block. It is not re-exported. Other test files (tests/fault_store_errors.rs, tests/e2e_data_flow.rs) that need fault-injection capabilities must either duplicate the struct or use the real MemIpfsStore which cannot inject faults.\\n\\n## Acceptance Criteria\\n\\nMove FailingIpfsStore to a test utility module (e.g. src/test_utils.rs or src/post/test_helpers.rs) behind #[cfg(test)] pub. Export it for use by integration tests.",
+  "ephemeral": 0,
+  "id": "stoa-nf8y5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Rust idiom: FailingIpfsStore test helper is private to ipfs_write.rs but needed by other tests",
+  "updated_at": "2026-05-03T13:08:42Z"
+}

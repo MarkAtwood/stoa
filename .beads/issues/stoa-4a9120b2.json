@@ -1,0 +1,21 @@
+{
+  "id": "stoa-4a9120b2",
+  "title": "Bytes::copy_from_slice allocates on every put_raw",
+  "description": "In both ObjectStoreBackend (transit) and ObjectStoreBlockBackend (reader), put_raw does: PutPayload::from(Bytes::copy_from_slice(data)). This copies the incoming &[u8] into a new heap allocation even when the caller already owns the data as a Vec<u8>. put_block takes Vec<u8> by value, so the copy is avoidable there \u2014 put_object could accept Bytes directly (or accept Into<Bytes>) and use Bytes::from(data) for the owned-Vec path, which is a zero-copy conversion. For the put_raw path the copy is unavoidable since the input is &[u8], but put_block unnecessarily copies a moved Vec.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T02:37:39Z",
+  "updated_at": "2026-05-01T04:52:04Z",
+  "closed_at": "2026-04-28T03:29:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-938166bc",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 19:37:39"
+    }
+  ]
+}

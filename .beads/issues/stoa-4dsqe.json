@@ -1,0 +1,22 @@
+{
+  "compaction_level": 0,
+  "content_hash": "42c3a5a7297dea75a7db0345c021d24410808d403e592d1fdb796556a50af912",
+  "created_at": "2026-05-05T00:15:42Z",
+  "created_by": "Mark Atwood",
+  "defer_until": "2099-01-01T08:00:00Z",
+  "description": "Design and implement multi-domain mail routing, shared mailboxes, and federated identity for stoa-mail and stoa-smtp. Covers virtual domain acceptance, Sieve-primary routing, mailbox types, OIDC multi-IdP identity model, SCIM provisioning, and trust-tiered access control. Designed for operators like the Linux Foundation / CNCF running many domains with complex staff/volunteer/contributor identity across multiple IdPs.",
+  "ephemeral": 0,
+  "id": "stoa-4dsqe",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "deferred",
+  "timeout_ns": 0,
+  "title": "epic: multi-domain mail routing and identity",
+  "updated_at": "2026-06-26T20:26:38Z"
+}

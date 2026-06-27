@@ -1,0 +1,33 @@
+{
+  "id": "stoa-e4c4816d",
+  "title": "imap: CAPABILITY, NOOP, LOGOUT command handlers",
+  "description": "Create crates/imap/src/commands/basic.rs. Handle three commands from CommandReceived: CAPABILITY -> send untagged * CAPABILITY IMAP4REV1 LITERAL+ SASL-IR AUTH=PLAIN AUTH=LOGIN IDLE then tagged OK; NOOP -> tagged OK; LOGOUT -> send * BYE then tagged OK then close session. Build capability list using imap_types::response::Capability enum variants. Use server.enqueue_data(Data::Capability(...)) then server.enqueue_status(Status::ok(tag, ...)).",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T07:17:03Z",
+  "updated_at": "2026-05-01T04:56:28Z",
+  "closed_at": "2026-04-23T07:35:11Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-14020c77",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:17:32"
+    },
+    {
+      "depends_on_id": "stoa-3741bca1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:17:03"
+    },
+    {
+      "depends_on_id": "stoa-b6ed4a13",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:17:32"
+    }
+  ]
+}

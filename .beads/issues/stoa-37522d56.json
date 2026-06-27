@@ -1,0 +1,21 @@
+{
+  "id": "stoa-37522d56",
+  "title": "OIDC: [auth.oidc_providers] config section and JWKS fetch/cache",
+  "description": "Add [[auth.oidc_providers]] config: issuer, audience, username_claim (default: email). At startup: fetch JWKS from issuer's .well-known/openid-configuration. Cache JWKS in memory with configurable TTL (default 1 hour). Background refresh task. On 401 from key rotation: force-refresh JWKS before rejecting. Blocked on: stoa-e279bbe7.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:43:32Z",
+  "updated_at": "2026-05-01T04:51:52Z",
+  "closed_at": "2026-04-28T09:19:42Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e279bbe7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:44:54"
+    }
+  ]
+}

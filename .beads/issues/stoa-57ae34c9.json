@@ -1,0 +1,20 @@
+{
+  "id": "stoa-57ae34c9",
+  "title": "SMTP: add Received: header on inbound (RFC 5321 \u00a74.4)",
+  "description": "jof: smtp/session.rs DATA handler never prepends Received: header. RFC 5321 \u00a74.4 MUST. Format: 'Received: from <helo> ([<remote_ip>]) by <hostname> with SMTP; <date>'. Prepend before other headers.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T19:45:28Z",
+  "updated_at": "2026-05-01T04:59:08Z",
+  "closed_at": "2026-04-22T21:05:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-f6d57892",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 12:45:28"
+    }
+  ]
+}

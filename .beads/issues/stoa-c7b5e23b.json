@@ -1,0 +1,21 @@
+{
+  "id": "stoa-c7b5e23b",
+  "title": "Misplaced doc comment: load_tls_acceptor_with_key_bytes inherits load_tls_acceptor docs",
+  "description": "crates/reader/src/tls.rs lines 130-131: new function was inserted after the last two lines of load_tls_acceptor doc comment. Those lines ('PEM loading is handled by stoa-tls; the NNTP-specific PermissiveClientAuth verifier is assembled here.') now belong to load_tls_acceptor_with_key_bytes instead of load_tls_acceptor. load_tls_acceptor at line 159 has no doc comment at all. cargo doc will show wrong docs for both functions.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-26T22:23:29Z",
+  "updated_at": "2026-05-01T04:59:00Z",
+  "closed_at": "2026-04-26T22:30:44Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-2f59ab0d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 15:23:29"
+    }
+  ]
+}

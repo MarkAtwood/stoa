@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added require_tls: bool to SessionState::Mail and Rcpt; capture from MAIL FROM args; propagate through RCPT to DATA handler; use in Received: header per RFC 3848/8689",
+  "closed_at": "2026-05-02T23:17:54Z",
+  "compaction_level": 0,
+  "content_hash": "a7ca3f1a56a83bb2f408c398542ece0696753b352ef20a35e7b8d28068c9f723",
+  "created_at": "2026-05-02T23:07:46Z",
+  "created_by": "Mark Atwood",
+  "description": "session.rs: has_requiretls_param(args) is called in MAIL FROM handler and rejects the command on non-TLS sessions, but the result is not stored in SessionState::Mail. The struct has {ehlo_domain, from} only. At DATA time, the sieve_delivery call has no way to know REQUIRETLS was requested. No relay_queue.enqueue() call passes require_tls. The inbound REQUIRETLS validation gives a false sense of security \u2014 the end-to-end TLS requirement is never propagated to outbound delivery.",
+  "ephemeral": 0,
+  "id": "stoa-wfcj7.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "REQUIRETLS flag parsed at MAIL FROM but never stored in SessionState",
+  "updated_at": "2026-05-02T23:17:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T16:07:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-wfcj7",
+      "id": "7dea0ba8-e9d3-5b71-9769-310119e6b556",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

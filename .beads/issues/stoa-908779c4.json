@@ -1,0 +1,12 @@
+{
+  "id": "stoa-908779c4",
+  "title": "rate_limiter: Mutex::lock().unwrap() should use expect",
+  "description": "rate_limiter.rs: Mutex::lock().unwrap() panics with no context on poisoning. Fix: use .expect(\"rate limiter lock poisoned\") for consistent diagnostics.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:25:56Z",
+  "updated_at": "2026-05-01T04:51:34Z",
+  "closed_at": "2026-04-28T21:37:25Z"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-94ffcb50",
+  "title": "OIDC: SASL OAUTHBEARER for IMAP",
+  "description": "Implement SASL OAUTHBEARER (RFC 7628) in the IMAP auth layer. Client sends base64-encoded OAUTHBEARER initial response containing the OAuth2 access token. Validate token using the same OIDC JWT validation path. Requires TLS (refuse OAUTHBEARER on plaintext connections). Blocked on: stoa-e279bbe7.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:43:48Z",
+  "updated_at": "2026-05-01T04:51:52Z",
+  "closed_at": "2026-04-28T09:36:17Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e279bbe7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:45:03"
+    }
+  ]
+}

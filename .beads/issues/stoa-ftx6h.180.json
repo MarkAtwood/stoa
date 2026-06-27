@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T15:13:16Z",
+  "compaction_level": 0,
+  "content_hash": "d264c903f375af684ceefc3459d6888900170e6603fe3cdabda8c4266950c036",
+  "created_at": "2026-05-03T13:10:10Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: duplicated logic in tests diverges silently from the production implementation; the test may continue to pass even if the production pattern-matching logic is changed. What: tests/remote_pin_jobs.rs defines a local group_matches_pattern helper with the comment 'mirrors main.rs logic'. This is a copy of the same function in the production code. The production function should be extracted to a shared module and imported by both the implementation and the test.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.180",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "remote_pin_jobs test embeds group_matches_pattern logic duplicate from main",
+  "updated_at": "2026-05-03T15:13:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:10:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "9e758ff6-d187-5b85-80e9-ca6326370375",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

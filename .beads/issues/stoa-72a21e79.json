@@ -1,0 +1,20 @@
+{
+  "id": "stoa-72a21e79",
+  "title": "SEC4: starttls_requested return needs caller comment",
+  "description": "In lifecycle.rs run_command_loop (~line 435-436), the code sets ctx.starttls_requested = true then returns from the loop with the comment 'caller performs TLS handshake'. However, the mechanism is non-obvious: a bare return from a loop normally signals an error or disconnect exit; here it is intentional cooperative signaling to run_plain_session, which checks the flag after the loop. A reader landing on this return for the first time has to trace back to run_plain_session to understand the design. The comment at the return site should also reference the post-return check location (i.e. 'returns to run_plain_session which performs the TLS handshake') so the intent is clear in place.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T23:43:37Z",
+  "updated_at": "2026-05-01T04:53:36Z",
+  "closed_at": "2026-04-24T00:05:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4206df49",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 16:43:37"
+    }
+  ]
+}

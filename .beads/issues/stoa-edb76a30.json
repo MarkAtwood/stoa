@@ -1,0 +1,20 @@
+{
+  "id": "stoa-edb76a30",
+  "title": "[elegance] PeerHealthState::select_peer() conflates selection with state mutation",
+  "description": "select_peer() both finds eligible peers AND advances rr_index (line 115 in relay_health.rs). This violates separation of concerns. Callers must follow up with record_attempt() (relay_queue.rs:225), and if they forget, round-robin state advances without a logged attempt. Separate the immutable selection logic from the mutable state advancement, or use an RAII guard that enforces explicit acknowledgment.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T19:14:32Z",
+  "updated_at": "2026-05-01T05:00:29Z",
+  "closed_at": "2026-04-28T09:59:56Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-11ae5322",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 12:14:32"
+    }
+  ]
+}

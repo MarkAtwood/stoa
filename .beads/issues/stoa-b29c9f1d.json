@@ -1,0 +1,27 @@
+{
+  "id": "stoa-b29c9f1d",
+  "title": "Implement Message-ID deduplication check in core",
+  "description": "Implement check_duplicate(message_id: &str, storage: &dyn MsgIdStorage) -> Result<(), ProtocolError> that queries the Message-ID->CID map and returns ProtocolError::DuplicateMessageId if found. Called before any signing or IPFS operation. MsgIdStorage is a trait (subset of the full map, for testability). Artifact: core/src/validation.rs.\n\nAcceptance criteria: check_duplicate returns error for known Message-ID; returns Ok for unknown; unit test with in-memory map; calling code in POST and IHAVE handlers uses this function",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:47:22Z",
+  "updated_at": "2026-05-01T04:55:10Z",
+  "closed_at": "2026-04-20T03:01:28Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-13c8a615",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:48:02"
+    },
+    {
+      "depends_on_id": "stoa-656d4d6d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:47:22"
+    }
+  ]
+}

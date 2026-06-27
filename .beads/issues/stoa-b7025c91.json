@@ -1,0 +1,20 @@
+{
+  "id": "stoa-b7025c91",
+  "title": "Test: fix mail crate CID codec (0x55 raw vs 0x71 DAG-CBOR)",
+  "description": "5w3.32: mail crate tests create CIDs with codec 0x55 (raw bytes) but production uses 0x71 (DAG-CBOR). Fix: update test helper dummy_cid_v1 to use 0x71. Verify tests still pass.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T19:45:38Z",
+  "updated_at": "2026-05-01T04:59:11Z",
+  "closed_at": "2026-04-22T21:05:28Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-f6d57892",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 12:45:38"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "stoa-5yi4k.4: MtaStsEnforcer now owns a TokioResolver built once in new(); lookup_mta_sts_txt takes &TokioResolver parameter. stoa-5yi4k.6: fetch_url now uses response.chunk() loop with inline size check \u2014 body capped during streaming, not after full buffering. All 291 tests pass.",
+  "closed_at": "2026-05-02T21:33:43Z",
+  "compaction_level": 0,
+  "content_hash": "79376112880b16f5f21946bc6c75c6acd82c84275850a73befc1cf5d89ae8049",
+  "created_at": "2026-05-02T21:17:24Z",
+  "created_by": "Mark Atwood",
+  "description": "mta_sts_dns.rs:22 builds a new TokioResolver on every call. Building a resolver includes loading /etc/resolv.conf, creating a UDP socket, and allocating internal state. With enforce-mode policies, this runs once per unique recipient domain per delivery batch. Fix: accept a pre-built &TokioResolver from the caller (same pattern as DnsCache in session.rs), or make MtaStsEnforcer own a resolver.",
+  "ephemeral": 0,
+  "id": "stoa-5yi4k.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "TokioResolver rebuilt on every lookup_mta_sts_txt call \u2014 expensive",
+  "updated_at": "2026-05-02T21:33:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:17:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-5yi4k",
+      "id": "ff73b42d-9d1b-56c8-b8c6-2787584c8970",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

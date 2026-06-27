@@ -1,0 +1,13 @@
+{
+  "id": "stoa-4c00250e",
+  "title": "Extract resolve_secret_uri to shared location",
+  "description": "resolve_secret_uri is copy-pasted between crates/transit/src/main.rs and crates/reader/src/main.rs with only a prose comment as the synchronization mechanism. Should be extracted into a shared crate or module. Pre-existing issue found during review of stoa-efbe068a. Not introduced by the wildmat epic.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:38:24Z",
+  "updated_at": "2026-05-01T04:56:07Z",
+  "closed_at": "2026-04-27T16:54:13Z"
+}

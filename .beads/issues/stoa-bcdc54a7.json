@@ -1,0 +1,21 @@
+{
+  "id": "stoa-bcdc54a7",
+  "title": "DECISION: Canonical serialization sorts headers and newsgroups deterministically",
+  "description": "canonical_bytes() in crates/core/src/canonical.rs sorts extra_headers by (key, value) and sorts newsgroups lexicographically before constructing the byte string used for signing and CID derivation. Why correct: articles arriving from different peers or inserted by different code paths may have headers in different insertion order. Without normalization, the same logical article would produce different canonical bytes and therefore different CIDs, breaking deduplication and signature verification. A future contributor might suggest removing the sort step as 'unnecessary overhead' or propose preserving insertion order to 'match the wire format'. The wire format is not the canonical format; the sort is load-bearing for deduplication correctness.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:09:40Z",
+  "updated_at": "2026-05-01T04:56:05Z",
+  "closed_at": "2026-04-27T16:31:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:09:39"
+    }
+  ]
+}

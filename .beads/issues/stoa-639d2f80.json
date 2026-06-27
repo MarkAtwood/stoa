@@ -1,0 +1,21 @@
+{
+  "id": "stoa-639d2f80",
+  "title": "verify/store: parse-error result lost on unknown result string",
+  "description": "crates/verify/src/store.rs parse_result() line 161 \u2014 the catch-all arm maps any unrecognised result string to VerifResult::ParseError. This means if a future result variant (e.g. 'tampered') is added to the schema before the code is updated, all existing rows with that result will be silently misread as ParseError. The schema sentinel is undocumented and the fallback loses the original result string. A tracing::warn and returning None (filtered by filter_map) would be safer \u2014 consistent with how parse_sig_type handles unknown sig_type values.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:22:27Z",
+  "updated_at": "2026-05-01T04:58:20Z",
+  "closed_at": "2026-04-28T17:02:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:22:27"
+    }
+  ]
+}

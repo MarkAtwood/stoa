@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T17:58:58Z",
+  "compaction_level": 0,
+  "content_hash": "fde8786ae94909a53543566fb735586280d0df6f29082349551d3372b016e3c8",
+  "created_at": "2026-05-01T15:17:49Z",
+  "created_by": "Mark Atwood",
+  "description": "In inbox.rs handle_create, a Create{Note} activity is accepted and injected into IPFS for any actor that can POST to the inbox endpoint, regardless of whether the actor is a follower of the group. When verify_http_signatures=true this requires a valid HTTP Signature, but the signature check only confirms the sender owns the key; it does not verify the sender is a follower. This means any remote Fediverse actor can inject arbitrary articles into any newsgroup by sending a signed Create{Note} to the inbox. The handler should check ap_state.follower_store.is_follower(group_name, &actor_url) before injecting.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ActivityPub inbox handler accepts Create from any actor, not just followers",
+  "updated_at": "2026-05-01T17:58:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:17:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "94fee2c5-6596-5007-9be4-778c72bcdda6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

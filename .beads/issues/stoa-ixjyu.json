@@ -1,0 +1,35 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Config::load() + apply_env() added to all 5 binary crates; --config flag now optional",
+  "closed_at": "2026-05-05T04:18:28Z",
+  "compaction_level": 0,
+  "content_hash": "17f13c33b37b488f4d9fe0783e1860e566aba03ddcfcd1c08d33c9492a6ef433",
+  "created_at": "2026-05-05T02:31:53Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why\nstoa-4291i: containers must be configurable via environment variables without a config file.\n\n## What\nAdd Config::from_env_and_file() (or ::load()) to each crate's config.rs:\n- mail, smtp, reader, transit, imap configs\n- Naming: STOA_<SECTION>_<KEY> in SCREAMING_SNAKE_CASE\n- Precedence: env vars > TOML file > compiled defaults\n- Config file becomes optional (no --config flag = use env only)\n- Update main.rs in each binary to use new loader\n\nKey vars per epic:\nSTOA_DB_URL, STOA_DB_MAX_CONNECTIONS, STOA_SMTP_RELAY_HOST,\nSTOA_TLS_CERT_PATH, STOA_TLS_KEY_PATH, STOA_SECRETS_PROVIDER,\nSTOA_LOG_FORMAT, STOA_LOG_LEVEL\n\n## Acceptance\n- Binary starts with zero config file and all config via env vars\n- Tests covering env-var override of each key config field\n",
+  "ephemeral": 0,
+  "id": "stoa-ixjyu",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Part of epic stoa-4291i",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Env-var overlay for all Config structs (STOA_ prefix)",
+  "updated_at": "2026-05-05T04:18:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:32:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-yyc57",
+      "id": "d9b00ddd-ebe0-5fe2-bb2d-86eb7d3062d7",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

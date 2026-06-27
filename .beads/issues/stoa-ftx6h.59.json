@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "f371af60cc0ca80e39e9bcf34e894fa6ad16ee02c2c42a772557aebad1d32e52",
+  "created_at": "2026-05-03T13:04:58Z",
+  "created_by": "Mark Atwood",
+  "description": "The glob-to-regex converter uses (.*) for each * wildcard. In the regex '\\A(.*)foo(.*)\\z', the first (.*) is greedy and will consume 'foo' if possible before backtracking. For patterns like '*foo*', the greedy (.*) causes exponential backtracking when matching long strings that partially match (e.g. 'aaaaaaaaaaafoo' followed by no second 'foo'). fancy-regex uses a backtracking engine for lookaheads/lookbehinds but falls back to RE2-like linear time for simple patterns -- however (.*) with multiple star captures can still be slow. The fix is to use lazy (.*?) for intermediate stars or to rewrite as a non-backtracking NFA. RFC 5228 \u00a72.7.1 does not specify greedy vs lazy, but Sieve glob matching is traditionally leftmost-longest which is consistent with greedy, so this is a performance concern not a correctness one.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.59",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "sieve: sieve_glob_to_regex_capturing uses (.*)  for star \u2014 greedy, may cause unexpected match semantics",
+  "updated_at": "2026-05-03T13:04:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:04:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "fc09e8c1-8065-5c02-ae7f-e62d76ba2f07",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

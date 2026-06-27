@@ -1,0 +1,19 @@
+{
+  "id": "stoa-68d69e98",
+  "title": "IpnsPublisher advisory lock never released after successful publish",
+  "description": "ipns_publisher.rs IpnsPublisher::can_publish acquires pg_try_advisory_lock(IPNS_ADVISORY_LOCK_ID) but there is no corresponding pg_advisory_unlock call. The lock is a session-level advisory lock \u2014 it is held until the session disconnects. In a long-running process this means the first instance to successfully call can_publish holds the lock for the entire process lifetime. A second instance that starts later will never be able to publish IPNS even if the first instance's Kubo node becomes unavailable. Compare to GC which calls release_gc_lock after each run.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:38:48Z",
+  "updated_at": "2026-05-01T04:52:30Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:38:48"
+    }
+  ]
+}

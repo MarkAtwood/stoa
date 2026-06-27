@@ -1,0 +1,20 @@
+{
+  "id": "stoa-5a994f5e",
+  "title": "Email/set created articles use hardcoded '01 Jan 2024' date",
+  "description": "mail/email/set.rs:187: all POST-created articles have Date: Mon, 01 Jan 2024 00:00:00 +0000. Line 176-179 correctly computes a timestamp-based message-id but the Date header ignores it. All created articles appear simultaneous; chronological ordering is impossible. Fix: format the timestamp from line 176 as an RFC 5322 date string and use it at line 187.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:36:04Z",
+  "updated_at": "2026-05-01T04:59:47Z",
+  "closed_at": "2026-04-22T18:40:56Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:36:04"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-6ade2fcd",
+  "title": "Shared ObjectStoreBackend is the right abstraction",
+  "description": "Extracting the common object_store IpfsStore/IpfsBlockStore logic into ObjectStoreBackend and ObjectStoreBlockBackend is the correct factoring. S3/Azure/GCS backends are genuinely identical except for their auth/builder constructors; sharing the get/put/delete implementation means a correctness fix or codec change (e.g. switching from CIDv1 raw to DAG-CBOR) only happens once. A contributor might suggest inlining the logic back into each backend for 'clarity' \u2014 that would be wrong. The abstraction carries its weight.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T02:38:37Z",
+  "updated_at": "2026-05-01T04:51:32Z",
+  "closed_at": "2026-04-28T06:29:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-938166bc",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 19:38:36"
+    }
+  ]
+}

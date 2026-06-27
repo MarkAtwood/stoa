@@ -1,0 +1,12 @@
+{
+  "id": "stoa-6c6ff7cd",
+  "title": "Fix batch R12: small refactors",
+  "description": "Batch: sieve_admin JSON \u2192 serde (o0r.15), header/body boundary extracted (o0r.14), HDR command (5w3.33), euk documentation.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T23:11:43Z",
+  "updated_at": "2026-05-01T04:56:11Z",
+  "closed_at": "2026-04-22T23:32:38Z"
+}

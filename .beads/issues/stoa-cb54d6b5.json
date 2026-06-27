@@ -1,0 +1,20 @@
+{
+  "id": "stoa-cb54d6b5",
+  "title": "decision: operator Ed25519 signing is deterministic; nonce intentionally absent",
+  "description": "In post/sign.rs, sign_article uses ed25519-dalek deterministic signing (RFC 8032): same key + same bytes = same signature = same CID in IPFS. The comment explicitly documents that a nonce or timestamp must NOT be added because it would break CID idempotency and produce duplicate articles in IPFS. Design is correct and the rationale is documented.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:29:51Z",
+  "updated_at": "2026-05-01T04:58:44Z",
+  "closed_at": "2026-04-28T20:11:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:29:50"
+    }
+  ]
+}

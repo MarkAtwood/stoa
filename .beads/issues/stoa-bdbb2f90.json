@@ -1,0 +1,19 @@
+{
+  "id": "stoa-bdbb2f90",
+  "title": "relay_client: boxed AsyncRead/Write trait objects where enum dispatch suffices",
+  "description": "relay_client.rs uses Box<dyn AsyncRead + Unpin + Send> and Box<dyn AsyncWrite + Unpin + Send> to hold either a plain TcpStream half or a TLS stream half. This allocates on each connection. An enum with Plain/Tls variants implementing AsyncRead/AsyncWrite via delegation (or tokio::io::split on an Either type) avoids the heap allocation and makes the two code paths explicit.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:41:51Z",
+  "updated_at": "2026-05-01T04:58:18Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:41:51"
+    }
+  ]
+}

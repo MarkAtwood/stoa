@@ -1,0 +1,20 @@
+{
+  "id": "stoa-91adf513",
+  "title": "stale test assertions: reader plaintext_password_in_auth_users_is_validation_error",
+  "description": "reader/src/config.rs line 2324 asserts msg.contains(\"auth.users[0].password\") but the error emitted by validate() after commit 6d06d8e is \"auth.users['alice']: password is not a valid bcrypt hash (cost must be 4\u201331)\" \u2014 neither 'auth.users[0].password' nor 'plaintext' appears in that string. Both assertions on lines 2324 and 2328 will fail. The test was not updated when the error message was changed.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:14:27Z",
+  "updated_at": "2026-05-01T04:51:36Z",
+  "closed_at": "2026-04-30T19:53:11Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-92eac40d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 12:14:27"
+    }
+  ]
+}

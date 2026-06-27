@@ -1,0 +1,21 @@
+{
+  "id": "stoa-64f55eb5",
+  "title": "per-request reqwest::Client in ActivityPub delivery \u2014 connection-pool exhaustion under load",
+  "description": "deliver_article (outbound.rs:131), deliver_accept (inbox.rs:189), and fetch_public_key (inbound.rs:208) each call reqwest::Client::new() per invocation. reqwest clients maintain their own connection pools; creating one per delivery bypasses connection reuse, DNS caching, and TLS session resumption. Under moderate follower counts or signature-verification traffic, this causes O(n) connection overhead per article. This will generate performance bug reports from operators running more than a few hundred followers. A shared reqwest::Client should be stored in ActivityPubState.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T17:46:22Z",
+  "updated_at": "2026-05-01T04:53:11Z",
+  "closed_at": "2026-04-28T18:41:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-08d918a1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 10:46:21"
+    }
+  ]
+}

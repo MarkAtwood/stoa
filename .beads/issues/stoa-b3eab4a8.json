@@ -1,0 +1,20 @@
+{
+  "id": "stoa-b3eab4a8",
+  "title": "activitypub/inbound.rs: reqwest::Client created per HTTP signature verification",
+  "description": "Why this issue exists: fetch_public_key in crates/mail/src/activitypub/inbound.rs calls reqwest::Client::new() for every incoming ActivityPub activity that requires signature verification. reqwest::Client internally manages a connection pool; creating a new one per call discards all pooled connections and incurs unnecessary TLS handshake overhead on every verification.\n\nWhat needs to be done: Share a single reqwest::Client instance across verifications, injected via AppState or constructed once in a LazyLock.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:28:01Z",
+  "updated_at": "2026-05-01T04:55:46Z",
+  "closed_at": "2026-04-28T19:25:29Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:28:00"
+    }
+  ]
+}

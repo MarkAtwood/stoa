@@ -1,0 +1,13 @@
+{
+  "id": "stoa-da369724",
+  "title": "Review: feat: secretx coverage for TLS keys and smtp secrets",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T21:25:37Z",
+  "updated_at": "2026-05-01T04:52:49Z",
+  "closed_at": "2026-04-30T21:29:04Z",
+  "notes": "Maintainer risk: LOW \u2014 no new public API surface, no secrets logged, no hot-path allocations. One P4 readability item (misleading log in mail).\nConfidence: 90% chance of no missed bug. Least confident: mail TLS block (not wired to listener \u2014 future wiring might skip calling this code if the startup block gets refactored). Uncertainty driven by: not reading the full mail server.rs TLS wiring plan. Would raise confidence if: mail/server.rs TLS wiring PR is reviewed alongside.\nIdiom rating: CLEAN \u2014 one clippy match\u2192if-let fixed; remaining .clone() before reassignment is opinion-level for startup-only code\nRust idiom confidence: 95% chance of no missed issue. Least confident flags: none. Uncertainty driven by: full smtp session code not reviewed for password logging."
+}

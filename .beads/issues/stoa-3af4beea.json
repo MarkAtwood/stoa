@@ -1,0 +1,20 @@
+{
+  "id": "stoa-3af4beea",
+  "title": "format!(\"{e}\") on Display-impl errors: use e.to_string() or inline in format",
+  "description": "Several warn!/error! calls format error values inline (e.g. '...failed: {e}'). This is fine and idiomatic. However in std::io::Error::new(e.kind(), format!(...)) at lines 78-80 and 86-92, the format string duplicates the queue_dir variable into the error message \u2014 this is correct but the format! could be replaced with a chained .map_err() combinator for consistency with the rest of the codebase pattern. Minor.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:20:15Z",
+  "updated_at": "2026-05-01T04:59:22Z",
+  "closed_at": "2026-05-01T01:24:12Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-81b33f87",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:20:14"
+    }
+  ]
+}

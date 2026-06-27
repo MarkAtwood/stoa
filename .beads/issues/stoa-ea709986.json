@@ -1,0 +1,20 @@
+{
+  "id": "stoa-ea709986",
+  "title": "Config: TLS for outbound/inbound peering with cert pinning",
+  "description": "Peering connections are plain TCP with no transport security. Operator-to-operator links traverse the public internet in many deployments. Need TLS support for both outbound (transit connects to peer) and inbound (peer connects to transit).\n\nConfig additions needed:\n  [tls]\n  cert_path = \"/etc/usenet-ipfs/server.pem\"\n  key_path  = \"/etc/usenet-ipfs/server.key\"\n\nPer-peer cert_sha256 pin (see structured per-peer config issue) provides authentication of the remote end \u2014 prevents MITM even with self-signed certs.\n\nInbound: wrap TcpListener accept with rustls acceptor before handing to run_peering_session.\nOutbound: wrap TcpStream connect with rustls connector using pinned cert check.\n\nPlain TCP peers (no [tls] section) remain supported for LAN/loopback peering.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T22:33:46Z",
+  "updated_at": "2026-05-01T04:57:30Z",
+  "closed_at": "2026-04-23T01:12:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-cf8b0690",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 15:33:49"
+    }
+  ]
+}

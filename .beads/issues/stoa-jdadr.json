@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "17555ed37774e2cb7ecfe4baaffdf1bba8d754b25a7e0c1bec18b5c5378dbb0e",
+  "created_at": "2026-05-03T13:09:11Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\npost/injection.rs::inject_injection_date() uses mailparse::dateparse to parse the article Date: header. overview.rs::message_ids_since() uses chrono::DateTime::parse_from_rfc2822. Two different date parsers are used for the same field across the codebase. They may disagree on edge cases (timezone formats, obsolete formats from RFC 2822). If they disagree, an article that passes injection validation may fail overview filtering, or vice versa.\\n\\n## Acceptance Criteria\\n\\nChoose one date parsing library (chrono or mailparse) and use it consistently throughout the codebase.",
+  "ephemeral": 0,
+  "id": "stoa-jdadr",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Rust idiom: inject_injection_date parses Date header with mailparse::dateparse but overview uses chrono::parse_from_rfc2822",
+  "updated_at": "2026-05-03T13:09:11Z"
+}

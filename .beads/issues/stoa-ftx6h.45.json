@@ -1,0 +1,35 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T13:24:40Z",
+  "compaction_level": 0,
+  "content_hash": "3b01ce554a0f8994393723993693b85dad6af12aa800222a1208706e40a39e5f",
+  "created_at": "2026-05-03T13:04:31Z",
+  "created_by": "Mark Atwood",
+  "description": "LogEntry.hlc_timestamp is u64 (wall milliseconds only). The HlcTimestamp struct has three components: wall_ms, logical counter, and node_id. By storing only wall_ms, two entries from different nodes with identical wall clock values are not causal-ordered correctly via the CRDT merge \u2014 the logical counter tie-break is lost. This means the CRDT can fail to total-order concurrent events correctly when clocks happen to agree. Either store the full HlcTimestamp or document that only wall_ms is used for CRDT ordering and explain why precision loss is acceptable.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.45",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Fix deferred by coordinator. Full HLC type change requires: (1) change LogEntry.hlc_timestamp from u64 to HlcTimestamp across types.rs, canonical.rs, verify.rs, sqlite_storage.rs; (2) add hlc_logical INTEGER and hlc_node_id BLOB columns to log_entries table via new migration files for both SQLite and PostgreSQL; (3) update storage_tests.rs and all callers. No existing data to migrate (greenfield). Cannot proceed without coordinator approval due to scope of cross-file changes triggering build failures during partial edit.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "core: LogEntry hlc_timestamp stores wall-ms only, losing logical and node_id components",
+  "updated_at": "2026-05-03T13:24:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:04:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "c32d3fe8-4bf5-5e02-a01d-ea5051ee1461",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "stoa-3c6890ad",
+  "title": "Review: today's parser/queue/smtp fixes",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:59:05Z",
+  "updated_at": "2026-05-01T04:52:30Z",
+  "closed_at": "2026-05-01T03:03:49Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 one real P0 bug (dead/ dir not created), one silent-drop risk on malformed headers, and a type-alias maintenance issue. No security or wire-format regressions.\nIdiom rating: ACCEPTABLE \u2014 formatting pass (cargo fmt) was run. One real clippy item (vec! vs iter::once). The dominant issue is structural (type alias), not idiom.\nConfidence: 15% chance of missed bug. Least confident flags: whether NntpQueue also fails to create dead/ (not visible in diff \u2014 would need to read queue.rs new() in full). Uncertainty driven by: full NntpQueue drain logic not in diff. Would raise confidence if: cargo test --workspace passes clean."
+}

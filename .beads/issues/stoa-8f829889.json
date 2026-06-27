@@ -1,0 +1,20 @@
+{
+  "id": "stoa-8f829889",
+  "title": "dkim_e2e tests: test_e2e_no_dkim_signer_passthrough doesn't test production code",
+  "description": "dkim_e2e.rs test_e2e_no_dkim_signer_passthrough and relay_queue.rs test_relay_dkim_signing_absent both simulate the None branch inline rather than calling production code. The if-else block in each test is a reimplementation of the branch, not an invocation of it. These tests assert that a local if-else written in the test behaves as expected -- not that the production drain_once or try_deliver_one code paths pass bytes through unchanged. Real coverage requires calling the production function.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:37:24Z",
+  "updated_at": "2026-05-01T04:52:46Z",
+  "closed_at": "2026-04-30T23:41:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-64675b0e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:37:24"
+    }
+  ]
+}

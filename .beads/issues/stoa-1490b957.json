@@ -1,0 +1,13 @@
+{
+  "id": "stoa-1490b957",
+  "title": "Review: feat(secretx): secretx URI support for all secrets",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-26T21:52:10Z",
+  "updated_at": "2026-05-01T04:53:49Z",
+  "closed_at": "2026-04-26T22:10:50Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 one correctness bug (smtp warn-not-exit), one latent drift risk (duplicate CredentialStore), one UX gap (opaque TlsError). No security surface expanded beyond the new secretx path. The duplicate resolve_secret_uri is low-risk today but will compound.\nConfidence: 10% chance of missed bug. Uncertainty driven by: no integration test that exercises secretx path end-to-end (startup with a real or mocked secretx backend); smtp credential behavior untested for the warn-vs-exit case. Would raise confidence if: a test spins up smtp with a secretx: credential_file pointing at a failing backend and asserts the daemon exits non-zero."
+}

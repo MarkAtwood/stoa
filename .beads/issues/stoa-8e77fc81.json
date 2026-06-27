@@ -1,0 +1,12 @@
+{
+  "id": "stoa-8e77fc81",
+  "title": "DID: Err(_) arm in verify discards SignatureError detail",
+  "description": "crates/reader/src/post/did_verify.rs: the Err(e) arm in the DID signature verification path logs the error but does not include the SignatureError variant detail in the structured log fields, making it harder to distinguish between 'DID document fetch failed', 'signature format invalid', and 'signature cryptographically wrong'. Fix: include the error variant (not just Display) in the tracing::warn\\! call, or map to typed sub-variants before logging.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T14:39:18Z",
+  "updated_at": "2026-05-01T04:57:35Z",
+  "closed_at": "2026-04-28T08:47:30Z"
+}

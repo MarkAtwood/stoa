@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "bb3cb92a314a60af709ef52328ebf518ef517ccbb1a0c43d24f2c5a044ce8bc9",
+  "created_at": "2026-05-03T13:07:08Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\npost/mod.rs::find_header_boundary() first scans for \\r\\n\\r\\n, then falls back to \\n\\n. The fallback scan can match \\n\\n that appears as the LF parts of two consecutive CRLF lines: e.g. '...header\\r\\n\\r\\nbody' \u2014 the CRLF scan correctly finds position 8, but if CRLF scan fails (unusual) the LF scan would match at a different position.\\n\\nMore critically: for articles that use CRLF throughout, both scans run. If the CRLF separator search fails to find a match (e.g. article uses mixed endings), the LF fallback could match \\n\\n that is actually inside the body (not at a true header boundary).\\n\\n## Acceptance Criteria\\n\\nDocument the mixed-ending behaviour. Consider whether the LF fallback scan could be removed safely now that NNTP normalizes to CRLF before storage.",
+  "ephemeral": 0,
+  "id": "stoa-i1lpc",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "post/mod.rs::find_header_boundary: bare-LF scan can find separator inside CRLF body",
+  "updated_at": "2026-05-03T13:07:08Z"
+}

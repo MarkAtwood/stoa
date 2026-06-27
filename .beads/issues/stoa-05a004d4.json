@@ -1,0 +1,13 @@
+{
+  "id": "stoa-05a004d4",
+  "title": "R13: P3 fixes \u2014 canonical bytes, test oracles, TLS dedup",
+  "description": "Batch fix three P3 issues: w94.12 (LogEntry canonical bytes duplicated in append.rs), prx.12 (roundtrip test oracles prove nothing), o0r.16 (TLS config loading duplicated in smtp and mail). All three are self-contained refactors requiring no architectural decisions.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T23:35:52Z",
+  "updated_at": "2026-05-01T04:56:12Z",
+  "closed_at": "2026-04-23T00:15:13Z"
+}

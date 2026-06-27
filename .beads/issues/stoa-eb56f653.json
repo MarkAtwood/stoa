@@ -1,0 +1,20 @@
+{
+  "id": "stoa-eb56f653",
+  "title": "SEC6: CID re-derivation guards against peer substitution",
+  "description": "In xcid_client.rs run_xcid_protocol, after deserializing the LogEntry from DAG-CBOR bytes received from a peer, the code recomputes LogEntryId::from_entry(&entry) and compares it to the requested ID before accepting the entry. This guards against a malicious or buggy peer that serves a different entry under the same CID string. Content-addressing in the CID only covers the bytes-on-the-wire; after deserialization, round-trip drift or deliberate substitution could produce an entry whose fields differ from the requested one without triggering a CID check. The re-derivation closes this gap. Decision: always recompute and reject on mismatch, do not trust the peer to serve the correct entry.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T23:44:19Z",
+  "updated_at": "2026-05-01T04:53:41Z",
+  "closed_at": "2026-04-24T00:03:14Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4206df49",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 16:44:18"
+    }
+  ]
+}

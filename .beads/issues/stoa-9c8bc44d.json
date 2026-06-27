@@ -1,0 +1,12 @@
+{
+  "id": "stoa-9c8bc44d",
+  "title": "Per-group metrics: ingest rate, lag, storage",
+  "description": "Break down the existing aggregate Prometheus metrics by newsgroup so operators can identify hot groups, lagging peers, and storage outliers.\n\nWhy this issue exists:\nCurrent /metrics output is aggregate across all groups. An operator cannot tell from metrics alone that comp.lang.rust has 0 articles while alt.test is receiving 1000/sec, or that one group's log is 3 reconcile cycles behind a peer. Per-group metrics are the first thing operators ask for when debugging peering or storage issues.\n\nScope:\nNew or extended Prometheus metrics, all labeled with group=<newsgroup>:\n- articles_ingested_total{group} \u2014 counter, articles accepted and written to IPFS\n- articles_rejected_total{group, reason} \u2014 counter, articles rejected (duplicate, invalid, backpressure)\n- group_log_entries_total{group} \u2014 gauge, current log length\n- group_log_lag{group, peer} \u2014 gauge, entries behind each connected peer (0 = fully reconciled)\n- group_storage_bytes{group} \u2014 gauge, estimated bytes pinned for this group (sampled, not exact)\n- group_last_activity_timestamp{group} \u2014 gauge, Unix timestamp of last article ingested\n\nHigh-cardinality guard: if more than 500 groups are active, per-group metrics are disabled and a warning is emitted. Aggregate metrics continue regardless.\n\nAcceptance criteria:\n- /metrics includes articles_ingested_total with a group label for each subscribed group\n- group_log_lag is 0 for all groups when two peered transit nodes are fully reconciled\n- Grafana dashboard sample (JSON) in docs/ops/ showing per-group ingest rate and lag panels\n- High-cardinality guard fires and logs a warning when more than 500 groups are subscribed",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:17:30Z",
+  "updated_at": "2026-05-01T04:56:59Z",
+  "closed_at": "2026-04-28T08:07:49Z"
+}

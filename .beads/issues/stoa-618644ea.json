@@ -1,0 +1,21 @@
+{
+  "id": "stoa-618644ea",
+  "title": "HLC receive() accepts arbitrarily far-future timestamps from peers",
+  "description": "hlc.rs: receive() computes new_wall = self.last.wall_ms.max(observed.wall_ms).max(now_ms) with no bounds check on observed. A malicious or misconfigured peer sending wall_ms 100s in the future jumps the local HLC forward. Subsequent send() calls produce timestamps 100s in the future until wall clock catches up. K&D 2014 recommends a max_clock_skew bound (typically 300ms\u20135s). Fix: add a configurable max_clock_skew parameter; reject or cap observed timestamps beyond it.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:33:14Z",
+  "updated_at": "2026-05-01T04:59:44Z",
+  "closed_at": "2026-04-22T19:21:49Z",
+  "design": "Decision: reject (not cap) observations beyond the skew bound. Capping produces a silently wrong timestamp; rejecting makes the problem visible and forces operators to fix clock sync. Config: max_clock_skew_ms in [peering] section, default 5000ms. On exceed: return Err from receive(), caller drops the message and increments a hlc_clock_skew_rejections_total counter. Configurable so lab environments with mocked clocks can set a larger value.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:33:13"
+    }
+  ]
+}

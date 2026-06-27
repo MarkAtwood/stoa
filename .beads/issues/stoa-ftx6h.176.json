@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "55b31d8f40d0d3ec65e504c6296126c53b23204dbbef52a6e51dcaaa4bd7d80b",
+  "created_at": "2026-05-03T13:09:46Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: metrics that are registered but never incremented waste memory and confuse dashboards with permanently-zero series that imply the feature is working with no activity rather than absent. What: metrics.rs registers GOSSIP_MESSAGES_PUBLISHED_TOTAL and GOSSIP_MESSAGES_DROPPED_TOTAL (gossipsub was removed from the codebase) and IPFS_WRITE_LATENCY_SECONDS (histogram is never observed in the ingestion pipeline). Remove all three registrations or wire the latency histogram to the IPFS write path.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.176",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Dead Prometheus metrics: gossip_messages_published_total, gossip_messages_dropped_total, ipfs_write_latency_seconds",
+  "updated_at": "2026-05-03T13:09:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:09:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "e23ba0ce-5c08-58a2-b08d-7e358cb2f119",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

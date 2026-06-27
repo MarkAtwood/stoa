@@ -1,0 +1,12 @@
+{
+  "id": "stoa-68991ee3",
+  "title": "transit: concurrent IHAVE sessions can produce duplicate group-log entries",
+  "description": "Two concurrent IHAVE sessions receiving the same article can both pass the msgid check (before either writes) and then both call append(), producing duplicate log entries for the same article. The append TOCTOU window allows double-insert.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T23:45:30Z",
+  "updated_at": "2026-05-01T04:52:13Z",
+  "closed_at": "2026-04-25T01:17:39Z"
+}

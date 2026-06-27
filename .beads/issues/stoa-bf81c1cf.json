@@ -1,0 +1,19 @@
+{
+  "id": "stoa-bf81c1cf",
+  "title": "looks_like_bcrypt_hash promotion to public API: correct placement and scope",
+  "description": "looks_like_bcrypt_hash is pub in stoa_auth and used directly by reader, smtp, and imap validate() instead of being re-pub-used through each crate. This is the right design: the validation function belongs in the auth crate (single source of truth), each caller imports it directly, and reader::config changed pub use to use to avoid leaking it as part of reader's API surface. A contributor might suggest moving the function into each crate's own validate() \u2014 that would be wrong because it creates three separate definitions that can drift.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:15:41Z",
+  "updated_at": "2026-05-01T04:51:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-92eac40d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 12:15:41"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "stoa-c05e524c",
+  "title": "feat(auth): extract build_credential_store to stoa-auth (option A)",
+  "description": "Three separate build_credential_store implementations exist in imap/main.rs, reader/server_stores.rs, and smtp/server.rs. Option A chosen: add secretx as dep to stoa-auth and expose a shared async build_credential_store(users, credential_file) function. Cloud backends remain feature-gated. All three binaries call the shared function; local BuildStoreError private types are deleted. Closes stoa-44ba837b.1.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T20:47:48Z",
+  "updated_at": "2026-05-01T04:52:27Z",
+  "closed_at": "2026-04-30T20:55:04Z"
+}

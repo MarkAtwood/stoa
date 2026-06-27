@@ -1,0 +1,20 @@
+{
+  "id": "stoa-91411689",
+  "title": "GOOD: adding stoa-auth to workspace members was a bug fix",
+  "description": "## What\n\naubi.1 added crates/auth to the [workspace.members] list in the root Cargo.toml. Before this change, stoa-auth existed on disk at crates/auth, was a dependency of 5+ crates, but was not listed as a workspace member.\n\nConfirmed by: git show 6afac20:Cargo.toml shows no crates/auth entry, while the current Cargo.toml has it at line 4.\n\n## Why good\n\nA crate depended on by 5+ workspace members but absent from [workspace.members] is silently skipped by:\n- `cargo test --workspace`\n- `cargo clippy --workspace`\n- `cargo fmt --all`\n- workspace-level `cargo build --workspace`\n\nThis means stoa-auth's own tests were never running in CI, and clippy/fmt were never applied. This is a correctness hazard, not just a convenience issue: a bug in stoa-auth's CredentialStore (e.g. the bcrypt timing oracle or the plaintext-password panic) could exist undetected.\n\nThe issue description correctly identified this as a pre-existing bug and framed the workspace member addition as a correctness fix, not just a housekeeping change.\n\n## Alternative avoided\n\nThe alternative (leaving it off the workspace members list and only fixing the duplicate) would have silently continued skipping stoa-auth in all quality-gate commands.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T16:51:56Z",
+  "updated_at": "2026-05-01T04:55:29Z",
+  "closed_at": "2026-04-30T16:56:50Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-45f3f588",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 09:51:56"
+    }
+  ]
+}

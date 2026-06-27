@@ -1,0 +1,13 @@
+{
+  "id": "stoa-4e88ce37",
+  "title": "transit: prepend_path_header drops blank body lines in LF-only articles",
+  "description": "ingestion.rs:185-187: the body loop skips ALL empty slices (if line.is_empty() { continue }), intending to skip only the trailing empty slice that split() yields for input ending with '\\n'. For LF-only articles any blank line in the body (empty line = empty slice) is incorrectly dropped. CRLF articles are unaffected (blank lines produce b\"\\r\" which is non-empty). Fix: pre-collect slices, trim the trailing empty one, then remove the skip entirely from the body loop.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-25T02:43:31Z",
+  "updated_at": "2026-05-01T04:57:21Z",
+  "closed_at": "2026-04-25T02:45:46Z"
+}

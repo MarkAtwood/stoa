@@ -1,0 +1,20 @@
+{
+  "id": "stoa-6fcf67fa",
+  "title": "GOOD: comment clarifies whitelist does not bypass AUTH",
+  "description": "The comment at session.rs lines 189-191 explicitly states that connection_whitelisted does NOT bypass SMTP AUTH \u2014 it only bypasses anti-spam filters (DNSBL, FCrDNS, greylisting). This is security-critical documentation. The code enforces the distinction: the whitelist flag is consumed only by the greylisting bypass path, while MAIL FROM authentication is governed independently by the credential_store.is_empty() check. Without the comment, a future developer optimizing the whitelisting path might reasonably infer that a trusted peer should also skip AUTH (a common but incorrect assumption in MTA implementations). Making the security boundary explicit in-line with the flag declaration prevents that class of regression. Alternative avoided: leaving the security property implicit in the logic, which would require a reader to trace both the whitelist path and the AUTH enforcement path separately to understand that they are independent.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:48:24Z",
+  "updated_at": "2026-05-01T04:58:57Z",
+  "closed_at": "2026-04-30T15:56:14Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b4887c1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:48:24"
+    }
+  ]
+}

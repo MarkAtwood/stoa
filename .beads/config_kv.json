@@ -1,0 +1,15 @@
+{
+  "auto_compact_enabled": "false",
+  "compact_batch_size": "50",
+  "compact_parallel_workers": "5",
+  "compact_tier1_days": "30",
+  "compact_tier1_dep_levels": "2",
+  "compact_tier2_commits": "100",
+  "compact_tier2_days": "90",
+  "compact_tier2_dep_levels": "5",
+  "compaction_enabled": "false",
+  "issue_prefix": "stoa",
+  "kv.memory.do-not-flag-agpl-licensing-obligations-or-agpl": "Do not flag AGPL licensing obligations or AGPL compliance issues in reviews. Mark is aware of the sieve-rs/smtp AGPL dependency and has made a deliberate choice. It is not a review finding.",
+  "kv.memory.stoa-admin-servers-use-subtle-constanttimeeq-for-bearer": "stoa admin servers use subtle::ConstantTimeEq for bearer token comparison \u2014 do not replace with == even on loopback; timing oracle risk is real. spawn_blocking is the correct async/sync bridge for LMDB (blocks on write txn serialization). unsafe code is isolated to crates/lmdb/src/lib.rs only; all other crates forbid unsafe.",
+  "kv.memory.stoa-reader-review-complete-all-55-source-files": "stoa-reader review complete: all 55 source files read and reviewed in session ba657535. Key P0 findings: auth bypass in lifecycle.rs pre-dispatch match (zmn9.23), RFC 3977 412 vs 420 (zmn9.25), ArticleRef::Cid unhandled (zmn9.29), check_date panic (zmn9.33). Key P1: MAX_LINE_BYTES off-by-2 (zmn9.35), posting_allowed dead code (zmn9.120). P2: stat_article O(n) (zmn9.121). Previous session also filed ~90 other issues covering GC, IPFS write, CRDT, SMTP relay, IMAP, audit, suck_pull."
+}

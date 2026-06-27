@@ -1,0 +1,21 @@
+{
+  "id": "stoa-7b76939c",
+  "title": "validate_headers .expect() calls rely on cross-function call-order invariant",
+  "description": "In post/validate_headers.rs, check_newsgroups, check_date, and check_message_id each call header_field.expect(\"presence checked above\") relying on the caller having already called check_required_headers. This cross-function invariant is invisible to the type system: a future refactor that reorders or removes the required-headers check will produce a panic at article POST time rather than a compile error. The presence check should be encoded in the type (e.g. return the parsed values from check_required_headers, or use newtypes).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:26:33Z",
+  "updated_at": "2026-05-01T04:53:14Z",
+  "closed_at": "2026-04-28T18:25:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:26:33"
+    }
+  ]
+}

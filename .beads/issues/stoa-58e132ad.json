@@ -1,0 +1,21 @@
+{
+  "id": "stoa-58e132ad",
+  "title": "reconcile() have list is unbounded \u2014 sends entire group log history per sync",
+  "description": "group_log/reconcile.rs BFS traverses all entries reachable from local tips and returns them all in ReconcileResult.have. For a 10k-article group this returns 10k LogEntryIds (~320 KB of raw IDs) per reconciliation round. Expected impact at scale: reconciliation becomes increasingly expensive as groups grow, with no cap. Subsequent protocol would need to filter which entries the remote actually wants. Fix options: cap have list at N tips only (remote fetches ancestors on demand), or implement a set-reconciliation sketch (Bloom filter or IBF), or document the current bounded behavior as an explicit design constraint.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T14:06:54Z",
+  "updated_at": "2026-05-01T04:57:38Z",
+  "closed_at": "2026-04-21T16:35:44Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ad28b4f3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 07:06:54"
+    }
+  ]
+}

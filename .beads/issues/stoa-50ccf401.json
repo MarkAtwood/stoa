@@ -1,0 +1,13 @@
+{
+  "id": "stoa-50ccf401",
+  "title": "reader: X-Stoa-Injection-Source forgeable by any NNTP client",
+  "description": "X-Stoa-Injection-Source is appended to articles on POST, but the raw article bytes from the client are accepted without stripping existing X-Stoa-* headers first. A client can forge any X-Stoa-* header value by including it in the posted article.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T23:47:28Z",
+  "updated_at": "2026-05-01T04:56:20Z",
+  "closed_at": "2026-04-25T01:59:32Z"
+}

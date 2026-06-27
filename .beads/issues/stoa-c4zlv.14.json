@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T19:08:24Z",
+  "compaction_level": 0,
+  "content_hash": "eed14239b12f0e9a3ebf416b7b88b955519765e5701b8c61b6509e4285380c98",
+  "created_at": "2026-05-01T15:18:24Z",
+  "created_by": "Mark Atwood",
+  "description": "In server.rs route_method Email/query for the special-mailbox path, the SQL OFFSET is set to response_position (position clamped to total). However response_position = position.min(total), and OFFSET in SQL is row count, not message count. If position > total, OFFSET=total returns an empty page \u2014 which is correct \u2014 but the response returns position=total instead of the requested position. RFC 8620 \u00a75.5 says position in the response MUST be the index of the first result returned. When OFFSET > COUNT(*), no rows are returned and position should be clamped to total, which the code does. This is actually correct, but the response position should be 0 when the page is empty per RFC 8620 \u00a75.5 (If",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/query for special mailbox: position parameter used as OFFSET directly",
+  "updated_at": "2026-05-01T19:08:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:18:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "090c78e7-f88a-5522-a1ef-da0c993fd28f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

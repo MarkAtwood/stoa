@@ -1,0 +1,12 @@
+{
+  "id": "stoa-079f033a",
+  "title": "Fix hardcoded Date header in Email/set create (bt5.22 regression)",
+  "description": "mail/email/set.rs create_one_email still uses hardcoded 'Mon, 01 Jan 2024 00:00:00 +0000'. The bt5.22 fix was not applied. Fix: use epoch_to_rfc2822((timestamp / 1000) as i64) \u2014 timestamp variable is already computed on line 183.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T16:11:39Z",
+  "updated_at": "2026-05-01T04:59:05Z",
+  "closed_at": "2026-04-22T18:40:42Z"
+}

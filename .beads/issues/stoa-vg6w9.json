@@ -1,0 +1,22 @@
+{
+  "compaction_level": 0,
+  "content_hash": "72123bf73558f5a74de77765bac098938d277cfd514f95b738530e0dc4c1bea6",
+  "created_at": "2026-05-01T19:56:25Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why\n\nOperators migrating off Exchange/Outlook have mailbox archives in .pst format. Providing a PST import path lets them bring historical mail into stoa without manual conversion steps. Combined with the Maildir backend (stoa-hgfmg), the full migration path is: PST \u2192 stoa ingest \u2192 Maildir \u2192 notmuch index.\n\n## What\n\nA CLI subcommand: `stoa-mail import-pst <file.pst> [--group <newsgroup>] [--account <account-id>]`\n\nFor each message in the PST:\n1. Extract raw RFC 5322 message bytes via libpst/readpst\n2. Synthesize missing NNTP headers if absent (Newsgroups from --group flag or PST folder name, Message-ID if missing)\n3. Inject into stoa via the normal POST ingest pipeline (same path as NNTP POST \u2014 dedup, CID assignment, overview backfill, group log entry)\n4. Report progress and skipped duplicates (by Message-ID)\n\nPST folder hierarchy maps to newsgroup names: PST folder `Inbox/Project-X` \u2192 newsgroup `imported.inbox.project-x` (configurable prefix).\n\n## Implementation\n\nNo mature Rust PST library exists. Two options:\n\n**Option A \u2014 readpst subprocess:** Shell out to `readpst -o <tmpdir> -r <file.pst>` to convert to Maildir, then walk the Maildir and ingest each .eml. Adds readpst (from pst-utils) as a runtime dependency for this subcommand only. Simple; no FFI.\n\n**Option B \u2014 libpst FFI:** Direct C FFI to libpst. Faster, no temp directory, but requires libpst-dev at build time and unsafe FFI boundary.\n\nStart with Option A. Gate behind a pst-import Cargo feature.\n\n## Acceptance\n\n- stoa-mail import-pst ingests all messages from a PST file\n- Duplicate messages (same Message-ID already in store) are skipped without error\n- PST folder \u2192 newsgroup mapping is configurable\n- Progress reported to stdout (count ingested, count skipped, count errored)\n- Tested against a real PST file (sample PSTs available from the libpst test suite)",
+  "ephemeral": 0,
+  "id": "stoa-vg6w9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Sample PST files for testing: libpst ships test fixtures in its test suite. The Microsoft MS-PST spec is public on the Open Specifications site if Option B (FFI) is ever pursued.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "PST import: ingest Outlook .pst archives into stoa",
+  "updated_at": "2026-05-01T19:56:25Z"
+}

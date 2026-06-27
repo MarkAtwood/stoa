@@ -1,0 +1,21 @@
+{
+  "id": "stoa-5f306a1b",
+  "title": "9tz.4: TantivySearchIndex struct + impl",
+  "description": "What: Implement TantivySearchIndex in crates/reader/src/search/mod.rs.\n\nAlgorithm:\n1. Define schema builder function build_schema() -> tantivy::schema::Schema:\n   - message_id: STORED (no indexing)\n   - newsgroup: TEXT | STORED (single group; stored per-assignment)\n   - article_num: FAST (u64, for NNTP result translation)\n   - subject: TEXT | STORED\n   - from_header: TEXT | STORED\n   - date_ts: INDEXED | FAST | STORED (u64 unix timestamp)\n   - body_text: TEXT (not stored, just indexed)\n\n2. pub struct TantivySearchIndex { inner: Arc<SearchIndexInner> }\n   struct SearchIndexInner { index: tantivy::Index, reader: tantivy::IndexReader, writer: tokio::sync::Mutex<tantivy::IndexWriter>, schema: tantivy::schema::Schema, config: SearchConfig }\n\n3. impl TantivySearchIndex:\n   a. pub fn open(config: &SearchConfig) -> Result<Option<Self>, SearchError>:\n      - If config.index_dir.is_none() return Ok(None) (search disabled)\n      - std::fs::create_dir_all(path)?\n      - Open or create with error handling\n      - writer = index.writer(50_000_000)? (50 MB buffer)\n      - reader = index.reader()?\n      - Return Ok(Some(Self { inner: Arc::new(SearchIndexInner { ... }) }))\n   \n   b. pub fn open_in_memory() -> Result<Self, SearchError>:\n      - Use tantivy::Index::create_in_ram(schema) for tests\n   \n   c. pub async fn index_article(&self, message_id: &str, newsgroup: &str, article_num: u64, subject: &str, from: &str, date_str: &str, body_bytes: &[u8]) -> Result<(), SearchError>:\n      - Parse date_str via httpdate or simple RFC 2822 parse; fallback to 0 on error\n      - Truncate body_bytes to config.body_index_max_bytes (100 KiB default)\n      - Convert body to UTF-8 lossy\n      - let doc = tantivy::doc!( ... )\n      - let writer = self.inner.writer.lock().await\n      - writer.add_document(doc)?\n      - (No commit here; commit happens in a separate periodic task or after each batch)\n   \n   d. pub async fn commit(&self) -> Result<(), SearchError>:\n      - let mut writer = self.inner.writer.lock().await\n      - writer.commit()?\n   \n   e. pub async fn search_in_group(&self, group: &str, query_str: &str, max_results: usize, max_query_len: usize) -> Result<Vec<u64>, SearchError>:\n      - Validate query_str.len() <= max_query_len\n      - Build QueryParser over [subject, from_header, body_text] fields\n      - Use parse_query_lenient() (never panic)\n      - Add newsgroup filter: newsgroup:group AND (parsed query)\n      - searcher = self.inner.reader.searcher()\n      - Execute with TopDocs::with_limit(max_results)\n      - Return Vec<u64> of article_num values from stored fields\n\nDefensive rules:\n- All tantivy errors wrapped in SearchError::Tantivy\n- Query too long \u2192 SearchError::QueryTooLong BEFORE calling tantivy\n- parse_query_lenient() used (never panics on bad syntax)\n- Body truncated BEFORE tantivy sees it (SearchConfig.body_index_max_bytes)\n- date parse failure logs warning, uses 0 (don't reject article)\n- index_article is infallible from the caller's perspective (errors are logged)\n\nNo unsafe. No unwrap() in production paths.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T01:20:36Z",
+  "updated_at": "2026-05-01T05:00:37Z",
+  "closed_at": "2026-04-23T02:02:02Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-85f5ab08",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 18:20:36"
+    }
+  ]
+}

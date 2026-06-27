@@ -1,0 +1,12 @@
+{
+  "id": "stoa-232240b5",
+  "title": "core/group_log: verify_entry ignores _entry_id parameter",
+  "description": "crates/core/src/group_log/verify.rs verify_entry() receives _entry_id: &LogEntryId but never uses it. It should compute LogEntryId::from_entry(entry) and verify it matches the provided entry_id \u2014 otherwise callers get a false sense of security: the entry contents are verified but the entry_id itself is not checked against the hash of the entry.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T21:03:58Z",
+  "updated_at": "2026-05-01T04:53:52Z",
+  "closed_at": "2026-04-24T21:13:30Z"
+}

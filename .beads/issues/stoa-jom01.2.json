@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added stoa_mail PG migration to integration-tests; added PostgreSQL 16 service to CI; CI now runs stoa_mail migrations against real PG on every push. commit 2656709.",
+  "closed_at": "2026-05-05T02:29:25Z",
+  "compaction_level": 0,
+  "content_hash": "aba85a2fd675b8db467be7dfdd9a2cec8824dd14f7df512e9360d984ba9903c0",
+  "created_at": "2026-05-05T00:40:41Z",
+  "created_by": "Mark Atwood",
+  "description": "Switch CI to verify sqlx queries against PostgreSQL. Capture sqlx offline data against PG. Promote migrations_pg/ as primary. SQLite still works for local cargo test. Document: SQLite=dev/test, PG=prod.",
+  "ephemeral": 0,
+  "id": "stoa-jom01.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jom01.2: PostgreSQL as canonical CI backend + sqlx offline data",
+  "updated_at": "2026-05-05T02:29:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T17:40:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jom01.1",
+      "id": "6b23d694-2db7-5da4-96b5-fa24cf95a95e",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T17:40:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jom01",
+      "id": "d16f93c5-fdac-5dca-a328-83fd5ffd7f7e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

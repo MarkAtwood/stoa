@@ -1,0 +1,19 @@
+{
+  "id": "stoa-aa9a7822",
+  "title": "GOOD: keygen sets private key mode to 0600 at file open time not chmod",
+  "description": "keygen.rs: on Unix, the private key file is opened with OpenOptionsExt::mode(0o600) so the mode is set in the open(2) call before any data is written. This avoids the TOCTOU race of create-then-chmod where the file could be read by other processes in the window between creation and chmod. Decision: correct pattern. Any future file write of sensitive material must use mode() at open time.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:49:43Z",
+  "updated_at": "2026-05-01T04:54:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:49:43"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "018a435eb6f00bcff41c681aa63a4f9e93c1b0c82991926ef3a367c1ae06f840",
+  "created_at": "2026-05-03T13:07:20Z",
+  "created_by": "Mark Atwood",
+  "description": "relay_queue.rs writes envelope files atomically: the .msg file is written to a .tmp and renamed first, then the .env sidecar. On crash between the two renames, drain_once detects the orphan .msg (no .env) and cleans it up. This ordering ensures no envelope without a message body can exist, and no message body that looks deliverable is missing its envelope. The write order is the correct crash-safe choice.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.144",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "smtp: atomic write order (msg.tmp\u2192msg, env.tmp\u2192env) ensures crash safety",
+  "updated_at": "2026-05-03T13:07:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:07:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "2cdaf304-9104-55ee-a433-38858da55c91",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-59a48fbc",
+  "title": "sieve-native/lib: validate_stmt manual index loop",
+  "description": "validate_stmt() uses while i < stmt.len() with a special i += 2 to skip the comparator name after its tag. The double-increment is non-obvious; a named cursor or iterator::windows approach would be clearer.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:24:27Z",
+  "updated_at": "2026-05-01T04:54:05Z",
+  "closed_at": "2026-04-28T21:56:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:24:27"
+    }
+  ]
+}

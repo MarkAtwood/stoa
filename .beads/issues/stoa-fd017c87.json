@@ -1,0 +1,27 @@
+{
+  "id": "stoa-fd017c87",
+  "title": "Pluggable backend: migration note and RUNBOOK update",
+  "description": "Write RUNBOOK.md migration note: how to update existing [ipfs] config to [backend.kubo]. Regression test: all existing Kubo tests pass unchanged with new config structure. Blocked on: stoa-5c9f1a38.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:42:57Z",
+  "updated_at": "2026-05-01T04:54:13Z",
+  "closed_at": "2026-04-24T06:45:17Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5c9f1a38",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:42:57"
+    },
+    {
+      "depends_on_id": "stoa-da58a499",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:00:35"
+    }
+  ]
+}

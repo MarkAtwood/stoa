@@ -1,0 +1,13 @@
+{
+  "id": "stoa-051aa1a1",
+  "title": "peering session uses String for peer IP instead of IpAddr",
+  "description": "In crates/transit/src/peering/session.rs, peer_ip is a String used as both a display label and a registry key. Passing IpAddr throughout would give a typed guarantee, prevent formatting inconsistencies between IPv4 and IPv6 addresses, and make it impossible to look up a registry entry with the wrong string representation.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:30:45Z",
+  "updated_at": "2026-05-01T04:52:05Z",
+  "closed_at": "2026-04-28T20:03:53Z"
+}

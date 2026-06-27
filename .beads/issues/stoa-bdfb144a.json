@@ -1,0 +1,25 @@
+{
+  "id": "stoa-bdfb144a",
+  "title": "feat(smtp): default per-user Sieve script: List-Id routing and INBOX fallback",
+  "description": "Every user needs a default Sieve script installed at provisioning time that routes mailing list traffic to List/* and lets personal email fall through to INBOX. Without this, all email lands in INBOX regardless of List-Id:.\n\nWhat needs to be done:\n1. Define the default Sieve script template:\n     if header :contains \"List-Id\" \"\" {\n       /* extract list name and fileinto List/<name> */\n       fileinto \"List/\";\n       stop;\n     }\n     /* else: keep in INBOX */\n2. Install this script at account provisioning time (n1z4.1).\n3. The List/<name> extraction must match what wcyt.3 uses for mailbox naming so the fileinto target and the auto-created mailbox name agree.\n4. Allow operators to override the default script per-user via the admin CLI.\n5. Add tests: Sieve evaluation of a List-Id: message routes to correct List/ mailbox; message without List-Id: goes to INBOX.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T03:54:31Z",
+  "updated_at": "2026-05-01T04:52:22Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3f84734e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 20:54:31"
+    },
+    {
+      "depends_on_id": "stoa-7fb82527",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 20:54:37"
+    }
+  ]
+}

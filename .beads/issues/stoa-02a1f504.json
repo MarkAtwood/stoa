@@ -1,0 +1,21 @@
+{
+  "id": "stoa-02a1f504",
+  "title": "PostgreSQL BYTEA backend: implement PgStore and PgBlockStore",
+  "description": "Implement PgStore: IpfsStore and PgBlockStore: IpfsBlockStore. put: INSERT INTO blocks ... ON CONFLICT (cid) DO NOTHING. get: SELECT data WHERE cid = ?. delete: DELETE, return Immediate. Reuse existing PgPool when database_url matches metadata plane. Blocked on: stoa-8b9f7aba.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:43:43Z",
+  "updated_at": "2026-05-01T04:51:27Z",
+  "closed_at": "2026-04-28T11:30:16Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-8b9f7aba",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:47:03"
+    }
+  ]
+}

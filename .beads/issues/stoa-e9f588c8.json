@@ -1,0 +1,20 @@
+{
+  "id": "stoa-e9f588c8",
+  "title": "DECISION: eager idempotent provision on every JMAP request",
+  "description": "provision_user_mailboxes is called on every authenticated JMAP method dispatch, not just at account creation time. The INSERT OR IGNORE implementation makes it a no-op after the first call. This means there is no window where a user account exists but their special folders do not \u2014 the folders are guaranteed present before any Mailbox/get or Email/query handler runs. Alternative rejected: provisioning only during user creation in the admin path. That approach creates a race: a message could be delivered via SMTP between account creation and first JMAP login, and the INBOX lookup in sieve_delivery would find no row, triggering the fallback warning. Tradeoff: one extra DB round-trip per JMAP request at steady state, but SQLite makes this essentially free.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:00:33Z",
+  "updated_at": "2026-05-01T04:59:30Z",
+  "closed_at": "2026-04-30T05:29:08Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-14057691",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:00:33"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-01766f3f",
+  "title": "FsStore: atomic write uses fixed CID-keyed .tmp name; idiomatic fix uses unique temp names",
+  "description": "The current approach writes {cid}.block.tmp and renames. Using tempfile::NamedTempFile::new_in(path) + persist() is idiomatic Rust for atomic writes \u2014 it handles unique naming, cleanup on drop, and cross-filesystem check. The current approach works but forces callers to reason about the CID-keyed tmp race (see correctness finding). Suggested rewrite: let tmp = tempfile::NamedTempFile::new_in(&*path)?; tmp.write_all(&data)?; tmp.persist(&block_path)?; -- handles the ENOENT-on-persist case by checking AlreadyExists.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T01:18:41Z",
+  "updated_at": "2026-05-01T04:59:29Z",
+  "closed_at": "2026-04-28T01:27:07Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-713dbc32",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 18:18:41"
+    }
+  ]
+}

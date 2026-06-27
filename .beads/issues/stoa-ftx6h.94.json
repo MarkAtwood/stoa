@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "35f00f3422dc2b0a2ca5bb9d7202215925a8518122ec7b9735267fa3f0f462b3",
+  "created_at": "2026-05-03T13:05:53Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this issue exists: server.rs build_mta_sts_policy_body() uses write!(&mut buf, ...).expect('write to String failed'). Writing to a String cannot fail (it only fails for I/O streams), so the expect is dead code, but the pattern obscures intent. The function signature returns a plain String, which requires the expect to compile.\n\nWhat needs to be done: Use string formatting directly: format!(...) calls assembled with push_str, or use a single format! that builds the whole policy text. This removes the spurious infallible-expect and makes it clear the operation cannot fail.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.94",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "build_mta_sts_policy_body: write!/expect pattern; should return Result",
+  "updated_at": "2026-05-03T13:05:53Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "fe9960a1-e22f-5200-8257-15ca283efd4d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

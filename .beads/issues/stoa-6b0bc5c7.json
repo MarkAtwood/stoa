@@ -1,0 +1,33 @@
+{
+  "id": "stoa-6b0bc5c7",
+  "title": "auth: client cert authentication via SHA-256 fingerprint pinning",
+  "description": "Add optional TLS client certificate authentication as a third auth path alongside HTTP Basic and Bearer tokens (JMAP) and alongside AUTHINFO USER/PASS (NNTP). Design: no CA chain validation \u2014 fingerprint pinning only. Config: [auth.client_certs] map of 'sha256:<hex>' = 'username'. Generation: openssl req -x509 -newkey ed25519 -keyout k.pem -out c.pem -days 3650 -nodes; openssl x509 -fingerprint -sha256 -noout -in c.pem. Revocation: delete the fingerprint from config and reload. Implementation: configure rustls ServerConfig to request but not require client cert (client_auth_optional). After TLS handshake, check conn.peer_certificates(); if present, SHA-256 the leaf cert DER, look up in ClientCertStore. If found: authenticated as that username, skip password auth. If absent or not in map: fall through to Basic/Bearer/AUTHINFO. Live in the auth crate (1c8.1) as ClientCertStore alongside CredentialStore. Apply to: NNTPS port 563, JMAP HTTPS, admin HTTP endpoints. Skip for peering (already has ed25519 challenge-response) and port 25 MTA. Primary use case: programmatic access (curl --cert, scripts, bots) without embedding passwords; secondary: Thunderbird power users.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:53:14Z",
+  "updated_at": "2026-05-01T04:59:00Z",
+  "closed_at": "2026-04-22T04:21:57Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-31947539",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:53:13"
+    },
+    {
+      "depends_on_id": "stoa-633df7be",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:53:18"
+    },
+    {
+      "depends_on_id": "stoa-c79f3ec7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:53:18"
+    }
+  ]
+}

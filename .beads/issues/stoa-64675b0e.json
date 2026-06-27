@@ -1,0 +1,13 @@
+{
+  "id": "stoa-64675b0e",
+  "title": "Review: feat(smtp): DKIM ed25519-sha256 signing of outbound messages",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:34:39Z",
+  "updated_at": "2026-05-01T04:52:48Z",
+  "closed_at": "2026-05-01T01:27:14Z",
+  "notes": "Idiom rating: ACCEPTABLE \u2014 The signing path, error handling, and ownership model are broadly correct. Seven actionable findings: two P1 error-handling issues (ConfigError string wrapping, serde_json error stringification), one P1 ownership redundancy (peers clone+store), one P1 type design issue (DkimConfig::Default produces invalid value), one P1 test integrity issue (None-branch tests don't call production code), one P1 Mutex expect without PANIC comment, and one P2 clippy idiom (.map_or(false) pattern). One P2 note on manual index loop in parse_args.\nRust idiom confidence: 88% chance of missed issue. Least confident: whether DkimConfig public fields + no constructor is an intentional serde-deserialization-only design (acceptable) or a type design gap (filed). Uncertainty: the relay_queue peers field redundancy depends on whether PeerHealthState is intended to eventually expose peer count; if it is already exposed via a method not visible in the reviewed files, that finding may be redundant.\nRound 2 confidence: 90%. P0=1 P1=2 P2=2. Running out of real complaints: yes. New P0 found: dkim.key_seed_b64 secretx URI unusable in both binaries (config validate() decodes raw URI before resolution; smtp had resolution code but it ran after validation fails). Remaining P1/P2 are pre-existing open issues from round 1. Round 2 additions: kk4e.18 (real bug), kk4e.19 (efficiency), kk4e.20 (test duplication), kk4e.21 (unnecessary clone). Uncertainty: did not run full test suite to confirm kk4e.18 trigger reproduces; logic inspection is sufficient to assert the bug.\nIdiom rating: ACCEPTABLE \u2014 production code paths are clean idiomatic Rust; open P1/P2 items are maintainability concerns not correctness. One genuine new P0 found this round."
+}

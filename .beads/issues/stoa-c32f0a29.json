@@ -1,0 +1,33 @@
+{
+  "id": "stoa-c32f0a29",
+  "title": "f120.9: E2E test \u2014 article relay delivery via mock SMTP peer",
+  "description": "End-to-end integration test: compose article via NNTP POST with email recipients, verify delivery via mock SMTP relay peer.\n\n**What:** Tokio integration test that spins up a mock SMTP server (tokio TcpListener), configures SmtpRelayQueue with one peer pointing at it, POSTs an article, waits for delivery, and asserts the mock server received a valid SMTP transaction.\n\n**Algorithm:**\n1. In crates/smtp/tests/ or crates/integration-tests/, create relay_delivery_e2e.rs\n2. Spawn mock SMTP server on 127.0.0.1:0 (OS-assigned port) using tokio::net::TcpListener:\n   - Accept connection, read lines until QUIT\n   - Assert received sequence: greeting 220, EHLO, AUTH PLAIN, MAIL FROM, RCPT TO, DATA, body, QUIT\n   - Record each command\n   - Respond with 250 OK to everything\n3. Create SmtpRelayQueue with one peer pointing at mock server (plain TLS=false for test)\n4. Call queue.enqueue(article_bytes, 'from@example.com', &['to@example.com'])\n5. queue.drain_once_for_test() (expose a test-only method) or wait with timeout for queue to drain\n6. Assert:\n   - Mock server received AUTH PLAIN command (credentials sent)\n   - Mock server received MAIL FROM:<from@example.com>\n   - Mock server received RCPT TO:<to@example.com>\n   - Mock server received DATA followed by article body and .\\r\\n terminator\n   - Dot-stuffed lines handled correctly\n   - Queue directory is empty after successful delivery\n   - Relay metrics show success_count=1\n\n**Defensive programming rules:**\n- Use tokio::time::timeout to prevent test from hanging if delivery fails\n- Test MUST NOT hard-code port numbers; use OS-assigned port via :0 binding\n- Assert no credentials appear in test log output (capture logs in test)\n\n**Tests (all within this bead's test file):**\n- Test happy path: article delivered, queue empty (oracle: file system + mock server received commands)\n- Test transient failure: mock server returns 451, article stays in queue (oracle: .env file still present)\n- Test permanent failure: mock server returns 550, article moved to dead/ (oracle: dead/ directory has file)\n- Test round-robin: two mock peers, send two articles, each peer receives one (oracle: both mock servers receive exactly one transaction)\n\n**Acceptance:**\n- cargo test -p usenet-ipfs-smtp -- relay_delivery_e2e passes (or wherever tests land)\n- cargo clippy --workspace -- -D warnings passes\n- Queue empty after success; dead/ populated after permanent failure",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T18:32:22Z",
+  "updated_at": "2026-05-01T04:56:35Z",
+  "closed_at": "2026-04-23T19:12:48Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3cce40b7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 11:32:51"
+    },
+    {
+      "depends_on_id": "stoa-5a1eb133",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 11:32:52"
+    },
+    {
+      "depends_on_id": "stoa-d8edbbe6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 11:32:22"
+    }
+  ]
+}

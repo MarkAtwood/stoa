@@ -1,0 +1,13 @@
+{
+  "id": "stoa-620ceb53",
+  "title": "Review round 7: convergence verification",
+  "description": "Seventh review pass. Target areas that R1-R6 may have missed: Cargo.toml dependency constraints, workspace-level Cargo config, error handling in init/startup paths, any remaining crates not yet deeply reviewed (imap deeper, integration-tests correctness), and anything in the secretx/URI support from the last commit (39ea0dd).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T04:45:19Z",
+  "updated_at": "2026-05-01T04:55:57Z",
+  "closed_at": "2026-04-27T04:50:16Z"
+}

@@ -1,0 +1,32 @@
+{
+  "id": "stoa-891b1900",
+  "title": "parse_did_key: decode did:key to Ed25519 VerifyingKey",
+  "description": "What: Implement parse_did_key() in crates/reader/src/post/did_verify.rs to decode a did:key URI into an Ed25519 verifying key.\n\nAlgorithm:\n1. pub fn parse_did_key(did_url: &str) -> Result<ed25519_dalek::VerifyingKey, DidSigError>\n2. Check did_url starts with 'did:key:' prefix. If not or if method is something else (did:web:, did:example:, etc.), return DidSigError::UnsupportedMethod(method)\n3. Extract the multibase identifier: strip 'did:key:' prefix\n4. Check first char is 'z' (base58btc multibase prefix). If not, return DidSigError::InvalidKeyEncoding('not base58btc multibase'.into())\n5. Strip the 'z' prefix, decode remaining string with bs58::decode().into_vec(). On error return DidSigError::InvalidKeyEncoding(e.to_string())\n6. Check decoded bytes length >= 2 and first two bytes are [0xed, 0x01] (multicodec Ed25519 verification key prefix). If not, return DidSigError::UnsupportedMethod('not Ed25519 did:key'.into())\n7. Remaining bytes (after 2-byte multicodec prefix) must be exactly 32 bytes. If not, return DidSigError::InvalidKeyEncoding('expected 32-byte key'.into())\n8. Convert to [u8; 32], call ed25519_dalek::VerifyingKey::from_bytes(&key_bytes).map_err(|e| DidSigError::InvalidKeyEncoding(e.to_string()))\n9. Return Ok(verifying_key)\n\nDefensive programming:\n- Reject any DID method other than did:key with UnsupportedMethod (did:web deferred to v2 to avoid SSRF)\n- Validate multicodec prefix before trusting bytes as key material\n- Do not log the key material itself in error messages\n- ed25519_dalek::VerifyingKey::from_bytes() validates the curve point; trust its error",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T04:05:47Z",
+  "updated_at": "2026-05-01T05:00:53Z",
+  "closed_at": "2026-04-23T04:22:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0e7a41f1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:07:04"
+    },
+    {
+      "depends_on_id": "stoa-4d36f07f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:07:03"
+    },
+    {
+      "depends_on_id": "stoa-c06fa970",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:05:47"
+    }
+  ]
+}

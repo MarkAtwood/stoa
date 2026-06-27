@@ -1,0 +1,13 @@
+{
+  "id": "stoa-ab73b5fd",
+  "title": "R3-SEC4: signing.rs uses verify not verify_strict",
+  "description": "core/signing.rs verify() calls ed25519_dalek::verify; trusted_issuer_store.rs correctly uses verify_strict. Article signature verification should also use verify_strict to reject non-canonical small-order signatures.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T15:32:13Z",
+  "updated_at": "2026-05-01T04:54:24Z",
+  "closed_at": "2026-04-22T15:33:49Z"
+}

@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "9799f5671b0461abfd9f2679d2aecf22717159f11f09a8f04981b4a877b38310",
+  "created_at": "2026-05-02T15:28:03Z",
+  "created_by": "Mark Atwood",
+  "description": "Add a thin helper that handles the AEAD encryption details for individual DB column values. This sits between the UserKeyStore (which provides the DEK) and the data access layer (which stores bytes).\n\n## Why AES-256-GCM\n  Authenticated encryption: provides both confidentiality AND integrity.\n  A tampered ciphertext returns an error, not garbage plaintext.\n  Standard, well-audited, supported by the RustCrypto aes-gcm crate.\n\n## Crate to add\n  aes-gcm = { version = \"0.10\", features = [\"aes\"] }\n  (RustCrypto \u2014 consistent with the existing use of sha2, rsa from the same family)\n\n## FieldCipher (crates/mail/src/crypto/field_cipher.rs)\n\n  pub struct FieldCipher {\n      dek: [u8; 32],  // plaintext DEK, must not outlive the request\n  }\n\n  impl FieldCipher {\n      pub fn new(dek: [u8; 32]) -> Self;\n\n      /// Encrypt a plaintext byte slice. Returns: 12-byte nonce || ciphertext || 16-byte tag.\n      /// A fresh random nonce is generated per call \u2014 two encryptions of the same plaintext\n      /// produce different ciphertexts. This is correct and required.\n      pub fn encrypt(&self, plaintext: &[u8]) -> Result<Vec<u8>, CipherError>;\n\n      /// Decrypt a ciphertext produced by encrypt(). Returns plaintext or error.\n      /// Error if ciphertext is truncated, nonce is reused, or tag fails verification.\n      pub fn decrypt(&self, ciphertext: &[u8]) -> Result<Vec<u8>, CipherError>;\n\n      /// Convenience: encrypt a UTF-8 string, return bytes.\n      pub fn encrypt_str(&self, s: &str) -> Result<Vec<u8>, CipherError> {\n          self.encrypt(s.as_bytes())\n      }\n\n      /// Convenience: decrypt bytes, return UTF-8 string.\n      pub fn decrypt_str(&self, ciphertext: &[u8]) -> Result<String, CipherError>;\n  }\n\n  Wire format: [ nonce (12 bytes) | ciphertext (variable) | GCM tag (16 bytes) ]\n  Minimum valid ciphertext length: 28 bytes (12 + 0 + 16).\n\n## Test vectors\n  Tests must NOT use encrypt-then-decrypt-with-same-code as the oracle.\n  Instead: include at least one test with a hardcoded DEK and known plaintext\n  that verifies the output matches a reference computed with OpenSSL:\n    openssl enc -aes-256-gcm -K <hex-dek> -iv <hex-nonce> -in plaintext.bin\n\n## Acceptance\n  - encrypt \u2192 decrypt roundtrip returns original plaintext\n  - Flipping any byte in the ciphertext causes decrypt to return Err (not wrong plaintext)\n  - Empty plaintext encrypts and decrypts correctly\n  - At least one test vector from OpenSSL cross-validation",
+  "ephemeral": 0,
+  "id": "stoa-6cj39.3",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Add FieldCipher helper: AES-256-GCM encrypt/decrypt for DB columns",
+  "updated_at": "2026-06-26T20:26:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T08:29:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-6cj39.1",
+      "id": "5ecb1059-2e30-5000-9507-b20389c6e60d",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T08:28:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-6cj39",
+      "id": "93412c40-8966-5da4-ad8b-6b2a25d24ed6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

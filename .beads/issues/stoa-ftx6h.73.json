@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "30da4c21bce9f9057f9155b61a042b02e032b70bed00f94bf39d54238cc69d65",
+  "created_at": "2026-05-03T13:05:19Z",
+  "created_by": "Mark Atwood",
+  "description": "In relay_health.rs, select_peer() builds a Vec<usize> of all peer indices, then a second Vec<usize> of available (non-down) peer indices, on every call. These allocations happen on every delivery attempt in the drain loop. Since the number of relay peers is small and static (set at startup), this is unnecessary heap churn. Fix: since peer list is immutable after startup, pre-compute the full peer list as a fixed array. The 'down' filtering can be done inline during round-robin traversal without allocating a second Vec.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.73",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "smtp: PeerHealthState::select_peer allocates Vec on every call",
+  "updated_at": "2026-05-03T13:05:19Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "5b44cab9-3981-59b5-a88c-30d95b5ff08a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

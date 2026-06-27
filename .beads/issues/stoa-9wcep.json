@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "14ce682535074dd66ee35801067c7cbb85e027d8dd4df7d3255b832874e19d1f",
+  "created_at": "2026-06-13T06:36:14Z",
+  "created_by": "Mark Atwood",
+  "description": "Email/copy is registered but returns unknownMethod. Required for cross-account email copying. RFC 8621 section 5.4.",
+  "ephemeral": 0,
+  "id": "stoa-9wcep",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Implement Email/copy method",
+  "updated_at": "2026-06-13T06:36:14Z"
+}

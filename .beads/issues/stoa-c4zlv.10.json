@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T17:33:43Z",
+  "compaction_level": 0,
+  "content_hash": "a1aa7397289fafa8f847fca96d7636caba5eb04028f7eebe4dc40a272a6bea52",
+  "created_at": "2026-05-01T15:17:55Z",
+  "created_by": "Mark Atwood",
+  "description": "In inbound.rs fetch_public_key, the actor document is fetched from a remote URL and immediately deserialized via resp.json().await with no size cap. A hostile remote server can respond with an arbitrarily large JSON body, causing unbounded memory allocation in the reqwest buffer. The timeout is set to 5 seconds (preventing slow-read attacks) but the body size is uncapped. This should use resp.bytes_limited() or stream the body with a cap before deserializing.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "fetch_public_key has no response body size limit",
+  "updated_at": "2026-05-01T17:33:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:17:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "bbc74268-0a6d-5bbe-a3bb-169a0b9d5333",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

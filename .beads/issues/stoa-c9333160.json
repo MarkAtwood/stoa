@@ -1,0 +1,27 @@
+{
+  "id": "stoa-c9333160",
+  "title": "sieve-native: cross-validation test suite against sieve-rs",
+  "description": "Test suite that cross-validates the native implementation against sieve-rs as an independent oracle.\n\nWhat: crates/sieve-native/tests/cross_validate.rs + Cargo.toml [dev-dependencies]\n\nOracle: usenet-ipfs-sieve (which wraps sieve-rs) is added as a dev-dependency. Tests run identical scripts through both implementations and assert the output Vec<SieveAction> matches. sieve-rs is NEVER a production dependency \u2014 only [dev-dependencies].\n\nTest cases (each runs through both impls, asserts equal):\n1. implicit_keep: empty script \u2192 [Keep]\n2. explicit_keep: 'keep;' \u2192 [Keep]\n3. fileinto_inbox: 'require [\"fileinto\"]; fileinto \"INBOX\";' \u2192 [FileInto(\"INBOX\")]\n4. fileinto_newsgroup: 'require [\"fileinto\"]; fileinto \"newsgroup:comp.lang.rust\";' \u2192 [FileInto(\"newsgroup:comp.lang.rust\")]\n5. reject_spam: 'reject \"no spam\";' \u2192 [Reject(\"no spam\")]\n6. discard: 'discard;' \u2192 [Discard]\n7. header_contains_match: script using header :contains; message with matching header \u2192 [FileInto(...)]; non-matching \u2192 [Keep]\n8. header_is_case_insensitive: same script, header value in different case \u2192 same result\n9. address_localpart: script tests :localpart; envelope from various addresses \u2192 correct routing\n10. size_over: message over limit \u2192 discard; under limit \u2192 keep\n11. allof_anyof: combined conditions\n12. variables_set_fileinto: require variables; set \"list\" \"comp.lang.rust\"; fileinto \"newsgroup:${list}\"; \u2192 [FileInto(\"newsgroup:comp.lang.rust\")]\n13. RFC 5228 Appendix A example scripts (copy verbatim from spec text)\n\nBuild gate: if cross-validation diverges, the test prints both outputs and fails with a clear diff.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:24:41Z",
+  "updated_at": "2026-05-01T04:54:06Z",
+  "closed_at": "2026-04-24T03:28:47Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1dcfbf49",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:24:40"
+    },
+    {
+      "depends_on_id": "stoa-780931d4",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:25:15"
+    }
+  ]
+}

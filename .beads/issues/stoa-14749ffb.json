@@ -1,0 +1,20 @@
+{
+  "id": "stoa-14749ffb",
+  "title": "imap: add imap4rev2_enabled bool to SessionContext",
+  "description": "Add pub imap4rev2_enabled: bool to the SessionContext struct in crates/imap/src/session/mod.rs. Initialize it to false at both construction sites: run_session_plain and run_session_tls. This field is a one-way latch \u2014 it is set to true when the client sends ENABLE IMAP4rev2 and must never be reset to false for the lifetime of the session. The ENABLE handler (separate bead) will set it.\n\nAcceptance: cargo build -p stoa-imap succeeds; field is accessible in session handlers; initialized to false at both sites.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:03:40Z",
+  "updated_at": "2026-05-01T04:52:05Z",
+  "closed_at": "2026-04-30T02:09:30Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-db727e07",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:03:39"
+    }
+  ]
+}

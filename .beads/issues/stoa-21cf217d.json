@@ -1,0 +1,20 @@
+{
+  "id": "stoa-21cf217d",
+  "title": "signing key format doc inconsistent",
+  "description": "transit config says signing_key_path is PKCS8 DER or PEM; reader config says 32 raw bytes; signing.rs loads 32 raw bytes. Both docs wrong, inconsistent with each other. Fix both.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:12:55Z",
+  "updated_at": "2026-05-01T04:53:51Z",
+  "closed_at": "2026-04-27T01:21:17Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:12:55"
+    }
+  ]
+}

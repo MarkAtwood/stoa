@@ -1,0 +1,12 @@
+{
+  "id": "stoa-b2c6109d",
+  "title": "Review round 3: full fix verification",
+  "description": "Third review pass over all bt5 fixes. All P0/P1/P2/P3/P4 issues have been implemented. Verify: correctness, security, test coverage, no regressions. Stop when P0=P1=P2=0 and reviewers confirm running out of real complaints.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T15:25:03Z",
+  "updated_at": "2026-05-01T04:58:53Z",
+  "closed_at": "2026-04-22T16:05:48Z"
+}

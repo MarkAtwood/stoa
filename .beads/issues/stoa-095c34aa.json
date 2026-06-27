@@ -1,0 +1,20 @@
+{
+  "id": "stoa-095c34aa",
+  "title": "write!(f, \"error: {}\", msg) should use write!(f, \"error: {msg}\")",
+  "description": "smtp/config.rs ConfigError::fmt and reader/config.rs ConfigError::fmt both use the legacy format-string style: write!(f, \"I/O error: {}\", msg), write!(f, \"parse error: {}\", msg), write!(f, \"validation error: {}\", msg). Since Rust 2021 edition (which this codebase uses) the captured-identifier syntax write!(f, \"I/O error: {msg}\") is idiomatic, shorter, and what clippy::uninlined_format_args flags. All six write! calls in the two Display impls should use the captured form.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:43:16Z",
+  "updated_at": "2026-05-01T05:00:33Z",
+  "closed_at": "2026-05-01T00:47:11Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d94f2708",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:43:16"
+    }
+  ]
+}

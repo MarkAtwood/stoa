@@ -1,0 +1,21 @@
+{
+  "id": "stoa-4f16be8e",
+  "title": "group_select returns 211 success even when GroupName::new() fails",
+  "description": "In session/commands/group.rs lines 41-48, group_select does 'if let Ok(name) = GroupName::new(gd.name.clone())' then sets ctx.selected_group and ctx.state. But Response::group_selected(...) is returned unconditionally after this block. If GroupName::new() returns Err (e.g. group name fails validation), the session context is NOT updated but a 211 success response is still sent to the client. The session state machine is now inconsistent: client believes a group is selected, server has no selected group. Subsequent ARTICLE/NEXT/LAST commands will behave as if no group is selected.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:24:20Z",
+  "updated_at": "2026-05-01T04:58:23Z",
+  "closed_at": "2026-04-28T17:00:22Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:24:19"
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "REQUIRETLS advertised in EHLO on TLS sessions only; check+clippy+tests clean",
+  "closed_at": "2026-05-02T17:59:30Z",
+  "compaction_level": 0,
+  "content_hash": "d3833ad3eacc64bc4546d33910995f5065d7a0acc9f5f4602d0cd989689b4fd6",
+  "created_at": "2026-05-02T17:38:28Z",
+  "created_by": "Mark Atwood",
+  "description": "Add REQUIRETLS to the EHLO capability response in crates/smtp/src/session.rs. The REQUIRETLS keyword MUST only be advertised when the current connection is already TLS-protected (is_tls flag is true). Currently EHLO is built at lines 285-288 as a format string \u2014 extend to conditionally append '250-REQUIRETLS\\r\\n' when is_tls is true. Per RFC 8689 \u00a72: advertising REQUIRETLS on a plaintext connection is a protocol error.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "REQUIRETLS EHLO keyword advertisement",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T10:38:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks",
+      "id": "3a00f274-7de3-557d-bbf4-65846120022d",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-02T10:39:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.3",
+      "id": "5be04631-88d5-5c6d-974b-efa0d021dd5a",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T10:39:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.4",
+      "id": "7b87bc65-423e-5e12-abf7-c838460c48cc",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

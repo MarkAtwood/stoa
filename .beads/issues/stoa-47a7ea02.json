@@ -1,0 +1,20 @@
+{
+  "id": "stoa-47a7ea02",
+  "title": "GOOD: pub use re-export instead of type shim for UserCredential",
+  "description": "## What\n\nIn crates/reader/src/config.rs line 7, the local UserCredential struct definition was replaced with:\n\n    pub use stoa_auth::UserCredential;\n\nThis re-exports the canonical type directly into the reader config module's public namespace, so all 5 call sites (server_stores.rs, dispatch.rs, and 3 test files) that previously used `crate::config::UserCredential` continue to resolve without any import changes.\n\n## Why good\n\nThe alternative was a type-conversion shim: keep the local struct but add `impl From<crate::config::UserCredential> for stoa_auth::UserCredential` and update every call to `CredentialStore::from_credentials` to convert the slice. That alternative adds runtime code, a From impl that must stay in sync if fields are ever added, and requires touching every call site.\n\nThe re-export is a zero-cost identity: it makes the reader module's `UserCredential` and stoa_auth's `UserCredential` the same type at the Rust type system level. No conversion, no divergence risk, zero call-site changes.\n\n## Alternative avoided\n\nA type alias (`type UserCredential = stoa_auth::UserCredential;`) would work nearly as well but is slightly worse: type aliases are not re-exports and do not participate in trait coherence in the same way; `pub use` is the idiomatic Rust idiom for re-exporting a type into a module's public API. The decision correctly uses `pub use`.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T16:51:37Z",
+  "updated_at": "2026-05-01T04:55:29Z",
+  "closed_at": "2026-04-30T16:56:48Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-45f3f588",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 09:51:36"
+    }
+  ]
+}

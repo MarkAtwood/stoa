@@ -1,0 +1,20 @@
+{
+  "id": "stoa-fcae3970",
+  "title": "GroupFilter missing Debug derive, inconsistent with WildmatPattern",
+  "description": "In crates/core/src/wildmat.rs, WildmatPattern derives Debug, Clone, and PartialEq. GroupFilter derives nothing. This inconsistency means GroupFilter cannot be logged, printed, or included in a Debug-derived struct that contains it. For a type that appears in ValidationConfig.allowed_groups and PipelineCtx.group_filter, the absence of Debug is a practical obstacle: neither ValidationConfig nor PipelineCtx can derive Debug without a manual impl or a workaround. Adding #[derive(Debug)] to GroupFilter (and Clone if the patterns field is cloneable, which it is) would align it with the surrounding type ecosystem and remove the obstacle to deriving Debug on the containing structs.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:31:02Z",
+  "updated_at": "2026-05-01T05:00:00Z",
+  "closed_at": "2026-04-28T09:45:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:31:01"
+    }
+  ]
+}

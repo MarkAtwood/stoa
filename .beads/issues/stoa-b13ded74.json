@@ -1,0 +1,33 @@
+{
+  "id": "stoa-b13ded74",
+  "title": "imap: FETCH command handler (FLAGS, UID, RFC822.SIZE, BODY[], ENVELOPE)",
+  "description": "Create crates/imap/src/commands/fetch.rs. FETCH takes a sequence set and attribute list. Algorithm: (1) require Selected state; (2) resolve sequence set to article numbers via ArticleNumberStore::group_range(); (3) for each article number: (a) lookup CID via ArticleNumberStore::lookup_cid(); (b) for FLAGS: query imap_flags table for this (user, group, cid); (c) for UID: assign sequential uid from imap_uid_map table; (d) for RFC822.SIZE: use OverviewStore::query_range() to get byte_count; (e) for INTERNALDATE: parse OverviewRecord.date into RFC 3501 date format; (f) for ENVELOPE: build Envelope struct from OverviewRecord fields; (g) for BODY[]: fetch raw bytes from IpfsBlockStore::get_raw_block(cid), decode DAG-CBOR article, extract wire-format bytes; (4) send * N FETCH for each message; (5) tagged OK. Defensive: article not found -> skip; IPFS unavailable -> tagged NO.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T07:18:02Z",
+  "updated_at": "2026-05-01T04:56:34Z",
+  "closed_at": "2026-04-23T07:51:07Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-190004c4",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:21:23"
+    },
+    {
+      "depends_on_id": "stoa-3741bca1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:18:01"
+    },
+    {
+      "depends_on_id": "stoa-394b1635",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:21:22"
+    }
+  ]
+}

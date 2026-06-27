@@ -1,0 +1,20 @@
+{
+  "id": "stoa-a2edf0a4",
+  "title": "[decision] Non-fatal SMTP enqueue from POST handlers",
+  "description": "maybe_enqueue_smtp_relay() returns Ok() on all paths; relay failures are logged but never propagate to NNTP caller. Correct failure semantics for a non-blocking side effect: enqueue is best-effort, article storage and NNTP response succeed regardless of relay status. Code at smtp_relay.rs:66-86.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T19:14:57Z",
+  "updated_at": "2026-05-01T05:00:24Z",
+  "closed_at": "2026-04-23T19:18:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-11ae5322",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 12:14:57"
+    }
+  ]
+}

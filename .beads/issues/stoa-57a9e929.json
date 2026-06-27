@@ -1,0 +1,12 @@
+{
+  "id": "stoa-57a9e929",
+  "title": "reader: ARTICLE/HEAD/BODY/STAT by number always returns 423",
+  "description": "In lifecycle.rs, the by-number path for ARTICLE, HEAD, BODY, and STAT commands returns 423 (No article selected) unconditionally. Any newsreader that navigates by article number (all of them) gets no articles. The lookup path into the local article-number store is never reached.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T23:45:21Z",
+  "updated_at": "2026-05-01T04:52:13Z",
+  "closed_at": "2026-04-25T00:49:13Z"
+}

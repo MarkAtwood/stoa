@@ -1,0 +1,21 @@
+{
+  "id": "stoa-fcb17bf6",
+  "title": "SMTP DATA body has no timeout \u2014 connection held open indefinitely",
+  "description": "read_command_line() wraps byte reading in tokio::time::timeout(). read_data_body() \u2014 called after 354 is sent \u2014 has no timeout at all. Trigger: attacker sends EHLO+MAIL+RCPT+DATA, receives 354, then trickles one byte per minute or goes silent. Bad behavior: server connection held open forever, consuming fd and task slot until process resource limits are hit. SMTP command timeout (command_timeout_secs) only covers pre-DATA command reading; body phase is entirely unguarded. Fix: wrap the inner read loop in a per-idle-byte or per-DATA-body timeout, matching the existing command timeout config.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T14:05:54Z",
+  "updated_at": "2026-05-01T04:55:43Z",
+  "closed_at": "2026-04-21T14:30:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ad28b4f3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 07:05:54"
+    }
+  ]
+}

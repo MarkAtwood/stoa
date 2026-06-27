@@ -1,0 +1,27 @@
+{
+  "id": "stoa-6fe895ed",
+  "title": "Implement pull-style suck import from remote NNTP server",
+  "description": "Implement a CLI tool that connects to a remote NNTP server, fetches NEWNEWS since a given date/time for specified groups, retrieves each article via ARTICLE <msgid>, and feeds it into the local transit store-and-forward pipeline. Persists a cursor (last-fetched timestamp per group) so the tool can be run repeatedly. Artifact: transit/src/import/suck_pull.rs.\n\nAcceptance:\n- Connects to RFC 3977 NNTP server, issues NEWNEWS, retrieves articles\n- Cursor persisted in SQLite; repeated runs only fetch articles newer than cursor\n- --group flag filters to specific groups; --since flag overrides cursor\n- Network errors cause retry with backoff (3 attempts); after that, log and continue to next article\n- Test: run against a public NNTP test server or a local test server",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:14:11Z",
+  "updated_at": "2026-05-01T04:58:14Z",
+  "closed_at": "2026-04-20T12:02:44Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9f7a23fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:53:36"
+    },
+    {
+      "depends_on_id": "stoa-a684e7df",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:14:10"
+    }
+  ]
+}

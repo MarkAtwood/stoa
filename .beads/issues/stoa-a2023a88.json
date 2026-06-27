@@ -1,0 +1,12 @@
+{
+  "id": "stoa-a2023a88",
+  "title": "usenet-ipfs v1: NNTP over IPFS \u2014 full implementation",
+  "description": "Root epic for the usenet-ipfs v1 implementation. Two binaries (usenet-ipfs-transit and usenet-ipfs-reader) sharing usenet-ipfs-core. Articles stored as IPLD blocks in IPFS addressed by CID. Group state is a per-group Merkle-CRDT append-only log reconciled over libp2p gossipsub. Reader speaks RFC 3977 NNTP verbatim so slrn/tin/pan/gnus/Thunderbird work without modification. Standalone system; no Corundum integration in v1.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:06:48Z",
+  "updated_at": "2026-05-01T04:52:55Z",
+  "closed_at": "2026-04-20T16:50:14Z"
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Deferred. parse_rnews_batch_plain alone returning Vec<&[u8]> saves nothing \u2014 parse_rnews_batch still calls .to_vec() to produce Vec<Vec<u8>>. Eliminating copies requires changing the public signature, a breaking API change. Added explanatory comment at rnews.rs allocation site. Revisit when the public API is versioned.",
+  "closed_at": "2026-05-04T05:09:38Z",
+  "compaction_level": 0,
+  "content_hash": "5486364b38231fb6d38e80f67b538e846f76bf9b68ec37ab708414df1d19f572",
+  "created_at": "2026-05-04T05:05:48Z",
+  "created_by": "Mark Atwood",
+  "description": "parse_rnews_batch_plain (rnews.rs line 181) calls `input[pos..article_end].to_vec()` for every article, copying each article's bytes into a new heap allocation. The caller (rnews_main.rs) already holds the full batch in `stdin_bytes` (up to 1 GiB). The parsed Vec<Vec<u8>> is a second copy of that data, so peak RSS can reach 2\u00d7 the batch size.\n\nFor the common case (a few MB batch) this is harmless. For a max-size batch (1000 articles \u00d7 1 MiB = 1 GiB) peak memory is 2 GiB.\n\nFix: change parse_rnews_batch_plain to return `Vec<Range<usize>>` (byte ranges into the original input) or `Vec<&[u8]>` (slices with lifetime tied to the input), eliminating the copy. The caller can iterate over slices without owning each article. This requires a lifetime on the return type but is straightforward.",
+  "ephemeral": 0,
+  "id": "stoa-paxfh.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "parse_rnews_batch: article bytes are copied into Vec<Vec<u8>>, doubling peak memory",
+  "updated_at": "2026-05-04T05:09:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T22:05:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-paxfh",
+      "id": "d02fe2fc-285f-5556-90e2-a174ceb8ba8c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T08:11:02Z",
+  "compaction_level": 0,
+  "content_hash": "d55e3ecebfe4f14ff22200b7e80b36dee858ae77cc896cc66cbfae0324ad8385",
+  "created_at": "2026-05-04T08:04:25Z",
+  "created_by": "Mark Atwood",
+  "description": "Finding: imap/src/config.rs AuthConfig::is_dev_mode() checks 3 conditions: !required && users.is_empty() && credential_file.is_none(). reader/src/config.rs AuthConfig::is_dev_mode() checks 6 conditions: also oidc_providers.is_empty() && client_certs.is_empty() && trusted_issuers.is_empty(). The imap AuthConfig struct omits those fields (correctly, imap doesn't support OIDC or client certs), but there is no comment in imap/src/config.rs stating that imap's is_dev_mode() intentionally has a reduced condition set compared to the reader's version.\n\nRisk: If a future maintainer adds OIDC support to imap (plausible \u2014 the credential_store build call on main.rs line 161 already uses stoa_auth::build_credential_store), they will add an oidc_providers field to imap's AuthConfig but may not notice that is_dev_mode() also needs updating. An imap with OIDC configured but no local users would incorrectly return is_dev_mode() = true and fail the startup guard, blocking a valid production configuration. The lack of any comment pointing to reader's version makes this a silent trap.\n\nSuggested fix: Add a comment above imap's is_dev_mode() documenting why it checks fewer conditions than reader's, and which conditions would need adding if auth features expand. Example: '// Intentionally simpler than reader AuthConfig::is_dev_mode() \u2014 imap does not support // OIDC, client certs, or trusted issuers. If those are added, update this method.'",
+  "ephemeral": 0,
+  "id": "stoa-cajkm.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "imap AuthConfig::is_dev_mode() can silently diverge from reader's",
+  "updated_at": "2026-05-04T08:11:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T01:04:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-cajkm",
+      "id": "a678e7dc-7cf5-5a06-9244-ee3324360127",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

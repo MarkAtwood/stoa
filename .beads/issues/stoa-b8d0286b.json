@@ -1,0 +1,21 @@
+{
+  "id": "stoa-b8d0286b",
+  "title": "transit drain: Ok(_) swallows JoinError on ingestion task panic",
+  "description": "In crates/transit/src/main.rs, the shutdown drain block matches drain_result with Ok(_). The type is Result<Result<(), JoinError>, Elapsed> \u2014 the Ok(_) arm covers both Ok(Ok(())) (clean exit) and Ok(Err(JoinError)) (task panicked), logging 'ingestion task drained cleanly' in both cases. A reader cold to this code cannot distinguish a clean shutdown from one that hid a panic. Fix: match Ok(Ok(_)) for the clean case and add an Ok(Err(e)) arm that logs the panic before exiting.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T05:25:11Z",
+  "updated_at": "2026-05-01T04:53:46Z",
+  "closed_at": "2026-04-24T05:47:34Z",
+  "notes": "opinion: Duplicate of nzr6.1 which is filed at P3 and is more complete. Both describe the same Ok(_) matching Ok(Err(JoinError)) and logging 'drained cleanly' on task panic. nzr6.1 should be the canonical issue. This P4 duplicate adds no new information.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ebc6ad28",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 22:25:10"
+    }
+  ]
+}

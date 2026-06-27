@@ -1,0 +1,22 @@
+{
+  "id": "stoa-2eb3f01c",
+  "title": "Migrate external pinning API keys to secretx URIs",
+  "description": "Why: ExternalPinServiceConfig.api_key is a PinningApiKey newtype (crates/transit/src/retention/remote_pin_client.rs:18) whose inner String is deserialized directly from TOML. Operators must put the raw bearer token for Pinata / web3.storage / Filebase in the config file. Accepting a secretx: URI lets operators store pinning credentials in AWS Secrets Manager, Vault, env vars, etc. What to do: Change the TOML field to accept either a literal token string or a secretx: URI. At startup (after config load), resolve any secretx: URIs via secretx::from_uri().get().await to obtain the raw token bytes. Wrap the resolved value in PinningApiKey (or replace PinningApiKey with a SecretValue-backed type). PinningApiKey.as_bearer_header() is called by the pin client \u2014 that interface stays unchanged. The redacting Debug/Display must continue to work.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-26T20:45:07Z",
+  "updated_at": "2026-05-01T04:56:17Z",
+  "closed_at": "2026-04-26T21:11:39Z",
+  "notes": "Part of epic stoa-6c0f1855 (Integrate crate-secretsx). Blocked on stoa-f0b9ff15 (workspace wiring).",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-f0b9ff15",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 13:45:31"
+    }
+  ]
+}

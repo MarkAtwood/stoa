@@ -1,0 +1,21 @@
+{
+  "id": "stoa-3fdf3874",
+  "title": "Test: reconciliation converges when nodes diverge by >MAX_HAVE entries",
+  "description": "reconcile() silently caps output at MAX_HAVE=1000 entries with no completeness signal (o0r.18). No test verifies that repeated reconciliation rounds eventually converge when the divergence exceeds MAX_HAVE.\n\nWrite a property test (or deterministic integration test) in crates/core/tests/ that:\n1. Creates two MemLogStorage instances\n2. Appends N > MAX_HAVE entries to node A that node B has not seen\n3. Runs reconciliation rounds (alternating A\u2192B and B\u2192A calls to reconcile()) until both nodes agree on the same tip set\n4. Asserts convergence within ceil(N / MAX_HAVE) + 1 rounds\n5. Also tests the N < MAX_HAVE case converges in 1 round\n\nIndependent oracle: both storages have identical tip sets after convergence; verified by comparing get_tips() output, not by comparing against the code path under test.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T17:04:39Z",
+  "updated_at": "2026-05-01T04:57:36Z",
+  "closed_at": "2026-04-23T01:00:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0a9e5a1f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 10:05:08"
+    }
+  ]
+}

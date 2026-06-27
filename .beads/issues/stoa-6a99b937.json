@@ -1,0 +1,27 @@
+{
+  "id": "stoa-6a99b937",
+  "title": "secretsx integration: RUNBOOK Secrets Manager and KMS setup",
+  "description": "Document in RUNBOOK.md: AWS Secrets Manager secret creation for signing key, KMS asymmetric key creation for signing, IAM policy for secretsx access, config examples for secretsx://aws-sm/... and secretsx://aws-kms/... URIs. Blocked on: stoa-c0b7a31e.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:45:05Z",
+  "updated_at": "2026-05-01T04:56:56Z",
+  "closed_at": "2026-04-26T21:47:01Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-c0b7a31e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:47:52"
+    },
+    {
+      "depends_on_id": "stoa-f0b9ff15",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 13:46:52"
+    }
+  ]
+}

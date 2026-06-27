@@ -1,0 +1,12 @@
+{
+  "id": "stoa-8acd5dd9",
+  "title": "SQLite backup and restore procedure",
+  "description": "Documented and scripted backup/restore path for all SQLite databases to S3 (or local filesystem), so operators can recover from data loss without losing article index state.\n\nWhy this issue exists:\nSQLite databases hold the article number index, overview index, message-ID map, and group log. Loss of these databases means loss of the article index (articles are still in Kubo/S3 but cannot be found). Operators need a clear, tested backup and restore procedure.\n\nScope:\n- Add POST /admin/backup to the admin endpoint: triggers an online SQLite backup (using the SQLite backup API, safe while the database is live) to a configured destination directory\n- Backup filenames include a timestamp: core-20260423T030000Z.db, transit-20260423T030000Z.db, etc.\n- Optional: if [backup] s3_bucket is configured, upload the backup files to S3 after writing locally\n- Add a --restore flag to each daemon binary: usenet-ipfs-transit --restore core.db transit.db \u2014 restores from backup files before starting normally\n- Document the full backup/restore procedure in docs/ops/backup_restore.md\n- Schedule-based automatic backup: [backup] schedule = '0 2 * * *' (cron syntax, same as GC)\n\nAcceptance criteria:\n- POST /admin/backup creates valid SQLite files that can be opened by sqlite3\n- A daemon started with --restore from a backup file serves articles that were indexed before the backup\n- S3 upload completes and the file is readable from S3\n- docs/ops/backup_restore.md covers both the happy path and the 'Kubo is fine but SQLite is lost' disaster scenario",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:17:25Z",
+  "updated_at": "2026-05-01T04:56:59Z",
+  "closed_at": "2026-04-28T08:16:48Z"
+}

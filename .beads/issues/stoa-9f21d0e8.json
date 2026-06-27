@@ -1,0 +1,20 @@
+{
+  "id": "stoa-9f21d0e8",
+  "title": "SEC1: No observability for STARTTLS handshake success vs timeout",
+  "description": "In lifecycle.rs run_plain_session, there is an info\\! log when STARTTLS handshake is initiated (line 212: 'STARTTLS: performing TLS handshake') and a warn\\! on failure (line 228). However there is no info\\! or counter metric on handshake success. After run_session_post_starttls returns, the only log is the session-end log from run_plain_session (line 234). A production operator cannot distinguish these three cases from logs alone: (a) client sent STARTTLS, completed handshake, issued commands, quit normally; (b) client sent STARTTLS, completed handshake, then dropped; (c) client sent STARTTLS, 382 was sent, but client never completed the handshake (TCP half-open). Case (c) is a common misbehaving-client or TLS interception scenario. Without an explicit success log and/or a Prometheus counter for starttls_success/starttls_failure, diagnosing TLS upgrade problems in production requires pcap.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T23:43:49Z",
+  "updated_at": "2026-05-01T04:53:38Z",
+  "closed_at": "2026-04-24T00:05:06Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4206df49",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 16:43:49"
+    }
+  ]
+}

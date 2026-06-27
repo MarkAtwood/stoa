@@ -1,0 +1,20 @@
+{
+  "id": "stoa-8099627e",
+  "title": "Add upgrade comment to Capability::try_from(\"IMAP4rev2\") workaround sites",
+  "description": "commands.rs lines 35, 90, 144 and mod.rs line 477 all construct Capability::try_from(\"IMAP4rev2\") because imap-types 2.0.0-alpha.6 has no Capability::Imap4Rev2 enum variant. There is no comment at any of these sites explaining: (a) why try_from is used instead of a named variant, (b) which upstream issue/PR tracks the missing variant, (c) what the migration looks like when upstream ships it (replace try_from with Capability::Imap4Rev2 and update the PartialEq-based test assertions in commands.rs that use try_from for contains() checks). Without this comment a future maintainer doing cargo update will see the workaround, not know if it is still needed, and have no grep anchor to find all the sites. Fix: add a // UPSTREAM-WORKAROUND(imap-types): no Capability::Imap4Rev2 variant yet; replace with Capability::Imap4Rev2 when available comment at each try_from(\"IMAP4rev2\") call site and in the CapabilityEnable::try_from(\"IMAP4rev2\") call in mod.rs.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:25:01Z",
+  "updated_at": "2026-05-01T04:55:41Z",
+  "closed_at": "2026-04-30T02:51:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9d37d25b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:25:01"
+    }
+  ]
+}

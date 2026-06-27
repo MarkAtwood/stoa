@@ -1,0 +1,20 @@
+{
+  "id": "stoa-c53645d8",
+  "title": "UserCredential.password accepts plaintext silently at startup",
+  "description": "reader/src/config.rs UserCredential.password is a plain String with no validation that it is a bcrypt hash. An operator who puts a plaintext password in [auth.users] gets no startup error; bcrypt::verify silently returns false so the account never authenticates. The user sees only 481 Authentication failed, indistinguishable from a wrong password. Maintenance consequence: silent operator misconfiguration with no actionable error.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:10:56Z",
+  "updated_at": "2026-05-01T04:53:44Z",
+  "closed_at": "2026-04-27T02:37:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:10:55"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-0a49453b",
+  "title": "OVER query_range: add LIMIT to prevent unbounded result set",
+  "description": "e4j.13: overview_store.query_range has no SQL LIMIT. A client sending OVER 1-999999 causes unbounded memory. Fix: add MAX_OVER_RESULTS=10000 const; add LIMIT clause to query; return at most MAX_OVER_RESULTS records.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T19:45:31Z",
+  "updated_at": "2026-05-01T04:59:09Z",
+  "closed_at": "2026-04-22T21:05:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-f6d57892",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 12:45:31"
+    }
+  ]
+}

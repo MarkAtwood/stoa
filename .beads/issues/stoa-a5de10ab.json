@@ -1,0 +1,21 @@
+{
+  "id": "stoa-a5de10ab",
+  "title": "imap/main: SQLite pool opened without create_if_missing",
+  "description": "crates/imap/src/main.rs line 61 \u2014 SqlitePoolOptions::connect() is called with a plain sqlite: URL without SqliteConnectOptions::create_if_missing(true). If the database file does not yet exist, SQLite will return an error (SQLITE_CANTOPEN) rather than creating the file. The subsequent migrations will never run. The verify crate (crates/verify/src/lib.rs run_migrations) correctly uses create_if_missing. This inconsistency means a fresh stoa-imap deployment with no pre-existing database file will fail to start.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:22:17Z",
+  "updated_at": "2026-05-01T04:58:20Z",
+  "closed_at": "2026-04-28T16:59:11Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:22:17"
+    }
+  ]
+}

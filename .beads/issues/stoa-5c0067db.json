@@ -1,0 +1,19 @@
+{
+  "id": "stoa-5c0067db",
+  "title": "OIDC: all-providers-rejected error uses Config variant",
+  "description": "OidcStore::validate_jwt returns Err(OidcError::Config(all providers rejected...)) on auth failure. Conflates exhausted-providers with misconfiguration. Dedicated OidcError::AllProvidersFailed variant would let callers distinguish.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:35:08Z",
+  "updated_at": "2026-05-01T04:54:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:35:08"
+    }
+  ]
+}

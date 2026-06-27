@@ -1,0 +1,21 @@
+{
+  "id": "stoa-4640ef2a",
+  "title": "Admin CLI: usenet-ipfs-ctl",
+  "description": "A command-line tool that talks to the admin HTTP endpoint, so operators do not need to curl JSON by hand.\n\nWhy this issue exists:\nThe admin HTTP endpoint exposes useful operations (/health, /stats, /peers, /log-tip, /metrics, /reload) but requires curl and manual JSON parsing to use. Operators expect a purpose-built CLI for day-to-day tasks.\n\nScope:\nNew binary: usenet-ipfs-ctl\n\nCommands:\n- ctl status [--host] \u2014 show health, uptime, article count, peer count\n- ctl peers \u2014 list connected peers with address, last-seen, article exchange count\n- ctl groups \u2014 list subscribed groups with article count and log tip CID\n- ctl log-tip <group> \u2014 print the current log tip CID for a group\n- ctl reload \u2014 trigger config reload (POST /admin/reload), print what changed\n- ctl metrics \u2014 print Prometheus text output (passthrough)\n- ctl version \u2014 print daemon version and build info\n\nGlobal flags:\n- --host / -H: admin endpoint base URL (default http://127.0.0.1:9090)\n- --token: bearer token for authenticated admin endpoints\n- --json: output raw JSON instead of formatted table\n\nThe binary is thin: it makes HTTP calls to the admin endpoint and formats the response. No business logic.\n\nAcceptance criteria:\n- ctl status prints a human-readable summary of daemon health\n- ctl peers --json outputs the same JSON as GET /admin/peers\n- ctl reload prints the list of changed config fields\n- ctl connects to a custom --host without code changes\n- All commands exit non-zero and print an error if the admin endpoint is unreachable",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:17:14Z",
+  "updated_at": "2026-05-01T04:51:45Z",
+  "closed_at": "2026-04-24T07:17:28Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4a899c3f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:00:51"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "stoa-bb2fc601",
+  "title": "GOOD: FsStore atomic write via unique tmp+rename prevents partial blocks",
+  "description": "fs_store.rs: each put_raw writes to a unique-per-call tmp file (cid.seq.block.tmp using a module-level AtomicU64 counter) then renames to cid.block. rename(2) is POSIX-atomic so readers never see partial blocks. Concurrent puts of the same CID harmlessly overwrite with identical content. Stale .block.tmp files from crashes are never mistaken for complete blocks. The seq counter prevents concurrent puts on the same CID from clobbering each other's tmp file. This is the correct pattern for crash-safe block storage.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:48:34Z",
+  "updated_at": "2026-05-01T04:54:38Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:48:33"
+    }
+  ]
+}

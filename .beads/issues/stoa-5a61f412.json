@@ -1,0 +1,21 @@
+{
+  "id": "stoa-5a61f412",
+  "title": "advance_tips issues one DELETE per parent in a loop",
+  "description": "O(P) STATEMENTS IN TRANSACTION \u2014 advance_tips (sqlite_storage.rs:198) iterates parent_ids and issues one DELETE FROM group_tips ... WHERE tip_id=? per parent inside a single transaction. For normal single-parent appends this is fine, but CRDT reconcile can produce multi-parent merges; each parent requires a separate prepared statement execution. Fix: use DELETE ... WHERE tip_id IN (?, ?, ...) with a dynamically bound list, reducing the loop to a single statement regardless of parent count.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:10:17Z",
+  "updated_at": "2026-05-01T04:56:03Z",
+  "closed_at": "2026-04-27T16:11:55Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:10:17"
+    }
+  ]
+}

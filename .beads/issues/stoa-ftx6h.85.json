@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "53c8da3336eddcee9990e6b733b1e3c0d38135de9e71136d0ff428765a2d019f",
+  "created_at": "2026-05-03T13:05:39Z",
+  "created_by": "Mark Atwood",
+  "description": "OidcStore::validate_jwt on failure returns OidcError::AllProvidersFailed containing a joined string of every provider's error message. If these errors contain sensitive information (e.g. the token value echoed back by jsonwebtoken on signature failure, or internal provider URLs), they will be propagated to the caller and potentially logged or returned to the client. The jsonwebtoken crate's InvalidToken errors do not echo back the token, but they may include claim values from partially-decoded payloads. The errors string should be sanitized before inclusion in the returned error, or the error variants should be structured (not string-joined) so callers can control verbosity.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.85",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "auth: OidcStore exposes AllProvidersFailed with per-provider error details to caller",
+  "updated_at": "2026-05-03T13:05:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "bef68a95-a74f-572f-afcd-9a80bc4c2b07",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

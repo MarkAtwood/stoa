@@ -1,0 +1,21 @@
+{
+  "id": "stoa-74b2ac44",
+  "title": "auth: from_file takes &str path, should take &Path or impl AsRef<Path>",
+  "description": "crates/auth/src/store.rs line 155: pub fn from_file(path: &str) -> Result<Self, String>. Idiomatic Rust for file-path arguments is &Path or impl AsRef<Path>. Using &str forces callers to convert OsStr/Path to &str (with possible UTF-8 failure) before calling. The same applies to merge_from_file(path: &str) on line 176. The label parameter in from_content/merge_from_content is used for error messages only, not as a path, so &str is appropriate there.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:13:01Z",
+  "updated_at": "2026-05-01T04:52:08Z",
+  "closed_at": "2026-04-30T17:31:32Z",
+  "notes": "Fix: change from_file(path: &str) to from_file(path: &Path) and from_file(path: impl AsRef<Path>). Update the internal std::fs::read_to_string call (already takes &Path). The call site in server_stores.rs passes a &str from config, which would need .as_ref() or Path::new(). merge_from_file same change.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-577b3bd5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 10:13:01"
+    }
+  ]
+}

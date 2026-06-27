@@ -1,0 +1,20 @@
+{
+  "id": "stoa-9ea2977a",
+  "title": "transit admin GET /stats silently returns 0 for articles due to wrong pool",
+  "description": "transit/src/admin.rs build_stats_json queries msgid_map and pinned_cids on transit_pool, but those tables live in the core pool (transit_core.db). Failures are swallowed with unwrap_or(0). Production operators see articles:0 even with thousands ingested. Maintenance consequence: silent wrong data, hard to debug, will fool monitoring.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:09:50Z",
+  "updated_at": "2026-05-01T04:53:45Z",
+  "closed_at": "2026-04-27T02:36:29Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:09:50"
+    }
+  ]
+}

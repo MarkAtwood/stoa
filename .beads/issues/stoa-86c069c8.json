@@ -1,0 +1,20 @@
+{
+  "id": "stoa-86c069c8",
+  "title": "relay_queue: serde_json error stringified into io::Error",
+  "description": "relay_queue.rs line 152: serde_json::to_vec error is converted via .to_string() before being wrapped in std::io::Error::new. serde_json::Error implements Error + Send + Sync so it satisfies io::Error::new's Into<Box<dyn Error+Send+Sync>> bound directly. The .to_string() call loses the structured error type unnecessarily.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:36:19Z",
+  "updated_at": "2026-05-01T04:52:47Z",
+  "closed_at": "2026-04-30T23:45:25Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-64675b0e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:36:18"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "stoa-6b57af1d",
+  "title": "Define article wire format types in usenet-ipfs-core",
+  "description": "Define the Rust structs and enums that represent a Usenet article as stored in IPFS. Includes: ArticleHeader (per RFC 5536 mandatory fields), ArticleBody (text, UTF-8), Article (header + body), and the canonical byte representation used for CID computation. Artifact: src/article.rs in usenet-ipfs-core.\n\nAcceptance:\n- Article, ArticleHeader, ArticleBody types compile with no warnings\n- RFC 5536 mandatory headers (From, Date, Message-ID, Newsgroups, Subject, Path) are typed fields\n- Additional headers stored as Vec<(String, String)> in declared order\n- Unit test: roundtrip from parsed headers to canonical bytes and back",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:09:45Z",
+  "updated_at": "2026-05-01T04:53:02Z",
+  "closed_at": "2026-04-20T00:29:41Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1c73f68d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:09:44"
+    },
+    {
+      "depends_on_id": "stoa-60070901",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:10:06"
+    }
+  ]
+}

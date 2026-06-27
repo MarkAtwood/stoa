@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T17:33:50Z",
+  "compaction_level": 0,
+  "content_hash": "2420e920ecf3a56da0b354877838bc6aeea17ee09fb81722efef09ce96a7b0e1",
+  "created_at": "2026-05-01T15:20:35Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: peering/feed_negotiation.rs update_peer_groups stores group names received from a peer verbatim without any format validation. A peer can send group names containing SQL metacharacters, NULL bytes, excessively long strings, or path traversal components. Bad behavior: the peer_groups.group_name column receives attacker-controlled data. While sqlx parameterized queries prevent SQL injection, the unvalidated strings propagate into group-filter comparisons, log messages, and admin API responses, widening the attack surface unnecessarily.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.53",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "attacker-controlled peer can inject arbitrary group names into peer_groups table",
+  "updated_at": "2026-05-01T17:33:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:20:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "31227ade-345f-52a5-a773-bd5fcf4fd76f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

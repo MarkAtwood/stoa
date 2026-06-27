@@ -1,0 +1,45 @@
+{
+  "id": "stoa-9dd50389",
+  "title": "Wire CredentialStore into AUTHINFO dispatch",
+  "description": "What: Replace the current check_credentials() string-equality stub in dispatch.rs with the async CredentialStore.check() call.\nAlgorithm:\n1. The current AUTHINFO PASS handling in dispatch.rs calls check_credentials() synchronously\n2. Problem: dispatch() is sync, but bcrypt verify is CPU-bound and slow\n3. Solution: Move AUTHINFO PASS handling outside dispatch into lifecycle.rs (same pattern as GROUP/OVER):\n   if let Command::AuthinfoPass(ref password) = cmd {\n       let user = match ctx.pending_auth_user.take() {\n           Some(u) => u,\n           None => { write 482; continue }\n       };\n       let ok = stores.credential_store.check(&user, password).await;\n       if ok {\n           ctx.state = SessionState::Active;\n           ctx.authenticated_user = Some(user);\n           write Response::authentication_accepted();\n       } else {\n           write Response::authentication_failed();\n       }\n       continue;\n   }\n   Similarly handle AuthinfoUser outside dispatch.\n4. Update dispatch.rs to return 500 for AUTHINFO (since it is now handled outside)\n   Or better: leave AUTHINFO USER in dispatch (just stores username in ctx.pending_auth_user) and only move PASS out\nDefensive: never log passwords; constant-time bcrypt verify always runs even on wrong username.\nAcceptance: test_authinfo_correct_password and test_authinfo_wrong_password pass; cargo test clean.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T00:33:59Z",
+  "updated_at": "2026-05-01T04:59:17Z",
+  "closed_at": "2026-04-21T01:09:31Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3ddde5e8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:28"
+    },
+    {
+      "depends_on_id": "stoa-4ac4f8b8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:28"
+    },
+    {
+      "depends_on_id": "stoa-53e41c25",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:33:58"
+    },
+    {
+      "depends_on_id": "stoa-fbfbc97b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:29"
+    },
+    {
+      "depends_on_id": "stoa-ffb311ed",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:29"
+    }
+  ]
+}

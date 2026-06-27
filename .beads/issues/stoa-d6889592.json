@@ -1,0 +1,21 @@
+{
+  "id": "stoa-d6889592",
+  "title": "SQLite insert_entry: duplicate check outside transaction (TOCTOU)",
+  "description": "group_log/sqlite_storage.rs:51-63: duplicate check runs outside transaction scope. Between the check and tx.begin(), another task can insert the same entry_id; a concurrent insert causes a DB error instead of DuplicateEntry. Also: if a parent CID insertion fails mid-transaction, the main entry row exists but parent rows do not. Fix: move tx.begin() before the duplicate check so the check and both inserts are in one transaction.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:32:45Z",
+  "updated_at": "2026-05-01T04:59:52Z",
+  "closed_at": "2026-04-21T19:06:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:32:44"
+    }
+  ]
+}

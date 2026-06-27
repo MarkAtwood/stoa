@@ -1,0 +1,12 @@
+{
+  "id": "stoa-e25a2485",
+  "title": "transit: unix_nanos() as i64 wraps in year 2262 (block_cache.rs)",
+  "description": "block_cache.rs computes unix_nanos() as u128 and casts to i64. The cast wraps silently when the value exceeds i64::MAX, which occurs around year 2262. While not an immediate concern, the wrapping cast is latent undefined behavior. Should use TryFrom or saturate.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T23:47:45Z",
+  "updated_at": "2026-05-01T04:56:19Z",
+  "closed_at": "2026-04-25T01:27:09Z"
+}

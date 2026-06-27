@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T14:35:57Z",
+  "compaction_level": 0,
+  "content_hash": "a26fab5569e5c6c5acd9b2d7b291c48dde5cd88ac72bffb4ba3a7f6465262f42",
+  "created_at": "2026-05-03T13:07:04Z",
+  "created_by": "Mark Atwood",
+  "description": "ipld/cid_util.rs does u32::try_from(header_bytes.len()).expect(\"header_bytes length must fit in u32\"). On 64-bit targets usize is 64-bit and headers will never exceed 4 GiB, so this is practically infallible. But on 32-bit targets (usize == u32), this is always fine too since usize == u32. The assert is correct but the expect message is misleading. More importantly, if headers ever exceed 4 GiB (a theoretical future concern), the process panics instead of returning an error. Consider returning Result<Cid, CidError> or using a debug_assert with a saturate fallback.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.137",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "core: cid_for_article uses .expect() for u32::try_from(header_bytes.len()); infallible on 64-bit targets but silent footgun on 32-bit",
+  "updated_at": "2026-05-03T14:35:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:07:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "0e135aa8-8386-5e3b-b256-f544b49ddf26",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

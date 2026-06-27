@@ -1,0 +1,20 @@
+{
+  "id": "stoa-4a05ca1d",
+  "title": "Explain why Capability::try_from(\"IMAP4rev2\") is used instead of a named variant",
+  "description": "In commands.rs, IMAP4rev2 is added to the capability list via Capability::try_from(\"IMAP4rev2\") while all other capabilities (IDLE, NAMESPACE, ENABLE, etc.) use typed enum variants. There is no comment explaining that the imap-types crate does not expose a dedicated Imap4Rev2 variant, leaving contributors wondering whether this is a workaround or an oversight. A one-line comment at the call site would resolve this. Same pattern applies at both call sites in the capability list and in the test assertions.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:25:08Z",
+  "updated_at": "2026-05-01T04:54:12Z",
+  "closed_at": "2026-04-30T02:52:58Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9d37d25b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:25:07"
+    }
+  ]
+}

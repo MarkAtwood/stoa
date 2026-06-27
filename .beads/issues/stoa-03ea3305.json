@@ -1,0 +1,33 @@
+{
+  "id": "stoa-03ea3305",
+  "title": "Implement IPFS pin API wrapper with retry and health check",
+  "description": "Implement PinClient with methods: pin(cid: Cid) -> Result<()>, unpin(cid: Cid) -> Result<()>, is_pinned(cid: Cid) -> bool, list_pinned() -> Vec<Cid>. Retry logic: 3 attempts with exponential backoff. Health check: ping IPFS node on startup; fail fast if unreachable. Artifact: transit/src/retention/pin_client.rs.\n\nAcceptance:\n- pin() is idempotent (pinning already-pinned CID is not an error)\n- unpin() on an unpinned CID returns Ok(()) (not an error)\n- is_pinned() returns correct value in all cases\n- list_pinned() returns all pinned CIDs (tested with known corpus)\n- Health check on startup prints warning if IPFS node unreachable (does not abort transit)",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:16:02Z",
+  "updated_at": "2026-05-01T04:58:10Z",
+  "closed_at": "2026-04-20T06:31:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3287c8c4",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:16:01"
+    },
+    {
+      "depends_on_id": "stoa-9f52c865",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:13"
+    },
+    {
+      "depends_on_id": "stoa-c9c62a23",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:54:09"
+    }
+  ]
+}

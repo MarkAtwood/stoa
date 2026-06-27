@@ -1,0 +1,21 @@
+{
+  "id": "stoa-2686d4b2",
+  "title": "DECISION: Injection provenance tests use is_peerable() as oracle not routing code",
+  "description": "injection_provenance_tests.rs tests the routing behavior of append_to_groups with the oracle being InjectionSource::is_peerable(), not the routing code under test. The test header comment explicitly states this: 'Oracle: expected presence/absence of group log entries is derived from InjectionSource::is_peerable(), which is the specification, NOT from reading the routing code under test.' The old-queue-file test also verifies that the serde default for missing injection_source is SmtpSieve (peerable), protecting against the failure mode where old queue files are silently dropped from the log. A future contributor might change the oracle to the routing code itself, making it a pure roundtrip test that cannot detect a bug in routing logic.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:16:27Z",
+  "updated_at": "2026-05-01T04:55:59Z",
+  "closed_at": "2026-04-27T15:39:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:16:26"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "stoa-a119f024",
+  "title": "GOOD: object_store startup_probe verifies PUT+DELETE permissions before accepting traffic",
+  "description": "object_store_backend.rs startup_probe(): every S3/Azure/GCS backend constructor runs a PUT then DELETE of a zero-byte probe object at startup. This fails fast if IAM permissions are missing, bucket name is wrong, or network is unreachable \u2014 before any article is accepted. The error message includes the context string (bucket, prefix, region) for easy diagnosis. Decision: correct fail-fast startup verification pattern. All backends that depend on external services should implement an equivalent probe.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:51:11Z",
+  "updated_at": "2026-05-01T04:54:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:51:11"
+    }
+  ]
+}

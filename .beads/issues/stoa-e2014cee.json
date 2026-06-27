@@ -1,0 +1,20 @@
+{
+  "id": "stoa-e2014cee",
+  "title": "usenet-ipfs-mail: JMAP core protocol",
+  "description": "Implement the RFC 8620 core protocol layer: serde types for Request/Response/Invocation/error objects, session resource endpoint (GET /jmap/session), /.well-known/jmap redirect, and method dispatch table that routes JMAP method invocations to registered handlers.\\n\\nWhy: JMAP clients require the session resource to discover capabilities and API URLs before making any method calls.\\n\\nHow to apply: all Mailbox and Email sub-epics depend on this dispatcher.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T03:37:26Z",
+  "updated_at": "2026-05-01T04:52:39Z",
+  "closed_at": "2026-04-21T04:15:00Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-19c45057",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 20:40:14"
+    }
+  ]
+}

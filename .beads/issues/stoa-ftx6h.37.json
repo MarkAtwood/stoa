@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T13:17:03Z",
+  "compaction_level": 0,
+  "content_hash": "4eac1132f28cd6c7eedbf64da5f925d58abe38b633d3af36d77dd833b7fde209",
+  "created_at": "2026-05-03T13:04:19Z",
+  "created_by": "Mark Atwood",
+  "description": "In group_log/backfill.rs, the fetch callback returns a VerifiedEntry but there is no assertion that the returned entry's computed ID matches the ID that was requested. A malicious or buggy peer can return a different valid entry for any requested ID, which will be stored in the local log under the requested ID (the fetched entry is stored keyed by what was requested, not by the returned entry's own ID). This silently corrupts the DAG by associating the wrong content with a given entry ID. The fix is to compute the entry ID from the returned entry and assert it equals the requested ID before inserting.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.37",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "core: backfill does not verify fetched entry ID matches requested ID",
+  "updated_at": "2026-05-03T13:17:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:04:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "8c40902e-2136-5b22-a086-c5dab0033534",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T22:40:30Z",
+  "compaction_level": 0,
+  "content_hash": "692fbeb8bf01d99f63049a19769b877f973fdf5c1c20938cc6eca6684b37f448",
+  "created_at": "2026-05-02T22:23:22Z",
+  "created_by": "Mark Atwood",
+  "description": "In mail/src/server.rs line 384, mta_sts_handler calls d.domain.to_lowercase() on every element in the domains list on every request. Since 'domain' is already lowercased (line 374), the comparison should use d.domain.eq_ignore_ascii_case(domain) instead, which avoids a String allocation per iteration. P2 unnecessary allocation in request handler.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.28",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Idiom review iter-4: to_lowercase() alloc per iter in mta_sts_handler",
+  "updated_at": "2026-05-02T22:40:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T15:23:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks",
+      "id": "d77b4534-3e41-5fe0-a99a-08512d08613f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

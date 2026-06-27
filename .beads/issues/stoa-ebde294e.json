@@ -1,0 +1,21 @@
+{
+  "id": "stoa-ebde294e",
+  "title": "DECISION: Reconcile BFS caps visits and results to bound unbounded DAGs",
+  "description": "reconcile() in group_log/reconcile.rs caps BFS at MAX_BFS_VISITS=5000 node visits and MAX_HAVE=1000 results, and sets partial_have=true when truncated. Both callers and tests observe this flag to schedule follow-up rounds. Why correct: without bounds, a group log DAG with millions of entries would block the async task loop building the full BFS result before sending any response. The 5x multiplier (5000 visits for 1000 results) ensures the visit budget is not exhausted before the result cap for normal linear chains. A future contributor might remove the bounds as 'premature optimization', which would introduce unbounded memory usage and task starvation on large group logs.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:11:59Z",
+  "updated_at": "2026-05-01T04:56:02Z",
+  "closed_at": "2026-04-27T16:13:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:11:58"
+    }
+  ]
+}

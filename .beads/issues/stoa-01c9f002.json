@@ -1,0 +1,20 @@
+{
+  "id": "stoa-01c9f002",
+  "title": "usenet-ipfs-mail: per-user state",
+  "description": "Implement per-user persistent state: \\Seen and \\Flagged keywords per (user, article_cid) in SQLite, Email/set update for keyword mutations, and JMAP state strings (opaque change tokens) for Email and Mailbox that increment on any write.\\n\\nWhy: JMAP clients use keywords for read/unread tracking; state strings enable incremental sync via /changes methods.\\n\\nHow to apply: depends on Email read path; state string infrastructure is also needed by Mailbox changes.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T03:37:28Z",
+  "updated_at": "2026-05-01T04:52:43Z",
+  "closed_at": "2026-04-21T04:15:01Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce64b6c5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 20:40:17"
+    }
+  ]
+}

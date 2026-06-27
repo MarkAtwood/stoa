@@ -1,0 +1,19 @@
+{
+  "id": "stoa-13e640dc",
+  "title": "SEC6: Config-time Ed25519 key validation prevents runtime signing failures",
+  "description": "dkim config validation (config.rs lines 559-595) decodes and validates seed/pubkey format and length at startup, before any signing. This prevents malformed key material from reaching drain loops where signing failures would defer or dead-letter traffic. Correct because DKIM keys are immutable once config is loaded; validation upfront is cheaper than per-sign checking.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:22:19Z",
+  "updated_at": "2026-05-01T04:55:20Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0b13a613",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:22:18"
+    }
+  ]
+}

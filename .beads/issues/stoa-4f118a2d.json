@@ -1,0 +1,20 @@
+{
+  "id": "stoa-4f118a2d",
+  "title": "RadosStore Debug impl shows no identifying info",
+  "description": "RadosStore Debug fmt just writes 'RadosStore', unlike RocksStore which shows the path. A future maintainer debugging multi-backend configs can't distinguish which pool this store is connected to from logs. Fix: store cfg.pool in the struct and show it in Debug: write!(f, 'RadosStore(pool={})', self.pool)",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T04:34:00Z",
+  "updated_at": "2026-05-01T05:00:20Z",
+  "closed_at": "2026-04-28T04:39:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3e19dbfc",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 21:33:59"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-69b545bf",
+  "title": "Misleading test name: groupfilter_negation_excludes_first_match",
+  "description": "In crates/core/src/wildmat.rs, the test name 'groupfilter_negation_excludes_first_match' (line 228) is misleading. The test exercises that '\\!alt.binaries.*' causes 'alt.binaries.pictures' to be rejected \u2014 it is testing negation semantics, not 'first match' semantics. The phrase 'first_match' implies the exclusion is because the negated pattern appears before some other pattern that would have matched; a reader unfamiliar with the filter logic will re-read the filter list trying to understand which first match is being excluded. A name like 'groupfilter_negation_excludes_matching_name' or 'groupfilter_negated_pattern_rejects_group' would be unambiguous.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:30:41Z",
+  "updated_at": "2026-05-01T05:00:09Z",
+  "closed_at": "2026-04-28T10:19:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:30:41"
+    }
+  ]
+}

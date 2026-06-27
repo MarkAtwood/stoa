@@ -1,0 +1,21 @@
+{
+  "id": "stoa-3eb7147c",
+  "title": "lmdb: LmdbBlockDb missing Debug and Clone derives",
+  "description": "crates/lmdb/src/lib.rs \u2014 LmdbBlockDb does not derive Debug or Clone. Debug is standard for all public types; Clone is not applicable here (environment cannot be cheaply cloned) but Debug should be implemented to allow {:?} in error contexts. A manual Debug impl showing the canonical_path would suffice and be more informative than the default absence.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:27:58Z",
+  "updated_at": "2026-05-01T04:53:12Z",
+  "closed_at": "2026-04-28T17:40:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:27:58"
+    }
+  ]
+}

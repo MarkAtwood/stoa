@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T05:12:05Z",
+  "compaction_level": 0,
+  "content_hash": "55ad8e21c60ef67a54ec6aa315f13b99d942e8b07f6195ba563ce762937866ec",
+  "created_at": "2026-05-04T05:06:20Z",
+  "created_by": "Mark Atwood",
+  "description": "pipeline.rs:721-724 and rnews_main.rs:292: SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() silently falls back to 0 on a clock before Unix epoch. For ingested_at_ms (the GC ledger timestamp), storing 0 means the GC grace period has already expired at the moment of insert \u2014 the decision comment at lines 705-713 explicitly warns that a backwards timestamp would let GC immediately evict a just-ingested article. The fallback must either tracing::error! + return Err(PipelineError::Transient(...)) or use .expect() with a message that would appear in logs. The same pattern occurs in rnews_main.rs:292 (per-article HLC timestamp). Idiomatic fix: .map_err(|e| PipelineError::Transient(format!(\"system clock before epoch: {e}\")))?   or at minimum: .unwrap_or_else(|_| { tracing::error!(\"system clock before Unix epoch; ingested_at_ms=0 will corrupt GC\"); 0 })",
+  "ephemeral": 0,
+  "id": "stoa-xrd4u.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "pipeline: unwrap_or_default on SystemTime silently stores ingested_at_ms=0",
+  "updated_at": "2026-05-04T05:12:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T22:06:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-xrd4u",
+      "id": "616457b0-a2a4-5618-8783-0c889ed2bf2a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

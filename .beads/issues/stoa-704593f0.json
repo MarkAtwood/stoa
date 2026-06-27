@@ -1,0 +1,19 @@
+{
+  "id": "stoa-704593f0",
+  "title": "GOOD: Ed25519 verify_strict rejects malleable signatures",
+  "description": "stoa-verify uses ed25519_dalek::VerifyingKey::verify_strict() rather than verify(). verify_strict enforces RFC 8032 cofactor clearing and rejects the small-subgroup signatures that verify() accepts. This prevents signature malleability attacks on article authentication. Correct choice; do not downgrade to verify().",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:55:04Z",
+  "updated_at": "2026-05-01T04:54:41Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:55:03"
+    }
+  ]
+}

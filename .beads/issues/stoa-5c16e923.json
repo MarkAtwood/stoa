@@ -1,0 +1,21 @@
+{
+  "id": "stoa-5c16e923",
+  "title": "auth/store.rs: timing-safe unknown-user verification correctly defended",
+  "description": "CredentialStore.check always runs bcrypt::verify against either the real hash or a precomputed dummy hash at the same cost factor. The dummy hash is computed at startup from the actual configured hashes' cost factor, not a hardcoded constant. This correctly prevents both the username-existence timing oracle and the cost-mismatch timing oracle. A future contributor might suggest short-circuiting to return false early for unknown users to 'save CPU' \u2014 this would reintroduce the timing oracle and must be rejected.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T06:00:49Z",
+  "updated_at": "2026-05-01T04:51:29Z",
+  "closed_at": "2026-04-27T16:58:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-18ecb995",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 23:00:49"
+    }
+  ]
+}

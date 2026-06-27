@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T14:37:50Z",
+  "compaction_level": 0,
+  "content_hash": "4d59549a89cd1fd5beec32c52ec8101e7d58dbe4c70ad0be8c9ef651e283bdc5",
+  "created_at": "2026-05-03T13:07:27Z",
+  "created_by": "Mark Atwood",
+  "description": "validate_script enforces MAX_VALIDATE_DEPTH at compile time. eval_if and eval_elsif_else are mutually recursive with no runtime depth counter. If the compile-time validation is ever bypassed (e.g. a CompiledScript is constructed by some future deserialization path, or a bug in validate_stmt causes it to not recurse into a nested block), a deeply nested script could stack-overflow the evaluator. Adding a runtime depth counter to eval_if matching the compile-time limit would close this gap defensively.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.147",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve-native: eval_if and eval_elsif_else recurse without depth limit; stack overflow if compile guard bypassed",
+  "updated_at": "2026-05-03T14:37:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:07:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "0c6440e3-689e-5691-9af5-8776681b57f3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

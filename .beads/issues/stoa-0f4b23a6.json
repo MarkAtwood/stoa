@@ -1,0 +1,21 @@
+{
+  "id": "stoa-0f4b23a6",
+  "title": "imap config: ImapConfig struct and TOML loading",
+  "description": "Create crates/imap/src/config.rs. Define: struct ImapConfig { listen: ListenConfig, tls: TlsConfig, auth: usenet_ipfs_auth::AuthConfig, database: DatabaseConfig, limits: LimitsConfig, log: LogConfig }. struct ListenConfig { addr: String }. struct TlsConfig { cert_path: Option<String>, key_path: Option<String> }. struct DatabaseConfig { path: String (default 'imap.db'), pool_size: u32 (default 4) }. struct LimitsConfig { max_connections: usize (default 200), command_timeout_secs: u64 (default 30), max_message_bytes: u64 (default 26214400 = 25MB) }. struct LogConfig { level: String (default 'info'), format: String (default 'text') }. impl ImapConfig { pub fn from_file(path: &Path) -> Result<Self, String> { read file, toml::from_str, map_err } pub fn validate(&self) -> Result<(), String> { check TLS cert+key both set or both absent; check listen addr parses as SocketAddr } }. All structs #[derive(Debug, Deserialize)], all defaults via #[serde(default = \"func_name\")].",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T07:16:30Z",
+  "updated_at": "2026-05-01T04:56:23Z",
+  "closed_at": "2026-04-23T07:24:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3741bca1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:16:29"
+    }
+  ]
+}

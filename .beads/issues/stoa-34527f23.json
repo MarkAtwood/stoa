@@ -1,0 +1,19 @@
+{
+  "id": "stoa-34527f23",
+  "title": "hardcoded user_id=1 in production paths",
+  "description": "Production code passes literal 1 as user_id parameter to list_subscribed(), handle_mailbox_set(), and handle_keyword_update(). This is a correctness bomb: a typo (e.g. 2 instead of 1) would silently route operations to wrong user. Must be defined as a constant (e.g. const SINGLETON_USER_ID: i64 = 1) and used throughout.\n\nAffected locations:\n- crates/mail/src/server.rs:441 list_subscribed(1)\n- crates/mail/src/server.rs:506 handle_mailbox_set(..., 1, ...)\n- crates/mail/src/server.rs:756 handle_keyword_update(..., 1, ...)\n\nAll calls to these functions pass 1 as user_id: grep -rn 'list_subscribed(1)\\|handle_mailbox_set.*1\\|handle_keyword_update.*1' crates/mail/src/server.rs",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T07:09:26Z",
+  "updated_at": "2026-05-01T04:53:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-17ee367f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 00:09:26"
+    }
+  ]
+}

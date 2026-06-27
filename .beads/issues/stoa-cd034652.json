@@ -1,0 +1,20 @@
+{
+  "id": "stoa-cd034652",
+  "title": "Fail2ban: filter file and docs/ops/ entry",
+  "description": "Write docs/ops/fail2ban-nntp.conf: a fail2ban filter definition that matches the event=auth_failure JSON log lines. Test the filter with fail2ban-regex against sample log output. Also write docs/ops/fail2ban-jmap.conf for JMAP auth failures. Blocked on: stoa-584fdb58.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:43:06Z",
+  "updated_at": "2026-05-01T04:59:31Z",
+  "closed_at": "2026-04-27T19:55:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-584fdb58",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:44:38"
+    }
+  ]
+}

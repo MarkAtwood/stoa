@@ -1,0 +1,20 @@
+{
+  "id": "stoa-28517993",
+  "title": "Admin CLI: ctl peers and ctl groups commands",
+  "description": "ctl peers: GET /admin/peers, display per-peer connected status, last-seen, articles sent/received in a table. ctl groups: GET /admin/stats (groups section), display group name, article count, log tip CID. Both support --json flag. Blocked on: stoa-4640ef2a.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:46:06Z",
+  "updated_at": "2026-05-01T04:51:53Z",
+  "closed_at": "2026-04-24T07:17:21Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4a899c3f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:00:53"
+    }
+  ]
+}

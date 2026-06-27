@@ -1,0 +1,21 @@
+{
+  "id": "stoa-28c69a73",
+  "title": "GcArticleRecord and GcCandidate are parallel types never joined in production",
+  "description": "## Why this issue exists\n\nTwo structurally identical types exist across the GC subsystem with no conversion between them and no production code that joins them:\n\n- `GcArticleRecord` (gc_candidates.rs): returned by `select_gc_candidates`, which already filters by policy\n- `GcCandidate` (gc.rs): consumed by `GcRunner::run_once`, which re-evaluates policy on the same candidates\n\n`select_gc_candidates` evaluates `policy.should_pin` to exclude pinned articles, then returns `GcArticleRecord`. `GcRunner::run_once` takes `&[GcCandidate]` and also evaluates `policy.should_pin`. Policy is evaluated twice on the same data.\n\nThere is no `From<GcArticleRecord> for GcCandidate` or any other conversion. No production path in main.rs calls `select_gc_candidates` and passes the result to `run_once` \u2014 the two halves exist only in their own tests.\n\n## What needs to be done\n\nEither:\n1. Merge into one type (`GcCandidate` or `GcArticleRecord`), remove the duplicate policy evaluation, and wire the production path in main.rs\n2. Add `impl From<GcArticleRecord> for GcCandidate` so the seam is explicit and the compiler enforces that field additions propagate\n\nThe real fix is option 1: the policy evaluation in `select_gc_candidates` should be removed (let the DB query return all out-of-grace-period articles), the two types should be merged, and `run_once` or the scheduler wrapper becomes the single policy evaluation point.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T06:05:34Z",
+  "updated_at": "2026-05-01T04:54:03Z",
+  "closed_at": "2026-04-27T17:15:11Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-35ec26bb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 23:05:34"
+    }
+  ]
+}

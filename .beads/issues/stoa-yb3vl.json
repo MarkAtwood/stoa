@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "196261d8d373ca401149bd2710bb265ccb347852389e38dbc0fc04ad196cbf84",
+  "created_at": "2026-06-13T06:36:16Z",
+  "created_by": "Mark Atwood",
+  "description": "Both return cannotCalculateChanges. Clients fall back to full re-fetch instead of incremental sync. Needs a change tracking mechanism for mailbox and thread state. RFC 8621 sections 2.2, 4.2.",
+  "ephemeral": 0,
+  "id": "stoa-yb3vl",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Implement Mailbox/changes and Thread/changes",
+  "updated_at": "2026-06-13T06:36:16Z"
+}

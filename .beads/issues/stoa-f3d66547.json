@@ -1,0 +1,20 @@
+{
+  "id": "stoa-f3d66547",
+  "title": "usenet-ipfs-mail: Mailbox support",
+  "description": "Implement JMAP Mailbox objects backed by newsgroups: Mailbox/get, Mailbox/query, Mailbox/changes (stub), and per-user subscription tracking in SQLite. Each newsgroup maps to one Mailbox; id is a stable hash of the group name.\\n\\nWhy: JMAP clients need to enumerate mailboxes before querying emails; subscriptions let users choose which groups to track.\\n\\nHow to apply: Email methods depend on Mailbox ids being resolvable.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T03:37:26Z",
+  "updated_at": "2026-05-01T04:52:38Z",
+  "closed_at": "2026-04-21T04:15:01Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e2014cee",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 20:40:15"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-43c3b9b7",
+  "title": "sentinel file removal error silently ignored in new()",
+  "description": "new() writes and then removes .write_test sentinel files (lines 82, 94). The removal failure is silently discarded with 'let _ = ...' \u2014 no log, no return value. If removal fails (permission race, full filesystem during cleanup), the sentinel file persists in the queue and dead/ dirs permanently. A future drain scan won't misidentify it (no .env extension), but it will confuse operators doing manual inspection. Should at least warn! on removal failure.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:18:29Z",
+  "updated_at": "2026-05-01T04:59:13Z",
+  "closed_at": "2026-05-01T01:23:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-81b33f87",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:18:29"
+    }
+  ]
+}

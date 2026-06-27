@@ -1,0 +1,39 @@
+{
+  "id": "stoa-46275fb7",
+  "title": "E2E: POST article -> GROUP -> OVER -> ARTICLE returns real data",
+  "description": "What: End-to-end integration test proving the full data flow: POST an article, then GROUP shows it, OVER lists it, ARTICLE fetches it.\nAlgorithm:\n1. In crates/reader/tests/, create integration test e2e_data_flow.rs:\n   a. Create ServerStores::new_mem() (no real IPFS)\n   b. Start a listener on 127.0.0.1:0 (random port)\n   c. Post a test article: telnet-style write RFC 5536 headers + body\n   d. Send GROUP comp.test -> verify 211 response with count=1\n   e. Send OVER -> verify 224 response with the article subject\n   f. Send ARTICLE <message-id> -> verify 220 response with article body\n2. Use tokio::test with a timeout to prevent hangs\n3. Article: From: test@example.com, Subject: Test Article, Newsgroups: comp.test, Message-ID: <test-e2e@example.com>\nDefensive: test should use MemIpfsStore (no real IPFS node needed); test should clean up the port listener on completion.\nAcceptance: cargo test e2e_data_flow passes; no panics; no test-only code in production paths.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T00:34:08Z",
+  "updated_at": "2026-05-01T04:59:21Z",
+  "closed_at": "2026-04-21T01:17:10Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-09cec91a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:33"
+    },
+    {
+      "depends_on_id": "stoa-53e41c25",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:08"
+    },
+    {
+      "depends_on_id": "stoa-7c876caa",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:33"
+    },
+    {
+      "depends_on_id": "stoa-9dd50389",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:34"
+    }
+  ]
+}

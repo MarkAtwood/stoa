@@ -1,0 +1,12 @@
+{
+  "id": "stoa-3897fd64",
+  "title": "metrics.rs uses lazy_static instead of std::sync::OnceLock",
+  "description": "metrics.rs uses lazy_static for Prometheus statics. Rust 1.80 provides std::sync::LazyLock. The lazy_static::initialize calls in gather_metrics are redundant.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:30:23Z",
+  "updated_at": "2026-05-01T04:59:59Z",
+  "closed_at": "2026-04-28T21:02:02Z"
+}

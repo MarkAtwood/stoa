@@ -1,0 +1,26 @@
+{
+  "id": "stoa-ec0eafa3",
+  "title": "b1bc.3: DkimConfig validation in Config::validate()",
+  "description": "What: Add validation logic for DeliveryConfig.dkim in the Config validation path in crates/smtp/src/config.rs.\n\nAlgorithm:\n1. In Config::validate() (or equivalent), if delivery.dkim is Some(ref dcfg):\n   a. Check dcfg.domain is non-empty \u2014 return ConfigError::Validation if empty.\n   b. Check dcfg.selector is non-empty \u2014 return ConfigError::Validation if empty.\n   c. Decode dcfg.key_seed_b64 with base64::engine::general_purpose::STANDARD.decode() \u2014 return ConfigError::Validation if invalid base64.\n   d. Check decoded seed is exactly 32 bytes \u2014 return ConfigError::Validation if wrong length.\n   e. Decode dcfg.public_key_b64 with base64 \u2014 return ConfigError::Validation if invalid base64.\n   f. Check decoded public key is exactly 32 bytes \u2014 return ConfigError::Validation if wrong length.\n   g. Immediately zeroize the decoded seed bytes with .zeroize() from the zeroize crate.\n2. If delivery.dkim is None, validation passes silently.\n\nDefensive programming:\n- Zeroize decoded seed bytes immediately after length check (step 1g).\n- Error messages must NOT include the actual base64 content of key_seed_b64.\n- Return typed ConfigError variants, never panic.\n\nTests (independent oracle: known base64-encoded 32-byte sequences):\n- test_dkim_config_valid: domain='example.com', selector='default', 32-byte seed and pubkey both encoded \u2014 validate() returns Ok.\n- test_dkim_config_missing_domain: domain='' \u2014 validate() returns Err containing 'domain'.\n- test_dkim_config_bad_seed_length: seed_b64 is 16 bytes encoded (too short) \u2014 validate() returns Err containing 'seed'.\n- test_dkim_config_bad_pubkey_length: pubkey_b64 is 64 bytes encoded (too long) \u2014 validate() returns Err containing 'public_key'.\n- test_dkim_config_absent: delivery.dkim = None \u2014 validate() returns Ok.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T22:50:54Z",
+  "updated_at": "2026-05-01T04:55:22Z",
+  "closed_at": "2026-04-30T22:58:48Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-15b2769f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 15:50:54"
+    },
+    {
+      "depends_on_id": "stoa-3a392777",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 15:52:11"
+    }
+  ]
+}

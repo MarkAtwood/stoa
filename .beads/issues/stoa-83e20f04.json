@@ -1,0 +1,20 @@
+{
+  "id": "stoa-83e20f04",
+  "title": "backfill BFS has no entry-count limit \u2014 OOM via adversarial peer",
+  "description": "## Why this issue exists\n\nIn crates/core/src/group_log/backfill.rs, the backfill() function fetches log entries from a remote peer using a BFS loop. There is no bound on the total number of entries fetched \u2014 the loop terminates only when the BFS frontier is empty or every visited entry already exists locally.\n\nAn adversarial (or buggy) peer can serve a DAG with millions of entries. Each entry is held in memory as a LogEntry (Vec of parent CIDs), plus the BFS frontier queue, producing unbounded heap growth. There is no timeout and no entry-count circuit-breaker.\n\n## What breaks\n\nA single malicious peer can exhaust process heap and crash stoa-transit. Because backfill is triggered on peering, this is reachable from the network without authentication.\n\n## Fix direction\n\nAdd a MAX_BACKFILL_ENTRIES constant (e.g. 50000, same order as MAX_BFS_VISITS in reconcile.rs) and return a partial-backfill error when the limit is hit. Reconcile already has MAX_BFS_VISITS=5000; backfill should match that discipline.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T06:00:11Z",
+  "updated_at": "2026-05-01T04:56:56Z",
+  "closed_at": "2026-04-27T06:35:02Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-a805d881",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 23:00:11"
+    }
+  ]
+}

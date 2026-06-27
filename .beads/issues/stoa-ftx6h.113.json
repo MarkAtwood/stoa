@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "f207f3f8f31a352e5fbc0fe7add8ee1b65bb28293ac537d5777374e839cecf41",
+  "created_at": "2026-05-03T13:06:21Z",
+  "created_by": "Mark Atwood",
+  "description": "AuditEvent derives #[serde(tag = \"type\", rename_all = \"snake_case\")] and also has an inherent event_type() method that manually maps each variant to a string. The two must be kept in sync by hand. The method should call serde_json::to_value(self) and extract the 'type' field, or the method should be removed in favour of extracting the tag from the serialized form. Either way the duplication is a maintenance hazard.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.113",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "core: AuditEvent::event_type() duplicates the serde tag strings",
+  "updated_at": "2026-05-03T13:06:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "60113cd7-9582-5ebb-901d-650fe68cd102",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

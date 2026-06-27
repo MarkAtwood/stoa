@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T16:21:23Z",
+  "compaction_level": 0,
+  "content_hash": "a98c422ee16503f52daab2cb93fb9582bdec9a4ec23acbbfc83c4828c5b65f32",
+  "created_at": "2026-05-01T15:20:17Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: cli/ops.rs cmd_status takes a single pool parameter and uses it to query msgid_map. msgid_map lives in the core DB (core_pool), not the transit DB. Bad behavior: article count in 'stoa-transit status' always returns 0 or a database error because the transit DB has no msgid_map table. Operators see incorrect status output.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.42",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "cmd_status queries msgid_map from transit pool instead of core pool",
+  "updated_at": "2026-05-01T16:21:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:20:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "bb176b2d-07cd-5fca-b073-bef030a91114",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

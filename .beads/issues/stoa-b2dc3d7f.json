@@ -1,0 +1,12 @@
+{
+  "id": "stoa-b2dc3d7f",
+  "title": "transit: peer rate limiter params hardcoded (100 rps, burst 200)",
+  "description": "Why: PeerRateLimiter::new(100.0, 200, ...) in main.rs:281-283 hardcodes the sustained rate (articles/sec) and burst capacity. Operators running high-volume transit nodes or restrictive test environments need to tune these without recompiling.\\n\\nWhat: Add [peering] rate_limit_articles_per_sec (default 100.0) and rate_limit_burst (default 200) to TransitConfig; wire into PeerRateLimiter construction in main.rs.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T01:50:47Z",
+  "updated_at": "2026-05-01T04:55:31Z",
+  "closed_at": "2026-04-22T22:53:45Z"
+}

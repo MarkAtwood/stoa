@@ -1,0 +1,21 @@
+{
+  "id": "stoa-180b85bc",
+  "title": "admin.rs extract_query_param does not URL-decode percent-encoded values",
+  "description": "## What / Why\ncrates/transit/src/admin.rs extract_query_param() splits query strings on '&' and '=' to extract parameter values but does not percent-decode them. Query parameters from HTTP clients that encode values (e.g. a group name containing '+' or a CID with special characters) will be passed to downstream functions with the raw encoded form, causing lookup misses or unexpected behavior.\n\n## Risk\nAn operator using the admin API with URL-encoded parameters (e.g. from curl's automatic encoding) will silently get wrong results with no error, making the API unreliable for automation.\n\n## Fix\nApply percent-decoding (e.g. urlencoding::decode or percent_encoding::percent_decode_str) to extracted values before returning them. Already imported percent_encoding in crates/ctl/src/main.rs for this purpose.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T03:08:37Z",
+  "updated_at": "2026-05-01T04:59:11Z",
+  "closed_at": "2026-04-27T04:04:17Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e2297bae",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 20:08:36"
+    }
+  ]
+}

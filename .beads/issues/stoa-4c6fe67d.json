@@ -1,0 +1,21 @@
+{
+  "id": "stoa-4c6fe67d",
+  "title": "Duplicate pipeline drain logic in transit main.rs",
+  "description": "crates/transit/src/main.rs contains two nearly-identical drain task bodies: the ingestion drain task (starts around line 716) and the staging drain task (starts around line 835). Both blocks build a PipelineCtx, call run_pipeline, notify the IPNS publisher, and enqueue CIDs for external pinning services. The staging variant adds only staging.complete() and different error handling. This duplication is ~80 lines of substantively identical logic repeated twice. Any future change to pipeline post-processing (new IPNS behavior, new pinning logic, new metrics) must be made in two places. The common logic should be extracted into a named async function (e.g. process_pipeline_result) that both drain tasks call. The fn signature would take the pipeline result, IPNS sender, pin service filters, and transit pool. This is the right time to refactor before the two paths diverge further.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:30:30Z",
+  "updated_at": "2026-05-01T05:00:13Z",
+  "closed_at": "2026-04-27T00:38:43Z",
+  "notes": "Pre-existing issue, not caused by wildmat epic. Tracked separately as stoa-e2e58471.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:30:30"
+    }
+  ]
+}

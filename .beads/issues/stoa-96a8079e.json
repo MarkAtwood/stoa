@@ -1,0 +1,20 @@
+{
+  "id": "stoa-96a8079e",
+  "title": "Reader: group metadata cache and read-path optimization",
+  "description": "The LIST ACTIVE command returns all groups; GROUP returns article count and range; OVER returns overview data. All of these hit SQLite on every request. A short-lived in-memory cache for group metadata (count, low, high, description) reduces SQLite load under read-heavy workloads without stale data risk.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:46:02Z",
+  "updated_at": "2026-05-01T04:54:57Z",
+  "closed_at": "2026-04-20T12:29:43Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-a910128d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:46:02"
+    }
+  ]
+}

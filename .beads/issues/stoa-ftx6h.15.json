@@ -1,0 +1,33 @@
+{
+  "close_reason": "Not a bug: group_range uses SELECT MIN/MAX so low=MIN(article_number) is always the first valid article \u2014 no gap below low is possible. Pointer correctly set to Some(low).",
+  "closed_at": "2026-05-03T13:57:23Z",
+  "compaction_level": 0,
+  "content_hash": "5685d4e366e08dc251ef2868f5280935c3b702dfc774a6feb57d0eaec04bb55f",
+  "created_at": "2026-05-03T13:02:15Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_group_live() sets article_number to Some(low) when count > 0. RFC 3977 \u00a76.1.1 says the article pointer is set to the first article in the group when GROUP succeeds but does NOT say the pointer is set to low. If articles have been deleted (gaps), low may not be a valid article number. NEXT/LAST from a stale low pointer would return 421/422 or miss articles. RFC 3977 \u00a76.1.1: 'The server MUST set the article pointer to the first article in the group.' This should be the actual first valid article number, not necessarily the low watermark.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "GROUP with article_number sets pointer to low, not undefined",
+  "updated_at": "2026-05-03T13:57:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:02:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "54a5ff5b-9b05-5b23-a46b-b48e82d705f7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

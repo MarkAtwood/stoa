@@ -1,0 +1,21 @@
+{
+  "id": "stoa-2c5392d3",
+  "title": "DB migration: remote_pin_jobs table in transit DB",
+  "description": "What: Add remote_pin_jobs table to track external pinning job state.\n\nAlgorithm:\n1. Create crates/transit/migrations/20260104000002_remote_pin_jobs.sql:\n\nCREATE TABLE IF NOT EXISTS remote_pin_jobs (\n    id              INTEGER  PRIMARY KEY AUTOINCREMENT,\n    cid             TEXT     NOT NULL,\n    service_name    TEXT     NOT NULL,\n    status          TEXT     NOT NULL DEFAULT 'pending',\n    request_id      TEXT,           -- service-assigned ID from POST /pins response\n    submitted_at_ms INTEGER,        -- when POST /pins was sent\n    last_attempt_ms INTEGER,        -- when status was last checked\n    attempt_count   INTEGER NOT NULL DEFAULT 0,\n    error           TEXT            -- last error message if failed\n);\nCREATE INDEX IF NOT EXISTS idx_rpj_status ON remote_pin_jobs (status);\nCREATE INDEX IF NOT EXISTS idx_rpj_cid ON remote_pin_jobs (cid);\nCREATE UNIQUE INDEX IF NOT EXISTS idx_rpj_cid_service ON remote_pin_jobs (cid, service_name);\n\nStatus values: 'pending' (not yet submitted), 'queued' (submitted, waiting), 'pinning' (in progress), 'pinned' (done), 'failed' (permanent failure after max attempts)\n\n2. Register migration in transit migration runner (follow existing pattern in crates/transit/src/migrations.rs or wherever migrations are run for the transit pool)\n\nDefensive programming:\n- UNIQUE index on (cid, service_name) prevents duplicate jobs\n- status DEFAULT 'pending' makes insertion simple\n- request_id is NULL until service responds to POST /pins",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T05:35:43Z",
+  "updated_at": "2026-05-01T04:57:06Z",
+  "closed_at": "2026-04-23T05:45:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-56c514a3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 22:35:43"
+    }
+  ]
+}

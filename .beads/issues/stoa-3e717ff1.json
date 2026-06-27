@@ -1,0 +1,12 @@
+{
+  "id": "stoa-3e717ff1",
+  "title": "upgrade yamux once libp2p/rust-libp2p#5410 is resolved",
+  "description": "## Why\nlibp2p-yamux v0.47.0 (current latest) is pinned to yamux 0.12.1, which has a high-severity remote panic vulnerability (CVE: malformed Data frame with SYN set). The fix is in yamux 0.13.10, but upgrading is blocked upstream by a deadlock bug in libp2p_stream.\n\nUpstream tracking issue: https://github.com/libp2p/rust-libp2p/issues/5410\n\n## What\nWhen rust-libp2p#5410 is closed and libp2p-yamux releases a version depending on yamux ^0.13:\n- Run `cargo update -p yamux` (or update the libp2p version pin in Cargo.toml)\n- Verify `cargo tree -p stoa-transit | grep yamux` shows only 0.13.x\n- Run full test suite\n- Dismiss the GitHub Dependabot alerts for yamux\n\n## Note\nSubscribe to https://github.com/libp2p/rust-libp2p/issues/5410 for upstream progress.",
+  "status": "deferred",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T16:21:29Z",
+  "updated_at": "2026-05-01T04:51:55Z",
+  "notes": "Dependabot alerts #1, #3, #18 on MarkAtwood/stoa are all this same issue."
+}

@@ -1,0 +1,19 @@
+{
+  "id": "stoa-76eb9c75",
+  "title": "reconcile fetches full LogEntry to read parent_cids \u2014 wasteful over network",
+  "description": "reconcile.rs calls storage.get_entry() to obtain parent_cids for each entry during DAG traversal. get_entry fetches hlc_timestamp, article_cid, operator_signature, and parent_cids \u2014 all four fields \u2014 when only parent_cids is needed. A dedicated get_parent_cids(id) -> Result<Option<Vec<Cid>>> method on LogStorage would return only the log_entry_parents rows, reducing bytes deserialized per hop in potentially deep reconciliation chains.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:37:59Z",
+  "updated_at": "2026-05-01T04:55:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:37:59"
+    }
+  ]
+}

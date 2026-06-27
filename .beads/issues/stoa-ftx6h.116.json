@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "52de0c90fc67f0ba8d624826950c39f415783c39a3d411330aa2f726031ec5ed",
+  "created_at": "2026-05-03T13:06:27Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this issue exists: token_store.rs verify() fetches the stored token hash from SQLite using the hash of the presented token as the lookup key, then performs a subtle::ConstantTimeEq comparison between the stored hash and the presented hash. Since the SQL WHERE clause already selected by exact hash equality, if a row is returned the hashes are identical by database invariant. The CT comparison is redundant (though harmless).\n\nWhat needs to be done: Remove the CT comparison \u2014 it provides no security benefit here because the database already performed an equality check. Add a comment explaining why CT comparison is not needed: the SQL lookup is keyed on the hash; if a row is returned, equality is guaranteed by the DB. Note: the existing subtle::ConstantTimeEq usage in the admin bearer token path (stoa admin servers) IS correct and should not be removed \u2014 this finding is specific to token_store.rs only.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.116",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "idiom: token_store ct_eq comparison is redundant after hash-keyed SQL lookup",
+  "updated_at": "2026-05-03T13:06:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "fc69e7c0-7644-515b-9416-17b35a6f88fd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

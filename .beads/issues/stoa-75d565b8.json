@@ -1,0 +1,20 @@
+{
+  "id": "stoa-75d565b8",
+  "title": "dkim_e2e relay test duplicates nntp test \u2014 no distinct coverage",
+  "description": "dkim_e2e.rs: test_e2e_relay_dkim_header_prepended and test_e2e_nntp_dkim_header_prepended are byte-for-byte identical in their oracle (same TEST_MESSAGE, same signer, same assertions). Neither calls production drain code. The only difference is the doc comment. Two tests that assert identical properties on identical input with identical code provide zero additional coverage; one of them should be deleted, and the remaining one should be named for what it actually tests (mail_auth DkimSigner output shape) rather than for a production code path it does not exercise.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:53:30Z",
+  "updated_at": "2026-05-01T04:58:27Z",
+  "closed_at": "2026-04-30T23:57:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-64675b0e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:53:29"
+    }
+  ]
+}

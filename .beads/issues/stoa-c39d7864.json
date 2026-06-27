@@ -1,0 +1,20 @@
+{
+  "id": "stoa-c39d7864",
+  "title": "dot_stuff produces wrong output for data ending without CRLF",
+  "description": "In fetch.rs dot_stuff(), when the last line has no CRLF (i.e. raw body data not terminated by \\r\\n), the condition on line 53 is: pos + advance <= data.len() && advance > line.len(). On the final line without CRLF, advance == line.len() (the else branch at line 46 sets advance = data.len() - pos, and line = &data[pos..]), so advance > line.len() is false and no CRLF is appended. This is correct \u2014 the final partial line is reproduced exactly as-is. However, the test corpus in test_content() has body_bytes ending with \\r\\n (b'Hello\\r\\n.dotted line\\r\\n'), so the partial-line path is not tested. When IPFS block store contains article body bytes that do not end with \\r\\n (e.g. stored by an old version), the final line of an ARTICLE or BODY response will not have \\r\\n appended before the dot terminator, violating RFC 3977 \u00a73.1.1.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:58:13Z",
+  "updated_at": "2026-05-01T05:00:09Z",
+  "closed_at": "2026-04-27T06:47:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-650091d3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 22:58:13"
+    }
+  ]
+}

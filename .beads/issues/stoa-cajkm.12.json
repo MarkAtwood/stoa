@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T08:11:02Z",
+  "compaction_level": 0,
+  "content_hash": "50ffa3fc40dbd90b95c1cf0c2913e9f354952d75be7ead720c1aee07f5283bde",
+  "created_at": "2026-05-04T08:04:37Z",
+  "created_by": "Mark Atwood",
+  "description": "Finding: The 10-line RuntimeEnvironment banner block is copy-pasted identically into all five daemon main.rs files: reader/src/main.rs lines 313-328, transit/src/main.rs lines 516-531, mail/src/main.rs lines 58-73, smtp/src/main.rs lines 61-76, imap/src/main.rs lines 57-72. All five call RuntimeEnvironment::from_env(), then emit a warn!() with the same fields (environment, binary, version) and the same string 'runtime environment: development mode active \u2014 do not use in production', or info!() with 'runtime environment: production'.\n\nRisk: Any change to the banner \u2014 adding a new structured field (e.g. git_sha), changing the log level for production from info to debug, or adding the STOA_ENV env var name to the dev-mode warning \u2014 requires 5 separate identical edits. Missing one produces an inconsistent operator experience (one daemon logs differently from the others) that is hard to notice in a log aggregator.\n\nSuggested fix: Add a pub fn log_startup_environment() (or similar) to stoa_core that wraps this block. Each main.rs calls it in one line after the tracing subscriber is initialized. The function already has access to env!() macros if the call site passes binary/version as parameters, or it can accept them. All five crates already depend on stoa_core.",
+  "ephemeral": 0,
+  "id": "stoa-cajkm.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Startup banner block duplicated verbatim across 5 main.rs files",
+  "updated_at": "2026-05-04T08:11:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T01:04:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-cajkm",
+      "id": "27b01c85-710c-5847-b1cb-3b6f9dc87e76",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

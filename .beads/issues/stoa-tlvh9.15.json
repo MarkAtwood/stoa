@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "a0eb1fb37ef1ec808678a13979445c97822816bf80f0160fcb9550fd04ce3437",
+  "created_at": "2026-05-04T03:19:22Z",
+  "created_by": "Mark Atwood",
+  "description": "import/rnews.rs:227-248 and tests/rnews_ingest.rs:52-73 \u2014 make_article() and make_batch() are copy-pasted between the unit tests inside the parser module and the integration test. They are currently identical but will drift as soon as either file is touched. A format change (e.g. different Date header, CRLF vs LF) fixed in one place will leave the other silently producing subtly different fixtures. Better approach: move make_article and make_batch into a shared test-fixtures module (e.g. transit/src/import/test_fixtures.rs, cfg(test)) or into a common dev-dependency crate, and import from both test sites.",
+  "ephemeral": 0,
+  "id": "stoa-tlvh9.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "make_article/make_batch test helpers duplicated",
+  "updated_at": "2026-05-04T03:19:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T20:19:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-tlvh9",
+      "id": "6aeb6ac6-e207-51e7-b4b5-abcfe81c07f6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

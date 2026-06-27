@@ -1,0 +1,32 @@
+{
+  "compaction_level": 0,
+  "content_hash": "d6884635967ebf6ff08f37d7943004fa6a5f6b6bb17c84a23b3b703059ac2e7e",
+  "created_at": "2026-05-04T05:05:40Z",
+  "created_by": "Mark Atwood",
+  "description": "In append.rs lines 112-127, parent existence is checked with one has_entry() call per parent CID \u2014 each is a separate DB round-trip. In normal CRDT operation this is 1\u20132 round-trips per append and is fine. However, for a 1000-article rnews batch, each article with 2 parents = 2000 individual SELECT queries just for parent-existence checks, executed serially inside the per-article pipeline.\n\nThe same logic applies in verify.rs verify_entry(): each parent triggers one storage.get_entry() call.\n\nFix: add a batch variant to LogStorage \u2014 `has_entries(ids: &[LogEntryId]) -> Result<Vec<bool>, StorageError>` implemented as a single `SELECT id FROM log_entries WHERE id IN (...)` query \u2014 and use it in append() and verify_entry(). The append() hot path (parent check + insert + tip advance) could be collapsed further into a single stored procedure or a single multi-statement transaction, but the batch SELECT is the minimum viable improvement.",
+  "ephemeral": 0,
+  "id": "stoa-paxfh.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Pre-existing: N has_entry round-trips predates UUCP work. Deferring.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "pipeline: N individual has_entry DB round-trips for parent CID checks per append",
+  "updated_at": "2026-05-04T05:07:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T22:05:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-paxfh",
+      "id": "cc2de1ee-113a-5622-9bf2-29ed7f2a63db",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

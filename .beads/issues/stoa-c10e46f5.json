@@ -1,0 +1,20 @@
+{
+  "id": "stoa-c10e46f5",
+  "title": "WRONG_SIG_B64: clarify what is corrupted",
+  "description": "In did_verify.rs tests, WRONG_SIG_B64 is described only as 'wrong' with no indication of what was changed. A new reader cannot tell whether this represents a wrong key, wrong format, or a bit-flip without diffing the two constants manually. The constant should be renamed or have a comment explaining it is TEST_SIG_B64 with the final base64url character changed (last byte of signature flipped).",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T04:59:27Z",
+  "updated_at": "2026-05-01T04:53:32Z",
+  "closed_at": "2026-04-23T07:06:26Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-062e13cb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:59:26"
+    }
+  ]
+}

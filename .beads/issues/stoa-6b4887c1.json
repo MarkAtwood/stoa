@@ -1,0 +1,13 @@
+{
+  "id": "stoa-6b4887c1",
+  "title": "Review round 1: na4h manual peer whitelist",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:46:17Z",
+  "updated_at": "2026-05-01T04:58:55Z",
+  "closed_at": "2026-04-30T15:58:04Z",
+  "notes": "SEC7 confidence: 90% chance of no missed substantive bug. The one genuine P1 (1onm.11 \u2014 T7 tests a copy of production normalization, not production itself) is real and non-trivial. The P2s (1onm.4 suppressor confusion, 1onm.10 aspirational docs, 1onm.21 loopback fallback) are all legitimate. The remaining P3/P4 items are either opinion/style (labeled) or duplicates of higher-priority findings. The duplicate cluster (1onm.2, 1onm.9, 1onm.11, 1onm.16) is clearly the same root cause at different abstraction levels. We are running out of real complaints \u2014 no new substantive engineering issues were found in calibration."
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-a322ce5d",
+  "title": "DECISION: Capability::try_from for IMAP4rev2 pending upstream typed variant",
+  "description": "imap-types 2.0.0-alpha.6 does not yet expose a typed Capability::Imap4Rev2 variant. Rather than forking the crate or embedding raw bytes, the code uses Capability::try_from(\"IMAP4rev2\") with a .expect() that encodes the invariant: IMAP4rev2 is a valid IMAP atom and the conversion cannot fail at runtime. This is the least-invasive forward-compatible workaround \u2014 when the upstream crate eventually adds a typed variant, the call sites are obvious and the migration is mechanical. Alternative rejected: using Capability::Other with an unvalidated string would bypass the library's atom validation and produce a harder-to-find regression if the string ever drifted.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:24:47Z",
+  "updated_at": "2026-05-01T04:55:42Z",
+  "closed_at": "2026-04-30T02:50:22Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9d37d25b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:24:47"
+    }
+  ]
+}

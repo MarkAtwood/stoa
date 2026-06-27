@@ -1,0 +1,20 @@
+{
+  "id": "stoa-522210c9",
+  "title": "Group log CRDT enforces parent existence before append",
+  "description": "core/group_log/append.rs:86-122: append() verifies all parent CIDs exist in local storage before inserting. Verification is split: append() checks structural invariant (parent existence), verify_entry() checks cryptographic invariant (signature + HLC monotonicity). A contributor might suggest 'simplifying' by deferring parent checks to reconciliation \u2014 resist this. Deferring allows phantom parent chains to enter local storage and propagate to peers before being caught.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T16:57:02Z",
+  "updated_at": "2026-05-01T04:55:24Z",
+  "closed_at": "2026-04-22T23:11:29Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-33df35ca",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 09:57:02"
+    }
+  ]
+}

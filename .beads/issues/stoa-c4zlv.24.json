@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T18:39:25Z",
+  "compaction_level": 0,
+  "content_hash": "1354659f8a446e10ec6974a9a64b5ebd1ba8a6d1882ba60829409f54f68100a9",
+  "created_at": "2026-05-01T15:19:10Z",
+  "created_by": "Mark Atwood",
+  "description": "In blob.rs blob_download, the synthetic RFC 5322 message is returned with Content-Type: message/rfc822 but no Content-Length header. RFC 8620 \u00a76.2 recommends that blob download responses include Content-Length. More concretely, the base64-encoded body may contain a \\r\\n at the end of the format!() string, which results in a MIME entity that is not well-formed (the Content-Transfer-Encoding: base64 body should not have a trailing bare \\n). The format string ends with {b64}\\r\\n which appends a CRLF after the base64 \u2014 base64 bodies should end at the last encoded character without trailing CRLF.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "blob_download wraps raw IPFS block in RFC 5322 message without Content-Length",
+  "updated_at": "2026-05-01T18:39:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:19:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "deca70a4-cc3a-57b4-8333-ac5ffc07bb4a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

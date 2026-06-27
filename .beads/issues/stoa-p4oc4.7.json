@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T01:53:48Z",
+  "compaction_level": 0,
+  "content_hash": "faa342704c8752d2d0f9d284e783dbd68e6d28680680d4c83351b67e0e7ad7f2",
+  "created_at": "2026-05-04T06:07:37Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why\n\nstoa-sieve-native supports fileinto, reject, variables, and regex.\nRFC 5183 'environment' is missing. Without it, Sieve scripts cannot\ntest authentication results (DKIM pass/fail, SPF, DMARC) computed at\ndelivery time \u2014 operators must instead parse injected headers like\nAuthentication-Results: with fragile string matching.\n\n## What\n\n1. Add 'environment' to stoa-sieve-native's supported extension list\n   and implement the environment test form.\n\n2. Populate vnd.stoa.* environment values in stoa-smtp before the\n   Sieve evaluator runs, sourced from the MessageAuthenticator results\n   and the dns_auth_cache table.\n\n## Environment values exposed\n\n| Name                    | Values                              | Source |\n|-------------------------|-------------------------------------|--------|\n| vnd.stoa.dkim-result    | pass / fail / none                  | MessageAuthenticator |\n| vnd.stoa.dkim-domain    | example.com (d= value) or empty     | DKIM-Signature header |\n| vnd.stoa.spf-result     | pass / fail / softfail / neutral / none | MessageAuthenticator |\n| vnd.stoa.dmarc-result   | pass / fail / none                  | MessageAuthenticator |\n| vnd.stoa.dmarc-policy   | reject / quarantine / none          | dns_auth_cache or DMARC DNS lookup |\n\nStandard RFC 5183 values also exposed:\n| domain  | server hostname |\n| host    | server FQDN |\n| location | MTA |\n| phase   | during |\n\n## Example Sieve usage\n\n```sieve\nrequire [\"fileinto\", \"environment\"];\n\nif environment \"vnd.stoa.dkim-result\" \"pass\" {\n    fileinto \"Verified\";\n} elsif environment \"vnd.stoa.spf-result\" [\"fail\", \"softfail\"] {\n    fileinto \"Spam\";\n}\n```\n\n## Acceptance\n\n- require [\"environment\"] compiles without error\n- environment \"vnd.stoa.dkim-result\" \"pass\" evaluates correctly\n- environment with unknown name evaluates to empty string (RFC 5183 \u00a74)\n- stoa-smtp populates all vnd.stoa.* values before calling evaluator\n- cargo test passes across stoa-sieve-native and stoa-smtp",
+  "ephemeral": 0,
+  "id": "stoa-p4oc4.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sieve environment extension (RFC 5183) with vnd.stoa.* auth metadata",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T23:07:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p4oc4",
+      "id": "95529b1f-d29a-5710-8b93-e3721de8290e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

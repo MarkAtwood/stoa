@@ -1,0 +1,13 @@
+{
+  "id": "stoa-577b3bd5",
+  "title": "Review: refactor: merge duplicate CredentialStore",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:10:46Z",
+  "updated_at": "2026-05-01T04:52:23Z",
+  "closed_at": "2026-04-30T17:44:03Z",
+  "notes": "Rust idiom confidence: 80% chance of missed issue. Least confident flags: (1) whether the Clone omission is intentional (no comment on the struct explaining why); (2) whether SecretString is already available in the workspace via an existing secrecy dep \u2014 didn't check Cargo.lock for that crate. Uncertainty driven by: not reading every call site for check() (only auth.rs), and not checking whether stoa_auth is already a dependency of other crates that would benefit from a consolidated looks_like_bcrypt_hash export."
+}

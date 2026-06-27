@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "1f3b8476d166021f945a50f1d768769461cd750f7631837d9e0992c95789440e",
+  "created_at": "2026-05-03T13:06:31Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\npost/injection.rs::prepend_path_header() uses String::from_utf8_lossy() on the existing Path: header value when prepending the hostname. If the path value contains non-UTF-8 bytes (unusual but possible in transit chains), the value is silently corrupted by U+FFFD replacement, potentially breaking the path for downstream transit servers.\\n\\n## Acceptance Criteria\\n\\nUse from_utf8 and treat non-UTF-8 path values as absent (insert fresh Path: hostname\\r\\n header).",
+  "ephemeral": 0,
+  "id": "stoa-u5ak3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "injection.rs: prepend_path_header uses from_utf8_lossy on Path header value",
+  "updated_at": "2026-05-03T13:06:31Z"
+}

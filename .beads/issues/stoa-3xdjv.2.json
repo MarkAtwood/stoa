@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T00:32:17Z",
+  "compaction_level": 0,
+  "content_hash": "94f83a424b249129a629c21da93c4752e62cf5c5ab36d57ba2ea6aee312a6501",
+  "created_at": "2026-05-03T00:12:16Z",
+  "created_by": "Mark Atwood",
+  "description": "MtaStsError::PolicyIdMismatch { cached, dns } is defined in mta_sts_error.rs and has a Display impl, but no code path in mta_sts_dns.rs, mta_sts_fetcher.rs, relay_client.rs, or anywhere else ever constructs it. In relay_client.rs, policy rotation is handled by discarding the stale entry and re-fetching \u2014 the mismatch is logged via warn! not surfaced as MtaStsError. Either wire the variant into the policy-rotation path (replace the remove+re-fetch log with an Err return that callers handle), or delete the variant and its Display arm.",
+  "ephemeral": 0,
+  "id": "stoa-3xdjv.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MtaStsError::PolicyIdMismatch is never constructed \u2014 dead variant",
+  "updated_at": "2026-05-03T00:32:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T17:12:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-3xdjv",
+      "id": "4bd91013-eefd-5154-9cae-87d6904a4b44",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

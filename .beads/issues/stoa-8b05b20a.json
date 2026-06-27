@@ -1,0 +1,20 @@
+{
+  "id": "stoa-8b05b20a",
+  "title": "select_untagged_data always emits RECENT even when IMAP4rev2 is enabled",
+  "description": "RFC 9051 (IMAP4rev2) \u00a77.3.2 removes the RECENT response code and the \\Recent flag. When a client sends ENABLE IMAP4rev2, the server must not send * RECENT responses. mailbox.rs::select_untagged_data() is a pure function with no parameters and always includes Data::Recent(0) in its output (line 78). The callers in mod.rs (lines 237 and 270, SELECT and EXAMINE handlers) call select_untagged_data() without passing imap4rev2_enabled, so * RECENT 0 is always sent even after the client has ENABLEd IMAP4rev2 semantics. This is a protocol conformance bug and a maintainer trap: imap4rev2_enabled exists on SessionContext but is not threaded through to the function that needs it. Future maintainers adding real message counts will need to fix this anyway; a note now prevents them from unknowingly extending the non-conformant path. Fix: add imap4rev2_enabled: bool parameter to select_untagged_data() and omit Data::Recent from the result when true. Update both callers in mod.rs to pass ctx.imap4rev2_enabled.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:25:36Z",
+  "updated_at": "2026-05-01T04:55:40Z",
+  "closed_at": "2026-04-30T02:50:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9d37d25b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:25:35"
+    }
+  ]
+}

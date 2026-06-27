@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T16:21:19Z",
+  "compaction_level": 0,
+  "content_hash": "06eac49fad7a62e3fd45dcc3464d80864f431460481b8eb316cf93f868eaceb1",
+  "created_at": "2026-05-01T15:20:31Z",
+  "created_by": "Mark Atwood",
+  "description": "validate_script in crates/sieve-native/src/lib.rs recurses into nested blocks and test_lists without any depth counter or limit. A malicious operator-uploaded Sieve script with deeply nested if/else or allof/anyof constructs will exhaust the thread stack during compilation, crashing the SMTP process.\n\nTrigger: compile a Sieve script with hundreds of nested if blocks or deeply nested allof/anyof test lists via the sieve_admin HTTP endpoint.\n\nFix: add a depth counter parameter to the recursive validation helpers and return a ParseError when the depth exceeds a safe limit (e.g. 32 or 64 levels), matching what production Sieve implementations (Dovecot Pigeonhole) impose.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.51",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve-native: validate_script unbounded recursion \u2192 stack overflow",
+  "updated_at": "2026-05-01T16:21:19Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:20:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "ee0bf23e-590c-578f-aed7-0de950394c20",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

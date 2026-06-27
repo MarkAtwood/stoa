@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "2ac973e6365ed4254e90099c5e16f24e7b2db4f0f7017856cd7499d32c436dc7",
+  "created_at": "2026-05-03T13:05:31Z",
+  "created_by": "Mark Atwood",
+  "description": "In server.rs, run_server has two large select! arms that are nearly identical \u2014 one for the case where a SMTPS listener is present and one for the case where it is absent. The accept logic, semaphore acquire, connection dispatch, and error handling are copy-pasted. This creates a maintenance burden: any change to accept handling must be made in two places. Fix: wrap the optional SMTPS listener in a future that resolves to Never when absent (e.g. using futures::future::pending()), so the select! can always have both arms without duplication.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.79",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "smtp: server.rs duplicates select! branches for with/without SMTPS",
+  "updated_at": "2026-05-03T13:05:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "2d2cbad3-d442-53ea-95ec-334550cf48f2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "acceptance_criteria": "cargo test -p stoa-imap passes; is_dev_mode() exists on imap AuthConfig; non-loopback dev-mode guard present in imap/main.rs; clippy clean",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T07:56:55Z",
+  "compaction_level": 0,
+  "content_hash": "5b8a0722c9bd69d8957463e42f22dd9b2ed914c24569f11c2d96207fe4da38c9",
+  "created_at": "2026-05-04T06:33:09Z",
+  "created_by": "Mark Atwood",
+  "description": "## What\nIMAP's local AuthConfig has no required field and no is_dev_mode() method. Add both, plus a non-loopback startup guard in imap/main.rs matching the pattern from the other daemons.\n\n## Algorithm\n1. Read crates/imap/src/config.rs fully \u2014 find the AuthConfig struct and Config struct.\n2. Add to AuthConfig:\n   pub required: bool,    #[serde(default)] \u2192 defaults to false (preserve backward compat)\n   pub fn is_dev_mode(&self) -> bool {\n       !self.required && self.users.is_empty() && self.credential_file.is_none()\n   }\n3. Read crates/imap/src/main.rs fully \u2014 find the startup sequence and where tracing is initialized.\n4. After tracing init, add:\n   let is_loopback = stoa_core::util::is_loopback_addr(&config.listen.addr);\n   // or use a local helper if stoa_core dep not already present in imap\n   if config.auth.is_dev_mode() && !is_loopback {\n       eprintln!('error: stoa-imap is configured with no authentication (no users, no credential_file, required=false) but is listening on a non-loopback address ({addr}). Set auth.required=true and configure auth.users or auth.credential_file, or change listen.addr to 127.0.0.1.');\n       process::exit(1);\n   }\n5. Check whether stoa-imap already depends on stoa-core in Cargo.toml. If yes, use stoa_core::util::is_loopback_addr. If no, add a local helper copy.\n6. cargo fmt; cargo clippy clean; cargo test --workspace clean.\n\n## Defensive programming rules\n- required: bool must default to false via #[serde(default)] to avoid breaking existing configs.\n- No unwrap().\n- Error message must be actionable.\n\n## Tests\nAdd to imap/src/config.rs tests:\n- test_imap_dev_mode_no_users: required=false, users=[], credential_file=None \u2192 is_dev_mode()=true. Oracle: definition.\n- test_imap_not_dev_mode_required_true: required=true \u2192 is_dev_mode()=false even with empty users. Oracle: definition.\n- test_imap_not_dev_mode_has_users: required=false, users non-empty \u2192 is_dev_mode()=false. Oracle: definition.\n- test_imap_guard_condition: dev_mode=true + non-loopback \u2192 condition true. dev_mode=true + loopback \u2192 false.",
+  "ephemeral": 0,
+  "id": "stoa-90tpd.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "imap: add required field, is_dev_mode(), and startup guard",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T23:33:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-90tpd",
+      "id": "2740d289-ec30-5449-be3c-122ec65aaf0b",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-03T23:33:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-90tpd.1",
+      "id": "80dde6ed-9dec-5819-9bcd-1a6a9bfcf0ee",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-03T23:33:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-90tpd.2",
+      "id": "8b39e4dd-cc54-5717-b3d3-353e77f99002",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

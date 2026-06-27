@@ -1,0 +1,20 @@
+{
+  "id": "stoa-e2a33390",
+  "title": "NntpQueue has no dead-letter directory: no operator recovery path",
+  "description": "SmtpRelayQueue creates a dead/ subdirectory at startup and moves permanently-failed messages there for operator inspection. NntpQueue has no equivalent: DKIM failures loop forever, and if NNTP delivery permanently fails (e.g. 437 duplicate) the message sits in the live queue retrying forever. An operator with a stuck queue has no way to inspect or retire failed messages short of manually deleting files. Scenario: operator reports queue depth stuck at N, articles not delivering \u2014 operator has no designated place to look and no self-documenting recovery procedure.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:38:10Z",
+  "updated_at": "2026-05-01T05:00:27Z",
+  "closed_at": "2026-05-01T00:42:00Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d94f2708",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:38:09"
+    }
+  ]
+}

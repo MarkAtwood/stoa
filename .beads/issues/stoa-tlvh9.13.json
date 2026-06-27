@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "7604067e0c22880fbf153d320b96a50e84f2a0d2a2fe47039e7c88f00de9cfd9",
+  "created_at": "2026-05-04T03:19:18Z",
+  "created_by": "Mark Atwood",
+  "description": "DECISION: stoa-rnews uses its own RnewsConfig struct rather than reusing the full transit Config. RnewsConfig includes only the fields the rnews binary needs: database, backend/ipfs, groups, operator, log. The [listen], [gc], and [pinning] sections that the transit daemon requires are absent.\n\nWHY RIGHT: Reusing the full Config would force every rnews operator to provide a TCP listen address, GC policy, and pin policy in their config file \u2014 all of which are irrelevant to a batch ingestion tool. Worse, any required-field validation on Config would reject a minimal rnews config at startup. Having a separate struct keeps the config surface small, the validation meaningful (the only check is 'at least one storage backend is present'), and the error messages relevant to what rnews actually needs.\n\nALTERNATIVES REJECTED:\n- Use Config with all optional fields and skip validation: weakens validation for the transit daemon path and creates a maintenance hazard where a new required field in Config silently becomes unrequired for rnews.\n- Share config via a trait: over-engineering for two binaries; a plain struct with a dedicated validate() is simpler and easier to read.",
+  "ephemeral": 0,
+  "id": "stoa-tlvh9.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "RnewsConfig is a minimal subset config; no [listen]/[gc]/[pinning] required",
+  "updated_at": "2026-05-04T03:19:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T20:19:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-tlvh9",
+      "id": "6e43bc38-09ea-5e56-aaab-9f212451da21",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

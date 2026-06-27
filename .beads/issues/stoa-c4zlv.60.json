@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T17:33:52Z",
+  "compaction_level": 0,
+  "content_hash": "88f1e787b18bd79300d96c9329c7b8b8f67902abddeed7bd795e905eeb7c6e04",
+  "created_at": "2026-05-01T15:20:54Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: cli/audit.rs uses .expect(\"re-serialization must not fail\") inside the main audit log export loop when re-serializing JSON events loaded from the database. If any stored event_json row contains data that fails serde_json re-serialization after parsing (e.g. due to a schema change or database corruption), the expect panics. Bad behavior: the entire audit export CLI command panics, aborting mid-stream with a non-zero exit code and no partial output, making post-incident forensics harder.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.60",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "cli/audit.rs panics on re-serialization failure inside hot export loop",
+  "updated_at": "2026-05-01T17:33:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:20:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "bfcfbbdb-1022-56b3-99c5-fc450a918ed4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

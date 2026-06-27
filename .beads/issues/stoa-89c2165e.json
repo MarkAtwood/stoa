@@ -1,0 +1,21 @@
+{
+  "id": "stoa-89c2165e",
+  "title": "imap: OBJECTID extension (RFC 8474) \u2014 map IPFS CIDs to EmailID/ThreadID",
+  "description": "Implement RFC 8474 OBJECTID, which provides stable EmailID and ThreadID values per message.\\n\\nThis extension is architecturally natural for usenet-ipfs: articles are content-addressed by CID, which is already a permanent, globally unique, content-derived identifier. The CID maps directly to RFC 8474 EmailID with no additional storage.\\n\\nWhat:\\n- Advertise OBJECTID in CAPABILITY.\\n- Return X-GM-MSGID-style EMAILID and THREADID in FETCH responses when requested.\\n- EmailID: the article's IPFS CID (base32-encoded to satisfy the RFC 8474 objectid syntax, which requires a letter prefix and only URL-safe chars).\\n- ThreadID: derive from the article's References/In-Reply-To chain; group articles in the same thread under one stable ThreadID. Can be the CID of the earliest known ancestor in the thread.\\n- Clients that support OBJECTID (Thunderbird) use it for efficient sync and deduplication across folder copies.\\n\\nNote: because CIDs are content-derived, two copies of the same article in different folders will have the same EmailID, which is correct per RFC 8474 \u00a75.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T02:02:26Z",
+  "updated_at": "2026-05-01T04:55:38Z",
+  "closed_at": "2026-04-23T14:03:54Z",
+  "notes": "BLOCKED: RFC 8474 OBJECTID adds StatusDataItemName::EmailId and StatusDataItemName::ThreadId, neither of which exist in imap-types 2.0.0-alpha.6. Additionally, meaningful OBJECTID response requires article IPFS CIDs which are not yet wired to the reader server.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3741bca1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 19:02:43"
+    }
+  ]
+}

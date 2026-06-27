@@ -1,0 +1,13 @@
+{
+  "id": "stoa-b8b0a8b4",
+  "title": "from_credentials panic message omits $2x$ but code allows it",
+  "description": "The panic message in from_credentials() says 'must start with $2a$, $2b$, or $2y$' but the code also accepts $2x$ (a bug-era OpenBSD variant). If an operator passes a $2x$ hash: (1) the panic does not fire, (2) the user gets silently rejected at auth time because the bcrypt crate likely does not support $2x$. The message is misleading for operators reading the panic text. Either remove $2x$ from the allowed set or add it to the panic message.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T09:07:53Z",
+  "updated_at": "2026-05-01T04:53:29Z",
+  "closed_at": "2026-04-27T09:38:14Z"
+}

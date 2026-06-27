@@ -1,0 +1,39 @@
+{
+  "id": "stoa-815ef1ed",
+  "title": "Add peer management subcommands to operator CLI",
+  "description": "Add to the transit operator CLI: 'transit peer-list' (show all peers with score and blacklist status), 'transit peer-blacklist <peer_id> [duration]' (manually blacklist), 'transit peer-unblacklist <peer_id>' (clear blacklist), 'transit peer-score <peer_id>' (show detailed metrics). Artifact: transit/src/cli/peers.rs.\n\nAcceptance: all four subcommands work against a running daemon; peer-list output is tabular with columns: peer_id, address, score, status, last_seen; JSON output flag available",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:46:15Z",
+  "updated_at": "2026-05-01T04:54:56Z",
+  "closed_at": "2026-04-20T05:04:21Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-55b3ce25",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:46:15"
+    },
+    {
+      "depends_on_id": "stoa-7cce4032",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:48:34"
+    },
+    {
+      "depends_on_id": "stoa-b4790deb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:48:40"
+    },
+    {
+      "depends_on_id": "stoa-cf8f66c9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:48:37"
+    }
+  ]
+}

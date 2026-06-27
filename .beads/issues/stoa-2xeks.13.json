@@ -1,0 +1,49 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T18:58:25Z",
+  "compaction_level": 0,
+  "content_hash": "0a1c388372a3a3aa229ff498b64f191ebc9a71d0d0e19298131890fa2b15965c",
+  "created_at": "2026-05-02T17:38:37Z",
+  "created_by": "Mark Atwood",
+  "description": "On outbound delivery in relay_client.rs: when the session has the REQUIRETLS flag set (from parsed MAIL FROM), verify the remote MTA advertised REQUIRETLS in its EHLO response. If the remote does not advertise REQUIRETLS, the delivery MUST fail with a permanent failure (550 5.7.30 per RFC 8689) \u2014 do NOT fall back to delivery without REQUIRETLS. Also: if MTA-STS policy for the recipient domain requires TLS and the session is not TLS, fail the delivery. This bead wires the REQUIRETLS session state into the outbound relay decision.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "REQUIRETLS outbound delivery check",
+  "updated_at": "2026-05-02T18:58:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T10:38:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks",
+      "id": "1e83a21c-2ba0-52cd-beba-1935e3129c4e",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-02T10:39:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.11",
+      "id": "954a1853-1011-5d1b-bcb6-e844690db5d8",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T10:39:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.12",
+      "id": "c27981a3-e401-53bf-b0a7-a0537822b242",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

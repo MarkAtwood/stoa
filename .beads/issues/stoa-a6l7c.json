@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "a66e25d9615766bfeb425d99e55d1a453a38426dd4c870217789a0742dd8e31e",
+  "created_at": "2026-05-01T19:39:42Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why\n\nstoa-transit explicitly rejects backend.type = 'pg_blob' with a message directing operators to use SQLite or S3 instead. The operator should be free to use Postgres if they are already running it for other infrastructure. Removing the restriction is the right call.\n\n## What\n\nPort the pg_blob backend from crates/reader/src/post/pg_store.rs to crates/transit/src/peering/. Remove the config validation rejection in crates/transit/src/config.rs and the pipeline rejection in crates/transit/src/peering/pipeline.rs.\n\n## Acceptance\n\n- transit accepts backend.type = 'pg_blob' in config\n- blocks written during peering are stored as BYTEA rows in Postgres\n- round-trip put/get tests pass in transit context",
+  "ephemeral": 0,
+  "id": "stoa-a6l7c",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Add pg_blob backend to stoa-transit",
+  "updated_at": "2026-05-01T19:39:42Z"
+}

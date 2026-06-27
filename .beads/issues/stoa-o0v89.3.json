@@ -1,0 +1,41 @@
+{
+  "close_reason": "Implemented: tls_policy_effective startup log, tls_11_client_hello_is_rejected test (verifies rejection), server_config_cipher_suites_are_approved test. All verified passing.",
+  "closed_at": "2026-05-05T03:16:17Z",
+  "compaction_level": 0,
+  "content_hash": "788bdd23a5b8e2b8a36dc1acf0a084f264ce4dce99d4dc4b071a4396af0697f0",
+  "created_at": "2026-05-05T02:33:02Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why\\nThe epic requires a startup log line showing effective TLS policy and a test verifying TLS 1.1 is rejected.\\n\\n## What\\n- Emit tracing::info! at server startup with min_tls_version and cipher_suite_count\\n- Add unit test in stoa-tls that builds a ServerConfig and asserts supported_protocol_versions() does not include TLS 1.0 or 1.1\\n- Add integration test that opens a TLS connection with max_protocol_version = TLS 1.1 and verifies handshake error\\n\\n## Acceptance\\n- Startup log shows event=tls_policy_effective, min_tls_version, cipher_suite_count\\n- Test for TLS 1.1 rejection passes",
+  "ephemeral": 0,
+  "id": "stoa-o0v89.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "TLS policy: startup log line and TLS 1.1 rejection test",
+  "updated_at": "2026-05-05T03:16:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:33:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-o0v89.1",
+      "id": "0de4f963-eee9-5bef-a110-0901b22d1a46",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:33:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-o0v89",
+      "id": "d8641c6c-bb75-5987-8306-fed04cbd9140",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Dialect notes added to migrations/ and migrations_pg/ dirs; MySQL/MariaDB skeleton in migrations_mysql/ (15 files); DIALECT_NOTES.md documents all SQLite\u2194PG\u2194MySQL differences. commit 2656709.",
+  "closed_at": "2026-05-05T02:29:26Z",
+  "compaction_level": 0,
+  "content_hash": "6a0c43e20173446e11e5fb574b574f720295042da9868b527e33e8196ab0d6a5",
+  "created_at": "2026-05-05T00:40:45Z",
+  "created_by": "Mark Atwood",
+  "description": "Audit migrations for dialect-specific constructs. Document PG canonical form and SQLite approximation. Consolidate migration dirs. Add MySQL/MariaDB migration skeleton for RDS MySQL / Azure MySQL.",
+  "ephemeral": 0,
+  "id": "stoa-jom01.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jom01.3: Migration portability audit + MySQL skeleton",
+  "updated_at": "2026-05-05T02:29:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T17:40:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jom01",
+      "id": "4d84b273-fd2c-5cb8-994f-c236502f073f",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T17:40:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jom01.1",
+      "id": "a06e04d3-2175-506e-a011-43336d072a74",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-303776b7",
+  "title": "Non-descriptive test name: validate_message_id_tests",
+  "description": "In crates/core/src/validation.rs, the test function 'validate_message_id_tests' (line 533) is a table-driven test covering multiple invalid and valid Message-ID forms. The name does not communicate what properties are under test. In a test failure, the output will say 'validate_message_id_tests FAILED' with no indication of which case triggered it (since they are inline asserts, not subtests). A more descriptive name like 'validate_message_id_rejects_malformed_and_accepts_valid' or splitting into separate tests with names like 'missing_angle_brackets', 'missing_at_sign', 'exceeds_length_limit' would make the test suite self-documenting and make failures easier to locate.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:30:55Z",
+  "updated_at": "2026-05-01T05:00:06Z",
+  "closed_at": "2026-04-28T10:19:49Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:30:55"
+    }
+  ]
+}

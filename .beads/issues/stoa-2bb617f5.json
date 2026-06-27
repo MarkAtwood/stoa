@@ -1,0 +1,20 @@
+{
+  "id": "stoa-2bb617f5",
+  "title": "Email/query smtp path: full ID scan before pagination",
+  "description": "In the Email/query handler (server.rs ~line 581), when the requested mailbox is a special folder (e.g. INBOX), the query is:\n\n  SELECT id FROM mailbox_messages WHERE user_id=? AND mailbox_id=? ORDER BY id DESC\n\nThis is executed with fetch_all(), materialising the entire result set. The Rust code then calls .skip(position).take(limit) in memory.\n\nFor a user with N messages, this loads all N IDs over the wire from SQLite even when the client requests position=0 limit=50. At 10,000 messages the overhead is still manageable, but at 100,000+ messages (a realistic long-term inbox) it becomes a full table scan across the index followed by a large Vec allocation.\n\nFix: push LIMIT and OFFSET into the SQL query:\n  SELECT id FROM mailbox_messages WHERE user_id=? AND mailbox_id=? ORDER BY id DESC LIMIT ? OFFSET ?\nThe total count can be obtained with a separate COUNT(*) query (which SQLite can satisfy from the index without reading rows).\n\nThe composite index idx_mailbox_messages_user_mailbox on (user_id, mailbox_id) already covers this query.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:00:39Z",
+  "updated_at": "2026-05-01T04:59:34Z",
+  "closed_at": "2026-04-30T05:28:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-14057691",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:00:39"
+    }
+  ]
+}

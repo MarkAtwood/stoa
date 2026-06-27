@@ -1,0 +1,39 @@
+{
+  "id": "stoa-768213bb",
+  "title": "Implement Message-ID format validation at all ingress points",
+  "description": "Implement a single validate_message_id(msgid: &str) -> Result<()> function in core that checks: angle brackets present, local part non-empty, @ present, domain non-empty, no whitespace, length <= 998 bytes. Call this function at every NNTP ingress point (POST handler, IHAVE handler, ARTICLE <msgid> lookup) before using the value. Artifact: core/src/validation.rs.\n\nAcceptance:\n- Valid Message-IDs pass: <local@domain>, <a@b.c>\n- Invalid Message-IDs rejected: no angle brackets, no @, whitespace inside, > 998 bytes\n- validate_message_id is the only place this check is implemented (no duplicated regex)\n- All NNTP ingress points (POST, IHAVE, ARTICLE) call this function\n- Unit tests cover all valid and invalid cases",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:18:03Z",
+  "updated_at": "2026-05-01T04:58:05Z",
+  "closed_at": "2026-04-20T06:10:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-13c8a615",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:54:19"
+    },
+    {
+      "depends_on_id": "stoa-60070901",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:21"
+    },
+    {
+      "depends_on_id": "stoa-8013af16",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:18:02"
+    },
+    {
+      "depends_on_id": "stoa-f4b0b396",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:18:15"
+    }
+  ]
+}

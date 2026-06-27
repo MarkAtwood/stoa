@@ -1,0 +1,20 @@
+{
+  "id": "stoa-39618a5a",
+  "title": "relay_queue DKIM failure moves env before msg: partial-move leaves orphan .msg",
+  "description": "In try_deliver_one, DKIM failure iterates [env_path, msg_path] in that order (line 366). If the env rename succeeds but the msg rename fails (e.g. cross-device rename, filesystem error), the live queue has a .msg with no .env \u2014 the next drain skips it (no .env), and it is only retired on the next restart via cleanup_orphan_msg_files. The dead/ directory has an .env with no .msg, which inflates the dead-letter count metric. The operator sees a dead-letter without a payload, which is confusing and misleading. Should move msg first, then env \u2014 consistent with the enqueue write order (msg first).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:38:19Z",
+  "updated_at": "2026-05-01T05:00:19Z",
+  "closed_at": "2026-05-01T00:42:07Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d94f2708",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:38:19"
+    }
+  ]
+}

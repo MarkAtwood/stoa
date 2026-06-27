@@ -1,0 +1,45 @@
+{
+  "id": "stoa-3ddde5e8",
+  "title": "Modify append_to_groups to return article number assignments",
+  "description": "What: append_to_groups() in crates/reader/src/post/log_append.rs currently returns Result<(), Response>. Change it to return Result<Vec<(String, u64)>, Response> where each tuple is (group_name, article_number) for each group the article was appended to.\nAlgorithm:\n1. In crates/reader/src/post/log_append.rs:\n   a. Change return type to Result<Vec<(String, u64)>, Response>\n   b. After calling article_numbers.assign_number(group, cid) for each group, collect (group.to_string(), number) into a Vec\n   c. Return Ok(assignments) on success\n2. Update all callers: in lifecycle.rs, change:\n   if let Err(resp) = append_to_groups(...).await { return resp; }\n   to:\n   let assignments = match append_to_groups(...).await { Ok(a) => a, Err(e) => return e };\n3. Run cargo build to find all remaining call sites and fix them\n4. Add test: append to 2 groups returns 2 assignments with correct group names\nDefensive: if assign_number fails for one group, still try remaining groups; collect failures but return error if any fail.\nAcceptance: test_append_returns_assignments passes; cargo test -p usenet-ipfs-reader clean.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T00:33:02Z",
+  "updated_at": "2026-05-01T04:59:19Z",
+  "closed_at": "2026-04-21T00:51:38Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-53e41c25",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:33:02"
+    },
+    {
+      "depends_on_id": "stoa-5cc4cac8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:16"
+    },
+    {
+      "depends_on_id": "stoa-ab5a36b7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:15"
+    },
+    {
+      "depends_on_id": "stoa-b502bcb7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:15"
+    },
+    {
+      "depends_on_id": "stoa-de7d4842",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:14"
+    }
+  ]
+}

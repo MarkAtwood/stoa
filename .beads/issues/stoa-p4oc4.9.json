@@ -1,0 +1,48 @@
+{
+  "acceptance_criteria": "cargo test -p stoa-mail -- x_stoa_auth; Email/get returns x-stoa-auth when capability present",
+  "compaction_level": 0,
+  "content_hash": "d3c5c0f5c4f296a3dadaa4041519ccc6a9b5d479df3f3e2d86579a1a30580000",
+  "created_at": "2026-05-04T06:10:31Z",
+  "created_by": "Mark Atwood",
+  "description": "Expose DNS authentication evidence as a custom JMAP property x-stoa-auth\non Email/get responses, sourced from the dns_auth_cache table.\n\n## Precedent\n\nstoa already exposes x-stoa-cid, x-stoa-sig, and x-stoa-verifications\nas custom properties on Email/get (crates/mail/src/jmap/backend_types.rs\nand crates/mail/src/email/types.rs). x-stoa-auth follows the same pattern.\n\n## Session capability\n\nAdd to the JMAP session capabilities (crates/mail/src/jmap/session.rs):\n  'urn:stoa:jmap:auth' capability advertised\n  Clients include it in 'using' to receive x-stoa-auth in responses.\n\n## Property shape\n\nx-stoa-auth is returned as a JSON object on each Email object:\n\n```json\n{\n  \"x-stoa-auth\": {\n    \"dkim\": \"pass\",           // \"pass\" | \"fail\" | \"none\"\n    \"dkim-domain\": \"example.com\", // signing domain or \"\"\n    \"arc\": \"pass\",            // \"pass\" | \"fail\" | \"none\"\n    \"spf\": \"softfail\",        // \"pass\" | \"fail\" | \"softfail\" | \"neutral\" | \"none\"\n    \"dmarc\": \"pass\",          // \"pass\" | \"fail\" | \"none\"\n    \"dmarc-policy\": \"quarantine\" // \"reject\" | \"quarantine\" | \"none\"\n  }\n}\n```\n\nAbsent field = \"none\" (auth check was not run or no record exists).\nThe object is always present when the capability is requested; never null.\n\n## Lookup strategy\n\nAt Email/get time, for each email ID (CID):\n1. Query dns_auth_cache WHERE record_cid is found via a join or\n   secondary lookup: given the article CID, find the domain/selector\n   combinations that were cached when that article was ingested.\n\nProblem: dns_auth_cache is keyed by (evidence_type, domain, selector)\nnot by article CID. Need a bridge table:\n\n```sql\nCREATE TABLE IF NOT EXISTS article_auth_evidence (\n    article_cid   TEXT NOT NULL,\n    evidence_type TEXT NOT NULL,\n    domain        TEXT NOT NULL,\n    selector      TEXT NOT NULL DEFAULT '',\n    result        TEXT NOT NULL,  -- 'pass'|'fail'|'softfail'|'neutral'|'none'\n    policy        TEXT,           -- DMARC policy value if evidence_type='dmarc'\n    PRIMARY KEY (article_cid, evidence_type, domain, selector)\n);\n```\n\nThis table is written by DnsAuthCache.cache_from_article() alongside\nthe dns_auth_cache row \u2014 it records the per-article result at ingest\ntime, not just the key material. Email/get reads from this table.\n\nNote: this is a separate concern from dns_auth_cache (which stores\nthe key material for forensic re-verification). article_auth_evidence\nstores the result of verification at ingest time.\n\n## Migration\n\nAdd article_auth_evidence table to the same migration as dns_auth_cache\n(update stoa-p4oc4.1) or add a new migration file immediately after.\n\n## Implementation\n\nFiles:\n- crates/mail/src/email/types.rs: add x_stoa_auth field to Email struct\n- crates/mail/src/jmap/backend_types.rs: include x-stoa-auth in GetObject properties\n- crates/mail/src/jmap/backend.rs (get_emails): query article_auth_evidence by CID,\n  build AuthResult struct, serialize to x-stoa-auth JSON\n- crates/mail/src/jmap/session.rs: add urn:stoa:jmap:auth to capabilities\n- crates/transit/src/dns_auth_cache.rs: write to article_auth_evidence in\n  cache_from_article() alongside dns_auth_cache writes\n\n```rust\n#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]\n#[serde(rename_all = \"kebab-case\")]\npub struct XStoaAuth {\n    pub dkim: String,           // \"pass\"|\"fail\"|\"none\"\n    pub dkim_domain: String,\n    pub arc: String,\n    pub spf: String,\n    pub dmarc: String,\n    pub dmarc_policy: String,\n}\n```\n\nDefensive rules:\n- Missing rows in article_auth_evidence \u2192 all fields default to \"none\"\n- DB errors \u2192 log warn, return all-none XStoaAuth (never propagate to client)\n- Only returned when client includes urn:stoa:jmap:auth in 'using'\n\nTests:\n- test_email_get_x_stoa_auth_pass: seed article_auth_evidence with dkim=pass,\n  call Email/get, assert x-stoa-auth.dkim == \"pass\"\n- test_email_get_x_stoa_auth_missing: no evidence rows \u2192 all fields \"none\"\n- test_email_get_x_stoa_auth_not_returned_without_capability: x-stoa-auth absent\n  when urn:stoa:jmap:auth not in using",
+  "ephemeral": 0,
+  "id": "stoa-p4oc4.9",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "JMAP: expose x-stoa-auth property on Email/get from dns_auth_cache",
+  "updated_at": "2026-06-26T20:26:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T23:10:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p4oc4.5",
+      "id": "a7615d14-2810-55a8-9529-f638495a243e",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-03T23:10:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p4oc4.4",
+      "id": "c27d8cd4-856b-5e3c-8ba0-d1b4f020f696",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-03T23:10:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p4oc4",
+      "id": "f9b9966f-6e60-5e47-85de-bb54fa138113",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

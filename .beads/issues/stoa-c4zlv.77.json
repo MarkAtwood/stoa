@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T18:22:01Z",
+  "compaction_level": 0,
+  "content_hash": "bdc05167865f3938fe07df78d4330bd0bfc5bb6a67eecf64efbf2e2b50cd792b",
+  "created_at": "2026-05-01T15:21:30Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: peering/auth.rs in_frame[..32].try_into().unwrap() and in_frame[32..].try_into().unwrap() convert fixed-length slices to [u8; 32] arrays. The unwrap() calls are safe because the slices are exactly 32 bytes by construction, but there is no comment explaining why. Bad behavior: future maintainers who refactor the frame length may not notice the hidden invariant and introduce a panic. The idiomatic fix is either a comment or splitting off named arrays to make the invariant explicit.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.77",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "peering/auth.rs uses unwrap() on guaranteed-success slice try_into() without comment",
+  "updated_at": "2026-05-01T18:22:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:21:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "b5431192-8079-5e78-b54c-de41499a8e78",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

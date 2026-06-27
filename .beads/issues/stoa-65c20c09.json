@@ -1,0 +1,19 @@
+{
+  "id": "stoa-65c20c09",
+  "title": "queue.rs: DKIM defer comment 'hold for retry' implies transient but signing is deterministic",
+  "description": "Line 223 in queue.rs says 'If signing fails, defer this article (hold for retry on next cycle).' This comment implies DKIM failure is transient. Ed25519 signing with a fixed key is deterministic \u2014 a signing error is always permanent (corrupt key, library bug, OOM). A contributor reading this will implement similar defer-on-failure logic elsewhere assuming it eventually recovers. The comment should say: 'Signing failure is treated as permanent; article is held in queue for operator intervention (no dead-letter path in NntpQueue).' This also documents the known gap.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:39:14Z",
+  "updated_at": "2026-05-01T05:00:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d94f2708",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:39:14"
+    }
+  ]
+}

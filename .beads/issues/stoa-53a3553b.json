@@ -1,0 +1,20 @@
+{
+  "id": "stoa-53a3553b",
+  "title": "relay_queue: dead-letter move block duplicated in DKIM failure and permanent failure paths",
+  "description": "The 8-line dead-letter move loop (create dead_dir path, iterate [msg_path, env_path], rename each, warn on failure) appears identically in the DKIM signing failure arm (lines ~453-465) and the permanent delivery failure arm (lines ~519-530). Extract to an async helper: async fn move_to_dead_letter(&self, msg_path, env_path) to remove duplication.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:29:36Z",
+  "updated_at": "2026-05-01T04:51:41Z",
+  "closed_at": "2026-05-01T02:32:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3fb034ab",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 19:29:36"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "stoa-244a8b02",
+  "title": "reader: PermissiveClientAuth bypasses TLS handshake signature verification",
+  "description": "In tls.rs, PermissiveClientAuth::verify_tls12_signature and verify_tls13_signature both return Ok(()) without calling the inner verifier. Any client presenting a cert with a forged signature passes TLS client auth. Should delegate to the inner verifier for signature correctness.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T23:45:26Z",
+  "updated_at": "2026-05-01T04:59:06Z",
+  "closed_at": "2026-04-25T01:10:54Z"
+}

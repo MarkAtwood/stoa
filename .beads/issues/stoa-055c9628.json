@@ -1,0 +1,21 @@
+{
+  "id": "stoa-055c9628",
+  "title": "CoreError type alias keeps two names alive for ValidationError with no migration path",
+  "description": "crates/core/src/error.rs line 280: pub type CoreError = ValidationError; with doc comment 'Backwards-compatibility alias. New code should use ValidationError directly.'\n\nThe alias is only used in article.rs (GroupName::new returns Result<_, CoreError>) and in error.rs's own test (test_core_error_alias_works). There is no external crate that depends on the CoreError name \u2014 all other crates import stoa_core directly and could use ValidationError. The 'backwards compatibility' comment implies a migration in progress, but there is no issue tracking the removal.\n\nFix: replace the two uses of CoreError in crates/core/ with ValidationError directly, then delete the alias. If there is a genuine external consumer that must not break, file an issue tracking it explicitly.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:13:58Z",
+  "updated_at": "2026-05-01T04:57:28Z",
+  "closed_at": "2026-04-27T17:50:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:13:57"
+    }
+  ]
+}

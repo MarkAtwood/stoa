@@ -1,0 +1,47 @@
+{
+  "compaction_level": 0,
+  "content_hash": "bb60fc98ece01dcaf6b60e2d7f503a3921e857d909ad414867d50972f27936ec",
+  "created_at": "2026-05-02T15:28:44Z",
+  "created_by": "Mark Atwood",
+  "description": "Apply per-user DEK encryption to user_flags and subscriptions. These tables reveal reading habits (which articles a user has read, which newsgroups they follow) which qualify as personal data under GDPR.\n\n## user_flags\n  Columns: (user_id, article_cid BYTEA, seen INT, flagged INT)\n  article_cid is a CID \u2014 not sensitive, but (user_id, article_cid) together\n  reveals reading history. Encrypt the row value, not the key.\n\n  Options:\n  A. Encrypt article_cid as the 'value' column: makes the read-state opaque\n     but prevents indexed lookup by article_cid. Requires full table scan\n     per user to find flags for a specific article.\n  B. Store article_cid plaintext, encrypt a 'flags_blob BYTEA' column that\n     contains (seen, flagged) encrypted. Preserves indexed lookup; only the\n     flag values are protected.\n\n  Recommendation: Option B. The article_cid is a public CID (not secret);\n  only the fact that this user has read it is sensitive. Encrypt the flags\n  blob, keep the lookup key plaintext. This is a pragmatic tradeoff.\n\n  Schema change:\n    ALTER TABLE user_flags\n        ADD COLUMN flags_blob BYTEA,\n        DROP COLUMN seen,\n        DROP COLUMN flagged;\n  (flags_blob = AES-256-GCM encrypt of JSON {\"seen\":bool,\"flagged\":bool})\n\n## subscriptions\n  Columns: (user_id, group_name TEXT, subscribed_at BIGINT)\n  group_name reveals which newsgroups the user reads. Encrypt group_name.\n\n  Schema change:\n    ALTER TABLE subscriptions\n        ALTER COLUMN group_name TYPE BYTEA USING group_name::BYTEA;\n\n  Impact: subscription lookups currently do WHERE group_name = ?.\n  After encryption, lookups must fetch all rows for user_id and decrypt\n  client-side. For typical subscription counts (10\u2013500 groups) this is\n  acceptable. If it becomes a bottleneck, a deterministic HMAC index\n  (HMAC-SHA256(DEK, group_name)) can be added alongside the ciphertext\n  for O(1) lookup without revealing plaintext.\n\n## Acceptance\n  - user_flags.flags_blob is ciphertext in DB for new writes\n  - subscriptions.group_name is ciphertext in DB for new writes\n  - Existing read paths (UserFlagsStore, subscription queries) return correct values after decryption\n  - Performance: 500 subscriptions decrypted in < 5ms (AES-GCM is fast; this is a sanity check)",
+  "ephemeral": 0,
+  "id": "stoa-6cj39.6",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Encrypt user_flags and subscriptions rows under per-user DEK",
+  "updated_at": "2026-06-26T20:26:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T08:28:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-6cj39",
+      "id": "2d00b3cb-b439-5efa-8d03-a3f521ccb693",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-02T08:29:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-6cj39.2",
+      "id": "6c00cb5e-16e8-5f74-874f-10640db0712d",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T08:29:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-6cj39.3",
+      "id": "84acd9a6-ea71-5d6f-8603-babedc632111",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

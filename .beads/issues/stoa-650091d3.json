@@ -1,0 +1,13 @@
+{
+  "id": "stoa-650091d3",
+  "title": "Review: Round 10 reader/ctl/tls scope",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:57:27Z",
+  "updated_at": "2026-05-01T05:00:17Z",
+  "closed_at": "2026-04-27T17:15:10Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 The codebase is generally well-structured with good test coverage and clear security defaults. The main risks are: (1) SEARCH TEXT Tantivy injection (P0, could allow cross-group query injection); (2) admin Authorization header case-sensitivity (P0, correctness break with standard HTTP clients); (3) dev mode is silently wide-open without any log warning at auth time; (4) extract_injection_source return value is discarded, making the injection_source always NntpPost regardless of SMTP drain classification.\nConfidence: 15% chance of missed bug. Uncertainty driven by: (1) search_in_group implementation not in scope \u2014 cannot determine exact severity of SEARCH TEXT injection without seeing how it composes the newsgroup filter with user query; (2) msgid_map.lookup_by_cid implementation not reviewed \u2014 cannot verify XGET group-membership check is sufficient; (3) TLS crate not reviewed for client cert extraction correctness. Would raise confidence if: search_in_group and msgid_map.lookup_by_cid were also reviewed."
+}

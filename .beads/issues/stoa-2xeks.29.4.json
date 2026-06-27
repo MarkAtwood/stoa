@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed move_to_dead_letter doc comment to accurately describe orphaned .env handling",
+  "closed_at": "2026-05-03T02:48:39Z",
+  "compaction_level": 0,
+  "content_hash": "33076fcf36467f930a602029e4ff9c8c62c202827d8d79799337810817e1d2e3",
+  "created_at": "2026-05-03T02:39:09Z",
+  "created_by": "Mark Atwood",
+  "description": "The doc comment for move_to_dead_letter says: 'if the .env rename fails, the orphaned .env is still visible to drain_once \u2014 it will warn msg missing, skipping rather than permanently strand the .msg'. But drain_once's actual behavior when .msg is missing is: it logs 'orphaned .env (no matching .msg), removing' and deletes the .env file. It does not say 'msg missing, skipping'. The .msg is in dead/, the .env is cleaned up \u2014 the behavior is correct but the comment misstates it. Fix: rewrite the comment to match the actual drain_once behavior.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.29.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "move_to_dead_letter doc comment misstates what happens to orphaned .env on next drain",
+  "updated_at": "2026-05-03T02:48:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T19:39:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.29",
+      "id": "b9dbf8a4-5a77-56cd-8aae-a3270b2bd291",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

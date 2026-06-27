@@ -1,0 +1,27 @@
+{
+  "id": "stoa-8670b753",
+  "title": "JMAP: HTTP Basic Auth middleware using CredentialStore",
+  "description": "Implement authentication on all JMAP HTTP endpoints. Mechanism: HTTP Basic Auth (Authorization: Basic <base64(user:pass)>). Rationale: RFC 8620 does not mandate a mechanism; Basic over TLS is what JMAP clients (Thunderbird, etc.) support out of the box. Bearer tokens require an issuance endpoint. Add an Axum extractor that: (1) reads Authorization header, (2) decodes base64(user:pass), (3) calls CredentialStore::check(), (4) returns 401 WWW-Authenticate: Basic realm=usenet-ipfs on failure. When auth.required=false and users is empty (is_dev_mode()), pass all requests. Also enforce auth on the blob download endpoint (/jmap/download) and validate account_id matches the authenticated username (fixes 5w3.19 as a side effect).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:44:29Z",
+  "updated_at": "2026-05-01T04:58:55Z",
+  "closed_at": "2026-04-22T04:21:55Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-31947539",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:44:28"
+    },
+    {
+      "depends_on_id": "stoa-633df7be",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:45:10"
+    }
+  ]
+}

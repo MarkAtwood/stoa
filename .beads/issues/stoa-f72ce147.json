@@ -1,0 +1,19 @@
+{
+  "id": "stoa-f72ce147",
+  "title": "CI: release workflow",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:43:52Z",
+  "updated_at": "2026-05-01T04:58:04Z",
+  "closed_at": "2026-04-20T06:12:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-636dd08d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:43:52"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "stoa-157c76cc",
+  "title": "validation.rs: bare CR/LF not rejected in mandatory header values",
+  "description": "core/src/validation.rs validates Message-ID format and mandatory headers but does not reject bare CR or LF characters in header values. These can cause header injection in canonical serialization. Fix: in complete_post and validate_mandatory_headers, reject any header value containing bare \\r or \\n that is not part of a CRLF.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T08:02:11Z",
+  "updated_at": "2026-05-01T04:53:30Z",
+  "closed_at": "2026-04-27T08:24:48Z"
+}

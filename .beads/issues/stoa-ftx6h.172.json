@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "b64cfb62e4923bf1ea6f4414596a5a15bf5507b39b2e6904835d4e7bd6e05867",
+  "created_at": "2026-05-03T13:09:20Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: manual delegation duplicates 30 lines of boilerplate that the macro already generates correctly for AzureStore and GcsStore. A future refactor that changes IpfsStore signatures will require updating WebDavStore separately. What: webdav_store.rs has a manual #[async_trait] impl IpfsStore for WebDavStore with three methods each delegating to self.0. AzureStore and GcsStore use crate::impl_ipfs_store_via_inner!(TypeName) for the same pattern in one line.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.172",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "WebDavStore manually reimplements IpfsStore instead of using impl_ipfs_store_via_inner! macro",
+  "updated_at": "2026-05-03T13:09:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:09:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "503ef99d-5f2b-53b6-a239-194c4f974879",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

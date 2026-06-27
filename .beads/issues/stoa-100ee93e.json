@@ -1,0 +1,21 @@
+{
+  "id": "stoa-100ee93e",
+  "title": "Write operator installation and first-run guide",
+  "description": "Write docs/operator/installation.md: prerequisites (Rust toolchain, IPFS node), build from source, generate operator key pair, write minimal config files for transit and reader, start both daemons, verify with a test newsreader connection. Includes troubleshooting section for common startup failures. Artifact: docs/operator/installation.md.\n\nAcceptance criteria: a new operator with Rust experience can get both daemons running from this doc; all commands are copy-pasteable; expected output shown for each step",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:45:17Z",
+  "updated_at": "2026-05-01T04:58:01Z",
+  "closed_at": "2026-04-20T12:54:44Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0fdae308",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:45:17"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T16:11:56Z",
+  "compaction_level": 0,
+  "content_hash": "c9c83e823cfcfb6b981dde13f5afc16e18ec8208d9bab2fc11e5cddb1108d8b3",
+  "created_at": "2026-05-05T15:55:25Z",
+  "created_by": "Mark Atwood",
+  "description": "ses_mailer.rs is_transient_ses_error(): the final arm 'unknown variants default to transient' means any future AWS SDK error variant will cause a retry loop rather than dead-lettering. This is the safe default but should have a comment explaining why \u2014 otherwise maintainers may change it to 'false' thinking it is a bug. P3 doc/readability.",
+  "ephemeral": 0,
+  "id": "stoa-f8qts.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SesMailer: SdkError unknown variant defaults to transient (safe but worth documenting)",
+  "updated_at": "2026-05-05T16:11:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-05T08:55:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-f8qts",
+      "id": "44dab36d-a7b8-5eef-9759-21a7f732e7ba",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

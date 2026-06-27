@@ -1,0 +1,19 @@
+{
+  "id": "stoa-53d37cf6",
+  "title": "relay_queue write-order is load-bearing and correctly documented",
+  "description": "relay_queue::enqueue writes .msg first, then .env. The comment correctly explains why: if .env existed without .msg the drain would attempt to read a non-existent payload. The drain only iterates .env files and reads the paired .msg, so the write order ensures a partial crash leaves no dangling .env. This is a deliberate crash-safety decision. The comment is accurate for the actual .env-first scan pattern and should be preserved. (Note: the orphan-.msg issue is a separate problem \u2014 the comment is correct about the .env-first concern, just incomplete about the .msg-without-.env case.)",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:13:38Z",
+  "updated_at": "2026-05-01T04:58:26Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5be7a2c5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:13:37"
+    }
+  ]
+}

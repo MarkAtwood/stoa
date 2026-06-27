@@ -1,0 +1,13 @@
+{
+  "id": "stoa-9c5f979d",
+  "title": "docs: fix stale CHANGELOG and supersede ADR-0004",
+  "description": "The CHANGELOG and ADR-0004 describe a gossipsub topology and DHT discovery fallback that were removed in commit bcd4026. Any new contributor reading the docs gets a false picture of the architecture. Documentation that contradicts the running code is worse than no documentation.\n\nWhat needs to be done:\n1. Rewrite the [Unreleased] CHANGELOG block to reflect current architecture: IHAVE/TAKETHIS TCP peering, Kubo HTTP RPC for IPFS, ActivityPub, JMAP, IMAP4rev2, SMTP, secretx.\n2. Supersede ADR-0004 (gossipsub-per-hierarchy) with a new ADR documenting the TCP peering decision and why gossipsub was dropped.\n3. Audit ADR-0005 through ADR-0007 for accuracy; add missing ADRs for decisions made since ADR-0007 (ActivityPub, JMAP, IMAP4rev2, sieve-native boundary, secretx).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T03:06:50Z",
+  "updated_at": "2026-05-01T04:55:39Z",
+  "closed_at": "2026-04-30T03:13:06Z"
+}

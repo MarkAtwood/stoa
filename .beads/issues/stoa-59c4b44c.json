@@ -1,0 +1,20 @@
+{
+  "id": "stoa-59c4b44c",
+  "title": "[maintainer] AGPL license footprint not documented in reader deployment",
+  "description": "usenet-ipfs-reader now imports usenet-ipfs-smtp (post/smtp_relay.rs:10), which depends on AGPL sieve via usenet-ipfs-sieve (CLAUDE.md line about 'reader was previously MIT, now AGPL'). This changes the license status of a major component deployed as a network service. Operator running reader as a service must provide source or face legal exposure. But: project README and CLAUDE.md do not clearly state this. Solo operator/future users could be surprised when license audited. Need: update project docs (README, CLAUDE.md \u00a7License) to explicitly warn that building usenet-ipfs-reader now requires AGPL compliance if using SMTP relay features.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T19:14:13Z",
+  "updated_at": "2026-05-01T05:00:31Z",
+  "closed_at": "2026-04-23T19:18:06Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-11ae5322",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 12:14:12"
+    }
+  ]
+}

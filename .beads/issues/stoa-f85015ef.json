@@ -1,0 +1,20 @@
+{
+  "id": "stoa-f85015ef",
+  "title": "secretx: URI bypasses base64 validation in Config::validate correctly",
+  "description": "smtp/config.rs and reader/config.rs both skip the base64/length check for dkim.key_seed_b64 when the value starts with 'secretx:'. This is correct: Config::validate() runs before secretx resolution, so the bytes are not yet available. A future contributor might add a 'validate the secretx URI syntax here too' check \u2014 that would be wrong because it would create a tight coupling between the config format and the secretx URI scheme. The skip is intentional and the test test_dkim_config_secretx_seed_skips_validation explicitly covers this invariant.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:45:23Z",
+  "updated_at": "2026-05-01T04:58:21Z",
+  "closed_at": "2026-05-01T02:14:11Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4315538d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:45:23"
+    }
+  ]
+}

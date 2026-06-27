@@ -1,0 +1,19 @@
+{
+  "id": "stoa-2ade9867",
+  "title": "has_entry selects full id column bytes instead of SELECT 1",
+  "description": "sqlite_storage.rs has_entry: SELECT id FROM log_entries WHERE id = ? transfers 32 bytes per row to check existence. Use SELECT 1 FROM log_entries WHERE id = ? LIMIT 1 to let SQLite short-circuit on index lookup without fetching the column value. Minor but this query is called frequently in BFS hot path.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:37:38Z",
+  "updated_at": "2026-05-01T04:55:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:37:38"
+    }
+  ]
+}

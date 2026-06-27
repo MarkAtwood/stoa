@@ -1,0 +1,19 @@
+{
+  "id": "stoa-ac54ec21",
+  "title": "Seed bytes correctly zeroized after Ed25519Key construction",
+  "description": "In both smtp/main.rs and reader/server_stores.rs, the seed Vec is explicitly zeroized with seed.zeroize() immediately after Ed25519Key::from_seed_and_public_key(). This is the correct behavior \u2014 the seed is the private key material and must not linger in heap memory. A future contributor might remove this as 'unnecessary cleanup', but it is the security-correct pattern for any key material in heap-allocated memory. Worth defending.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:13:35Z",
+  "updated_at": "2026-05-01T04:58:26Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5be7a2c5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:13:35"
+    }
+  ]
+}

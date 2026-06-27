@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T18:22:03Z",
+  "compaction_level": 0,
+  "content_hash": "7501b39a75809841e21cd03d94d9d48f856fc146af407d5fcbefa291ffa80944",
+  "created_at": "2026-05-01T15:19:17Z",
+  "created_by": "Mark Atwood",
+  "description": "In mailbox/set.rs is_newsgroup_name, a newsgroup name is accepted if it is non-empty, contains a dot, and has no whitespace. This is weaker than the validation used elsewhere (stoa_core::article::GroupName::new). For example 'a.1b' or '.a.b' or 'a.b.' would pass is_newsgroup_name but may be rejected by GroupName::new. This means a Mailbox/set create with a name like '.foo.bar' succeeds (subscriber is written to the DB) but subsequent operations using GroupName::new would fail to recognise the group. The check should delegate to GroupName::new.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.26",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "is_newsgroup_name validation accepts invalid group names that GroupName::new rejects",
+  "updated_at": "2026-05-01T18:22:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:19:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "3ffee0fe-3688-55ac-ba01-655db3ca6c5d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

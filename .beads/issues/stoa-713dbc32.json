@@ -1,0 +1,13 @@
+{
+  "id": "stoa-713dbc32",
+  "title": "Review: filesystem block store backend",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T01:17:25Z",
+  "updated_at": "2026-05-01T04:59:35Z",
+  "closed_at": "2026-04-28T01:29:29Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 the .tmp race is real but low-probability (requires concurrent same-CID ingests); missing soft cap means disk-full fails silently with generic errors; missing RUNBOOK leaves operators without sizing guidance.\nConfidence: 80% chance of no missed bug. Uncertainty: didn't test concurrent same-CID puts in practice (the .tmp race is theoretical); filesystem error injection (ENOSPC, EROFS) not tested. Would raise confidence with a concurrent-puts stress test and a test that simulates ENOSPC during rename."
+}

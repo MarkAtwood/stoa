@@ -1,0 +1,26 @@
+{
+  "id": "stoa-9b4209f8",
+  "title": "sieve_admin.rs: replace compile() with daemon POST /check",
+  "description": "Replace the local usenet_ipfs_sieve::compile() call in the admin API with a daemon check call.\n\nWhat: crates/smtp/src/sieve_admin.rs\n\nAlgorithm:\n1. In the PUT /admin/sieve/{user}/{name} handler: replace usenet_ipfs_sieve::compile(&bytes) with sieve_client::check_via_daemon(&config.delivery.sieve_daemon, &bytes).await.\n2. In POST /admin/sieve/check handler: same replacement.\n3. If daemon is disabled (socket_path empty): return 503 Service Unavailable with body 'sieve daemon not configured; cannot validate scripts'.\n4. If daemon returns Err(Unreachable): return 503 'sieve daemon unreachable'.\n5. If daemon returns Err(compile error string): return 422 Unprocessable Entity with the error string (unchanged behaviour from today).\n6. Remove all remaining use usenet_ipfs_sieve imports from sieve_admin.rs.\n\nDefensive rules:\n- Do not change the 422 error format; callers depend on it.\n- 503 is the correct code for 'dependency unavailable'; do not use 500.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:18:28Z",
+  "updated_at": "2026-05-01T05:00:46Z",
+  "closed_at": "2026-04-23T20:25:30Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-357078d5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:19:08"
+    },
+    {
+      "depends_on_id": "stoa-d1d5d8e9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:18:27"
+    }
+  ]
+}

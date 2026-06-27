@@ -1,0 +1,21 @@
+{
+  "id": "stoa-7ef2d1f7",
+  "title": "GROUP command calls list_groups() on every GROUP request",
+  "description": "O(G) REPEATED FULL SCAN \u2014 handle_group_live (lifecycle.rs:1366) calls article_numbers.list_groups() on every GROUP command to check whether the group is carried. list_groups executes GROUP BY group_name over the article_numbers table. With thousands of groups, this is a full index scan per GROUP command per session. Fix: use a targeted EXISTS query or check only against the session cache and refresh the cache only after a POST succeeds.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:09:36Z",
+  "updated_at": "2026-05-01T04:56:05Z",
+  "closed_at": "2026-04-27T16:30:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:09:35"
+    }
+  ]
+}

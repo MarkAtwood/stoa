@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T22:40:30Z",
+  "compaction_level": 0,
+  "content_hash": "f59e7582df8f7e700d61767b11c2b595af6589723ba77183cb0680d344c0866b",
+  "created_at": "2026-05-02T22:25:54Z",
+  "created_by": "Mark Atwood",
+  "description": "parse_mta_sts_policy silently accepts duplicate 'mode' fields with last-wins semantics. A policy body like 'version: STSv1\\nmode: enforce\\nmx: ...\\nmode: none\\nmax_age: 86400' would be parsed as mode=none, silently downgrading enforcement. RFC 8461 \u00a73.2 does not explicitly require rejection of duplicate fields, but since mode controls security enforcement, a duplicate mode field should be treated as a parse error (PolicyParseFailed) rather than silently accepted. The same issue applies to max_age and potentially mx (though mx accumulation is intentional). Fix: track whether mode and max_age have already been set; return PolicyParseFailed on duplicate.\n\n## Context\nmta_sts_policy.rs line 73: mode = Some(parsed) overwrites any previously parsed mode. RFC 8461 \u00a73.2 specifies each field once.",
+  "ephemeral": 0,
+  "id": "stoa-9cx9p.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mta_sts_policy: duplicate 'mode' field silently overwrites with last-wins",
+  "updated_at": "2026-05-02T22:40:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T15:25:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-9cx9p",
+      "id": "ebed7232-14b6-5eef-986c-0166411be61c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

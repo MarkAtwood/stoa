@@ -1,0 +1,33 @@
+{
+  "compaction_level": 0,
+  "content_hash": "e76c5803de360f72e990e5839831ebbb76be2b83f3578457ecb153d8115516bf",
+  "created_at": "2026-05-05T00:16:18Z",
+  "created_by": "Mark Atwood",
+  "defer_until": "2099-01-01T08:00:00Z",
+  "description": "Sieve is the routing table. No alias schema, no virtual domain map, no transport map. One language, one evaluator, one place to look when something routes wrong.\n\nKey changes to current implementation:\n1. Sieve evaluator runs per-recipient, not per-message. Current bug: sieve_delivery() uses only first recipient. Must be fixed \u2014 this is load-bearing for multi-domain routing.\n2. Envelope variables pre-set before evaluation: ${envelope.from}, ${envelope.to}, ${envelope.to.localpart}, ${envelope.to.domain}\n3. redirect action (RFC 5228 \u00a74.2) \u2014 currently missing, must be added. Enqueues outbound SMTP delivery. Multiple redirect actions per script execution are valid. Does not consume message \u2014 fileinto and redirect can both fire.\n4. Loop detection built into redirect from day one: X-Loop header check + hop counter in relay queue entry. Not retrofittable safely.\n5. user_exists custom test: if user_exists :domain \"kubernetes.io\" { ... } \u2014 queries identities table for active identity with email at that domain.\n6. System script stored in SQLite, one row, hot-reloaded on change. No restart required.\n7. Per-user scripts: personal mailboxes only, evaluated after system script if system script does not stop.\n\nRouting specificity (implicit, no integer priorities): exact address > local wildcard (security@*) > domain wildcard (*@kubernetes.io) > full wildcard (*@*). Within same tier: all matching rules fire in definition order, stopping at first reject.\n\nSMTP session flow:\n  RCPT TO \u2192 domain check \u2192 mailbox lookup \u2192 550 if either fails\n  DATA \u2192 buffer full body (accept-body-always decision, no pre-DATA Sieve pass)\n  \u2192 evaluate system Sieve per recipient\n  \u2192 evaluate per-user Sieve if personal mailbox\n  \u2192 dispatch: fileinto \u2192 block store \u2192 JMAP index\n              redirect \u2192 outbound SMTP queue\n              reject \u2192 bounce",
+  "ephemeral": 0,
+  "id": "stoa-4dsqe.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Personal mailbox redirect policy correction: user scripts CAN use redirect to external addresses by default. Blocking personal redirect is paternalistic and breaks legitimate use cases (forwarding work mail to personal inbox, etc).\n\nThe real concern is data exfiltration in high-security deployments, not personal redirect in general. Operator controls this, not the code.\n\nCapability defaults:\n  user = [\"fileinto\", \"setflag\", \"vacation\", \"redirect\"]  # redirect on by default\n\nOperator restriction levers (all default permissive):\n  [sieve.restrictions]\n  user_redirect_internal_only = false   # if true, redirect only to domains in domains table\n  user_redirect_domains = []            # empty = any domain allowed; set to whitelist specific domains\n  user_redirect_min_trust_block = \"hardware\"  # mailboxes at this trust level or above block redirect regardless of user script or global settings\n\nThree independent levers, all default permissive. Classified mailbox (min_trust_level=hardware) blocks redirect unconditionally \u2014 contents of a hardware-tier mailbox should not forward to gmail.com regardless of user preference or global operator setting. Operator tightens for high-security deployments. Generic community operator leaves defaults alone.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "deferred",
+  "timeout_ns": 0,
+  "title": "design: Sieve-primary routing \u2014 system script, per-recipient evaluation, redirect action",
+  "updated_at": "2026-05-05T00:23:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T17:16:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-4dsqe",
+      "id": "c221fa64-e03a-564d-a0b2-ee5c8681aef0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

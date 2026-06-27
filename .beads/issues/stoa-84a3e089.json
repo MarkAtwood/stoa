@@ -1,0 +1,20 @@
+{
+  "id": "stoa-84a3e089",
+  "title": "cleanup_orphan_msg_files: read_dir error aborts scan silently",
+  "description": "Same pattern as cleanup_tmp_files: a single Err from next_entry() breaks the loop. Orphan .msg files listed after the failing entry are never quarantined to dead/. Those files then appear in the drain_once env scan but lack a matching .env, generating repeated 'skipping' warnings on every drain cycle instead of being quarantined once. Trigger: any directory entry error during startup scan. Bad behavior: orphan .msg accumulates in main queue dir, polluting every drain pass and obscuring the queue depth metric.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:55:09Z",
+  "updated_at": "2026-05-01T04:58:25Z",
+  "closed_at": "2026-05-01T00:55:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-18bf2fce",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:55:09"
+    }
+  ]
+}

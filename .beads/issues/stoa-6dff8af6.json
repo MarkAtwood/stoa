@@ -1,0 +1,27 @@
+{
+  "id": "stoa-6dff8af6",
+  "title": "Spike: evaluate rate-limited operator signing as spam mitigation",
+  "description": "Evaluate rate-limited operator signing as spam mitigation: the transit/reader enforces a configurable per-source-IP or per-AUTHINFO-user POST rate limit. Assess: (1) effectiveness against distributed spam; (2) impact on legitimate high-volume posting; (3) implementation complexity vs Hashcash; (4) interaction with IHAVE bulk import. Artifact: docs/spam_mitigation_ratelimit.md.\n\nAcceptance:\n- Quantifies max POST rate per authenticated user\n- Documents interaction with IHAVE (bulk import must bypass or have separate limit)\n- Compares complexity to Hashcash spike\n- Conclusion: recommend adopt/reject with rationale\n- No production code written (spike only)",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:17:47Z",
+  "updated_at": "2026-05-01T04:58:05Z",
+  "closed_at": "2026-04-20T12:17:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-8013af16",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:17:46"
+    },
+    {
+      "depends_on_id": "stoa-ec0ce60a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:18:13"
+    }
+  ]
+}

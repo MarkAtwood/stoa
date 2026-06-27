@@ -1,0 +1,21 @@
+{
+  "id": "stoa-f108752f",
+  "title": "SEC1: bt5.10 msgid normalization: suck_pull ingress not normalized",
+  "description": "bt5.10 adds msgid lowercase normalization at 4 ingress points: check_ingest() in ingestion.rs, check_msgid_only() in session.rs, extract_message_id_bytes() in reindex.rs, and the pipeline's extract_message_id() in pipeline.rs. However, suck_pull.rs (import/suck_pull.rs) collects Message-IDs from NEWNEWS responses and calls fetch_article_with_retry() without normalizing the msgid. The msgids from NEWNEWS are stored as-received (line 149: msgids.push(trimmed.to_string())). If a remote server returns mixed-case Message-IDs in its NEWNEWS listing, suck_pull will fetch and attempt to ingest them without normalization. The ingestion pipeline does normalize on store, but the in-flight duplicate check in suck_pull itself does not lowercase before the lookup. Additionally, ihave_push.rs at line 286 extracts Message-ID but the surrounding context should be checked for whether it stores normalized. The fragility concern is real: 4 sites are normalized by convention, not by a single central normalization function or type wrapper that enforces it. Adding a 5th ingress (e.g. gossip backfill when implemented) requires the author to know to call .to_ascii_lowercase() \u2014 there is no compile-time enforcement. Mitigation: introduce a NewType wrapper (e.g. NormalizedMsgId) that normalizes in its constructor, making un-normalized use a type error.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T13:50:47Z",
+  "updated_at": "2026-05-01T04:54:27Z",
+  "closed_at": "2026-04-22T14:02:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b816309",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 06:50:47"
+    }
+  ]
+}

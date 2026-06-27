@@ -1,0 +1,20 @@
+{
+  "id": "stoa-b64a4beb",
+  "title": "use let-else in relay_queue drain_once stem extraction",
+  "description": "relay_queue.rs line 366-369 uses 'let stem = match env_path.file_stem()... { Some(s) => s.to_string(), None => continue }' \u2014 the let-else form (stabilized Rust 1.65) is more idiomatic: 'let Some(stem) = env_path.file_stem().and_then(|s| s.to_str()) else { continue }'. Eliminates the manual to_string and the match arm with continue.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:43:34Z",
+  "updated_at": "2026-05-01T04:55:13Z",
+  "closed_at": "2026-05-01T02:13:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4315538d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:43:33"
+    }
+  ]
+}

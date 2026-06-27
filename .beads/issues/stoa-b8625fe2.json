@@ -1,0 +1,20 @@
+{
+  "id": "stoa-b8625fe2",
+  "title": "imap/session/mod: capability_list uses Vec1::unvalidated",
+  "description": "crates/imap/src/session/commands.rs capability_list() line 35 \u2014 uses Vec1::unvalidated(caps) to bypass the 'at least one element' invariant check. The comment says 'Safety: always at least one element' but Vec1 provides a try_from or from_ne_slice API that validates at construction time and panics with a clear message. Using unvalidated bypasses a library invariant for no performance gain.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:24:04Z",
+  "updated_at": "2026-05-01T04:58:32Z",
+  "closed_at": "2026-04-28T21:36:59Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:24:04"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T23:59:14Z",
+  "compaction_level": 0,
+  "content_hash": "81cda5a5a6bc3e5dbd7ab62b5ec85384f107f1cee74305dc680f13435386d78d",
+  "created_at": "2026-05-02T23:09:49Z",
+  "created_by": "Mark Atwood",
+  "description": "mta_sts_dns.rs: MtaStsTxtRecord derives Debug but not Clone. relay_client.rs:181 passes &txt to load_fresh_policy which takes &MtaStsTxtRecord \u2014 fine. But any caller wanting to retain the record must move it. Since MtaStsTxtRecord only contains a String, deriving Clone is trivially correct and adds flexibility for callers who need to retain a copy alongside the returned policy. Add #[derive(Clone)].",
+  "ephemeral": 0,
+  "id": "stoa-wfcj7.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MtaStsTxtRecord does not derive Clone \u2014 requires ownership transfer in callers",
+  "updated_at": "2026-05-02T23:59:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T16:09:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-wfcj7",
+      "id": "d55283bf-365d-5800-b083-53eb95377032",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

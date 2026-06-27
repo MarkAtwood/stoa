@@ -1,0 +1,13 @@
+{
+  "id": "stoa-33df35ca",
+  "title": "Review: full codebase pre-merge audit",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T16:52:25Z",
+  "updated_at": "2026-05-01T04:54:43Z",
+  "closed_at": "2026-04-22T18:57:00Z",
+  "notes": "Maintainer risk: HIGH \u2014 Four P0 correctness bugs: (1) signature bytes silently discarded from group log (breaks audit trail), (2) timestamp truncation silent in release builds (breaks DAG ordering), (3) queue depth race under burst load (bypasses admission control), (4) CRLF reformatting allows size limit bypass (content integrity). P0s must be fixed before shipping.\nConfidence: 20% chance of missed bug. Uncertainty driven by: (1) concurrent behavior of tokio tasks in ingestion pipeline not fully traced; (2) GC executor interaction with pinning policy under concurrent GC+ingestion not reviewed in depth; (3) JMAP authorization checks not verified field-by-field against RFC 8621 required permissions; (4) could not run the test suite to confirm tests actually pass. Would raise confidence if: full cargo test run clean, JMAP auth reviewed against spec, and ingestion pipeline traced under concurrent load with MIRI or loom."
+}

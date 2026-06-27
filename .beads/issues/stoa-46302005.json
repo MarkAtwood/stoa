@@ -1,0 +1,20 @@
+{
+  "id": "stoa-46302005",
+  "title": "reader/config.rs: pub use UserCredential buried under wrong section comment",
+  "description": "In crates/reader/src/config.rs, 'pub use stoa_auth::UserCredential' (line 7) appears directly under the comment '// Types are defined in stoa_core::ipfs_backend and re-exported here so that reader config validation code can use them without a long path prefix.' This comment describes the ipfs_backend re-exports below it, not the UserCredential re-export. A maintainer scanning this file could read the section header as referring only to ipfs_backend types, miss the stoa_auth re-export entirely, and add a duplicate local UserCredential struct. The fix is to either: (a) add a dedicated comment on line 7 explaining the re-export ('// Re-exported from stoa-auth so callers get UserCredential from config, not stoa_auth directly'), or (b) move the UserCredential re-export to a visually distinct block near the AuthConfig fields it relates to.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T16:51:27Z",
+  "updated_at": "2026-05-01T04:53:01Z",
+  "closed_at": "2026-04-30T16:56:30Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-45f3f588",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 09:51:27"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-75a30302",
+  "title": "imap: credential_file secretx:// URI silently treated as filesystem path",
+  "description": "imap build_credential_store calls merge_from_file even when credential_file starts with 'secretx:'. Reader has special-cased async secretx handling; imap does not. Operator who copies reader config with secretx URI to imap gets an I/O error opening a path named 'secretx://...' \u2014 confusing and the feature is silently broken.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:26:08Z",
+  "updated_at": "2026-05-01T04:51:36Z",
+  "closed_at": "2026-04-30T19:35:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-031471c6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 12:26:07"
+    }
+  ]
+}

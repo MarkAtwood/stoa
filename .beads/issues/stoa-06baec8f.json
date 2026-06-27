@@ -1,0 +1,11 @@
+{
+  "id": "stoa-06baec8f",
+  "title": "DECISION: dual-CID model (raw 0x55 + DAG-CBOR 0x71) is correct for IPLD",
+  "description": "ipld/codec.rs defines CODEC_RAW=0x55 for article body blobs and CODEC_DAG_CBOR=0x71 for structured IPLD nodes. This is the correct IPLD architecture: raw content for body bytes (preserves exact bytes, content-addressable), DAG-CBOR for structured headers/metadata (linked by CID). The dual-codec model aligns with standard IPFS conventions and Corundum extensibility requirements.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:26:22Z",
+  "updated_at": "2026-05-01T04:51:34Z"
+}

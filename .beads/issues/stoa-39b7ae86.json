@@ -1,0 +1,32 @@
+{
+  "id": "stoa-39b7ae86",
+  "title": "verify_did_sig: verify Ed25519 DID signature over article",
+  "description": "What: Implement verify_did_sig() in crates/reader/src/post/did_verify.rs.\n\nAlgorithm:\n1. pub fn verify_did_sig(article_bytes: &[u8], header_value: &str) -> Result<bool, DidSigError>\n   where header_value is the value of X-Usenet-IPFS-DID-Sig: e.g. 'did:key:z6Mk... <base64url-sig>'\n2. Split header_value on the LAST space (to allow spaces in did URLs, though did:key has none).\n   If fewer than 2 tokens, return DidSigError::InvalidFormat('expected <did-url> <base64url-sig>'.into())\n   Let did_url = first part, sig_b64 = last part\n3. Decode sig_b64 using base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(sig_b64).\n   On error return DidSigError::InvalidSignatureEncoding(e.to_string())\n4. Check decoded sig length == 64. If not, return DidSigError::InvalidSignatureEncoding('expected 64-byte Ed25519 sig'.into())\n5. Convert sig to ed25519_dalek::Signature::from_bytes(&sig_arr) where sig_arr: [u8; 64]\n6. Call parse_did_key(did_url) -> verifying_key. Propagate error.\n7. Strip X-Usenet-IPFS-DID-Sig header line from article_bytes to get unsigned_bytes.\n   Use a line-by-line approach: split on \\r\\n (or \\n as fallback), discard lines whose lowercase prefix matches 'x-usenet-ipfs-did-sig:', rejoin with \\r\\n.\n   This mirrors extract_sig_header() in sign.rs.\n8. Call verifying_key.verify_strict(&unsigned_bytes, &signature). \n   Ok(()) -> return Ok(true)\n   Err(_) -> return Ok(false)  [verification failed is not an error, just false]\n\nDefensive programming:\n- Verification failure (wrong sig) is Ok(false), not Err \u2014 callers distinguish 'could not verify' from 'verified as invalid'\n- Do not log sig bytes or key bytes\n- The unsigned_bytes stripping must handle both \\r\\n and \\n line endings\n- Use ed25519_dalek::VerifyingKey::verify_strict (not verify) to reject weak signatures",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T04:06:01Z",
+  "updated_at": "2026-05-01T05:00:53Z",
+  "closed_at": "2026-04-23T04:23:41Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0e7a41f1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:07:05"
+    },
+    {
+      "depends_on_id": "stoa-891b1900",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:07:04"
+    },
+    {
+      "depends_on_id": "stoa-c06fa970",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:06:00"
+    }
+  ]
+}

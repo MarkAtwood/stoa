@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T03:30:53Z",
+  "compaction_level": 0,
+  "content_hash": "f67a44c466a3064ac3426ea1ec255ef091e243939db95005278a0cabe05f280c",
+  "created_at": "2026-05-04T03:18:56Z",
+  "created_by": "Mark Atwood",
+  "description": "rnews_config.rs:87-258 \u2014 build_store_for_rnews is a near-verbatim copy of peering/pipeline.rs:241-408 (build_store). Every new backend arm must be added in two places. The copy in rnews_config.rs already diverges slightly (different error text for PgBlob). When a new BackendType variant is added to pipeline.rs, the rnews copy will silently skip it, causing a runtime error or a compile-time non-exhaustive match warning that may go unnoticed. Better approach: refactor build_store to accept a BackendConfig option + fallback IpfsConfig directly, so both callers share one implementation. The RnewsConfig -> StoreBuildResult plumbing becomes a two-line wrapper.",
+  "ephemeral": 0,
+  "id": "stoa-tlvh9.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "build_store duplicated in rnews_config vs pipeline",
+  "updated_at": "2026-05-04T03:30:53Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T20:18:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-tlvh9",
+      "id": "f40e1190-0582-5963-b730-5ddf9c5d263b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

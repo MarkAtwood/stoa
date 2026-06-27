@@ -1,0 +1,27 @@
+{
+  "id": "stoa-3d36b709",
+  "title": "E2E: SMTP List-ID article is local-only; sieve article peers",
+  "description": "End-to-end test through the full SMTP\u2192reader pipeline verifying provenance routing.\n\nWhat: crates/integration-tests/tests/injection_provenance_e2e.rs (or extend two_process_harness.rs)\n\nTest 1 \u2014 listid_stays_local:\n1. Start reader with SMTP relay queue draining.\n2. Inject SMTP message via the SMTP session with only a List-ID header (no Newsgroups: header, no sieve script).\n3. The fallback router sets SmtpListId source.\n4. Drain the NntpQueue.\n5. Assert via NNTP GROUP + OVER: article is readable in the newsgroup derived from List-ID.\n6. Assert via group log query: zero entries for this article CID (would not be sent via IHAVE).\n\nTest 2 \u2014 sieve_route_peers:\n1. Upload sieve script: require [\"fileinto\"]; fileinto \"newsgroup:comp.test\";\n2. Inject SMTP message (no List-ID header; sieve fires).\n3. Source is SmtpSieve.\n4. Assert via NNTP: article readable in comp.test.\n5. Assert via group log: one entry present for this article CID.\n\nTest 3 \u2014 newsgroups_header_peers:\n1. Inject SMTP message with Newsgroups: comp.test header (no sieve script, no List-ID).\n2. Source is SmtpNewsgroups.\n3. Assert group log entry present.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:58:41Z",
+  "updated_at": "2026-05-01T04:54:02Z",
+  "closed_at": "2026-04-24T00:48:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-25999291",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:58:50"
+    },
+    {
+      "depends_on_id": "stoa-46d6c408",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:58:41"
+    }
+  ]
+}

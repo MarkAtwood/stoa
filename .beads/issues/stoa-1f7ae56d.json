@@ -1,0 +1,20 @@
+{
+  "id": "stoa-1f7ae56d",
+  "title": "[maintainer] dead-letter queue unbounded, no cleanup or monitoring",
+  "description": "Permanent delivery failures move .env and .msg to dead/ subdirectory (relay_queue.rs:276-289). No mechanism for: (1) size limit or automatic expiry, (2) alerting when dead-letter dir grows, (3) operator tooling to inspect/analyze stuck messages, (4) metrics export. Solo operator will eventually accumulate GB of orphaned messages with no visibility. Need: queue size limit with log warning, dead-letter metrics, operator CLI tool to list/export dead-letter contents, or TTL-based cleanup.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T19:13:55Z",
+  "updated_at": "2026-05-01T05:00:27Z",
+  "closed_at": "2026-04-23T19:22:06Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-11ae5322",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 12:13:55"
+    }
+  ]
+}

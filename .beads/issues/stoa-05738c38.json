@@ -1,0 +1,21 @@
+{
+  "id": "stoa-05738c38",
+  "title": "Startup dependency check with fast-fail",
+  "description": "Check all required external dependencies at startup and fail fast with a clear, actionable error message if any are unavailable.\n\nWhy this issue exists:\nCurrently the daemons start successfully and then fail on the first operation that needs Kubo. The error appears deep in a stack trace on the first article write, not at startup. Operators need to know immediately at launch if the environment is misconfigured.\n\nScope:\nOn startup, before binding the listen port, check:\n- Kubo reachable: GET /api/v0/id succeeds and returns a peer ID\n- SQLite databases openable and migrations runnable\n- TLS cert and key files readable and parseable (if TLS is configured)\n- Signing key file readable and correct length (if signing_key_path is configured)\n- Admin bind address not already in use\n\nOn any check failure:\n- Log the specific failure at ERROR with an actionable message ('Kubo unreachable at http://127.0.0.1:5001 -- is ipfs daemon running?')\n- Exit with code 1 before binding any ports\n- Do not partially start (no half-bound sockets left behind)\n\nAdd a --check flag that runs the dependency checks and exits without starting the daemon. Useful for config validation in CI and deployment scripts.\n\nAcceptance criteria:\n- Starting with Kubo down: process exits within 5 seconds with exit code 1 and a clear error naming Kubo\n- Starting with a bad TLS cert path: exits with exit code 1 naming the file\n- --check flag exits 0 when all checks pass, 1 with errors listed when any fail\n- Normal startup with all deps available is not measurably slower",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:16:27Z",
+  "updated_at": "2026-05-01T04:54:18Z",
+  "closed_at": "2026-04-24T02:57:20Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-62fa8a90",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:00:14"
+    }
+  ]
+}

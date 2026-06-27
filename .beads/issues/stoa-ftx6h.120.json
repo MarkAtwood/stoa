@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "823e43b0cec169c54f0741a87bcab3fbdd864f96325864a0bbb03e5eda5531b3",
+  "created_at": "2026-05-03T13:06:34Z",
+  "created_by": "Mark Atwood",
+  "description": "imap/src/session/mailbox.rs glob_match() implements RFC 3501 LIST wildcard matching with an O(m\u00d7n) dynamic-programming matcher. A MAX_GLOB_BYTES=1024 guard rejects oversized patterns before the DP table is allocated. This correctly prevents a crafted LIST pattern from causing excessive memory or CPU use. The approach is sound: the guard is applied before any allocation, the DP table size is bounded by 1024\u00d7mailbox_name_len, and the function returns false (no match) for oversized input rather than an error that could leak information.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.120",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "decision: IMAP glob_match uses bounded DP with MAX_GLOB_BYTES=1024 guard",
+  "updated_at": "2026-05-03T13:06:34Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "b060866d-58c9-5fab-87bb-233828d91f16",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

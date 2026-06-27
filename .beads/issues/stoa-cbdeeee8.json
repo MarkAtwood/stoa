@@ -1,0 +1,20 @@
+{
+  "id": "stoa-cbdeeee8",
+  "title": "sieve-native/form: ParseError line/col always 0 is undocumented limitation",
+  "description": "crates/sieve-native/src/form.rs \u2014 the module doc explains that Token carries no source position so parse errors always report (0, 0). However ParseError::Display formats as 'parse error at 0:0: ...' which is confusing to users of the library who see a literal 0:0 position. The Display impl should either omit the location when it is (0,0) or note 'position unavailable'. The module-level comment is correct but the user-facing output is misleading.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:27:50Z",
+  "updated_at": "2026-05-01T04:54:05Z",
+  "closed_at": "2026-04-28T21:56:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:27:50"
+    }
+  ]
+}

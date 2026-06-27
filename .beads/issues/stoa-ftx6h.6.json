@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T13:28:17Z",
+  "compaction_level": 0,
+  "content_hash": "eb307a0bcc892f59f3e14714be1488b8141e3f481985c9d4bf2d99ca12dd5964",
+  "created_at": "2026-05-03T13:01:49Z",
+  "created_by": "Mark Atwood",
+  "description": "admin.rs check_bearer_token uses subtle::ConstantTimeEq but ct_eq on slices of different lengths returns 0 in constant time *within the comparison* \u2014 however the byte slice lengths are visible to the attacker via other channels and the implementation reveals the expected token length: if header.len() != expected.len() the comparison short-circuits at the slice level before entering ct_eq. An attacker sending tokens of different lengths can binary-search the token length by observing whether ct_eq is even entered. Should use constant_time_eq from the subtle crate with explicit length-equalization (e.g. pad both to a fixed size or use hmac-based comparison).",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "check_bearer_token length leak: ct_eq leaks token length",
+  "updated_at": "2026-05-03T13:28:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:01:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "74effa16-e736-5260-b16a-b2669c1348a6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

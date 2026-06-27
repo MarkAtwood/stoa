@@ -1,0 +1,33 @@
+{
+  "id": "stoa-4e48b549",
+  "title": "Implement retention policy validation at startup",
+  "description": "On startup, parse and validate the pinning policy: (1) at least one rule must exist; (2) no rule has both max_age_days=0 and no group filter (would match nothing); (3) any group name in pin_groups must be a valid group name format. If validation fails, print the invalid rule with line number and exit. Artifact: integrated into transit/src/config.rs and transit/src/retention/policy.rs.\n\nAcceptance:\n- Empty policy (no rules) prints error and exits 1\n- Invalid group name in rule prints error and exits 1\n- Overlapping rules emit a warning (not an error) listing which articles match multiple rules\n- Unit test: valid policy parses without error; each invalid case returns error",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:16:29Z",
+  "updated_at": "2026-05-01T04:58:08Z",
+  "closed_at": "2026-04-20T06:48:42Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3287c8c4",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:16:29"
+    },
+    {
+      "depends_on_id": "stoa-334c73a0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:54:11"
+    },
+    {
+      "depends_on_id": "stoa-cc2c43b4",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:16:47"
+    }
+  ]
+}

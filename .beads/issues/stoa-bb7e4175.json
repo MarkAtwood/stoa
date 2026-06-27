@@ -1,0 +1,12 @@
+{
+  "id": "stoa-bb7e4175",
+  "title": "[epic] Azure Blob Storage block store backend",
+  "description": "## Why\nAzure Blob Storage is the dominant object store in enterprise and Microsoft-aligned deployments. Unlike S3-compatible stores, Azure has its own native API; using it natively avoids the S3-compatibility shim and gives access to Azure-specific features (lifecycle policies, immutability, private endpoints).\n\n## Scope\n- `[backend] type = \"azure\"` config: storage account, container name, credential (connection string or managed identity)\n- `AzureStore: IpfsStore` backed by `azure_storage_blobs` crate (or `object_store` Azure provider)\n- Blob name = CID base32; content-type = `application/octet-stream`\n- Startup: verify container reachable and writable\n- Integration test against Azurite (Azure Storage emulator) via docker-compose\n- RUNBOOK section",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T16:23:27Z",
+  "updated_at": "2026-05-01T04:58:46Z",
+  "closed_at": "2026-04-28T03:02:03Z"
+}

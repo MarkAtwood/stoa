@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T13:26:30Z",
+  "compaction_level": 0,
+  "content_hash": "8c6d47a28902dd623f78143bef8f7881030c3315eacf668c6639174577455516",
+  "created_at": "2026-05-03T13:07:50Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: backpressure is the stated mechanism for protecting IPFS write throughput under load. What: IpfsLatencyMonitor is defined and wired in PeeringShared but never queried in the TAKETHIS/IHAVE ingestion path. Articles are enqueued regardless of IPFS write latency, so the monitor collects data nobody acts on. The flood_backpressure.rs tests only test queue-depth and byte limits, not latency-based backpressure. This means a slow IPFS node will saturate the pipeline without any 431 slow-down signal.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.154",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "IpfsLatencyMonitor disconnected from pipeline",
+  "updated_at": "2026-05-03T13:26:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:07:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "a149a819-a6c7-5537-b1ab-eda8c1b9d4f2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

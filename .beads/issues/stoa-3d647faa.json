@@ -1,0 +1,19 @@
+{
+  "id": "stoa-3d647faa",
+  "title": "session.rs: RSET in Fresh state keeps Fresh instead of returning 503 for pre-EHLO",
+  "description": "session.rs RSET handler: RSET in Fresh state (before any EHLO) is silently accepted and the state stays Fresh. RFC 5321 \u00a74.1.1.5 permits RSET at any time so this is technically correct. However, RSET before EHLO is unusual and might mask broken clients. Not a correctness issue but worth noting that the session can be in Fresh state indefinitely if only RSET and NOOP are sent \u2014 the command_timeout is the only bound.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:34:54Z",
+  "updated_at": "2026-05-01T04:52:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:34:53"
+    }
+  ]
+}

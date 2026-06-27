@@ -1,0 +1,13 @@
+{
+  "id": "stoa-42d774dd",
+  "title": "read cache: local FS LRU cache of IPFS blocks for served content",
+  "description": "Why: rust-ipfs stores blocks it ingested locally, but per-block overhead (CID lookup, DAG-CBOR decoding, blockstore traversal) adds latency under load. For arbitrary CID fetches (XGET/X-USENET-IPFS-GET/blob download), content may need to be fetched from the IPFS network which is slow and non-deterministic. A local LRU cache in front of the IPFS block store eliminates repeated fetches for hot content. Since CIDs are immutable and content-addressed, cache invalidation is trivially correct \u2014 same CID always means same bytes, forever.\\n\\nWhat:\\nAdd a configurable on-disk LRU block cache, sitting between the protocol handlers and the IpfsBlockStore trait:\\n- On get_raw_block(cid): check cache first; on miss, fetch from IPFS and populate cache.\\n- On put_raw_block(data): write to IPFS, then populate cache with the result.\\n- Evict LRU entries when either the byte-size limit or entry-count limit is reached.\\n\\nConfiguration (new [cache] section in config):\\n  [cache]\\n  path = \"/var/cache/usenet-ipfs/blocks\"   # directory for cache files\\n  max_bytes = 10_737_418_240               # max total cache size in bytes (default 10 GiB)\\n  max_entries = 1_000_000                  # max number of cached blocks (default 1M)\\n  # If either limit is reached, LRU entries are evicted until both are satisfied.\\n  # Set max_bytes = 0 or max_entries = 0 to disable the respective limit.\\n  # Omit [cache] section entirely to disable caching.\\n\\nImplementation notes:\\n- Cache files named by CID string (base32) to allow directory listing for recovery.\\n- A separate SQLite table (or sled/redb) tracks (cid, size_bytes, last_access) for LRU ordering without scanning the directory.\\n- The cache must survive process restart \u2014 entries on disk are valid indefinitely due to CID immutability.\\n- Thread-safe: multiple reader tasks may access the cache concurrently.\\n- Apply to all three protocol surfaces: NNTP ARTICLE/XGET, IMAP FETCH/X-USENET-IPFS-GET, JMAP Email/get and blob download.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T02:13:45Z",
+  "updated_at": "2026-05-01T05:00:48Z",
+  "closed_at": "2026-04-23T08:27:15Z"
+}

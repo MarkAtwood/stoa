@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Updated doc to say 'every unique recipient domain'",
+  "closed_at": "2026-05-02T20:35:47Z",
+  "compaction_level": 0,
+  "content_hash": "889420363abbb6249f65c9ea70c55bd72a32e21bea23dc6e67e9c190e758fea1",
+  "created_at": "2026-05-02T20:33:57Z",
+  "created_by": "Mark Atwood",
+  "description": "relay_client.rs:254-256: doc comment says 'MTA-STS policy is checked for the first recipient's domain' but the implementation now iterates all recipient domains. A contributor reading the doc comment will misunderstand the enforcement scope.",
+  "ephemeral": 0,
+  "id": "stoa-kkbqv.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "stale doc: deliver_via_relay says 'first recipient's domain' after multi-domain fix",
+  "updated_at": "2026-05-02T20:35:47Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T13:33:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-kkbqv",
+      "id": "8d9ec2d1-7a09-5f09-998b-e0f3d8959e11",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

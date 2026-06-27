@@ -1,0 +1,39 @@
+{
+  "id": "stoa-f4b0b396",
+  "title": "NNTP input validation coverage audit",
+  "description": "Audit every point where NNTP input enters the system (command parser, header parser, article body receiver, Message-ID extractor, group name parser) and verify that: (1) each field has an enforced maximum length, (2) each field rejects invalid characters or formats, (3) no field is used as a SQL value without parameterization, (4) no field is used in a shell command. Produce a checklist table in docs/input_validation_audit.md. File any gaps as new beads issues. Artifact: docs/input_validation_audit.md.\n\nAcceptance:\n- Table covers every NNTP input point (list from RFC 3977 command set)\n- Each row: input field, max length enforced? format validated? SQL-safe? shell-safe?\n- All 'No' entries result in a new beads issue filed\n- Audit document committed alongside any fixes",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:17:55Z",
+  "updated_at": "2026-05-01T04:58:05Z",
+  "closed_at": "2026-04-20T05:54:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-13c8a615",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:54:18"
+    },
+    {
+      "depends_on_id": "stoa-41676187",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:19"
+    },
+    {
+      "depends_on_id": "stoa-8013af16",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:17:54"
+    },
+    {
+      "depends_on_id": "stoa-8fe9296c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:20"
+    }
+  ]
+}

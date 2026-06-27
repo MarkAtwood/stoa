@@ -1,0 +1,28 @@
+{
+  "id": "stoa-4c63b92a",
+  "title": "smtp: global Sieve evaluation, accept all local RCPT TO",
+  "description": "## Why\nsieve_delivery currently loops over each RCPT TO, matches against config.users, and evaluates a per-user Sieve script for each match. Single-user mode: evaluate one global script once per message, deliver to the shared inbox regardless of envelope recipient.\n\n## What\n\n### sieve_delivery rewrite\nRemove the per-recipient loop entirely. New logic:\n1. Load and evaluate the global script (keyed to '_global' in the sieve scripts table, or the first/only script if only one exists). If no script is stored, default to Keep.\n2. Apply reject-before-deliver: if any action is Reject, return SieveOutcome::Rejected immediately.\n3. Apply Keep/FileInto/Discard actions once, writing to shared mailbox.\n\nKeep action: INSERT INTO messages (mailbox_id, ...) using the INBOX mailbox_id from the mailboxes table (SELECT mailbox_id FROM mailboxes WHERE role='inbox').\nFileInto('newsgroup:comp.foo'): unchanged \u2014 enqueue to NNTP.\nFileInto(folder): INSERT INTO messages with mailbox_id looked up by role or name from mailboxes table.\nDiscard: drop message.\n\nNo user_id in any INSERT.\n\n### sieve_for_user \u2192 sieve_global\nRename/replace sieve_for_user with sieve_global(pool, raw_message, envelope_from, envelope_to, cache).\nLoads script for username '_global'; evaluates and returns actions.\n\n### config.rs\nRemove UserConfig struct and config.users Vec<UserConfig> field entirely.\nNo impact on SMTP AUTH (AuthConfig is separate).\n\n### RCPT TO acceptance\nVerify that the SMTP session handler accepts any RCPT TO for local delivery (no 550 user-unknown at RCPT TO time). If it currently checks config.users at RCPT TO time, remove that check for local delivery.\n\n## Acceptance criteria\n- A message to any RCPT TO address is stored in the shared INBOX.\n- Sieve evaluation runs exactly once per message, not per recipient.\n- config.users removed from config.toml schema; server starts without a users stanza.\n- All tests pass.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:14:15Z",
+  "updated_at": "2026-05-01T04:53:04Z",
+  "closed_at": "2026-04-30T06:47:39Z",
+  "notes": "DECISION: global Sieve script loaded from file path in config, not from the DB script store. Config key: delivery.sieve_script (optional path string). If absent or file not found, default to Keep. File is read once at startup and cached in memory; SIGHUP or server restart to reload. The per-user DB script store (sieve_scripts table in smtp.db) and the Sieve admin HTTP API (SieveAdminConfig, the 127.0.0.1:4190 listener, all /scripts/* routes, store::load_active_script, store::save_script, etc.) are removed entirely. SieveAdminConfig removed from Config. SieveCache removed (no longer needed \u2014 compiled script held in an Arc<CompiledScript> in DeliveryState or equivalent). Migration 0013 drops the sieve_scripts table from smtp.db.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-7dded951",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:14:33"
+    },
+    {
+      "depends_on_id": "stoa-a58a4ea1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:14:44"
+    }
+  ]
+}

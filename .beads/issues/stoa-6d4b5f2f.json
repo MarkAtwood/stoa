@@ -1,0 +1,21 @@
+{
+  "id": "stoa-6d4b5f2f",
+  "title": "complete_post uses hardcoded DEFAULT_MAX_ARTICLE_BYTES, ignores operator config limit",
+  "description": "TRIGGER: Operator sets a custom max_article_bytes in reader config (smaller or larger than DEFAULT_MAX_ARTICLE_BYTES). BEHAVIOR: In crates/reader/src/session/lifecycle.rs, the call to complete_post passes DEFAULT_MAX_ARTICLE_BYTES (the compile-time constant) instead of config.limits.max_article_bytes. Articles up to DEFAULT_MAX_ARTICLE_BYTES are accepted regardless of the operator's configured limit. An operator who lowers the limit to reduce storage load or enforce policy cannot enforce that limit via POST; a client can post articles larger than the configured maximum as long as they are under the hardcoded default.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:13:28Z",
+  "updated_at": "2026-05-01T04:56:45Z",
+  "closed_at": "2026-04-27T01:44:20Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:13:28"
+    }
+  ]
+}

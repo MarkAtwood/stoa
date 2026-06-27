@@ -1,0 +1,12 @@
+{
+  "id": "stoa-2048298a",
+  "title": "DECISION: reconcile BFS caps (MAX_BFS_VISITS, MAX_HAVE) are correct",
+  "description": "group_log/reconcile.rs: MAX_BFS_VISITS and MAX_HAVE cap work per reconciliation round, preventing adversarial peers from causing unbounded memory/CPU via pathologically large logs. Intentional and correct \u2014 do not remove.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:26:52Z",
+  "updated_at": "2026-05-01T04:51:34Z",
+  "closed_at": "2026-04-28T20:46:22Z"
+}

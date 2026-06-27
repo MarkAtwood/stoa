@@ -1,0 +1,56 @@
+{
+  "acceptance_criteria": "cargo test -p stoa-transit -- dns_auth_cache passes with SPF/DMARC/ARC tests",
+  "compaction_level": 0,
+  "content_hash": "ca416c4cf73e5d00ccc95fe75d1628e3e6057eda26a145aba3d6f7f102ef120a",
+  "created_at": "2026-05-04T06:00:08Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement DnsAuthCache struct (renamed from DkimKeyCache) covering all four evidence types.\n\nFile: crates/transit/src/dns_auth_cache.rs\n\n```rust\npub struct DnsAuthCache {\n    pool: sqlx::AnyPool,\n    ipfs: Arc<dyn IpfsStore>,\n    dns_cache: Arc<DnsCache>,\n}\n\nimpl DnsAuthCache {\n    pub fn new(pool: sqlx::AnyPool, ipfs: Arc<dyn IpfsStore>, dns_cache: Arc<DnsCache>) -> Self\n\n    /// Cache all DNS authentication evidence for an article.\n    /// Covers DKIM, ARC, SPF, and DMARC. Never returns Err.\n    pub async fn cache_from_article(&self, article_bytes: &[u8])\n}\n```\n\nAlgorithm for cache_from_article:\n1. DKIM + ARC: call extract_dkim_selectors (which now also handles ARC-Message-Signature)\n   For each (selector, domain):\n   - Fetch {selector}._domainkey.{domain} TXT\n   - Evidence type: 'dkim' for DKIM-Signature, 'arc' for ARC-Message-Signature\n   - Parse algorithm (k=), key bytes (p=), handle empty p= as revoked\n   - Store raw TXT as CID blob; upsert dns_auth_cache row\n\n2. SPF: call extract_spf_domain\n   If Some(domain):\n   - Fetch {domain} TXT records, filter for those starting with 'v=spf1'\n   - Take the first match (only one SPF record should exist per RFC 7208)\n   - Store raw TXT as CID blob; record_status='active', policy=raw_txt\n   - evidence_type='spf', selector=''\n   - On NODATA: tombstone existing 'active' SPF row if present\n\n3. DMARC: call extract_dmarc_domain\n   If Some(domain):\n   - Fetch _dmarc.{domain} TXT\n   - Parse p= tag from value for the policy field\n   - Store raw TXT as CID blob; policy=raw_txt, record_status='active'\n   - evidence_type='dmarc', selector=''\n   - On NODATA: tombstone existing 'active' DMARC row if present\n\nShared upsert logic (extract into private fn):\n- now_ms = wall clock ms (unwrap_or(1))\n- INSERT OR IGNORE (domain, selector, record_cid, first_seen_ms=now_ms, last_seen_ms=now_ms, ttl_secs, evidence_type, algorithm, key_bytes, policy, record_status='active')\n- If INSERT ignored (row exists): UPDATE last_seen_ms=now_ms WHERE evidence_type=? AND domain=? AND selector=? AND record_cid=?\n- On NODATA for known 'active' row: UPDATE record_status='rotated', last_seen_ms=now_ms\n\nDefensive rules:\n- All errors logged, never propagated to caller\n- SPF: skip if multiple v=spf1 records (RFC 7208 \u00a73.2 permerror); log warn\n- DMARC: skip if TXT value does not start with 'v=DMARC1'; log debug\n- No unwrap() in non-test code",
+  "ephemeral": 0,
+  "id": "stoa-p4oc4.4",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "DnsAuthCache: DNS fetch and store for DKIM, SPF, DMARC, ARC",
+  "updated_at": "2026-06-26T20:26:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T23:00:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p4oc4.2",
+      "id": "1438b6a1-2f19-5912-a991-d2f39d3802f6",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-03T23:00:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p4oc4.1",
+      "id": "1bdd54e9-7189-5d6c-88ed-8e8d513b0bdf",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-03T23:00:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p4oc4",
+      "id": "98cd9ee0-3027-5f71-b1ed-94d72f549d4d",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-03T23:00:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p4oc4.3",
+      "id": "cf7a9fcf-f945-51bd-bfb2-c39b3fde5566",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

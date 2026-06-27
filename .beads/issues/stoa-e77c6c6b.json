@@ -1,0 +1,20 @@
+{
+  "id": "stoa-e77c6c6b",
+  "title": "Constant-time bearer token comparison",
+  "description": "Sieve admin API uses subtle::ConstantTimeEq for comparing bearer tokens instead of string equality. This prevents timing attacks on credential verification, which is the correct security primitive.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T07:06:14Z",
+  "updated_at": "2026-05-01T04:55:35Z",
+  "closed_at": "2026-04-30T07:15:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-17ee367f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 00:06:13"
+    }
+  ]
+}

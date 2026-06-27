@@ -1,0 +1,32 @@
+{
+  "closed_at": "2026-05-03T13:07:53Z",
+  "compaction_level": 0,
+  "content_hash": "f278c5dd2fb0726cd2c30795e87cfdae9425f1e30b308a46c95878fbdc76511e",
+  "created_at": "2026-05-03T13:07:45Z",
+  "created_by": "Mark Atwood",
+  "description": "find_header_boundary returns the offset AFTER the separator (position + 4 for CRLF-CRLF, +2 for LF-LF). extract_sig_header calls let body_start = find_header_boundary(article_bytes) and then let header_section = &article_bytes[..body_start.unwrap_or(article_bytes.len())]. This means header_section INCLUDES the separator bytes (the trailing CRLF-CRLF or LF-LF). The header-scanning loop then splits on '\\n' and will find an empty line (the blank separator line) which is silently skipped by not matching any header pattern. This is functionally correct but slightly wasteful. More importantly, if the header section ends with CRLF-CRLF, the line iterator will see an empty final line. The from_utf8 check on header_section (which includes the separator) is also slightly wider than necessary. Not a security issue but a subtle contract violation in the API.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.152",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "verify: x_sig find_header_boundary returns offset including separator; extract_sig_header uses body_start but header_section sliced to body_start-without-offset",
+  "updated_at": "2026-05-03T13:07:53Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:07:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "3788e3c4-94b2-545c-bdbd-69c6861b0fbc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

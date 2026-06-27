@@ -1,0 +1,47 @@
+{
+  "compaction_level": 0,
+  "content_hash": "26072d8014d5b042ad898d9cfe40f9340a810b1495ee381bde2ae5925e9776af",
+  "created_at": "2026-05-02T17:39:29Z",
+  "created_by": "Mark Atwood",
+  "description": "Wire REQUIRETLS inbound handling into crates/smtp/src/session.rs. When MAIL FROM with REQUIRETLS parameter arrives: (1) if session is not TLS, reject with '530 5.7.0 Must issue STARTTLS first'; (2) store requiretls=true in session state; (3) on DATA completion, tag the incoming message in the database with requires_tls=true; (4) if stoa is a relay and needs to forward the message, propagate REQUIRETLS on the onward SMTP delivery. NOTE: this bead is BLOCKED by stoa-ryw.3 (STARTTLS not yet implemented). File the dep. Implement the session logic and tagging; outbound propagation can be gated on stoa-ryw.3 being closed.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Wire REQUIRETLS into SMTP inbound session lifecycle",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T10:39:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks",
+      "id": "1d0863f9-a1e1-53fe-853a-78756e9f666b",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-02T10:40:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.21",
+      "id": "a2ec8245-6633-5bad-aa9a-b6a638c9a91f",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T10:40:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ovjps.1",
+      "id": "c60cf246-4acf-554f-a878-4d32d10df66f",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

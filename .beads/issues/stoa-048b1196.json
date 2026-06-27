@@ -1,0 +1,21 @@
+{
+  "id": "stoa-048b1196",
+  "title": "resolve_secret_uri used inconsistently: some secretx sites use helper, others open-code the boilerplate",
+  "description": "resolve_secret_uri() is defined in both transit/main.rs and reader/main.rs and used for bearer_token / admin_token. But TLS key and signing key resolution is open-coded inline (~25 lines each) instead of using the helper. The split is because resolve_secret_uri is UTF-8-string-only (.as_str()), while TLS/signing needs bytes. This is correct but undocumented \u2014 a future contributor will try to use resolve_secret_uri for a binary secret and get wrong behavior. Suggested fix: rename to resolve_secret_string_uri and add a parallel resolve_secret_bytes_uri, or add a comment on the helper explaining the binary limitation.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-26T21:56:11Z",
+  "updated_at": "2026-05-01T04:57:22Z",
+  "closed_at": "2026-04-26T22:10:31Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1490b957",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 14:56:11"
+    }
+  ]
+}

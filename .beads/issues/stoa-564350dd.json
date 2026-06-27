@@ -1,0 +1,21 @@
+{
+  "id": "stoa-564350dd",
+  "title": "Set up criterion benchmark harness in workspace",
+  "description": "Add a benches/ directory to usenet-ipfs-core (and later transit/reader). Configure criterion in Cargo.toml. Add a placeholder benchmark (canonicalize 1000 articles) as the first entry. Artifact: crates/core/benches/canonical.rs, criterion config in Cargo.toml.\n\nAcceptance: `cargo bench -p usenet-ipfs-core` runs without error; benchmark output includes mean/std",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:44:32Z",
+  "updated_at": "2026-05-01T04:58:03Z",
+  "closed_at": "2026-04-20T05:43:02Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-54849785",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:44:31"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-2918e7ab",
+  "title": "ArticleBody is a thin Vec<u8> wrapper with no invariants",
+  "description": "crates/core/src/article.rs: ArticleBody is a one-field struct wrapping Vec<u8> with a single from_text() constructor. It enforces no invariants (not ASCII-only, not CRLF-terminated, not size-bounded \u2014 all of those checks live in validation.rs), derives serde, and adds no behaviour beyond raw byte access.\n\nEvery call site that would write article.body.bytes can instead use Vec<u8> directly. The wrapper costs a level of indirection (article.body.bytes vs article.body) in exchange for nothing.\n\nTwo alternatives:\n(1) Give ArticleBody genuine invariants worth protecting (CRLF lines, size cap) and make from_text() the only way to build a valid one. Then the type earns its existence.\n(2) Replace pub body: ArticleBody with pub body: Vec<u8> and delete the wrapper. The from_text() call sites become b\"...\".to_vec().\n\nIf (1) is chosen, the size cap should be enforced here rather than duplicated in validation.rs.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:14:28Z",
+  "updated_at": "2026-05-01T04:57:32Z",
+  "closed_at": "2026-04-27T18:37:59Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:14:28"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-59685aea",
+  "title": "NNTP reader: STARTTLS accepted on already-TLS connection",
+  "description": "reader/session/lifecycle.rs:64: after STARTTLS upgrade, run_session_io() is called with starttls_available=false, but this flag is not checked before dispatch_starttls(). A client sending STARTTLS on an already-TLS connection reaches 382 (proceed) instead of 580 (cannot initiate TLS). Rustls would likely reject the double-upgrade at the protocol level, but the NNTP state machine should reject it first with 580 per RFC 4642.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:33:49Z",
+  "updated_at": "2026-05-01T04:59:43Z",
+  "closed_at": "2026-04-21T19:51:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:33:48"
+    }
+  ]
+}

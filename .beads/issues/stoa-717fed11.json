@@ -1,0 +1,21 @@
+{
+  "id": "stoa-717fed11",
+  "title": "validation.rs precondition comment names non-existent callers",
+  "description": "The precondition comment in validation.rs says the NNTP POST path satisfies the obs-fold unfold precondition via reader/session/lifecycle.rs and reader/post/did_passthrough.rs. But validate_article_ingress is not currently called from the reader crate at all \u2014 only from transit pipeline tests with pre-constructed Article structs. The comment describes imagined future callers, not actual ones. Fix: rewrite as a general statement ('all callers must ensure obs-fold is unfolded before constructing the Article') without naming specific modules that may or may not call this function in the future.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T10:25:17Z",
+  "updated_at": "2026-05-01T04:54:04Z",
+  "closed_at": "2026-04-27T10:31:18Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-088fe713",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 03:25:16"
+    }
+  ]
+}

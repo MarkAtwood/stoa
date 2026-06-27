@@ -1,0 +1,27 @@
+{
+  "id": "stoa-90cf7937",
+  "title": "Initialize reader binary, config loader, and connection acceptor",
+  "description": "Create usenet-ipfs-reader/src/main.rs. Parse TOML config. Initialize tokio runtime. Accept TCP connections, spawn one task per session. Shutdown on SIGTERM after draining active sessions (max 30s). Artifact: compilable reader binary.\n\nAcceptance:\n- cargo build -p usenet-ipfs-reader succeeds\n- Accepts multiple simultaneous connections (test with 10 concurrent slrn processes)\n- SIGTERM causes clean shutdown; active sessions are allowed to finish current command\n- Config: listen_addr, max_connections, tls_cert, auth_required",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:12:36Z",
+  "updated_at": "2026-05-01T04:53:23Z",
+  "closed_at": "2026-04-20T00:28:48Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-60070901",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:07"
+    },
+    {
+      "depends_on_id": "stoa-987f87c2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:12:36"
+    }
+  ]
+}

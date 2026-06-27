@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "ff8d4cf491ca7e7dc8b16066059239d2021fb49c7686ea13307ae217f6815f80",
+  "created_at": "2026-05-04T03:19:40Z",
+  "created_by": "Mark Atwood",
+  "description": "DECISION: stoa-rnews exits 0 (success) after processing a batch even if some individual articles were rejected (bad Message-ID, validation failure, pipeline permanent error). It exits non-zero only on fatal startup failures: config error, migration failure, or inability to parse the batch at all.\n\nWHY RIGHT: This matches the documented semantics of the UUCP rnews tool. UUCP treats a non-zero exit from rnews as a signal that the batch was not processed and will queue it for retry. If stoa-rnews exited non-zero because one article out of 500 failed validation, UUCP would re-deliver all 500 articles. The transit pipeline would then deduplicate the 499 that already succeeded and attempt the bad one again \u2014 still failing, causing an infinite retry loop. Exiting 0 acknowledges receipt of the batch; per-article outcomes are logged and counted in structured log output. The exit-code semantics are documented in a comment at the top of rnews_main.rs.\n\nALTERNATIVES REJECTED:\n- Exit non-zero if any article fails: creates retry loops; correct UUCP rnews implementations do not do this.\n- Exit non-zero only on transient errors: reasonable in principle, but transient errors (storage unavailable) are indistinguishable at the batch level from permanent ones without inspecting all article results; the simpler policy is less error-prone.",
+  "ephemeral": 0,
+  "id": "stoa-tlvh9.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "rnews exits 0 even when individual articles are rejected (correct UUCP semantics)",
+  "updated_at": "2026-05-04T03:19:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T20:19:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-tlvh9",
+      "id": "acf0a9a9-f823-5f25-864b-092f68bcc747",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

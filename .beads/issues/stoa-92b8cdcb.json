@@ -1,0 +1,19 @@
+{
+  "id": "stoa-92b8cdcb",
+  "title": "relay_client: TLS_CLIENT_CONFIG install_default silently swallows error",
+  "description": "TLS_CLIENT_CONFIG is a LazyLock that calls CryptoProvider::install_default().unwrap_or(()) then calls ClientConfig::builder(). If install_default returns an error it is silently discarded via unwrap_or(()). The subsequent ClientConfig::builder() call may still succeed using a previously-installed provider, but if no provider was installed, the code panics with an unhelpful message. The error from install_default should be propagated or logged.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:40:47Z",
+  "updated_at": "2026-05-01T04:52:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:40:47"
+    }
+  ]
+}

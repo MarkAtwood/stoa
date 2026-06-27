@@ -1,0 +1,26 @@
+{
+  "id": "stoa-d46a1edc",
+  "title": "sao.2: implement feed_handler with RSS 2.0 and Atom 1.0 XML",
+  "description": "What: Implement the full feed_handler in crates/mail/src/feed.rs, generating valid RSS 2.0 and Atom 1.0 XML from the OverviewStore.\n\nAlgorithm:\n1. In feed_handler:\n   a. Parse path using parse_feed_path(); return 404 if None\n   b. Validate group name using RFC 3977 pattern: each dot-separated component starts with a letter, rest alphanumeric/hyphen/plus/underscore. Return 400 if invalid.\n   c. Extract limit from query param (default 100, cap at configured max or 500)\n   d. Extract before query param (optional message-id cursor)\n   e. Return 503 if state.jmap is None\n   f. Call state.jmap.article_numbers.group_range(&group) to get (low, high); if low > high return 200 with empty feed\n   g. If before is Some(msgid): call overview_store.query_by_msgid(&msgid) to get its article_number; use that as high-1 (exclusive upper bound for pagination). If msgid not found, use group high.\n   h. Query overview_store.query_range(&group, max(low, high.saturating_sub(limit as u64)), high) to get at most `limit` most recent articles; reverse to show newest first\n   i. Build feed_updated = the most recent article date (or now if none)\n   j. Generate XML based on format: generate_rss() or generate_atom()\n   k. Set headers: Content-Type, ETag (weak, based on group+last-msgid+count), Last-Modified, Cache-Control: public max-age=300\n   l. Return 200 with XML body\n\n2. fn generate_rss(base_url: &str, group: &str, articles: &[OverviewRecord]) -> String:\n   - Build XML string manually (no crate)\n   - Channel: title=group, link={base_url}/feed/{group}.rss, description=\"Usenet discussion group\"\n   - Items: for each article: title=escape_xml(subject), guid isPermaLink=\"false\"=message_id (strip angle brackets), pubDate=date (reformat to RFC 2822 if needed), author=escape_xml(from), link={base_url}/jmap/download/{dummy_account}/{cid}/article.eml (if CID known, else omit link)\n   - Simple approach: omit link (CID lookup requires extra async; save for v1.1)\n   - Wrap in proper XML header: <?xml version=\"1.0\" encoding=\"UTF-8\"?> and <rss version=\"2.0\">\n\n3. fn generate_atom(base_url: &str, group: &str, articles: &[OverviewRecord]) -> String:\n   - Feed: id=urn:usenet:group:{group}, title=escape_xml(group), updated=last-article-date-rfc3339\n   - Self link: href={base_url}/feed/{group}.atom\n   - Entries: for each article: id=urn:usenet:msgid:{msgid-without-angles}, title=escape_xml(subject), updated=date-rfc3339, author={from-display-name}\n   - Use chrono::DateTime::parse_from_rfc2822() to parse date strings for normalization; fall back to current time if parsing fails\n\n4. fn validate_group_name(name: &str) -> bool:\n   - Dot-separated components, each: first char ASCII letter, rest alphanumeric/hyphen/plus/underscore\n   - Returns false for empty string, empty components, or invalid chars\n\nDefensive programming:\n- escape_xml applied to ALL user-supplied strings before embedding in XML (subject, from, group name in text)\n- Group name in URLs does NOT need escaping (already validated as ASCII alphanumeric + dots + hyphens)\n- Date parse failures must fall back gracefully (use current time or leave field empty) \u2014 never panic\n- limit must be capped (no unbounded queries)\n- before cursor must be validated as a Message-ID format before querying\n\nTests: covered by sao.3\nAcceptance: GET /feed/comp.test.rss returns valid RSS XML; GET /feed/comp.test.atom returns valid Atom XML",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T03:46:49Z",
+  "updated_at": "2026-05-01T04:57:12Z",
+  "closed_at": "2026-04-23T03:51:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-a1c38061",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 20:46:49"
+    },
+    {
+      "depends_on_id": "stoa-d78a6ef2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 20:47:09"
+    }
+  ]
+}

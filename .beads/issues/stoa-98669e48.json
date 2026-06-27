@@ -1,0 +1,20 @@
+{
+  "id": "stoa-98669e48",
+  "title": "unique_id: SystemTime::now() unwrap_or_default seeds all IDs to epoch on clock failure",
+  "description": "SEQ is initialized with SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos() as u64 (line 17). If duration_since() fails (clock before epoch, which cannot happen on sane hardware), unwrap_or_default() silently seeds all IDs at nanosecond 0. Two processes seeded at 0 with the same counter state would generate colliding file names in a shared queue directory. Should be: if clock is before epoch, use a compile-time fallback (e.g. 0 + a process-unique salt), or panic during initialization with a clear error. The current silent fallback is the worst option: it generates wrong behavior silently.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:19:56Z",
+  "updated_at": "2026-05-01T04:59:14Z",
+  "closed_at": "2026-05-01T01:23:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-81b33f87",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:19:56"
+    }
+  ]
+}

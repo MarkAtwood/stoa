@@ -1,0 +1,20 @@
+{
+  "id": "stoa-88da248d",
+  "title": "smtp/server.rs: std::process::exit(1) inside async library function",
+  "description": "Why this issue exists: In crates/smtp/src/server.rs, run_server calls std::process::exit(1) when credential loading fails during startup. Calling process::exit inside a library-style async function bypasses all Drop handlers, tokio shutdown, and the caller's ability to handle or log the error. It is also untestable.\n\nWhat needs to be done: Replace the process::exit(1) call with error propagation \u2014 return Err(...) and let main() handle the exit.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:29:18Z",
+  "updated_at": "2026-05-01T04:52:30Z",
+  "closed_at": "2026-04-28T21:02:58Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:29:18"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-2273d8a5",
+  "title": "DECISION: DID verify is non-blocking (articles accepted on failure)",
+  "description": "When the X-Usenet-IPFS-DID-Sig header is present but verification fails (parse error, bad encoding, or invalid signature), the article is still accepted and stored. The result is recorded as Option<bool> in the overview index: Some(true) = verified, Some(false) = sig present but invalid, None = header absent or unparseable. This is correct because DID signing is an optional author-asserted layer on top of mandatory operator signing. Rejecting articles on DID verify failure would let any peer craft a malformed DID-Sig header to drop another user's articles \u2014 a denial-of-service vector. The verification outcome is preserved for clients that want to filter or display it.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T05:02:06Z",
+  "updated_at": "2026-05-01T04:57:08Z",
+  "closed_at": "2026-04-23T05:59:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-062e13cb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 22:02:05"
+    }
+  ]
+}

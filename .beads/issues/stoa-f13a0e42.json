@@ -1,0 +1,20 @@
+{
+  "id": "stoa-f13a0e42",
+  "title": "dkim.key_seed_b64 secretx URI fails validation \u2014 unusable in both smtp and reader",
+  "description": "Three-layer bug affecting both smtp and reader. (1) smtp/src/config.rs validate() line 570 and reader/src/config.rs validate() line 774 both unconditionally base64-decode key_seed_b64 without checking for a secretx:// prefix \u2014 so any secretx URI fails Config::from_file with 'invalid base64' before secretx resolution runs. (2) smtp/src/main.rs resolves secretx for delivery.dkim.key_seed_b64 AFTER Config::from_file (lines 159-176), but from_file already failed. (3) reader/src/store/server_stores.rs build_smtp_relay_queue has no secretx resolution at all. Net result: smtp_relay.dkim.key_seed_b64 and delivery.dkim.key_seed_b64 cannot be set to secretx:// URIs despite secretx being supported for every other secret field. The validate() checks must skip base64 decode when the value starts with 'secretx:' (defer decode until after resolution, as the smtp relay peer password validation does).",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:53:13Z",
+  "updated_at": "2026-05-01T04:58:45Z",
+  "closed_at": "2026-04-30T23:58:17Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-64675b0e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:53:12"
+    }
+  ]
+}

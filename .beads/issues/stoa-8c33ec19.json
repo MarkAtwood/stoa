@@ -1,0 +1,32 @@
+{
+  "id": "stoa-8c33ec19",
+  "title": "verify: test suite with independent oracles",
+  "description": "Test suite for both verifiers using oracles independent of the code under test.\n\nWhat: crates/verify/tests/\n\nX-Usenet-IPFS-Sig tests (oracle: ed25519-dalek sign/verify directly):\n1. pass: construct raw article bytes; sign with known ed25519 keypair via dalek; prepend header; verify_usenet_sig \u2192 Pass + correct key_id\n2. tampered_body: same but flip one byte in body after signing \u2192 Fail\n3. tampered_header: change Subject: after signing \u2192 Fail\n4. absent_header: raw message with no X-Usenet-IPFS-Sig \u2192 NoKey\n5. malformed_sig_field: header present but sig= is not valid base64 \u2192 NoKey (not panic)\n6. seen_keys_populated: after pass, query store.get_key(key_id) \u2192 SeenKey with key_data matching pubkey bytes\n7. article_count_increments: verify same key twice \u2192 seen_keys.article_count = 2\n\nDKIM tests (oracle: RFC 6376 Appendix A test vectors \u2014 exact message and signature from spec):\n8. rfc6376_appendix_a: use the exact test message, private key, and expected signature from RFC 6376 \u00a7Appendix A; verify \u2192 Pass\n9. body_tampered: modify one body byte in the RFC test message \u2192 Fail\n10. dns_error: use a Resolver that returns SERVFAIL for all queries \u2192 DnsError recorded, no panic\n11. no_dkim_header: plain message with no DKIM-Signature \u2192 NoKey\n12. key_snapshotted_on_fail: tampered-body case still populates seen_keys with the key from DNS\n\nAll tests use in-memory SQLite pool (same pattern as existing tests).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:48:31Z",
+  "updated_at": "2026-05-01T05:01:00Z",
+  "closed_at": "2026-04-24T01:09:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-bac12c82",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:49:55"
+    },
+    {
+      "depends_on_id": "stoa-f07d2b75",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:48:30"
+    },
+    {
+      "depends_on_id": "stoa-fc732ff1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:49:54"
+    }
+  ]
+}

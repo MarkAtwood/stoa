@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T08:14:31Z",
+  "compaction_level": 0,
+  "content_hash": "4169bd3e53b8897068ecbcf6a11cd02883818226179311fe32d751c0df8b55b4",
+  "created_at": "2026-05-04T08:04:31Z",
+  "created_by": "Mark Atwood",
+  "description": "Finding: The startup guard at `crates/reader/src/main.rs` line 350-361 that aborts when `operator.signing_key_path` is unset on a non-loopback address uses the comment '// Enforce signing_key_path for non-loopback deployments (zn0k).' \u2014 no `// SECURITY:` prefix. The auth dev-mode guard two blocks later (line 363) does use the `// SECURITY:` prefix. Both imap and mail consistently mark their equivalent guard with `// SECURITY:`. The inconsistency makes it harder to grep for security enforcement points across the codebase. The comment should be prefixed with `// SECURITY:` to match the project convention.",
+  "ephemeral": 0,
+  "id": "stoa-cajkm.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "reader main.rs signing_key guard lacks SECURITY comment",
+  "updated_at": "2026-05-04T08:14:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T01:04:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-cajkm",
+      "id": "ea8ca39b-2018-5394-ba7d-28eca76c658c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

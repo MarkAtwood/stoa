@@ -1,0 +1,20 @@
+{
+  "id": "stoa-254366ed",
+  "title": "double-checked locking in JWKS cache correctly prevents thunder-herd",
+  "description": "oidc.rs get_keys() uses a two-phase lock: read lock for the fast path (cache hit), write lock for the slow path with an inner re-check before fetching. This is correct double-checked locking for an async RwLock. A contributor might suggest simplifying to a single write lock always, which would serialize all JWKS lookups under the lock. The current pattern is correct: the read lock allows concurrent cache hits, and the inner re-check under write lock prevents the thunder-herd where N concurrent cache-misses each fetch fresh JWKS. Worth defending.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T17:48:12Z",
+  "updated_at": "2026-05-01T04:58:42Z",
+  "closed_at": "2026-04-28T20:06:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-08d918a1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 10:48:11"
+    }
+  ]
+}

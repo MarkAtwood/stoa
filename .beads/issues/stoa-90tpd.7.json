@@ -1,0 +1,51 @@
+{
+  "acceptance_criteria": "cargo test -p stoa-mail passes; dev-mode + non-loopback in mail is fatal; verify_http_signatures=false + non-loopback is fatal; clippy clean",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T07:56:55Z",
+  "compaction_level": 0,
+  "content_hash": "0896a10fe745c6b30f2613090315428e7126ca99c3ec851382b640ea6cd1a23a",
+  "created_at": "2026-05-04T06:32:59Z",
+  "created_by": "Mark Atwood",
+  "description": "## What\nIn crates/mail/src/main.rs, upgrade two existing warn! guards to fatal eprintln! + process::exit(1):\n1. auth dev-mode (is_dev_mode()) on non-loopback \u2192 fatal (currently only warns for operator_usernames case)\n2. activitypub.enabled && !verify_http_signatures on non-loopback \u2192 fatal (currently just warn)\n\n## Algorithm\n1. Read crates/mail/src/main.rs fully.\n2. Add is_loopback_addr helper to crates/mail/src/config.rs \u2014 use stoa_core::util::is_loopback_addr if W0A landed, otherwise add a local copy with the same body.\n3. At startup (after tracing init, before credential_store build), add:\n   if config.auth.is_dev_mode() && !is_loopback_addr(&config.listen.jmap_addr) {\n       eprintln!('error: stoa-mail is configured in dev mode (auth.required = false, no users configured) but is listening on a non-loopback address ({addr}). ...');\n       process::exit(1);\n   }\n   Note: mail config may have jmap_addr or http_addr \u2014 check the exact field name in config.rs.\n4. For verify_http_signatures:\n   Change lines ~249-255 from:\n     warn!('...')\n   to:\n     if config.activitypub.enabled && !config.activitypub.verify_http_signatures\n         && !is_loopback_addr(&config.listen.jmap_addr)\n     {\n         eprintln!('error: stoa-mail: activitypub.verify_http_signatures = false disables HTTP signature verification, allowing any actor to forge inbound ActivityPub activities. Set verify_http_signatures = true or bind to 127.0.0.1.');\n         process::exit(1);\n     }\n5. cargo fmt; cargo clippy clean; cargo test --workspace clean.\n\n## Defensive programming rules\n- Read the exact listen.addr field name from crates/mail/src/config.rs before writing \u2014 do not guess.\n- No unwrap().\n- Error messages must be actionable and must NOT contain any auth credentials or tokens.\n\n## Tests\nAdd to crates/mail/src/config.rs tests:\n- test_mail_dev_mode_nonloopback: is_dev_mode()=true + non-loopback \u2192 condition = true. Oracle: guard condition logic.\n- test_mail_dev_mode_loopback: is_dev_mode()=true + loopback \u2192 condition = false. Oracle: loopback is safe.\n- test_activitypub_noverify_nonloopback: enabled=true, verify_http_signatures=false, non-loopback \u2192 condition = true. Oracle: guard condition logic.\n- test_activitypub_noverify_loopback: same but loopback \u2192 condition = false.",
+  "ephemeral": 0,
+  "id": "stoa-90tpd.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mail: fatal guards for dev-mode and verify_http_signatures=false",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T23:32:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-90tpd",
+      "id": "2e6feaed-52c6-55ff-b42f-d3b0a189f1bd",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-03T23:33:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-90tpd.2",
+      "id": "dc8aed80-515f-5bbd-980f-6ce00abab9e5",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-03T23:33:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-90tpd.1",
+      "id": "f48761a0-f28e-542d-8bd9-317b8cb3a7d8",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

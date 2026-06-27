@@ -1,0 +1,21 @@
+{
+  "id": "stoa-883d3cde",
+  "title": "Admin endpoint: GET /pinning/remote for external pin status",
+  "description": "What: Add GET /pinning/remote endpoint to transit admin server that returns remote pin job statistics.\n\nAlgorithm:\n1. In crates/transit/src/admin.rs, add a new route handler branch:\n   if path == '/pinning/remote' { ... }\n\n2. Query:\n   SELECT service_name, status, COUNT(*) as count FROM remote_pin_jobs GROUP BY service_name, status\n   \n3. Return JSON:\n   {\n     'services': {\n       'pinata': {'pending': 3, 'queued': 1, 'pinning': 0, 'pinned': 142, 'failed': 2},\n       'web3storage': {'pending': 0, 'queued': 0, 'pinning': 5, 'pinned': 100, 'failed': 0}\n     }\n   }\n\n4. Follow existing admin.rs pattern: build_remote_pin_status_json(pool: &SqlitePool) -> Result<String, sqlx::Error>\n   Returns empty services object {} if external_services is empty or table has no rows.\n\nDefensive programming:\n- Return empty JSON object if no services configured (do not error)\n- Use existing write_json() helper for HTTP response\n- Table remote_pin_jobs may not exist on old installs if migration not run \u2014 handle sqlx::Error by returning empty object\n- Endpoint is rate-limited same as /stats",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T05:36:57Z",
+  "updated_at": "2026-05-01T04:57:05Z",
+  "closed_at": "2026-04-23T05:57:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-56c514a3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 22:36:57"
+    }
+  ]
+}

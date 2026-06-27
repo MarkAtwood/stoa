@@ -1,0 +1,21 @@
+{
+  "id": "stoa-e4a0862e",
+  "title": "dev-mode AUTHINFO bypass has no tracing::warn",
+  "description": "In lifecycle.rs, the dev-mode auth bypass path (is_dev_mode() => accepted = true) has no tracing::warn. An operator who deploys without credentials gets no log evidence that authentication is being bypassed. Add: warn!(peer = %peer_addr, username = %username, 'AUTHINFO: dev mode \u2014 authentication bypassed (no credentials configured)'); immediately before granting access.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T10:40:01Z",
+  "updated_at": "2026-05-01T04:52:03Z",
+  "closed_at": "2026-04-27T10:42:26Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-788640b7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 03:40:01"
+    }
+  ]
+}

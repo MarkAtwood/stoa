@@ -1,0 +1,13 @@
+{
+  "id": "stoa-ce3c28fb",
+  "title": "Review round 1: full project",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:07:46Z",
+  "updated_at": "2026-05-01T04:53:46Z",
+  "closed_at": "2026-04-27T18:41:51Z",
+  "notes": "SEC7 CALIBRATION (2026-04-27):\n\nConfidence: 85% chance no P0/P1 correctness bug was missed. Uncertainty at: (1) areas not code-reviewed by agents \u2014 specifically the LMDB crate internals, the IPFS client (rust-ipfs 0.15) integration surface, and the SQLite schema migration path; (2) async cancellation safety in the ingestion pipeline (tokio task abort while holding a write lock is not analyzed); (3) TLS handshake error paths in the peering session not examined in detail.\n\nP0 ASSESSMENT:\n- rbe3.30 (multi-@ msgid): CONFIRMED in code. splitn(2) vs count() divergence between reader/post/validate_headers.rs and core/src/validation.rs. Realistic trigger.\n- rbe3.33 (IHAVE envelope vs body msgid): CONFIRMED in code. check_ingest uses envelope msgid; run_pipeline parses msgid from article bytes. Can diverge. Realistic trigger from malicious peer.\n- rbe3.46 (sig verified pre-Path, stored under post-Path CID): CONFIRMED in code. Lines 346/354/365 of pipeline.rs. Any IHAVE/TAKETHIS article triggers this.\n- rbe3.48 (HLC skew saturating_add): CONFIRMED in code. Bug exists at line 150 of hlc.rs. However trigger requires local now_ms near u64::MAX (which maps to year ~584,000,000 CE). Effective trigger probability: zero in practice. Recommend downgrade to P1 (real bug, defend-in-depth value, but not exploitable).\n- rbe3.50 (complete_post hardcoded limit): CONFIRMED. LimitsConfig has NO max_article_bytes field at all; the config key does not exist. Framing in issue is wrong (says 'ignores config' but config has no such field). Real finding: operator cannot configure article size limit at all. Recommend keeping as P0 since default 1MB can be trivially bypassed in both directions (operator wanting tighter limit for storage policy, or larger for binary-adjacent content).\n\nDUPLICATE CLOSURES:\n- rbe3.44 closed as duplicate of rbe3.35 (same signing_key_path doc mismatch, rbe3.35 is authoritative P1)\n- rbe3.41 closed (empty test issue)\n\nOPINION LABELS APPLIED:\n- rbe3.59: run_command_loop if-let vs match \u2014 pure style refactor, current code is not ambiguous\n- rbe3.62: test names say stub \u2014 pure naming preference\n\nRUNNING OUT OF REAL COMPLAINTS: Yes, at P3/P4 level. The P3 elegance findings are real maintenance concerns but none introduce failure modes. The P4 findings are all legitimate doc/stale issues with real reader confusion potential. The set is exhaustive at these levels."
+}

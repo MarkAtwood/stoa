@@ -1,0 +1,20 @@
+{
+  "id": "stoa-38360668",
+  "title": "Header/body boundary detection implemented three separate times in reader",
+  "description": "reader/post/sign.rs:116-133, reader/session/lifecycle.rs:534-547, reader/post/sign.rs:599-609: three implementations of RFC 5322 header/body boundary detection (searching for \\r\\n\\r\\n or \\n\\n). Each has subtly different handling. Rewrite: extract fn find_header_boundary(bytes: &[u8]) -> Option<usize> in reader/post/mod.rs and use it from all three call sites. Eliminates divergence risk if boundary semantics need to change.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T16:56:32Z",
+  "updated_at": "2026-05-01T04:55:15Z",
+  "closed_at": "2026-04-22T23:32:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-33df35ca",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 09:56:32"
+    }
+  ]
+}

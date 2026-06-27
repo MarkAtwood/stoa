@@ -1,0 +1,20 @@
+{
+  "id": "stoa-8a9cb3fd",
+  "title": "Config reload: reload auth credentials and log level",
+  "description": "Apply [auth] users and credential_file changes without restart. Apply [log] level change via tracing subscriber reload handle. Active authenticated sessions are not dropped on credential reload. Blocked on: stoa-d99f02f9.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:39:55Z",
+  "updated_at": "2026-05-01T04:56:57Z",
+  "closed_at": "2026-04-28T08:36:55Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d99f02f9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:41:36"
+    }
+  ]
+}

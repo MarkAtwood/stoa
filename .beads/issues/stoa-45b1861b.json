@@ -1,0 +1,20 @@
+{
+  "id": "stoa-45b1861b",
+  "title": "No type alias for DkimSigner generic type \u2014 repeated at every declaration site",
+  "description": "The type Arc<mail_auth::dkim::DkimSigner<mail_auth::common::crypto::Ed25519Key, mail_auth::dkim::Done>> appears verbatim at 6+ sites: NntpQueue field, SmtpRelayQueue field, NntpQueue::new param, SmtpRelayQueue::new param, main.rs binding, test helpers. No type alias is defined. This will fossilize: a contributor adding a new use site must copy all four type parameters correctly. A type alias in a shared location (e.g. a pub type in queue.rs or a lib.rs re-export) would enforce consistency.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:37:07Z",
+  "updated_at": "2026-05-01T04:52:46Z",
+  "closed_at": "2026-04-30T23:56:10Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-64675b0e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:37:06"
+    }
+  ]
+}

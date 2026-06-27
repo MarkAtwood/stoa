@@ -1,0 +1,20 @@
+{
+  "id": "stoa-75f3f7e9",
+  "title": "RUNBOOK does not document that secretx:env is impractical for binary signing key",
+  "description": "The signing key path accepts secretx:env:FOO, but load_signing_key_from_bytes expects exactly 32 raw binary bytes. An env var set from a shell script will contain printable characters (e.g. base64 or hex), not raw binary bytes, and will fail with 'signing key must be exactly 32 bytes, got N'. The RUNBOOK documents the AWS SM binary secret workflow but says nothing about env/file providers for the signing key. Add a note: secretx:file is the correct local approach (same raw-byte constraint as the direct file path); secretx:env is not suitable for binary secrets.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-26T22:24:18Z",
+  "updated_at": "2026-05-01T04:58:47Z",
+  "closed_at": "2026-04-26T22:30:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-2f59ab0d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 15:24:17"
+    }
+  ]
+}

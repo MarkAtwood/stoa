@@ -1,0 +1,21 @@
+{
+  "id": "stoa-8eb72cb3",
+  "title": "HLC node ID hardcoded 0x01..0x01 in production path",
+  "description": "new_with_ipfs() at server_stores.rs:68 hardcodes HlcClock::new([0x01u8; 8], now_ms). The HLC node ID is supposed to be a unique identifier per process/node so that simultaneous events on different nodes get distinct timestamps. With all nodes sharing [0x01;8], the tiebreaking property of HLC is defeated \u2014 concurrent entries from different nodes can get identical HLC timestamps, breaking the log's uniqueness invariant. \u2192 Fix: derive node ID from a hash of the operator key or generate randomly on startup.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T15:44:36Z",
+  "updated_at": "2026-05-01T04:54:44Z",
+  "closed_at": "2026-04-21T16:12:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-436e4a3a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 08:44:36"
+    }
+  ]
+}

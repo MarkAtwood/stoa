@@ -1,0 +1,20 @@
+{
+  "id": "stoa-50b4a7b5",
+  "title": "Silent mail loss: fallback smtp store errors not logged",
+  "description": "In crates/smtp/src/session.rs lines 928-932 and 937-942, the fallback delivery to the smtp-local store (called when the JMAP mail_pool lacks the user or the INBOX mailbox) silently discards the error with .ok() and no log. A maintainer debugging missing mail 6 months from now will see the warn for the primary path but nothing for the fallback failure \u2014 the message is gone with no trace.\n\nMitigation: replace .ok() with .unwrap_or_else(|e| warn!(peer=%peer_addr, %username, 'fallback smtp store deliver failed: {e}')) on both paths. This is a one-line fix per site.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:00:23Z",
+  "updated_at": "2026-05-01T04:59:31Z",
+  "closed_at": "2026-04-30T05:28:08Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-14057691",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:00:23"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "stoa-78fec7e5",
+  "title": "HlcClock missing Debug derive",
+  "description": "crates/core/src/hlc.rs: HlcClock does not derive Debug. Every other major struct in the codebase derives Debug. The absence makes it impossible to use {:?} in tracing, error messages, or test assertions.\\n\\nFix: add #[derive(Debug)] to HlcClock.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:24:07Z",
+  "updated_at": "2026-05-01T04:53:19Z",
+  "closed_at": "2026-04-28T18:24:31Z"
+}

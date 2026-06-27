@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T17:50:18Z",
+  "compaction_level": 0,
+  "content_hash": "c3a7de6991a270030d562df322f6c448955f208b836a3836eb89658af9ac93b9",
+  "created_at": "2026-05-01T15:21:51Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: retention/gc_executor.rs implements run_gc_executor() which unpins CIDs, deletes from articles and msgid_map, and writes audit records. retention/gc.rs run_once() duplicates exactly this logic inline. main.rs calls run_once() only; run_gc_executor is never called from production code. Bad behavior: two diverged implementations of the same GC logic means a bug fix in one is not applied to the other. The gc_executor module is dead code in production \u2014 either it should be used (and run_once should delegate to it) or it should be removed.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.84",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "gc_executor.rs and gc.rs run_once both perform unpin+delete+audit: dead duplicate code",
+  "updated_at": "2026-05-01T17:50:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:21:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "078df049-0e06-502f-a39b-1c461518c350",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "id": "stoa-70d7f878",
+  "title": "Implement Merkle tip hashing and tip-set verification",
+  "description": "Implement tip_hash(tips: &[Cid]) -> [u8;32]: sort tip CIDs lexicographically, concatenate, SHA2-256. Implement verify_entry(entry: &LogEntry, storage: &dyn LogStorage) -> Result<()>: check signature, check all parent_cids exist in storage, check HLC ordering relative to parents. Artifact: src/group_log/verify.rs.\n\nAcceptance:\n- tip_hash is deterministic regardless of insertion order\n- verify_entry returns error if signature is invalid\n- verify_entry returns error if any parent CID is missing\n- verify_entry returns error if HLC is not greater than all parent HLCs\n- Unit tests cover all error paths",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:10:38Z",
+  "updated_at": "2026-05-01T04:53:17Z",
+  "closed_at": "2026-04-20T03:41:08Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-238a85c1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:11:07"
+    },
+    {
+      "depends_on_id": "stoa-a12b8b7b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:10:38"
+    },
+    {
+      "depends_on_id": "stoa-fc317007",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:11:07"
+    }
+  ]
+}

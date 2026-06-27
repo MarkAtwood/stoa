@@ -1,0 +1,20 @@
+{
+  "id": "stoa-e970888f",
+  "title": "Health checks: structured JSON body for /healthz/ready",
+  "description": "Return {status: ok|degraded, checks: [{name, ok, detail}]} from /healthz/ready. Checks: kubo_reachable, sqlite_ready, gossipsub_joined. Detail field contains actionable message on failure. Blocked on: stoa-e2de00cc.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:39:46Z",
+  "updated_at": "2026-05-01T04:59:48Z",
+  "closed_at": "2026-04-28T08:46:28Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e2de00cc",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:41:23"
+    }
+  ]
+}

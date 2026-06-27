@@ -1,0 +1,14 @@
+{
+  "id": "stoa-d8edbbe6",
+  "title": "Outbound email delivery via SMTP transit peers",
+  "description": "Users who compose an article via JMAP Email/set or NNTP POST may want that article delivered as email to internet recipients (e.g. mailing lists, direct email). Add an outbound SMTP delivery path: a configured list of authenticated SMTP transit peers. No MX lookup, no direct-to-MX delivery \u2014 this is relay-only. Each peer is an SMTP relay with credentials (SASL PLAIN/LOGIN over TLS or mTLS). The peer list is operator-configured and static; no auto-discovery.\n\nPeer selection must be health-aware: peers go up and down, so the system must not lock onto whichever peer happened to succeed last. Required behavior:\n- Track per-peer up/down state with a last-success and last-failure timestamp\n- On each delivery attempt, prefer peers marked up; try down peers after a backoff window\n- Round-robin or weighted shuffle across currently-up peers so load distributes\n- On delivery failure, mark the peer down and immediately retry with the next available peer\n- On delivery success, mark the peer up but continue rotating \u2014 do not make it sticky\n- Expose per-peer health in admin metrics (attempts, successes, failures, last-seen-up)",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T18:14:25Z",
+  "updated_at": "2026-05-01T04:57:10Z",
+  "closed_at": "2026-04-23T19:38:45Z",
+  "notes": "Review converged after 2 round(s). Final review: stoa-7c697b77. Round 1: P0=1 P1=2 P2=2 (all fixed). Round 2: P0=0 P1=0 P2=0."
+}

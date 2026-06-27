@@ -1,0 +1,21 @@
+{
+  "id": "stoa-9cddf47c",
+  "title": "Peer health dashboard: extend GET /admin/peers with per-peer detail",
+  "description": "Extend GET /admin/peers to include per-peer: connected (bool), last_seen (ISO8601), last_reconcile (ISO8601), reconcile_ok (bool), articles_sent (counter), articles_received (counter), groups_shared (list). Track these fields in the PeerState struct updated by peering and reconciliation code. Blocked on: stoa-ce2be0c7.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:41:08Z",
+  "updated_at": "2026-05-01T05:00:51Z",
+  "closed_at": "2026-04-28T08:16:26Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce2be0c7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:42:39"
+    }
+  ]
+}

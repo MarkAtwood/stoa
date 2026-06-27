@@ -1,0 +1,20 @@
+{
+  "id": "stoa-61973445",
+  "title": "DKIM signing failure in NNTP queue silently defers without bound \u2014 no dead-letter",
+  "description": "In NntpQueue drain_once (queue.rs line 228-234), if signer.sign() fails, the article is deferred with 'continue' \u2014 it stays in the queue and will be retried on every subsequent drain cycle. There is no dead-letter move, no retry counter, and no max-retry limit. A persistent signing failure (e.g. corrupted key seed, mail_auth internal error) will cause the queue to grow without bound while the drain loop spins. Meanwhile the same article is retried every retry_interval seconds with 0 evidence of the failure beyond warn\\! logs. Contrast with relay_queue.rs which correctly moves to dead/ on DKIM failure. Fix: add a retry counter or move to dead/ after N consecutive DKIM signing failures, consistent with relay_queue.rs behavior.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:12:01Z",
+  "updated_at": "2026-05-01T04:52:45Z",
+  "closed_at": "2026-05-01T00:23:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5be7a2c5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:12:00"
+    }
+  ]
+}

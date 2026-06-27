@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "92d3a4df8f6305255f101b2fbbe8bfa9b04eea17ce2e274327fad68e9877d2ed",
+  "created_at": "2026-05-03T13:09:34Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\npost/did_passthrough.rs::header_section() computes the header slice end with the expression: &article_bytes[..body_start - sep_len + if sep_len == 4 { 2 } else { 1 }]. This is equivalent to 'return headers including the final \\r\\n but excluding the blank line'. The arithmetic is correct but opaque.\\n\\nThere is no unit test for header_section() itself \u2014 only tests for extract_did_sig() which indirectly calls it.\\n\\n## Acceptance Criteria\\n\\nAdd a comment with a worked example. Add a direct unit test for header_section() with CRLF and bare-LF inputs.",
+  "ephemeral": 0,
+  "id": "stoa-f0hyx",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Readability: did_passthrough.rs::header_section has complex sep_len arithmetic without test",
+  "updated_at": "2026-05-03T13:09:34Z"
+}

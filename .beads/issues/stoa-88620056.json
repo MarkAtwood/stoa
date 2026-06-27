@@ -1,0 +1,13 @@
+{
+  "id": "stoa-88620056",
+  "title": "db_pool::open_any_pool calls process::exit in library",
+  "description": "crates/core/src/db_pool.rs calls std::process::exit(1) when the pool fails to open. This is a library crate; process::exit in library code is hostile to callers \u2014 it makes the error unrecoverable, untestable, and uncatchable.\\n\\nFix: return Result<AnyPool, StorageError> (or equivalent) and let the binary crate decide how to handle a fatal pool error.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:24:02Z",
+  "updated_at": "2026-05-01T04:59:25Z",
+  "closed_at": "2026-04-28T18:42:07Z"
+}

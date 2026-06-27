@@ -1,0 +1,13 @@
+{
+  "id": "stoa-90e9e610",
+  "title": "Replace embedded rust-ipfs with Kubo HTTP client + FS cache",
+  "description": "The embedded rust-ipfs node uses in-memory storage \u2014 articles are lost on restart and the block store cannot be inspected by standard IPFS tooling. Replace with a KuboClient (reqwest over Kubo HTTP RPC API) wrapped in an FsCacheStore (local FS write-through cache). Both transit and reader get the same implementation from core. api_url and cache_path become real config fields. IpnsPublisher migrates to /api/v0/name/publish.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T15:09:33Z",
+  "updated_at": "2026-05-01T04:54:19Z",
+  "closed_at": "2026-04-23T15:33:00Z"
+}

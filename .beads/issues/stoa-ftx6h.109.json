@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "d9a75f372766e1b548fb9279012e8c961ebd4554fd19b90e5a9f49be54045aa3",
+  "created_at": "2026-05-03T13:06:15Z",
+  "created_by": "Mark Atwood",
+  "description": "SqliteLogStorage::insert_entry and insert_entry_and_advance_tips duplicate the log_entries INSERT, the UNIQUE-violation-to-DuplicateEntry translation, and the parent-edge loop verbatim. Extract a private async fn insert_entry_tx(tx, id, entry) -> Result<(), StorageError> and call it from both. This removes ~40 lines of duplication and ensures both paths are always consistent.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.109",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "core: insert_entry and insert_entry_and_advance_tips share identical INSERT + parent-edge code",
+  "updated_at": "2026-05-03T13:06:15Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "8a1b8eb6-d37b-5fec-93eb-853b0338c939",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

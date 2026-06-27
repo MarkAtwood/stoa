@@ -1,0 +1,23 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T14:36:02Z",
+  "compaction_level": 0,
+  "content_hash": "7798c8c6ee83e5a0767705c62bd5bb0cf0f82775ddeb71e5ed212484558cdca2",
+  "created_at": "2026-05-03T13:05:34Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\npost/ipfs_write.rs::KuboBlockStore::put_block() calls self.client.block_put() which returns a CID, but the returned CID is discarded (not compared against the caller-supplied cid argument). If Kubo assigns a different CID (e.g. normalisation, codec mismatch), the cache is populated with the wrong key and subsequent get_raw calls miss.\\n\\nThe caller is documented as 'responsible for ensuring cid matches the content of data' but there is no assertion or log to catch mismatches in production.\\n\\n## Acceptance Criteria\\n\\nAfter block_put returns, assert or log-warn if returned_cid != supplied cid.",
+  "ephemeral": 0,
+  "id": "stoa-aam43",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "KuboBlockStore::put_block discards returned CID from Kubo",
+  "updated_at": "2026-05-03T14:36:02Z"
+}

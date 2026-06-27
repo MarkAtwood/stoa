@@ -1,0 +1,33 @@
+{
+  "id": "stoa-e05c8d6c",
+  "title": "jmap: remove user_id from all mail queries",
+  "description": "## Why\nAfter schema migration (oh45) and provision simplification (ycyh), every SQL query in the JMAP handlers that currently binds user_id needs to be updated. Also removes the cross-user access guard (AND user_id = ?) which is no longer meaningful.\n\n## What\n\n### email/get.rs\n- fetch_smtp_emails_batch: remove user_id parameter and bind.\n  Query becomes: SELECT id, raw_message, mailbox_id, received_at FROM messages WHERE id IN (...).\n- handle_email_get: remove user_id parameter entirely.\n\n### email/query.rs or server.rs Email/query arm\n- EXISTS check: SELECT EXISTS(SELECT 1 FROM mailboxes WHERE mailbox_id = ?). Drop user_id bind.\n- COUNT query: SELECT COUNT(*) FROM messages WHERE mailbox_id = ?. Drop user_id.\n- Page query: SELECT id FROM messages WHERE mailbox_id = ? ORDER BY id DESC LIMIT ? OFFSET ?. Drop user_id.\n\n### mailbox/provision.rs (list_mailboxes)\n- list_user_mailboxes becomes list_mailboxes(pool) with no user_id param.\n\n### session.rs (sieve_delivery Keep)\n- INSERT into messages: drop user_id column and bind.\n- SELECT for INBOX: SELECT mailbox_id FROM mailboxes WHERE role='inbox'. Drop JOIN on users table.\n\n### email/types.rs (Email::from_smtp_message)\nNo change needed; mailbox_id is still passed as a parameter.\n\n### Signature changes propagate to:\n- mail/src/server.rs: drop user_id from all call sites\n- mail/tests/*: update test fixtures and call sites\n\n## Acceptance criteria\n- No user_id variable or bind in any mail query.\n- handle_email_get, fetch_smtp_emails_batch take no user_id.\n- All tests pass.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:14:27Z",
+  "updated_at": "2026-05-01T04:52:22Z",
+  "closed_at": "2026-04-30T06:51:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-7dded951",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:14:34"
+    },
+    {
+      "depends_on_id": "stoa-a58a4ea1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:14:45"
+    },
+    {
+      "depends_on_id": "stoa-b479e8d2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:14:36"
+    }
+  ]
+}

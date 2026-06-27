@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T13:16:56Z",
+  "compaction_level": 0,
+  "content_hash": "326127817b90f1efeff7f2edc0c5c6dff09b54b0b4bd7d39e181910df0d752ff",
+  "created_at": "2026-05-03T13:04:25Z",
+  "created_by": "Mark Atwood",
+  "description": "src/group_log/storage_tests.rs is a plain pub module in the source tree (not under #[cfg(test)]), so its test helper functions are compiled into the stoa-core rlib whenever any dependent crate builds without restricting to test profile. The module creates LogEntry values with empty operator_signature and calls MemLogStorage and SqliteLogStorage directly. This inflates binary size and exposes test surface in production. The module should be moved to a tests/ directory or gated behind #[cfg(test)] or the test-helpers feature.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.41",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "core: storage_tests module is pub in src/ and ships in production builds",
+  "updated_at": "2026-05-03T13:16:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:04:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "f8024ead-56aa-5439-ac70-cb51ddc340ae",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "compaction_level": 0,
+  "content_hash": "3be78a66ac89cc18f3bc49f1e2137cae576a833652a9e3584824a0ef46dde75b",
+  "created_at": "2026-05-01T20:05:45Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why\n\nRather than implementing Exchange protocols (MAPI, EWS \u2014 complex, dying, no Rust ecosystem), stoa can bridge to Microsoft 365 mailboxes via the Microsoft Graph API (REST/JSON, OAuth 2.0). This turns stoa into a local/federated mirror of a user's M365 mail with stoa's archival integrity, data sovereignty, and JMAP/IMAP serving on top.\n\nUse cases:\n- Organizations on Microsoft 365 that want local archival with cryptographic integrity (eDiscovery, compliance)\n- Users who want to own their mail history even if their M365 subscription ends\n- Hybrid deployments: M365 as the primary MTA, stoa as the sovereign archive and NNTP layer\n- Migration path off M365: sync everything into stoa, then cut over\n\nEWS is deprecated for Exchange Online as of October 2026. Graph is Microsoft's stated replacement and the correct protocol target.\n\n## What\n\nA sync daemon (or stoa-mail subcommand) that:\n\n1. Authenticates to Microsoft Graph via OAuth 2.0 (device code flow or client credentials for unattended operation)\n2. Uses Graph delta queries (GET /me/messages?=...) to incrementally sync mail into stoa's block store \u2014 only changed/new messages fetched after initial sync\n3. Uses Graph webhooks (change notifications) for near-real-time push sync as an alternative to polling\n4. Syncs folder hierarchy (GET /me/mailFolders) to newsgroup or JMAP mailbox structure\n5. Syncs message flags/keywords (read, flagged, answered) bidirectionally\n6. Stores raw RFC 5322 message bytes (fetched via $value endpoint) as CID-addressed blocks in stoa's configured block store\n7. Records sync state (delta tokens) in SQLite so restarts resume from the last known position\n\n## Protocol mapping\n\n- Graph mailFolder \u2192 JMAP Mailbox / NNTP newsgroup\n- Graph message flags (isRead, flag.flagStatus) \u2192 JMAP keywords (, )\n- Graph delta token \u2192 stoa state token (stored in SQLite alongside the account)\n- Graph message id \u2192 stoa Message-ID header (extracted from raw RFC 5322 bytes)\n\n## Implementation\n\ngraph-rs-sdk is a maintained Rust crate for Microsoft Graph with reasonable coverage of mail and calendar endpoints. Use this rather than hand-rolling the Graph HTTP client.\n\nAuthentication: Azure app registration required (client ID, tenant ID). For BYOA deployment, customer registers their own Azure app and provides credentials via Secrets Manager.\n\n## Config\n\n```toml\n[graph_sync]\nenabled = true\nclient_id = \"...\"\ntenant_id = \"...\"\n# client_secret from Secrets Manager / env var, never in config file\npoll_interval_secs = 300   # fallback if webhooks not configured\nmailbox = \"user@example.com\"\ntarget_account_id = \"u_alice\"  # stoa JMAP account to sync into\n```\n\n## Acceptance\n\n- Initial sync pulls all messages from all folders into stoa block store\n- Incremental sync via delta tokens fetches only changes since last run\n- Sync state survives process restart\n- Message flags sync bidirectionally (mark read in stoa \u2192 reflected in M365 and vice versa)\n- Folder hierarchy maps to JMAP mailboxes\n- Integration tests run against Microsoft Graph sandbox / mock (not requiring live M365 credentials in CI)",
+  "ephemeral": 0,
+  "id": "stoa-oxv8c",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Calendar and contacts sync via Graph (GET /me/calendars, GET /me/contacts) is out of scope for this issue but is the natural follow-on once mail sync is stable. The Graph delta query pattern is similar to JMAP Email/changes \u2014 the concepts map cleanly.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Microsoft Graph API sync bridge",
+  "updated_at": "2026-05-01T20:05:45Z"
+}

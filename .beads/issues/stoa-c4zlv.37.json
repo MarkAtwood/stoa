@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T18:22:04Z",
+  "compaction_level": 0,
+  "content_hash": "57fcf4d6f5acd3a919a5f40f5ef5cf3f0b528070c15d99d1c7614a8b3ff604cc",
+  "created_at": "2026-05-01T15:20:08Z",
+  "created_by": "Mark Atwood",
+  "description": "In crates/core/src/rate_limiter.rs, call_count is initialized to 0 and the eviction check is 'call_count % EVICT_INTERVAL == 0'. On the very first call, 0 % 1024 == 0, so eviction runs over an empty HashMap on every server startup. This is cheap but misleading \u2014 the intent is 'every 1024th call after the first'. Fix: initialize call_count to 1, or change the condition to 'call_count > 0 && call_count % EVICT_INTERVAL == 0'.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.37",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "rate_limiter: call_count starts at 0, first-ever call always triggers eviction",
+  "updated_at": "2026-05-01T18:22:04Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:20:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "d0167dfc-3079-56cd-ae43-6be89d834571",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

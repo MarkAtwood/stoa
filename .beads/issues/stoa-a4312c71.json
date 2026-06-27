@@ -1,0 +1,27 @@
+{
+  "id": "stoa-a4312c71",
+  "title": "Add cargo-watch dev workflow recipe to justfile",
+  "description": "Add `just watch` recipe that runs `cargo watch -x 'nextest run --workspace'` for continuous test feedback during development. Document cargo-watch as a recommended dev dependency (not a required build dependency). Artifact: additional recipe in justfile, dev setup section in CONTRIBUTING.md.\n\nAcceptance: `just watch` starts cargo-watch and re-runs tests on file change; CONTRIBUTING.md mentions cargo-watch as optional dev tool",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:49:34Z",
+  "updated_at": "2026-05-01T04:54:48Z",
+  "closed_at": "2026-04-20T06:43:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-326b7650",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:49:33"
+    },
+    {
+      "depends_on_id": "stoa-fdf1ef2d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:50:00"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-c90cf63c",
+  "title": "looks_like_bcrypt_hash misses cost-range check \u2192 startup panic",
+  "description": "reader/config.rs looks_like_bcrypt_hash checks prefix and length but not cost range (4-31). A hash like \"$2b$03$<53 chars>\" passes config validation (looks_like_bcrypt_hash returns true) but then causes CredentialStore::from_credentials to panic at startup because parse_bcrypt_cost rejects cost 3. The operator sees a config validation pass followed by a startup panic instead of a clean ConfigError::Validation. Fix: add cost-range parsing to looks_like_bcrypt_hash so it is consistent with parse_bcrypt_cost.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T10:25:08Z",
+  "updated_at": "2026-05-01T04:53:28Z",
+  "closed_at": "2026-04-27T10:31:16Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-088fe713",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 03:25:08"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T23:59:14Z",
+  "compaction_level": 0,
+  "content_hash": "cea39b5a49a3df0404676bf00405cfbab84ff5d87b39c3ed31d6adcc9bd514b6",
+  "created_at": "2026-05-02T23:09:38Z",
+  "created_by": "Mark Atwood",
+  "description": "relay_client.rs:98-104: on every cache hit the code clones (policy_id.clone(), mode is Copy, mx_patterns.clone()). mx_patterns is Vec<String> which could be large. An Arc<Vec<String>> would allow sharing the patterns across concurrent deliveries without cloning. Alternatively, the enforcement logic could accept a reference and hold the guard while checking, avoiding the clone entirely (the check at step 3 is fast \u2014 no await while holding the cached data).",
+  "ephemeral": 0,
+  "id": "stoa-wfcj7.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "enforce_for_delivery clones policy_id, mode, mx_patterns from cache on every hit",
+  "updated_at": "2026-05-02T23:59:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T16:09:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-wfcj7",
+      "id": "8497ecd9-2c97-5a6a-aa10-97b5d0b30656",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

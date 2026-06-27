@@ -1,0 +1,12 @@
+{
+  "id": "stoa-35542eb9",
+  "title": "Audit log: authentication and article post events",
+  "description": "Append-only audit log recording who authenticated, what commands they ran, and what articles they posted \u2014 separate from the application log, suitable for compliance and forensics.\n\nWhy this issue exists:\nEnterprise buyers ask 'who posted that?' The application log answers this only if DEBUG is enabled and log rotation has not yet swept the relevant window. A dedicated audit log provides a durable, structured, compliance-grade record without requiring DEBUG-level application logging in production.\n\nScope:\nAudit events (written to a separate append-only log file or table, never to stdout):\n- auth_success: timestamp, service, remote_ip, username, auth_method (password|client_cert|bearer_token|oidc)\n- auth_failure: timestamp, service, remote_ip, username_attempted, reason\n- article_posted: timestamp, service, remote_ip, username, message_id, newsgroups, cid\n- article_rejected: timestamp, service, remote_ip, username, reason, message_id (if parsed)\n- config_reloaded: timestamp, admin_ip (or 'sighup'), fields_changed\n- admin_action: timestamp, admin_ip, endpoint, method\n\nStorage: configurable \u2014 file (append-only JSONL, one event per line) or SQLite table in a dedicated audit.db. Never in the main application log stream.\n\nRetention: audit log is never rotated or deleted by the daemon. Retention is the operator's responsibility (ship to S3, CloudWatch Logs, Splunk, etc.).\n\nAcceptance criteria:\n- Every successful AUTHINFO USER/PASS produces an auth_success audit event\n- Every POST produces an article_posted event with the CID of the stored article\n- Audit log file is append-only: the daemon opens it with O_APPEND and never truncates\n- Audit events are valid JSONL: one JSON object per line, no multi-line values\n- Application log level changes do not affect audit log output \u2014 audit events are always written",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:17:47Z",
+  "updated_at": "2026-05-01T04:58:56Z",
+  "closed_at": "2026-04-27T19:01:12Z"
+}

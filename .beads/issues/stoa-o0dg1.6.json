@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T14:06:59Z",
+  "compaction_level": 0,
+  "content_hash": "a76b4b1fd23e37c51e919ae6eaa1b77cbc546815410845dfaaeb5d52fa95ee51",
+  "created_at": "2026-05-02T14:02:13Z",
+  "created_by": "Mark Atwood",
+  "description": "The doc comment on build_jmap_dispatcher reads 'All RFC 3977-adjacent methods'. RFC 3977 is NNTP; the methods being registered are RFC 8621 (JMAP Email). Should read 'RFC 8621 Email/Mailbox/Thread/etc. methods'.",
+  "ephemeral": 0,
+  "id": "stoa-o0dg1.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "build_jmap_dispatcher doc comment says 'RFC 3977-adjacent' \u2014 should be RFC 8621",
+  "updated_at": "2026-05-02T14:06:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T07:02:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-o0dg1",
+      "id": "66ab693f-ed3c-55bc-b567-f77b84eb0b2a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

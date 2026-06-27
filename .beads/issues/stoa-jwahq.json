@@ -1,0 +1,47 @@
+{
+  "compaction_level": 0,
+  "content_hash": "254e301a7a90f6df00e06b5172d0a3812f4ab8d4fb362d23314452fad40c32a2",
+  "created_at": "2026-05-02T22:02:21Z",
+  "created_by": "Mark Atwood",
+  "description": "Third pass review of stoa-2xeks after fixes from iteration 2. Scope: mta_sts_error.rs, mta_sts_dns.rs, mta_sts_fetcher.rs, mta_sts_mx.rs, mta_sts_policy.rs, relay_client.rs, server.rs mta_sts_handler.",
+  "ephemeral": 0,
+  "id": "stoa-jwahq",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Review iteration 3: MTA-STS/REQUIRETLS/STARTTLS",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T15:03:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p7mad",
+      "id": "27cfbeb9-8ba5-56c7-97ff-16996a8afdd4",
+      "metadata": {},
+      "type": "relates-to"
+    },
+    {
+      "created_at": "2026-05-02T15:03:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-m7j6m",
+      "id": "ac1efca3-a071-59c0-a956-bdc74ac9ccb3",
+      "metadata": {},
+      "type": "relates-to"
+    },
+    {
+      "created_at": "2026-05-02T15:03:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-znfp0",
+      "id": "cd68ce27-8620-5f5c-8503-dd9d81f6248f",
+      "metadata": {},
+      "type": "relates-to"
+    }
+  ]
+}

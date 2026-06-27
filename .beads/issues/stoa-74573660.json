@@ -1,0 +1,13 @@
+{
+  "id": "stoa-74573660",
+  "title": "[epic] IPNS publishing \u2014 stable addresses for group heads",
+  "description": "Why: The current gossipsub tip advertisement tells connected peers about the latest group head CID, but there is no stable, dereferenceable address for the current head of a group. IPNS (InterPlanetary Name System) lets an operator publish a mutable pointer to the current tip CID under a stable key-derived address. Any IPFS client can resolve the group head without knowing this server's address or being connected to gossipsub.\\n\\nWhat:\\n- After each successful pipeline write that advances a group's tip, publish the new tip CID to IPNS under a key derived from the group name and the operator signing key.\\n- The IPNS record is signed by the operator key (already loaded at startup).\\n- Expose the IPNS addresses for each group via the admin API and NNTP XCAP or a new XIPNS command.\\n- Configurable: operators can opt out per-group or globally.\\n- rust-ipfs 0.15 supports IPNS publish; verify API and wire in.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T02:22:39Z",
+  "updated_at": "2026-05-01T04:55:38Z",
+  "closed_at": "2026-04-23T06:47:10Z"
+}

@@ -1,0 +1,19 @@
+{
+  "id": "stoa-4036343d",
+  "title": "parse_sig_param splits on comma without handling quoted-string values",
+  "description": "activitypub/inbound.rs parse_sig_param() splits the Signature header on ',' to find params. RFC 7235 / Cavage HTTP Signatures allow the signature= value itself to be a base64 string which may not contain commas, but other param values (keyId, headers) routinely contain content that could confuse a naive split. More critically, the 'headers' param value like 'headers=\"(request-target) host date digest\"' contains a quoted string \u2014 the current split on ',' would fail if any quoted value contained a comma. This is fragile and will break against non-trivial Signature headers.",
+  "status": "open",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:41:10Z",
+  "updated_at": "2026-05-01T04:54:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:41:10"
+    }
+  ]
+}

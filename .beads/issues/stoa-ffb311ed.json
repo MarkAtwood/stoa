@@ -1,0 +1,45 @@
+{
+  "id": "stoa-ffb311ed",
+  "title": "Wire GROUP, LIST ACTIVE, and OVER commands with live store data",
+  "description": "What: Intercept GROUP, LIST (ACTIVE/NEWSGROUPS), and OVER/XOVER commands before dispatch in lifecycle.rs and serve them from real store data.\nAlgorithm:\n1. In both run_plain_session and run_session_io loops in lifecycle.rs, add handlers BEFORE the dispatch() call (after existing XCID/XVERIFY handlers):\n\n   GROUP:\n   if let Command::Group(ref name) = cmd {\n       let resp = handle_group(&stores, &mut ctx, name).await;\n       // write resp, continue\n   }\n   LIST ACTIVE:\n   if let Command::List(ListSubcommand::Active) = cmd {\n       let resp = handle_list_active(&stores, &ctx).await;\n       // write resp, continue\n   }\n   OVER/XOVER:\n   if let Command::Over(ref arg) = cmd {\n       let resp = handle_over(&stores, &ctx, arg.as_ref()).await;\n       // write resp, continue\n   }\n\n2. Implement async helpers (add at bottom of lifecycle.rs after existing helpers):\n\n   handle_group(stores, ctx, name) -> Response:\n   - Parse group name with GroupName::new(name) -> if invalid, return Response::no_such_newsgroup()\n   - Query stores.article_numbers.group_range(name).await -> (low, high)\n   - Compute count = if low <= high { high - low + 1 } else { 0 }\n   - Update ctx: ctx.current_group = Some(group_name); ctx.current_article_number = if count > 0 { Some(low) } else { None }\n   - Return Response::group_selected(name, count, low, high)\n\n   handle_list_active(stores, ctx) -> Response:\n   - Get groups from ctx.known_groups (populated from config)\n   - For each group, query stores.article_numbers.group_range(&g.name).await -> (low, high)\n   - Build body lines: format!(\"{} {} {} y\", g.name, high, low) for each group\n   - Return Response::list_active(body)\n\n   handle_over(stores, ctx, arg) -> Response:\n   - If no current group selected, return Response::no_newsgroup_selected()\n   - Parse arg: if None -> use (ctx.current_article_number, ctx.current_article_number); if Some(Range(lo,hi)) -> (lo,hi)\n   - Query stores.overview_store.query_range(group, lo, hi).await\n   - Return over_response(records)\n\n3. Add imports: ListSubcommand from command module; over_response from commands::over\nDefensive: all async errors -> Response::program_fault(); group name validated before SQL; article range bounds checked (lo <= hi).\nAcceptance: integration tests for GROUP + OVER returning real data; cargo test clean.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T00:33:19Z",
+  "updated_at": "2026-05-01T04:59:18Z",
+  "closed_at": "2026-04-21T00:58:12Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-53e41c25",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:33:19"
+    },
+    {
+      "depends_on_id": "stoa-5cc4cac8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:18"
+    },
+    {
+      "depends_on_id": "stoa-ab5a36b7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:17"
+    },
+    {
+      "depends_on_id": "stoa-b502bcb7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:17"
+    },
+    {
+      "depends_on_id": "stoa-de7d4842",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:16"
+    }
+  ]
+}

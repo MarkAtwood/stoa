@@ -1,0 +1,45 @@
+{
+  "id": "stoa-4ac4f8b8",
+  "title": "Implement RustIpfsStore: rust-ipfs-backed IpfsBlockStore",
+  "description": "What: Implement a production IpfsBlockStore backed by rust-ipfs 0.15.0.\nAlgorithm:\n1. In crates/reader/src/post/ipfs_write.rs, add:\n   pub struct RustIpfsStore { ipfs: rust_ipfs::Ipfs }\n   impl RustIpfsStore {\n       pub async fn new() -> Result<Self, String> {\n           let ipfs = rust_ipfs::builder::DefaultIpfsBuilder::new()\n               .start().await\n               .map_err(|e| e.to_string())?;\n           Ok(Self { ipfs })\n       }\n   }\n2. Implement IpfsBlockStore for RustIpfsStore:\n   put_raw_block: compute sha2-256, build CID(v1, RAW=0x55, hash), call ipfs.put_block(&block).await, return cid\n   get_raw_block: call ipfs.get_block(cid).await, return block.data().to_vec()\n3. Map rust_ipfs::Error to IpfsWriteError:\n   - \"not found\" messages -> IpfsWriteError::NotFound\n   - other errors -> IpfsWriteError::WriteFailed\n4. Add test: put_raw_block then get_raw_block roundtrip returns same bytes\nDefensive: never unwrap(); always map_err(); Block::new can fail (verify CID matches data).\nAcceptance: test_rust_ipfs_roundtrip passes; cargo test clean.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T00:32:53Z",
+  "updated_at": "2026-05-01T04:59:19Z",
+  "closed_at": "2026-04-21T00:58:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-53e41c25",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:32:52"
+    },
+    {
+      "depends_on_id": "stoa-5cc4cac8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:14"
+    },
+    {
+      "depends_on_id": "stoa-ab5a36b7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:12"
+    },
+    {
+      "depends_on_id": "stoa-b502bcb7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:13"
+    },
+    {
+      "depends_on_id": "stoa-de7d4842",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:12"
+    }
+  ]
+}

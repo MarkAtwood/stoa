@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T22:40:30Z",
+  "compaction_level": 0,
+  "content_hash": "26140898c407a354e105f997c584d45955304ed40c9b9931be01270dc9b82cf5",
+  "created_at": "2026-05-02T22:25:26Z",
+  "created_by": "Mark Atwood",
+  "description": "In relay_client.rs, read_line uses 'line.len() > MAX_SMTP_LINE' (accepts up to 512 bytes, the RFC maximum) with an explicit comment: 'Use > (not >=) to accept the maximum valid length.' But parse_smtp_line immediately uses '>= MAX_SMTP_LINE', so a 512-byte reply line\u2014which is RFC 5321 \u00a74.5.3.1.5 compliant\u2014is accepted by the I/O guard and then rejected by the parser with ProtocolError. The result is spurious connection failures against servers that send maximally-sized SMTP reply lines. The test 'parse_smtp_line_exactly_512_bytes_is_rejected' codifies this incorrect behavior as expected, which means the test is validating the bug rather than the spec.\n\n## Context\nrelay_client.rs line 733 uses >, line 775 uses >=. RFC 5321 \u00a74.5.3.1.5: max reply line length is 512 octets INCLUDING CRLF. A 512-byte line (including CRLF) is legal.",
+  "ephemeral": 0,
+  "id": "stoa-9cx9p.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "relay_client: parse_smtp_line rejects RFC-valid 512-byte reply lines",
+  "updated_at": "2026-05-02T22:40:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T15:25:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-9cx9p",
+      "id": "8c34a0ce-b076-55e6-9f0f-e9e2911ba9ad",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-a2b96041",
+  "title": "sieve_admin user_exists case mismatch with SMTP RCPT",
+  "description": "sieve_admin.rs user_exists() uses == (case-sensitive) but SMTP RCPT matching uses eq_ignore_ascii_case. If username configured as Alice, admin returns 404 for alice even though SMTP delivers to alice. Fix: use eq_ignore_ascii_case in user_exists or enforce lowercase usernames at config load.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T06:00:59Z",
+  "updated_at": "2026-05-01T04:53:32Z",
+  "closed_at": "2026-04-27T08:07:01Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-a805d881",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 23:00:59"
+    }
+  ]
+}

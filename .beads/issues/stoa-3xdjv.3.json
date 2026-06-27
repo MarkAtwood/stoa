@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T00:32:18Z",
+  "compaction_level": 0,
+  "content_hash": "5fed6e31650e62ce89a3d837c932ffb495f9829c6ad5f91720671b8cf5314431",
+  "created_at": "2026-05-03T00:12:22Z",
+  "created_by": "Mark Atwood",
+  "description": "TlsrptRecorder (tlsrpt.rs) is fully implemented and tested but is never instantiated or called in any production code path. MtaStsEnforcer::enforce_for_delivery returns Err on policy violations (correct) but never calls record_failure on a TlsrptRecorder. RFC 8460 \u00a74 says sending MTAs SHOULD generate TLSRPT failure records when TLS policy enforcement blocks delivery. The Err branch in do_deliver that receives Permanent from enforce_for_delivery should call recorder.record_failure(domain, StsPolicyFetchError-or-StsWebpkiInvalid, ...) before returning. Without this, operators of receiving domains get no failure telemetry, defeating TLSRPT's cooperative reporting purpose. The recorder must be threaded through MtaStsEnforcer or SmtpRelayQueue.",
+  "ephemeral": 0,
+  "id": "stoa-3xdjv.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "TlsrptRecorder not wired into delivery path \u2014 RFC 8460 SHOULD unmet",
+  "updated_at": "2026-05-03T00:32:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T17:12:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-3xdjv",
+      "id": "7d06fbe8-a903-5a5f-9750-42f3acf0baf4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

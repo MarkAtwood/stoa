@@ -1,0 +1,39 @@
+{
+  "id": "stoa-394b1635",
+  "title": "imap: SELECT and EXAMINE command handlers",
+  "description": "Add SELECT/EXAMINE to crates/imap/src/commands/mailbox.rs. Algorithm: (1) reject if not Authenticated state -> tagged NO; (2) look up group in ArticleNumberStore: list_groups() to confirm exists, group_range() for low/high; (3) compute EXISTS = (high - low + 1) if low <= high else 0; (4) get or create uidvalidity from imap_uid_validity table (INSERT OR IGNORE with uidvalidity=1, next_uid=1; SELECT); (5) send untagged: * EXISTS, * 0 RECENT, * OK [UIDVALIDITY N], * OK [UNSEEN 1] (first unseen), * FLAGS; (6) send tagged OK [READ-WRITE] for SELECT or [READ-ONLY] for EXAMINE; (7) transition to Selected state. Use imap_types response types for all untagged responses. Defensive: unknown mailbox -> tagged NO [NONEXISTENT]; SQL errors -> tagged NO.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T07:17:41Z",
+  "updated_at": "2026-05-01T04:56:34Z",
+  "closed_at": "2026-04-23T07:43:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-310a64d6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:21:14"
+    },
+    {
+      "depends_on_id": "stoa-3741bca1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:17:40"
+    },
+    {
+      "depends_on_id": "stoa-6f7202da",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:21:13"
+    },
+    {
+      "depends_on_id": "stoa-e4c4816d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:21:12"
+    }
+  ]
+}

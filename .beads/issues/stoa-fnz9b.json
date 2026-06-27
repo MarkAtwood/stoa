@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "224f5b0c7d57fb02ca3f875564838443542bfdcdd8536901d9682bd4e99b6ff6",
+  "created_at": "2026-06-13T06:42:44Z",
+  "created_by": "Mark Atwood",
+  "description": "stoa-smtp has 11 Prometheus metrics but no OpenTelemetry SDK. Same gap as mail \u2014 no OTLP traces, metrics push, or logs export. Same mechanical fix: copy telemetry.rs from transit/reader, add 5 OTel deps, wire init in main.rs. Files: crates/smtp/Cargo.toml, crates/smtp/src/main.rs, new crates/smtp/src/telemetry.rs.",
+  "ephemeral": 0,
+  "id": "stoa-fnz9b",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Add full OTel to stoa-smtp (traces, metrics, logs export)",
+  "updated_at": "2026-06-13T06:42:44Z"
+}

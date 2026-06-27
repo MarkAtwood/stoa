@@ -1,0 +1,39 @@
+{
+  "id": "stoa-47bea8e0",
+  "title": "Implement Prometheus metrics registry and /metrics endpoint",
+  "description": "Set up a shared Prometheus metrics registry (prometheus crate or metrics crate). Expose /metrics on a configurable admin HTTP port. Define metric taxonomy: counters (articles_ingested_total, articles_served_total, gc_articles_unpinned_total, gossip_messages_published_total, gossip_messages_dropped_total), gauges (peer_connections_active, groups_served, pinned_articles_total), histograms (ipfs_write_latency_seconds, nntp_command_duration_seconds labeled by command). Artifact: core/src/metrics.rs + admin HTTP handler.\n\nAcceptance:\n- /metrics returns valid Prometheus text format (parseable by promtool)\n- All counters, gauges, and histograms listed above are present\n- Metric names follow snake_case convention; counters end in _total\n- Histogram buckets for latency: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0]\n- Unit test: verify metric names and types with promtool or by parsing output",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:15:03Z",
+  "updated_at": "2026-05-01T04:58:13Z",
+  "closed_at": "2026-04-20T06:55:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3a492a79",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:15:39"
+    },
+    {
+      "depends_on_id": "stoa-90cf7937",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:15"
+    },
+    {
+      "depends_on_id": "stoa-c1dc4c8d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:15:02"
+    },
+    {
+      "depends_on_id": "stoa-e6227fde",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:15"
+    }
+  ]
+}

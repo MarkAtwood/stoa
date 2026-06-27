@@ -1,0 +1,39 @@
+{
+  "id": "stoa-9fa62fe9",
+  "title": "Implement TLS for NNTP listener in reader daemon",
+  "description": "Add TLS support to the reader daemon's NNTP listener using rustls. Config: [tls] cert_file, key_file (PEM). When configured, also support STARTTLS upgrade on the plaintext port. When not configured, STARTTLS capability is omitted from CAPABILITIES. Minimum TLS version: 1.2. Artifact: reader/src/tls.rs.\n\nAcceptance:\n- TLS listener accepts connections from openssl s_client without error\n- STARTTLS upgrade on plaintext port works with openssl s_client -starttls nntp\n- TLS 1.1 and below rejected (verify with sslyze or openssl)\n- Certificate load failure at startup exits with clear error naming the file\n- Slrn connects over TLS to the reader without modification",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:17:15Z",
+  "updated_at": "2026-05-01T04:58:06Z",
+  "closed_at": "2026-04-20T06:55:58Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6c293cc9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:54:17"
+    },
+    {
+      "depends_on_id": "stoa-8013af16",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:17:14"
+    },
+    {
+      "depends_on_id": "stoa-90cf7937",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:18"
+    },
+    {
+      "depends_on_id": "stoa-ec0ce60a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:18:08"
+    }
+  ]
+}

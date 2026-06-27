@@ -1,0 +1,20 @@
+{
+  "id": "stoa-c900826e",
+  "title": "[elegance] smtp_relay.rs reinvents RFC 5322 header parsing instead of using mailparse",
+  "description": "The smtp_relay.rs module manually parses email headers (find_header_end, parse_email_addrs) instead of using mailparse (0.15), which is already a dependency in the reader crate. Current approach breaks on: quoted strings with commas ('To: \"Alice, Bob\" <alice@example.com>'), comments after addresses, RFC 2047 encoded-words, and address folding. The reader crate already uses mailparse::parse_headers elsewhere (validate_headers.rs, lifecycle.rs). Migrate to mailparse for consistency and RFC correctness.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T19:14:37Z",
+  "updated_at": "2026-05-01T05:00:28Z",
+  "closed_at": "2026-04-28T10:11:00Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-11ae5322",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 12:14:36"
+    }
+  ]
+}

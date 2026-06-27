@@ -1,0 +1,21 @@
+{
+  "id": "stoa-96523257",
+  "title": "Rename match arm 'v4 => v4' to 'other => other'",
+  "description": "In session.rs:184 and config.rs:804, the wildcard arm is written as 'v4 => v4'. The name implies the arm only captures V4, but that is enforced by the type system, not the pattern. A reader must stop and verify IpAddr has only two variants. The idiomatic form is 'other => other'. Both sites are resolved when the normalize_client_ip helper is extracted (companion issue stoa-6b4887c1.2).",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:47:42Z",
+  "updated_at": "2026-05-01T04:58:49Z",
+  "closed_at": "2026-04-30T15:57:06Z",
+  "notes": "SEC7 calibration: opinion/style. IpAddr has exactly two variants and this is stable in Rust's std. The name 'v4' is technically misleading (compiler does not enforce the name implies a type filter), but a reader checking IpAddr's definition immediately resolves any confusion. The real fix is the extraction in 1onm.2, which eliminates both occurrences of this arm. As a standalone rename it has no engineering consequence.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b4887c1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:47:42"
+    }
+  ]
+}

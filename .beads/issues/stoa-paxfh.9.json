@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T05:11:20Z",
+  "compaction_level": 0,
+  "content_hash": "ee47c00d8ecebc46d02c6184afd9137625dcf284d8be14ff320b55d10438870d",
+  "created_at": "2026-05-04T05:05:31Z",
+  "created_by": "Mark Atwood",
+  "description": "In resolve_local_hostname() (rnews_main.rs lines 384-390), if operator.hostname is absent AND /etc/hostname is absent or empty, the binary silently uses \"localhost\" as the Path: hostname. Every article stored to IPFS will have 'Path: localhost!...' in its canonical bytes, which is incorrect for any production deployment and will cause Path-loop detection to misfire on any peer that receives two articles from different 'localhost' nodes.\n\nThere is no tracing::warn! for this case. A maintainer diagnosing stale or duplicated articles at 3am has no log evidence that the binary ran with the wrong hostname.\n\nFix: add `tracing::warn!(\"operator.hostname not set and /etc/hostname not found; using 'localhost' \u2014 set operator.hostname in config\");` in the else branch of resolve_local_hostname, or make the binary exit(1) if hostname resolves to 'localhost' without explicit config.",
+  "ephemeral": 0,
+  "id": "stoa-paxfh.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "rnews_main: 'localhost' hostname fallback is silent \u2014 no warning emitted",
+  "updated_at": "2026-05-04T05:11:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T22:05:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-paxfh",
+      "id": "e510de24-91af-5bc2-90fd-372cb7fa0fb2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

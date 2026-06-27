@@ -1,0 +1,21 @@
+{
+  "id": "stoa-ba16ab61",
+  "title": "9tz.6: Tests for TantivySearchIndex",
+  "description": "What: Write test suite for TantivySearchIndex using independent oracles.\n\nOracle: Known article content hand-authored in test; search terms are chosen to be present or absent by inspection. Not derived from the code under test.\n\nTest cases:\n1. index_then_search_body: index article with body 'hello rust world', search_in_group('rust') \u2192 finds article_num; search_in_group('python') \u2192 empty.\n2. index_then_search_subject: index article with subject 'Tantivy test', search for 'tantivy' \u2192 finds it (case-insensitive).\n3. query_too_long_returns_error: query_str of 5000 bytes \u2192 SearchError::QueryTooLong.\n4. search_respects_newsgroup: index two articles in different groups; search in group A finds only A's article.\n5. commit_is_needed: index an article, do NOT commit, open a new searcher \u2192 zero results; after commit \u2192 one result.\n6. body_truncation: index article with body longer than body_index_max_bytes; confirm indexing succeeds and no panic.\n\nAll tests use open_in_memory(), never touch disk.\n\nDefensive rules: Tests must have independent oracles (hand-crafted values). Tests must not use the code under test as its own oracle. No search result fed back into the indexer as a query.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T01:21:30Z",
+  "updated_at": "2026-05-01T05:00:38Z",
+  "closed_at": "2026-04-23T02:17:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-85f5ab08",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 18:21:30"
+    }
+  ]
+}

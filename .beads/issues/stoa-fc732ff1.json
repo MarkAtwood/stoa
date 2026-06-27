@@ -1,0 +1,26 @@
+{
+  "id": "stoa-fc732ff1",
+  "title": "verify: X-Usenet-IPFS-Sig verifier",
+  "description": "Implement verification of the X-Usenet-IPFS-Sig header using ed25519-dalek.\n\nWhat: crates/verify/src/verifiers/usenet_sig.rs\n\nHeader format (from existing signing code):\n  X-Usenet-IPFS-Sig: v=1; a=ed25519; t=<unix-ts>; pk=<base64-pubkey>; sig=<base64-sig>\n\nAlgorithm:\n1. parse_usenet_sig_header(raw_message: &[u8]) -> Option<SigHeader>\n   Scan header section (stop at blank line) for 'X-Usenet-IPFS-Sig:' (case-insensitive).\n   Parse v=, a=, t=, pk=, sig= tags.\n   Return None if header absent.\n2. canonical_bytes(raw_message: &[u8]) -> Vec<u8>\n   The signed bytes are the article with the X-Usenet-IPFS-Sig header value removed but header name retained (same convention as DKIM h= signing). Check existing signing code in crates/core for exact canonicalization.\n3. Decode pk= as base64 \u2192 ed25519_dalek::VerifyingKey.\n4. Decode sig= as base64 \u2192 ed25519_dalek::Signature.\n5. key_id = sha256:<hex(pk_bytes)>.\n6. verifying_key.verify(canonical_bytes, &signature) \u2192 Pass or Fail.\n7. Return VerificationRecord { check_type: UsenetIpfsSig, key_id: Some(key_id), result, detail: None }.\n   SeenKey { key_type: 'ed25519', key_data: pk_bytes, cert_der: None, identity: None }.\n\npub async fn verify_usenet_sig(raw: &[u8], store: &VerifyStore, cid: &Cid) -> VerificationRecord\n\nDefensive rules:\n- base64 decode failure \u2192 result NoKey, log debug.\n- Header absent \u2192 result NoKey (not Fail; absence is not forgery).\n- Never log the signature bytes or key material at INFO.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:48:02Z",
+  "updated_at": "2026-05-01T05:01:01Z",
+  "closed_at": "2026-04-24T01:09:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-df63abb0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:49:52"
+    },
+    {
+      "depends_on_id": "stoa-f07d2b75",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:48:01"
+    }
+  ]
+}

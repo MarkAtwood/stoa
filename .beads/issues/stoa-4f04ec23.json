@@ -1,0 +1,21 @@
+{
+  "id": "stoa-4f04ec23",
+  "title": "DECISION: LogEntryId canonical bytes include operator signature for ID uniqueness",
+  "description": "entry_id_bytes() in core/canonical.rs includes the operator_signature in the data hashed to produce a LogEntryId, while log_entry_canonical_bytes() (used for signing) excludes it. This means two entries that are identical in content but differ in operator signature produce different IDs. This prevents a collision where the same article signed at different times (e.g. by two operators) would produce the same ID and one would overwrite the other in storage. A future contributor might unify the two functions by always including or always excluding the signature, breaking either ID uniqueness or the signature verification.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:16:09Z",
+  "updated_at": "2026-05-01T04:55:59Z",
+  "closed_at": "2026-04-27T15:39:44Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:16:09"
+    }
+  ]
+}

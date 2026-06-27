@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T23:16:24Z",
+  "compaction_level": 0,
+  "content_hash": "07f1e8fcad61c5439a31c7bfb60e1114b2cca114335a70150400ecd235f12efd",
+  "created_at": "2026-05-03T23:00:50Z",
+  "created_by": "Mark Atwood",
+  "description": "Once JmapBackend is implemented, replace the Mailbox/get, Mailbox/changes, Mailbox/query, Email/get, Email/changes, Email/query, Thread/get arms in route_method with calls to handle_get/handle_changes/handle_query from jmap-server. Fixes three spec compliance bugs: missing updatedProperties, unconditional total, optional sinceState. Belongs to epic stoa-z8tz8.",
+  "ephemeral": 0,
+  "id": "stoa-bijn3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Replace route_method read arms with generic handle_* calls",
+  "updated_at": "2026-05-03T23:16:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T16:00:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-zbpvn",
+      "id": "7932f65b-794d-5eeb-9728-de2622d0382c",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

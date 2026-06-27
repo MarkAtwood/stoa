@@ -1,0 +1,20 @@
+{
+  "id": "stoa-d318c5df",
+  "title": "Message-ID validation is strict and at a single entry point",
+  "description": "core/src/validation.rs: validate_message_id() enforces RFC 5322 \u00a73.6.4 format (angle brackets required, exactly one @, no whitespace, non-empty local and domain parts). It is the single entry point for untrusted wire Message-IDs; no other code constructs or accepts an unvalidated Message-ID. A contributor might loosen the check to accept 'common' malformed IDs from legacy software \u2014 resist this. The strict check is the first defense against injection into msgid_map and group log keys.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T16:57:06Z",
+  "updated_at": "2026-05-01T04:55:24Z",
+  "closed_at": "2026-04-22T23:11:29Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-33df35ca",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 09:57:05"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T03:26:02Z",
+  "compaction_level": 0,
+  "content_hash": "eb0498c636151e1f93be6619f271347aa0f6ae04e0175330b3566eaf8f7a20f3",
+  "created_at": "2026-05-04T03:19:22Z",
+  "created_by": "Mark Atwood",
+  "description": "rnews_main.rs:253 calls extract_message_id_bytes (from import/reindex.rs) to extract the Message-ID for the envelope_msgid argument passed to check_ingest. reindex.rs extract_message_id_bytes uses .lines() which does NOT handle RFC 5322 header folding (a Message-ID whose value is on a continuation line beginning with SP/HTAB). For a folded Message-ID like:\n\n  Message-ID:\\r\\n <foo@example.com>\\r\\n\n\nextract_message_id_bytes returns None (the field value is empty on the Message-ID: line itself), so the article is silently skipped with rejected += 1 (line 258) \u2014 it is never ingested at all. Meanwhile, check_ingest's internal extract_body_msgid DOES handle folding (ingestion.rs:119). The article is valid and carries a decodable Message-ID, but the rnews path drops it. Correct behavior: use extract_body_msgid (or a folding-aware extractor) in rnews_main instead of extract_message_id_bytes.",
+  "ephemeral": 0,
+  "id": "stoa-tlvh9.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SEC0: extract_message_id_bytes ignores RFC 5322 folded Message-ID in rnews_main",
+  "updated_at": "2026-05-04T03:26:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T20:19:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-tlvh9",
+      "id": "eddf0914-2e53-594d-9037-6c49b0e4a70f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

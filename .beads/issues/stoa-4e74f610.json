@@ -1,0 +1,20 @@
+{
+  "id": "stoa-4e74f610",
+  "title": "AuthinfoUser cert-bypass asymmetry: Authenticating vs Active paths use different authenticated_user format",
+  "description": "In dispatch.rs, cert-store bypass stores cert_user.to_string() (preserving cert_store case), while trusted-issuer bypass stores cn.to_lowercase(). A future caller comparing authenticated_user values across sessions or auth methods will get case-sensitive mismatches. The policy should be unified and documented \u2014 pick lowercase-always or preserve-case-always.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:59:30Z",
+  "updated_at": "2026-05-01T05:00:04Z",
+  "closed_at": "2026-04-27T08:06:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-650091d3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 22:59:30"
+    }
+  ]
+}

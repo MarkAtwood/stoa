@@ -1,0 +1,21 @@
+{
+  "id": "stoa-b11ea0b6",
+  "title": "InjectionSource enum in core and NntpQueue envelope field",
+  "description": "Define the InjectionSource type and thread it through the NntpQueue envelope.\n\nWhat: crates/core/src/injection_source.rs; crates/smtp/src/relay_queue.rs (NntpQueue envelope)\n\nInjectionSource (core):\n  #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]\n  pub enum InjectionSource {\n      NntpPost,        // direct NNTP POST command\n      SmtpNewsgroups,  // SMTP message with explicit Newsgroups: header\n      SmtpSieve,       // SMTP routed by sieve fileinto \"newsgroup:...\"\n      SmtpListId,      // SMTP routed by List-ID fallback (local-only)\n  }\n  impl InjectionSource {\n      pub fn is_peerable(&self) -> bool {\n          !matches!(self, Self::SmtpListId)\n      }\n  }\n  pub use in crates/core/src/lib.rs\n\nNntpQueue envelope (crates/smtp \u2014 the JSON .env file written alongside .msg):\n  Add field: injection_source: InjectionSource  (default SmtpSieve for backward compat with existing queue files that lack the field)\n  The sieve session sets this when enqueuing:\n    - FileInto(\"newsgroup:...\") from sieve script    \u2192 SmtpSieve\n    - FileInto(\"newsgroup:...\") from List-ID fallback \u2192 SmtpListId\n    - FileInto(\"newsgroup:...\") from Newsgroups: header fallback \u2192 SmtpNewsgroups\n\nAlgorithm:\n1. Add InjectionSource to core/src/lib.rs.\n2. Add injection_source: InjectionSource field to the NntpQueue envelope struct in smtp.\n3. Add #[serde(default = \"default_injection_source\")] with default = SmtpSieve so old queue files deserialize cleanly.\n4. Update all enqueue call sites in smtp/src/session.rs to pass the correct source.\n\nDefensive rules:\n- serde default ensures backward compat with queue files written before this change.\n- is_peerable() is the single authoritative check; no other code should pattern-match on the enum for routing decisions.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:58:07Z",
+  "updated_at": "2026-05-01T04:54:03Z",
+  "closed_at": "2026-04-24T00:23:43Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-46d6c408",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:58:07"
+    }
+  ]
+}

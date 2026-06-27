@@ -1,0 +1,20 @@
+{
+  "id": "stoa-2049a931",
+  "title": "WebDavBlockStore does not use impl_ipfs_block_store_via_inner macro unlike S3/Azure/GCS",
+  "description": "In post/webdav_store.rs, the IpfsBlockStore impl is written out manually (4 methods delegating to self.0) instead of using the impl_ipfs_block_store_via_inner! macro that S3BlockStore, AzureBlockStore, and GcsBlockStore all use. This is inconsistency without justification; if the macro ever changes, WebDav will diverge silently.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:28:52Z",
+  "updated_at": "2026-05-01T04:54:09Z",
+  "closed_at": "2026-04-28T21:57:01Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:28:52"
+    }
+  ]
+}

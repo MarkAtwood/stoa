@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "773b70140935b2b81061376129e2dbf3f916c4dd10d5ada96796eb519e46e623",
+  "created_at": "2026-05-05T15:48:48Z",
+  "created_by": "Mark Atwood",
+  "description": "tls/src/lib.rs log_tls_policy() emits cipher_suite_count = config.crypto_provider().cipher_suites.len(). However, config.crypto_provider() returns the provider stored in the config, which IS the approved provider. So the count is correct. But the log message says 'approved cipher suite(s)' while reporting from the provider actually used \u2014 if a caller builds ServerConfig with a different provider and then calls log_tls_policy(), the count in the log will not match the approved list. Minor misleading framing, not a security bug.",
+  "ephemeral": 0,
+  "id": "stoa-on592",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "tls: log_tls_policy logs cipher_suite_count from config.crypto_provider(), not from approved list",
+  "updated_at": "2026-05-05T15:48:48Z"
+}

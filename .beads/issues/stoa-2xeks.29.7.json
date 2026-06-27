@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T02:48:45Z",
+  "compaction_level": 0,
+  "content_hash": "8924d462500371af36e2a162672af880150c3d52ac3588ff4a2082a54e392763",
+  "created_at": "2026-05-03T02:39:33Z",
+  "created_by": "Mark Atwood",
+  "description": "do_deliver checks MTA-STS enforcement against all recipient domains (deduplicated) before opening the TCP connection. A contributor might suggest moving the check after connection to avoid the extra latency on the fast path. That would be wrong: RFC 8461 \u00a74 requires enforcement to prevent delivery to non-compliant relays; the connection itself is the act of delivery. Moving the check post-connect would also require a partial-connection teardown path, adding complexity. The current design is simpler and more correct.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.29.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MTA-STS enforcement before TCP connect, not after: pre-connect domain check design",
+  "updated_at": "2026-05-03T02:48:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T19:39:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.29",
+      "id": "0b685878-72a1-5261-9ef9-8bd2beffc042",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

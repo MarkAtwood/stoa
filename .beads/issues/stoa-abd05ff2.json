@@ -1,0 +1,19 @@
+{
+  "id": "stoa-abd05ff2",
+  "title": "fix(mail): JMAP state/changelog not user-scoped \u2014 account isolation gap",
+  "description": "SECURITY agent found that StateStore and ChangeLogStore have no user_id dimension. This means:\n1. state_version table has scope TEXT PRIMARY KEY only \u2014 state bumps for any user increment the same counter, causing all users to see spurious state changes\n2. jmap_change_log has no user_id column \u2014 Email/changes returns CIDs/IDs for all users' inbound mail since a given state, breaking account isolation\n\nWhy this matters: once per-user INBOX mail is provisioned (n1z4), Alice can call Email/changes and receive Bob's inbox CIDs in the changed list, then fetch Bob's mail via Email/get.\n\nWhat needs to be done:\n1. Add user_id column to state_version table: ALTER or recreate as (user_id INTEGER, scope TEXT, version INTEGER, PRIMARY KEY (user_id, scope))\n2. Add user_id column to jmap_change_log table: ALTER or recreate with (user_id INTEGER, seq INTEGER, scope TEXT, item_id TEXT, change TEXT, PRIMARY KEY (user_id, seq, scope, item_id))\n3. Update StateStore methods to accept user_id parameter \u2014 get_state(scope), bump_state(scope) must be scoped to user\n4. Update ChangeLogStore query_since to filter WHERE user_id = ?\n5. Update all call sites in route_method that call StateStore/ChangeLogStore to pass user_id\n6. Migration must handle upgrade path (existing rows have no user_id \u2014 assign to user_id=1 as migration default)",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:14:29Z",
+  "updated_at": "2026-05-01T04:59:55Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-77165bba",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:14:38"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "stoa-72c0490c",
+  "title": "Explicit read_dir loop separates Ok(None) from Err correctly",
+  "description": "All four read_dir loops now use 'loop { match dir.next_entry().await { Ok(Some) => ..., Ok(None) => break, Err => warn+break } }' instead of 'while let Ok(Some(entry)) = dir.next_entry().await'. The old pattern silently swallowed read errors (treated Err the same as end-of-directory). The new pattern logs read errors before stopping. A future contributor might suggest 'simplifying back' to while-let. That would be a regression: the while-let form conflates clean EOF with I/O error, losing the warning that tells the operator the scan was incomplete.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:57:08Z",
+  "updated_at": "2026-05-01T04:58:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-18bf2fce",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:57:07"
+    }
+  ]
+}

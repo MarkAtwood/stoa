@@ -1,0 +1,12 @@
+{
+  "id": "stoa-a4128247",
+  "title": "Fix batch R9: P2 features",
+  "description": "Batch of P2 feature implementations: XGET NNTP command (mkv), JMAP blob download (dt2), SMTP NNTP client auth+retry (5w3.30).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T22:11:08Z",
+  "updated_at": "2026-05-01T04:59:49Z",
+  "closed_at": "2026-04-22T22:24:33Z"
+}

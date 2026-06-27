@@ -1,0 +1,20 @@
+{
+  "id": "stoa-46b9a07a",
+  "title": "Azure/GCS prefix not validated for leading/trailing slash",
+  "description": "The S3 backend (from previous commit) validates that the prefix does not start or end with '/' via config validation. The new Azure and GCS backends have no equivalent check. object_store::path::Path::from() normalizes some forms but not all \u2014 a prefix of '/blocks' or 'blocks/' could produce double-slash paths ('//blocks/...' or 'blocks//<cid>') depending on backend behavior. This is a footgun for operators who copy a path from the Azure Portal or GCS console (which often include trailing slashes). The S3 validation pattern should be applied consistently to Azure and GCS.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T02:37:05Z",
+  "updated_at": "2026-05-01T04:52:18Z",
+  "closed_at": "2026-04-28T02:48:20Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-938166bc",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 19:37:05"
+    }
+  ]
+}

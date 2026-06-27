@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "bea0079d7c8716318d37509c3ff72aa5a8326adc0a43dfb3cc209a676017a843",
+  "created_at": "2026-05-03T13:09:47Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\npost/sign.rs::sign_article() uses: let sep_len: usize = if body_start >= 4 && ...[body_start-4..body_start] == *b\\\"\\r\\n\\r\\n\\\" { 2 } else { 1 }. The variable is called 'sep_len' but the value is the length of the second CRLF (not the full separator). If the body_start < 4 branch is taken, sep_len = 1 (LF case). This logic is also duplicated in injection.rs and did_passthrough.rs.\\n\\nThe magic values 2 and 1 are cryptic without comments. Consolidating into a named function would remove duplication and make intent clear.\\n\\n## Acceptance Criteria\\n\\nExtract a separator_suffix_len(article_bytes, body_start) -> usize function in post/mod.rs. Use it in sign.rs, injection.rs, and did_passthrough.rs.",
+  "ephemeral": 0,
+  "id": "stoa-fhdp8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Rust idiom: sign_article sep_len detection checks body_start >= 4 but sep_len is also used for sep_len=1",
+  "updated_at": "2026-05-03T13:09:47Z"
+}

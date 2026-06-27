@@ -1,0 +1,20 @@
+{
+  "id": "stoa-954b44c2",
+  "title": "GroupsConfig::names field undocumented as wildmat patterns",
+  "description": "In crates/transit/src/config.rs, the GroupsConfig struct (line 347) has a field 'names: Vec<String>' with no doc comment. The field name 'names' strongly implies these are literal group names (like 'comp.lang.rust'), but they are actually wildmat filter patterns that support wildcards ('comp.*', '\\!alt.binaries.*') and follow GroupFilter semantics (first-match-wins, default-deny). A reader configuring the system who writes names = ['comp.lang.rust', 'sci.math'] will expect exact-name behavior, not realizing these are matched against patterns. A doc comment explaining that these are wildmat patterns, referencing GroupFilter semantics, and giving a brief example of wildcard usage would prevent misunderstanding. Compare to how ExternalPinServiceConfig::groups (line 383) does explain the glob semantics.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:31:27Z",
+  "updated_at": "2026-05-01T05:00:03Z",
+  "closed_at": "2026-04-28T10:14:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:31:27"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-385895e4",
+  "title": "DKIM signing failure asymmetry: NNTP path retries forever, relay path dead-letters",
+  "description": "queue.rs drain_once: signing failure logs warn and skips (retries next cycle). relay_queue.rs: signing failure dead-letters. Same signer used both paths; a signing failure is not transient. NNTP path will retry forever on broken signer, clogging the queue.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:36:58Z",
+  "updated_at": "2026-05-01T04:52:47Z",
+  "closed_at": "2026-04-30T23:40:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-64675b0e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:36:57"
+    }
+  ]
+}

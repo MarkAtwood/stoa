@@ -1,0 +1,20 @@
+{
+  "id": "stoa-d3ec2dd1",
+  "title": "cleanup_orphan_msg_files silently ends scan on next_entry() error",
+  "description": "relay_queue.rs cleanup_orphan_msg_files() uses 'while let Ok(Some(entry)) = dir.next_entry().await' to scan directory entries. When next_entry() returns Err (e.g. EBADF, EIO), the loop treats the error identically to end-of-directory and exits silently. Orphan .msg files that follow the error in directory order are never inspected. Idiomatic Rust would distinguish Err from None: match dir.next_entry().await { Ok(Some(e)) => ..., Ok(None) => break, Err(e) => { warn!(...); break; } }. The same silent-stop pattern appears in drain_once() as well. The consequence is that startup cleanup is incomplete after a partial readdir failure, leaving orphan files that accumulate silently.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:42:42Z",
+  "updated_at": "2026-05-01T05:00:22Z",
+  "closed_at": "2026-05-01T00:46:58Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d94f2708",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:42:42"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-089bf7bf",
+  "title": "drain_timeout_secs as Option<u64> with serde default",
+  "description": "Both reader [limits] and transit [peering] expose drain_timeout_secs as Option<u64> with #[serde(default)] rather than a required field or a type-level default function. This means: (1) existing config files that omit the field continue to parse without error, giving backward compatibility; (2) the code reads .unwrap_or(30) at the call site, making the effective default visible in the code rather than buried in a serde attribute; (3) the None state is meaningful \u2014 it can be logged or tested distinctly from an explicit zero, which would mean 'exit immediately'. Alternative rejected: a dedicated default_drain_timeout() function returning 30u64 used as #[serde(default = \"default_drain_timeout\")]. That hides the default in a small helper function and makes the field non-optional (u64 instead of Option<u64>), losing the ability to distinguish 'not set' from 'set to 30'.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T05:24:59Z",
+  "updated_at": "2026-05-01T04:56:30Z",
+  "closed_at": "2026-04-24T05:46:50Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ebc6ad28",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 22:24:59"
+    }
+  ]
+}

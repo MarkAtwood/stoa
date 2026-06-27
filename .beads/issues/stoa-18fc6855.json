@@ -1,0 +1,20 @@
+{
+  "id": "stoa-18fc6855",
+  "title": "relay_queue: redundant peers Vec clone and storage",
+  "description": "SmtpRelayQueue stores self.peers (Vec<SmtpRelayPeerConfig>) and also passes peers.clone() to PeerHealthState::new, which already stores the full peer list. The only use of self.peers is is_empty() in enqueue(). Idiomatic Rust: expose a peer_count or is_peers_empty helper on PeerHealthState and drop the redundant field + clone.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:36:12Z",
+  "updated_at": "2026-05-01T04:52:48Z",
+  "closed_at": "2026-04-30T23:45:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-64675b0e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:36:11"
+    }
+  ]
+}

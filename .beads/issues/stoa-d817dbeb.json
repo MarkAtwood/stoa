@@ -1,0 +1,12 @@
+{
+  "id": "stoa-d817dbeb",
+  "title": "core: VerifiedEntry::new_for_test not cfg(test) gated",
+  "description": "VerifiedEntry::new_for_test is pub with no #[cfg(test)] gate. It bypasses the signature verification invariant that VerifiedEntry is supposed to enforce. Any crate can call it in production code. Should be #[cfg(test)] or moved to a test-only module.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T23:46:02Z",
+  "updated_at": "2026-05-01T04:51:57Z",
+  "closed_at": "2026-04-25T00:00:20Z"
+}

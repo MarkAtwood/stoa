@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T15:19:44Z",
+  "compaction_level": 0,
+  "content_hash": "8939f1c394fa34e261a0b34474482a108bd95da7d6b27044b0c64ac4876f416d",
+  "created_at": "2026-05-05T04:42:08Z",
+  "created_by": "Mark Atwood",
+  "description": "Noted in staging.rs module doc: 'When an article is staged but has not yet been written to IPFS, any reader request for that Message-ID must be served directly from the staging file. That integration point lives in the reader server ARTICLE/HEAD/BODY handler and is wired in when those handlers are implemented.'\n\nCurrently unimplemented. A client could POST an article, get a successful response, then immediately ARTICLE <msgid> and get 430 No Such Article because the article is in the staging area but not yet in the block store.\n\nFix: ARTICLE/HEAD/BODY/STAT handlers must check the staging area as a fallback when the block store lookup returns not-found. Staging file path is available via the transit_staging SQLite table (message_id \u2192 file_path). Reader and transit must share access to this table or the reader must have a read-only view of the staging directory.\n\nDepends on stoa-3yz3y (staging WAL required) being in place first \u2014 no point fixing the reader path if staging is still optional.",
+  "ephemeral": 0,
+  "id": "stoa-psd6m",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "fix: reader serves staged articles not yet in block store",
+  "updated_at": "2026-05-05T15:19:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T21:42:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-3yz3y",
+      "id": "661a19a0-8234-581b-9d32-4403b08631b2",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

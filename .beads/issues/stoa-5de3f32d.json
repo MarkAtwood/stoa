@@ -1,0 +1,21 @@
+{
+  "id": "stoa-5de3f32d",
+  "title": "OTel: add crates, [telemetry] config section, OTLP metrics exporter",
+  "description": "Add opentelemetry, opentelemetry-otlp, opentelemetry-prometheus crates. Add [telemetry] config section: otlp_endpoint (optional), otlp_headers, metrics_push_interval_secs (default 60), trace_sample_rate (default 1.0). Wire OTLP metrics push alongside existing Prometheus scrape endpoint. OTLP disabled when otlp_endpoint absent. Blocked on: stoa-fb85a082.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:41:35Z",
+  "updated_at": "2026-05-01T04:51:48Z",
+  "closed_at": "2026-04-28T07:04:57Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-fb85a082",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:41:34"
+    }
+  ]
+}

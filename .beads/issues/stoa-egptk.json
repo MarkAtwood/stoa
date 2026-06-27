@@ -1,0 +1,33 @@
+{
+  "acceptance_criteria": "Suppression checked pre-send. Webhook signatures verified. SES + one other provider tested with fixture payloads. Admin endpoint present.",
+  "compaction_level": 0,
+  "content_hash": "e109852e073b961610ae2ec387fae4f5ff2fee274a7334344b255aae18fe9359",
+  "created_at": "2026-05-02T16:10:05Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why this issue exists\n\nWhen an email bounces (address does not exist, mailbox full, domain unreachable) or a recipient marks it as spam (complaint), the sending provider posts a webhook notification. Without processing these notifications stoa will:\n\n1. Keep attempting delivery to addresses that will never accept mail, degrading sending reputation\n2. Violate CAN-SPAM and GDPR requirements to honour unsubscribe/complaint signals promptly\n3. Accumulate ISP complaints that eventually result in IP/domain blacklisting\n\nThis epic depends on the OutboundMailer abstraction (stoa-jom01 follow-on) because each provider has a different webhook format and authentication mechanism.\n\n## What needs to be done\n\n### Phase 1 \u2014 Suppression list\n\nAdd a `suppression` table to the stoa-mail schema:\n\n```sql\nCREATE TABLE suppression (\n    email        TEXT NOT NULL,\n    reason       TEXT NOT NULL CHECK (reason IN ('bounce_permanent', 'bounce_transient', 'complaint', 'manual')),\n    provider     TEXT NOT NULL,\n    occurred_at  BIGINT NOT NULL,\n    raw_payload  JSONB,\n    PRIMARY KEY (email, reason)\n);\n```\n\nBefore any outbound send, check the suppression list. If the recipient address has a `bounce_permanent` or `complaint` entry, skip delivery and log an `audit=true` event.\n\n### Phase 2 \u2014 Webhook endpoint\n\nAdd a webhook handler to the stoa-mail axum router at `POST /webhooks/mail/{provider}`.\n\nImplement webhook parsers for each HTTP API provider (behind the same feature flags as the provider impls):\n\n- **SES**: SNS notification via HTTP POST. Verify SNS message signature before processing. Parse `Bounce` and `Complaint` notification types.\n- **SendGrid**: Event Webhook. Verify `X-Twilio-Email-Event-Webhook-Signature` ECDSA signature.\n- **Mailgun**: Webhook. Verify HMAC-SHA256 signature using webhook signing key.\n- **Postmark**: Webhook. Verify via shared secret in `X-Postmark-Token` header (constant-time compare).\n\nOn verified bounce/complaint: upsert into suppression table; emit `audit=true` tracing event.\n\nOn signature verification failure: return 403, emit warning log, increment `webhook_sig_invalid_total{provider}` counter. Do not process payload.\n\n### Phase 3 \u2014 Transient bounce retry policy\n\nTransient bounces (mailbox full, greylisted, temporary server failure) should be retried with exponential backoff. Add retry metadata to the outbound queue:\n\n- Max retries: configurable (default 5)\n- Backoff: 5m, 30m, 2h, 8h, 24h\n- After max retries: upsert as `bounce_transient` in suppression with a TTL (default 7 days)\n\n### Phase 4 \u2014 Suppression list management API\n\nExpose JMAP-style (or simple REST) admin endpoints:\n- `GET /admin/suppression` \u2014 list suppressed addresses\n- `DELETE /admin/suppression/{email}` \u2014 remove from suppression (e.g. after user confirms opt-in)\n- Emit `audit=true` event on every suppression add/remove\n\n## Acceptance criteria\n\n- Suppression list checked before every outbound send\n- Permanent bounce and complaint entries block future sends to that address\n- Webhook endpoints verify provider signatures before processing payload\n- SES and at least one other provider webhook parser implemented and tested with fixture payloads\n- Transient bounce retried with backoff; eventually suppressed\n- Admin endpoint allows removing a suppressed address\n\n## Design notes\n\n- Webhook payloads must be stored (raw_payload JSONB) for audit purposes \u2014 regulated customers need to demonstrate they acted on complaints within required timeframes (CAN-SPAM: 10 days; GDPR: without undue delay).\n- Signature verification must use constant-time comparison (subtle::ConstantTimeEq) where applicable.\n- The suppression table is per-instance, not per-user \u2014 a bounce on any account suppresses that address for all future sends from this stoa instance.",
+  "design": "Suppression list is the right shared primitive. Webhook auth must be verified before any DB write \u2014 an unauthenticated webhook could be used to suppress arbitrary addresses (DoS on outbound delivery).",
+  "ephemeral": 0,
+  "id": "stoa-egptk",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Outbound mail: bounce and complaint webhook processing",
+  "updated_at": "2026-05-02T16:10:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T09:10:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-y0p2j",
+      "id": "92949bc6-c0a2-5563-a363-17d9ba93811c",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

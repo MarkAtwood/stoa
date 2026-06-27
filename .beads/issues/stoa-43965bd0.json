@@ -1,0 +1,20 @@
+{
+  "id": "stoa-43965bd0",
+  "title": "peer_whitelist doc: invalid CIDR described as fatal startup error but is a parse error",
+  "description": "config.rs lines 45-49: peer_whitelist field doc says invalid CIDR is a fatal startup error. It is actually a ConfigError::Parse from serde deserialization, not a Validation error from validate(). A developer auditing validate() would not find CIDR checking there and might add a duplicate check. Fix: clarify it is caught at deserialization.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:48:08Z",
+  "updated_at": "2026-05-01T04:58:51Z",
+  "closed_at": "2026-04-30T15:57:42Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b4887c1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:48:07"
+    }
+  ]
+}

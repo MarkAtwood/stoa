@@ -1,0 +1,20 @@
+{
+  "id": "stoa-327941b4",
+  "title": "ConfigError variants wrap String, losing structured fields",
+  "description": "Both smtp/config.rs and reader/config.rs define ConfigError { Io(String), Parse(String), Validation(String) }. The String variants bury all structured information (field name, offending value, constraint) in a human-readable message. A caller that wants to retry only on I/O errors can match the Io variant, but a caller that wants to extract the failing field name or offending value from a Validation error cannot \u2014 the string must be parsed. Idiomatic Rust uses structured fields: Validation { field: &'static str, message: String } or a dedicated per-case variant. Additionally, both error types are identical \u2014 they could share a single definition in stoa-core or a common config-error crate to avoid divergence. The Display format using captured identifiers ({msg}) is correct Rust 1.58+ style; no issue there.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:59:52Z",
+  "updated_at": "2026-05-01T04:52:42Z",
+  "closed_at": "2026-05-01T01:00:57Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-18bf2fce",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:59:52"
+    }
+  ]
+}

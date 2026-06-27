@@ -1,0 +1,23 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T14:36:02Z",
+  "compaction_level": 0,
+  "content_hash": "83aa89c4cbd2bea6ba5b5f683ed37d1c272d3a4bc61b319ab5f041328533da36",
+  "created_at": "2026-05-03T13:07:50Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\npost/log_append.rs::append_to_groups() uses debug_assert_eq! to verify that hlc_timestamps.len() == newsgroups.len(). In release builds, a caller that passes mismatched lengths will silently zip the shorter slice, skipping log entries for some groups. This is a data integrity issue: the article would be stored in article_numbers for all groups but only have log entries for the min(timestamps, groups) groups.\\n\\n## Acceptance Criteria\\n\\nChange debug_assert_eq to a runtime check that returns Err(Response::new(441, ...)) when lengths mismatch. Delete the debug_assert.",
+  "ephemeral": 0,
+  "id": "stoa-ed8st",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "log_append.rs: HLC timestamps passed as slice with debug_assert only",
+  "updated_at": "2026-05-03T14:36:02Z"
+}

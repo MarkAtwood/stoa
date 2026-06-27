@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "bf05b18e199380f2f9922a6b67200ccef8b81ffbea351e5ee5c40a1d2e622d01",
+  "created_at": "2026-05-03T13:10:56Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: a test that produces CIDs with make_cid (which uses the project's own multihash + Cid::new_v1 code) and then verifies the reindex indexes those same CIDs is not testing against an independent reference. The correctness of the CID derivation is not cross-checked. What: tests/import_10k.rs creates CIDs via Cid::new_v1(0x71, Code::Sha2_256.digest(data)) in the test helper and feeds them directly to run_reindex. The test only verifies that all Message-IDs appear in msgid_map, not that the CIDs are cryptographically correct per CIDv1 spec. Add at least one spot-check against a hard-coded reference CID from a known article body.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.187",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "import_10k test uses project CID derivation as oracle for reindex",
+  "updated_at": "2026-05-03T13:10:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:10:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "dd67d365-3e93-5526-8846-a85c0e06a3e4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-50407f17",
+  "title": "staging drain does not remove articles-table row on pipeline failure \u2014 permanent retention leak",
+  "description": "In main.rs staging drain loop (line ~1128): on pipeline failure (run_pipeline_and_notify returns false), the staged article is left in transit_staging for retry. However if run_pipeline succeeded at the IPFS write step (step 1) but failed at a later step (articles-table insert), the CID is written to IPFS but has no articles-table row. The staging row will be retried, run_pipeline will write a second IPFS block, and the first block remains orphaned forever with no GC path. Design invariant 5: every article in IPFS must be pinned or under GC policy.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:37:34Z",
+  "updated_at": "2026-05-01T04:56:43Z",
+  "closed_at": "2026-05-01T04:43:52Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:37:34"
+    }
+  ]
+}

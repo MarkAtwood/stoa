@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T18:55:33Z",
+  "compaction_level": 0,
+  "content_hash": "63ad6b98e3b99756483319d448ac133c0ab76c8f84d591e0285b59571d58e0f0",
+  "created_at": "2026-05-01T15:21:17Z",
+  "created_by": "Mark Atwood",
+  "description": "In crates/sieve-native/src/evaluator.rs, eval_header_test clones ctx.headers (the full parsed header map) on every invocation. For a message with many Sieve tests (e.g. a script with multiple header comparisons) this produces O(headers \u00d7 tests) heap allocations per message delivery.\n\nFix: change eval_header_test to accept a shared reference to the headers (&HashMap<...>) and iterate without cloning. If the test logic requires ownership in some branch, clone lazily only in that branch rather than at the top of the function.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.71",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve-native: eval_header_test clones header map on every call",
+  "updated_at": "2026-05-01T18:55:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:21:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "5e34973e-b255-58b1-a6d0-07822443552e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T16:12:05Z",
+  "compaction_level": 0,
+  "content_hash": "3846b31e817231e55e2907c51f905448002b0f17ce83af2a1ca57bde9c11e192",
+  "created_at": "2026-05-04T05:05:23Z",
+  "created_by": "Mark Atwood",
+  "description": "validation.rs defines a sync MsgIdStorage trait used by check_duplicate(). ingestion.rs uses MsgIdMap directly (async). These are two separate deduplication mechanisms that are not connected. Any call path that reaches validate_article_ingress + check_duplicate without also calling check_ingest bypasses the async MsgIdMap dedup entirely \u2014 and vice versa. If a new ingress path (e.g. POST handler) calls only validate_article_ingress it gets the sync trait, which requires a separate in-memory store that may not be backed by the real DB. Audit whether every ingress path calls check_ingest (async, real storage) and whether check_duplicate + MsgIdStorage are actually reachable from production code. If MsgIdStorage is only used in tests, mark it cfg(test) or remove it; if it is used in production, it must be wired to the real MsgIdMap.",
+  "ephemeral": 0,
+  "id": "stoa-xrd4u.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Pre-existing structural issue; MsgIdStorage sync trait predates UUCP work. Deferring.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Two independent dedup paths (sync MsgIdStorage vs async MsgIdMap) can drift",
+  "updated_at": "2026-05-05T16:12:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T22:05:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-xrd4u",
+      "id": "f0e32e62-0ac9-5e06-857e-840c50884155",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

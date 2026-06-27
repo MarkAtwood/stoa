@@ -1,0 +1,21 @@
+{
+  "id": "stoa-7dcbdf96",
+  "title": "from_credentials panic is redundant and masks startup path contract",
+  "description": "reader Config::validate() already checks every auth.users password before build_credential_store() is called, which calls from_credentials(). from_credentials() panics on the same condition. Any future caller path that constructs a CredentialStore from validated data without going through Config::from_file() (e.g. a test helper, a future HTTP config reload path) will panic instead of returning Err. The panic is a surprise at a call site that might reasonably expect an error return. Document the precondition explicitly or convert to Result.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T18:46:01Z",
+  "updated_at": "2026-05-01T04:52:57Z",
+  "closed_at": "2026-04-30T18:52:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ae2d63c7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 11:46:00"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "stoa-c1fb901d",
+  "title": "core: MsgIdMap::insert TOCTOU between contains_key and insert",
+  "description": "MsgIdMap::insert checks contains_key() then calls insert(). With concurrent callers the same message-id can be inserted twice: both see contains_key()=false and both proceed to insert. The second insert silently overwrites the first CID.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T23:46:34Z",
+  "updated_at": "2026-05-01T04:51:57Z",
+  "closed_at": "2026-04-25T01:17:38Z"
+}

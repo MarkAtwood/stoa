@@ -1,0 +1,33 @@
+{
+  "id": "stoa-a19773d6",
+  "title": "Implement IPFS write back-pressure signaling",
+  "description": "Monitor IPFS write latency with an exponential moving average. If write p99 exceeds a configurable threshold (default 500ms), reduce the ingestion queue's high-water mark to 50% and emit a warning metric (ipfs_backpressure_active gauge = 1). When latency recovers below threshold, restore full queue capacity. Artifact: transit/src/peering/backpressure.rs.\n\nAcceptance: backpressure activates when IPFS write latency is high; recovers when latency drops; gauge reflects current state; no data loss during backpressure",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:47:10Z",
+  "updated_at": "2026-05-01T04:54:55Z",
+  "closed_at": "2026-04-20T04:45:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-29c46608",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:50:31"
+    },
+    {
+      "depends_on_id": "stoa-bd0e0741",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:47:09"
+    },
+    {
+      "depends_on_id": "stoa-c9c62a23",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:53:11"
+    }
+  ]
+}

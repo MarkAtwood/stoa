@@ -1,0 +1,21 @@
+{
+  "id": "stoa-633df7be",
+  "title": "extract CredentialStore to usenet-ipfs-auth crate",
+  "description": "reader/src/store/credentials.rs is well-implemented (bcrypt, timing-safe, file-backed). Both JMAP and SMTP submission need the same thing. Move it to a new crates/auth/ crate (usenet-ipfs-auth) so all consumers share one implementation. Include: CredentialStore, from_file(), merge_from_file(), check() (timing-safe bcrypt). Also move and canonicalize the UserCredential config struct. Document once and for all: the password field in all [auth.users] config stanzas is a bcrypt hash, never plaintext \u2014 this must be stated clearly in the struct docstring and config examples or operators will store cleartext.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:44:20Z",
+  "updated_at": "2026-05-01T04:58:55Z",
+  "closed_at": "2026-04-22T03:49:49Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-31947539",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:44:20"
+    }
+  ]
+}

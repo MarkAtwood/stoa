@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T17:56:08Z",
+  "compaction_level": 0,
+  "content_hash": "b83e260f0fdedaf353e56439b4a4eac5f5a1113603468298fcd4c308250d04ff",
+  "created_at": "2026-05-01T15:20:48Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: reload.rs do_reload() reads the config file, drops the read lock, then acquires the write lock to apply changes. If two /reload requests run concurrently, the second can see the config file between the first's read and the first's write, causing both to compute diffs against the same 'prev' state. Bad behavior: whichever reload commits second overwrites the other's changes, potentially reverting a valid config update. Race window is small but present on any multi-core deployment.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.57",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "concurrent /reload requests cause TOCTOU: second reload overwrites first with stale config",
+  "updated_at": "2026-05-01T17:56:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:20:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "e47482cb-5045-5817-8830-9297f0734c07",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-c376d3ea",
+  "title": "Extract TLS session helper: 3-way duplication in e2e tests",
+  "description": "smoke_enable_imap4rev2, smoke_namespace, and smoke_enable_imap4rev2_is_idempotent each duplicate ~15 lines of TLS setup (make_test_tls_pair, bind, spawn, connect, split, BufReader, greeting). authenticate_plain was correctly extracted; the infra was not. Extract an async helper returning a ready reader/writer pair. Affected: crates/imap/tests/e2e_smoke.rs.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:25:50Z",
+  "updated_at": "2026-05-01T04:58:40Z",
+  "closed_at": "2026-04-30T02:52:11Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9d37d25b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:25:50"
+    }
+  ]
+}

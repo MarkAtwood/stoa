@@ -1,0 +1,22 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "133fe463b22d0cc8b3debb5ca51dfc19eba1501b54d9e9cab7486eb848a4e461",
+  "created_at": "2026-05-02T15:27:19Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement hybrid encryption for data at rest in stoa-mail. Decision: shared/NNTP content encrypted at the infrastructure level (EBS/RDS encryption under a site KMS key); user-specific personal data encrypted at the application level under per-user Data Encryption Keys (DEKs) wrapped by the site KMS key.\n\n## Why this issue exists\nRegulated customers (HIPAA, SOC2, PCI-DSS, GDPR) require that personal data be encrypted at rest with key management that supports: per-user isolation (compromise of one user's key does not expose others), cryptographic erasure on user deletion (GDPR right-to-erasure), and auditable key access logs. A single site-wide encryption key satisfies disk encryption requirements but not user isolation or cryptographic erasure.\n\n## The hybrid policy (decided)\n\n### Site KMS key (infrastructure-level, no app code change)\n  - IPLD article blocks (content-addressed, shared across users \u2014 cannot be per-user)\n  - activitypub_followers, activitypub_received (group-level, semi-public)\n  - jmap_change_log (item_ids are CIDs, not content)\n  - state_version (version counters only)\n  - Full-text search index\n  Mechanism: EBS volume encryption + RDS storage encryption, both using the site AWS KMS key.\n  No application code changes required for these.\n\n### Per-user DEK (application-level, this epic)\n  - messages.raw_message, .envelope_from, .envelope_to (email body + addresses = PII)\n  - user_flags (read/flagged state per user)\n  - subscriptions (newsgroup list per user \u2014 reveals reading habits)\n  - bearer_tokens.label (token labels may contain user-chosen strings)\n  Mechanism: envelope encryption. One AES-256-GCM DEK per user, stored wrapped under\n  the site KMS key in a new user_encryption_keys table.\n\n## Envelope encryption pattern\n  1. At user creation: generate random 32-byte DEK, call KMS Encrypt, store wrapped DEK\n  2. At data read/write: call KMS Decrypt to unwrap DEK, use in-process, discard after request\n  3. At user deletion: delete the user_encryption_keys row \u2014 all encrypted data becomes\n     permanently unreadable (cryptographic erasure, satisfies GDPR Art. 17)\n\n## KMS call budget\n  One KMS Decrypt call per request that touches user data (not per row).\n  Cache the unwrapped DEK for the request lifetime only \u2014 never persist plaintext DEK.\n  AWS KMS pricing: ~$0.03/10,000 calls. At 1,000 req/day = ~$1/year. Not a concern.\n\n## Out of scope\n  - KMS key creation, IAM policy, key rotation schedule (infra)\n  - EBS/RDS encryption enablement (infra)\n  - Encrypting the full-text search index content (deferred \u2014 Tantivy index is derivative\n    of messages, becomes stale after DEK deletion; document this gap)\n  - Transit encryption (TLS \u2014 already present)\n\n## Acceptance criteria\n  - messages.raw_message, envelope_from, envelope_to are stored as authenticated\n    ciphertext (AES-256-GCM); plaintext never written to DB\n  - user_flags and subscriptions rows are encrypted under per-user DEK\n  - Deleting a user's DEK row makes all their encrypted data unreadable (test: attempt\n    decrypt after DEK deletion \u2192 error, not plaintext)\n  - A local (in-process) key backend works in dev/test without AWS credentials\n  - cargo test -p stoa-mail passes with local backend",
+  "ephemeral": 0,
+  "id": "stoa-6cj39",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "in_progress",
+  "timeout_ns": 0,
+  "title": "Data at rest: hybrid encryption \u2014 site KMS key + per-user DEK",
+  "updated_at": "2026-06-26T20:26:38Z"
+}

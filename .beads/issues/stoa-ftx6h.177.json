@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "aa06817c0ad7e3916bfef3de9619ed13a6e6793c6eab289881b57ffb4715547f",
+  "created_at": "2026-05-03T13:09:52Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: misnamed error variants make log triage harder and can cause callers that match on error variant to take wrong action (e.g. reporting a read failure as a write failure to monitoring). What: fs_store.rs get_raw returns IpfsError::WriteFailed for read-path I/O errors. IpfsError::ReadFailed exists and is used by lmdb_store and rados_store for the same class of error. Consistent use of ReadFailed on the read path is necessary for correct variant-based error handling.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.177",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "FsStore get_raw error returns IpfsError::WriteFailed on read errors",
+  "updated_at": "2026-05-03T13:09:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:09:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "43ccfe0c-deaf-51f8-a075-a8b722a46cb3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

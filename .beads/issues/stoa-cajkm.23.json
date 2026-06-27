@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T08:11:01Z",
+  "compaction_level": 0,
+  "content_hash": "4348b5fdbdfad3f046a1a7ee1562e9f0b7a8f3d6e7b0d808d4fe6deb98b5f2a2",
+  "created_at": "2026-05-04T08:05:10Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crates/imap/src/config.rs\\nLines: 109-110 (required field), 118-120 (is_dev_mode)\\nFile: crates/imap/src/main.rs\\nLines: 77-87 (startup guard)\\n\\nFinding: AuthConfig.required is a new bool field with #[serde(default)], which deserialized to false when absent from the config file. is_dev_mode() returns true when required=false && users.is_empty() && credential_file.is_none().\\n\\nAny existing IMAP deployment that:\\n- Has no [[auth.users]] entries\\n- Has no auth.credential_file\\n- Has no auth.required = true in their config (i.e. omits the new field)\\n- Listens on a non-loopback address\\n\\nwill now fail to start with a fatal error from the new guard:\\n  'error: stoa-imap is configured with no authentication ... non-loopback address'\\n\\nThis is correct security behavior from the epic's intent, but it is a silent breaking change: operators who were relying on the no-auth-check behavior (perhaps behind a firewall or reverse proxy) will be unable to start stoa-imap after upgrading without adding auth.required = true to their config.\\n\\nImpact: Startup failure (exit 1) for existing deployments. No data loss, but service unavailability until the operator adds the config key. There is no migration warning, no deprecation period, and no release note in this changeset.\\n\\nSuggestion: Either (a) add a prominent upgrade note in CHANGELOG or config docs, or (b) emit a WARN for one release before making it fatal, or (c) accept the breaking change as intentional and document it explicitly in the epic acceptance criteria.",
+  "ephemeral": 0,
+  "id": "stoa-cajkm.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "imap: required=false default breaks existing deployments",
+  "updated_at": "2026-05-04T08:11:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T01:05:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-cajkm",
+      "id": "1f711d34-82b8-581f-9ac9-7f5560c84677",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

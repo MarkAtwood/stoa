@@ -1,0 +1,21 @@
+{
+  "id": "stoa-e7cd4009",
+  "title": "parse_email_addrs: silent empty Vec on malformed header",
+  "description": "parse_email_addrs returns Vec::new() on Err(_) from mailparse::addrparse with no log. A malformed To:/Cc: header silently drops all recipients; the article is never relayed and there is no observable signal. Maintenance consequence: silent delivery failures that generate no log entry will be diagnosed as 'the server is down' rather than 'the header is malformed'.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:59:30Z",
+  "updated_at": "2026-05-01T04:51:23Z",
+  "closed_at": "2026-05-01T03:01:47Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3c6890ad",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 19:59:29"
+    }
+  ]
+}

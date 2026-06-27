@@ -1,0 +1,20 @@
+{
+  "id": "stoa-aa0613da",
+  "title": "lmdb: manual unsafe impl Send/Sync suppresses compiler auto-derivation",
+  "description": "crates/lmdb/src/lib.rs:35-38 manually implements unsafe impl Send for LmdbBlockDb and unsafe impl Sync for LmdbBlockDb. Both heed::Env<T> and heed::Database are already Send+Sync per heed's own impls, so the compiler would auto-derive Send+Sync for LmdbBlockDb. The manual impls are redundant and harmful: if heed ever weakens its Send/Sync impls (e.g. after a correctness fix), the manual declarations here silently override that regression guard. The correct approach: remove the manual unsafe impls and let the compiler derive them from the field types. If auto-derivation fails, that is the compiler correctly telling you the type is not safe to share.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T21:01:34Z",
+  "updated_at": "2026-05-01T04:56:25Z",
+  "closed_at": "2026-04-24T21:52:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-43a593be",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-24 14:01:33"
+    }
+  ]
+}

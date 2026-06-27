@@ -1,0 +1,19 @@
+{
+  "id": "stoa-ee9ad51f",
+  "title": "audit JsonlFileLogger doc claims O_APPEND atomic writes but events can exceed PIPE_BUF",
+  "description": "audit.rs JsonlFileLogger documentation states writes are atomic by O_APPEND. O_APPEND atomic guarantee only holds for writes <= PIPE_BUF (4096 bytes on Linux). A single audit event serialized as JSON (e.g. with long header fields or a large body preview) can easily exceed 4096 bytes, at which point two concurrent writers will interleave bytes and produce malformed JSONL. Either: (a) serialize events to a channel and let a single writer task append, or (b) acquire a file lock per write, or (c) document the limit and enforce a max event size.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:38:36Z",
+  "updated_at": "2026-05-01T04:52:31Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:38:35"
+    }
+  ]
+}

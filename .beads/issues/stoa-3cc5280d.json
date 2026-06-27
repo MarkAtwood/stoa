@@ -1,0 +1,20 @@
+{
+  "id": "stoa-3cc5280d",
+  "title": "Email/query smtp: response position not clamped to total",
+  "description": "crates/mail/src/server.rs lines 593-615 (Email/query smtp path): when the requested 'position' is >= total (e.g. position=5 with only 3 messages), the response echoes back 'position: 5' instead of 'position: 3'. RFC 8620 \u00a75.5 states: 'If the position supplied in the request is greater than the total number of results, the returned ids array MUST be empty and position MUST be set to the total number of results.' The fix: clamp the echoed position to min(position, total) before building the response JSON.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:01:40Z",
+  "updated_at": "2026-05-01T04:59:36Z",
+  "closed_at": "2026-04-30T05:28:01Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-14057691",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:01:40"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-702fe0bd",
+  "title": "FsStore: concurrent same-CID puts race on .tmp filename",
+  "description": "Two concurrent put_raw calls for the same CID both write to {cid}.block.tmp. If Writer A writes then renames, Writer B's rename hits ENOENT and returns WriteFailed \u2014 even though the block is now correctly stored. In transit, a duplicate ingest from two peers arriving simultaneously would cause one pipeline worker to spuriously reject the article after the block is already on disk. Fix: use a per-call unique tmp name (e.g. tempfile::NamedTempFile::new_in) or catch ENOENT on rename and check if block_path now exists, returning Ok(cid) in that case.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T01:18:01Z",
+  "updated_at": "2026-05-01T04:59:36Z",
+  "closed_at": "2026-04-28T01:26:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-713dbc32",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 18:18:00"
+    }
+  ]
+}

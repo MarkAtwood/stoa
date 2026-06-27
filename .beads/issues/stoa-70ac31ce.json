@@ -1,0 +1,21 @@
+{
+  "id": "stoa-70ac31ce",
+  "title": "extract_post_metadata ignores folded headers: cross-posts stored in wrong groups",
+  "description": "Trigger: POST with RFC 5322-folded Newsgroups header, e.g. 'Newsgroups: comp.a,\\r\\n  comp.b'. validate_post_headers uses mailparse (handles folding correctly); extract_post_metadata in lifecycle.rs uses a custom extract_header_value() that splits on lines and grabs only the first line's value. The split-by-comma on 'comp.a,' then discards the empty continuation. Bad behavior: article is stored only in comp.a, comp.b is silently dropped. Security angle: the two parsers disagreeing means validation passes for something that gets stored differently \u2014 a class of header injection / content divergence bugs.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T14:05:39Z",
+  "updated_at": "2026-05-01T04:55:43Z",
+  "closed_at": "2026-04-21T14:30:12Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ad28b4f3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 07:05:39"
+    }
+  ]
+}

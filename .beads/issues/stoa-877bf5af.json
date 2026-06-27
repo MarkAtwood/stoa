@@ -1,0 +1,12 @@
+{
+  "id": "stoa-877bf5af",
+  "title": "nntp: XGET command \u2014 fetch arbitrary IPFS block by CID",
+  "description": "Why: XCID resolves a message-id to a CID but does not fetch content by CID. Clients that obtain a CID (from XCID, from X-Usenet-IPFS-CID headers, or from any external source) have no way to retrieve the corresponding IPFS block through the NNTP interface. This command makes the NNTP reader a gateway to the full IPFS network.\\n\\nWhat:\\nAdd XGET <cid> command to the NNTP reader.\\n- Syntax: XGET <cid-string>\\n- Response on success: 290 <cid-string> followed by a synthetic RFC 5322 MIME message in the standard NNTP dot-stuffed multi-line format:\\n    From: ipfs-gateway@<configured hostname>\\n    Subject: IPFS:<cid>\\n    Message-ID: <<cid>@ipfs.local>\\n    X-Usenet-IPFS-CID: <cid>\\n    MIME-Version: 1.0\\n    Content-Type: application/octet-stream\\n    Content-Transfer-Encoding: base64\\n    <blank line>\\n    <base64-encoded block bytes>\\n    .\\n- Response codes:\\n    290: article follows\\n    430: CID not found on local IPFS node\\n    501: syntax error (not a valid CID string)\\n- Advertise XGET in CAPABILITIES.\\n- Valid in any session state after authentication; no group or article pointer required.\\n\\nMIME wrapping with base64 is required because NNTP dot-stuffed multi-line is not binary-safe. Wrapping also keeps the format consistent with the JMAP blob download and IMAP X-USENET-IPFS-GET responses.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T02:05:42Z",
+  "updated_at": "2026-05-01T04:57:29Z",
+  "closed_at": "2026-04-22T22:24:31Z"
+}

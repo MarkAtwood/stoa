@@ -1,0 +1,39 @@
+{
+  "id": "stoa-294fbba0",
+  "title": "Document all metric names, label sets, and structured log fields",
+  "description": "Write docs/observability.md documenting: all Prometheus metric names with descriptions, label names and allowed values, histogram bucket choices and rationale, all structured log fields (span names, event keys), and example Prometheus queries for common operational questions (e.g. ingest rate, GC rate, NNTP p99 latency). Artifact: docs/observability.md.\n\nAcceptance:\n- Every metric defined in Issues B, D, E is documented with name, type, labels, description\n- Every structured log span from Issue A is documented with its fields\n- At least 5 example PromQL queries included\n- Document is accurate (verified against actual metric output from a running instance)",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:15:37Z",
+  "updated_at": "2026-05-01T04:58:11Z",
+  "closed_at": "2026-04-20T12:09:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4a2a7c4b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:15:48"
+    },
+    {
+      "depends_on_id": "stoa-8a4e3fd3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:15:49"
+    },
+    {
+      "depends_on_id": "stoa-c1dc4c8d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:15:36"
+    },
+    {
+      "depends_on_id": "stoa-d50730fa",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:15:49"
+    }
+  ]
+}

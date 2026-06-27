@@ -1,0 +1,20 @@
+{
+  "id": "stoa-f9fd6529",
+  "title": "Wire Email/set into JMAP dispatcher",
+  "description": "Email/set create is fully implemented in crates/mail/src/email/set.rs and tested, but handle_email_set is never registered in the route_method() dispatcher in server.rs. JMAP clients cannot compose or post articles via JMAP today. Fix: register Email/set in the dispatcher so clients can create new articles (posts to newsgroups) via JMAP Email/set {create}. Destroy returns notPermitted (immutable articles). Update only permits keywords changes.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T18:14:20Z",
+  "updated_at": "2026-05-01T04:59:01Z",
+  "closed_at": "2026-04-24T06:46:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-fb616eb0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:00:56"
+    }
+  ]
+}

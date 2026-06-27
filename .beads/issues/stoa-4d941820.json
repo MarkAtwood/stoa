@@ -1,0 +1,19 @@
+{
+  "id": "stoa-4d941820",
+  "title": "mbox: mbox_send_ihave maps 436/437 to Accepted (via default match arm) \u2014 transfer failure counted as imported",
+  "description": "mbox.rs mbox_send_ihave() final match block: match code { 235 => IhaveSendResult::Accepted, _ => { info!(...); IhaveSendResult::Failed } }. So 436 (try again later) and 437 (article rejected) both map to Failed. Compare with ihave_push.rs where 436|437 => Rejected. Neither is wrong per se for summary purposes \u2014 but the real problem is that mbox.rs run_mbox_import() at lines 243-252 maps both Accepted AND Duplicate to summary.imported += 1. If a 435 Duplicate comes back it is counted as successfully imported, which is harmless but misleading. More critically: a 436 comes back as IhaveSendResult::Failed which increments summary.failed, but the session connection is still alive and a subsequent IHAVE can be sent. The connection is not closed on 436. This is a correctness issue when the remote is backpressuring \u2014 the import continues hammering a congested daemon.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:45:44Z",
+  "updated_at": "2026-05-01T04:52:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:45:43"
+    }
+  ]
+}

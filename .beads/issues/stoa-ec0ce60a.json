@@ -1,0 +1,21 @@
+{
+  "id": "stoa-ec0ce60a",
+  "title": "Write threat model document for transit and reader attack surfaces",
+  "description": "Write docs/threat_model.md covering: (1) attacker-controlled NNTP input (commands, headers, article bodies \u2014 max sizes, injection vectors), (2) malicious peer transit connections (IHAVE flooding, oversized articles), (3) signing key compromise (impact, mitigation), (4) IPFS node compromise (impact on retention, CID integrity), (5) gossipsub Sybil and eclipse attacks. For each threat: describe the attack, the impact, and the mitigation implemented or deferred. Artifact: docs/threat_model.md.\n\nAcceptance:\n- Covers all 5 threat categories above\n- Each threat has: attack description, impact rating (low/medium/high/critical), mitigation status (implemented/deferred/accepted)\n- Deferred mitigations are linked to specific beads issues\n- Document is reviewable without running any code\n- Peer-reviewed by at least one other person (mark in commit message)",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:17:06Z",
+  "updated_at": "2026-05-01T04:58:06Z",
+  "closed_at": "2026-04-20T06:30:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-8013af16",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:17:06"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "stoa-37ad23c8",
+  "title": "Review: entire usenet-ipfs project",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:27:48Z",
+  "updated_at": "2026-05-01T04:59:45Z",
+  "closed_at": "2026-04-22T18:56:59Z",
+  "notes": "Confidence: 70% chance of missed bug. Uncertainty driven by: (1) transit backfill is stubbed \u2014 the actual peer-to-peer block fetch path is unwritten and cannot be reviewed; (2) JMAP Email/query filter logic not tested against a real JMAP client; (3) Sieve execution semantics depend on sieve-rs runtime behavior not reviewed here; (4) TLS state machines in reader and smtp were reviewed at the session level but not the tokio-rustls integration. Would raise confidence with: integration tests covering the reconcile-then-backfill loop end-to-end, and a live JMAP client (Thunderbird or Fastmail web) exercising the mail crate."
+}

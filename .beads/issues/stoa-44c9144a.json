@@ -1,0 +1,20 @@
+{
+  "id": "stoa-44c9144a",
+  "title": "sieve_delivery Keep: two queries per delivery, could be one",
+  "description": "In sieve_delivery() (smtp/src/session.rs, Keep arm), JMAP delivery does two sequential queries:\n\n  1. SELECT id FROM users WHERE username=?\n  2. SELECT mailbox_id FROM user_mailboxes WHERE user_id=? AND role='inbox'\n\nThese can be combined into a single JOIN:\n\n  SELECT u.id, m.mailbox_id\n  FROM users u\n  JOIN user_mailboxes m ON m.user_id=u.id AND m.role='inbox'\n  WHERE u.username=?\n\nThis halves the SQLite round-trips on the per-message delivery hot path. At low volume the difference is negligible; at high inbound message rates (burst MX delivery) it reduces lock contention on the mail SQLite database.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:01:03Z",
+  "updated_at": "2026-05-01T04:59:32Z",
+  "closed_at": "2026-04-30T05:28:49Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-14057691",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:01:02"
+    }
+  ]
+}

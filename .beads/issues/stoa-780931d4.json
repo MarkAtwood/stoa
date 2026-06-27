@@ -1,0 +1,27 @@
+{
+  "id": "stoa-780931d4",
+  "title": "sieve-native: RFC 5229 variables extension",
+  "description": "Add the variables extension (RFC 5229). Because the evaluator already dispatches on Word(name), variables integrate as two small additions with no structural changes.\n\nWhat: additions to evaluator.rs only. No parser changes needed.\n\nThe form reader already produces Str(s) for all quoted strings. Variable substitution is a post-read pass on string values before use, not a parser concern.\n\nAddition 1 \u2014 expand_str():\n  fn expand_str(s: &str, vars: &HashMap<String,String>) -> String\n  Scan for ${name} patterns; replace with vars.get(name).unwrap_or(\"\").\n  Variable names are case-insensitive: normalize to lowercase on lookup.\n  Call this on every Str(s) value before passing to comparators or actions.\n  If require [\"variables\"] not declared, expand_str is a no-op (returns s unchanged).\n\nAddition 2 \u2014 eval_set():\n  match rest { [Modifier*, Str(name), Str(value)] => ... }\n  Modifiers are Form::Tag values: lower, upper, length, quotewildcard, firstline.\n  Apply in order:\n    lower        \u2192 ASCII lowercase the expanded value\n    upper        \u2192 ASCII uppercase\n    length       \u2192 replace with decimal string of char count\n    quotewildcard \u2192 escape * and ? with \\\n    firstline    \u2192 truncate at first \\n (or \\r\\n)\n  ctx.vars.insert(name.to_lowercase(), result)\n\nAddition 3 \u2014 require check:\n  compile() already validates require declarations. Add \"variables\" to the known extensions list.\n  Any script using ${...} or set without require [\"variables\"] \u2192 compile error.\n\nThat is the entire variables implementation. No other files change. The form-based architecture makes this additive.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:24:21Z",
+  "updated_at": "2026-05-01T04:54:07Z",
+  "closed_at": "2026-04-24T03:26:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1dcfbf49",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:24:21"
+    },
+    {
+      "depends_on_id": "stoa-fe6633eb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:25:14"
+    }
+  ]
+}

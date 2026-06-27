@@ -1,0 +1,21 @@
+{
+  "id": "stoa-a38a49f0",
+  "title": "NNTP session command loop duplicated between run_plain_session and run_session_io",
+  "description": "lifecycle.rs contains two ~300-line command dispatch loops with near-identical code: run_plain_session and run_session_io. Every command handled (ARTICLE, XCID, XVERIFY, GROUP, LIST ACTIVE, OVER, AUTHINFO PASS, POST) must be changed in two places. Scenario that triggers the cost: adding a new NNTP command or fixing a handler bug \u2014 contributor edits one loop, the other silently diverges. Already visible: STARTTLS logic only appears in run_plain_session. The correct fix is a shared handle_command() fn taking a generic writer, with run_plain_session wrapping it to handle STARTTLS specifically.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T14:06:11Z",
+  "updated_at": "2026-05-01T04:54:46Z",
+  "closed_at": "2026-04-21T14:58:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ad28b4f3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 07:06:11"
+    }
+  ]
+}

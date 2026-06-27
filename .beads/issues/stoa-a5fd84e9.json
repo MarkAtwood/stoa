@@ -1,0 +1,21 @@
+{
+  "id": "stoa-a5fd84e9",
+  "title": "mail: operator runbook section for usenet-ipfs-mail",
+  "description": "Add a section to docs/RUNBOOK.md for usenet-ipfs-mail: config file format (minimal example), startup command (--config), how to create users (manual SQL INSERT with bcrypt hash), how to point a JMAP client at the server (autoconfig URL, bearer token auth), v1 limitations (no EventSource push, no incremental changes, cannotCalculateChanges). Also document the dependency on usenet-ipfs-reader running on the same host and sharing the overview SQLite file.\\n\\nWhy: without deployment docs, operators cannot run the service.\\n\\nAcceptance: a developer can follow the runbook from scratch to connect Fastmail app to a local usenet-ipfs-mail instance.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T03:39:54Z",
+  "updated_at": "2026-05-01T04:53:05Z",
+  "closed_at": "2026-04-21T04:14:30Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-fe227ff3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 20:41:01"
+    }
+  ]
+}

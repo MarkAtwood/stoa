@@ -1,0 +1,19 @@
+{
+  "id": "stoa-e082bfab",
+  "title": "posting_allowed hardcoded true: 440 response is dead code",
+  "description": "In lifecycle.rs, posting_allowed is set to true unconditionally in both run_plain_session and run_session_io. The 440 Posting not permitted response branch is unreachable dead code. Wire it to a config field (e.g. ReaderConfig::read_only) if operator-controlled read-only mode is planned, or remove the dead branch to avoid misleading maintainers.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:46:58Z",
+  "updated_at": "2026-05-01T04:52:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:46:57"
+    }
+  ]
+}

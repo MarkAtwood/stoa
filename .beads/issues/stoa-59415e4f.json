@@ -1,0 +1,27 @@
+{
+  "id": "stoa-59415e4f",
+  "title": "Design peer registry data model (peers table in SQLite)",
+  "description": "Define the schema for the peers table: peer_id (libp2p PeerId, text PK), address (text), last_seen (timestamp), articles_accepted (integer), articles_rejected (integer), consecutive_failures (integer), blacklisted_until (timestamp nullable), configured (boolean \u2014 true if in config file, false if discovered). Artifact: a migration file and docs/peer_registry_schema.md.\n\nAcceptance: schema documented; migration file present; all fields have clear semantics described",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:45:46Z",
+  "updated_at": "2026-05-01T04:54:58Z",
+  "closed_at": "2026-04-20T04:40:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-55b3ce25",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:45:45"
+    },
+    {
+      "depends_on_id": "stoa-6b57af1d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:53:10"
+    }
+  ]
+}

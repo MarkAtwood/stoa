@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already fixed: resolver init failure now maps to DnsLookupFailed, not DnsTxtInvalid. DnsLookupFailed carries the error string and is semantically correct for network/system failures.",
+  "closed_at": "2026-05-02T21:33:52Z",
+  "compaction_level": 0,
+  "content_hash": "19352cf609b2a5510552995708d1ddf0b8b3193b6f34d88d2a5ffe81241bf97f",
+  "created_at": "2026-05-02T21:17:58Z",
+  "created_by": "Mark Atwood",
+  "description": "mta_sts_dns.rs:23 maps TokioResolver builder failure to MtaStsError::DnsTxtInvalid('resolver init failed: ...'). DnsTxtInvalid semantically means 'the remote domain published a malformed TXT record'. A local resolver init failure is a completely different condition. The error message distinguishes them, but the enum variant does not. Add a DnsTransient or ResolverInitFailed variant, or reuse a more appropriate variant.",
+  "ephemeral": 0,
+  "id": "stoa-5yi4k.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "DnsTxtInvalid wrong error variant for resolver init failure",
+  "updated_at": "2026-05-02T21:33:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:17:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-5yi4k",
+      "id": "09ae32a1-ea19-50aa-8649-822d0642bc66",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

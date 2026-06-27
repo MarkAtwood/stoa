@@ -1,0 +1,20 @@
+{
+  "id": "stoa-8c409b4a",
+  "title": "SEC1: Preserve parse error location info (line/col) for structural errors",
+  "description": "Several parse error paths lose location information by hardcoding line:0, col:0:\n\n- form.rs line 78\u201379: 'unexpected end of input in statement'\n- form.rs line 167\u2013170: 'unclosed [' in string list\n- form.rs line 228\u2013232: 'unclosed (' in test list\n- And 5+ more\n\nThese errors occur during structural parsing (after lexer has already lost the original token positions). The question: is line:0, col:0 intentional because we can't recover location? Or an oversight?\n\nImpact: LOW. Error messages are still useful, but less precise.\n\nAcceptance criteria:\n- Audit form.rs to determine if location info can be preserved\n  - If yes, thread position through the parser\n  - If no, document why and mark with explanatory comment\n- Ensure at least one structural error test checks location info",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T04:08:58Z",
+  "updated_at": "2026-05-01T04:57:16Z",
+  "closed_at": "2026-04-28T10:07:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-195c1d21",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 21:08:57"
+    }
+  ]
+}

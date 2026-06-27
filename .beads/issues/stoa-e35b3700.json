@@ -1,0 +1,20 @@
+{
+  "id": "stoa-e35b3700",
+  "title": "XGET: msgid_map.lookup_by_cid is not the inverse of msgid_map.insert",
+  "description": "In xget.rs, handle_xget() calls msgid_map.lookup_by_cid(&cid) as a group-membership check to ensure only known article CIDs can be fetched. However, the article pipeline stores root CIDs (codec 0x71 DAG-CBOR) in the msgid_map via write_ipld_article_to_ipfs. The XGET command takes an arbitrary CID string from the client. If the client passes a child block CID (the header or body sub-block, codec 0x55 raw) rather than the root CID, lookup_by_cid will return None (403) because only root CIDs are in the msgid_map. This is correct security behavior. But the converse: if an operator stores the root CID in msgid_map and the client passes the root CID, get_raw() is called on the root block which returns DAG-CBOR bytes, not the article wire format. The client can then abuse XGET to extract DAG-CBOR root metadata. This is documented as intended behavior in the ADR-0007 description, but the security comment 'prevents fetching arbitrary blocks' only applies to unknown CIDs \u2014 known article root CIDs are fully exposed in DAG-CBOR form.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T06:00:02Z",
+  "updated_at": "2026-05-01T05:00:02Z",
+  "closed_at": "2026-04-27T07:57:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-650091d3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 23:00:02"
+    }
+  ]
+}

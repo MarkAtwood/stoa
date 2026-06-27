@@ -1,0 +1,20 @@
+{
+  "id": "stoa-fc0a5567",
+  "title": "Dual ID space architecture: CID vs smtp: prefixes",
+  "description": "Email/get handler routes by prefix: CID IDs (content-addressed, globally stable IPFS references) vs smtp: IDs (local row numbers from SQLite AUTOINCREMENT). Explicitly warns that smtp: IDs are invalidated on database rebuild and must not be compared to CIDs or exposed to peer servers. This is disciplined API boundary design.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T07:06:05Z",
+  "updated_at": "2026-05-01T04:55:36Z",
+  "closed_at": "2026-04-30T07:14:59Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-17ee367f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 00:06:05"
+    }
+  ]
+}

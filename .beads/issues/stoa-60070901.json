@@ -1,0 +1,21 @@
+{
+  "id": "stoa-60070901",
+  "title": "Initialize Cargo workspace with core, transit, and reader crates",
+  "description": "Create the Cargo.toml workspace manifest and skeleton crate directories for usenet-ipfs-core (rlib), usenet-ipfs-transit (bin), and usenet-ipfs-reader (bin). Set Rust edition 2021 and resolver v2. Add .gitignore entries for target/. Artifact: compilable workspace with `cargo build --workspace` succeeding with no warnings.\n\nAcceptance:\n- `cargo build --workspace` succeeds on stable Rust\n- Edition 2021, resolver v2 in workspace Cargo.toml\n- All three crates present: core (rlib), transit (bin), reader (bin)\n- No warnings with `cargo clippy --workspace -- -D warnings`",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:09:40Z",
+  "updated_at": "2026-05-01T04:53:02Z",
+  "closed_at": "2026-04-20T00:26:17Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1c73f68d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:09:40"
+    }
+  ]
+}

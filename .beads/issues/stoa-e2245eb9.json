@@ -1,0 +1,20 @@
+{
+  "id": "stoa-e2245eb9",
+  "title": "[decision] Raw SMTP protocol client instead of lettre crate",
+  "description": "Raw SMTP client over lettre because: (1) Lettre is optimized for local delivery; (2) SMTP relay requires precise transient/permanent error classification; (3) Raw I/O gives auditable RFC 5321 compliance; (4) Explicit state machine prevents hidden retries or error mapping.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T19:14:07Z",
+  "updated_at": "2026-05-01T05:00:18Z",
+  "closed_at": "2026-04-23T19:18:11Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-11ae5322",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 12:14:07"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "id": "stoa-b64fb8f4",
+  "title": "Review round 2: n3vt post-fix",
+  "description": "Verify fixes from round 1",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T04:21:10Z",
+  "updated_at": "2026-05-01T04:59:07Z",
+  "closed_at": "2026-04-24T04:39:34Z",
+  "notes": "Round 2 review complete. Two findings: P1 (validate_stmt false-positive on header field names as regex \u2014 fixed in stoa-e0f1dc35, closed) and P2/P3 (ReDoS patterns compile without error \u2014 filed as stoa-18a2747e, P3 deferred with timeout mitigation). No P0 or remaining P1 issues. Round 2 review passed."
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-ffd82a27",
+  "title": "smtp/server.rs credential loading uses deprecated if let Some(ref path) pattern",
+  "description": "crates/smtp/src/server.rs build_credential_store block uses 'if let Some(ref path) = config.auth.credential_file' \u2014 the pre-NLL idiom. imap and reader were updated to 'if let Some(path) = &config.auth.credential_file' as part of aubi. smtp was not. Clippy's redundant_pattern_matching lint catches this. Change to 'if let Some(path) = &config.auth.credential_file' for consistency.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T20:32:23Z",
+  "updated_at": "2026-05-01T04:52:09Z",
+  "closed_at": "2026-04-30T20:35:44Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-44ba837b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:32:23"
+    }
+  ]
+}

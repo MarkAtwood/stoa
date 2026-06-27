@@ -1,0 +1,20 @@
+{
+  "id": "stoa-851d7810",
+  "title": "provision_user_mailboxes: batch 6 INSERTs",
+  "description": "provision_user_mailboxes() is called unconditionally at the top of route_method() for every JMAP request, including reads. It issues 6 sequential INSERT OR IGNORE queries. For already-provisioned users all 6 are no-ops, but they still consume 6 SQLite write-lock round-trips per request. SQLite serialises writers, so under concurrent load this multiplies lock contention by 6x for every authenticated request.\n\nFix: check first with SELECT COUNT(*) FROM user_mailboxes WHERE user_id=? and skip if count=6, or batch into a single multi-row INSERT OR IGNORE VALUES (...),(...),... . Alternatively, provision once at user-creation time and remove the call from the hot request path entirely.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:00:29Z",
+  "updated_at": "2026-05-01T04:59:34Z",
+  "closed_at": "2026-04-30T05:28:29Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-14057691",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:00:28"
+    }
+  ]
+}

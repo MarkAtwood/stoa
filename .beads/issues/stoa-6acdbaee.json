@@ -1,0 +1,21 @@
+{
+  "id": "stoa-6acdbaee",
+  "title": "DECISION: MAX_NEWSGROUPS cap prevents crosspost DoS",
+  "description": "validation.rs defines MAX_NEWSGROUPS = 100 and rejects any article with more Newsgroups entries than that limit. Without this cap, a malicious peer can send an article crossposted to thousands of fabricated group names; the transit pipeline performs one group-log append per name, creating a DoS multiplier. The constant is named and documented as an explicit DoS countermeasure, making the intent clear for future reviewers. The boundary is tested at exactly MAX_NEWSGROUPS (accepted) and MAX_NEWSGROUPS+1 (rejected).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:31:04Z",
+  "updated_at": "2026-05-01T05:00:11Z",
+  "closed_at": "2026-04-27T16:40:08Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:31:03"
+    }
+  ]
+}

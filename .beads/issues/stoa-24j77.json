@@ -1,0 +1,23 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T14:36:02Z",
+  "compaction_level": 0,
+  "content_hash": "d696f1cc667b8cc72252fb235148717ebcf673856ef20712c74175a0773d978e",
+  "created_at": "2026-05-03T13:05:27Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\npost/smtp_relay.rs::extract_email_recipients() and extract_mail_from() use String::from_utf8_lossy() on the header section. Articles with Latin-1 encoded From/To headers (common in legacy Usenet) will have 0xFF and similar bytes silently replaced with U+FFFD, corrupting the address extraction and causing incorrect SMTP relay decisions.\\n\\ndid_passthrough.rs correctly avoids from_utf8_lossy. smtp_relay.rs should do the same: if header bytes are not valid UTF-8, return empty results (no relay).\\n\\n## Acceptance Criteria\\n\\nReplace from_utf8_lossy with from_utf8; on Err, return empty Vec/String.",
+  "ephemeral": 0,
+  "id": "stoa-24j77",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "smtp_relay: extract_email_recipients uses from_utf8_lossy on headers",
+  "updated_at": "2026-05-03T14:36:02Z"
+}

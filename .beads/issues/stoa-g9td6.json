@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "7f633bce14169fc245ced96b3c75b6a7499b21e0602b6d7dc827a639a373e1d0",
+  "created_at": "2026-06-13T06:36:14Z",
+  "created_by": "Mark Atwood",
+  "description": "Email/import is registered but returns unknownMethod. Required for importing RFC 5322 messages into the store (e.g. drag-and-drop .eml files). RFC 8621 section 5.5.",
+  "ephemeral": 0,
+  "id": "stoa-g9td6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Implement Email/import method",
+  "updated_at": "2026-06-13T06:36:14Z"
+}

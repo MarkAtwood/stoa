@@ -1,0 +1,32 @@
+{
+  "compaction_level": 0,
+  "content_hash": "596e88cf63d35f6eff0968a71b74c32ec6f2abcc67ef186d656ffdaa163ebaca",
+  "created_at": "2026-05-04T06:07:54Z",
+  "created_by": "Mark Atwood",
+  "defer_until": "2027-01-01T08:00:00Z",
+  "description": "## Why\n\nRFC 5257 IMAP ANNOTATION allows per-message server-side metadata\nstored separately from the message itself and exposed to IMAP clients.\nThis is the right place to surface stoa's authentication evidence\n(DKIM result, SPF result, DMARC policy, spam score) to mail clients\nwithout injecting headers into the immutable message body.\n\n## Dependency\n\nRequires a working IMAP server in stoa-reader. stoa v1 does not have\none. This epic is deferred until IMAP is implemented. Filed now to\ncapture the design intent.\n\n## What (when IMAP exists)\n\nExpose per-message annotations keyed by CID:\n\n| Annotation entry                         | Value |\n|------------------------------------------|-------|\n| /vendor/stoa/dkim-result                 | pass / fail / none |\n| /vendor/stoa/dkim-domain                 | signing domain or empty |\n| /vendor/stoa/spf-result                  | pass / fail / softfail / none |\n| /vendor/stoa/dmarc-result                | pass / fail / none |\n| /vendor/stoa/dmarc-policy                | reject / quarantine / none |\n| /vendor/stoa/spam-score                  | float as string e.g. '2.3' |\n| /vendor/stoa/cid                         | CIDv1 of the article |\n\nSource: dns_auth_cache table + article_verifications table, looked\nup by CID at FETCH time. No header injection; the message bytes are\nunchanged.\n\n## IMAP capability advertisement\n\nANNOTATE-EXPERIMENT-1 (RFC 5257 experimental) or ANNOTATION (if\nstandardized) advertised in CAPABILITY response.\n\n## Client usage\n\nThunderbird, Apple Mail, and other RFC 5257 clients can display\nannotations. A custom Thunderbird extension could render DKIM/SPF\nresults in the message header pane sourced from annotations rather\nthan parsing Authentication-Results: headers.\n\n## Acceptance (when IMAP is implemented)\n\n- CAPABILITY response includes ANNOTATE-EXPERIMENT-1\n- FETCH ANNOTATION returns correct values for all /vendor/stoa/* entries\n- Values sourced from dns_auth_cache; not re-computed at FETCH time\n- Unknown annotations return NIL per RFC 5257 \u00a74.3",
+  "ephemeral": 0,
+  "id": "stoa-p4oc4.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "IMAP ANNOTATION (RFC 5257) for per-message auth metadata",
+  "updated_at": "2026-05-04T06:08:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T23:07:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p4oc4",
+      "id": "e7296a01-7ee9-5ea4-a565-49839d55c741",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

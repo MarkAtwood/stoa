@@ -1,0 +1,20 @@
+{
+  "id": "stoa-b7dddfbf",
+  "title": "DECISION: AcceptAnyCert verifier for test TLS without system trust store",
+  "description": "E2E tests that exercise authenticated commands (ENABLE IMAP4rev2, NAMESPACE) require a real TLS session because AUTH=PLAIN is only permitted over TLS. The tests generate an ephemeral self-signed cert with rcgen at test time so there is no cert to install in the OS trust store and the test is fully self-contained. AcceptAnyCert implements ServerCertVerifier by accepting any presented certificate. TLS12 and TLS13 signature verification are still delegated to the ring provider so the TLS handshake is genuine; only the cert chain check is bypassed. Alternative rejected: a test-only trust store seeded with the generated CA cert would work but requires more scaffolding and does not add meaningful security assurance in a same-process test.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:25:30Z",
+  "updated_at": "2026-05-01T04:55:40Z",
+  "closed_at": "2026-04-30T02:50:43Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9d37d25b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:25:30"
+    }
+  ]
+}

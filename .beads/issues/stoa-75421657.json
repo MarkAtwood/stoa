@@ -1,0 +1,19 @@
+{
+  "id": "stoa-75421657",
+  "title": "Mailbox/set destroy silently drops non-string IDs instead of reporting notDestroyed",
+  "description": "mailbox/set.rs destroy loop skips non-string array elements with 'continue'. RFC 8620 \u00a75.3 requires them in notDestroyed. Client incorrectly believes destroy succeeded.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:43:23Z",
+  "updated_at": "2026-05-01T04:52:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:43:22"
+    }
+  ]
+}

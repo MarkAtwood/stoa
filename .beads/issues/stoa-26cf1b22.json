@@ -1,0 +1,19 @@
+{
+  "id": "stoa-26cf1b22",
+  "title": "session.rs sieve_delivery: FileInto non-newsgroup folder silently discards message when pool=None but no 452 returned",
+  "description": "session.rs sieve_delivery line 997-1002: when a Sieve FileInto action names a non-newsgroup folder and pool is None, the message is silently dropped with only a warning log. Unlike the Keep action (which correctly returns SieveOutcome::TransientError when pool=None to trigger a 452 retry), FileInto falls through to SieveOutcome::Accepted. This means the sending MTA receives 250 OK but the message is permanently lost. The sending MTA cannot retry because it received a definitive success response. This is data loss.",
+  "status": "open",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:34:25Z",
+  "updated_at": "2026-05-01T04:57:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:34:24"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-f3ccbc4d",
+  "title": "SEC1: Expand RFC 5228/5229 inline documentation for solo maintainer",
+  "description": "The codebase references RFC 5228/5229 extensively but lacks inline explanation of key semantic rules. A solo maintainer without Sieve expertise must read the RFC to understand why certain choices were made.\n\nExamples of sparse documentation:\n- 'Unknown command \u2014 ignore per RFC 5228 \u00a72.9' (evaluator.rs:158) \u2014 what does \u00a72.9 say? Why is ignoring fail-safe?\n- 'fail-safe' appears twice (evaluator.rs:228, 695) but never defined\n- 'Variable names are case-insensitive (RFC 5229 \u00a73)' (evaluator.rs:626) \u2014 why? Any other scope rules?\n- The  flag (lib.rs:55\u201368) is set by scanning for require [\"variables\"], but RFC 5229 \u00a73 interaction is not documented\n\nAcceptance criteria:\n- Add brief inline comments (1\u20132 sentences) explaining:\n  - What fail-safe means and why it's correct per the RFC\n  - Variable case-insensitivity rule and consequences\n  - Why unknown commands are ignored (vs. error)\n- Add a top-level comment to evaluator.rs summarizing RFC 5228 vs 5229 scope and key semantic rules (5\u201310 lines)",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T04:09:05Z",
+  "updated_at": "2026-05-01T04:57:16Z",
+  "closed_at": "2026-04-28T10:08:43Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-195c1d21",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 21:09:05"
+    }
+  ]
+}

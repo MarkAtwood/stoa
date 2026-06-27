@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "ebe559e5822dcc5c918894e481bdebb94017583abe1f69baad551cd30a6bb4a9",
+  "created_at": "2026-05-04T05:05:32Z",
+  "created_by": "Mark Atwood",
+  "description": "What decision: validation.rs forbidden() closure explicitly checks c as u32 <= 0x20 (all C0 controls + space) and c as u32 == 0x7f, rather than using char::is_whitespace(). A doc comment explains why: Rust's is_whitespace() does not match NUL (\\x00), but NUL in a Message-ID would corrupt canonical serialisation (the serialiser uses \\x00\\n as header/body separator) and break C-string APIs downstream. Why right: the explicit bounds make the security invariant auditable at a glance without reading is_whitespace() docs. The doc comment names the downstream corruption mechanism (canonical serialiser separator), making the constraint self-explaining. Alternatives rejected: (1) is_whitespace() alone \u2014 silently passes NUL; (2) regex \u2014 heavier dependency with no benefit here; (3) allowlist of valid chars \u2014 more restrictive than RFC 5322 intends for the non-structural chars.",
+  "ephemeral": 0,
+  "id": "stoa-paxfh.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "DECISION: NUL-byte check explicit in is_valid_message_id rather than relying on is_whitespace()",
+  "updated_at": "2026-05-04T05:05:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T22:05:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-paxfh",
+      "id": "006b56b2-9f30-5494-997f-0d2933adb832",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

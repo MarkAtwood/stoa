@@ -1,0 +1,13 @@
+{
+  "id": "stoa-8eceaf1d",
+  "title": "core: decode_rfc2047 hand-rolls RFC 2047 encoded-word decoding",
+  "description": "core/src/ipld/header_map.rs:103 \u2014 ~50 lines hand-rolling RFC 2047 =?charset?encoding?text?= decoding. RFC 2047 has edge cases (charset variants, adjacent encoded words, folded headers, whitespace between words) that the hand-rolled version misses. The rfc2047-decoder crate (MIT) handles this correctly. Fix: add rfc2047-decoder dep to stoa-core and replace decode_rfc2047 body with rfc2047_decoder::decode().",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:45:43Z",
+  "updated_at": "2026-05-01T05:01:02Z",
+  "closed_at": "2026-05-01T02:56:04Z"
+}

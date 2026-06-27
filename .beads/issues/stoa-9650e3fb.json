@@ -1,0 +1,21 @@
+{
+  "id": "stoa-9650e3fb",
+  "title": "GC full table scan on every run cycle",
+  "description": "O(N) / UNBOUNDED ALLOCATION \u2014 select_gc_candidates (gc_candidates.rs:36) fetches ALL rows from the articles table into a Vec on every GC interval, then evaluates policy in Rust. At 1M articles this materialises ~50\u2013100 MB per run. Fix: push policy evaluation into SQL (age predicate, group wildmat via a precomputed pinned_groups bitmap or a NOT IN subquery) so only actual candidates are transferred, not the full corpus.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:09:01Z",
+  "updated_at": "2026-05-01T04:56:06Z",
+  "closed_at": "2026-04-27T16:32:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:09:01"
+    }
+  ]
+}

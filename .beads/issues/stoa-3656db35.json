@@ -1,0 +1,20 @@
+{
+  "id": "stoa-3656db35",
+  "title": "next_article and last_article use O(n) linear scan instead of indexed lookup",
+  "description": "In session/commands/group.rs, next_article and last_article iterate the full article number list to find adjacent articles. With a group having millions of articles this is O(n) per NEXT/LAST command. The article_numbers store supports range queries; these functions should use an indexed min/max or cursor query instead of collecting all numbers and scanning.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:26:56Z",
+  "updated_at": "2026-05-01T04:55:47Z",
+  "closed_at": "2026-04-28T20:22:11Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:26:56"
+    }
+  ]
+}

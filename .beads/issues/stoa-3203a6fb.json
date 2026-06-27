@@ -1,0 +1,52 @@
+{
+  "id": "stoa-3203a6fb",
+  "title": "Implement article root node builder and canonical CID computation",
+  "description": "Assemble the root node from header_cid, body_cid, mime_cid (Option<Cid>), and metadata. Encode as DAG-CBOR. Compute the root CID (CIDv1 SHA-256 DAG-CBOR codec). This CID is the canonical article CID used in the group log and Message-ID->CID map. This issue updates the scope of stoa-a2023a88.2.3 (Implement CID computation) to implement this root node builder.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T01:49:40Z",
+  "updated_at": "2026-05-01T04:55:28Z",
+  "closed_at": "2026-04-20T02:45:37Z",
+  "notes": "Size: S. Depends on Issue D (header block builder), Issue E (body block builder), Issue F (MIME parser, for mime_cid), and Issue G (metadata computation).",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0996e0f4",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 18:50:02"
+    },
+    {
+      "depends_on_id": "stoa-49895c1e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 18:50:03"
+    },
+    {
+      "depends_on_id": "stoa-88506f2e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 18:49:40"
+    },
+    {
+      "depends_on_id": "stoa-8efec1fd",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 18:50:03"
+    },
+    {
+      "depends_on_id": "stoa-ac3837f9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 19:10:49"
+    },
+    {
+      "depends_on_id": "stoa-ca46d37a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 18:50:02"
+    }
+  ]
+}

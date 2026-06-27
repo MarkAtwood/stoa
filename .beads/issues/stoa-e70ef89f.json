@@ -1,0 +1,21 @@
+{
+  "id": "stoa-e70ef89f",
+  "title": "f120.1: SmtpRelayPeerConfig \u2014 config structs for outbound relay peers",
+  "description": "Add relay peer configuration structs and validation to crates/smtp/src/config.rs.\n\n**What:** Add SmtpRelayPeer and extend DeliveryConfig with smtp_relay_peers field; add config validation.\n\n**Algorithm:**\n1. In crates/smtp/src/config.rs, add struct SmtpRelayPeer { host: String, port: u16, tls: bool, username: Option<String>, password: Option<String> } with #[derive(Debug, Clone, Deserialize, Serialize)]\n2. Add impl Default for SmtpRelayPeer: port=587, tls=true, username=None, password=None\n3. Extend DeliveryConfig to add: smtp_relay_peers: Vec<SmtpRelayPeer> with #[serde(default)] and smtp_relay_queue_dir: String (default: 'smtp-relay-queue') and smtp_relay_retry_secs: u64 (default: 60) and smtp_peer_down_secs: u64 (default: 300, the backoff window before retrying a down peer)\n4. In Config::validate(), add: for each peer in smtp_relay_peers, host must not be empty; port must be in 1..=65535; if tls is false and username.is_some(), warn (credentials over plaintext); if both username and password are Some or both None (no half-credential config)\n5. Add doc comments on each field explaining operator usage\n\n**Defensive programming rules:**\n- No unwrap() in production paths\n- Validate all relay peer fields at config load (not at delivery time)\n- Password field must never appear in Debug output (use custom Debug impl or redact)\n- If smtp_relay_peers is empty, delivery is silently a no-op (no error; operator just didn't configure relay)\n\n**Tests:**\n- Test: empty smtp_relay_peers vector deserializes correctly (independent oracle: manual TOML string)\n- Test: valid peer with TLS deserializes with correct defaults\n- Test: peer with username but no password fails validation with error message containing 'password'\n- Test: peer with empty host fails validation\n- Test: SmtpRelayPeer Debug output does not contain the password string (oracle: manual inspection of Debug output)\n\n**Acceptance:**\n- cargo test -p usenet-ipfs-smtp passes\n- cargo clippy -p usenet-ipfs-smtp -- -D warnings passes\n- cargo fmt --all produces no changes\n- SmtpRelayPeer Debug impl does not expose password field",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T18:30:02Z",
+  "updated_at": "2026-05-01T04:56:38Z",
+  "closed_at": "2026-04-23T18:37:00Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d8edbbe6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 11:30:01"
+    }
+  ]
+}

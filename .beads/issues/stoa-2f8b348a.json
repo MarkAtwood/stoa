@@ -1,0 +1,20 @@
+{
+  "id": "stoa-2f8b348a",
+  "title": "routing: newsgroup name not sanitized before header injection",
+  "description": "add_newsgroups_header prepends 'Newsgroups: {newsgroup}\\r\\n' without validating the newsgroup name for CR/LF characters. An attacker-controlled newsgroup name containing \\r\\n can inject arbitrary RFC 5322 headers into the article. The newsgroup name should be validated to contain only RFC 3977-legal characters (alphanumeric, dot, hyphen) before embedding it in the header.",
+  "status": "in_progress",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:40:33Z",
+  "updated_at": "2026-05-01T04:54:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:40:32"
+    }
+  ]
+}

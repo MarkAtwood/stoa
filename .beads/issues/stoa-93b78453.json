@@ -1,0 +1,19 @@
+{
+  "id": "stoa-93b78453",
+  "title": "stoa-sieve-native: regex cache unbounded growth",
+  "description": "evaluator.rs REGEX_CACHE is thread-local RefCell<HashMap<(String, bool), fancy_regex::Regex>> with no eviction policy. Long-running SMTP processes accumulate unbounded cache entries per thread as unique patterns arrive. Add an LRU bound (e.g. lru crate, cap at 256 entries) to prevent gradual memory growth in production deployments.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:50:36Z",
+  "updated_at": "2026-05-01T04:55:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:50:35"
+    }
+  ]
+}

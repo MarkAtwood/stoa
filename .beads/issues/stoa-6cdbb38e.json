@@ -1,0 +1,21 @@
+{
+  "id": "stoa-6cdbb38e",
+  "title": "config S3 validation uses .unwrap() after is_none() guard",
+  "description": "In config.rs S3 backend validation, the code checks if field.is_none() then on the next line calls field.unwrap(). This is the clippy::option_if_let_chain pattern; use if let Some(v) = field instead. As written, a refactor that reorders the None check will produce a panic. The is_none check and unwrap are not in the same expression scope, so the compiler cannot help.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:26:17Z",
+  "updated_at": "2026-05-01T04:53:15Z",
+  "closed_at": "2026-04-28T17:50:14Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:26:17"
+    }
+  ]
+}

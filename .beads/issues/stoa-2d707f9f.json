@@ -1,0 +1,12 @@
+{
+  "id": "stoa-2d707f9f",
+  "title": "migrations.rs identity map_err wraps error in same variant",
+  "description": "In crates/transit/src/migrations.rs, map_err(|e| sqlx::migrate::MigrateError::Execute(e)) wraps an error in the Execute variant unnecessarily \u2014 the closure argument e is already of the correct type and no transformation is performed. This is a no-op that adds noise. Remove the map_err or use ? directly.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:31:29Z",
+  "updated_at": "2026-05-01T04:54:10Z",
+  "closed_at": "2026-04-28T21:55:39Z"
+}

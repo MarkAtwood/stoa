@@ -1,0 +1,12 @@
+{
+  "id": "stoa-f0a9272c",
+  "title": "sqlite_storage: id.as_bytes().as_slice().to_vec() churn",
+  "description": "group_log/sqlite_storage.rs: id.as_bytes().as_slice().to_vec() appears repeatedly. as_slice() on a &[u8] is a no-op. Fix: use id.as_bytes().to_vec() throughout.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:25:23Z",
+  "updated_at": "2026-05-01T04:59:36Z",
+  "closed_at": "2026-04-28T20:22:41Z"
+}

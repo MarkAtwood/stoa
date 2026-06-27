@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T05:50:14Z",
+  "compaction_level": 0,
+  "content_hash": "1dec8ab85649cb15bd5fcc4f0aefeb6111f912268bad2538365cbb5d1e4f8099",
+  "created_at": "2026-05-04T05:05:07Z",
+  "created_by": "Mark Atwood",
+  "description": "validation.rs lines 220 and 249: MAX_HEADER_VALUE (998) and MAX_HEADER_NAME (76) are defined as const locals inside validate_article_ingress, not at module scope. MAX_NEWSGROUPS is a pub module-level const with a security-rationale doc comment, but these two related limits are invisible to readers scanning the module API and untestable via their names from outside the function. Moving them to module scope alongside MAX_NEWSGROUPS would make the full set of ingress limits discoverable in one place and allow future tests to reference them by name.",
+  "ephemeral": 0,
+  "id": "stoa-paxfh.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MAX_HEADER_VALUE and MAX_HEADER_NAME buried inside function body",
+  "updated_at": "2026-05-04T05:50:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T22:05:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-paxfh",
+      "id": "73aa7377-9660-5a5b-a923-08fcec46f366",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

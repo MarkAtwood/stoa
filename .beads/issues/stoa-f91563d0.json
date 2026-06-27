@@ -1,0 +1,12 @@
+{
+  "id": "stoa-f91563d0",
+  "title": "reader: ARTICLE/HEAD/BODY by number always returns 423",
+  "description": "## Problem\nlifecycle.rs intercepts ArticleRef::MessageId and ArticleRef::Cid but NOT ArticleRef::Number. Any ARTICLE/HEAD/BODY command issued with an article number (the dominant access pattern for all newsreaders) falls through to the dispatch.rs stub, which returns 423 Lockout. This makes the reader server unusable with standard clients.\n\n## Why this exists\nThe dispatch stub was intended as a temporary placeholder but the number branch was never wired.\n\n## Acceptance criteria\n- ARTICLE 42, HEAD 42, BODY 42 return 220/221/222 with the correct article when the number is in range\n- ARTICLE 42 with number out of range returns 423\n- slrn, tin, Thunderbird can navigate articles by number without error",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T18:55:32Z",
+  "updated_at": "2026-05-01T04:59:02Z",
+  "closed_at": "2026-04-24T19:35:16Z"
+}

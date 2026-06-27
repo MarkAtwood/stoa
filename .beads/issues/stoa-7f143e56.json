@@ -1,0 +1,20 @@
+{
+  "id": "stoa-7f143e56",
+  "title": "SEC1: Document fancy-regex version pinning and upgrade path",
+  "description": "fancy-regex is pinned at v0.13.0 but latest is v0.18.0 (5 minor versions behind, ~2 years old).\n\nThe sieve-native regex matching code (evaluator.rs lines 387-437) depends on fancy_regex::escape() behavior. If fancy-regex updates, the glob-to-regex conversion could change behavior silently.\n\nIssues:\n1. Why is fancy-regex v0.13.0 specifically chosen? No comment.\n2. What is the upgrade path if sieve-rs or other dependencies require a newer fancy-regex?\n3. Cargo.toml has no MSRV for sieve-native (only edition 2021). If fancy-regex drops old Rust support, we're blocked.\n\nAcceptance criteria:\n- Add comment to Cargo.toml explaining fancy-regex v0.13.0 choice\n- Add section to CLAUDE.md: 'Upgrading fancy-regex: test strategy'\n- (Optional) Evaluate upgrading to v0.18.0 and run cross-validation tests",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T04:08:44Z",
+  "updated_at": "2026-05-01T04:57:11Z",
+  "closed_at": "2026-04-28T10:03:06Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-195c1d21",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 21:08:44"
+    }
+  ]
+}

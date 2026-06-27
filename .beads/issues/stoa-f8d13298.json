@@ -1,0 +1,13 @@
+{
+  "id": "stoa-f8d13298",
+  "title": "jmap: expose x-usenet-ipfs-sig in Email/get response",
+  "description": "Why: JMAP clients that want to verify the operator Ed25519 signature currently must download the full blob and parse the X-Usenet-IPFS-Sig header themselves. Exposing the signature as a first-class Email/get property makes verification ergonomic without a custom endpoint.\n\nWhat: Add x-usenet-ipfs-sig as a custom JMAP Email property (analogous to x-usenet-ipfs-cid). Algorithm: (1) Add ipfs_sig: Option<String> to Email struct in crates/mail/src/email/types.rs, serde rename to x-usenet-ipfs-sig. (2) Populate in Email::from_root_node() by base64url-no-pad encoding root.metadata.operator_signature if non-empty (len > 0), otherwise None. (3) No new capability URN needed \u2014 existing urn:usenet-ipfs:jmap:cid already advertises custom IPFS properties on Email objects. Tests: (a) Email built from root with non-empty operator_signature serializes with x-usenet-ipfs-sig key in JSON. (b) Email built from root with empty operator_signature serializes without x-usenet-ipfs-sig key (None skips field in JSON). (c) base64url-no-pad roundtrip: decode the serialized value and compare to original bytes.\n\nDefensive rules: never include key material in logs; base64url encode bytes directly (no intermediate String conversion); use URL_SAFE_NO_PAD engine (same as sign.rs).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T14:00:56Z",
+  "updated_at": "2026-05-01T04:59:20Z",
+  "closed_at": "2026-04-23T14:03:35Z"
+}

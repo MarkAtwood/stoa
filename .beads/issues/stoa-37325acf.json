@@ -1,0 +1,20 @@
+{
+  "id": "stoa-37325acf",
+  "title": "Email/get: N serial queries each loading full raw_message blob",
+  "description": "handle_email_get() (email/get.rs) iterates over IDs sequentially and calls fetch_smtp_email() once per ID. Each call issues:\n\n  SELECT raw_message, mailbox_id, received_at FROM mailbox_messages WHERE id=? AND user_id=?\n\nTwo problems: (1) N serial round-trips for an N-ID batch. RFC 8621 allows up to 500 IDs per Email/get. At 500 IDs this is 500 sequential SQLite queries. A single IN-clause query would retrieve all rows in one round-trip. (2) raw_message is always fetched regardless of requested properties. The properties parameter is accepted but immediately discarded (let _ = properties). A client requesting only subject or from still loads the full RFC 822 blob for every message. For a 500-message batch with 100 KB messages this is 50 MB of blob I/O to return a few header fields.\n\nFix for (1): batch with SELECT ... WHERE id IN (?,?,?) AND user_id=? when all IDs are smtp: type. Fix for (2): implement properties filtering \u2014 either add indexed header columns to the schema, or accept that blob fetch is always required and document it; in either case problem (1) should be fixed first.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:00:55Z",
+  "updated_at": "2026-05-01T04:59:34Z",
+  "closed_at": "2026-04-30T05:28:42Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-14057691",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:00:54"
+    }
+  ]
+}

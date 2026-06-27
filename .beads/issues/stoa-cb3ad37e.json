@@ -1,0 +1,32 @@
+{
+  "id": "stoa-cb3ad37e",
+  "title": "session.rs: swap sieve_for_user to use daemon client + fallback",
+  "description": "Replace the direct sieve-rs call in session.rs with the daemon client.\n\nWhat: crates/smtp/src/session.rs\n\nAlgorithm:\n1. Change SieveCache type from HashMap<String, Arc<CompiledScript>> to HashMap<String, Vec<u8>> (caches raw script bytes, same DB-hit-avoidance, invalidation points unchanged).\n2. Update new_sieve_cache() return type accordingly.\n3. In sieve_for_user():\n   a. Load script bytes from DB (unchanged).\n   b. Update cache to store/retrieve Vec<u8> instead of CompiledScript.\n   c. Call sieve_client::eval_via_daemon(&config.delivery.sieve_daemon, &script_bytes, raw_message, envelope_from, envelope_to).await.\n   d. On Err(Unreachable | Timeout): call sieve_client::fallback_routing(raw_message); log warn!(\"sieve daemon unreachable, using header fallback\").\n   e. On Err(Protocol(e)): log error!, fall through to fallback_routing.\n   f. If socket_path is empty (daemon disabled): skip daemon call, go straight to fallback_routing.\n4. Remove all use of usenet_ipfs_sieve::* from session.rs.\n5. Remove usenet_ipfs_sieve from the use list in lib.rs.\n\nDefensive rules:\n- Fallback must never fail the message; always return at least [Keep].\n- Log daemon errors at warn level; do not include message content in log.\n- Timeout on daemon call: use config.delivery.sieve_daemon.request_timeout_ms (wrap with tokio::time::timeout).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:18:18Z",
+  "updated_at": "2026-05-01T05:00:46Z",
+  "closed_at": "2026-04-23T20:25:29Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-140609c2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:19:07"
+    },
+    {
+      "depends_on_id": "stoa-357078d5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:19:06"
+    },
+    {
+      "depends_on_id": "stoa-d1d5d8e9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:18:18"
+    }
+  ]
+}

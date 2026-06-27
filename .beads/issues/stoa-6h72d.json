@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "148b460feda0020866656f895fa98fea0a68279dd771f9edc243b9c7cf2339cb",
+  "created_at": "2026-05-04T08:20:54Z",
+  "created_by": "Mark Atwood",
+  "description": "sigterm() is copy-pasted verbatim in all 5 daemon main.rs files. Extract to stoa_core::signals::wait_for_sigterm() and replace all 5 call sites. Found during stoa-90tpd review (stoa-smkww.1); pre-existing, not introduced by that epic.",
+  "ephemeral": 0,
+  "id": "stoa-6h72d",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "refactor: extract sigterm() helper to stoa_core",
+  "updated_at": "2026-05-04T08:20:54Z"
+}

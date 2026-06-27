@@ -1,0 +1,33 @@
+{
+  "close_reason": "decision recorded",
+  "closed_at": "2026-05-04T08:12:09Z",
+  "compaction_level": 0,
+  "content_hash": "413d46e893f0b8bd0a68b8e0dc19fb9a94782bcd5725483fc186c3a301689ce9",
+  "created_at": "2026-05-04T08:04:39Z",
+  "created_by": "Mark Atwood",
+  "description": "Good decision: sieve_admin.rs splits the startup sequence into start_sieve_admin_server (sync, returns Err immediately) and run_admin_server (async, called only after the check passes). If the security check were inside the spawned task, a failure there would be a silent task-level panic with no signal to the caller. By returning Err synchronously, the caller can treat it as a fatal startup error and exit with a message, which is what the SMTP main does.",
+  "ephemeral": 0,
+  "id": "stoa-cajkm.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "DECISION: sieve admin check is sync before async spawn",
+  "updated_at": "2026-05-04T08:12:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T01:04:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-cajkm",
+      "id": "809c50d0-2261-5fae-af5b-821892ecad63",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

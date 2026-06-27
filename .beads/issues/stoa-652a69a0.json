@@ -1,0 +1,13 @@
+{
+  "id": "stoa-652a69a0",
+  "title": "R3-SEC0: transit peering accepts unauthenticated NNTP peers",
+  "description": "transit/peering/session.rs: run_auth_handshake exists but is never called. Any TCP client can inject articles. Either wire auth or document explicitly that peering relies on network-level ACLs (firewall) for v1 and add a startup warning.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T15:32:25Z",
+  "updated_at": "2026-05-01T04:57:25Z",
+  "closed_at": "2026-04-22T16:00:00Z"
+}

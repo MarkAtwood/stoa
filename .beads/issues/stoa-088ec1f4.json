@@ -1,0 +1,21 @@
+{
+  "id": "stoa-088ec1f4",
+  "title": "canonical_bytes_for_log_entry is public API returning empty Vec \u2014 silent failure trap",
+  "description": "core/src/canonical.rs exports canonical_bytes_for_log_entry() which returns Vec::new(). The actual log entry ID computation lives in group_log/append.rs::compute_entry_id() and a parallel copy in verify.rs tests. Scenario: a contributor (or future self) calls canonical_bytes_for_log_entry() for signing or hashing a LogEntry \u2014 gets empty bytes, produces a signature over nothing, which passes verification against any other entry also signed over nothing. No error, no panic. Fix: either replace the body with todo!() so it panics loudly if called, or delete the exported stub entirely and add a note pointing to compute_entry_id.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T14:06:19Z",
+  "updated_at": "2026-05-01T04:54:46Z",
+  "closed_at": "2026-04-21T14:42:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ad28b4f3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 07:06:19"
+    }
+  ]
+}

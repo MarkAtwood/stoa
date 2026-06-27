@@ -1,0 +1,20 @@
+{
+  "id": "stoa-d6fea230",
+  "title": "DECISION: max_command_size overrides imap-next 25 MiB library default",
+  "description": "imap-next ships with Options::max_command_size around 25 MiB. A legitimate IMAP command line never exceeds about 8 KiB. Leaving the default allows an unauthenticated client to force 25 MiB of heap allocation before the length check fires. The session setup overrides from LimitsConfig (default 8 KiB) before passing Options to Server::new. The code also clamps upward to satisfy the library invariant that max_literal_size < max_command_size.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:25:21Z",
+  "updated_at": "2026-05-01T04:55:40Z",
+  "closed_at": "2026-04-30T02:50:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9d37d25b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:25:21"
+    }
+  ]
+}

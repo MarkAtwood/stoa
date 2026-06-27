@@ -1,0 +1,12 @@
+{
+  "id": "stoa-161e6fc8",
+  "title": "lmdb: map_size_gb as usize can silently truncate before checked_mul",
+  "description": "LmdbBlockDb::open casts map_size_gb (u64) to usize before checked_mul. On 32-bit platforms usize is 32 bits, so the cast itself can truncate before the overflow check runs. The check then passes on a truncated (too-small) value. Should check the cast separately with u64::try_into::<usize>().",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T23:47:50Z",
+  "updated_at": "2026-05-01T04:56:19Z",
+  "closed_at": "2026-04-25T00:04:13Z"
+}

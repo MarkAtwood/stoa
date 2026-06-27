@@ -1,0 +1,21 @@
+{
+  "id": "stoa-dc8b4719",
+  "title": "load_or_generate_signing_key takes &Option<String> not Option<&str>",
+  "description": "server_stores::load_or_generate_signing_key(path: &Option<String>) borrows a String-owning Option. The function only reads the string value; it never needs ownership. Idiomatic Rust: accept Option<&str> (or Option<impl AsRef<str>>). This avoids forcing callers to hold an owned String just to pass a reference, and the match arms become simpler (Some(p) binds &str directly instead of &String). The call site already has config.operator.signing_key_path: Option<String>, so the caller would pass config.operator.signing_key_path.as_deref().",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:58:20Z",
+  "updated_at": "2026-05-01T04:52:58Z",
+  "closed_at": "2026-04-30T18:07:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-65dc6723",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 10:58:20"
+    }
+  ]
+}

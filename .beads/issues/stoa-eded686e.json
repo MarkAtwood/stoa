@@ -1,0 +1,27 @@
+{
+  "id": "stoa-eded686e",
+  "title": "Admin endpoint: GET /export/car?group=X&limit=N",
+  "description": "Add GET /export/car?group=X&limit=N to the admin HTTP server. Returns binary CARv1 Content-Type: application/vnd.ipld.car; version=1. Extend start_admin_server() to accept Arc<dyn IpfsStore> and pass it through to handle_admin_connection(). Parse group from query params (reuse extract_query_param), validate it is a non-empty string, call build_export_car(), stream the bytes. limit defaults to 1000, max 10000.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T06:04:18Z",
+  "updated_at": "2026-05-01T04:56:16Z",
+  "closed_at": "2026-04-23T06:15:08Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-63a7bf68",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 23:04:17"
+    },
+    {
+      "depends_on_id": "stoa-7f56365f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 23:04:24"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "stoa-bddb6240",
+  "title": "Benchmark LIST ACTIVE with 10,000 groups",
+  "description": "Write a benchmark that seeds 10,000 groups into the reader's SQLite database and measures the time for LIST ACTIVE to return all groups. Also measures LIST ACTIVE with the group cache warm vs cold. Artifact: reader/benches/list_active.rs.\n\nAcceptance criteria:\n- benchmark seeds 10,000 groups deterministically\n- cold vs warm cache comparison reported\n- baseline established before group cache is implemented",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:47:45Z",
+  "updated_at": "2026-05-01T04:57:56Z",
+  "closed_at": "2026-04-20T12:57:29Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-8424e73e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:47:45"
+    },
+    {
+      "depends_on_id": "stoa-ff67f4a0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:48:30"
+    }
+  ]
+}

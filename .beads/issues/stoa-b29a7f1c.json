@@ -1,0 +1,13 @@
+{
+  "id": "stoa-b29a7f1c",
+  "title": "Review: RocksDB block store backend",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T04:01:52Z",
+  "updated_at": "2026-05-01T04:52:19Z",
+  "closed_at": "2026-04-28T04:07:06Z",
+  "notes": "Maintainer risk: LOW \u2014 implementation is straightforward, well-tested, follows established patterns; one correctness bug in error message encoding.\nConfidence: 90% chance of no missed logic bug. Uncertainty driven by: cannot test against a live RocksDB with actual compaction/tombstone behavior in CI, and the JoinError panic-to-error mapping is untested. Would raise confidence with: integration test that opens DB, inserts 1000 blocks, deletes 500, force-triggers compaction, and verifies the 500 are gone."
+}

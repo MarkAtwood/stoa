@@ -1,0 +1,22 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "2dc6ef82ca2464b18652a120994e64d70da41b02b0d5bd56a1f9305f71facf31",
+  "created_at": "2026-05-02T14:34:39Z",
+  "created_by": "Mark Atwood",
+  "description": "Add production-grade observability to stoa-mail for AWS deployment and regulated-customer readiness.\n\n## Why this issue exists\nstoa-mail currently emits structured JSON logs via tracing-subscriber but has no distributed traces, no W3C TraceContext propagation, and no explicit audit event type. For regulated customers (HIPAA, SOC2, PCI-DSS) the following are required: tamper-evident audit logs for all auth/authz events, per-request trace IDs that link every log line to a single request, and a log pipeline that can route security events to a separate log group with tighter retention and access control.\n\n## Scope of this epic\nThree deliverables:\n1. Add tracing-opentelemetry + OTLP exporter so spans flow to an ADOT collector (\u2192 X-Ray + CloudWatch)\n2. Add tower-http TraceLayer to axum router with W3C TraceContext propagation\n3. Add a well-known audit = true tracing::Event field on all auth/authz events so the ADOT collector can route them to a separate CloudWatch log group\n\n## Out of scope (infra, not code)\n- ADOT collector deployment and configuration\n- CloudWatch log group creation, KMS key setup, retention policies\n- S3 export with Object Lock for long-term archive\n- Prometheus \u2192 CloudWatch metric routing (already works via existing /metrics endpoint)\n\n## Acceptance criteria\n- cargo build --workspace succeeds with OTEL feature disabled (feature-gated)\n- Every HTTP request produces a span with trace_id, method, path, status, duration\n- W3C traceparent header from inbound requests is honored (existing trace continues)\n- Auth success, auth failure (wrong password, bad token, missing header), and operator-gate rejection each emit a tracing event with audit = true\n- Tests verify audit events are emitted (test subscriber captures and asserts fields)\n- OTLP exporter is flushed cleanly on shutdown (no lost spans on SIGTERM)",
+  "ephemeral": 0,
+  "id": "stoa-jj165",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "in_progress",
+  "timeout_ns": 0,
+  "title": "OpenTelemetry observability: OTLP traces, TraceLayer, audit events",
+  "updated_at": "2026-06-26T20:26:38Z"
+}

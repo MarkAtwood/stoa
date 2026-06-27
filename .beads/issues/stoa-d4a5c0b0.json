@@ -1,0 +1,21 @@
+{
+  "id": "stoa-d4a5c0b0",
+  "title": "Test: concurrent TAKETHIS flood does not exceed queue capacity",
+  "description": "Ingestion queue depth counter uses Relaxed atomics with a non-synchronized snapshot (o0r.3). No test exercises the queue under concurrent load to confirm the depth never exceeds capacity.\n\nWrite a test in crates/transit/tests/ that:\n1. Starts a transit ingestion pipeline with queue capacity C (e.g., 128)\n2. Spawns N concurrent tasks (N >> C, e.g., 1024) each sending a distinct valid TAKETHIS article\n3. Asserts that at no point does the live queue depth exceed C\n4. Asserts that all articles eventually either succeed (200) or are rejected with 431 (queue full) \u2014 no silent drops\n\nImplementation note: expose a queue_depth() accessor on IngestionQueue for test introspection, or check via metrics. The race in o0r.3 is between is_full() read and the actual enqueue; the test should run with TOKIO_TEST_THREADS=1 and multi-threaded to catch both the single-threaded scheduling case and the real concurrent case.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T17:04:45Z",
+  "updated_at": "2026-05-01T05:00:55Z",
+  "closed_at": "2026-04-21T17:27:57Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6518e465",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 10:05:07"
+    }
+  ]
+}

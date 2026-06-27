@@ -1,0 +1,26 @@
+{
+  "id": "stoa-140609c2",
+  "title": "smtp: unit tests for fallback_routing header parser",
+  "description": "Test suite for fallback_routing(), independent of the daemon.\n\nWhat: tests in crates/smtp/src/sieve_client.rs or crates/smtp/tests/sieve_client_tests.rs\n\nOracle for all tests: expected values are derived by hand from the RFC 2919 List-ID spec and RFC 1036 Newsgroups header format \u2014 NOT from the code under test.\n\nTests:\n1. newsgroups_single: 'Newsgroups: comp.lang.rust' \u2192 [FileInto(\"newsgroup:comp.lang.rust\")]\n2. newsgroups_multi: 'Newsgroups: comp.lang.rust, comp.lang.c' \u2192 two FileInto actions\n3. newsgroups_takes_priority_over_listid: both headers present \u2192 use Newsgroups only\n4. list_id_angle_brackets: 'List-ID: Rust Lang <rustlang.googlegroups.com>' \u2192 FileInto(\"newsgroup:rustlang.googlegroups.com\")\n5. list_id_no_brackets: 'List-ID: rustlang.lists.example.com' \u2192 FileInto(\"newsgroup:rustlang.lists.example.com\")\n6. x_list_id_variant: 'X-List-ID: <foo.bar.example>' \u2192 FileInto(\"newsgroup:foo.bar.example\")\n7. x_listid_variant: 'X-Listid: <baz.qux.example>' \u2192 FileInto(\"newsgroup:baz.qux.example\")\n8. normalization: list-id with uppercase and spaces \u2192 all lowercase, spaces\u2192dots\n9. nothing_found: no relevant headers \u2192 [Keep]\n10. body_not_scanned: header section ends at blank line; newsgroup in body is ignored",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:18:06Z",
+  "updated_at": "2026-05-01T05:00:45Z",
+  "closed_at": "2026-04-23T20:25:28Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-357078d5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:19:05"
+    },
+    {
+      "depends_on_id": "stoa-d1d5d8e9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:18:05"
+    }
+  ]
+}

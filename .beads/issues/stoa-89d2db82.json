@@ -1,0 +1,20 @@
+{
+  "id": "stoa-89d2db82",
+  "title": "GroupInfo in session/commands/list.rs missing Debug and Clone derives",
+  "description": "In session/commands/list.rs, GroupInfo has no #[derive(Debug, Clone)]. This is standard boilerplate that should be present on all data types; the omission limits composability and debugging.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:28:25Z",
+  "updated_at": "2026-05-01T04:54:08Z",
+  "closed_at": "2026-04-28T22:00:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:28:25"
+    }
+  ]
+}

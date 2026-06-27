@@ -1,0 +1,14 @@
+{
+  "id": "stoa-c06fa970",
+  "title": "[epic] DID author verification \u2014 complete X-Usenet-IPFS-DID-Sig",
+  "description": "Why: The DID author signature passthrough is already stubbed in the codebase (crates/reader/src/post/did_passthrough.rs, X-Usenet-IPFS-DID-Sig header). The stub preserves the header through the pipeline but does not verify it. Completing this gives articles cryptographically verifiable authorship independent of the operator: an author signs their article with their own DID key before submission; any reader can verify the signature without trusting the operator.\\n\\nWhat:\\n- Implement DID key resolution: support did:key (self-contained, no network lookup) and did:web (resolve via HTTPS) as a minimum.\\n- In the POST/IHAVE/TAKETHIS pipeline, if X-Usenet-IPFS-DID-Sig is present: resolve the DID, extract the verifying key, verify the signature over the article bytes.\\n- Verification result stored as a flag in the articles table (did_sig_valid: bool|null).\\n- Expose verification status in NNTP ARTICLE response headers, JMAP Email properties, and IMAP FETCH items.\\n- Invalid DID signatures: log a warning but do not reject the article (the operator signature is the trust anchor; DID sig is author self-attestation).\\n- Document the signing format so third-party clients can produce compliant headers.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T02:23:07Z",
+  "updated_at": "2026-05-01T05:00:51Z",
+  "closed_at": "2026-04-23T05:29:00Z",
+  "notes": "Review converged after 2 rounds. Final review: stoa-7537a275."
+}

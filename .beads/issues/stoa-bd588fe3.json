@@ -1,0 +1,21 @@
+{
+  "id": "stoa-bd588fe3",
+  "title": "parse_angle_addr breaks on ESMTP parameters (SIZE, ORCPT)",
+  "description": "Trigger: any MTA sending 'MAIL FROM:<sender@example.com> SIZE=12345' or 'RCPT TO:<alice@example.com> ORCPT=rfc822;alice@example.com'. parse_angle_addr uses strip_prefix('<').and_then(|s| s.strip_suffix('>')): strip_suffix fails because the string ends with the ESMTP param, not '>'. Falls through to return the raw string including angle brackets and params. Effects: (1) envelope_from = '<sender@example.com> SIZE=12345' \u2014 breaks SPF domain extraction in auth.rs:rfc5321_domain rsplit_once('@') which returns 'com> SIZE=12345'. (2) RCPT TO with params: to_addr = '<alice@example.com> ORCPT=...' \u2014 eq_ignore_ascii_case fails user lookup \u2192 550 for valid configured user. SIZE on MAIL FROM is sent by virtually all modern MTAs. Fix: find the angle-bracketed portion first, strip everything after the closing '>'",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T13:30:12Z",
+  "updated_at": "2026-05-01T04:55:42Z",
+  "closed_at": "2026-04-21T13:50:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9f393084",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 06:30:11"
+    }
+  ]
+}

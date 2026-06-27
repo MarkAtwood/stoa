@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T14:18:10Z",
+  "compaction_level": 0,
+  "content_hash": "ec9157afd90fe2882924b9f22dbc3319fc77a8e1029d8feb01899192350e0968",
+  "created_at": "2026-05-03T13:11:10Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: a window exists between the DB INSERT and the successful file write where a concurrent get_raw will find the cache row but no file, returning a misleading read error instead of a cache miss. What: block_cache.rs put_raw inserts the SQLite row first, then writes the file. On file write failure the row is deleted (rollback), but between the INSERT and the file write, another task could call get_raw, find the row, and fail to open the non-existent file. The DB INSERT should occur only after the file write succeeds (write file \u2192 INSERT on success \u2192 delete file on INSERT failure).",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.189",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "block_cache inserts DB row before file write; rollback path races with concurrent readers",
+  "updated_at": "2026-05-03T14:18:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:11:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "2dc3c80b-7c65-5316-8a22-4a2ada41ad9e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-348c207f",
+  "title": "reader: group_select returns 211 on invalid GroupName",
+  "description": "e4j.15: group_select sets current_group=None on invalid GroupName parse but still returns 211. Fix: if GroupName::parse fails, return 411 No such newsgroup immediately without touching current_group.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T19:45:32Z",
+  "updated_at": "2026-05-01T04:59:10Z",
+  "closed_at": "2026-04-22T21:05:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-f6d57892",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 12:45:32"
+    }
+  ]
+}

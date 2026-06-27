@@ -1,0 +1,33 @@
+{
+  "id": "stoa-39147a6a",
+  "title": "f120.4: SmtpRelayClient \u2014 raw async SMTP wire client (TLS, AUTH, DATA)",
+  "description": "Implement raw async SMTP relay client following the NntpClient pattern (crates/smtp/src/nntp_client.rs).\n\n**What:** async fn deliver_via_relay(config, article_bytes) -> Result<(), SmtpRelayError> that connects, does TLS, EHLO, AUTH PLAIN or LOGIN, MAIL FROM, RCPT TO, DATA, QUIT.\n\n**Algorithm:**\n1. Create crates/smtp/src/relay_client.rs\n2. Define pub async fn deliver_via_relay(peer: &SmtpRelayPeerConfig, envelope: &Envelope, article_bytes: &[u8]) -> Result<(), SmtpRelayError>\n   - Envelope { mail_from: String, rcpt_to: Vec<String> }\n3. Connection setup:\n   a. tokio::net::TcpStream::connect(peer.host_port()).await (host_port = format!('{}:{}', host, port))\n   b. If peer.tls: wrap with tokio_rustls::TlsConnector, use rustls ClientConfig with root CA store (use rustls::RootCertStore::from_iter(webpki_roots::TLS_SERVER_ROOTS.iter().copied())), verify server hostname. Use rustls_pki_types::ServerName::try_from(peer.host.as_str())\n   c. Wrap reader/writer in BufReader/BufWriter or use tokio::io::split + BufWriter\n4. Read server greeting (220 or 421) \u2014 error on anything else\n5. Send EHLO {hostname} \u2014 parse response, collect extension list. On 5xx return Permanent\n6. AUTH (if peer.username.is_some()):\n   a. SASL PLAIN: format!(\"{}\\0{}\\0{}\", authzid='', authcid=username, passwd=password) then base64-encode\n   b. Send: AUTH PLAIN {encoded}\\r\\n\n   c. If peer supports only LOGIN: send AUTH LOGIN\\r\\n, read 334 challenge, send base64(username), read 334, send base64(password)\n   d. On 535: return Err(SmtpRelayError::AuthFailed)\n   e. On 4xx: return Err(Transient(code))\n   f. NEVER log the SASL-encoded string or the credentials themselves\n7. Send MAIL FROM:<{mail_from}>\\r\\n \u2014 on 5xx Permanent, on 4xx Transient\n8. For each addr in rcpt_to: Send RCPT TO:<{addr}>\\r\\n \u2014 on 5xx Permanent, on 4xx Transient\n9. Send DATA\\r\\n \u2014 read 354 response\n10. Dot-stuff article_bytes: for each line starting with '.', prepend extra '.'\n11. Write article_bytes, then \\r\\n.\\r\\n (end of data)\n12. Read final response: 250 = success; 4xx = Transient; 5xx = Permanent\n13. Send QUIT\\r\\n (best-effort, ignore errors)\n14. Return Ok(())\n\n**parse_smtp_response(reader) -> Result<(u16, String), SmtpRelayError>:**\n- Read line, enforce max 512 bytes per RFC 5321\n- Parse 3-digit code, check space or hyphen continuation\n- On malformed line: ProtocolError\n- On 4xx: Transient; on 5xx: Permanent (return as error)\n- Caller decides what is expected\n\n**Defensive programming rules:**\n- NEVER log SASL PLAIN encoded string, username, or password\n- Enforce 512-byte line limit on all server responses (ProtocolError if exceeded)\n- TLS: use webpki_roots for root CAs; never skip hostname verification\n- Dot-stuffing: must handle lines that start with exactly '.' and preserve trailing CRLF\n\n**Tests:** (independent oracle: RFC 5321 spec vectors)\n- Test: dot_stuff() correctly adds extra '.' to line starting with '.' (oracle: RFC 5321 \u00a74.5.2 examples)\n- Test: dot_stuff() does not modify lines not starting with '.'\n- Test: parse_smtp_response returns correct code for '250 OK\\r\\n'\n- Test: parse_smtp_response returns ProtocolError for line > 512 bytes\n- Test: full deliver_via_relay against tokio TcpListener mock that expects EHLO/AUTH/MAIL/RCPT/DATA sequence and returns 250 OK \u2014 confirms no credentials in mock server's received bytes\n\n**Acceptance:**\n- cargo test -p usenet-ipfs-smtp passes\n- cargo clippy -p usenet-ipfs-smtp -- -D warnings passes\n- dot_stuff RFC 5321 test vectors pass\n- Mock server test confirms no credential logging",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T18:31:33Z",
+  "updated_at": "2026-05-01T04:56:37Z",
+  "closed_at": "2026-04-23T18:44:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d8edbbe6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 11:31:33"
+    },
+    {
+      "depends_on_id": "stoa-df38dd63",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 11:32:44"
+    },
+    {
+      "depends_on_id": "stoa-e70ef89f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 11:32:44"
+    }
+  ]
+}

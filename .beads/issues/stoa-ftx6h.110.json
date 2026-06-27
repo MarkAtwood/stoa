@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "11a68d295622e62612f2e38ca9229595b4e5792ecf4331918e56559c2aff6b41",
+  "created_at": "2026-05-03T13:06:19Z",
+  "created_by": "Mark Atwood",
+  "description": "In config.rs, ConfigError is a plain enum but has no From<io::Error>, From<toml::de::Error>, or From<String> impls. All construction sites use explicit ConfigError::Io(...) or ConfigError::Parse(...) variant construction. Adding From impls would allow ? to propagate errors from file I/O and TOML parsing directly, eliminating several explicit .map_err() calls and making the config loading code more idiomatic. This is a Rust idiom issue (error-handling category).",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.110",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "smtp: ConfigError missing From<io::Error> and From<String> impls",
+  "updated_at": "2026-05-03T13:06:19Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "8bf0accb-5b0c-5658-8fc4-e18da099a3bc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

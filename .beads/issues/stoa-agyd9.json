@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "d7834b8f783a412ca79e45850e23ec0341c598b4d16f8d2b2c1c3d8a049d1906",
+  "created_at": "2026-05-03T13:07:22Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\ncommands/xget.rs returns response code 290 for a successful XGET. RFC 3977 \u00a73.2 specifies that response codes must be registered or X-prefixed. The code 290 is not defined by any RFC 3977 extension. RFC 3977 \u00a73.2.1 says codes 200-299 indicate successful responses, but the specific code 290 is not assigned.\\n\\nFor an X-prefixed command (XGET), the response code should follow existing convention. RFC 3977 \u00a78.7 (XHDR, XOVER) use codes in the existing 200/220/221 range. Using 290 violates the IANA registry.\\n\\n## Acceptance Criteria\\n\\nChange XGET success response to an appropriate standard code (e.g. 220 matching ARTICLE, or 221 for headers-only). Update tests accordingly.",
+  "ephemeral": 0,
+  "id": "stoa-agyd9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "xget.rs: 290 response code is non-standard; RFC 3977 reserves 2xx for defined responses",
+  "updated_at": "2026-05-03T13:07:22Z"
+}

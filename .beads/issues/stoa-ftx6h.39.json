@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "70e955fc507fb9b6689bb6968d6e01db7dffe0d42ffa45f401c0cb9eb8959e18",
+  "created_at": "2026-05-03T13:04:21Z",
+  "created_by": "Mark Atwood",
+  "description": "collect_two_string_lists and collect_one_string_list build intermediate Vec<Vec<&str>> on every test evaluation. For hot mail filters that evaluate thousands of messages per second, these allocations add up. The function walks all forms into a Vec<Vec<_>> and then indexes [0] and [1]. A streaming approach that returns (first_list, second_list) without the outer Vec would avoid one allocation level. Impact: modest on small scripts; visible under profiler for high-volume SMTP filters.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.39",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "sieve: collect_two_string_lists always collects all forms into Vec<Vec<str>>; Vec alloc per test",
+  "updated_at": "2026-05-03T13:04:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:04:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "8c61035f-3986-55ed-a76c-e24b3335ff85",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

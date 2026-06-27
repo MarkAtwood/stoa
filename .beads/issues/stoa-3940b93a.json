@@ -1,0 +1,20 @@
+{
+  "id": "stoa-3940b93a",
+  "title": "Foreign key ordering in migrations",
+  "description": "Migration 0012 explicitly documents that mailboxes must exist before messages, ensuring foreign key constraints can be satisfied. This shows awareness of migration ordering requirements and correct sequencing.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T07:05:59Z",
+  "updated_at": "2026-05-01T04:55:37Z",
+  "closed_at": "2026-04-30T07:14:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-17ee367f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 00:05:59"
+    }
+  ]
+}

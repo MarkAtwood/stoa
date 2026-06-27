@@ -1,0 +1,21 @@
+{
+  "id": "stoa-639f91d7",
+  "title": "Graceful shutdown on SIGTERM",
+  "description": "Implement graceful shutdown for both transit and reader daemons.\n\n## Algorithm (reader \u2014 crates/reader/src/main.rs)\n\n1. Keep existing tokio::select! \u2014 when any arm fires (CTRL-C, SIGTERM, accept loop exit), fall through.\n2. After select! exits, log 'draining N active connections' at INFO (N = MAX_CONNECTIONS - semaphore.available_permits()).\n3. Wait for drain: tokio::time::timeout(drain_timeout, semaphore.acquire_many_owned(MAX_CONNECTIONS)).await.\n   - If Ok(_): all OwnedSemaphorePermits released (all sessions done). Log 'drained cleanly'. Return from main (exit 0).\n   - If Err(_timeout): log 'drain timeout, N connections still open' at WARN. std::process::exit(1).\n4. drain_timeout: read from config.limits.drain_timeout_secs (Option<u64>); default 30.\n5. Add drain_timeout_secs: Option<u64> to LimitsConfig in crates/reader/src/config.rs.\n6. Log 'usenet-ipfs-reader stopped' only after drain completes.\n\n## Algorithm (transit \u2014 crates/transit/src/main.rs)\n\nTransit has a semaphore in accept_loop and an ingestion task. On shutdown:\n1. Check if accept_loop uses a semaphore; if not, add one matching the max_connections pattern from reader.\n2. Signal fires \u2192 select! exits. Log 'draining'.\n3. Drop the ingestion_sender channel end. This closes the channel. The ingestion task will drain remaining articles then exit.\n4. Await ingestion_task_handle (saved JoinHandle from tokio::spawn at line ~654) with drain_timeout.\n5. Drain peer sessions via semaphore same as reader.\n6. If drain_timeout exceeded: exit(1). On clean: implicit exit(0).\n7. Add drain_timeout_secs to TransitConfig.\n\n## Defensive programming rules\n- Never unwrap() a semaphore acquire in drain path \u2014 the acquire_many_owned will only fail if semaphore is closed. Document this.\n- drain_timeout default of 30s is a floor; operators must set TimeoutStopSec=90 in systemd.\n- Exit codes: 0=clean, 1=timeout forced.\n- Do not log key material on shutdown path.\n- Do not skip drain if max_connections is 0 (guard against divide-by-zero / acquire_many(0)).\n\n## Acceptance criteria\n- cargo test --workspace passes\n- SIGTERM with no active connections: reader exits in < 2s\n- SIGTERM with active connection: semaphore drain path executes (verified by log output in test)\n- Config field drain_timeout_secs parses correctly from TOML",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:15:45Z",
+  "updated_at": "2026-05-01T04:54:18Z",
+  "closed_at": "2026-04-24T05:16:59Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3218a013",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 12:59:57"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "35dfa3f46ccd8b74960bd5422879bff7fdc314adf741c43d095c815b8e8c856d",
+  "created_at": "2026-05-04T05:05:15Z",
+  "created_by": "Mark Atwood",
+  "description": "What decision: decompress_gunbatch uses decoder.take(limit + 1) before read_to_end, then checks out.len() > limit. Why right: enforces the decompressed-size cap without ever allocating more than limit+1 bytes. A naive approach (decompress fully then check) would materialise a multi-GiB allocation from a tiny gzip bomb before rejecting it \u2014 a memory DoS. The take() pattern turns an allocation bomb into a bounded read that stops at limit+1 bytes. Alternatives rejected: (1) custom Read wrapper tracking bytes \u2014 more code for same effect; (2) chunked read loop with manual accounting \u2014 correct but more complex; (3) check compressed-to-decompressed ratio heuristic \u2014 unreliable because ratio is data-dependent.",
+  "ephemeral": 0,
+  "id": "stoa-paxfh.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "DECISION: .take(limit+1) streaming cap for gzip bomb defense",
+  "updated_at": "2026-05-04T05:05:15Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T22:05:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-paxfh",
+      "id": "8b64bb34-6491-596d-b11d-5f5ca826da99",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

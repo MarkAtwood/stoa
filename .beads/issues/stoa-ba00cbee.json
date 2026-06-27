@@ -1,0 +1,14 @@
+{
+  "id": "stoa-ba00cbee",
+  "title": "Peer block fetch via XCID protocol",
+  "description": "Implement the XCID extension so transit peers can fetch missing blocks on demand after gossip reconciliation.\n\nWhy this issue exists:\nWhen gossip delivers a group log entry whose article block is not locally present, the transit daemon has no mechanism to retrieve it. XCID adds a bespoke NNTP extension command that serves raw IPFS blocks peer-to-peer.\n\nWhat needs to be done:\n- XCID command spec and transit CAPABILITIES advertisement\n- XCID responder: serve blocks on demand\n- Fetch task with want queue and dedup\n- Wire fetch task into gossip reconciliation to fill gaps\n- Two-node integration test",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T19:58:36Z",
+  "updated_at": "2026-05-01T04:56:29Z",
+  "closed_at": "2026-04-23T22:32:00Z",
+  "notes": "Review converged after 2 rounds. P0 fix: backfill closure was ignoring LogEntryId parameter (would have broken multi-entry DAG traversal). P1 fix: error message now includes peer address."
+}

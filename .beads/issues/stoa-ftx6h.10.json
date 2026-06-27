@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T13:50:31Z",
+  "compaction_level": 0,
+  "content_hash": "4e2de56ac024ac462f7389ad11097043536b926cd6a028dcfc809fd0de84930a",
+  "created_at": "2026-05-03T13:02:02Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 3977 \u00a77.6.3 allows 'LIST ACTIVE [wildmat]'. parse_command parses 'LIST ACTIVE' without extracting the wildmat argument (splits on first whitespace only). handle_list_active_live() takes no wildmat parameter and returns all groups. So 'LIST ACTIVE comp.*' returns all groups including alt.* groups. A newsreader that sends 'LIST ACTIVE comp.*' to avoid downloading thousands of unneeded group descriptions will receive the full list and potentially time out or display wrong groups. The list_active() function in commands/list.rs already supports wildmat; handle_list_active_live needs to plumb it through.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "LIST ACTIVE wildmat arg silently ignored in live handler",
+  "updated_at": "2026-05-03T13:50:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:02:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "4b5da4f7-ab62-5e8f-841a-4d5eca518426",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

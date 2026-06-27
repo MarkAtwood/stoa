@@ -1,0 +1,27 @@
+{
+  "id": "stoa-1ab0f019",
+  "title": "wildmat: WildmatPattern + GroupFilter types in core",
+  "description": "## What\nAdd WildmatPattern (single pattern with optional negation) and GroupFilter (ordered list with first-match-wins evaluation) to crates/core/src/wildmat.rs.\n\n## Algorithm\n1. Define pub enum WildmatError { AllNegation, EmptyPattern } in wildmat.rs\n2. Define pub struct WildmatPattern { is_negated: bool, bare_pattern: String } \u2014 bare_pattern has leading '!' stripped\n3. Impl WildmatPattern::parse(s: &str) -> Result<WildmatPattern, WildmatError>:\n   a. If s starts with '!', set is_negated=true, bare_pattern=s[1..]\n   b. Else is_negated=false, bare_pattern=s\n   c. Return Err(EmptyPattern) if bare_pattern is empty\n4. Define pub struct GroupFilter { patterns: Vec<WildmatPattern> }\n5. Impl GroupFilter::new(raw_patterns: &[impl AsRef<str>]) -> Result<GroupFilter, WildmatError>:\n   a. Parse each entry via WildmatPattern::parse\n   b. Collect into Vec<WildmatPattern>\n   c. Return Err(AllNegation) if patterns is empty OR all patterns have is_negated==true\n6. Impl GroupFilter::accepts(&self, name: &str) -> bool:\n   a. For each pattern in self.patterns (in order):\n      - If matches_wildmat(name, &pattern.bare_pattern):\n        - If pattern.is_negated: return false\n        - Else: return true\n   b. If no pattern matched: return false (default deny)\n7. Do NOT use GroupFilter in config.rs yet (that is whss.3)\n\n## Defensive programming rules\n- GroupFilter::accepts('') must return false (empty name never matches any pattern)\n- No unwrap() anywhere\n- WildmatError must implement std::error::Error + Display\n- GroupFilter::new([]) returns Err(AllNegation) (empty list = accept nothing, config error)\n\n## Agent team\nCritical-path: Agent R (read wildmat.rs after whss.1), Agent I_A (implement from spec), Agent I_B (independent implementation), Agent T (derive test vectors from RFC 3977 independently), Agent DIFF (reconcile I_A vs I_B against T's vectors)\n\n## Tests (independent oracle: RFC 3977 \u00a74.1 + epic acceptance criteria)\n- accepts_star_crosses_dots: GroupFilter::new(&[\"comp.*\"]) ok; .accepts(\"comp.lang.rust\") = true\n- accepts_star_no_match: same filter; .accepts(\"alt.test\") = false\n- negation_excludes_first_match: GroupFilter::new(&[\"comp.*\", \"sci.*\", \"!alt.binaries.*\", \"alt.test\"]) ok; .accepts(\"alt.binaries.pictures\") = false (negation matches before positive)\n- positive_after_negation: same filter; .accepts(\"alt.test\") = true (exact match after negation misses)\n- exact_match: GroupFilter::new(&[\"alt.test\"]) ok; .accepts(\"alt.test\") = true; .accepts(\"alt.test2\") = false\n- default_deny: GroupFilter::new(&[\"comp.*\"]) ok; .accepts(\"sci.math\") = false (unmatched = deny)\n- all_negation_rejected: GroupFilter::new(&[\"!comp.*\"]) = Err(AllNegation)\n- empty_vec_rejected: GroupFilter::new(&[] as &[&str]) = Err(AllNegation)\n- case_insensitive: GroupFilter::new(&[\"comp.*\"]) ok; .accepts(\"COMP.LANG.RUST\") = true (RFC 3977 \u00a74.1)",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-26T23:24:03Z",
+  "updated_at": "2026-05-01T04:52:00Z",
+  "closed_at": "2026-04-26T23:52:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-a1831888",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 16:25:30"
+    },
+    {
+      "depends_on_id": "stoa-efbe068a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 16:24:02"
+    }
+  ]
+}

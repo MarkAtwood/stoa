@@ -1,0 +1,20 @@
+{
+  "id": "stoa-6ba1357b",
+  "title": "SEC3: message-id extraction duplicated in queue.rs vs relay_queue.rs",
+  "description": "queue.rs and relay_queue.rs both implement extract_message_id logic with different approaches. queue.rs uses a strip_field_name helper with case-insensitive prefix matching; relay_queue.rs hardcodes field name length (11 bytes) and manually indexes bytes. Consolidating to a shared helper in stoa-core or a local util module would reduce maintenance risk and ensure consistent behavior.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:22:39Z",
+  "updated_at": "2026-05-01T04:58:27Z",
+  "closed_at": "2026-04-30T23:29:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0b13a613",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:22:39"
+    }
+  ]
+}

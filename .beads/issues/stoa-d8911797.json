@@ -1,0 +1,21 @@
+{
+  "id": "stoa-d8911797",
+  "title": "find_crlf in fetch.rs uses O(n) window scan; could use memchr for performance",
+  "description": "fetch.rs find_crlf() uses data.windows(2).position(...) which is O(n) on every call. dot_stuff() and bytes_to_lines() call this in a loop over all lines of the article body, making the overall complexity O(n^2) in pathological cases (many short lines with CRLF). For typical articles this is fine, but for large text articles near the 1 MiB limit this could be slow. The memchr crate (already likely in the dependency tree) provides a SIMD-accelerated memmem/memchr that would be significantly faster. Not a critical hot path but worth flagging for future optimization.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T06:01:41Z",
+  "updated_at": "2026-05-01T04:59:59Z",
+  "closed_at": "2026-04-27T15:22:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-650091d3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 23:01:40"
+    }
+  ]
+}

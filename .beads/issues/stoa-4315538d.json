@@ -1,0 +1,12 @@
+{
+  "id": "stoa-4315538d",
+  "title": "Review round 3: fix(smtp): review findings from rusty-loop on b1bc",
+  "status": "in_progress",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:41:05Z",
+  "updated_at": "2026-05-01T04:52:37Z",
+  "notes": "Round 3 complete. P0=3 P1=2 P2=2 fixed. Deferred m096.10 (dead/ scan efficiency). b1bc now converged."
+}

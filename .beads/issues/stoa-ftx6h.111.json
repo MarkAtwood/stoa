@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "0c523a7ba05e6bf6321894941399660346eb86b3d2b8f118d44f50f361247398",
+  "created_at": "2026-05-03T13:06:19Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this issue exists: outbound.rs deliver_article() maintains manual delivered and failed usize counters while also pushing each DeliveryResult into a Vec. The counts can be derived from the Vec after collection (results.iter().filter(|r| r.success).count()). Maintaining two parallel views of the same data is a maintenance hazard and adds cognitive load.\n\nWhat needs to be done: Remove the delivered/failed local counters. After the join_set drains, compute counts from the results Vec for the final info!() log line. This follows the Rust idiom of computing derived values from the authoritative source rather than tracking them separately.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.111",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "idiom: deliver_article fan-out loop manually tracks delivered/failed counts redundantly",
+  "updated_at": "2026-05-03T13:06:19Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "d3f80921-4d3c-56e2-95a8-8e36e938112c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

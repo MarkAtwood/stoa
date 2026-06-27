@@ -1,0 +1,22 @@
+{
+  "id": "stoa-c79f3ec7",
+  "title": "NNTP reader: NNTPS implicit TLS on port 563; remove STARTTLS upgrade path",
+  "description": "STARTTLS is a compatibility hack from when TLS was not the default. This project is greenfield; do it right. Design: listen on two ports. Port 119 (plaintext): no TLS upgrade, no auth \u2014 AUTHINFO returns 483 unconditionally if auth.required=true. Port 563 (NNTPS): TLS from the first byte, full AUTHINFO available. Config: add tls.addr (e.g. '0.0.0.0:563') alongside the existing listen.addr for plaintext. When tls.addr is set, the TcpListener for it is wrapped with tokio-rustls acceptor before any NNTP bytes are exchanged. Implementation: remove the run_plain_session STARTTLS upgrade loop, remove starttls_available from SessionContext, remove Command::StartTls (or return 502 for compat). The session code becomes simpler: run_tls_session and run_plain_session are distinguished only by which port the connection arrived on, not by mid-session state. SMTP note: port 465 (SMTPS, implicit TLS) is the right answer for submission too \u2014 file separately as SMTP STARTTLS is unavoidable on port 25 for MTA-to-MTA.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:48:40Z",
+  "updated_at": "2026-05-01T04:58:56Z",
+  "closed_at": "2026-04-21T19:19:56Z",
+  "notes": "STARTTLS is already implemented in the reader (lifecycle.rs). This issue only adds the enforcement: if starttls_available and !is_tls, return 483 on AUTHINFO USER. No new STARTTLS work needed \u2014 1c8.8 is unblocked.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-31947539",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:48:40"
+    }
+  ]
+}

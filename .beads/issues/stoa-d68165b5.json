@@ -1,0 +1,20 @@
+{
+  "id": "stoa-d68165b5",
+  "title": "unsafe impl Send is the correct choice given ceph crate's missing impl",
+  "description": "The ceph crate marks Rados as Sync but not Send \u2014 an apparent oversight since librados is documented as thread-safe. We store _rados: Rados only to prevent premature rados_shutdown, not for concurrent access. All concurrent I/O goes through Arc<IoCtx> which IS Send+Sync. The safety comment is accurate. A future contributor might suggest removing the unsafe impl \u2014 resist unless the ceph crate adds the missing Send impl. Do not try to work around it with Mutex<Rados> (Mutex<T>: Send requires T: Send) or by mem::forget(rados) (breaks Drop lifetime safety).",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T04:34:12Z",
+  "updated_at": "2026-05-01T05:00:21Z",
+  "closed_at": "2026-04-28T10:14:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3e19dbfc",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 21:34:12"
+    }
+  ]
+}

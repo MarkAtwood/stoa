@@ -1,0 +1,41 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T18:58:30Z",
+  "compaction_level": 0,
+  "content_hash": "2791ea97cb2bbaa12dd2f8a76ed0c812bf879bac4e46d2a87ebc23c67306224f",
+  "created_at": "2026-05-02T17:39:05Z",
+  "created_by": "Mark Atwood",
+  "description": "Unit tests for mx_matches_pattern and check_mx_against_policy using RFC 8461/6125 test vectors. Required cases: exact match (case-insensitive), wildcard '*.example.com' matches 'mx1.example.com', wildcard does NOT match 'foo.bar.example.com' (two labels), wildcard does NOT match 'example.com' (base domain), multiple patterns \u2014 match first, multiple patterns \u2014 no match. Test vectors must be hand-written literals, not generated from the matcher under test.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Tests: MTA-STS MX pattern matcher",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T10:39:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.9",
+      "id": "508a4f02-9e4b-5453-aaea-4e726d420246",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T10:39:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks",
+      "id": "aa9bfa04-7978-5ae5-99d0-83db38b283e5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

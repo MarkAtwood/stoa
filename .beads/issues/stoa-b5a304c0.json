@@ -1,0 +1,19 @@
+{
+  "id": "stoa-b5a304c0",
+  "title": "relay_client.rs: MAIL FROM address sanitization strips only CR/LF but not angle brackets and other injection chars",
+  "description": "relay_client.rs run_smtp_session line 239: safe_from = envelope.mail_from.replace(['\\r', '\\n'], \"\"). This is interpolated as MAIL FROM:<{safe_from}>. RCPT TO has additional validation to reject < and > in the address (line 258), but MAIL FROM only strips CR/LF. A mail_from value containing '>' would prematurely close the angle bracket and allow SMTP command injection in the MAIL FROM line. Example: mail_from = 'x@y.com> BODY=8BITMIME' would produce 'MAIL FROM:<x@y.com> BODY=8BITMIME>' which is valid ESMTP syntax that injects an extension parameter. Worse, 'x@y.com>\\r\\nRCPT TO:<evil@example.com>' would inject a new command, though the replace already strips CR/LF. The < and > check from RCPT TO should also be applied to MAIL FROM.",
+  "status": "open",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:33:49Z",
+  "updated_at": "2026-05-01T04:57:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:33:49"
+    }
+  ]
+}

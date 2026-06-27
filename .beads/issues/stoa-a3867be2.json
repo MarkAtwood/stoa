@@ -1,0 +1,19 @@
+{
+  "id": "stoa-a3867be2",
+  "title": "GOOD: car_writer test vectors use external byte-sequence oracles not self-oracles",
+  "description": "car_writer.rs: varint tests use known LEB128 spec byte sequences. empty_roots CAR test uses hand-computed CBOR bytes with per-field comments cross-referenced against CBOR spec. Not self-oracles. Test integrity guideline followed.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:49:19Z",
+  "updated_at": "2026-05-01T04:54:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:49:18"
+    }
+  ]
+}

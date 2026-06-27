@@ -1,0 +1,20 @@
+{
+  "id": "stoa-86b372e6",
+  "title": "has_did_sig double-scans headers",
+  "description": "In lifecycle.rs run_post_pipeline, has_did_sig(article_bytes) is called first (line 538), and if true, extract_did_sig(article_bytes) is called immediately after (line 539). Both functions independently call String::from_utf8_lossy and scan all header lines looking for X-Usenet-IPFS-DID-Sig. This doubles the work: two UTF-8 conversions and two O(n) header scans per POST. Since has_did_sig is implemented as extract_did_sig().is_some(), the fix is trivial: call extract_did_sig once and branch on the Option. Impact is minor (header sections are small, typically under 2KB) but the redundancy is structural.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T04:59:51Z",
+  "updated_at": "2026-05-01T04:57:09Z",
+  "closed_at": "2026-04-23T05:17:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-062e13cb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:59:51"
+    }
+  ]
+}

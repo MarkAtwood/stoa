@@ -1,0 +1,21 @@
+{
+  "id": "stoa-3251e415",
+  "title": "In-process message queue is unbounded \u2014 silent message loss when NNTP is down",
+  "description": "Scenario: usenet-ipfs-reader NNTP endpoint goes down or is slow. Behavior: SMTP sessions keep accepting messages and enqueuing to MessageQueue (mpsc::unbounded_channel). Memory grows without bound. When queue consumer task eventually fails an NNTP POST, it logs warn\\! and the message is dropped permanently \u2014 no dead-letter queue, no retry, no counter. Maintenance consequence: operators will file issues about 'messages disappearing during reader restarts'. Fix: bounded channel with backpressure (sender blocks or rejects) or persistent queue (SQLite). At minimum, add a monotonic drop counter.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T13:31:06Z",
+  "updated_at": "2026-05-01T04:54:47Z",
+  "closed_at": "2026-04-21T15:06:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9f393084",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 06:31:05"
+    }
+  ]
+}

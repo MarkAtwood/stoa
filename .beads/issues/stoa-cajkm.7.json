@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T08:14:31Z",
+  "compaction_level": 0,
+  "content_hash": "cc34f44f18458bc7fb2e0ec9f2e388d439dba0183c0850f531fd65925e4bdfcd",
+  "created_at": "2026-05-04T08:04:23Z",
+  "created_by": "Mark Atwood",
+  "description": "Finding: `AuthConfig::is_dev_mode()` in `crates/imap/src/config.rs` (line 114-120) is missing an explanation of why it omits the `oidc_providers` and `client_certs` checks that reader's equivalent method (`crates/reader/src/config.rs` line 385-392) performs. A reviewer comparing the two implementations cannot tell whether the omission is intentional (IMAP has no OIDC/client-cert path) or a bug. The doc comment should say something like: 'Unlike the reader's AuthConfig, IMAP supports only password-based auth; there are no OIDC providers or client certificate entries to check.'",
+  "ephemeral": 0,
+  "id": "stoa-cajkm.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "imap is_dev_mode() silent on absent oidc/client_certs fields",
+  "updated_at": "2026-05-04T08:14:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T01:04:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-cajkm",
+      "id": "d8a107e2-01c8-5e2e-929f-cc11c3afafe2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "stoa-42b745ee",
+  "title": "block_cache: file write before DB insert \u2014 crash leaves orphan cache file that leaks disk",
+  "description": "block_cache.rs do_cache_put(): fs::write(file_path, bytes) is called at line 185, then the INSERT INTO transit_block_cache follows. If the process crashes between the file write and the DB insert, or if the INSERT fails (e.g. UNIQUE conflict with concurrent writer that completed after our 'Skip if already cached' check at line 162), the cache file exists on disk but has no DB row. cleanup_orphaned_files() is not called in the BlockCache path (that is staging's mechanism). Orphaned cache files accumulate and are never counted in byte_size totals, so the LRU eviction under-counts used bytes.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:44:45Z",
+  "updated_at": "2026-05-01T04:55:06Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:44:45"
+    }
+  ]
+}

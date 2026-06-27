@@ -1,0 +1,20 @@
+{
+  "id": "stoa-bf799718",
+  "title": "staging try_stage uses BEGIN IMMEDIATE for atomic capacity check and INSERT",
+  "description": "## Decision\ncrates/transit/src/staging.rs try_stage() correctly uses sqlx::query('BEGIN IMMEDIATE') before the capacity check + INSERT, preventing a race where two concurrent stage operations both pass the capacity limit check. This is the correct pattern for SQLite capacity enforcement. (Contrast: drain_one() uses the wrong pool.begin() \u2014 filed as stoa-e2297bae.1.)",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T03:10:43Z",
+  "updated_at": "2026-05-01T04:59:26Z",
+  "closed_at": "2026-04-27T03:12:14Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e2297bae",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 20:10:43"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "id": "stoa-eb88262c",
+  "title": "Docs: developer and contributor guide",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:44:45Z",
+  "updated_at": "2026-05-01T04:58:02Z",
+  "closed_at": "2026-04-20T06:32:02Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1c73f68d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:54:38"
+    },
+    {
+      "depends_on_id": "stoa-f467690f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:44:44"
+    }
+  ]
+}

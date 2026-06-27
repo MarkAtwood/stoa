@@ -1,0 +1,20 @@
+{
+  "id": "stoa-c71eb95b",
+  "title": "get_raw NotFound formats CID with bs58 not cid.to_string()",
+  "description": "crates/reader/src/post/rocks_store.rs:92 \u2014 get_raw encodes the NotFound CID via bs58::encode(&cid_bytes) where cid_bytes is the raw multi-byte CID encoding. This produces a non-standard base58 string that does not match canonical CIDv1 format (base32 lowercase). A user seeing this error and trying to look up the CID in any IPFS tool or log will see a different string. The fix: compute cid.to_string() before moving into the spawn_blocking closure. The jitter: cid_bytes is already moved into the closure so cid is gone; computing the string first is the cleanest fix.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T04:03:48Z",
+  "updated_at": "2026-05-01T04:51:43Z",
+  "closed_at": "2026-04-28T04:06:42Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-b29a7f1c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 21:03:48"
+    }
+  ]
+}

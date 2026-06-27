@@ -1,0 +1,12 @@
+{
+  "id": "stoa-f5ba46a6",
+  "title": "wildmat: pattern parser and matcher (RFC 3977 \u00a74.1)",
+  "description": "## Why\nNeeded by stoa-efbe068a. `matches_wildmat` already exists in `crates/reader/src/session/commands/list.rs` but is private to the reader crate. Move it to `stoa-core` so both reader (LIST ACTIVE filtering) and transit ([groups] names matching) share one implementation.\n\n## What\n- Move `wildmat_match` and `matches_wildmat` from `crates/reader/src/session/commands/list.rs` into `crates/core/src/wildmat.rs` (or `crates/core/src/util.rs`)\n- Add `pub fn wildmat_list_match(patterns: &[WildmatPattern], name: &str) -> bool` \u2014 evaluate an ordered list with `!`-prefixed negation; first match wins; returns false if no pattern matches\n- Add `pub struct WildmatPattern { pub negated: bool, pub pattern: String }` and a `FromStr` impl\n- Update reader to import from `stoa_core` instead of the local private function\n- All existing reader wildmat tests continue to pass unchanged",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T16:14:03Z",
+  "updated_at": "2026-05-01T04:56:29Z",
+  "closed_at": "2026-04-27T18:42:51Z"
+}

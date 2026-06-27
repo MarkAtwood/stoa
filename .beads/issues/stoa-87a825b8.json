@@ -1,0 +1,20 @@
+{
+  "id": "stoa-87a825b8",
+  "title": "relay_queue: dead-letter count loop should use .count()",
+  "description": "relay_queue.rs drain_once: dead-letter file count is accumulated with mut dead_count: f64 += 1.0 in a while loop. Idiomatic Rust: use rd.next_entry() collected or a fold/count pattern, then cast to f64. The manual f64 accumulation introduces a needless mutable variable and is non-idiomatic.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:36:27Z",
+  "updated_at": "2026-05-01T04:55:18Z",
+  "closed_at": "2026-04-30T23:45:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-64675b0e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:36:27"
+    }
+  ]
+}

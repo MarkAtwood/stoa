@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T14:06:58Z",
+  "compaction_level": 0,
+  "content_hash": "a0c97dbc08fe22000c57ba30f608a6cca239715e7807e61514f27655a40b88c8",
+  "created_at": "2026-05-02T14:01:57Z",
+  "created_by": "Mark Atwood",
+  "description": "Both crates are listed in Cargo.toml (and pull into Cargo.lock) but no code in this commit or any existing stoa-mail module imports from them. Future reader of Cargo.toml will waste time inferring what they are used for. Causes unnecessary compile-time cost and transitive dep churn. Remove until they are actually used.",
+  "ephemeral": 0,
+  "id": "stoa-o0dg1.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-mail-types and jmap-mail-server deps added but unused",
+  "updated_at": "2026-05-02T14:06:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T07:01:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-o0dg1",
+      "id": "01a2dcda-2d09-5ca0-a8bf-b0ac0d2a9a9d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

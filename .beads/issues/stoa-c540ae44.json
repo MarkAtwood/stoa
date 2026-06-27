@@ -1,0 +1,21 @@
+{
+  "id": "stoa-c540ae44",
+  "title": "resolve_secret_uri duplicated across two main.rs files",
+  "description": "The resolve_secret_uri async helper is copy-pasted between crates/transit/src/main.rs (line 212) and crates/reader/src/main.rs, with a comment on line 210 of the transit copy acknowledging the duplication: 'NOTE: An identical copy of this function exists in crates/reader/src/main.rs. If you change the logic here, change it there too.'\n\nThis is a classic dual-maintenance footgun. The comment is the only enforcement mechanism. In a solo maintainer context, a bug fix or secretx behavior change applied to one copy will silently not apply to the other. The comment will become invisible as the file grows.\n\nThe function is not test-covered (it performs process::exit on error, making it difficult to unit-test, which is part of why it was not extracted).\n\nFix: move resolve_secret_uri into a shared crate (stoa-core or a new stoa-startup utility module) so there is one implementation. The process-exit behavior can be preserved by having the shared function return Result and leaving the exit call in each main.rs.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:30:12Z",
+  "updated_at": "2026-05-01T05:00:15Z",
+  "closed_at": "2026-04-27T00:38:32Z",
+  "notes": "Pre-existing issue, not caused by wildmat epic. Tracked separately as stoa-4c00250e.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:30:12"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-02f29c3a",
+  "title": "drain_once_for_test should be pub(crate) #[cfg(test)] not #[doc(hidden)] pub",
+  "description": "drain_once_for_test is declared as #[doc(hidden)] pub. This still makes it part of the crate's public API surface \u2014 downstream code outside the crate can call it, and semver tools will track it. The idiomatic Rust pattern for a test-helper method on a public type is pub(crate) with no cfg(test) (so integration tests in the same crate can call it) or pub #[cfg(test)] if only unit tests need it. #[doc(hidden)] is a documentation workaround, not a visibility restriction.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:12:31Z",
+  "updated_at": "2026-05-01T04:52:28Z",
+  "closed_at": "2026-05-01T01:16:10Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-185e20da",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:12:31"
+    }
+  ]
+}

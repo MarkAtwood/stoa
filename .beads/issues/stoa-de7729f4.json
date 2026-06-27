@@ -1,0 +1,13 @@
+{
+  "id": "stoa-de7729f4",
+  "title": "imap: SASL PLAIN authzid silently ignored",
+  "description": "SASL PLAIN format is authzid\\0authcid\\0passwd. The IMAP auth handler splits on NUL and uses index 1 as username and index 2 as password, silently ignoring authzid (index 0). RFC 4616 \u00a72 requires the server to reject or honor authzid \u2014 ignoring it allows impersonation if authzid enforcement is ever expected.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T23:46:48Z",
+  "updated_at": "2026-05-01T04:56:22Z",
+  "closed_at": "2026-04-25T02:00:47Z"
+}

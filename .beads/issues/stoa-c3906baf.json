@@ -1,0 +1,27 @@
+{
+  "id": "stoa-c3906baf",
+  "title": "Implement DID-signed payload passthrough",
+  "description": "If the incoming article contains an X-Usenet-IPFS-DID-Sig: header, pass it through unchanged into the stored article. Do not validate the DID signature (v1 does not implement DID resolution). Expose the header to readers via ARTICLE/HEAD responses. Document the passthrough behavior. Artifact: reader/src/post/did_passthrough.rs and docs/did_passthrough.md.\n\nAcceptance:\n- Article with X-Usenet-IPFS-DID-Sig: stores and retrieves the header unchanged\n- Article without the header stores and retrieves without adding any DID header\n- No DID resolution or validation attempted\n- docs/did_passthrough.md explains what the header means and that v1 does not validate it",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:14:49Z",
+  "updated_at": "2026-05-01T04:53:34Z",
+  "closed_at": "2026-04-20T03:47:55Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-7148f086",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:14:48"
+    },
+    {
+      "depends_on_id": "stoa-cdc4a0b7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:15:43"
+    }
+  ]
+}

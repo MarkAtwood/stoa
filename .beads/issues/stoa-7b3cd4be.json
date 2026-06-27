@@ -1,0 +1,20 @@
+{
+  "id": "stoa-7b3cd4be",
+  "title": "IMAP verify_credentials dummy hash cost mismatches auth store",
+  "description": "imap/session/auth.rs verify_credentials uses a static DUMMY_HASH computed at bcrypt::DEFAULT_COST (10). stoa-auth CredentialStore recomputes its dummy hash at the same cost as configured user hashes. If an operator configures IMAP users with cost 12, the IMAP dummy hash runs at cost 10 \u2014 unknown-user verification is noticeably faster than known-user verification, exposing a username timing oracle. The IMAP crate should match the auth crate approach: compute dummy hash at the same cost as configured users, or delegate to stoa-auth CredentialStore.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:58:06Z",
+  "updated_at": "2026-05-01T04:51:49Z",
+  "closed_at": "2026-04-27T06:47:44Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-18ecb995",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 22:58:06"
+    }
+  ]
+}

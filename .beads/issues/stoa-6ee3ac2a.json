@@ -1,0 +1,14 @@
+{
+  "id": "stoa-6ee3ac2a",
+  "title": "[epic] web reader \u2014 JMAP-compatible UI for browser access",
+  "description": "Why: Standard JMAP web clients (Lollipop, Cypht, and others listed at jmap.io) can speak the JMAP protocol directly. No bespoke UI needs to be built. The web reader epic is therefore primarily about ensuring the JMAP server is complete and compatible enough for off-the-shelf clients to work without modification, plus providing a minimal bundled fallback UI for zero-config access.\\n\\nWhat:\\n1. JMAP compliance audit: test this server's JMAP implementation against at least one open-source web client (Lollipop or Cypht). File and fix any compatibility gaps found.\\n2. CORS headers: add configurable CORS policy to the JMAP HTTP server so browser-based clients can connect from any origin.\\n3. Static file serving: optionally serve a bundled lightweight JMAP web client (e.g. a vendored build of an open-source client) from GET / so operators get a working UI with zero additional setup. The bundled client is a convenience \u2014 it is not the primary deliverable.\\n4. .well-known/jmap redirect (already implemented) must work correctly for client autodiscovery.\\n5. Document the JMAP base_url config requirement (see stoa-d0c909d3) as it is essential for web client blob downloads to work.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T02:23:35Z",
+  "updated_at": "2026-05-01T04:55:45Z",
+  "closed_at": "2026-04-23T03:42:18Z",
+  "notes": "Review converged after 1 round. Final review: stoa-95482169."
+}

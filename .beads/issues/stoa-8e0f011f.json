@@ -1,0 +1,19 @@
+{
+  "id": "stoa-8e0f011f",
+  "title": "MAX_LINE_BYTES checked before CRLF strip: exceeds RFC 3977 512-byte limit by 2",
+  "description": "In session/command.rs, MAX_LINE_BYTES = 512 is compared against the raw line length before the trailing CRLF is stripped. RFC 3977 \u00a73.1.3 states the 512-byte limit includes the CRLF terminator. The current code therefore allows a command line of 512 bytes plus a 2-byte CRLF = 514 wire bytes, which is 2 bytes over the RFC limit. Fix: either compare against the post-strip length (correct), or set MAX_LINE_BYTES = 510 (preserves the current stripping order but stays within the RFC).",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:36:55Z",
+  "updated_at": "2026-05-01T04:52:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:36:55"
+    }
+  ]
+}

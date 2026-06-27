@@ -1,0 +1,20 @@
+{
+  "id": "stoa-6ad293fe",
+  "title": "DECISION: verify_strict over verify for Ed25519",
+  "description": "verify_did_sig calls ed25519_dalek::VerifyingKey::verify_strict rather than verify. verify_strict performs cofactor multiplication and rejects signatures that verify only due to small-order or non-canonical key/signature encodings \u2014 attacks that verify() allows. This hardens the implementation against the Chalkias et al. Ed25519 malleability class (cofactor-related signature forgeries and identity-point attacks). Given that the DID URL and signature both arrive over an untrusted NNTP connection, using the stricter check is the correct default.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T05:02:13Z",
+  "updated_at": "2026-05-01T04:57:08Z",
+  "closed_at": "2026-04-23T05:59:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-062e13cb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 22:02:12"
+    }
+  ]
+}

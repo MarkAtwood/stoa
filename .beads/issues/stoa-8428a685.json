@@ -1,0 +1,20 @@
+{
+  "id": "stoa-8428a685",
+  "title": "Slow command logging: NNTP command timing and JMAP method timing",
+  "description": "Wrap NNTP command dispatch with Instant::now()/elapsed(). If elapsed > threshold emit event=slow_command WARN with command, group, article_num/msgid, elapsed_ms, remote_ip. Wrap JMAP method dispatch similarly with event=slow_jmap_method, method, elapsed_ms. Blocked on: stoa-73bdf558.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:45:23Z",
+  "updated_at": "2026-05-01T04:51:28Z",
+  "closed_at": "2026-04-28T10:35:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-73bdf558",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:48:01"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "stoa-3c2ed40f",
+  "title": "Benchmark CRDT reconcile for 10k-entry log",
+  "description": "Add a criterion benchmark that runs reconcile() on two in-memory LogStorage instances, each with 10,000 entries, diverged at entry 9,000. Measures time to compute the want/have sets. Artifact: crates/core/benches/reconcile.rs.\n\nAcceptance criteria:\n- benchmark is deterministic (seeded RNG for entry generation)\n- reports p50/p99 reconcile time\n- result is in the hundreds of milliseconds or less (otherwise flag as regression risk)",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:46:59Z",
+  "updated_at": "2026-05-01T04:57:57Z",
+  "closed_at": "2026-04-20T06:30:01Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-2414e5df",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:46:59"
+    },
+    {
+      "depends_on_id": "stoa-5f37c899",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:48:24"
+    }
+  ]
+}

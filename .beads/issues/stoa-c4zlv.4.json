@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T16:21:24Z",
+  "compaction_level": 0,
+  "content_hash": "fdb4e8e9ad11970e46fd0a804864a497bebe6b458075402efd44a809b5d4776a",
+  "created_at": "2026-05-01T15:17:19Z",
+  "created_by": "Mark Atwood",
+  "description": "In inbound.rs verify_http_signature, the cache is first read under a read lock; if the key is absent or stale, the lock is dropped, the key is fetched, then a write lock is acquired and the new value is written. Between dropping the read lock and acquiring the write lock, multiple concurrent requests for the same key_id can all see the cache miss and all issue duplicate fetches to the remote actor server. This is not a security flaw (all fetches will get the same key) but it does allow an O(concurrent requests) fanout of HTTP calls to a remote server on a cache miss, which is a correctness concern for rate-limiting and DoS resilience. A single-flight mechanism or a double-checked lock under write lock would prevent this.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "verify_http_signature: TOCTOU race on pub_key_cache between read and write lock",
+  "updated_at": "2026-05-01T16:21:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:17:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "651e6108-b757-50f4-a8c9-996ef1adee4c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "stoa-af616cc3",
+  "title": "Implement session context struct carrying all per-connection state",
+  "description": "Define SessionContext: current state (SessionState), authenticated user (Option<String>), tls_active (bool), current_group (Option<GroupName>), current_article_number (Option<u64>), peer_addr (SocketAddr). Session context is passed to every command handler. Artifact: reader/src/session/context.rs.\n\nAcceptance: all state fields present; context is cheaply cloneable or passed by mutable reference; unit test: confirm initial state is Authenticating when auth_required=true, Active otherwise",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:46:18Z",
+  "updated_at": "2026-05-01T04:53:52Z",
+  "closed_at": "2026-04-20T03:13:28Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-00566a8f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:46:18"
+    },
+    {
+      "depends_on_id": "stoa-7bb314f3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:46:55"
+    }
+  ]
+}

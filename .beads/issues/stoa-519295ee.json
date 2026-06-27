@@ -1,0 +1,26 @@
+{
+  "id": "stoa-519295ee",
+  "title": "imap: implement ENABLE IMAP4rev2 session latch",
+  "description": "Fix the ENABLE command stub in crates/imap/src/session/mod.rs (currently line 453). The stub discards the capabilities field via .. and always returns * ENABLED with an empty list.\n\nAlgorithm:\n1. Change CommandBody::Enable { .. } to CommandBody::Enable { capabilities }.\n2. Iterate capabilities.as_ref(). For each CapabilityEnable::Other(ref _o): check if format!(\"{cap}\").eq_ignore_ascii_case(\"IMAP4rev2\"). (CapabilityEnableOther inner field is private; Display is the only access path.)\n3. If found and ctx.imap4rev2_enabled is false: set ctx.imap4rev2_enabled = true; add CapabilityEnable::try_from(\"IMAP4rev2\").expect(\"valid atom\") to the newly_enabled vec.\n4. If found and ctx.imap4rev2_enabled is already true: skip (idempotent; do not add to newly_enabled).\n5. Build Data::Enabled { capabilities: newly_enabled } and enqueue it, then enqueue the tagged OK.\n6. State guard: the existing match on ctx.state must remain \u2014 ENABLE in NotAuthenticated must return NO unchanged.\n\nDefensive rules: one-way latch only; never set imap4rev2_enabled back to false. Log the enable event at debug level (no key material involved).\n\nAcceptance: cargo test -p stoa-imap passes; new unit tests (separate bead) cover latch, idempotency, and wrong-state rejection.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:04:16Z",
+  "updated_at": "2026-05-01T04:52:06Z",
+  "closed_at": "2026-04-30T02:19:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-14749ffb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:05:18"
+    },
+    {
+      "depends_on_id": "stoa-db727e07",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:04:16"
+    }
+  ]
+}

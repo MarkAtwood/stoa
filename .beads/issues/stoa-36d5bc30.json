@@ -1,0 +1,20 @@
+{
+  "id": "stoa-36d5bc30",
+  "title": "SAFETY comment in lmdb/lib.rs references a non-existent Arc wrapper",
+  "description": "lmdb/src/lib.rs:59: 'users who need multiple references should clone the Arc wrapping this type'. LmdbBlockDb has no Arc inside it; the Arc is added externally (Arc<LmdbBlockDb>) by callers. A reader seeing this comment will expect to find Clone or Arc<> in the type definition. The comment should say: 'wrap this value in an Arc at the call site to share it across tasks'.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T16:35:07Z",
+  "updated_at": "2026-05-01T04:53:47Z",
+  "closed_at": "2026-04-24T17:48:00Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3840252d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-24 09:35:06"
+    }
+  ]
+}

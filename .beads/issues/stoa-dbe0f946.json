@@ -1,0 +1,21 @@
+{
+  "id": "stoa-dbe0f946",
+  "title": "DECISION: GroupFilter rejects all-negation filter at construction",
+  "description": "GroupFilter::new() returns Err(AllNegation) when all patterns are negated or the pattern list is empty. A filter where every entry is a negation can never accept any group name \u2014 it would silently drop all articles. Catching this at construction time (config load) rather than at runtime means operators get an immediate startup error instead of a silent black-hole that discards all traffic.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:30:37Z",
+  "updated_at": "2026-05-01T05:00:12Z",
+  "closed_at": "2026-04-27T16:40:10Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:30:37"
+    }
+  ]
+}

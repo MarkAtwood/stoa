@@ -1,0 +1,28 @@
+{
+  "id": "stoa-fa57346d",
+  "title": "Transform date-bearing headers to RFC 3339 in HeaderMapNode",
+  "description": "Why: RFC 2822 date strings ('Mon, 01 Jan 2024 00:00:00 +0000') are opaque to standard date/time processing. Storing them as RFC 3339 ('2024-01-01T00:00:00Z') makes IPLD-native date comparisons and Corundum rendering trivial.\n\nWhich headers to transform: date, injection-date, nntp-posting-date, expires. Leave 'received' as raw string \u2014 it contains routing text around the timestamp, not a standalone date.\n\nFailure mode: if parsing fails, store the raw string value unchanged. Ingest must never fail due to a malformed Expires: or NNTP-Posting-Date: header.\n\nWhat: extend build_header_map() to detect date-bearing header names (case-insensitive check before lowercasing) and call a parse_rfc2822_to_rfc3339(s: &str) -> Option<String> helper. If Some, store RFC 3339 string. If None, store raw string.\n\nDESIGN\nResearch confirmed: chrono crate MUST be added \u2014 mailparse::dateparse() returns only i64 (Unix seconds), no timezone info, insufficient. Use chrono::DateTime::parse_from_rfc2822() -> to_rfc3339() for transformation. Add chrono = '0.4' to crates/core/Cargo.toml.\n\nALGORITHM\n1. const DATE_HEADERS: [&str; 4] = ['date', 'injection-date', 'nntp-posting-date', 'expires'];\n2. After lowercasing key: if DATE_HEADERS.contains(&key.as_str()) { value = transform_date(&value) }\n3. fn transform_date(s: &str) -> String: DateTime::parse_from_rfc2822(s).map(|dt| dt.with_timezone(&Utc).to_rfc3339()).unwrap_or_else(|_| s.to_owned())\n\nACCEPTANCE CRITERIA\n1. 'Mon, 01 Jan 2024 00:00:00 +0000' -> '2024-01-01T00:00:00Z'. 2. '-0500' offset -> '2024-01-01T00:00:00-05:00'. 3. Unparseable date string stored as-is. 4. 'received' header NOT transformed even though it contains a date. 5. Test vectors derived from Python email.utils.parsedate_to_datetime() \u2014 cite the exact Python expression in test comments.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T23:25:53Z",
+  "updated_at": "2026-05-01T04:54:53Z",
+  "closed_at": "2026-04-20T23:45:54Z",
+  "design": "Parser: use the 'mailparse' crate's date parsing or the 'chrono' crate with its RFC 2822 parser (DateTime::parse_from_rfc2822). chrono is not yet a dependency \u2014 evaluate whether mailparse already exposes a parsed DateTime. If not, add chrono. RFC 3339 output: chrono's to_rfc3339() produces the correct format. Timezone handling: named zones (GMT, UT) -> Z; named non-UTC zones (EST, PST) are obsolete per RFC 2822 \u00a74.3, treat as -0000 -> store raw string for safety.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-117f1f31",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 16:26:34"
+    },
+    {
+      "depends_on_id": "stoa-1c76e14c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 16:26:28"
+    }
+  ]
+}

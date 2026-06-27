@@ -1,0 +1,32 @@
+{
+  "id": "stoa-b7e16a7b",
+  "title": "LMDB backend: concurrent read test and delete test",
+  "description": "Tests: round-trip with tempdir, 10 concurrent tokio tasks reading same CID (no contention errors), delete idempotent, delete returns NotFound immediately. Blocked on: stoa-b9466119.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:47:13Z",
+  "updated_at": "2026-05-01T04:51:54Z",
+  "closed_at": "2026-04-24T16:00:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5c9f1a38",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:47:12"
+    },
+    {
+      "depends_on_id": "stoa-b9466119",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:47:12"
+    },
+    {
+      "depends_on_id": "stoa-da58a499",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:00:36"
+    }
+  ]
+}

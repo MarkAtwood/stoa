@@ -1,0 +1,82 @@
+{
+  "acceptance_criteria": "cargo build --bin stoa-rnews succeeds; E2E test passes; cargo test -p stoa-transit -- rnews_ingest passes",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T03:09:00Z",
+  "compaction_level": 0,
+  "content_hash": "c371d51cdad968f966fa3cd71043bbdd58b92334fd1c4781cf5ec985bc225bb1",
+  "created_at": "2026-05-04T02:48:37Z",
+  "created_by": "Mark Atwood",
+  "description": "What: Add the stoa-rnews binary target to crates/transit/Cargo.toml and implement src/rnews_main.rs \u2014 the full wiring entry point.\nFiles: crates/transit/Cargo.toml (add [[bin]] stanza); new crates/transit/src/rnews_main.rs\n\nAlgorithm for Cargo.toml:\n1. Add under existing [[bin]] stanza for stoa-transit:\n   [[bin]]\n   name = \"stoa-rnews\"\n   path = \"src/rnews_main.rs\"\n\nAlgorithm for rnews_main.rs:\n1. Parse CLI: --config <path> required, --check flag optional\n2. Call RnewsConfig::from_file(path); on error: eprintln + exit(1)\n3. Init tracing-subscriber (same pattern as transit main.rs lines 318\u2013340)\n4. sqlx::any::install_default_drivers() \u2014 MUST be before any pool open\n5. Run migrations:\n   - stoa_core::migrations::run_migrations(&config.database.core_url).await\n   - stoa_transit::migrations::run_migrations(&config.database.url).await\n   Both must succeed or exit(1) with the error.\n6. Open pools:\n   - core_pool: try_open_any_pool(&config.database.core_url, 3).await\n   - transit_pool: try_open_any_pool(&config.database.url, 3).await\n7. Build IPFS store: stoa_transit::peering::pipeline::build_store(&config_as_transit_config).await\n   Note: build_store takes &transit::config::Config. RnewsConfig must either convert to Config for this call, or build_store must be refactored to take only &BackendConfig. Choose the simpler: add a From<&RnewsConfig> impl that produces a minimal Config with only the backend field populated. Mark other required fields with their defaults.\n8. Construct: MsgIdMap::new(core_pool.clone()), SqliteLogStorage::new(core_pool.clone())\n9. Load signing key:\n   - If config.operator.signing_key_path is set: read file, parse Ed25519 key bytes, construct SigningKey\n   - If absent: generate ephemeral key with rand_core::OsRng (log a warning: ephemeral key; articles will not be re-verifiable)\n10. Construct HlcClock: load_hlc_checkpoint(&transit_pool).await; construct with ensure_instance_node_id(...)\n11. If --check: print \"config OK\" and exit 0.\n12. Read all of stdin into Vec<u8>:\n    - use std::io::Read; let mut stdin_bytes = Vec::new(); io::stdin().read_to_end(&mut stdin_bytes)?\n    - Cap: if stdin_bytes.len() > MAX_BATCH_DECOMPRESSED_BYTES: eprintln!(...) + exit(1)\n      (A raw uncompressed batch larger than 50 MiB is already suspicious)\n13. Parse: let articles = parse_rnews_batch(&stdin_bytes). On Err: log + exit(1).\n14. For each article in articles:\n    a. Extract envelope message_id from article bytes: use extract_message_id_bytes(&article) (from import/reindex.rs; make it pub if needed)\n    b. If missing: log warn \"article missing Message-ID, skipping\"; continue\n    c. let result = check_ingest(&envelope_msgid, &article, &msgid_map).await\n    d. Match result:\n       - Accepted: call run_pipeline(&article, &ipfs, &msgid_map, &log_storage, &transit_pool, ctx).await\n         On Ok: log info cid+groups; increment accepted counter\n         On Err(PipelineError::Permanent(msg)): log warn; increment rejected counter\n         On Err(PipelineError::Transient(msg)): log error; increment transient_error counter; exit(1) after loop? No \u2014 log and continue (uucico should not retry for transient failures in individual articles)\n       - Duplicate: log debug; increment duplicate counter\n       - Rejected(msg): log warn; increment rejected counter\n       - TransientError(msg): log error; increment transient_error counter\n    e. Close pools.\n15. Log summary: info!(accepted, duplicates, rejected, transient_errors, total = articles.len(), \"stoa-rnews batch complete\")\n16. Exit 0 (even if some articles rejected \u2014 UUCP semantics: batch was processed, not partially)\n\nDefensive rules:\n- No unwrap() in main path; all errors go to eprintln!() + exit(1) or logged + continue\n- stdin_bytes cap at MAX_BATCH_DECOMPRESSED_BYTES before parse_rnews_batch (prevents OOM before decompression check fires)\n- Signing key: if read from file fails, exit(1) with error; do NOT fall back to ephemeral silently without a config flag\n- No key material logged (signing key bytes, any DKIM config)\n- PipelineCtx.verify_store = None (skip signature recording for rnews ingress \u2014 can be enabled later)\n- PipelineCtx.dkim_auth = None\n- PipelineCtx.group_filter = config.groups.as_ref().map(|g| g.filter()).unwrap_or(None)\n\nTests: integration test in crates/transit/tests/rnews_ingest.rs:\n- test_rnews_ingest_two_articles_e2e:\n  1. Construct a minimal valid 2-article batch (hand-crafted bytes matching the SPEC test vector from research)\n  2. Open an in-memory or temp SQLite DB, run migrations\n  3. Open a MemIpfsStore\n  4. Call parse_rnews_batch on the batch bytes\n  5. For each article: check_ingest + run_pipeline against the temp stores\n  6. Assert both articles returned PipelineResult with valid CIDs\n  7. Assert MsgIdMap contains both message IDs\n  Oracle: the CIDs are computed from the article bytes by the production CID derivation code; verify they are deterministic by running twice and comparing (the oracle is content-addressing consistency, not a pre-computed vector)",
+  "ephemeral": 0,
+  "id": "stoa-9qqyc.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "[[bin]] stoa-rnews target and rnews_main.rs entry point",
+  "updated_at": "2026-05-04T03:09:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T19:48:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-9qqyc.1",
+      "id": "09717fe8-d3c8-5a55-9be5-6896d47e87f9",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-03T19:48:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-9qqyc",
+      "id": "0d99d266-01ca-5f78-a211-7669479996e6",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-03T19:48:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-9qqyc.5",
+      "id": "3274ceaf-6fc1-5f4f-bb94-bf799c00ced8",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-03T19:48:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-9qqyc.4",
+      "id": "6910e7bb-9087-5d37-83a6-3f9f0a5f8e2f",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-03T19:48:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-9qqyc.3",
+      "id": "7d071d94-2001-5712-a1eb-fac733322bbc",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-03T19:48:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-9qqyc.6",
+      "id": "a89adb29-62e1-5727-9952-5e1a3e2fcfd0",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-03T19:48:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-9qqyc.2",
+      "id": "ff84a0b7-87ba-5142-9d6e-00d53d377eab",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

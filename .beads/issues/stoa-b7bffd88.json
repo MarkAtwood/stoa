@@ -1,0 +1,20 @@
+{
+  "id": "stoa-b7bffd88",
+  "title": "Reader: semaphore drain as shutdown barrier",
+  "description": "After SIGTERM/CTRL-C, main() clones the semaphore before the select! loop, then calls semaphore_drain.acquire_many(max_connections) to block until all in-flight session tasks have released their owned permits. This is correct because the semaphore already serves as the connection-count enforcer, so draining it to zero is a direct proof that all sessions have exited \u2014 no separate tracking structure is needed. Alternative rejected: tokio_util CancellationToken broadcast plus JoinSet::join_all. That approach requires adding the tokio-util dependency, threading the token into every session task, and explicitly joining each handle. The semaphore approach reuses state that already exists and adds zero new imports or types.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T05:24:45Z",
+  "updated_at": "2026-05-01T04:56:30Z",
+  "closed_at": "2026-04-24T05:46:41Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ebc6ad28",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 22:24:45"
+    }
+  ]
+}

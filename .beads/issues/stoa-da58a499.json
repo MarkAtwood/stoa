@@ -1,0 +1,13 @@
+{
+  "id": "stoa-da58a499",
+  "title": "Pluggable block store: Kubo/S3/filesystem backends",
+  "description": "Abstract the IPFS block store behind a trait so the backend can be selected via config.\n\nWhy this issue exists:\nIpfsStore is currently hardwired to the Kubo HTTP client. Operators need to choose between Kubo (local IPFS node), S3-compatible object storage, and a local filesystem backend without recompiling.\n\nWhat needs to be done:\n- Add delete() to IpfsStore and IpfsBlockStore traits\n- [backend] config section and serde enum (kubo / s3 / filesystem)\n- Factory functions in transit and reader that instantiate the configured backend\n- LMDB backend: concurrent read test and delete test\n- Migration note and RUNBOOK update",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T19:59:09Z",
+  "updated_at": "2026-05-01T04:52:12Z",
+  "closed_at": "2026-04-24T16:00:48Z"
+}

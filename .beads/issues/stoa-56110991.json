@@ -1,0 +1,27 @@
+{
+  "id": "stoa-56110991",
+  "title": "auth: trusted issuer cert auth (self-operated CA, CN as username)",
+  "description": "Extend client cert auth to trust any cert signed by a configured issuer CA, not just individually pinned certs. This lets an operator run a tiny self-signed CA and issue per-user or per-device certs without updating the server config for each one. Config: [[auth.trusted_issuers]] with either cert = '/path/to/ca.crt' (PEM) or spki_sha256 = 'sha256:<hex>' (public key hash \u2014 survives CA cert renewal with same key). Username: the leaf cert CN field; must exist as a user in CredentialStore or be explicitly mapped. CN denylist optional for revocation without re-issuing the CA. Auth priority order on a TLS connection: (1) leaf fingerprint match (1c8.10), (2) issuer chain match, (3) Basic/Bearer. Implementation: rustls ClientCertVerifier receives the full peer cert chain; for issuer auth, parse the leaf cert with x509-parser, extract the TBS cert bytes, verify the CA signature using the issuer's public key. ~100 lines, no new deps if x509-parser is already in the tree. Generation workflow: openssl req -x509 -newkey ed25519 ... (CA); openssl req + openssl x509 -req -CA ... (leaf per user). Apply to same surfaces as 1c8.10: NNTPS, JMAP HTTPS, admin HTTP.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:56:20Z",
+  "updated_at": "2026-05-01T04:58:59Z",
+  "closed_at": "2026-04-22T05:08:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-31947539",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:56:19"
+    },
+    {
+      "depends_on_id": "stoa-6b0bc5c7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:56:24"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "stoa-ab09f775",
+  "title": "Implement HDR command (RFC 3977 \u00a78.5)",
+  "description": "HDR retrieves a single header field for a range of articles or a specific message-ID. Modern newsreaders (Thunderbird, slrn, pan) use HDR for thread display and subject scanning, falling back to XHDR (RFC 2980) if HDR is absent. Without HDR, clients must fetch full HEAD per article for subject display, which is substantially slower. Artifact: HDR command handler in usenet-ipfs-reader, backed by the overview index.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T01:25:42Z",
+  "updated_at": "2026-05-01T04:55:11Z",
+  "closed_at": "2026-04-20T04:00:59Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-987f87c2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 18:25:41"
+    },
+    {
+      "depends_on_id": "stoa-9e9f6282",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 18:26:11"
+    }
+  ]
+}

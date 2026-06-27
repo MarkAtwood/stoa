@@ -1,0 +1,20 @@
+{
+  "id": "stoa-459f9555",
+  "title": "operator_signature empty-until-wired references opaque issue ID in comment",
+  "description": "core/ipld/root_node.rs:68 and core/ipld/metadata.rs:104: comment says 'Empty until signing is wired in (l62.2.6)'. The issue reference assumes reader has access to the project tracker. The field is structurally always-empty for now but the type is Vec<u8>, which does not express unsigned-ness. Fix: replace external reference with inline explanation; consider Option<Vec<u8>> to express None=unsigned at the type level so callers cannot accidentally treat empty vec as a valid signature.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T16:56:43Z",
+  "updated_at": "2026-05-01T04:53:11Z",
+  "closed_at": "2026-04-23T00:28:49Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-33df35ca",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 09:56:43"
+    }
+  ]
+}

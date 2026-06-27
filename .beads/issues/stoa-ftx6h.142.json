@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "66cd857b6507513a04e22a57e7afb0fb3979fc1fee356f96d1f2a62d7ee2d57e",
+  "created_at": "2026-05-03T13:07:14Z",
+  "created_by": "Mark Atwood",
+  "description": "start_sieve_admin_server returns Err at startup if the configured listen address is non-loopback and no bearer token is configured. This is the correct fail-closed posture: rather than starting an unprotected admin API on a public interface, the process refuses to start. The check is done at startup, not at request time, so there is no race window.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.142",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "smtp: sieve_admin.rs fail-closed on non-loopback without bearer token",
+  "updated_at": "2026-05-03T13:07:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:07:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "813020b9-3416-56cd-a6b0-84f1b7d5ad24",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

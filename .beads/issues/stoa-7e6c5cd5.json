@@ -1,0 +1,21 @@
+{
+  "id": "stoa-7e6c5cd5",
+  "title": "mail timestamp conversion functions are undocumented and lack independent test vectors",
+  "description": "mail/email/types.rs: days_to_year_doy, doy_to_month_day, is_leap implement a complete UTC datetime conversion but have no doc comments and are tested only for RFC 3339 formatting, not for numerical accuracy. Add cross-validation against chrono or time crate for known dates (e.g., 1970-01-01, 2000-03-01 leap day, 2038-01-19).",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T13:10:53Z",
+  "updated_at": "2026-05-01T04:53:26Z",
+  "closed_at": "2026-04-22T15:20:52Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-b770251a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 06:10:52"
+    }
+  ]
+}

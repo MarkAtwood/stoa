@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T18:55:39Z",
+  "compaction_level": 0,
+  "content_hash": "48daa54728ac780376b9cb1d4fb9c45950bb5c84c30f27fda2a5453b60d00e47",
+  "created_at": "2026-05-01T15:21:24Z",
+  "created_by": "Mark Atwood",
+  "description": "In crates/imap/src/session/mailbox.rs, handle_list executes SELECT username, mailbox FROM imap_uid_validity WHERE username = ? which returns all mailboxes for the user, then filters rows using the IMAP LIST pattern via glob_match in Rust. For users with many mailboxes this is O(n) over the full mailbox set regardless of the specificity of the LIST pattern.\n\nFix: for simple non-wildcard patterns push an exact equality predicate into the SQL WHERE clause. For patterns without a '%' hierarchy separator, a LIKE clause or a prefix comparison can eliminate most rows at the database level. The Rust-side glob_match can remain as a post-filter for the rows that pass the SQL pre-filter.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.74",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "imap: handle_list loads all mailboxes then filters in Rust",
+  "updated_at": "2026-05-01T18:55:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:21:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "b18224b3-2151-5dab-af5f-05542e39cec5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "id": "stoa-8d6552ae",
+  "title": "Implement CHECK command handler in transit daemon",
+  "description": "CHECK (RFC 4644) allows a feeding peer to ask whether the transit daemon wants a specific article (by Message-ID) before sending it. The daemon replies 238 (send it), 431 (try later), or 438 (don't want it). This eliminates the send-then-reject round-trip of IHAVE for articles the server already has. Artifact: CHECK handler in usenet-ipfs-transit, consulting the Message-ID\u2192CID map.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T01:25:03Z",
+  "updated_at": "2026-05-01T04:54:54Z",
+  "closed_at": "2026-04-20T04:22:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-2e20d21e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 18:25:17"
+    },
+    {
+      "depends_on_id": "stoa-8fe9296c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 18:25:20"
+    },
+    {
+      "depends_on_id": "stoa-cd52a365",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 18:25:03"
+    }
+  ]
+}

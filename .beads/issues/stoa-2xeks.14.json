@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "TlsrptRecorder and TlsrptFailureType implemented; check+clippy clean",
+  "closed_at": "2026-05-02T18:00:40Z",
+  "compaction_level": 0,
+  "content_hash": "2b91cec1799d9eeb0eac96bb931ff252369d0ca7b948e59e70319d0c73a04684",
+  "created_at": "2026-05-02T17:38:42Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement a TlsrptRecorder that accumulates SMTP TLS failure records per recipient domain during a delivery session. On MTA-STS enforcement failure or REQUIRETLS failure, call record_failure(recipient_domain, policy_domain, failure_type: TlsrptFailureType, receiving_mx, total_session_count, failed_session_count). TlsrptFailureType variants per RFC 8460 \u00a74.3: starttls-not-supported, certificate-host-mismatch, certificate-expired, certificate-not-trusted, validation-failure, tlsa-invalid, dnssec-invalid, dane-required, sts-policy-fetch-error, sts-policy-invalid, sts-webpki-invalid. Daily report generation (aggregate JSON per RFC 8460 \u00a74) is a follow-on bead; this bead handles accumulation only.",
+  "ephemeral": 0,
+  "id": "stoa-2xeks.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "TLSRPT failure record accumulator",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T10:39:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks.3",
+      "id": "2752fb91-d8e9-5886-80e7-0e73d3aa2d4a",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T10:38:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-2xeks",
+      "id": "a717c149-63fa-5db2-8fa6-54a3846ed66a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-fcd7746e",
+  "title": "TrustedIssuerStore: expired CA cert still used after expiry",
+  "description": "trusted_issuer_store.rs checks leaf.validity().is_valid() but never checks the CA cert validity period at startup or per-connection. An expired CA continues authenticating new leaf certs. issuer_from_pem should check ca_cert.validity().is_valid() and return Err (or at least warn) if the CA has expired.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:59:07Z",
+  "updated_at": "2026-05-01T04:52:15Z",
+  "closed_at": "2026-04-27T08:28:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-18ecb995",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 22:59:07"
+    }
+  ]
+}

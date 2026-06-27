@@ -1,0 +1,20 @@
+{
+  "id": "stoa-47227ed8",
+  "title": "lnc3.17: Keep with no pools uses wrong outcome type (metric discrepancy)",
+  "description": "In session.rs line 919, when Keep action is taken with both mail_pool and pool as None, the code sets nntp_queue_error=true instead of returning SieveOutcome::TransientError. While both send 452, they have different metric tracking:\n- TransientError (line 661-672): increments SMTP_MESSAGES_REJECTED_TOTAL with label 'transient'\n- Accepted{nntp_queue_error:true} (line 649-651): does not increment rejection metrics\n\nThe comment at lines 912-918 explicitly states 'Return a 452 transient failure so the sending MTA retries', suggesting the intent was to return TransientError for consistency with other double-failure cases (lines 880, 884, 897, 901).\n\nScenario: SMTP config has both delivery.mail_db_path and delivery.queue_dir disabled (unlikely but possible).\n\nExpected: Return SieveOutcome::TransientError for metric consistency.\nActual: Sets nntp_queue_error=true (achieves 452 but with wrong metric labeling).\n\nImpact: Metrics may be misclassified, making it harder to diagnose delivery issues in this edge case.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T07:29:00Z",
+  "updated_at": "2026-05-01T04:59:57Z",
+  "closed_at": "2026-04-30T07:30:31Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-8eec3f9d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 00:28:59"
+    }
+  ]
+}

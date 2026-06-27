@@ -1,0 +1,32 @@
+{
+  "acceptance_criteria": "cargo test -p stoa-transit -- dns_auth_cache; all tests pass",
+  "compaction_level": 0,
+  "content_hash": "2020c408676ac5a57f02c359f4bb7dad7add1e0a8e670d16564043a94c11124c",
+  "created_at": "2026-05-04T05:59:38Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement functions that extract DNS lookup keys from raw article bytes.\n\nFile: crates/transit/src/dns_auth_cache.rs\n\n```rust\n/// Extract all (selector, domain) pairs from DKIM-Signature headers.\n/// Also handles ARC-Message-Signature headers (same tag-value format).\npub fn extract_dkim_selectors(article_bytes: &[u8]) -> Vec<(String, String)>\n\n/// Extract the RFC 5321 From domain for SPF lookup.\n/// Uses the envelope sender domain if available; falls back to From: header domain.\n/// Returns None if no usable domain can be extracted.\npub fn extract_spf_domain(article_bytes: &[u8]) -> Option<String>\n\n/// Extract the RFC 5322 From: header domain for DMARC lookup.\n/// DMARC alignment is based on the From: header domain, not the envelope.\n/// Returns None if From: is absent or unparseable.\npub fn extract_dmarc_domain(article_bytes: &[u8]) -> Option<String>\n```\n\nAlgorithm for extract_dkim_selectors: same as before, but also\nscan ARC-Message-Signature headers (same tag-value format as DKIM-Signature).\n\nAlgorithm for extract_spf_domain / extract_dmarc_domain:\n- Scan headers until blank line\n- For From:, extract the domain part of the first addr-spec\n  (right of '@', strip trailing '>' if angle-bracketed)\n- Use from_utf8_lossy; return None on any ambiguity rather than guessing\n\nDefensive rules: return None/empty rather than panic on malformed headers.\n\nTests:\n- All original DKIM tests (extract_single_signature, folded, multiple, stops_at_body)\n- extract_arc_selectors: ARC-Message-Signature header \u2192 (selector, domain) pair\n- extract_spf_domain_from_from_header: From: alice@example.com \u2192 Some(\"example.com\")\n- extract_spf_domain_angle_bracketed: From: Alice <alice@example.com> \u2192 Some(\"example.com\")\n- extract_dmarc_domain_matches_from: same as spf for DMARC\n- extract_domain_missing_from_header: no From: \u2192 None",
+  "ephemeral": 0,
+  "id": "stoa-p4oc4.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Extract DNS lookup keys from article headers (DKIM selectors, From domain)",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T22:59:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-p4oc4",
+      "id": "b96e05c5-ddf7-5379-be64-580f44751cf6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

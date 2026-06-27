@@ -1,0 +1,12 @@
+{
+  "id": "stoa-15ea1878",
+  "title": "validate_article_ingress unfolding precondition unenforced",
+  "description": "validate_article_ingress documents a precondition (comment at validation.rs line 186) that header values must be unfolded before the function is called. The precondition is not enforced at the type level. When production code constructs Article from wire bytes, a missing RFC 5322 unfold step before calling validate_article_ingress would silently reject articles with legal folded headers (obs-fold: CRLF + WSP). The function should either accept responsibility for unfolding or the API contract should be enforced via a wrapper type that carries the invariant.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T09:10:46Z",
+  "updated_at": "2026-05-01T04:52:17Z",
+  "closed_at": "2026-04-27T10:00:43Z"
+}

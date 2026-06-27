@@ -1,0 +1,19 @@
+{
+  "id": "stoa-dd920108",
+  "title": "ActivityPub: integration test with Mastodon and Corundum CID property",
+  "description": "Integration test against a local Mastodon or Pleroma instance: follow a newsgroup actor, post to the group, verify activity appears in Mastodon feed with CID property. Send a reply from Mastodon, verify it appears as an article in the group. Coordinate with Corundum rfc822+mime activity type design before finalizing CID property name. Blocked on: stoa-e70f7626.",
+  "status": "deferred",
+  "priority": 4,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:46:35Z",
+  "updated_at": "2026-05-01T04:51:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e70f7626",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:48:42"
+    }
+  ]
+}

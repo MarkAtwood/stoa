@@ -1,0 +1,12 @@
+{
+  "id": "stoa-1abcc3ac",
+  "title": "Bound remote_tips and BFS visited in reconcile",
+  "description": "group_log/reconcile.rs: remote_tips slice is not size-bounded (O(N) storage queries attacker-controlled); BFS visited set is unbounded (whole DAG traversal). Fix: cap remote_tips at MAX_HAVE (1000) and visited at a reasonable bound (e.g. 10000).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T16:11:53Z",
+  "updated_at": "2026-05-01T05:00:17Z",
+  "closed_at": "2026-04-22T18:40:55Z"
+}

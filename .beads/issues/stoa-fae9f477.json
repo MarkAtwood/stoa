@@ -1,0 +1,20 @@
+{
+  "id": "stoa-fae9f477",
+  "title": "Python-derived CID test vectors: independent oracle, exemplary test design",
+  "description": "core/tests/vectors.rs computes expected CID values using Python hashlib and records the exact Python command alongside the hex literal. These vectors are computed once externally, hardcoded as hex\\!() literals, and the test fails if the Rust implementation ever diverges from the spec. This is the correct pattern for cryptographic correctness tests. A contributor might suggest 'simplifying' this by computing the expected value from Rust at test time \u2014 that would eliminate the independent oracle and make the test worthless. The Python derivation comments are load-bearing.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T15:45:38Z",
+  "updated_at": "2026-05-01T04:55:14Z",
+  "closed_at": "2026-04-22T23:33:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-436e4a3a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 08:45:38"
+    }
+  ]
+}

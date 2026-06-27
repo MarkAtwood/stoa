@@ -1,0 +1,20 @@
+{
+  "id": "stoa-90ad65a3",
+  "title": "decision: spawn_blocking is correct bridge for LMDB and RocksDB sync I/O",
+  "description": "In post/lmdb_store.rs and post/rocks_store.rs, all blocking I/O is dispatched via tokio::task::spawn_blocking. This is the correct async/sync bridge; LMDB write transactions serialize internally and blocking the thread pool is the right model. Do not replace with async I/O wrappers.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:29:37Z",
+  "updated_at": "2026-05-01T04:58:45Z",
+  "closed_at": "2026-04-28T20:10:00Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:29:37"
+    }
+  ]
+}

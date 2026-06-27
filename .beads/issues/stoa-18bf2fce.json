@@ -1,0 +1,13 @@
+{
+  "id": "stoa-18bf2fce",
+  "title": "Review: DKIM relay_queue round-4 changes",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:54:50Z",
+  "updated_at": "2026-05-01T04:52:42Z",
+  "closed_at": "2026-05-01T01:26:12Z",
+  "notes": "Maintainer risk: LOW \u2014 one real finding (EnvelopeFile Debug/PII), everything else is correct. The round-4 changes are a targeted hardening patch: startup cleanup of tmp files, explicit read_dir error handling, and two style fixes to format strings. No new public surface exposed.\nConfidence: 90% chance of missed bug \u2014 zero. 10% uncertainty on whether EnvelopeFile Debug PII leakage would actually trigger in practice given private struct. Least confident flags: 0xn1.3 (the struct is private, risk is low but real). Uncertainty driven by: not having visibility into all logging callsites that might inadvertently use {:?} on container types that hold EnvelopeFile. Would raise confidence if: grep search confirmed no {:?} on containers holding EnvelopeFile anywhere in scope.\nIdiom rating: ACCEPTABLE \u2014 one real idiom bug (0xn1.9: .ends_with('.msg') matches .msg.tmp, order-dependent correctness), two non-idiomatic error-handling patterns (String-typed error variants and String error return in public API). No ownership, lifetime, unsafe, or macro issues. The loop { match } pattern for async ReadDir is correct; captured-identifier Display format args are correct Rust 1.58+ style.\nRust idiom confidence: 85% chance of missed issue. Least confident flags: 0xn1.10 (ConfigError String variants \u2014 whether this matters in practice depends on whether callers ever need programmatic error inspection beyond logging; in a binary that aborts on startup errors the cost is low). Uncertainty driven by: not reading all call sites of check_admin_addr and Config::validate to see whether structured errors would be consumed; did not audit the full imap/config.rs for the same pattern."
+}

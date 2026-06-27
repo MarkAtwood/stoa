@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T16:21:38Z",
+  "compaction_level": 0,
+  "content_hash": "004be541c26de7b2c22ff01766f053710ba07a247d93f2640987f872cea807d0",
+  "created_at": "2026-05-01T15:17:36Z",
+  "created_by": "Mark Atwood",
+  "description": "In server.rs route_method Email/query, when no target_group is found (inMailbox does not match any known group), the response is: json!({\"ids\": [], \"total\": 0, \"queryState\": email_state, \"canCalculateChanges\": false, \"position\": 0}). The RFC 8620 \u00a75.5 QueryResponse MUST include accountId. The response constructed here omits it, which is a protocol violation. Clients relying on accountId in the response will misbehave.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/query returns no accountId when mailbox not found",
+  "updated_at": "2026-05-01T16:21:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:17:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "ac632de2-756a-596c-833c-8a105a7b2800",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

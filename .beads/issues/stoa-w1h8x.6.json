@@ -1,0 +1,33 @@
+{
+  "close_reason": "Moot: DNS-first approach was replaced by cache-first; no _txt suppressor exists in the new code",
+  "closed_at": "2026-05-02T22:00:07Z",
+  "compaction_level": 0,
+  "content_hash": "6dc7ffc1616ff882726a38cecf44c89fdf8e54a6e78f40da6d4a4b1d4ec787c6",
+  "created_at": "2026-05-02T21:42:38Z",
+  "created_by": "Mark Atwood",
+  "description": "relay_client.rs: the DNS TXT record is bound to _txt with a leading underscore to suppress the unused-variable warning. The suppressor exists because the policy_id is not used (see stoa-w1h8x.3). Once the id-mismatch check is implemented, _txt becomes txt and is consumed. Until then, the suppressor is a silent signal that intentional design is absent. Suggested rewrite: add a comment explaining why the record is not used (or fix stoa-w1h8x.3 and rename the variable).",
+  "ephemeral": 0,
+  "id": "stoa-w1h8x.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "_txt suppressor in enforce_for_delivery obscures the unused DNS result",
+  "updated_at": "2026-05-02T22:00:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:42:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-w1h8x",
+      "id": "3c4e229e-ebf8-571a-9510-114803edc333",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

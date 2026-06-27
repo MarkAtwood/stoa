@@ -1,0 +1,21 @@
+{
+  "id": "stoa-77165bba",
+  "title": "feat(mail): provision INBOX and RFC 6154 special folders at first login",
+  "description": "**What:** Provision the six RFC 6154 special-use mailboxes (INBOX, Sent, Drafts, Trash, Junk, Archive) for a user on first login, and resolve the real user_id from canonical_account_id throughout the JMAP session handler.\n\n**Algorithm:**\n1. Add mail SQLite migration (0009_user_mailboxes.sql): CREATE TABLE user_mailboxes (user_id INTEGER NOT NULL, role TEXT NOT NULL, mailbox_id TEXT NOT NULL, name TEXT NOT NULL, sort_order INTEGER NOT NULL DEFAULT 10, PRIMARY KEY (user_id, role), FOREIGN KEY (user_id) REFERENCES users(id), UNIQUE(user_id, mailbox_id))\n2. Add mailbox_id_for_user(user_id: i64, role: &str) -> String in mailbox/types.rs: SHA-256(user_id.to_le_bytes() ++ role.as_bytes())[..16] \u2192 BASE32_NOPAD \u2192 26 chars\n3. Add provision_user_mailboxes(pool: &SqlitePool, user_id: i64) -> Result<(), sqlx::Error> in mailbox/provision.rs: iterate [(inbox,INBOX,1),(sent,Sent,2),(drafts,Drafts,3),(trash,Trash,4),(junk,Junk,5),(archive,Archive,6)], INSERT OR IGNORE INTO user_mailboxes for each\n4. Add resolve_user_id(pool: &SqlitePool, canonical_account_id: &str) -> Result<i64, MailError>: strip 'u_' prefix \u2192 username, SELECT id FROM users WHERE username = ?, map RowNotFound to MailError::AccountNotFound\n5. Add mail_pool: Arc<SqlitePool> field to JmapStores struct\n6. In route_method() server.rs:435, replace 'let user_id: i64 = 1;' with: let user_id = resolve_user_id(&jmap.mail_pool, canonical_account_id).await.map_err(|_| return accountNotFound response)?; provision_user_mailboxes(&jmap.mail_pool, user_id).await.ok(); (provision idempotent, soft fail)\n\n**Defensive programming rules:**\n- canonical_account_id must start with 'u_' \u2014 reject with accountNotFound otherwise, never panic\n- username extracted from canonical_account_id is a SQL bind param (never interpolated)\n- Provisioning failure is soft (log warning, continue) \u2014 a user missing a special folder is better than a 500\n- provision_user_mailboxes must be idempotent: INSERT OR IGNORE, no error on re-run\n- No key material in log statements\n\n**Agent team:** R reads server.rs, mailbox/types.rs, migrations/; I implements migration + 4 new functions + wiring; T writes tests independently.\n\n**Tests:**\n- mailbox_id_for_user: same (user_id, role) \u2192 same id; different roles \u2192 different ids; different user_ids \u2192 different ids. Oracle: independent Python hashlib.sha256 + base64.b32encode calculation\n- provision_user_mailboxes: after call, 6 rows exist; second call is no-op (idempotent). Oracle: SELECT COUNT(*) = 6\n- resolve_user_id: known username in DB \u2192 correct id; unknown username \u2192 Err(AccountNotFound); malformed account_id (no u_ prefix) \u2192 Err(AccountNotFound). Oracle: DB row inserted before test\n- Integration: Mailbox/get request with valid bearer token returns 6 special folders + newsgroups",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T03:53:16Z",
+  "updated_at": "2026-05-01T04:53:08Z",
+  "closed_at": "2026-04-30T05:30:16Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-172aef57",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 20:53:15"
+    }
+  ]
+}

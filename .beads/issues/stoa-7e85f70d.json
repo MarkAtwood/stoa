@@ -1,0 +1,26 @@
+{
+  "id": "stoa-7e85f70d",
+  "title": "Peer block fetch: fetch task with want queue and dedup",
+  "description": "Implement the fetch task: mpsc channel receives wanted CIDs from reconciliation, deduplicates, picks peer to fetch from, sends XCID, verifies CID hash on receipt, runs block through run_pipeline on success. Bounded queue, max_concurrent_fetches config. Per-peer backoff on error. Blocked on: stoa-74b450b1.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:39:04Z",
+  "updated_at": "2026-05-01T04:51:56Z",
+  "closed_at": "2026-04-23T22:27:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-74b450b1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:39:15"
+    },
+    {
+      "depends_on_id": "stoa-ba00cbee",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 12:59:50"
+    }
+  ]
+}

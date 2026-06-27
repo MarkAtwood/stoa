@@ -1,0 +1,21 @@
+{
+  "id": "stoa-45abf11b",
+  "title": "IMAP auth.users validation error message inconsistent with reader and smtp",
+  "description": "imap/src/config.rs validate() emits 'auth.users[USERNAME]: password is not a valid bcrypt hash' \u2014 no guidance on what a valid hash looks like. reader and smtp both emit '(cost must be 4\u201331)' as a suffix, which tells operators what tool to use. User filing an issue on IMAP will not understand the constraint. Also the imap validate() error does not include the '(cost must be 4\u201331)' that reader/smtp include, making error messages inconsistent across the three services.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:14:44Z",
+  "updated_at": "2026-05-01T04:52:25Z",
+  "closed_at": "2026-04-30T19:20:41Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-92eac40d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 12:14:43"
+    }
+  ]
+}

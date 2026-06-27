@@ -1,0 +1,33 @@
+{
+  "id": "stoa-5a1eb133",
+  "title": "f120.8: wire SmtpRelayQueue into NNTP POST handler",
+  "description": "Wire SmtpRelayQueue into the NNTP POST handler so articles posted via NNTP are relayed to SMTP peers when they have email recipients.\n\n**What:** After a POST command stores the article to IPFS, if the article has To:/Cc: email headers and smtp_relay_queue is configured, enqueue for SMTP relay delivery.\n\n**Algorithm:**\n1. Read crates/reader/src/session/commands/post.rs fully\n2. Read crates/reader/src/post/pipeline.rs to understand PostPipelineConfig\n3. Find where complete_post() is called and the article bytes are stored to IPFS\n4. After successful IPFS write, parse To: and Cc: headers from article_bytes:\n   - Extract RFC 5322 addresses using mail_parser or string parsing (simple approach: find 'To: ' header, split on comma, strip angle-brackets)\n   - Filter out Usenet-style recipients (those matching newsgroup.format like 'comp.lang.rust') \u2014 only relay true email addresses (those containing '@')\n5. If email_rcpt_list is non-empty and smtp_queue is Some:\n   - Extract MAIL FROM from From: header (first address)\n   - smtp_queue.enqueue(article_bytes, &mail_from, &email_rcpt_list).await \u2014 non-fatal on error\n6. Add smtp_relay_queue: Option<Arc<SmtpRelayQueue>> to PostPipelineConfig or session context\n7. Thread smtp_relay_queue through from reader server startup config to POST handler\n\n**Defensive programming rules:**\n- SMTP enqueue failure MUST NOT fail the NNTP POST \u2014 article was accepted, return 240 regardless\n- Only relay to email addresses (containing '@') \u2014 never relay to newsgroup paths\n- Non-fatal: on enqueue error, log at warn level only\n\n**Tests:**\n- Test: POST handler with smtp_queue=None does not create queue files (oracle: file system)\n- Test: POST handler with article containing To: user@example.com \u2014 queue gets .env file\n- Test: POST handler with article containing To: comp.lang.rust (newsgroup path) \u2014 no enqueue\n- Test: POST handler with smtp_queue=Some but article parse fails \u2014 POST still returns 240\n\n**Acceptance:**\n- cargo test -p usenet-ipfs-reader passes\n- cargo test -p usenet-ipfs-smtp passes\n- cargo clippy --workspace -- -D warnings passes\n- NNTP POST with email To: header enqueues in relay queue",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T18:32:04Z",
+  "updated_at": "2026-05-01T04:56:36Z",
+  "closed_at": "2026-04-23T19:06:58Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-45ac2399",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 11:32:49"
+    },
+    {
+      "depends_on_id": "stoa-a9a4ad6f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 11:32:50"
+    },
+    {
+      "depends_on_id": "stoa-d8edbbe6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 11:32:03"
+    }
+  ]
+}

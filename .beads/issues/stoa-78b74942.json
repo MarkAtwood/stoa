@@ -1,0 +1,13 @@
+{
+  "id": "stoa-78b74942",
+  "title": "Review round 2: Peer block fetch via XCID protocol",
+  "description": "Second review pass after P1 fix (signature error message)",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T22:23:04Z",
+  "updated_at": "2026-05-01T04:54:01Z",
+  "closed_at": "2026-04-23T22:26:36Z"
+}

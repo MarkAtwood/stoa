@@ -1,0 +1,20 @@
+{
+  "id": "stoa-d8332dd6",
+  "title": "sieve-native/evaluator: extract_match_type uses filter with side-effects",
+  "description": "crates/sieve-native/src/evaluator.rs extract_match_type() and extract_comparator() \u2014 use Iterator::filter with a closure that mutates external state (mt, cmp). This is a code smell: filter is expected to be a pure predicate; callers inspecting the code must realize the filter is also performing assignment. The conventional Rust idiom is to use a for loop with explicit push to the remaining vec, or to use partition. extract_comparator additionally has a skip_next flag making the stateful filter even harder to follow.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:23:52Z",
+  "updated_at": "2026-05-01T04:58:25Z",
+  "closed_at": "2026-04-28T21:36:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:23:52"
+    }
+  ]
+}

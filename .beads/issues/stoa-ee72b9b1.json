@@ -1,0 +1,20 @@
+{
+  "id": "stoa-ee72b9b1",
+  "title": "MIME parser: no limit on multipart part count (DoS vector)",
+  "description": "core/ipld/mime_parser.rs: parse_multipart() accumulates parts into a Vec with no upper bound. A crafted message with 10,000 empty MIME parts (each separated by the boundary) creates 10,000 MimePart objects. Article size limits bound total bytes but not structural complexity. Fix: add a limit (e.g., 100 parts) and return a parse error if exceeded.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:35:23Z",
+  "updated_at": "2026-05-01T04:59:46Z",
+  "closed_at": "2026-04-22T21:05:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:35:22"
+    }
+  ]
+}

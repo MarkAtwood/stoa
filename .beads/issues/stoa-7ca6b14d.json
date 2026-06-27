@@ -1,0 +1,21 @@
+{
+  "id": "stoa-7ca6b14d",
+  "title": "ihave_push.rs and fetch.rs each have separate duplicate dot_stuff implementations",
+  "description": "## What / Why\ncrates/transit/src/import/ihave_push.rs and crates/reader/src/session/commands/fetch.rs each implement their own dot_stuff() function with different semantics (LF-split vs CRLF-split). This duplication is a maintenance risk: if one is fixed (e.g. for the CRLF bug in ihave_push), the other must be checked separately.\n\n## Rewrite\nExtract a single canonical dot_stuff(data: &[u8]) -> Vec<u8> into stoa_core or a shared reader/transit module. The canonical implementation should handle both CRLF and bare LF input, producing CRLF output. Both call sites should use the shared implementation.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T03:09:59Z",
+  "updated_at": "2026-05-01T04:59:23Z",
+  "closed_at": "2026-04-27T17:06:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e2297bae",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 20:09:59"
+    }
+  ]
+}

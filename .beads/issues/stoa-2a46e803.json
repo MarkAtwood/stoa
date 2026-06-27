@@ -1,0 +1,19 @@
+{
+  "id": "stoa-2a46e803",
+  "title": "SEC6: RFC test vector embedding as immutable byte arrays",
+  "description": "dkim_e2e.rs (lines 16-28) and relay_queue.rs (lines 631-644) embed RFC 8463 test key as const byte arrays with citations, not string-decoded. Immutable, verifiable against spec. Correct pattern for oracle test data in crypto code.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:23:10Z",
+  "updated_at": "2026-05-01T04:55:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0b13a613",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:23:09"
+    }
+  ]
+}

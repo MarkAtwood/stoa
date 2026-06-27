@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "b97ec6c87a34a6be585766b597bd2ca6910af9ce0dc485aeaf28768e6b1340e6",
+  "created_at": "2026-05-04T03:18:49Z",
+  "created_by": "Mark Atwood",
+  "description": "rnews_config.rs:87\u2013258 is a near-verbatim copy of pipeline.rs:241\u2013408. Both functions dispatch on BackendType over the same 11 arms with identical logic. Every future backend addition or bug fix must be made in both places.\n\nSuggested approach: refactor pipeline.rs so build_store accepts &Option<BackendConfig> and a fallback legacy &IpfsConfig (or a small trait/wrapper), then have build_store_for_rnews delegate to it. Alternatively, extract the BackendConfig dispatch into a free function build_store_from_backend(backend: &BackendConfig) -> Result<StoreBuildResult, String> in pipeline.rs and call it from both sites. The rnews variant only differs in the Ipfs fallback path (config.ipfs.api_url is required in full Config but Optional in RnewsConfig) \u2014 that small difference does not justify 170 lines of duplication.",
+  "ephemeral": 0,
+  "id": "stoa-tlvh9.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "build_store_for_rnews duplicates build_store",
+  "updated_at": "2026-05-04T03:18:49Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T20:18:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-tlvh9",
+      "id": "61ff2305-e7a8-5c3e-aca1-611120ae524d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

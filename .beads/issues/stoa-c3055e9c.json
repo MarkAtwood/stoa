@@ -1,0 +1,20 @@
+{
+  "id": "stoa-c3055e9c",
+  "title": "article_cid codec not validated against expected 0x71 DAG-CBOR",
+  "description": "verify_entry() in group_log/verify.rs accepts any CID codec in article_cid. The project mandates DAG-CBOR (codec 0x71) for all article CIDs. An adversarial peer could supply entries with unexpected codecs that pass signature verification but fail IPFS fetch downstream. Fix: add if entry.article_cid.codec() != 0x71 { return Err(...) } in verify_entry().",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T10:40:14Z",
+  "updated_at": "2026-05-01T04:51:30Z",
+  "closed_at": "2026-04-28T09:43:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-788640b7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 03:40:13"
+    }
+  ]
+}

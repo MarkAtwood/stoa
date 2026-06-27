@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T03:41:53Z",
+  "compaction_level": 0,
+  "content_hash": "702e8b85512be831805d4ef329a3379f0543a542197ff8d1ffe1e817a5123914",
+  "created_at": "2026-05-05T02:32:26Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement configurable drain timeout (default 30s) on SIGTERM for stoa-mail. Stop accepting new connections immediately, let in-flight JMAP requests complete, then close DB pool and exit 0. Part of epic stoa-c6s4x.",
+  "ephemeral": 0,
+  "id": "stoa-c6s4x.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Graceful SIGTERM drain for stoa-mail HTTP server",
+  "updated_at": "2026-05-05T03:41:53Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:32:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c6s4x",
+      "id": "582a7cb4-6a8f-57e1-8567-5658f78d483e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

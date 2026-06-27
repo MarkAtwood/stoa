@@ -1,0 +1,55 @@
+{
+  "compaction_level": 0,
+  "content_hash": "a848fdc2dcf9c8cbb0850d0a9a9c510f5f1237d576feabcec213603451ade29f",
+  "created_at": "2026-05-02T14:36:15Z",
+  "created_by": "Mark Atwood",
+  "description": "Codify the audit event field schema so future contributors add consistent events that the ADOT collector can route and CloudWatch Insights can query predictably.\n\n## Deliverable\nA doc comment block (or small .md file in crates/mail/docs/) that defines:\n\n### Required fields on every audit event\n  audit = true              (bool literal \u2014 the routing key for ADOT)\n  event.type = \"<value>\"    (string \u2014 see enumeration below)\n  username = %username      (string \u2014 authenticated username, or \"-\" if not known)\n  source_ip = %source_ip    (string \u2014 peer IP, or \"-\" if unavailable)\n\n### event.type enumeration\n  auth.login_success        user authenticated successfully\n  auth.login_failure        authentication attempted but failed (wrong credentials/token)\n  auth.no_credentials       request arrived with no Authorization header\n  authz.forbidden           authenticated user lacks required role (operator gate)\n  authz.cross_account       authenticated user requested another user's accountId\n  admin.method_called       operator successfully invoked an admin method\n\n### Optional fields (add when available)\n  method = %method          JMAP method name (for JMAP-context events)\n  auth.method = \"basic\"|\"bearer_token\"|\"oidc_jwt\"\n  requested_account = %id   (for authz.cross_account)\n  own_account = %id         (for authz.cross_account)\n\n### What must NOT appear in audit events\n  Passwords, tokens, Authorization header values, DB error messages,\n  email content, message IDs, body text, any data governed by the\n  privacy policy of the regulated customer.\n\n### ADOT collector routing snippet (for ops documentation)\n  # In otel-collector-config.yaml, route audit events to a separate exporter:\n  processors:\n    filter/audit:\n      logs:\n        include:\n          match_type: strict\n          record_attributes:\n            - key: audit\n              value: \"true\"\n  exporters:\n    awscloudwatchlogs/audit:\n      log_group_name: /stoa/audit\n      log_stream_name: stoa-mail\n  pipelines:\n    logs/audit:\n      receivers: [otlp]\n      processors: [filter/audit]\n      exporters: [awscloudwatchlogs/audit]\n\n## Acceptance\n- Schema doc exists and is linked from CLAUDE.md or a crates/mail/README\n- Every audit event added in B2, B3, B4 conforms to this schema",
+  "ephemeral": 0,
+  "id": "stoa-jj165.8",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Define and document the audit event schema",
+  "updated_at": "2026-06-26T20:26:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T07:36:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jj165.6",
+      "id": "3e8b9737-f801-53df-9ee4-d6ec06fa6a83",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T07:36:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jj165.7",
+      "id": "4e503757-57cb-53d4-aa78-74b7416c2272",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T07:36:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jj165.5",
+      "id": "72d6e22f-643a-52cb-9786-fd0e843e95bc",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T07:36:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jj165",
+      "id": "b3aa04f4-15fb-5e7a-975d-25be3ca79b03",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

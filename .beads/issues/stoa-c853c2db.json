@@ -1,0 +1,20 @@
+{
+  "id": "stoa-c853c2db",
+  "title": "SmtpRelayError Transient/Permanent wrap String \u2014 SMTP code not accessible to callers",
+  "description": "SmtpRelayError::Transient(String) and Permanent(String) embed the SMTP response code inside a formatted string (e.g. 'permanent relay failure: 550 Relay access denied'). Callers who want to distinguish 550 (user unknown) from 551 (user relocated) must parse the string. A structured form Transient { code: u16, message: String } / Permanent { code: u16, message: String } would make the code directly accessible without string parsing. Currently is_transient() / is_permanent() are the only discriminators, which conflates all 4xx into one bucket and all 5xx into another.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:13:05Z",
+  "updated_at": "2026-05-01T04:52:29Z",
+  "closed_at": "2026-05-01T01:15:55Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-185e20da",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:13:04"
+    }
+  ]
+}

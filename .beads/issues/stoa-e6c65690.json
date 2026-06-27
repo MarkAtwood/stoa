@@ -1,0 +1,14 @@
+{
+  "id": "stoa-e6c65690",
+  "title": "smtp: unify routing \u2014 all email through Sieve, fileinto newsgroup",
+  "description": "Currently SMTP has two paths: inline Sieve (non-list mail with users configured) and queue/List-ID routing. Unify to one path: all SMTP-received email goes through Sieve. Sieve can fileinto a newsgroup via 'newsgroup:' prefix (triggers NNTP injection inline). Implicit keep / unhandled mail goes to configurable catch-all folder (default: 'unsorted'). Remove list_routing config and route_message queue drain entirely.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T02:41:38Z",
+  "updated_at": "2026-05-01T04:57:28Z",
+  "closed_at": "2026-04-22T02:57:30Z",
+  "design": "fileinto 'newsgroup:comp.lang.rust' -> call nntp_client::post_article inline during DATA phase. Remove use_sieve gate in session.rs. Remove list_routing from Config. Remove route_message from main.rs. Change Keep action default folder from INBOX to configurable catch-all (default 'unsorted')."
+}

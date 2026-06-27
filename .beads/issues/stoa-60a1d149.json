@@ -1,0 +1,21 @@
+{
+  "id": "stoa-60a1d149",
+  "title": "mail: user_flags store (\\Seen, \\Flagged per article)",
+  "description": "Implement UserFlagsStore in crates/mail/src/state/flags.rs backed by the user_flags SQLite table (user_id, article_cid BLOB, seen INTEGER, flagged INTEGER). Methods: set_flags(user_id, cid, seen, flagged), get_flags(user_id, cid) \u2192 Option<Flags>, list_flagged_cids(user_id, group_name). Use parameterized queries throughout.\\n\\nWhy: \\Seen tracking is the minimum required to let clients mark messages read; \\Flagged adds star/flag functionality.\\n\\nAcceptance: set_flags then get_flags returns the same values; toggling seen does not affect flagged.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T03:39:36Z",
+  "updated_at": "2026-05-01T04:59:57Z",
+  "closed_at": "2026-04-21T03:55:56Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-f4023dca",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 20:40:56"
+    }
+  ]
+}

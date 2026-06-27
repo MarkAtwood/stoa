@@ -1,0 +1,20 @@
+{
+  "id": "stoa-8e921c75",
+  "title": "jmap: list_mailboxes() called on every Mailbox/get request",
+  "description": "server.rs calls list_mailboxes(&jmap.mail_pool) on every Mailbox/get JMAP request, fetching the same 6 static special-use folders from DB each time. These are immutable after startup. Should be cached in AppState.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T07:10:32Z",
+  "updated_at": "2026-05-01T04:55:34Z",
+  "closed_at": "2026-04-30T07:25:17Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-17ee367f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 00:10:31"
+    }
+  ]
+}

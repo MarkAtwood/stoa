@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T15:34:24Z",
+  "compaction_level": 0,
+  "content_hash": "9a2ef59c12a1ab623f30439915352fbe81cf57a0955aa5645fff15ea29923808",
+  "created_at": "2026-05-03T13:05:05Z",
+  "created_by": "Mark Atwood",
+  "description": "ipld/builder.rs leaves ArticleMetadata.operator_signature as an empty Vec<u8> with a comment 'caller must populate'. There is no type-level enforcement that the signature is set before the article is written to IPFS or the group log. A caller that forgets to sign (or that encounters an error mid-pipeline and proceeds anyway) will silently write an unsigned article. Consider a builder pattern or a newtype like SignedBuiltArticle that is only constructible after signing.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.63",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "core: operator_signature left empty in build_article; caller discipline required to sign before writing",
+  "updated_at": "2026-05-03T15:34:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "c777b7fb-218c-5a1e-b445-c3d8c4cc9ad3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "id": "stoa-15a88713",
+  "title": "NNTP ARTICLE response: synthesize X-Usenet-IPFS-Verified header",
+  "description": "On ARTICLE/HEAD commands, query verification results and prepend a synthetic header.\n\nWhat: crates/reader/src/session/ (wherever ARTICLE/HEAD response is assembled)\n\nHeader format:\n  X-Usenet-IPFS-Verified: usenet-ipfs-sig=pass; dkim=pass domain=example.com selector=s1\n\nRules:\n- If multiple DKIM signatures: repeat dkim= token for each.\n- If result is no-key: omit that check entirely (header only present if at least one check ran).\n- If no verifications recorded for this CID: omit header entirely.\n- Header is synthesized at read time from SQLite \u2014 never stored in article bytes (would change CID).\n\nAlgorithm:\n1. After fetching article bytes by CID, call store.get_verifications(&cid).\n2. If empty: skip header.\n3. Format as single-line header value; prepend to response headers.\n4. verify_store is optional (None \u2192 never emit header).\n\nDefensive rules:\n- SQLite query failure: log warn, omit header, do not fail the ARTICLE command.\n- Header value must contain no newlines (sanitize detail fields before interpolation).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:49:17Z",
+  "updated_at": "2026-05-01T05:00:59Z",
+  "closed_at": "2026-04-24T01:29:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-199bd71a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:49:59"
+    },
+    {
+      "depends_on_id": "stoa-bb816d7f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:49:59"
+    },
+    {
+      "depends_on_id": "stoa-f07d2b75",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:49:16"
+    }
+  ]
+}

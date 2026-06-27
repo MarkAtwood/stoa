@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "88416e84a3bf81fbf145353191430928eb7d93d257acc3f8fbdf3173d7f0af90",
+  "created_at": "2026-05-03T13:09:40Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: the standard Rust convention for option-as-result is Some(value) means something was found / returned; None means absent / nothing to act on. Using None to mean 'allowed' and Some(result) to mean 'rejected' is the inverse of the expected convention and surprises readers of check_and_consume call sites. What: rate_limit.rs PeerRateLimiter::check and TokenBucket::check_and_consume return None for allow and Some(RateLimitResult::Exhausted) for reject. Rename to return a bool or an explicit enum like RateLimitDecision::Allow / RateLimitDecision::Deny(action).",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.175",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Rate limiter inverted Option semantics: None means allowed, Some means rejected",
+  "updated_at": "2026-05-03T13:09:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:09:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "3ca0c190-ce13-561e-9ea0-45573724dbd7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

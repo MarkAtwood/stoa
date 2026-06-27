@@ -1,0 +1,28 @@
+{
+  "id": "stoa-d270e3e5",
+  "title": "Implement header parsing: name lowercasing, RFC 2047 decode, multi-value detection",
+  "description": "Why: building a HeaderMapNode from raw RFC 5322 header bytes requires three transforms: (1) lowercase header names for canonical IPLD path addressing, (2) RFC 2047 decode encoded words in header values so IPLD consumers get plain UTF-8, (3) detect multi-value headers (same name appearing N times) and represent them as HeaderValue::Multi.\n\nWhat: in crates/core/src/ipld/header_map.rs, add:\n  pub fn build_header_map(raw_headers: &[u8]) -> HeaderMapNode\nThe function iterates over parsed header fields (using the existing mailparse dependency), folds header names to lowercase, decodes RFC 2047 encoded words in values, and accumulates repeated header names into Multi variants. Date-bearing headers are handled by the date transform (issue za1); this issue handles all other headers.\n\nDESIGN\nResearch confirmed: mailparse::parse_headers() does NOT auto-decode RFC 2047 encoded words. get_value() returns raw strings like '=?utf-8?Q?caf=C3=A9?='. Must decode manually using existing dependencies: base64 = 0.22 (already in core Cargo.toml), quoted_printable = 0.5 (already in core Cargo.toml).\n\nALGORITHM\n1. let (parsed_headers, _) = mailparse::parse_headers(raw_headers)?;\n2. let mut acc: BTreeMap<String, Vec<String>> = BTreeMap::new();\n3. for hdr in parsed_headers:\n   a. key = hdr.get_key().to_ascii_lowercase()\n   b. value = decode_rfc2047(hdr.get_value())  // see below\n   c. acc.entry(key).or_default().push(value)\n4. convert acc to HeaderMapNode: single-elem vec -> Single; multi-elem vec -> Multi\n\nfn decode_rfc2047(s: String) -> String:\n- Pattern: =?charset?B|Q?text?=\n- B encoding: base64 decode text, then decode charset -> UTF-8 (use base64::engine::general_purpose::STANDARD)\n- Q encoding: quoted-printable decode (use quoted_printable::decode_str()), then decode charset -> UTF-8\n- Unknown charset: replace invalid bytes with U+FFFD\n- If no encoded words: return s unchanged\n\nACCEPTANCE CRITERIA\n1. Header name 'Content-Type' becomes 'content-type' in the map. 2. RFC 2047 encoded word '=?utf-8?Q?caf=C3=A9?=' is stored as 'caf\u00e9'. 3. Two 'Received:' headers produce HeaderValue::Multi([...]) with both values. 4. One 'From:' header produces HeaderValue::Single(...). 5. Unit tests with known header bytes validated against Python email.header.decode_header() oracle.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T23:25:41Z",
+  "updated_at": "2026-05-01T04:54:54Z",
+  "closed_at": "2026-04-20T23:45:53Z",
+  "design": "mailparse crate already parses headers into (name, value) pairs \u2014 reuse it. RFC 2047 decoding: mailparse does this automatically for structured headers; verify it handles the unstructured header case. Multi-value detection: fold into a BTreeMap accumulating Vec<String>, then convert single-element vecs to Single and multi-element vecs to Multi.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-117f1f31",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 16:26:33"
+    },
+    {
+      "depends_on_id": "stoa-1c76e14c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 16:26:28"
+    }
+  ]
+}

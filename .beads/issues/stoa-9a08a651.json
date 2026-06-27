@@ -1,0 +1,19 @@
+{
+  "id": "stoa-9a08a651",
+  "title": "relay_client.rs: TLS_CLIENT_CONFIG LazyLock uses OnceLock for crypto provider but swallows install_default error",
+  "description": "relay_client.rs TLS_CLIENT_CONFIG LazyLock: the crypto provider is installed via rustls::crypto::ring::default_provider().install_default().unwrap_or(()). If install_default() fails for any reason other than AlreadyInstalled, the error is silently discarded. The only currently possible error is AlreadyInstalled (which is benign), but any future rustls version that adds new error variants would silently fail here, causing TLS connections to fail at handshake time with a cryptic error rather than at startup. Should use a match or document that AlreadyInstalled is the only possible error.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:35:28Z",
+  "updated_at": "2026-05-01T04:52:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:35:27"
+    }
+  ]
+}

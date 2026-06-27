@@ -1,0 +1,32 @@
+{
+  "id": "stoa-76d99821",
+  "title": "JMAP Email/get: x-usenet-ipfs-verifications property",
+  "description": "Add verification results as a property on JMAP Email objects.\n\nWhat: crates/mail/src/email/types.rs + get.rs (wherever Email/get properties are assembled)\n\nProperty name: x-usenet-ipfs-verifications (following X- convention from existing x-usenet-ipfs-sig)\n\nValue type: Vec<VerificationEntry>\n  pub struct VerificationEntry {\n      pub r#type:   String,          // 'usenet-ipfs-sig' | 'dkim'\n      pub key_id:   Option<String>,  // sha256:<hex>\n      pub result:   String,          // 'pass' | 'fail' | 'no-key' | 'dns-error'\n      pub detail:   Option<String>,  // 'domain=example.com selector=s1'\n  }\n\nAlgorithm:\n1. In Email/get handler, after fetching article by CID, call store.get_verifications(&cid).\n2. Map to Vec<VerificationEntry>; include in Email object if non-empty.\n3. If verify_store is None or query returns empty: omit property (or return empty array \u2014 pick one and document it).\n4. Advertise in JMAP session capabilities or Email property list.\n\nDefensive rules:\n- Query failure: log warn, return empty array, do not fail the Email/get request.\n- Property is additive: clients that do not request it do not receive it.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T20:49:27Z",
+  "updated_at": "2026-05-01T05:00:59Z",
+  "closed_at": "2026-04-24T02:12:06Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-199bd71a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:50:02"
+    },
+    {
+      "depends_on_id": "stoa-bb816d7f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:50:01"
+    },
+    {
+      "depends_on_id": "stoa-f07d2b75",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:49:27"
+    }
+  ]
+}

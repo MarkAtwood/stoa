@@ -1,0 +1,27 @@
+{
+  "id": "stoa-596b033d",
+  "title": "Add benchmark workflow: run on main, comment results on PR",
+  "description": "Add .github/workflows/bench.yml: triggered on push to main and manually. Runs criterion benchmarks, saves results as a GitHub Actions artifact. On PR: uses benchcmp or critcmp to compare PR results against main baseline and posts a comment with the delta. Artifact: .github/workflows/bench.yml.\n\nAcceptance: benchmark results posted as PR comment; >10% regression fails the check; new benchmarks are noted as 'no baseline'",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:44:56Z",
+  "updated_at": "2026-05-01T04:58:02Z",
+  "closed_at": "2026-04-20T06:11:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-54849785",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:44:56"
+    },
+    {
+      "depends_on_id": "stoa-564350dd",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:45:54"
+    }
+  ]
+}

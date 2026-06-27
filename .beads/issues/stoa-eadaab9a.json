@@ -1,0 +1,19 @@
+{
+  "id": "stoa-eadaab9a",
+  "title": "GroupName validated at construction; new_unchecked gated behind cfg(test,fuzzing)",
+  "description": "article.rs GroupName::new() validates the group name format at construction time, making invalid group names unrepresentable in the type system. The escape hatch new_unchecked() is gated behind cfg(any(test, fuzzing)) so production code cannot bypass validation. This pattern is correctly applied throughout the codebase.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:39:27Z",
+  "updated_at": "2026-05-01T04:58:18Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:39:27"
+    }
+  ]
+}

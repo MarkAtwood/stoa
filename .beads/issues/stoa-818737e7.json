@@ -1,0 +1,13 @@
+{
+  "id": "stoa-818737e7",
+  "title": "SQLite persistence: disk databases and WAL mode",
+  "description": "Move all four SQLite databases from in-memory to on-disk so state survives restarts.\n\nWhy this issue exists:\nAll SQLite databases currently use in-memory mode. On restart all article numbers, overview data, and credentials are lost. Production deployments require durable state.\n\nWhat needs to be done:\n- Add [database] section to reader config with path settings\n- Startup directory and writability checks\n- Enable WAL mode on all four databases\n- Idempotent backfill on reader restart (re-synthesise article numbers from group log)\n- Update integration tests to use tempdir instead of in-memory",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T19:58:48Z",
+  "updated_at": "2026-05-01T04:59:55Z",
+  "closed_at": "2026-04-24T06:09:50Z"
+}

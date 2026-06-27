@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "c08de06b6a195d49f67276dbbc4b35b23d9709b943ba90596ea2cf241adb01bc",
+  "created_at": "2026-05-03T13:04:47Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\ncommands/list.rs::newnews() has a comment saying 'conservative: return all groups' but actually returns an EMPTY list. The function signature takes _since_timestamp (underscore-prefixed, unused). This is confusing.\\n\\nlifecycle.rs properly intercepts NEWNEWS at line 600 via handle_newnews_live() which calls overview_store.message_ids_since(). The stub in commands/list.rs is never called from the live path.\\n\\n## What To Do\\n\\n1. Fix the misleading doc comment in newnews() to say 'dead code stub; live path is handle_newnews_live in lifecycle.rs'\\n2. OR remove the stub entirely if it only exists for tests (tests call it directly).\\n\\nNote: fault_store_errors.rs tests call newnews() directly so the stub cannot be deleted without updating tests.",
+  "ephemeral": 0,
+  "id": "stoa-wqf9f",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "NEWNEWS stub in commands/list.rs is dead code with misleading comment",
+  "updated_at": "2026-05-03T13:05:01Z"
+}

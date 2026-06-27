@@ -1,0 +1,20 @@
+{
+  "id": "stoa-55c06c57",
+  "title": "read_data_body continues reading after size limit \u2014 RFC 5321 \u00a74.5.3.1 compliance",
+  "description": "When the message body exceeds max_bytes, read_data_body sets too_large=true, clears the buffer, and continues reading+discarding until the dot-terminator. This allows the session to recover and accept more mail on the same connection. A contributor might 'simplify' this by returning early (dropping the remaining body bytes, closing the connection). That would violate RFC 5321 \u00a74.5.3.1 which requires the server to accept the full DATA transmission before returning a permanent negative response. Defend: the current approach is the standard-compliant behavior. The extra complexity is required.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T13:32:37Z",
+  "updated_at": "2026-05-01T04:54:51Z",
+  "closed_at": "2026-04-23T00:29:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9f393084",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 06:32:37"
+    }
+  ]
+}

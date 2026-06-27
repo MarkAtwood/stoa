@@ -1,0 +1,21 @@
+{
+  "id": "stoa-cb62bc4c",
+  "title": "dead/ subdir not created: move_to_dead_letter silently fails",
+  "description": "SmtpRelayQueue::new (and NntpQueue::new) create queue_dir but not dead/. move_to_dead_letter calls tokio::fs::rename to dead/<name>; on Linux rename(2) returns ENOENT if the target directory is absent. The failure is warned but the file stays in the queue. Trigger: first DKIM failure or permanent 5xx on a fresh queue dir \u2014 dead/ never exists at startup. Bad behavior: message loops in the queue indefinitely, re-attempting delivery (DKIM fails again every cycle) or re-hitting the peer that rejected it.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:59:22Z",
+  "updated_at": "2026-05-01T04:51:31Z",
+  "closed_at": "2026-05-01T03:00:58Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3c6890ad",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 19:59:21"
+    }
+  ]
+}

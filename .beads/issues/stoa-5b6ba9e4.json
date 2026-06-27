@@ -1,0 +1,20 @@
+{
+  "id": "stoa-5b6ba9e4",
+  "title": "connection_whitelisted comment lists bypasses not yet present in code",
+  "description": "session.rs lines 187-190: the comment says the flag 'only bypasses anti-spam filters (DNSBL, FCrDNS, greylisting)'. DNSBL and FCrDNS are not implemented in the visible session code \u2014 only greylisting is a future consumer (stoa-ef702cf6). A developer auditing what the flag actually bypasses today would find the comment overstates what is implemented. Fix: list only greylisting as the pending consumer, or note DNSBL/FCrDNS as also-planned future bypasses.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:48:28Z",
+  "updated_at": "2026-05-01T04:58:51Z",
+  "closed_at": "2026-04-30T15:57:28Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b4887c1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:48:27"
+    }
+  ]
+}

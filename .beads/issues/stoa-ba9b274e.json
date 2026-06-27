@@ -1,0 +1,27 @@
+{
+  "id": "stoa-ba9b274e",
+  "title": "Implement mbox file parser and backfill importer",
+  "description": "Implement an mbox (RFC 4155) parser that reads a file or directory of .mbox files, extracts individual messages, maps them to Usenet articles (From_, headers), and feeds each into the transit store-and-forward pipeline. Groups extracted from Newsgroups: header; articles without Newsgroups: are assigned to a configurable default group or skipped. Artifact: transit/src/import/mbox.rs.\n\nAcceptance:\n- Parses standard Unix mbox format (From_ separator line)\n- Handles multi-gigabyte mbox files without loading entire file into memory\n- Articles without Newsgroups: header: configurable skip or assign-to-default\n- Progress: prints article count every 1000 articles\n- Test: import a 500-message mbox file, verify all CIDs indexed",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:14:27Z",
+  "updated_at": "2026-05-01T04:58:14Z",
+  "closed_at": "2026-04-20T12:10:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b57af1d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:53:36"
+    },
+    {
+      "depends_on_id": "stoa-a684e7df",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:14:27"
+    }
+  ]
+}

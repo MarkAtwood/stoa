@@ -1,0 +1,32 @@
+{
+  "compaction_level": 0,
+  "content_hash": "f31cdedd73b9782edace0d8fb9c62fa0c9860a974c371e6cc36a8f304eef5b18",
+  "created_at": "2026-05-04T23:39:57Z",
+  "created_by": "Mark Atwood",
+  "defer_until": "2099-01-01T08:00:00Z",
+  "description": "Integration test gated on NNTP_INTEROP_LEAFNODE=host:port env var (skipped with #[ignore] when unset). Same two-direction structure as the INN test: stoa\u2192leafnode and leafnode\u2192stoa. Leafnode speaks a subset of RFC 4644; verify stoa degrades gracefully if MODE STREAM is not offered and falls back to IHAVE. Covers gap 3 from the interop audit.",
+  "ephemeral": 0,
+  "id": "stoa-lbgkr.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "deferred",
+  "timeout_ns": 0,
+  "title": "test: stoa IHAVE/TAKETHIS interop with leafnode",
+  "updated_at": "2026-05-04T23:40:04Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T16:39:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-lbgkr",
+      "id": "278cd039-1a6b-5967-875b-63aa75d12321",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "id": "stoa-97adb45e",
+  "title": "refactor: merge duplicate ClientCertStore/ClientCertEntry (reader\u2192stoa-auth)",
+  "description": "## Why\nClientCertStore and ClientCertEntry are duplicated between crates/reader/src/store/client_cert_store.rs and crates/auth/src/client_cert_store.rs (same situation as CredentialStore before stoa-526bc4c6). Reader uses its own local copy; stoa-auth has the canonical copy. These must be consolidated before they drift further.\n\n## What needs to be done\nSame pattern as stoa-526bc4c6:\n1. Re-export stoa_auth::ClientCertEntry from crates/reader/src/config.rs (replacing local definition).\n2. Delete crates/reader/src/store/client_cert_store.rs.\n3. Update all reader call sites to use stoa_auth::ClientCertStore.\n\n## Found by\nSEC1 review of stoa-526bc4c6 (stoa-45f3f588.5).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T16:56:16Z",
+  "updated_at": "2026-05-01T04:55:28Z"
+}

@@ -1,0 +1,19 @@
+{
+  "id": "stoa-4ed2dee5",
+  "title": "SmtpRelayQueue peer selection atomicity is correct: lock acquired and dropped before async call",
+  "description": "try_deliver_one acquires the health lock, clones the peer config, and drops the lock before the async deliver_via_relay call (lines 327-340). A contributor might suggest holding the lock across the delivery to prevent concurrent selection of the same peer, or moving to a tokio::sync::Mutex. Neither change is needed: the health state is designed for multiple concurrent selections and the brief lock window is correct. The comment on each lock acquisition ('The lock is never poisoned') is accurate and worth keeping.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:39:55Z",
+  "updated_at": "2026-05-01T05:00:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d94f2708",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:39:55"
+    }
+  ]
+}

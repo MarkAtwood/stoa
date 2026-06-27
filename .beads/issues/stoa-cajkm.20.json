@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T08:14:32Z",
+  "compaction_level": 0,
+  "content_hash": "ec0be63dd7ef832df773cc0f494caf91804217d61f23797953c9aac07c7beeb5",
+  "created_at": "2026-05-04T08:04:54Z",
+  "created_by": "Mark Atwood",
+  "description": "Finding: is_dev_mode() is defined independently on three separate AuthConfig structs (stoa_auth, reader, imap), each with different field sets and no cross-reference explaining why.\n\n- stoa_auth::AuthConfig::is_dev_mode(): checks 6 fields (required, users, credential_file, client_certs, trusted_issuers, oidc_providers)\n- reader::config::AuthConfig::is_dev_mode(): checks 5 fields (same minus operator_usernames check, which reader does not expose as a named field)  \n- imap::config::AuthConfig::is_dev_mode(): checks only 3 fields (required, users, credential_file) \u2014 omits client_certs and trusted_issuers entirely\n\nThe imap AuthConfig struct legitimately does not have client_certs or trusted_issuers fields, so the divergence in field counts is structurally forced. However, none of the three implementations carries a comment explaining the relationship or confirming completeness against their own struct's full field list.\n\nMaintenance hazard: if a new auth mechanism (e.g. oidc_providers) is added to imap::AuthConfig, is_dev_mode() will silently fail to account for it. The stoa_auth version serves as the canonical pattern but there is nothing binding imap or reader to stay in sync.\n\nSuggested fix: add a comment to each is_dev_mode() implementation explicitly listing which fields it checks and confirming that all credential-granting fields are covered. Optionally add a compile-time struct exhaustiveness trick (destructure all fields in the body to get a compile error when a field is added).",
+  "ephemeral": 0,
+  "id": "stoa-cajkm.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "is_dev_mode() duplicated with divergent field coverage across AuthConfig types",
+  "updated_at": "2026-05-04T08:14:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T01:04:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-cajkm",
+      "id": "88ba6687-2937-5295-86fd-e52a3b534dd6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

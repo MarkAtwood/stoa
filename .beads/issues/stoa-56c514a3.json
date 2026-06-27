@@ -1,0 +1,13 @@
+{
+  "id": "stoa-56c514a3",
+  "title": "[epic] external pinning service integration \u2014 redundant article retention",
+  "description": "Why: Articles stored only on this node are lost if the node goes offline or is destroyed. Integrating with external IPFS pinning services (Pinata, web3.storage, Filebase, etc.) means article CIDs are replicated to independent infrastructure, providing redundancy beyond the local node. This is the hosted complement to the operator's own retention/GC policy.\\n\\nWhat:\\n- Add a [pinning.remote] config section listing one or more remote pinning services with their API endpoint and credentials.\\n- After a successful pipeline write, asynchronously submit the article root CID to each configured remote pinning service via the IPFS Remote Pinning API (https://ipfs.github.io/pinning-services-api-spec/).\\n- Track remote pin status per CID in the transit database (pending/pinned/failed).\\n- Retry failed pins with exponential backoff.\\n- Admin API endpoint to query remote pin status.\\n- Configurable per-group: some groups may be pinned remotely, others not.\\n- Credentials (API keys) must not appear in logs.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T02:22:56Z",
+  "updated_at": "2026-05-01T04:55:45Z",
+  "closed_at": "2026-04-23T05:57:15Z"
+}

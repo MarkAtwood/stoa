@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T04:09:59Z",
+  "compaction_level": 0,
+  "content_hash": "59a8893ff0088063ccf75977d0bb7aa0caf24d18fb91ffb759d6ae13e854e739",
+  "created_at": "2026-05-04T03:57:13Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "stoa-jlmww.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "In crates/transit/tests/rnews_ingest.rs line 9+116, the E2E test uses reindex::extract_message_id_bytes (non-folding, uses String::from_utf8_lossy+.lines()) to extract Message-IDs from parsed articles. But rnews_main.rs (production code) uses ingestion::extract_body_msgid (RFC 5322 folding-aware). These are two different implementations. The test exercises check_ingest with the weaker extractor as the msgid argument. For the specific test fixtures used (non-folded headers) the outputs happen to match, so the test passes. But the divergence means folded-Message-ID articles are not tested through the same code path as production, and the test oracle is not independent -- it is derived from a different (weaker) code path rather than a known-good external value. Fix: replace extract_message_id_bytes with extract_body_msgid in the test, or add a folded-header test case that would expose the discrepancy.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "rnews_ingest test uses non-folding extract_message_id_bytes instead of extract_body_msgid",
+  "updated_at": "2026-05-04T04:09:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T20:57:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jlmww",
+      "id": "54b49915-39a7-586f-abac-00551663ccbf",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

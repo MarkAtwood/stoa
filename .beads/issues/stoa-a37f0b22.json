@@ -1,0 +1,19 @@
+{
+  "id": "stoa-a37f0b22",
+  "title": "build_index_json does not JSON-escape group names \u2014 invalid JSON if names contain special chars",
+  "description": "ipns_publisher.rs build_index_json manually constructs JSON by push_str of group name strings without escaping. A group name containing a double-quote or backslash (e.g. from a peer that bypassed GroupName::new validation) produces invalid JSON. Use serde_json to serialize the BTreeMap instead of hand-rolling the JSON.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:39:07Z",
+  "updated_at": "2026-05-01T04:52:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:39:07"
+    }
+  ]
+}

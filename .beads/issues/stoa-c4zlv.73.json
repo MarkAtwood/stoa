@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T18:39:27Z",
+  "compaction_level": 0,
+  "content_hash": "bfc6a4936736192d0509ee766ccbf597a8812b4818031d2901abbe0dfa3fd113",
+  "created_at": "2026-05-01T15:21:20Z",
+  "created_by": "Mark Atwood",
+  "description": "Scenario: server carries a rotating set of groups where groups are active for periods and then go quiet. store/group_cache.rs::GroupMetadataCache removes expired entries only on read (lazy eviction). Groups that are never re-read after their TTL expires remain in the HashMap indefinitely. For a server that has ever served thousands of distinct groups the cache grows without bound, consuming memory proportional to the total number of groups ever seen, not the currently active set.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.73",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "GroupMetadataCache expired entries never proactively evicted \u2014 unbounded growth",
+  "updated_at": "2026-05-01T18:39:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:21:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "3fc2a225-a629-5ff9-a0fb-cc7e0649c44a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

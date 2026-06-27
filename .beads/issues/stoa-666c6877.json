@@ -1,0 +1,21 @@
+{
+  "id": "stoa-666c6877",
+  "title": "SessionContext allows current_group/current_article_number to be inconsistent with GroupSelected state",
+  "description": "In crates/reader/src/session/context.rs, the session has three separate fields that must stay in sync: state (Authenticating/Active/GroupSelected), current_group: Option<GroupName>, and current_article_number: Option<u64>. The invariant is: GroupSelected implies current_group.is_some(). But this is not encoded in the type. Code in lifecycle.rs checks ctx.state.group_selected() AND ctx.current_group.as_ref() independently, with separate 412 fallbacks. The second check should be unreachable if the first is correct, but the compiler cannot see that.\n\nSuggested improvement: when transitioning to GroupSelected, make current_group a required parameter and set it in the same operation. Consider a small struct:\n\n  struct SelectedGroup {\n      name: GroupName,\n      current_article_number: Option<u64>,\n  }\n\nand SessionContext.selected_group: Option<SelectedGroup>, replacing both current_group and current_article_number. Then ctx.selected_group.as_ref() returns the group and article number together, and their joint presence/absence is enforced by construction.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:14:08Z",
+  "updated_at": "2026-05-01T04:57:29Z",
+  "closed_at": "2026-04-27T18:37:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:14:07"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T17:33:44Z",
+  "compaction_level": 0,
+  "content_hash": "34dfc5a100358dbceb2270396180809b18daca15b7e3862e499653d8822405aa",
+  "created_at": "2026-05-01T15:18:03Z",
+  "created_by": "Mark Atwood",
+  "description": "In inbox.rs fetch_actor_inbox, the actor document body is fetched via resp.json::<serde_json::Value>().await with no size cap, just like fetch_public_key. A malicious Follow sender can point to an actor URL that responds with a multi-gigabyte JSON document, causing the server to OOM. The 5-second timeout is insufficient to prevent this on a fast network.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "fetch_actor_inbox has no response body size limit",
+  "updated_at": "2026-05-01T17:33:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:18:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "d4f4b986-b587-5f8a-b2b4-95ce513a5f75",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "6f573817747d88a0b995a9c44df35b6f9fec01dec37478c55b278b03d330246c",
+  "created_at": "2026-05-04T03:18:58Z",
+  "created_by": "Mark Atwood",
+  "description": "DECISION: decompress_gunbatch() uses decoder.take((limit + 1) as u64) before read_to_end(), so the decompressor is capped at exactly limit+1 bytes streamed. If out.len() > limit after the read, it returns DecompressedTooLarge.\n\nWHY RIGHT: The alternative \u2014 read_to_end() into an unbounded Vec, then check length \u2014 allocates the full decompressed output before the check is applied. Against a gzip bomb that expands to multiple GiB this would exhaust process memory (or trigger OOM kill) before the cap fires. The .take() wrapper delegates the cap to the I/O layer; the allocator never sees more than limit+1 bytes. The +1 is intentional: it lets the code distinguish 'exactly at limit' (ok) from 'exceeded limit' (error) with a single read.\n\nALTERNATIVES REJECTED:\n- Chunked read with manual accumulator: more code, same semantic, no benefit.\n- Checking compressed size as a proxy: gzip compression ratios are unbounded; a 1 KB input can expand to GiB.\n- Using a hard ulimit on the process: not portable and would crash the process rather than return a typed error.",
+  "ephemeral": 0,
+  "id": "stoa-tlvh9.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Gzip bomb cap via .take(limit+1), not allocate-then-check",
+  "updated_at": "2026-05-04T03:18:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T20:18:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-tlvh9",
+      "id": "45b5b4af-abea-5535-af03-87a2a832b4fc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

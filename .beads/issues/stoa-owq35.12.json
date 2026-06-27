@@ -1,0 +1,33 @@
+{
+  "close_reason": "Positive observation \u2014 no action required.",
+  "closed_at": "2026-05-02T21:44:39Z",
+  "compaction_level": 0,
+  "content_hash": "898b75d58cfa29ce5201c7adcf778e7936c74120c8e6ad74400128802e95360a",
+  "created_at": "2026-05-02T20:18:29Z",
+  "created_by": "Mark Atwood",
+  "description": "enforce_for_delivery returns Ok(()) (with a warning log) on every DNS or fetch error path. This is correct per RFC 8461 \u00a72: 'Sending MTAs SHOULD NOT treat a policy lookup failure as a reason to fail delivery.' A well-intentioned contributor might add hard failures on DNS timeout \u2014 resist this. The spec is clear: fetch failures must not block delivery.",
+  "ephemeral": 0,
+  "id": "stoa-owq35.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "RFC 8461 \u00a72 non-blocking on fetch failure is correctly implemented",
+  "updated_at": "2026-05-02T21:44:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T13:18:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-owq35",
+      "id": "60189186-4792-581c-955c-4b837f29050f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

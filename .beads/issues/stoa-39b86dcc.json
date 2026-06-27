@@ -1,0 +1,20 @@
+{
+  "id": "stoa-39b86dcc",
+  "title": "[elegance] SmtpRelayQueue enqueue: atomic write order allows orphaned .msg files",
+  "description": "Lines 98-114 in relay_queue.rs write .msg first, then .env. If a crash occurs between the two renames, an orphaned .msg exists without .env (handled at lines 196-199, but as dead code). Better order: write both .tmp files, rename .msg.tmp \u2192 .msg, then rename .env.tmp \u2192 .env. This way, a crash leaves either both files (both renames succeeded) or neither (before second rename). Minor issue since orphan handling exists, but not the most robust design.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T19:14:41Z",
+  "updated_at": "2026-05-01T05:00:28Z",
+  "closed_at": "2026-04-23T19:16:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-11ae5322",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 12:14:41"
+    }
+  ]
+}

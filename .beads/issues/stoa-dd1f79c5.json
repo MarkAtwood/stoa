@@ -1,0 +1,19 @@
+{
+  "id": "stoa-dd1f79c5",
+  "title": "BuildStoreError manual Display could use thiserror",
+  "description": "server_stores.rs defines BuildStoreError with a manual Display impl and manual From impl. It's a private internal type. Using thiserror here is strictly cleaner (no boilerplate) and the derive output would be identical: #[error(transparent)] on Credentials and #[error(\"{0}\")] on Secretx. The manual impl is not wrong but adds 8 lines of boilerplate that thiserror would eliminate.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:03:42Z",
+  "updated_at": "2026-05-01T04:51:38Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-cdbe09c1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 12:03:42"
+    }
+  ]
+}

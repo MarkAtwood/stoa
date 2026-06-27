@@ -1,0 +1,13 @@
+{
+  "id": "stoa-031471c6",
+  "title": "Review-convergence-v7",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:25:21Z",
+  "updated_at": "2026-05-01T04:52:26Z",
+  "closed_at": "2026-04-30T19:58:11Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 The main risk is the imap/reader asymmetry around secretx: URI handling for credential_file. smtp and reader both handle secretx, imap does not. A contributor seeing reader's credential_file doc will expect secretx to work in imap.\nConfidence: 85% chance of no missed bug. Least confident flags: osqd.1 (secretx handling \u2014 would need to verify imap's secretx dependency is even in scope). Uncertainty driven by: could not run the test suite to verify compile/test pass. Would raise confidence if: ran cargo test --workspace.\nIdiom rating: CLEAN \u2014 The diff is idiomatic Rust. thiserror adoption for BuildStoreError is correct. EmptyUsername uses structured fields not String. #[non_exhaustive] applied to public error enums. The only clippy-level issue (mid-file use statement) is pre-existing pattern.\nCONVERGENCE STATUS: NOT CONVERGED. 2 P0 bugs found. P0 bugs: (1) imap credential_file secretx:// URI silently treated as filesystem path \u2014 feature broken for imap when secretx is used; (2) EmptyUsername variant added in 6d06d8e has zero test coverage \u2014 the ':somehash' input path is untested. 1 P1: imap build_credential_store blocks tokio thread with sync I/O. No P2 issues. Total new findings: 3 actionable (P0/P1) + 1 P4 cleanup + 2 decision records."
+}

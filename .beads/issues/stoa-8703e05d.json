@@ -1,0 +1,20 @@
+{
+  "id": "stoa-8703e05d",
+  "title": "parse_range silently coerces unparseable article number to 0",
+  "description": "reader/session/command.rs:250-264: parse_range uses unwrap_or(0) for invalid integer tokens, turning 'abc-def' into ArticleRange::Range(0, 0). The behavior is safe (session returns 423 for nonexistent article 0), but reading parse_range in isolation the fallback is invisible. A contributor copying this pattern elsewhere may produce a range that silently truncates to 0 in a context where 0 is valid. Fix: add a comment: '// Invalid token: default to 0, which will return 423 No Such Article' or return a ParseError.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T16:56:51Z",
+  "updated_at": "2026-05-01T04:53:19Z",
+  "closed_at": "2026-04-23T00:28:49Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-33df35ca",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 09:56:51"
+    }
+  ]
+}

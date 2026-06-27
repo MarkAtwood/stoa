@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T14:53:24Z",
+  "compaction_level": 0,
+  "content_hash": "0d537253da4be34d4cda207030cb2696635ee524076eb33e7af68666a3a46f1c",
+  "created_at": "2026-05-03T13:05:25Z",
+  "created_by": "Mark Atwood",
+  "description": "bare_address uses rfind('<') to find the angle-bracket address section. For an address like 'O<iver> Stone <oliver@example.com>', rfind('<') finds the last '<', which is correct. However for 'A > B <user@example.com>', rfind('<') finds '<' at the user address position correctly. The issue is with malformed display names containing '<' that appear after the actual address, like 'user@example.com <A weird name <extra>'. rfind('<') would find the '<extra' position, then addr[start..].find('>') returns 'extra', and the address extracted would be 'extra' -- not the real email. This could cause envelope tests to match incorrectly or miss valid addresses. RFC 5321 display names should not contain unquoted angle brackets, but Sieve must be robust to attacker-controlled headers.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.77",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve-native: message.rs bare_address uses rfind('<') \u2014 last angle bracket wins; display names with '<' confuse it",
+  "updated_at": "2026-05-03T14:53:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "49fa94ea-783b-5425-820c-9a098915a15a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "id": "stoa-b050dc6c",
+  "title": "auth: warn when operator_usernames set in dev mode",
+  "description": "When operator_usernames is non-empty but no credential mechanism is configured, is_dev_mode() returns true and all operator designations are silently ignored. The system still behaves correctly (no security hole) but the configuration is semantically confusing and should produce a startup warning or validation note.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:46:07Z",
+  "updated_at": "2026-05-01T04:58:29Z"
+}

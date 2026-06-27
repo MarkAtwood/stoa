@@ -1,0 +1,21 @@
+{
+  "id": "stoa-0c5ca0a5",
+  "title": "set_tips DELETE + INSERT loop does not scale with tip count",
+  "description": "O(T) STATEMENTS IN TRANSACTION \u2014 set_tips (sqlite_storage.rs:166) first deletes all tips for a group then re-inserts each tip individually in a loop within one transaction. This is used by reconcile to overwrite the tip set after merging. With T concurrent-branch tips (worst case during a large CRDT reconciliation), this is T INSERT statements. Fix: use executemany / a bulk INSERT VALUES (?,?), (?,?) ... pattern, or replace the delete-all+reinsert approach with a diff-based advance_tips call that only removes stale tips and adds new ones.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:10:25Z",
+  "updated_at": "2026-05-01T04:56:03Z",
+  "closed_at": "2026-04-27T15:50:50Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:10:24"
+    }
+  ]
+}

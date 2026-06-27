@@ -1,0 +1,33 @@
+{
+  "id": "stoa-e6227fde",
+  "title": "Initialize transit binary, config loader, and async runtime",
+  "description": "Create usenet-ipfs-transit/src/main.rs. Parse TOML config (path from --config flag). Initialize tokio runtime. Wire together: IPFS client, gossipsub swarm, SQLite stores, NNTP listener. Shutdown handler: SIGTERM/SIGINT drains in-flight work then exits. Artifact: compilable transit binary that starts and stops cleanly.\n\nAcceptance:\n- cargo build -p usenet-ipfs-transit succeeds\n- --config flag loads TOML file; missing file exits with clear error\n- SIGTERM causes clean shutdown (all spawned tasks join within 5s)\n- Startup logs: listening address, peer ID, config path",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:11:50Z",
+  "updated_at": "2026-05-01T04:55:03Z",
+  "closed_at": "2026-04-20T00:29:20Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3e30372a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:13:56"
+    },
+    {
+      "depends_on_id": "stoa-60070901",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:04"
+    },
+    {
+      "depends_on_id": "stoa-cd52a365",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:11:49"
+    }
+  ]
+}

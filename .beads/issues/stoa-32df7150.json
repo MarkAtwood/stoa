@@ -1,0 +1,20 @@
+{
+  "id": "stoa-32df7150",
+  "title": "sigterm() duplicated verbatim in reader and transit main.rs",
+  "description": "The sigterm() async function is copy-pasted identically in:\n  crates/reader/src/main.rs (line 434)\n  crates/transit/src/main.rs (line 1015)\n\nBoth are identical: register SIGTERM handler, await first signal.\n\nIf signal handling ever changes (e.g., SIGHUP for config reload, or\nextended to a broader signal set), both copies must be updated in sync.\nMaintenance hazard with no engineering justification for the duplication.\n\nMove to usenet-ipfs-core or a shared internal utility and import from\nboth binaries.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T05:25:03Z",
+  "updated_at": "2026-05-01T04:57:18Z",
+  "closed_at": "2026-04-24T05:47:55Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ebc6ad28",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 22:25:03"
+    }
+  ]
+}

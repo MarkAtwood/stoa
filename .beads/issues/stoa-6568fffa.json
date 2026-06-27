@@ -1,0 +1,21 @@
+{
+  "id": "stoa-6568fffa",
+  "title": "RFC 3977: ArticleRef::Cid unhandled in Head/Body/Stat pre-dispatch routing",
+  "description": "In lifecycle.rs run_command_loop, the pre-dispatch match handles Article(Some(ArticleRef::Number)), Article(Some(ArticleRef::MessageId)), and Article(None) but does NOT match Article(Some(ArticleRef::Cid)). The Cid variant falls through to dispatch(), which hits the catch-all and returns 430 instead of a semantically correct response. Same gap exists for Head(Some(ArticleRef::Cid)) and Stat(Some(ArticleRef::Cid)). Add Cid arms to the pre-dispatch match or ensure dispatch() routes them with a correct response code.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:36:26Z",
+  "updated_at": "2026-05-01T04:56:53Z",
+  "closed_at": "2026-05-01T04:48:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:36:26"
+    }
+  ]
+}

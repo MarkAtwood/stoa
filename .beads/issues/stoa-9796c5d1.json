@@ -1,0 +1,21 @@
+{
+  "id": "stoa-9796c5d1",
+  "title": "Add OVER/XOVER streaming: don't buffer full range in memory",
+  "description": "The OVER [range] command currently (or will) query all overview records into a Vec and then write them. For large ranges this is unbounded memory. Change to streaming: query SQLite with a cursor (LIMIT/OFFSET or keyset pagination) and write each line to the client as it arrives. Artifact: reader/src/session/commands/over.rs refactored for streaming.\n\nAcceptance: OVER 1-100000 does not allocate a Vec of 100000 entries; memory usage remains bounded regardless of range size; response is identical to the buffered version for small ranges",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:46:52Z",
+  "updated_at": "2026-05-01T04:54:55Z",
+  "closed_at": "2026-04-20T04:27:31Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-96a8079e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:46:52"
+    }
+  ]
+}

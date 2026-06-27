@@ -1,0 +1,21 @@
+{
+  "id": "stoa-497716a7",
+  "title": "9tz.3: Command::Search parsing in command.rs",
+  "description": "What: Add Command::Search variant to the NNTP command enum and parser.\n\nAlgorithm:\n1. In crates/reader/src/session/command.rs add to Command enum:\n   /// SEARCH <key> <value>\n   /// Non-standard extension following INN convention; advertised in CAPABILITIES.\n   /// Requires active group context (like OVER).\n   Search { key: SearchKey, value: String },\n2. Define SearchKey enum:\n   #[derive(Debug, Clone, PartialEq)]\n   pub enum SearchKey { Subject, From, Body, Text, Since, Before }\n   impl FromStr for SearchKey with variants subject/from/body/text/since/before (case-insensitive).\n3. In parse_command() match arm \"SEARCH\":\n   - Split rest by first whitespace \u2192 (key_str, value_str)\n   - Validate key_str via SearchKey::from_str; return Err for unknown key\n   - Value is rest of line (trimmed)\n   - Return Command::Search { key, value }\n4. Ensure match in dispatch.rs compiles (add a stub arm returning 500 or placeholder \u2014 actual impl is in 9tz.7).\n\nDefensive rules: Unknown search key \u2192 return command-syntax error (501). Empty value \u2192 return command-syntax error. Value length checked at dispatch time, not parse time.\n\nTests: Parse valid 'SEARCH SUBJECT rust' \u2192 correct variant; 'SEARCH BODY hello world' captures full value; 'SEARCH BADKEY x' \u2192 parse error.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T01:20:05Z",
+  "updated_at": "2026-05-01T05:00:37Z",
+  "closed_at": "2026-04-23T01:35:52Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-85f5ab08",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 18:20:05"
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "id": "stoa-09cec91a",
+  "title": "Wire RustIpfsStore into main.rs (replace MemIpfsStore)",
+  "description": "What: Replace new_mem() with a new_with_ipfs() constructor (or extend new_mem) that initializes RustIpfsStore.\nAlgorithm:\n1. In crates/reader/src/store/server_stores.rs:\n   a. Add async fn new_with_ipfs() -> Result<Self, String>:\n      - Initialize RustIpfsStore::new().await -> ipfs_store\n      - Rest of stores same as new_mem() but with persistent SQLite (from config path)\n      - Return Ok(Self { ipfs_store: Arc::new(ipfs_store), ... })\n2. In crates/reader/src/main.rs:\n   a. Change ServerStores::new_mem() call to ServerStores::new_with_ipfs().await?\n   b. If initialization fails, log error and exit with non-zero code\n   c. Add --no-ipfs flag or config option to fall back to MemIpfsStore for testing\n3. Keep new_mem() for integration tests (they must not require a real IPFS node)\nDefensive: if IPFS init fails, log the error clearly (\"IPFS initialization failed: {e}\") and exit; do not continue with a broken store.\nAcceptance: binary starts and accepts connections; cargo test (uses new_mem, not real IPFS) still passes; cargo build clean.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T00:33:40Z",
+  "updated_at": "2026-05-01T04:59:18Z",
+  "closed_at": "2026-04-21T01:09:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3ddde5e8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:24"
+    },
+    {
+      "depends_on_id": "stoa-4ac4f8b8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:23"
+    },
+    {
+      "depends_on_id": "stoa-53e41c25",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:33:39"
+    },
+    {
+      "depends_on_id": "stoa-fbfbc97b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:25"
+    },
+    {
+      "depends_on_id": "stoa-ffb311ed",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:25"
+    }
+  ]
+}

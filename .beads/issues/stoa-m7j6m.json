@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T22:21:48Z",
+  "compaction_level": 0,
+  "content_hash": "cbdcbdc8631fada69a056362c828b9ce585d23f3804f48f62cf8d79b9a569697",
+  "created_at": "2026-05-02T22:02:38Z",
+  "created_by": "Mark Atwood",
+  "description": "In mta_sts_dns.rs line 49, the filter is s.contains(\"v=STSv1\"). RFC 8461 \u00a73.1 states 'If the first tag of a TXT record is not v=STSv1, the record MUST be ignored.' A TXT record like 'someprefix=v=STSv1; id=abc' would be incorrectly treated as an STSv1 record because contains() matches anywhere in the string.\n\nThe correct check should verify that the record starts with 'v=STSv1' as the first key-value token (possibly with leading whitespace stripped). One approach: after splitting on ';', trim each token, and check if the first non-empty token equals 'v=STSv1'. Alternatively use s.trim_start().starts_with(\"v=STSv1\") combined with a check that what follows is either end-of-string, ';', or whitespace (to avoid matching 'v=STSv1extra').\n\nIn practice, a DNS record containing 'v=STSv1' as a non-first tag is extremely unlikely, but the code is non-compliant with the RFC specification.\n\nSeverity: P2 \u2014 RFC correctness violation.",
+  "ephemeral": 0,
+  "id": "stoa-m7j6m",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mta_sts_dns: v=STSv1 substring check ignores first-tag rule",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T15:03:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-jwahq",
+      "id": "c980b473-7640-5d8f-9b32-beb70d36dec7",
+      "metadata": {},
+      "type": "relates-to"
+    }
+  ]
+}

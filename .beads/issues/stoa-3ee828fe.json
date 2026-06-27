@@ -1,0 +1,12 @@
+{
+  "id": "stoa-3ee828fe",
+  "title": "jmap: wire IPFS fetch into blob download endpoint (GET /jmap/download)",
+  "description": "Why: The blob download handler at GET /jmap/download/{accountId}/{blobId}/{name} already parses blobId as a CID and validates its format, but returns 501 Not Implemented. Wiring in the actual IPFS block fetch completes the endpoint and enables arbitrary CID retrieval \u2014 any CID reachable by the local IPFS node can be fetched by any authenticated client.\\n\\nWhat:\\n1. Pass IpfsBlockStore into the blob_download handler via AppState.\\n2. Fetch the raw block bytes: ipfs.get_raw_block(&cid).await.\\n3. Wrap the bytes in a synthetic RFC 5322 MIME message and return that as the response body:\\n   - From: ipfs-gateway@<configured hostname>\\n   - Subject: IPFS:<cid>\\n   - Message-ID: <<cid>@ipfs.local>\\n   - X-Usenet-IPFS-CID: <cid>\\n   - MIME-Version: 1.0\\n   - Content-Type: application/octet-stream\\n   - Content-Transfer-Encoding: base64\\n   - Body: base64-encoded block bytes\\n4. HTTP Content-Type of the response: message/rfc822.\\n5. Return 404 if the CID is not found.\\n6. Authentication: respect whatever auth middleware is in place (tracked in stoa-37ad23c8.18).\\n\\nReturning a synthetic RFC 5322 message rather than raw bytes keeps the format consistent with the NNTP XGET and IMAP X-USENET-IPFS-GET responses, and makes the content usable by standard HTTP clients that expect a message structure.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T02:05:33Z",
+  "updated_at": "2026-05-01T04:57:29Z",
+  "closed_at": "2026-04-22T22:24:31Z"
+}

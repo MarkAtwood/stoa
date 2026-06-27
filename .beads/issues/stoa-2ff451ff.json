@@ -1,0 +1,21 @@
+{
+  "id": "stoa-2ff451ff",
+  "title": "No cap on Newsgroups group count \u2014 log-append DoS",
+  "description": "validate_article_ingress (core/src/validation.rs:133) checks that newsgroups is non-empty but imposes no upper bound on h.newsgroups.len(). An article with 10,000 group names passes all validation. In the transit pipeline this causes 10,000 separate log appends per article \u2014 a DoS multiplier any peer can exploit by crossposting to fabricated group names. In the reader, 10,000 GroupName::new + allowed_groups lookups run per POST. Fix: add a check like if h.newsgroups.len() > MAX_NEWSGROUPS { return Err(ValidationError::TooManyNewsgroups(...)) } with a sensible constant (e.g. 100).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T21:40:49Z",
+  "updated_at": "2026-05-01T04:54:34Z",
+  "closed_at": "2026-04-21T22:37:48Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e38f5cd8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 14:40:49"
+    }
+  ]
+}

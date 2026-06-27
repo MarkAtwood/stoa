@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "f927fbbb7d63c5319769a6cde52e4c682adab01a18a223b8d049d4106ef64f76",
+  "created_at": "2026-05-03T13:06:31Z",
+  "created_by": "Mark Atwood",
+  "description": "crates/core/Cargo.toml lists tempfile in both [dependencies] and [dev-dependencies]. The production dependency is needed only by signing.rs (atomic write). The dev-dependency is redundant and should be removed. Having it in both sections obscures which uses are production vs. test-only.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.118",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "core: tempfile appears in both [dependencies] and [dev-dependencies] in core Cargo.toml",
+  "updated_at": "2026-05-03T13:06:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:06:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "1394b201-afa6-5070-8a27-c13f3eb0a2ae",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

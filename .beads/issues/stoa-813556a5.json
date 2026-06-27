@@ -1,0 +1,20 @@
+{
+  "id": "stoa-813556a5",
+  "title": "Canonical log-entry bytes computation duplicated across verify.rs, tests",
+  "description": "core/group_log/verify.rs: the bytes hashed for signature verification (hlc_timestamp || article_cid || sorted parent_cids) are inlined in check_signature() and duplicated in test helpers. canonical.rs already provides a pattern for centralizing this. If the canonical format changes, multiple sites need updating. Fix: extract a log_entry_canonical_bytes() function analogous to canonical_article_bytes(); use it in check_signature() and all tests.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:36:31Z",
+  "updated_at": "2026-05-01T04:59:50Z",
+  "closed_at": "2026-04-22T23:10:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-37ad23c8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:36:31"
+    }
+  ]
+}

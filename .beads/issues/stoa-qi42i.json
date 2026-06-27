@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "c841c92f87583592bb92d5b2f87923f6058b620a982013172eba5e0aa3fa096c",
+  "created_at": "2026-05-01T19:39:42Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why\n\nstoa-transit has a Ceph RADOS backend (feature-gated behind the 'rados' Cargo feature) but stoa-reader does not. An operator running Ceph for transit block storage may reasonably want the reader to use the same Ceph pool. There is no technical reason to restrict RADOS to transit only.\n\n## What\n\nPort the rados backend from crates/transit/src/peering/rados_store.rs to crates/reader/src/post/. Add a matching 'rados' Cargo feature to the stoa-reader crate. Wire it into the reader config validation and backend selection.\n\n## Acceptance\n\n- reader accepts backend.type = 'rados' when built with --features rados\n- blocks written via POST are stored in the configured RADOS pool\n- round-trip put/get tests pass in reader context",
+  "ephemeral": 0,
+  "id": "stoa-qi42i",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Add rados backend to stoa-reader",
+  "updated_at": "2026-05-01T19:39:42Z"
+}

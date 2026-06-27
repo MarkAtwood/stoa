@@ -1,0 +1,12 @@
+{
+  "id": "stoa-07acbaf5",
+  "title": "fix(smtp): add body size limit to check_script admin endpoint",
+  "description": "sieve_admin.rs put_script checks body.len() against max_script_bytes at line 230, but check_script (line 294) has no such check. An authenticated caller can POST an arbitrarily large body to /admin/sieve/check causing unbounded allocation in compile(). Fix: add the same size gate as put_script.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:23:05Z",
+  "updated_at": "2026-05-01T04:52:13Z",
+  "closed_at": "2026-04-27T05:29:57Z"
+}

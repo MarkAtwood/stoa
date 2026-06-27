@@ -1,0 +1,27 @@
+{
+  "id": "stoa-c8fc03b1",
+  "title": "Implement GC executor with immutable audit log",
+  "description": "Implement GcExecutor::run(candidates: Vec<Cid>): for each candidate, call unpin(), then write an append-only audit record to SQLite: (cid, group, ingestion_time, gc_time, reason). Never delete audit records. Artifact: transit/src/retention/gc_executor.rs and transit/src/retention/audit_log.rs.\n\nAcceptance:\n- Audit record written after each successful unpin (not before)\n- Audit log is append-only: no UPDATE or DELETE in the SQL schema\n- gc_time is the actual time of unpin (not the scheduled time)\n- Reason field records which policy rule (or 'no_matching_rule') caused GC\n- Unit test: run GC on 10 articles, verify all 10 audit records written",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:16:22Z",
+  "updated_at": "2026-05-01T04:58:08Z",
+  "closed_at": "2026-04-20T11:54:25Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3287c8c4",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:16:22"
+    },
+    {
+      "depends_on_id": "stoa-e70cd077",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:16:45"
+    }
+  ]
+}

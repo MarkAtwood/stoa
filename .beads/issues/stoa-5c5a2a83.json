@@ -1,0 +1,20 @@
+{
+  "id": "stoa-5c5a2a83",
+  "title": "SEC1: asymmetric DKIM failure semantics need a comment explaining why",
+  "description": "NNTP queue signing failure = defer/retry; SMTP relay signing failure = permanent dead-letter. This is intentionally asymmetric (NNTP is a retry queue by design; SMTP relay is one-shot). But a reader encountering both paths cold will be confused by the difference. A one-line comment at each site explaining WHY the semantics differ (e.g. '// NNTP queue retries on next cycle; signing failure is transient' and '// SMTP relay is one-shot: signing failure = permanent dead-letter, never retry') would prevent a solo maintainer from accidentally aligning them incorrectly in a future edit.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:24:16Z",
+  "updated_at": "2026-05-01T04:55:18Z",
+  "closed_at": "2026-04-30T23:24:59Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0b13a613",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:24:15"
+    }
+  ]
+}

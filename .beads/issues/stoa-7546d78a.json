@@ -1,0 +1,13 @@
+{
+  "id": "stoa-7546d78a",
+  "title": "ingestion_queue bytes limit TOCTOU allows exceeding max_pending_bytes",
+  "description": "In crates/transit/src/peering/ingestion_queue.rs, try_enqueue reads bytes_current as a separate atomic before calling try_send on the channel. Two concurrent callers can both read below the threshold and both push, collectively exceeding max_pending_bytes. The depth limit is protected by the channel's bounded capacity, but the bytes limit is not. Use a dedicated Semaphore or combine the check with the channel push under a lock.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:28:13Z",
+  "updated_at": "2026-05-01T04:59:48Z",
+  "closed_at": "2026-04-28T18:24:24Z"
+}

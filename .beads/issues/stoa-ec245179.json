@@ -1,0 +1,21 @@
+{
+  "id": "stoa-ec245179",
+  "title": "Support ARTICLE cid:<cidv1> as alternate article locator",
+  "description": "Why: CID-aware clients that already have a CID (from X-Usenet-IPFS-CID header, from XCID, from Corundum, from another IPFS node) should be able to fetch the article by CID directly, bypassing the msgid\u2192CID mapping lookup. This enables content-addressed retrieval: if you know the CID, you get exactly that block, with no ambiguity.\n\nWhat: extend the ARTICLE command parser to accept cid:<cidv1-string> as an article locator alongside <message-id> (angle-bracket form) and <number> (integer form). Example: ARTICLE cid:bafyreiabc... . On match: responds as normal 220 with full article. On not found: 430. The cid: prefix unambiguously distinguishes this form from message-ids (which always start with <) and article numbers (integers), so no parsing ambiguity exists.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T19:36:56Z",
+  "updated_at": "2026-05-01T04:54:49Z",
+  "closed_at": "2026-04-21T00:04:04Z",
+  "design": "Parsing: in the command tokenizer, if the argument starts with 'cid:' (case-insensitive), parse the remainder as a CIDv1 string. Lookup path: skip MsgIdMap, go directly to IPFS block store by CID. If found, reconstruct article response from block bytes. If malformed CID string, return 501. HEAD and BODY extend the same cid: parsing. CAPABILITIES keyword: 'X-CID-LOCATOR' (X- prefix signals non-standard per RFC 3977 \u00a77.1).",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ccc22fc0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 12:37:40"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-94514a8d",
+  "title": "Retry-After: 0 when rpm > 60 invites retry storm",
+  "description": "When admin.rate_limit_rpm > 60 (e.g. 120), the expression `(60u32 / rpm).min(60)` truncates to 0 via integer division. The server responds HTTP 429 with Retry-After: 0, which RFC 7231 clients interpret as 'retry immediately'. This causes tight retry loops from rate-limited callers \u2014 the opposite of the intended back-off. Example: rpm=120 \u2192 Retry-After: 0. Fix: use ceiling division `((60u32 + rpm - 1) / rpm).max(1)` or use f64 rounding. Present in both crates/reader/src/admin.rs and crates/transit/src/admin.rs.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T18:14:31Z",
+  "updated_at": "2026-05-01T04:56:33Z",
+  "closed_at": "2026-04-24T18:17:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4f3e1b5a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-24 11:14:31"
+    }
+  ]
+}

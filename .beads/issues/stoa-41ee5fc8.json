@@ -1,0 +1,26 @@
+{
+  "id": "stoa-41ee5fc8",
+  "title": "usenet-ipfs-mail: TLS, integration tests, runbook",
+  "description": "Production hardening: rustls-backed HTTPS (cert/key from config, same pattern as usenet-ipfs-reader), E2E integration test (start server in-process, authenticate, Mailbox/get \u2192 Email/query \u2192 Email/get for a known article), and deployment documentation in docs/RUNBOOK.md.\\n\\nWhy: without TLS, passwords and message content are exposed in transit; without an integration test, the full stack is unverified; without docs, operators cannot deploy.\\n\\nHow to apply: this is the final sub-epic; depends on all others being complete.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T03:37:28Z",
+  "updated_at": "2026-05-01T05:00:50Z",
+  "closed_at": "2026-04-21T04:15:02Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-01c9f002",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 20:40:18"
+    },
+    {
+      "depends_on_id": "stoa-b80a1e8d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 20:40:17"
+    }
+  ]
+}

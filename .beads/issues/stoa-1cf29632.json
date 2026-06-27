@@ -1,0 +1,33 @@
+{
+  "id": "stoa-1cf29632",
+  "title": "Integration test: import 10k-article mbox, verify full CID index",
+  "description": "Generate or obtain a 10,000-article mbox corpus (synthetic data acceptable). Run the mbox importer, then run the reindex tool, and verify that all 10,000 Message-IDs are present in the index with valid CIDs. Assert that retrieving each CID from IPFS returns the original article bytes. Artifact: tests/import_10k.rs or tests/import_10k.sh.\n\nAcceptance:\n- All 10,000 articles indexed after mbox import\n- All 10,000 CIDs retrievable from IPFS\n- Reindex tool produces identical index to the original import\n- Test completes in under 5 minutes on a laptop\n- Test is headless and deterministic (synthetic corpus)",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:15:52Z",
+  "updated_at": "2026-05-01T04:58:10Z",
+  "closed_at": "2026-04-20T12:28:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5c797107",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:16:00"
+    },
+    {
+      "depends_on_id": "stoa-a684e7df",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:15:52"
+    },
+    {
+      "depends_on_id": "stoa-ba9b274e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:15:58"
+    }
+  ]
+}

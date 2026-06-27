@@ -1,0 +1,19 @@
+{
+  "id": "stoa-93f6869d",
+  "title": "GcRunner vs GcExecutor split \u2014 scheduler uses GcRunner which never writes audit records",
+  "description": "start_gc_scheduler uses GcRunner which only calls unpin. gc_executor.rs run_gc_executor also deletes articles rows and writes audit records but is never called by the scheduler. GC audit log is effectively dead code in the production path.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:40:02Z",
+  "updated_at": "2026-05-01T04:52:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:40:02"
+    }
+  ]
+}

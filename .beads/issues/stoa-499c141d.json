@@ -1,0 +1,20 @@
+{
+  "id": "stoa-499c141d",
+  "title": "[decision] Mutex drop before async I/O in relay delivery",
+  "description": "In SmtpRelayQueue::try_deliver_one, health state mutex is held only for peer selection and record_attempt, then dropped before async deliver_via_relay call. Prevents holding mutex across .await points, following tokio best practice. Code at relay_queue.rs:220-233.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T19:14:15Z",
+  "updated_at": "2026-05-01T05:00:25Z",
+  "closed_at": "2026-04-23T19:18:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-11ae5322",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 12:14:15"
+    }
+  ]
+}

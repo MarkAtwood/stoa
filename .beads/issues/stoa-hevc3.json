@@ -1,0 +1,23 @@
+{
+  "close_reason": "False positive: lifecycle.rs line 1300 calls idx.commit() after index_article. Confirmed via grep.",
+  "closed_at": "2026-05-03T13:06:02Z",
+  "compaction_level": 0,
+  "content_hash": "769eea037e995e3f9913e38fbdf201e88945e5361a3100bb3e759a03a35b3f71",
+  "created_at": "2026-05-03T13:05:56Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\nSearch articles are indexed via search_index.index_article() in the POST pipeline. However, Tantivy requires an explicit commit() call followed by reader.reload() to make new documents visible to searchers (ReloadPolicy::Manual). Without commit(), articles accumulate in the Tantivy writer buffer and are never visible to SEARCH commands until the next explicit commit (which currently only happens in tests).\\n\\nThe search/mod.rs::commit() function exists but is not called from the lifecycle POST path. The module-level doc says 'should be called after a batch of index_article calls' but no caller in the POST pipeline does this.\\n\\n## Acceptance Criteria\\n\\nCall search_index.commit() after each successful POST, or batch commits at a configurable interval. Add a test that verifies indexed articles are searchable after POST without manual commit.",
+  "ephemeral": 0,
+  "id": "stoa-hevc3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "search::TantivySearchIndex::commit not called after index_article in POST pipeline",
+  "updated_at": "2026-05-03T13:06:02Z"
+}

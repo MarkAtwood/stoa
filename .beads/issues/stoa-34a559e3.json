@@ -1,0 +1,21 @@
+{
+  "id": "stoa-34a559e3",
+  "title": "canonical.rs: newsgroups sorted on every canonicalization call",
+  "description": "core/canonical.rs: canonical_bytes() extracts, sorts, and joins group names on every call. For crossposted articles with many groups, this is O(N log N) per call. The Vec<GroupName> is owned; sort in-place once at construction time, or cache the serialized canonical form.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T13:09:47Z",
+  "updated_at": "2026-05-01T04:57:28Z",
+  "closed_at": "2026-04-22T14:52:02Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-b770251a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 06:09:46"
+    }
+  ]
+}

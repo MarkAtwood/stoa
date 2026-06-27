@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "e498bbcd862801e59a427bffac44d0195cad2ba16bbbd706c7bed0687d31640a",
+  "created_at": "2026-05-03T13:05:05Z",
+  "created_by": "Mark Atwood",
+  "description": "form.rs module-level doc explains that all ParseError instances from this module set line=0 col=0 because Token carries no source position. This is documented, pinned by a test (structural_parse_error_location_is_zero), and accepted as a known limitation. The issue is a reminder that when Token is extended with source position, form.rs must be updated to plumb those positions through. The test pin is a good forward-safety mechanism.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.64",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "auth: form.rs parse errors report location (0,0); structural errors have no source position",
+  "updated_at": "2026-05-03T13:05:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "0dd58453-0f5b-5cde-bc38-d64ce63daecc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

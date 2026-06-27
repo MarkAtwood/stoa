@@ -1,0 +1,19 @@
+{
+  "id": "stoa-d5dbc4a5",
+  "title": "path.extension() predicate: correct choice for multi-component extensions",
+  "description": "Using path.extension().is_some_and(|e| e == 'msg') is the correct approach: it returns the last extension component only, so 'foo.msg.tmp' has extension 'tmp' not 'msg', and 'foo.msg' has extension 'msg'. A future contributor might suggest reverting to path.to_str().ends_with('.msg') for symmetry with cleanup_tmp_files \u2014 that approach is strictly worse because (1) it is OsStr-unsafe, (2) it would falsely match a hypothetical 'foo.foomsg' file, and (3) it couples the check to string representation. The extension() approach is correct and should be preserved.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:04:47Z",
+  "updated_at": "2026-05-01T04:58:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-187c7afd",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:04:47"
+    }
+  ]
+}

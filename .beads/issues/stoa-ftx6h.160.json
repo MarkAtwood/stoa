@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T13:26:25Z",
+  "compaction_level": 0,
+  "content_hash": "b259420f432c92007820d532d036ed31041db176f144945606c96d38503710e0",
+  "created_at": "2026-05-03T13:08:09Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: operators rely on cmd_status to see how many peers are currently connected and active. What: cli/ops.rs cmd_status counts active peers with WHERE blacklisted_until IS NULL OR blacklisted_until = 0. The = 0 branch catches the default zero value but also catches any row where blacklisted_until was explicitly set to 0 (meaning 'not blacklisted') while excluding rows where blacklisted_until contains a past timestamp that is still non-zero. The correct condition is blacklisted_until IS NULL OR blacklisted_until <= now_ms. Active peer count is wrong for any peer that was previously blacklisted and has since been unblacklisted via the path that sets the column to NULL (vs. 0).",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.160",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "cmd_status active-peer count includes non-expired blacklists",
+  "updated_at": "2026-05-03T13:26:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:08:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "d2d45517-4823-54a6-95d0-6a9548871333",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

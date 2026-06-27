@@ -1,0 +1,20 @@
+{
+  "id": "stoa-921d7b1c",
+  "title": "SEC2: no efficiency issues in aubi refactor",
+  "description": "Reviewed all three changes in stoa-526bc4c6 for efficiency impact. (1) Adding crates/auth to workspace members: stoa-auth was already a direct dep of 5 crates; cargo build already compiled it; workspace-member status adds zero incremental compile cost. (2) pub use stoa_auth::UserCredential re-export: a pub use alias resolves to the same concrete type; before the change there were two separate Deserialize impls for structurally identical types; after the change there is one, making this a net binary size reduction with no extra monomorphization. (3) Deleting reader credentials.rs and updating 5 import sites: import-only changes; no runtime or compile-time cost beyond path resolution. No efficiency concerns. No action required.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T16:51:09Z",
+  "updated_at": "2026-05-01T04:54:16Z",
+  "closed_at": "2026-04-30T16:51:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-45f3f588",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 09:51:09"
+    }
+  ]
+}

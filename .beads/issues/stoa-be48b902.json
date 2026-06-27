@@ -1,0 +1,20 @@
+{
+  "id": "stoa-be48b902",
+  "title": "IpfsBlockStore async_trait enables injection of MemIpfsStore and FailingIpfsStore",
+  "description": "reader/post/ipfs_write.rs: async_trait on IpfsBlockStore lets tests inject MemIpfsStore (happy path) and FailingIpfsStore (fault injection) without a live IPFS node. Production uses RustIpfsStore. The three-impl pattern is the right way to test IPFS-dependent logic. Do not collapse to a single impl.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T13:11:18Z",
+  "updated_at": "2026-05-01T04:56:08Z",
+  "closed_at": "2026-04-22T14:47:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-b770251a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 06:11:18"
+    }
+  ]
+}

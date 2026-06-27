@@ -1,0 +1,20 @@
+{
+  "id": "stoa-a0bd2091",
+  "title": "Readability: handle_nntp_search response codes lack RFC documentation",
+  "description": "handle_nntp_search (lines 1104-1153 in session/lifecycle.rs) returns NNTP codes (100, 412, 503, 501, 451) without documenting what each means or which RFC section defines them. Add doc comments to explain each response code's semantic (e.g. '412: no newsgroup selected per RFC 3977 \u00a78.7.1').",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T02:38:19Z",
+  "updated_at": "2026-05-01T04:53:30Z",
+  "closed_at": "2026-04-23T07:07:01Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ae1c536c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 19:38:19"
+    }
+  ]
+}

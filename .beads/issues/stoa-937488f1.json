@@ -1,0 +1,21 @@
+{
+  "id": "stoa-937488f1",
+  "title": "transit/admin.rs module doc claims /reload returns {reloaded:true}",
+  "description": "crates/transit/src/admin.rs line 17 says: 'POST /reload \u2014 signal daemon to reload config (stub, returns {\"reloaded\":true})'. The actual implementation (line 388) returns HTTP 501 with {\"reloaded\":false,\"error\":\"...\"}. An operator reading the module doc to understand the endpoint will get the wrong expectation \u2014 they'll think their config was applied when it wasn't. Same comment exists in reader/src/admin.rs and was also updated for reader but not transit. Fix: update transit module comment to match actual 501 behaviour.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T18:14:45Z",
+  "updated_at": "2026-05-01T04:53:56Z",
+  "closed_at": "2026-04-24T18:18:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-4f3e1b5a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-24 11:14:44"
+    }
+  ]
+}

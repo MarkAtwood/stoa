@@ -1,0 +1,19 @@
+{
+  "id": "stoa-7c0537c0",
+  "title": "decision: IPv4-mapped IPv6 normalization for CIDR whitelist is correct",
+  "description": "session.rs normalize_peer_ip strips the ::ffff: IPv4-mapped prefix before CIDR whitelist lookup. Necessary on dual-stack systems. The implementation is correct. No issue needed.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:42:38Z",
+  "updated_at": "2026-05-01T04:58:16Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:42:37"
+    }
+  ]
+}

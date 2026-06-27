@@ -1,0 +1,28 @@
+{
+  "id": "stoa-84e5e5b5",
+  "title": "Wire header_map_cid into build_article pipeline and update docs",
+  "description": "Why: the new type and field are inert until the ingest pipeline calls build_header_map() and stores the resulting HeaderMapNode block in IPFS. All ingest paths (POST, IHAVE, mbox import) must populate header_map_cid.\n\nWhat:\n1. In build_article() (crates/core/src/ipld/root_node.rs or wherever the IPFS write occurs): call build_header_map(raw_header_bytes), serialize to DAG-CBOR, write to IPFS, capture CID, store as header_map_cid.\n2. Verify all three ingest paths use build_article() (or the equivalent) and will therefore automatically populate the field.\n3. Update wire_format.md \u00a74 (ArticleRootNode field table) to add header_map_cid row.\n4. Update wire_format.md \u00a711 worked example to show header_map_cid in the pipeline steps.\n5. Update architecture.md 'IPFS block storage' diagram/table to show the new block.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T23:26:11Z",
+  "updated_at": "2026-05-01T04:54:53Z",
+  "closed_at": "2026-04-20T23:51:38Z",
+  "design": "build_header_map() must be called with the same raw_header_bytes used to compute header_cid, ensuring both blocks represent the same headers. The HeaderMapNode block is written to IPFS before the ArticleRootNode block (since the root node embeds the CID). No schema_version bump.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1c76e14c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 16:26:30"
+    },
+    {
+      "depends_on_id": "stoa-d22935c3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 16:26:39"
+    }
+  ]
+}

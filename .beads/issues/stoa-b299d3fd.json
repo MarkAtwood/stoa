@@ -1,0 +1,13 @@
+{
+  "id": "stoa-b299d3fd",
+  "title": "DID: rfind(' ') in DID URL parsing is ambiguous for fragment DID URLs",
+  "description": "crates/reader/src/post/did_passthrough.rs (or did_verify.rs): splitting a DID URL on the last space using rfind(' ') to separate the DID from the signature is fragile. A DID URL that contains a fragment or query component after a space would be split incorrectly. Fix: define a clear wire format for X-Stoa-DID-Sig header values (e.g., DID-URL SP BASE64-SIG with the sig always being the last whitespace-delimited token) and document it; or use a structured format that does not rely on positional space splitting.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T14:39:15Z",
+  "updated_at": "2026-05-01T04:52:04Z",
+  "closed_at": "2026-04-27T14:55:17Z"
+}

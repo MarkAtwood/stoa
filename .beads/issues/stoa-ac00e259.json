@@ -1,0 +1,20 @@
+{
+  "id": "stoa-ac00e259",
+  "title": "SmtpRelayError missing #[non_exhaustive]",
+  "description": "SmtpRelayError is a public enum in the stoa-smtp library crate (has [lib] in Cargo.toml). Without #[non_exhaustive], adding a new variant is a breaking change \u2014 downstream code doing exhaustive match on SmtpRelayError will fail to compile. The test all_variants_classified already acknowledges the exhaustiveness concern (the comment says it will fail to compile if new variants are added). That concern is exactly why #[non_exhaustive] exists: it lets the crate add variants without a semver major bump.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:12:52Z",
+  "updated_at": "2026-05-01T04:52:29Z",
+  "closed_at": "2026-05-01T01:15:48Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-185e20da",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:12:52"
+    }
+  ]
+}

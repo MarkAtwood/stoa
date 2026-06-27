@@ -1,0 +1,20 @@
+{
+  "id": "stoa-be2bcd27",
+  "title": "startup_probe duplicated across 6 backend modules",
+  "description": "The startup_probe function body is copy-pasted 6 times: transit/peering/azure_store.rs, transit/peering/gcs_store.rs, transit/peering/s3_store.rs, reader/post/azure_store.rs, reader/post/gcs_store.rs, reader/post/s3_store.rs. Each copy is nearly identical. The only variation is the error message format (different context parameters). If the probe logic ever needs to change (e.g. to check DELETE permission explicitly, add a read-back verification, or add a timeout), each of the 6 copies must be updated independently. The ObjectStoreBackend and ObjectStoreBlockBackend shared backends already exist and are the right place to consolidate this.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T02:36:56Z",
+  "updated_at": "2026-05-01T04:52:18Z",
+  "closed_at": "2026-04-28T03:01:31Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-938166bc",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 19:36:56"
+    }
+  ]
+}

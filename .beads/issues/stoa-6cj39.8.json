@@ -1,0 +1,55 @@
+{
+  "compaction_level": 0,
+  "content_hash": "f0e12e062f936272ca3c7933558e0a33573eca925f35e76a5aac5836ce8194b3",
+  "created_at": "2026-05-02T15:29:13Z",
+  "created_by": "Mark Atwood",
+  "description": "Integration tests covering the encryption invariants. Independent oracles throughout \u2014 no test may use the encryption code as its own oracle.\n\n## Test cases\n\n  ### FieldCipher (unit, OpenSSL oracle)\n  1. Known plaintext + known DEK \u2192 known ciphertext (cross-validated with OpenSSL)\n  2. Tampered ciphertext (flip one byte) \u2192 Err, not wrong plaintext\n  3. Empty plaintext \u2192 valid ciphertext \u2192 decrypts to empty\n  4. Two encryptions of same plaintext with same DEK \u2192 DIFFERENT ciphertexts (nonce is random)\n\n  ### UserKeyStore (integration, two-call oracle)\n  5. get_dek called twice \u2192 same plaintext DEK returned (DEK is stable)\n  6. destroy_dek then get_dek \u2192 KeyServiceError::InvalidKey or equivalent\n  7. ON DELETE CASCADE: delete users row \u2192 user_encryption_keys row gone\n\n  ### Message encryption (integration, direct DB query oracle)\n  8. Store message, query DB directly \u2192 raw_message column is NOT the original plaintext\n     (i.e., the DB never sees plaintext \u2014 verified by raw SQL, not through the app layer)\n  9. Store message as user A, attempt decrypt with user B DEK \u2192 CipherError\n  10. Store message, retrieve via Email/get \u2192 returns original plaintext\n\n  ### Erasure (integration)\n  11. Store message, delete user, attempt decrypt \u2192 error\n  12. After deletion, messages row still exists (DB bytes persist, but are unreadable)\n\n## Oracle discipline\n  Tests 8 and 9 require bypassing the app layer to query the DB directly.\n  Use sqlx::query_scalar to fetch the raw bytes and assert they do NOT match\n  the expected plaintext. This is the independent oracle \u2014 the app layer\n  cannot be used to verify that the app layer is encrypting.",
+  "ephemeral": 0,
+  "id": "stoa-6cj39.8",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Tests: DEK roundtrip, cross-user isolation, and erasure guarantee",
+  "updated_at": "2026-06-26T20:26:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T08:29:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-6cj39.7",
+      "id": "24ad75e9-445f-518e-a539-0dab47dc2248",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T08:29:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-6cj39",
+      "id": "2f15593e-768a-5109-b7af-44d0576e505e",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-02T08:29:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-6cj39.5",
+      "id": "5d98f39c-dedd-5e10-b995-a650713108b3",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T08:29:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-6cj39.6",
+      "id": "9a4dcc01-5fd3-5c5d-94de-631124b24bc3",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

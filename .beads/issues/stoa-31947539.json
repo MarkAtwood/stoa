@@ -1,0 +1,13 @@
+{
+  "id": "stoa-31947539",
+  "title": "auth: implement authentication across all surfaces",
+  "description": "Design settled in review session. Four surfaces need auth; each has a different mechanism. See child issues for implementation. CredentialStore extraction is a prerequisite for JMAP. Peering, admin, and NNTP rate-limiter are independent.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:44:12Z",
+  "updated_at": "2026-05-01T04:58:55Z",
+  "closed_at": "2026-04-22T05:08:42Z"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-f539b7dc",
+  "title": "Doc comments say 'rocksdb' and 'webdav' but actual TOML keys are 'rocks_db' and 'web_dav'",
+  "description": "crates/core/src/ipfs_backend.rs line 34 says Required when type = \"webdav\" but serde rename_all = snake_case on BackendType maps WebDav to web_dav. Line 46 says type = \"rocksdb\" but RocksDb maps to rocks_db. A user reading the struct docs would write the wrong TOML key and get a confusing parse error. Fix: update both doc strings to use the actual TOML strings web_dav and rocks_db respectively.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T04:03:59Z",
+  "updated_at": "2026-05-01T04:51:24Z",
+  "closed_at": "2026-04-28T04:06:45Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-b29a7f1c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 21:03:59"
+    }
+  ]
+}

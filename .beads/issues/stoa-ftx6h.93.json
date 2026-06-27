@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "61f4a3ef43301ae4580bce0f2e804539791cfca6d1a8da843f330576fa7f50d4",
+  "created_at": "2026-05-03T13:05:51Z",
+  "created_by": "Mark Atwood",
+  "description": "audit.rs flush_buffer() constructs the INSERT SQL string by collecting placeholders into a Vec<String> and joining them on every flush call. This allocation is repeated for every batch. The string could be built once per chunk size and cached, or QueryBuilder could be used instead (which is the existing pattern elsewhere in the codebase for bulk inserts).",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.93",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "core: audit flush_buffer builds SQL string with string concatenation on every flush",
+  "updated_at": "2026-05-03T13:05:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "1a2a9996-9ec4-5c7e-8b4f-67b5753d15dc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

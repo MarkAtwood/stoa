@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T17:33:56Z",
+  "compaction_level": 0,
+  "content_hash": "38ba1a01396411ce45d27cdac83c758096276c71d4ae79f406f33d432ef9eed2",
+  "created_at": "2026-05-01T15:21:13Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: peering/rate_limit.rs get_bucket() parses the peer address string; on parse failure it falls back to IpAddr::V4(Ipv4Addr::UNSPECIFIED) (0.0.0.0). Bad behavior: all peers with unparseable addresses share a single rate-limit bucket. A legitimate peer connecting through a proxy or with an IPv6 address that fails parsing shares a rate budget with a malicious peer, allowing one to exhaust the other's budget. Also, 0.0.0.0 is never blacklisted meaningfully.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.69",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "invalid peer address falls back to 0.0.0.0 bucket, conflating all bad-address peers",
+  "updated_at": "2026-05-01T17:33:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:21:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "f7ecb80d-d728-57fe-bce3-5bf1183e935b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

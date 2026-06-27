@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T15:08:11Z",
+  "compaction_level": 0,
+  "content_hash": "8088578f760af3761937048e82c473b6d69f0e2355ff57a76909fbba175c2880",
+  "created_at": "2026-05-03T13:08:41Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: DDL in a tight loop causes SQLite to acquire an exclusive schema lock on every iteration, preventing concurrent reads and degrading throughput under load. What: gc_candidates.rs and suck_pull.rs both call CREATE TABLE IF NOT EXISTS on every invocation rather than ensuring the table exists once at migration time. Both tables should be created in the migration scripts and removed from the per-call code.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.166",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "DDL (CREATE TABLE IF NOT EXISTS) in hot paths: gc_candidates and suck_pull",
+  "updated_at": "2026-05-03T15:08:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:08:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "bdf731a6-c800-554a-9c67-3873b83df00a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

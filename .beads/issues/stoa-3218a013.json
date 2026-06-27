@@ -1,0 +1,13 @@
+{
+  "id": "stoa-3218a013",
+  "title": "Graceful shutdown: SIGTERM drain and docs",
+  "description": "Implement clean shutdown so in-flight articles are not lost when the process is stopped.\n\nWhy this issue exists:\nBoth daemons exit immediately on SIGTERM, potentially losing buffered articles. Systemd and container orchestrators send SIGTERM before SIGKILL, so a clean drain is required for production deployments.\n\nWhat needs to be done:\n- SIGTERM/SIGINT handler and connection drain\n- Flush pending IPFS writes before exit\n- Hard timeout and exit codes\n- Systemd and ECS deployment documentation",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T19:58:42Z",
+  "updated_at": "2026-05-01T04:54:11Z",
+  "closed_at": "2026-04-24T05:48:14Z"
+}

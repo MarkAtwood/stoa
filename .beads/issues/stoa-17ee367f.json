@@ -1,0 +1,12 @@
+{
+  "id": "stoa-17ee367f",
+  "title": "Review round 1: i5ay simplify to single-user shared mailbox",
+  "status": "in_progress",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T07:04:36Z",
+  "updated_at": "2026-05-01T04:53:04Z",
+  "notes": "Maintainer risk review (SEC1): 3 issues filed. (P1) hardcoded user_id=1 in production is correctness bomb; (P2) user_id retention in subscriptions/flags tables undocumented; (P2) _global Sieve key duplicated string. See stoa-17ee367f.{20,21,22}. Code is functionally correct but maintenance risk is material."
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-13bb2db8",
+  "title": "NNTP: update Path: header on transit (son-of-1036)",
+  "description": "9c0: transit/peering/ingestion.rs (or pipeline.rs) does not prepend local FQDN to Path: header before storing. son-of-1036 \u00a73.3: each transit hop must prepend its FQDN. Fix: in ingest pipeline, parse Path: header value, prepend config.hostname, write back.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T19:45:29Z",
+  "updated_at": "2026-05-01T04:59:09Z",
+  "closed_at": "2026-04-22T21:05:08Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-f6d57892",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 12:45:29"
+    }
+  ]
+}

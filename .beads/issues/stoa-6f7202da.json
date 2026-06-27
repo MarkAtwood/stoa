@@ -1,0 +1,33 @@
+{
+  "id": "stoa-6f7202da",
+  "title": "imap: AUTH=PLAIN authentication handler",
+  "description": "Create crates/imap/src/commands/auth.rs. Handle CommandAuthenticateReceived when mechanism == PLAIN. Algorithm: (1) if initial_response is Some, decode base64 now; else call server.authenticate_continue('+') and wait for AuthenticateDataReceived; (2) decode base64 from client: bytes split on 0x00 -> [authzid (ignored), authcid, passwd]; (3) call credential_store.check(authcid, passwd).await; (4) if ok: call server.authenticate_finish(Status::ok(tag, None, 'Authentication successful')); transition session to Authenticated { username: authcid }; (5) if fail: call server.authenticate_finish(Status::no(tag, None, 'Authentication failed')); do NOT update session state. Defensive: base64 decode errors -> authenticate_finish(no); null bytes missing -> authenticate_finish(bad); password never logged.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T07:17:11Z",
+  "updated_at": "2026-05-01T04:56:28Z",
+  "closed_at": "2026-04-23T07:35:11Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-14020c77",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:17:33"
+    },
+    {
+      "depends_on_id": "stoa-3741bca1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:17:11"
+    },
+    {
+      "depends_on_id": "stoa-b6ed4a13",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:17:34"
+    }
+  ]
+}

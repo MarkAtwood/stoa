@@ -1,0 +1,20 @@
+{
+  "id": "stoa-2a6a8838",
+  "title": "ARTICLE by number: current_article_number updated even when lookup will fail",
+  "description": "In lifecycle.rs lookup_article_content_by_number() (line 1110), ctx.current_article_number is set to 'number' before returning Ok(content). But the IPFS fetch on line 1088 can fail and return Err \u2014 in that error path current_article_number is NOT updated, which is correct. However, the 423 path (article_numbers lookup returns None, line 1082) also does NOT update current_article_number, which is also correct. But line 1110 happens only after all the fallible operations, so this is fine. Recheck: the number assignment at 1110 is inside Ok(...) so it only runs on success. This is correct \u2014 false alarm. Filed to document the analysis.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:57:47Z",
+  "updated_at": "2026-05-01T05:00:09Z",
+  "closed_at": "2026-04-27T05:57:59Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-650091d3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 22:57:46"
+    }
+  ]
+}

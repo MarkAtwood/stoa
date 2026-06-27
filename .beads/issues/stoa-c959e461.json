@@ -1,0 +1,19 @@
+{
+  "id": "stoa-c959e461",
+  "title": "relay_queue: orphaned .env files (after .msg is delivered and .env remains) accumulate indefinitely",
+  "description": "relay_queue.rs drain_once: after successful delivery, files are removed in order [env_path, msg_path] (line 490). If the env_path removal succeeds but msg_path removal fails (logged as warning), the .msg file remains. On the next drain cycle, the .msg is found, .env does not exist, and the code at line 391-393 just warns 'msg file missing, skipping' for the .env \u2014 but this is wrong: here we have .msg without .env, which cleanup_orphan_msg_files moves to dead/. So the .msg will accumulate until the next process restart triggers cleanup_orphan_msg_files. This is a minor correctness issue but could cause repeated spurious 'msg file missing' warnings. Separately: if remove_file for env_path fails, the .env is left and the message has already been delivered \u2014 the .env will be picked up on the next drain cycle, the .msg will be gone, and drain will log 'msg file missing' forever. No cleanup of orphaned .env files (ones without .msg) ever happens.",
+  "status": "open",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:34:11Z",
+  "updated_at": "2026-05-01T04:57:22Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:34:11"
+    }
+  ]
+}

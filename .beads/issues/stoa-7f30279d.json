@@ -1,0 +1,21 @@
+{
+  "id": "stoa-7f30279d",
+  "title": "Replace 'let _ = connection_whitelisted' with underscore prefix",
+  "description": "session.rs:198: 'let _ = connection_whitelisted;' is used to suppress the unused-variable warning on a value that is computed and logged but not yet consumed by greylisting logic.\n\nThe problem: 'let _ = x;' does not bind a name \u2014 it is a statement that evaluates and immediately drops x. It communicates nothing about intent at the binding site; the suppress idiom is disconnected from the original 'let connection_whitelisted = ...' binding on line 191.\n\nThe idiomatic Rust form is to prefix the binding name with an underscore at the declaration site:\n  let _connection_whitelisted = config.peer_whitelist.iter().any(...);\nThis suppresses the warning at the point of binding, keeps the 'if connection_whitelisted { log }' block readable (it still reads the named value before the underscore-prefixed binding supersedes it), and makes the intent clear: this variable is intentionally unused pending the greylisting epic.\n\nNote: the 'if connection_whitelisted' log block on lines 195-197 currently reads the non-underscore name, which would need to stay as 'connection_whitelisted' or the log block would need to be restructured. The cleanest form: keep the named binding for the log block, then at line 198 replace the 'let _ = ...' statement with a comment explaining the pending use, and add #[allow(unused_variables)] or move the flag into the session state struct as a placeholder field.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:48:05Z",
+  "updated_at": "2026-05-01T04:58:50Z",
+  "closed_at": "2026-04-30T15:56:51Z",
+  "notes": "SEC7 calibration: opinion/style, and largely subsumed by stoa-6b4887c1.4. The description itself notes that the underscore-prefix idiom doesn't apply cleanly here because the variable is live in the if-block on line 195 and then suppressed on line 198 \u2014 you cannot simply rename the binding to _connection_whitelisted without restructuring. The real issue (confusing suppressor alongside live use) is already captured in 1onm.4 at P2. 1onm.12 is the mechanical rename suggestion that doesn't resolve the underlying confusion; it would require restructuring that 1onm.4 already describes more accurately.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b4887c1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:48:05"
+    }
+  ]
+}

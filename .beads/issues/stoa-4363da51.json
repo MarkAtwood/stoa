@@ -1,0 +1,33 @@
+{
+  "id": "stoa-4363da51",
+  "title": "f120.3: PeerHealthState \u2014 per-peer health tracking with round-robin selection",
+  "description": "Implement PeerHealthState for tracking per-relay health and selecting peers for delivery.\n\n**What:** Arc<Mutex<>> struct tracking up/down state, timestamps, and round-robin selection across healthy peers.\n\n**Algorithm:**\n1. Create crates/smtp/src/relay_health.rs\n2. Define struct PeerStatus { host_port: String, is_up: bool, last_success: Option<Instant>, last_failure: Option<Instant>, attempt_count: u64, success_count: u64, failure_count: u64 }\n3. Define struct PeerHealthState { peers: Vec<PeerStatus>, rr_index: usize, down_backoff: Duration }\n4. impl PeerHealthState:\n   - fn new(hosts: &[SmtpRelayPeerConfig], down_backoff: Duration) -> Self\n   - fn mark_up(&mut self, idx: usize) \u2014 set is_up=true, last_success=Instant::now(), increment success_count\n   - fn mark_down(&mut self, idx: usize) \u2014 set is_up=false, last_failure=Instant::now(), increment failure_count\n   - fn record_attempt(&mut self, idx: usize) \u2014 increment attempt_count\n   - fn select_peer(&mut self) -> Option<(usize, &SmtpRelayPeerConfig)> \u2014 returns (index, config) of next peer to try:\n     a. Build candidate list: peers where is_up=true, OR where last_failure is None, OR where last_failure.elapsed() > down_backoff\n     b. Round-robin across candidates: advance rr_index, wrap modulo candidate count\n     c. Return None if no candidates at all\n   - fn all_peers(&self) -> &[PeerStatus] \u2014 for metrics export\n\n**Defensive programming rules:**\n- Never unwrap() on the mutex lock (poison = bugs in other code; propagate via expect with context)\n- select_peer() must never return the same peer twice in a row if other up peers exist (round-robin correctness)\n- All timestamps use std::time::Instant (monotonic; never system time for backoff decisions)\n\n**Tests:**\n- Test: single peer, starts up, select_peer() returns it (oracle: expected index 0)\n- Test: single peer, mark_down(), select_peer() returns None within down_backoff window (oracle: manually advance time? \u2014 use tokio::time::pause/advance in test)  \n- Test: two peers, mark first down, select_peer() returns second peer only\n- Test: two peers both up, multiple select_peer() calls alternate between them (round-robin correctness)\n- Test: peer marked down then select_peer() called after backoff elapsed returns it again\n\n**Acceptance:**\n- cargo test -p usenet-ipfs-smtp passes\n- cargo clippy -p usenet-ipfs-smtp -- -D warnings passes\n- Round-robin test demonstrates no sticky-peer behavior",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T18:31:05Z",
+  "updated_at": "2026-05-01T04:56:37Z",
+  "closed_at": "2026-04-23T18:44:17Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d8edbbe6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 11:31:05"
+    },
+    {
+      "depends_on_id": "stoa-df38dd63",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 11:32:43"
+    },
+    {
+      "depends_on_id": "stoa-e70ef89f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 11:32:42"
+    }
+  ]
+}

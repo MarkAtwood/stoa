@@ -1,0 +1,20 @@
+{
+  "id": "stoa-7806c05b",
+  "title": "Backpressure: Prometheus counter and structured log event",
+  "description": "Increment ingest_backpressure_total Prometheus counter and emit event=ingest_backpressure structured log at WARN each time a request is rejected due to backpressure. Include pending_articles and pending_bytes as log fields. Blocked on: stoa-b4d07bb2.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:40:39Z",
+  "updated_at": "2026-05-01T04:51:47Z",
+  "closed_at": "2026-04-27T22:52:43Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-b4d07bb2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:41:49"
+    }
+  ]
+}

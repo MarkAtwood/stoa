@@ -1,0 +1,27 @@
+{
+  "id": "stoa-29c46608",
+  "title": "Implement ingestion queue with configurable depth",
+  "description": "Buffer incoming articles in an async channel before the store-and-forward pipeline. Configurable queue depth (default 1000). When queue is full, respond to the peer with 431 and stop reading until queue drains below 80% capacity. Expose queue_depth_current and queue_depth_max as Prometheus gauges. Artifact: transit/src/peering/ingestion_queue.rs.\n\nAcceptance: queue depth enforced; 431 response when full; metrics exposed; no article lost when queue drains; test: fill queue, verify 431 responses, drain queue, verify resumption",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:47:04Z",
+  "updated_at": "2026-05-01T04:54:55Z",
+  "closed_at": "2026-04-20T04:32:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-bd0e0741",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:47:03"
+    },
+    {
+      "depends_on_id": "stoa-eb5cdf0e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:50:29"
+    }
+  ]
+}

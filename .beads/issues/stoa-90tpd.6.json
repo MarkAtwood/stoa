@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "cargo test -p stoa-reader -p stoa-transit passes; use_emulator=true with non-loopback listen is ConfigError::Validation; clippy clean",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T07:46:00Z",
+  "compaction_level": 0,
+  "content_hash": "9cf7f88293c433351072439e86f0e39e17106468cce8c20d4c760c83443aae39",
+  "created_at": "2026-05-04T06:32:44Z",
+  "created_by": "Mark Atwood",
+  "description": "## What\nAdd a fatal startup guard in reader and transit config validation: if backend.azure.use_emulator=true AND the daemon's listen address is non-loopback, abort with a fatal error. Azurite is a local dev tool; a production deployment accidentally using it would silently write blocks to a local emulator instead of real Azure storage.\n\n## Algorithm\n1. Read crates/reader/src/config.rs \u2014 find the Azure backend validate() arm.\n2. Read crates/transit/src/config.rs \u2014 same.\n3. Add: if azure.use_emulator.unwrap_or(false) {\n       // Azurite is a local dev/test tool. If the daemon binds to a non-loopback\n       // address, it is almost certainly a production deploy and use_emulator=true\n       // is a misconfiguration. We cannot check the listen addr from validate()\n       // directly (validate takes &self = Config, which includes listen.addr).\n       // Read the listen.addr from self.listen.addr in the same validate() call.\n       // OR: move this check to run_startup_checks() in main.rs, after config load.\n   }\n   DECISION: Since validate() has access to self (the full Config), it CAN check self.listen.addr. Add the check there: if use_emulator && !is_loopback_addr(&self.listen.addr) \u2192 return Err.\n4. Implement in both reader/config.rs and transit/config.rs validate() methods.\n5. cargo fmt; cargo clippy clean; cargo test --workspace clean.\n\n## Defensive programming rules\n- is_loopback_addr may not exist in these crates if W0A is not done first. If W0A is not done: add a local inline check using the existing local is_loopback_addr function (it already exists in both reader and transit config.rs).\n- No unwrap().\n- Error message: 'backend.azure.use_emulator = true is only permitted for local development. The daemon is listening on {addr} which is a non-loopback address. Set STOA_ENV=development or change listen.addr to 127.0.0.1.'\n\n## Tests\n- test_azure_emulator_nonloopback: Config with azure use_emulator=true, listen.addr='0.0.0.0:1119' \u2192 validate() Err(ConfigError::Validation). Oracle: the guard condition.\n- test_azure_emulator_loopback: use_emulator=true, listen.addr='127.0.0.1:1119' \u2192 validate() Ok(). Oracle: loopback is dev context.",
+  "ephemeral": 0,
+  "id": "stoa-90tpd.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "core/reader/transit: fatal guard for azure use_emulator on non-loopback listen",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T23:32:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-90tpd",
+      "id": "baf8e0c2-8c5e-5bce-9ba1-638597a84c1a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

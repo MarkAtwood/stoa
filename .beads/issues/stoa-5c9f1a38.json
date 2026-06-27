@@ -1,0 +1,21 @@
+{
+  "id": "stoa-5c9f1a38",
+  "title": "Pluggable block store: selectable Kubo/S3/filesystem backend",
+  "description": "The block storage backend is currently hardcoded to Kubo via KuboHttpClient. Different deployments need different backends: Kubo for operators already running IPFS, S3 for cloud deployments, filesystem for single-node or dev use.\n\nThis epic covers the selection layer only \u2014 not the S3 or filesystem implementations themselves.\n\n## What needs doing\n\n- Add a [backend] config section to both transit and reader configs with a type discriminator field (kubo, s3, filesystem, sqlite, lmdb, rados, git_sha256)\n- Add backend-specific sub-sections ([backend.kubo], [backend.s3], [backend.filesystem]) parsed via serde enum\n- Write a factory function in each crate that constructs Arc<dyn IpfsStore> / Arc<dyn IpfsBlockStore> from config, dispatching to the appropriate implementation\n- Factor any shared codec/error-mapping helpers into core so all backends can reuse them\n- Retire the current top-level [ipfs] config section (replace with [backend]); provide a migration note in the runbook\n- IPNS publisher wiring: Kubo supports it; S3 uses a manifest writer; other backends disable it \u2014 the factory should return an Option<IpnsStrategy> alongside the store\n\n## IpfsStore trait: delete method\n\nAdd a delete method to IpfsStore and IpfsBlockStore:\n\n```rust\nasync fn delete(&self, cid: &Cid) -> Result<DeletionOutcome, IpfsError>;\n\npub enum DeletionOutcome {\n    /// Article has been removed immediately. get() will return NotFound.\n    Immediate,\n    /// Article has been marked for deletion. It remains readable via get()\n    /// until the backend's own reclaim process runs (Kubo GC, S3 lifecycle rule, git gc).\n    /// The caller must not assume the article is gone until get() returns NotFound.\n    Deferred { readable_for_approx_secs: Option<u64> },\n}\n```\n\nBackend-specific delete semantics:\n- Kubo: calls pin/rm. DeletionOutcome::Deferred \u2014 article remains in Kubo's block store and is readable until `ipfs repo gc` runs (operator-controlled, potentially hours or days).\n- S3: two modes \u2014 see S3 epic. DeletionOutcome::Deferred when using lifecycle tagging; DeletionOutcome::Immediate when using explicit DeleteObject.\n- Filesystem: unlinks the file. DeletionOutcome::Immediate.\n- SQLite: DELETE FROM blocks. DeletionOutcome::Immediate.\n- LMDB: txn.delete. DeletionOutcome::Immediate.\n- Ceph RADOS: rados_remove. DeletionOutcome::Immediate.\n- Git SHA-256: removes from CID\u2192git_sha256 index only. DeletionOutcome::Deferred \u2014 git object remains in the object store and is readable until git gc --prune runs.\n\n## GC contract\n\nThe GC runner must never assume an article is inaccessible after calling delete. It must handle DeletionOutcome::Deferred correctly:\n- Log the outcome (article marked for deletion, readable until backend reclaims)\n- The retention report records both the delete call and the expected reclaim window\n- Clients issuing ARTICLE or BODY commands for a deferred-deleted article receive a normal response (not 430 No Such Article) until get() actually returns NotFound\n\n## Acceptance criteria\n- Single config change switches backend at runtime\n- Kubo path is regression-free (all existing tests pass unchanged)\n- S3 and filesystem paths compile and fail fast with a clear error if their epic is not yet merged (stub implementations returning Err('not yet implemented') are acceptable as placeholders)\n- delete() returns DeletionOutcome::Deferred for Kubo; get() on the same CID still returns data before Kubo GC runs\n- delete() returns DeletionOutcome::Immediate for filesystem/SQLite/LMDB; get() returns NotFound immediately after",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T16:08:30Z",
+  "updated_at": "2026-05-01T05:00:42Z",
+  "closed_at": "2026-04-24T06:45:08Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-da58a499",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 13:00:32"
+    }
+  ]
+}

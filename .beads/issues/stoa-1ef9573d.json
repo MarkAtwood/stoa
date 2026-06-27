@@ -1,0 +1,12 @@
+{
+  "id": "stoa-1ef9573d",
+  "title": "jmap: wire Email/set (keywords) into route_method()",
+  "description": "Why: Email/set handler exists in crates/mail/src/email/set.rs and UserFlagsStore is wired in SQLite, but Email/set is never called from route_method() in server.rs. Clients cannot mark articles as read ($seen) or flagged ($flagged) via JMAP \u2014 the core read-state feature. What: Add an Email/set arm to route_method() in server.rs that calls handle_email_set(). Keyword-only updates ($seen, $flagged) are already handled; destroy and mailboxIds changes are already rejected as notPermitted. No new logic needed \u2014 just wire the call.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T14:25:59Z",
+  "updated_at": "2026-05-01T05:00:54Z",
+  "closed_at": "2026-04-28T09:04:41Z"
+}

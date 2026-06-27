@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "ce2ddffb40905390d03318c65c665826363e5c559ad6783d49b6137a26c53bb9",
+  "created_at": "2026-05-02T15:55:33Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why this issue exists\n\nBearer tokens are issued in stoa-mail with an `expires_at` column in the `bearer_tokens` table, but it is not confirmed that every auth check path reads and enforces that column. An expired token that is still accepted is equivalent to no expiry.\n\nAll regulated frameworks (PCI-DSS, HIPAA, SOC2, NIST) require session/token expiry to be enforced, not merely stored.\n\n## What needs to be done\n\n- Audit every code path that validates a bearer token: JMAP API handler, admin API handler, any IMAP/SMTP credential path that uses tokens.\n- Confirm `expires_at IS NULL OR expires_at > NOW()` is part of the SQL query (not just a post-fetch check).\n- Add an index on `(token_hash, expires_at)` if not present.\n- Add a background task that periodically deletes expired tokens to prevent table bloat.\n- Write a regression test: mint a token with a past expiry, attempt to use it, verify 401.\n\n## Acceptance criteria\n\n- Expired tokens are rejected at the database query level (not application-level post-fetch)\n- A test with an expired token returns 401\n- Tokens with no expiry are treated as indefinitely valid (existing behaviour preserved)\n- Background cleanup runs and removes tokens expired > 24h\n\n## Design notes\n\nRegulatory refs: All frameworks. SOC2 CC6.1, PCI-DSS 8.2.9, NIST 800-63B.",
+  "ephemeral": 0,
+  "id": "stoa-8b61s",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Audit and enforce bearer token expiry",
+  "updated_at": "2026-05-05T00:38:08Z"
+}

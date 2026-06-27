@@ -1,0 +1,21 @@
+{
+  "id": "stoa-1397e376",
+  "title": "DECISION: single validate_article_ingress entry point for POST and IHAVE",
+  "description": "validation.rs defines one validate_article_ingress() function called by both POST and IHAVE handlers, as stated in the doc comment. Having two separate validation paths for the same article format risks one path drifting out of sync with the other. The single entry point enforces that any check added for one path applies to both, preventing privilege-escalation-via-path issues where IHAVE might skip a check that POST enforces.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:31:39Z",
+  "updated_at": "2026-05-01T05:00:11Z",
+  "closed_at": "2026-04-27T16:38:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:31:38"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "stoa-6a240d6d",
+  "title": "mime_parser split_on_boundary is O(n * boundary_len): quadratic for large bodies",
+  "description": "mime_parser.rs split_on_boundary calls body.starts_with(delimiter) at every byte offset in a loop, making the scan O(n * boundary.len()). For a 1 MB body with a 70-byte boundary this is ~70M comparisons. Replace with memchr::memmem::find_iter (already a transitive dep via reqwest/hyper) or std::str::find on the string slice. This is the hot path for any multipart article.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:37:20Z",
+  "updated_at": "2026-05-01T04:55:10Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:37:20"
+    }
+  ]
+}

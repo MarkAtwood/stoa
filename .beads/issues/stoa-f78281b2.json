@@ -1,0 +1,20 @@
+{
+  "id": "stoa-f78281b2",
+  "title": "SEC-R2: round-2 summary \u2014 3 of 4 fixes correct",
+  "description": "Security review round 2 of fixes c3z.2, c3z.4, c3z.6, c3z.8.\n\nc3z.2 PASS: Sieve admin start_sieve_admin_server matches transit check_admin_config exactly. is_loopback_addr is a verbatim copy (IPv6 bracket handling, localhost fallback). All four branches correct. Test coverage complete.\n\nc3z.4 PASS: Sentinel cache cleared by all three mutation endpoints (put_script line 251, delete_script line 271, activate_script line 292). Each clears only on success. Tests at lines 675, 700, 727 cover all three.\n\nc3z.6 PASS: node_id validation checks len != 16 then hex::decode; a 16-char non-hex string correctly returns ConfigError::Validation. Both checks required and present.\n\nc3z.8 PARTIAL: core_pool is passed to build_stats_json where it is used only for SELECT COUNT(*) FROM msgid_map \u2014 read-only, correct. However the /log-tip endpoint (build_log_tip_json) is called with transit_pool (line 264) and queries a 'group_log' table that does not exist in either migration set. Filed as stoa-c4a48573.2.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T14:12:46Z",
+  "updated_at": "2026-05-01T05:01:04Z",
+  "closed_at": "2026-04-22T14:20:41Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-c4a48573",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 07:12:46"
+    }
+  ]
+}

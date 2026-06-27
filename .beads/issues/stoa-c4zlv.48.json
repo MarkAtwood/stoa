@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T19:17:24Z",
+  "compaction_level": 0,
+  "content_hash": "cb2ba729e455fc53e1c7a8b95007839dad36705179a0a93577348d6bf665d106",
+  "created_at": "2026-05-01T15:20:25Z",
+  "created_by": "Mark Atwood",
+  "description": "In relay_client.rs, validate_address_for_rcpt strips CR and LF via str::replace rather than returning an error. The MAIL FROM validation correctly rejects addresses containing '\\r' or '\\n', but RCPT TO silently removes them. An attacker who controls the recipient address can inject CRLF sequences that survive into the SMTP DATA stream or subsequent commands once the replace is applied, leading to header injection or SMTP command injection against the downstream relay.\n\nTrigger: pass an RCPT TO address containing '\\r' or '\\n' characters to the relay client.\n\nFix: mirror the MAIL FROM check \u2014 return a validation error if the address contains '\\r' or '\\n' before any processing, instead of calling replace.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.48",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "smtp: RCPT TO strips CR/LF instead of rejecting",
+  "updated_at": "2026-05-01T19:17:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:20:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "54a803dd-4c63-5d8b-aed5-e5b49c095067",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "stoa-9955926c",
+  "title": "timing-safe dummy-hash at matching cost is the correct approach \u2014 do not simplify",
+  "description": "The DECISION (rbe3.81) comment in check() is exactly right and worth keeping. A future contributor might 'simplify' by returning false early for missing users (it's just an if-let). The comment names the exact timing oracle, explains the dummy hash cost must track production cost, and explicitly instructs not to add an early return. This is the correct defence against username enumeration via timing; the comment is load-bearing documentation.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T18:46:59Z",
+  "updated_at": "2026-05-01T04:58:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ae2d63c7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 11:46:58"
+    }
+  ]
+}

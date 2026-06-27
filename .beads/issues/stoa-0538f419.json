@@ -1,0 +1,12 @@
+{
+  "id": "stoa-0538f419",
+  "title": "R5 epic: round-5 fix batch",
+  "description": "Fix all genuine P1/P2 findings from the round-4 review. Covers: Sieve CRLF injection, handle_group_live unknown group 411, blacklist predicate, hardcoded Date header regression, unbounded read_line in peering, verify_entry codec check, reconcile bounds, entry_count semantics, admin read_line timing, cmd_gc_run dummy meta, empty MIME boundary, AUTHINFO TLS guard.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T16:11:15Z",
+  "updated_at": "2026-05-01T04:54:24Z",
+  "closed_at": "2026-04-22T18:56:45Z"
+}

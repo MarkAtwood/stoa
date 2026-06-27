@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T16:21:18Z",
+  "compaction_level": 0,
+  "content_hash": "fa0d342d808aa24e49acd475e162262d113c9eaca547007611b1419862d16f15",
+  "created_at": "2026-05-01T15:20:11Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: in peering/pipeline.rs run_pipeline(), a block is written to IPFS successfully, then sqlx INSERT into msgid_map fails (DB lock, constraint error, etc.). Bad behavior: the IPFS block exists with no articles table row and no GC tracking entry. The block is never GC'd (no pinned_cids row, no articles row), leaking storage indefinitely. The message-ID cannot be served, but the CID remains pinned and occupies IPFS storage forever.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.39",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "run_pipeline orphans IPFS block when msgid_map insert fails",
+  "updated_at": "2026-05-01T16:21:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:20:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "966e97eb-dec1-5d1f-be1f-1e5d0a76be43",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

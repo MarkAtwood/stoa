@@ -1,0 +1,20 @@
+{
+  "id": "stoa-b0541b7d",
+  "title": "activitypub: is_valid_group_name duplicates feed::validate_group_name with different rules",
+  "description": "Why this issue exists: crates/mail/src/activitypub/mod.rs defines is_valid_group_name and crates/mail/src/feed.rs defines validate_group_name. These two functions validate group names with subtly different rules. Having two implementations of the same concept risks divergence and inconsistent rejection behavior at different entry points.\n\nWhat needs to be done: Consolidate into a single canonical group name validator in a shared location (e.g. a mail crate utility module or stoa-core). Both activitypub and feed modules should call the same function.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:28:29Z",
+  "updated_at": "2026-05-01T04:58:38Z",
+  "closed_at": "2026-04-28T21:02:29Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:28:28"
+    }
+  ]
+}

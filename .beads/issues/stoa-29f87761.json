@@ -1,0 +1,20 @@
+{
+  "id": "stoa-29f87761",
+  "title": "config.example.toml uses non-existent allow_non_loopback key",
+  "description": "The example configs (crates/transit/config.example.toml line 31 and crates/reader/config.example.toml line 17) both contain a commented line '# allow_non_loopback = false' \u2014 but this field does not exist in AdminConfig for transit or reader. The transit AdminConfig has 'bearer_token'; the reader AdminConfig has 'admin_token'. An operator who uncomments this line gets a silent parse error or it is silently ignored by serde, while the field documentation in docs/ops/configuration_reference.md, docs/architecture.md, docs/debugging.md, and docs/spikes/admin_auth_options.md all describe this knob as if it were real. This means an operator who follows the docs and sets allow_non_loopback = true to expose the admin endpoint gets no error but also no actual opt-in \u2014 the non-loopback enforcement silently applies the real guard (bearer_token/admin_token check), while the operator believes they have opted in to unauthenticated access. Maintenance consequence: every docs update touching admin config must stay in sync with a field that does not exist, and any contributor who adds it will create an actual security bypass.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:08:54Z",
+  "updated_at": "2026-05-01T04:53:45Z",
+  "closed_at": "2026-04-27T02:36:11Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:08:54"
+    }
+  ]
+}

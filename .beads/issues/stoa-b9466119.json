@@ -1,0 +1,21 @@
+{
+  "id": "stoa-b9466119",
+  "title": "LMDB block store backend",
+  "description": "Implement LmdbBlockStore using LMDB (Lightning Memory-Mapped Database) as a block store backend. LMDB is memory-mapped, ACID, and has extremely fast read performance \u2014 well suited to the newsreader workload (high read, moderate write).\n\nDepends on: stoa-5c9f1a38 (pluggable backend selector).\n\n## Why\n\nLMDB's memory-mapped architecture means reads are effectively a `memcpy` from a mapped file. No serialization, no user/kernel boundary crossing for reads after the first page fault. For a newsreader serving hundreds of concurrent `ARTICLE` commands, this is meaningful. The `heed` crate provides idiomatic safe Rust bindings.\n\n## What needs doing\n\n- Add `heed` crate to Cargo.toml (LMDB bindings; links against system liblmdb or bundles it)\n- Add `[backend.lmdb]` config section: `path` (directory for the LMDB environment), `map_size_gb` (virtual address space reservation; default 1 TB on 64-bit \u2014 does not pre-allocate disk)\n- Implement `LmdbStore: IpfsStore` and `LmdbBlockStore: IpfsBlockStore`\n  - One named database: `blocks`, key = CID bytes (`Cid::to_bytes()`), value = raw block bytes\n  - `put`: `txn.put(db, &cid_bytes, &data, PutFlags::NO_OVERWRITE)` \u2014 idempotent\n  - `get`: `txn.get(db, &cid_bytes)` \u2014 zero-copy read from mapped memory\n  - `delete`: `txn.delete(db, &cid_bytes)` \u2014 for GC\n  - delete returns DeletionOutcome::Immediate \u2014 key is removed as soon as the write transaction commits; get() returns NotFound immediately\n- IPNS: disable\n- Startup: open or create the environment; verify map_size is sufficient; emit warning if approaching 80% of map_size\n- Note: LMDB write transactions are exclusive; concurrent writes serialize automatically\n\n## GC / delete semantics\n\nDeletionOutcome::Immediate. LMDB write transactions are synchronous. No grace period. The article is inaccessible as soon as the transaction commits. Note: LMDB does not immediately return freed pages to the OS \u2014 the data file does not shrink until the environment is compacted (mdb_copy or a compact-on-open flag). This is a storage accounting concern, not a data accessibility concern.\n\n## Acceptance criteria\n- Round-trip test using a tempdir environment\n- Concurrent read test: 10 tokio tasks reading the same CID simultaneously with no contention errors\n- Map size test: confirm startup fails with a clear error if the directory is not writable\n- delete() removes the key; get() returns NotFound immediately after\n- delete() on a CID that does not exist returns Ok(DeletionOutcome::Immediate) without error (idempotent)",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T16:17:39Z",
+  "updated_at": "2026-05-01T05:00:06Z",
+  "closed_at": "2026-04-24T16:00:44Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5c9f1a38",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 09:18:14"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Removed DnsTxtNotFound variant from MtaStsError enum and its Display match arm. lookup_mta_sts_txt returns Ok(None) for absent records; the variant was never constructed anywhere.",
+  "closed_at": "2026-05-02T23:40:37Z",
+  "compaction_level": 0,
+  "content_hash": "9359805f2fc74bd1fd02c27e40056727f43938eeb9441d28220ee4ce583e1c53",
+  "created_at": "2026-05-02T23:07:52Z",
+  "created_by": "Mark Atwood",
+  "description": "mta_sts_error.rs defines DnsTxtNotFound but lookup_mta_sts_txt returns Ok(None) for a missing record, not Err(DnsTxtNotFound). Callers pattern-match on Ok(None) to mean 'no record'. The variant is never constructed anywhere. A maintainer who adds a new caller using DnsTxtNotFound will get no compiler pushback and will introduce a logic error (treating Ok(None) as the error path). Delete the variant or document clearly why it exists.",
+  "ephemeral": 0,
+  "id": "stoa-wfcj7.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MtaStsError::DnsTxtNotFound variant is dead code \u2014 never returned",
+  "updated_at": "2026-05-02T23:40:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T16:07:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-wfcj7",
+      "id": "4206c0f3-3c3e-56de-ad29-6ef253edabac",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

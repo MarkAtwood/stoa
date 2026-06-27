@@ -1,0 +1,20 @@
+{
+  "id": "stoa-c436958c",
+  "title": "audit flush_buffer double-counts dropped events on commit failure",
+  "description": "In audit.rs flush_buffer: when individual INSERTs fail (failed_count > 0) AND tx.commit() also fails, the failed-insert events are counted twice \u2014 once in the per-INSERT loop (increments AUDIT_EVENTS_DROPPED by failed_count) and again in the commit-failure branch (adds buffer.len() to AUDIT_EVENTS_DROPPED). Trigger: disk-full mid-transaction where some row INSERTs fail before the commit attempt.",
+  "status": "in_progress",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:36:22Z",
+  "updated_at": "2026-05-01T04:56:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:36:22"
+    }
+  ]
+}

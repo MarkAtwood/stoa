@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T13:50:29Z",
+  "compaction_level": 0,
+  "content_hash": "2ff6ad407c74fbfad2747a50c84160808829aa582ced324ef5d81184e907278a",
+  "created_at": "2026-05-03T13:01:42Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_nntp_search() checks ctx.selected_group directly (returns 412 if None) before checking ctx.state. However run_command_loop dispatches SEARCH only after the Authenticating state gate. A session in Active state (authenticated, no group selected) that sends SEARCH gets the group check in handle_nntp_search, which is correct. But the CAPABILITIES response unconditionally advertises SEARCH regardless of whether a group is selected or even whether search is configured (stores.search_index may be None). RFC 3977 requires that extensions advertised in CAPABILITIES must be usable in the current state. Advertising SEARCH when search_index is None misleads clients into repeated 503 responses.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SEARCH advertised in CAPABILITIES but bypass group check possible",
+  "updated_at": "2026-05-03T13:50:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:01:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "01476e09-0814-5455-a181-03189f6cce33",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

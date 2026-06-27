@@ -1,0 +1,27 @@
+{
+  "id": "stoa-8174e46c",
+  "title": "mail: Mailbox/query implementation",
+  "description": "Implement Mailbox/query in crates/mail/src/mailbox/query.rs: return all mailbox ids (from article_numbers list_groups), support filter by isSubscribed, support sort by name or sortOrder. Return QueryResponse with ids list, position, total, queryState.\\n\\nWhy: clients use Mailbox/query to enumerate mailboxes, often filtering to subscribed-only.\\n\\nAcceptance: Mailbox/query with no filter returns all groups; Mailbox/query with isSubscribed=true returns only subscribed groups.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T03:38:36Z",
+  "updated_at": "2026-05-01T04:52:44Z",
+  "closed_at": "2026-04-21T04:01:57Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ca329cff",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 20:40:43"
+    },
+    {
+      "depends_on_id": "stoa-fb535c0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 20:40:43"
+    }
+  ]
+}

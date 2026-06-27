@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T23:08:19Z",
+  "compaction_level": 0,
+  "content_hash": "00ec4687fa25c331535a6b22d8446f8dc77cafd2286f7ea41a3c841efc66d4c1",
+  "created_at": "2026-05-03T23:00:50Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement the JmapBackend trait on JmapStores (or a wrapper). Required methods: account_exists, get_objects::<Email|Mailbox|Thread>, get_state::<Email|Mailbox|Thread>, get_changes::<Email|Mailbox>, query_objects::<Email|Mailbox>, query_changes::<*> (stub cannotCalculateChanges). Move domain logic from route_method arms into these methods. Belongs to epic stoa-z8tz8.",
+  "ephemeral": 0,
+  "id": "stoa-zbpvn",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Implement JmapBackend for JmapStores",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T16:00:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-3yxmk",
+      "id": "fd156cba-4443-5cdd-b03b-1f876d32ab48",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

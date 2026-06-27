@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "3d62a577588d0e0d75ddf00f2aad04e41b5ed6596862196adea50e4b8c1b7210",
+  "created_at": "2026-05-04T03:19:25Z",
+  "created_by": "Mark Atwood",
+  "description": "rnews_main.rs:208: the line 'let mut hlc = hlc;' immediately shadows the immutable binding from the block above with a mutable one. This is a code smell that signals the HLC initialisation block should itself produce a mut binding, or the block should be a function.\n\nThe comment on line 207 ('The HLC is owned locally; each article gets a timestamp via send()') tries to explain why mutability is needed, but the rebind forces a reader to track two bindings for the same value.\n\nSuggested approach: either declare the result binding as 'let mut hlc = { ... };' inside the existing block, or factor HLC initialisation into a helper 'async fn init_hlc(...) -> HlcClock' that returns the value, and bind it directly as 'let mut hlc = init_hlc(...).await;'.",
+  "ephemeral": 0,
+  "id": "stoa-tlvh9.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "redundant let mut hlc = hlc rebind in rnews_main",
+  "updated_at": "2026-05-04T03:19:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T20:19:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-tlvh9",
+      "id": "66a3e110-4a67-5645-837f-654485bc4954",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

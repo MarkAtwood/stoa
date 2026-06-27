@@ -1,0 +1,20 @@
+{
+  "id": "stoa-26f8fc3a",
+  "title": "extract_message_id should return Option<String> not empty String sentinel",
+  "description": "queue.rs extract_message_id returns String::new() when no Message-Id header is found (line 61). Using an empty string as a sentinel value for 'not present' is stringly-typed: callers cannot distinguish 'header present with empty value' from 'header absent'. The idiomatic type is Option<String>. Callers in drain_once use it only in log format strings, so unwrap_or_default() or unwrap_or_else(|| \"(none)\".to_owned()) at each call site is low friction and makes absence explicit.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:16:49Z",
+  "updated_at": "2026-05-01T04:52:44Z",
+  "closed_at": "2026-05-01T00:26:11Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5be7a2c5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:16:48"
+    }
+  ]
+}

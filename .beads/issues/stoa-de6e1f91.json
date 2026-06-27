@@ -1,0 +1,20 @@
+{
+  "id": "stoa-de6e1f91",
+  "title": "Startup probe race: two instances, same pool causes startup failure",
+  "description": "RadosStore::open writes and deletes '_stoa_write_probe'. If two stoa-transit instances start simultaneously against the same pool, both write the probe, then both try to delete it. The second delete gets ENOENT -> error 'RADOS pool X probe cleanup failed' -> startup failure. Fix: ignore ENOENT on probe cleanup (delete succeeding or already gone both mean the pool is writable), or use a randomized probe name.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T04:33:47Z",
+  "updated_at": "2026-05-01T05:00:22Z",
+  "closed_at": "2026-04-28T04:39:25Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3e19dbfc",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-27 21:33:46"
+    }
+  ]
+}

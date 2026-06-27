@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T14:35:54Z",
+  "compaction_level": 0,
+  "content_hash": "66e4e399b8287be2032c214ceb687c774ea4b1054b962ec71015bcb0eaea23d8",
+  "created_at": "2026-05-03T13:05:23Z",
+  "created_by": "Mark Atwood",
+  "description": "validation.rs has inline step comments numbered 1, 2, 3, 6, 7 (steps 4 and 5 are missing). A maintainer adding a validation step must guess where to insert it relative to the gap. Either renumber sequentially or remove step numbers from comments and use descriptive labels instead.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.74",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "core: validate_article_ingress step numbering skips from step 3 to step 6 in comments",
+  "updated_at": "2026-05-03T14:35:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "93b1a7fe-f44e-57e8-8782-d66ed5e21320",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

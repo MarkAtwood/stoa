@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "cargo test -p stoa-core -- env tests pass; RuntimeEnvironment exported from stoa_core; Production is default when STOA_ENV unset",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T07:45:58Z",
+  "compaction_level": 0,
+  "content_hash": "8acfa24ff88535053623fc0726a0d1786eb701b0c7529f63f05cf4e4c75ea208",
+  "created_at": "2026-05-04T06:31:48Z",
+  "created_by": "Mark Atwood",
+  "description": "## What\nCreate a RuntimeEnvironment enum in stoa_core with Production/Development/Test variants and a from_env() constructor that reads STOA_ENV. Production is the fail-safe default.\n\n## Algorithm\n1. Create crates/core/src/env.rs.\n2. Define:\n   pub enum RuntimeEnvironment { Production, Development, Test }\n   impl RuntimeEnvironment {\n     pub fn from_env() -> Self {\n       match std::env::var('STOA_ENV').as_deref() {\n         Ok('development') | Ok('dev') => Self::Development,\n         Ok('test') => Self::Test,\n         _ => Self::Production,  // fail-safe default\n       }\n     }\n     pub fn is_dev(&self) -> bool { matches!(self, Self::Development | Self::Test) }\n     pub fn as_str(&self) -> &'static str { ... }\n   }\n   impl Display for RuntimeEnvironment { ... }\n3. Add pub mod env; and pub use env::RuntimeEnvironment; to crates/core/src/lib.rs.\n4. cargo fmt --all; cargo clippy clean; cargo test clean.\n\n## Defensive programming rules\n- NEVER unwrap() the env var; use .as_deref() + match.\n- The match _ arm MUST be Production (not Development) \u2014 production is the fail-safe default.\n- No key material touched; no logging in this module.\n\n## Tests (in crates/core/src/env.rs)\n- test_default_is_production: with STOA_ENV unset \u2192 Production. Oracle: fail-safe default spec in epic.\n- test_development_variants: STOA_ENV=development \u2192 Development; STOA_ENV=dev \u2192 Development. Oracle: epic description.\n- test_test_variant: STOA_ENV=test \u2192 Test. Oracle: epic description.\n- test_unknown_is_production: STOA_ENV=staging \u2192 Production (unknown = fail-safe). Oracle: fail-safe default.\n- test_is_dev: Development.is_dev() == true; Production.is_dev() == false; Test.is_dev() == true. Oracle: definition.\nUse std::env::set_var / remove_var in tests (serialize with #[serial_test::serial] if that dep exists, else use individual test binaries or accept the env var isolation strategy).",
+  "ephemeral": 0,
+  "id": "stoa-90tpd.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "core: RuntimeEnvironment enum + STOA_ENV reader",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T23:31:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-90tpd",
+      "id": "ee57a2b8-9fc2-5027-85d6-a8027cf32ba6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

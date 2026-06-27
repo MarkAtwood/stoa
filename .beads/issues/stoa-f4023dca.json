@@ -1,0 +1,21 @@
+{
+  "id": "stoa-f4023dca",
+  "title": "mail: SQLite migrations (users, subscriptions, user_flags)",
+  "description": "Create crates/mail/migrations/ with three tables: (1) users: id INTEGER PK, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL; (2) subscriptions: user_id INTEGER, group_name TEXT, subscribed_at INTEGER, PRIMARY KEY (user_id, group_name); (3) user_flags: user_id INTEGER, article_cid BLOB, seen INTEGER DEFAULT 0, flagged INTEGER DEFAULT 0, PRIMARY KEY (user_id, article_cid). Add run_migrations(pool) using sqlx::migrate!\\n\\nWhy: per-user state must be schema-defined before any user-state or subscription logic is implemented.\\n\\nAcceptance: migrations run cleanly on a fresh in-memory SQLite pool.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T03:37:55Z",
+  "updated_at": "2026-05-01T04:59:44Z",
+  "closed_at": "2026-04-21T03:52:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-2b09db6a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 20:40:24"
+    }
+  ]
+}

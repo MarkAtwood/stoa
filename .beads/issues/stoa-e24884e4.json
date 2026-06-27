@@ -1,0 +1,20 @@
+{
+  "id": "stoa-e24884e4",
+  "title": "GOOD: TAKETHIS article too large drains stream before rejecting",
+  "description": "peering/session.rs read_dot_stuffed() handles oversized articles correctly: when the byte limit is exceeded, it switches to drain mode (reading without accumulating) until the dot-terminator is found, then returns TooLarge. The NNTP connection is left in a coherent state and the session can send a 437/439 rejection and continue. The alternative \u2014 closing the connection or failing to drain \u2014 would break the streaming protocol and prevent the session from processing subsequent articles. The same drain pattern is applied in both IHAVE and TAKETHIS handlers, and the comment explicitly documents that the connection is still valid after a too-large rejection.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T13:53:32Z",
+  "updated_at": "2026-05-01T04:56:11Z",
+  "closed_at": "2026-04-22T14:09:58Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b816309",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 06:53:31"
+    }
+  ]
+}

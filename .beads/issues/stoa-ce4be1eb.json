@@ -1,0 +1,21 @@
+{
+  "id": "stoa-ce4be1eb",
+  "title": "looks_like_bcrypt_hash re-exported from reader::config \u2014 accidental public API",
+  "description": "reader/src/config.rs has 'pub use stoa_auth::looks_like_bcrypt_hash;' \u2014 this makes looks_like_bcrypt_hash part of the stoa-reader crate's public API surface, not just stoa-auth's. If a downstream crate imports it from stoa_reader::config, any future rename or removal of the re-export is a breaking change to stoa-reader even if stoa-auth retains it. The function is used internally by reader::config::validate() and does not need to be pub in the reader module. The test file that uses it directly imports from stoa_auth. Remove the pub use; internal callers use stoa_auth::looks_like_bcrypt_hash directly.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:03:16Z",
+  "updated_at": "2026-05-01T04:52:25Z",
+  "closed_at": "2026-04-30T19:12:58Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-cdbe09c1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 12:03:16"
+    }
+  ]
+}

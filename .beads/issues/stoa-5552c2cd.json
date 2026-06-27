@@ -1,0 +1,20 @@
+{
+  "id": "stoa-5552c2cd",
+  "title": "SEC7 calibration: round 1",
+  "description": "SEC7 calibration verdict for IMAP4rev2 (drrd) review round 1.\n\n## Issues by priority\n\nP1 (1 issue):\n- x7ki.11: imap-types and imap-codec alpha versions not pinned with = constraint. Cargo SemVer rules for pre-release allow a future alpha to be pulled in by cargo update. Real engineering risk, not opinion.\n\nP2 actionable (4 issues):\n- x7ki.16: select_untagged_data always emits RECENT even when IMAP4rev2 is enabled. RFC 9051 \u00a77.3.2 removes RECENT in IMAP4rev2 mode. Real protocol conformance bug. No existing test exercises SELECT after ENABLE IMAP4rev2. Must be fixed before this epic is considered convergent.\n- x7ki.7: format!(\"{cap}\") string dispatch fragility \u2014 if imap-types Display impl changes, ENABLE becomes a silent no-op. Real regression risk, warrants a comment and migration TODO.\n- x7ki.3: Missing upgrade comments at try_from(\"IMAP4rev2\") sites. Real maintainability issue; code will bitrot without a grep anchor.\n- x7ki.17: Silent clamp of max_command_size with no log warning. Real ops diagnosis issue.\n\nP2 decisions (6 issues):\n- x7ki.1, x7ki.2, x7ki.4, x7ki.10, x7ki.14, x7ki.19: Design decisions recorded and verified correct. No action items.\n\nP3 elegance (5 issues):\n- x7ki.5: handle_enable returns bool causing second hardcoded literal and format! alloc. DRY violation. Real engineering basis (two IMAP4rev2 strings must stay in sync).\n- x7ki.8: 5-site try_from duplication with inconsistent .expect() messages. Real DRY issue.\n- x7ki.18: TLS session setup duplicated 3x in e2e tests. Real test-code duplication.\n- x7ki.13: Efficiency review found no actionable issues.\n- x7ki.20: handle_enable narrow signature confirmed correct.\n\nP4 readability (4 issues):\n- x7ki.6, x7ki.9: Explain try_from and format! at call sites. Largely overlap P2 x7ki.3 and x7ki.7 but with specific line-level focus. Real contributor confusion risk.\n- x7ki.12: Comment bcrypt cost=4 in test helper. Genuine potential confusion.\n- x7ki.15: Misplaced rustdoc comment between clamp_u32 and get_or_create_uidvalidity. rustdoc will attribute the opening sentence to the wrong function. Real tooling correctness issue.\n\n## Opinion label assessment\n\nNone of the P3/P4 items qualify as pure stylistic preference with no engineering basis. All have real engineering justification (DRY, sync risk, rustdoc correctness, contributor confusion from unexplained workarounds). No opinion labels applied.\n\n## Correctness bugs\n\nSEC0 (or another agent) filed x7ki.16: select_untagged_data RECENT conformance bug. This is the only correctness bug in scope. It must be fixed before this review is considered converged.\n\n## Verdict\n\nNOT converged. x7ki.16 is a real protocol conformance bug requiring a code fix. After that fix is landed, the remaining open items (x7ki.11, x7ki.3, x7ki.7, x7ki.17) are maintainability/risk tasks appropriate for a follow-up wave. Confidence in missed bug beyond x7ki.16: 15%. The review is thorough.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:27:15Z",
+  "updated_at": "2026-05-01T04:55:39Z",
+  "closed_at": "2026-04-30T02:51:25Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9d37d25b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:27:14"
+    }
+  ]
+}

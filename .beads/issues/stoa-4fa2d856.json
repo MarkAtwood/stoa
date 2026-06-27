@@ -1,0 +1,20 @@
+{
+  "id": "stoa-4fa2d856",
+  "title": "build_credential_store inner/outer split preserves structured errors at module boundary",
+  "description": "In imap/main.rs and reader/server_stores.rs, build_credential_store_inner returns BuildStoreError (matchable) while build_credential_store converts to String for the startup boundary. This pattern is correct: within the module errors remain structured and testable; at the startup boundary they become human-readable strings. Do not collapse to a single function returning String \u2014 that would lose the From<CredentialStoreError> auto-conversion.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T20:32:06Z",
+  "updated_at": "2026-05-01T04:51:40Z",
+  "closed_at": "2026-04-30T20:33:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-44ba837b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:32:05"
+    }
+  ]
+}

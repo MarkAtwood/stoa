@@ -1,0 +1,13 @@
+{
+  "id": "stoa-4d187b90",
+  "title": "R15: Sieve delivery refactor and privacy fix",
+  "description": "Two smtp P3 fixes: ryw.15 (standardize 550 text for multi-recipient Sieve reject to avoid leaking recipient identity to sender), ryw.14 (extract 100-line sieve delivery block from DATA handler into a dedicated async function for readability and testability).",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T00:30:06Z",
+  "updated_at": "2026-05-01T04:56:12Z",
+  "closed_at": "2026-04-23T00:34:10Z"
+}

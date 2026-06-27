@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T18:22:07Z",
+  "compaction_level": 0,
+  "content_hash": "ec3e1223f24a724140e463b970a125be3220dba4dba7488010a2bf86ed9c09c3",
+  "created_at": "2026-05-01T15:19:31Z",
+  "created_by": "Mark Atwood",
+  "description": "In inbox.rs handle_create, dedup_key precedence is: activity_id (activity.id) \u2192 note_id (activity.object.id) \u2192 SHA-256 of JSON. When activity.id is absent and activity.object.id is present, the Note id is used as the dedup key. However, the same Note can appear in different Create activities (Mastodon re-delivers on federation errors). Using the Note id as the dedup key would correctly deduplicate, but using the SHA-256 of the full Create activity JSON (the fallback) would NOT deduplicate across re-deliveries of the same note in different wrapper activities. The SHA-256 fallback should be of the Note object, not the full activity.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.30",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "activitypub_received dedup uses activity id for Create, but Note id for fallback",
+  "updated_at": "2026-05-01T18:22:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:19:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "643b922c-91d3-5237-aba8-d595dcf2baae",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

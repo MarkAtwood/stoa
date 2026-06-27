@@ -1,0 +1,19 @@
+{
+  "id": "stoa-f540b1c6",
+  "title": "GOOD: hlc_persist uses INSERT ON CONFLICT DO UPDATE \u2014 idempotent checkpoint upsert",
+  "description": "hlc_persist.rs: save_hlc_checkpoint uses INSERT ... ON CONFLICT(id) DO UPDATE SET ... for the single-row hlc_checkpoint table. This is idempotent \u2014 calling it multiple times with the same data is safe, and a first-run (no row yet) is handled without a separate INSERT path. The fallibility is propagated to the caller which logs the error but does not abort the daemon. Decision: correct upsert pattern for a single-row config/state table.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:50:18Z",
+  "updated_at": "2026-05-01T04:54:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:50:18"
+    }
+  ]
+}

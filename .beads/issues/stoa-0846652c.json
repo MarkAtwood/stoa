@@ -1,0 +1,20 @@
+{
+  "id": "stoa-0846652c",
+  "title": "Test helper whitelist_check missing to_ipv4_mapped vs to_ipv4 rationale comment",
+  "description": "config.rs test helper whitelist_check (around line 800): uses to_ipv4_mapped() but only has the RFC reference comment. The production code in session.rs lines 177-178 has the full explanation of WHY to_ipv4_mapped() is used instead of to_ipv4() (the latter also matches deprecated IPv4-compatible addresses). A developer reading only the test helper would not have that context and might simplify it to to_ipv4() in a future refactor, introducing a bug. Fix: add the same explanatory note to the test helper.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:48:38Z",
+  "updated_at": "2026-05-01T04:58:52Z",
+  "closed_at": "2026-04-30T15:57:21Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b4887c1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:48:38"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "stoa-38f995ce",
+  "title": "warn! level used for successful startup cleanup is misleading",
+  "description": "cleanup_tmp_files logs 'relay queue: removed orphan tmp file from previous crash' at warn! level (line 218) for successful deletion. A successful cleanup operation \u2014 the crash-recovery path working as designed \u2014 should be logged at info! level. warn! implies something is wrong and requires attention; info! communicates 'system recovered correctly, here is what it found'. Operators monitoring warn logs will get false alerts on normal startup-after-crash.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:19:00Z",
+  "updated_at": "2026-05-01T04:59:16Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-81b33f87",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:19:00"
+    }
+  ]
+}

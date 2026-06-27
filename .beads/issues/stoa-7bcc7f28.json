@@ -1,0 +1,20 @@
+{
+  "id": "stoa-7bcc7f28",
+  "title": "wildmat: no fast path for trivial * pattern",
+  "description": "matches_wildmat runs the full O(n*m) DP and allocates a 2D Vec even when the pattern is literally '*', which should immediately return true. This matters in list_active and list_newsgroups (reader/src/session/commands/list.rs): a client sending 'LIST ACTIVE *' (extremely common) causes one full DP allocation per group in the server's group list. On a full Usenet feed with 100,000 groups, that is 100,000 avoidable DP runs per LIST command. Fix: in wildmat_match, add a leading check -- if pattern == b\"*\" return true immediately. Optionally extend to leading/trailing star normalization. This is a single-line guard at the top of wildmat_match that eliminates all allocation for the most common LIST pattern.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:30:11Z",
+  "updated_at": "2026-05-01T05:00:15Z",
+  "closed_at": "2026-04-27T00:43:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:30:10"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "id": "stoa-f8b6cfbb",
+  "title": "usenet-ipfs-mail: JMAP daemon for mail-client access to Usenet content",
+  "description": "Why: standard newsreader clients (slrn, tin, Thunderbird NNTP mode) are well served by usenet-ipfs-reader. But mobile mail clients (iOS Mail, Android Gmail, Fastmail) and modern web clients have no NNTP support and are adding JMAP (RFC 8620/8621). A JMAP interface over the same IPFS article store would let any mail client browse Usenet groups without modification.\n\nWhy JMAP and not IMAP: JMAP is HTTP/JSON, cleaner to implement, naturally content-addressed (blobId maps to CID), and has a push model (SSE/WebSocket) rather than IMAP IDLE. Mobile clients are gaining JMAP support. IMAP adds ~100-command protocol complexity and long-lived stateful TCP connections with no corresponding benefit over JMAP.\n\nWorkspace addition: new crate usenet-ipfs-mail (bin + lib), imports usenet-ipfs-core for IPFS block access, MsgIdMap, group log. Has its own SQLite tables for per-user state. Does NOT share process or port with usenet-ipfs-reader.\n\nKey mapping decisions (to be designed in sub-issues):\n  - Newsgroup -> JMAP Mailbox object\n  - Article -> JMAP Email object\n  - Article CID -> JMAP blobId (content-addressed, stable)\n  - Per-user flags (\\Seen, \\Flagged) -> new user_flags SQLite table (not in core)\n  - POST via JMAP Email/set create -> signs and writes to IPFS via core pipeline\n  - Group subscription -> per-user Mailbox subscriptions table\n\nExplicitly out of scope for this epic: IMAP, POP3, ActiveSync, proprietary push APIs.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T23:31:26Z",
+  "updated_at": "2026-05-01T04:52:38Z",
+  "closed_at": "2026-04-21T04:15:02Z",
+  "notes": "Deferred: implement only after usenet-ipfs-reader and usenet-ipfs-transit are stable and the HeaderMapNode schema (stoa-1c76e14c) is complete. The structured header map (subject, from, date as RFC 3339) makes the JMAP Email object mapping straightforward \u2014 date is already parsed, no MIME header decoding needed at the JMAP layer.",
+  "design": "Separate binary (usenet-ipfs-mail). HTTP server (axum or hyper). JMAP session endpoint per RFC 8620 \u00a72. Core session discovery at /.well-known/jmap. Email/get, Email/query, Email/set (POST only), Mailbox/get, Mailbox/query. Blob/get returns raw article bytes by CID. Per-user state in SQLite, separate from reader and transit databases. TLS via rustls (same pattern as reader).",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-41ee5fc8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 20:40:19"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "stoa-64e0254f",
+  "title": "fix(verify): X-Stoa-Verified header conflates DKIM pass with operator sig pass",
+  "description": "aggregate_status returns Some(true) if any verification passes including DKIM. Since DKIM is fully wired in both reader and transit pipelines, an article with valid DKIM but invalid X-Stoa-Sig emits X-Stoa-Verified: pass. Fix: filter to SigType::XUsenetIpfsSig only before calling aggregate_status in fetch.rs.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:38:46Z",
+  "updated_at": "2026-05-01T04:52:14Z",
+  "closed_at": "2026-04-27T05:45:24Z"
+}

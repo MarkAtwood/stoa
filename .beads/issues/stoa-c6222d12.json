@@ -1,0 +1,20 @@
+{
+  "id": "stoa-c6222d12",
+  "title": "cleanup_tmp_files: read_dir error aborts scan, leaving tmp files",
+  "description": "On a busy filesystem, a single read_dir() Err (e.g., EINTR or transient I/O error) causes the scan to break out of the loop at line 224. Any .msg.tmp/.env.tmp files listed after the failing entry are left on disk. The drain then runs without removing those orphan tmp files, which accumulate silently. Trigger: any directory entry error (EINTR, NFS stale handle, etc.) during startup scan. Bad behavior: orphan .tmp files survive restart; same file logs a warning on every subsequent startup forever.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:55:01Z",
+  "updated_at": "2026-05-01T04:58:34Z",
+  "closed_at": "2026-05-01T00:55:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-18bf2fce",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:55:00"
+    }
+  ]
+}

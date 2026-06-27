@@ -1,0 +1,12 @@
+{
+  "id": "stoa-411bf45f",
+  "title": "docs: Tor hidden service configuration note",
+  "description": "Tor hidden services require no application code changes. Configure the external Tor daemon to forward .onion ports to the server's local listener ports via torrc HiddenServiceDir and HiddenServicePort directives. The application sees normal TCP connections.\\n\\nWhat: Add a section to the operator documentation explaining how to configure a Tor hidden service in front of the NNTP, JMAP, IMAP, and SMTP listeners. Include a sample torrc snippet. Note that binding listeners to 127.0.0.1 (already the default for admin) is recommended when exposing via Tor to prevent direct clearnet access.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T02:23:54Z",
+  "updated_at": "2026-05-01T04:53:19Z",
+  "closed_at": "2026-04-23T01:02:37Z"
+}

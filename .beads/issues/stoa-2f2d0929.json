@@ -1,0 +1,33 @@
+{
+  "id": "stoa-2f2d0929",
+  "title": "Configure cargo-nextest for faster parallel test runs",
+  "description": "Add .config/nextest.toml configuring cargo-nextest: test thread count (num_cpus), test timeout per test (60s), retries for flaky tests (0 by default), junit XML output for CI. Add nextest to the CI workflow as the primary test runner. Artifact: .config/nextest.toml, CI workflow updated.\n\nAcceptance: `cargo nextest run --workspace` runs all tests; test results appear in junit XML; flaky test threshold documented; CI uses nextest",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:49:00Z",
+  "updated_at": "2026-05-01T04:57:53Z",
+  "closed_at": "2026-04-20T05:26:56Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-326b7650",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:48:59"
+    },
+    {
+      "depends_on_id": "stoa-60070901",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:53:31"
+    },
+    {
+      "depends_on_id": "stoa-fdf1ef2d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:49:53"
+    }
+  ]
+}

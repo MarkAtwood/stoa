@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "7b352c9aa25fe29f8069c9dbd6b274dd0fbd668ef273a325b71701327ffe85be",
+  "created_at": "2026-05-05T15:48:27Z",
+  "created_by": "Mark Atwood",
+  "description": "routing_mailer.rs RoutingMailer::name() returns &'static str 'routing' but the provider name seen in Prometheus metrics comes from individual route providers. The health poll loop calls route.provider.name() to key the gauge, but if two routes use providers with the same name (e.g. two smtp-relay providers for different peer sets), the gauge will be overwritten rather than disambiguated. RoutingMailer::name() also returns the constant 'routing', which is not useful in the outbound_send_total metric label when RoutingMailer is nested.",
+  "ephemeral": 0,
+  "id": "stoa-k16wb",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "smtp: RoutingMailer::start_health_poll takes Arc<Self> but name() returns static str from routes",
+  "updated_at": "2026-05-05T15:48:27Z"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "stoa-cf8b0690",
+  "title": "Config: structured per-peer table with cert pin and auth",
+  "description": "The [peers] section is a flat list of IP:port strings with no per-peer metadata:\n\n  addresses = [\"192.0.2.10:119\", \"192.0.2.20:119\"]\n\nThis cannot express cert fingerprints, expected peer identity, or per-peer auth tokens needed for TLS peering (see companion TLS issue). Replace with an array of tables:\n\n  [[peers.peer]]\n  addr = \"192.0.2.10:119\"\n  tls = true\n  cert_sha256 = \"aa:bb:cc:...\"   # pinned DER cert fingerprint\n  # auth_token = \"...\"           # optional shared secret\n\nMaintain backward-compat parse path or provide a migration note. Config validation should reject tls=true entries with no cert_sha256.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T22:33:42Z",
+  "updated_at": "2026-05-01T04:59:53Z",
+  "closed_at": "2026-04-23T01:01:52Z"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "stoa-26b32183",
+  "title": "Session state machine: explicit enum is the right design \u2014 defend it",
+  "description": "The SessionState enum with named fields (Fresh, Greeted{ehlo_domain}, Mail{..}, Rcpt{..}) correctly captures SMTP protocol sequencing. Each command handler checks valid predecessor states and sends 503 on violation. This is better than a flags-based or implicit-ordering approach because state transitions are visible and exhaustive. A contributor might suggest replacing it with a simpler state flag + Option fields 'to reduce boilerplate', which would lose the compiler-enforced invariants. Defend: the match-on-state pattern is O(1), the enum size is small, and it catches invalid sequences at compile time rather than at runtime.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T13:32:36Z",
+  "updated_at": "2026-05-01T04:54:50Z",
+  "closed_at": "2026-04-23T00:29:20Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9f393084",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 06:32:36"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "stoa-584fdb58",
+  "title": "Fail2ban-compatible auth failure logging",
+  "description": "Emit structured log events on authentication failures that fail2ban, AWS WAF, and similar tools can parse to detect and block brute-force attacks.\n\nWhy this issue exists:\nThe NNTP and JMAP services accept credentials over the network. Without structured auth failure events, operators cannot feed failures into fail2ban or WAF rules. A public-facing NNTP port will be probed; operators need tooling to respond.\n\nScope:\n- Emit a structured log event at WARN on every auth failure with fields: event=auth_failure, service=(nntp|jmap|smtp), remote_ip, username (if provided), reason=(bad_password|unknown_user|expired_token|cert_mismatch)\n- Emit event=auth_success at DEBUG with the same fields (no password/token content ever logged)\n- Emit event=auth_lockout if a configurable per-IP failure threshold is exceeded within a window (default: 10 failures in 60 seconds); this is a log event only, not an enforcement action (enforcement is the network fabric's job)\n- Provide a sample fail2ban filter file in docs/ops/ that matches the structured JSON log format\n- Log fields must be stable across releases (document them as a stable interface)\n\nAcceptance criteria:\n- Five bad passwords from the same IP within 60 seconds produces an auth_lockout log event\n- The fail2ban filter in docs/ops/ correctly matches auth_failure events in a real fail2ban test\n- No password, token, or credential content appears in any log event",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:16:56Z",
+  "updated_at": "2026-05-01T04:59:38Z",
+  "closed_at": "2026-04-27T19:54:17Z"
+}

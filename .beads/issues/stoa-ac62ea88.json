@@ -1,0 +1,28 @@
+{
+  "id": "stoa-ac62ea88",
+  "title": "Spike: evaluate sqlx compile-time query checking for this schema",
+  "description": "Evaluate whether sqlx compile-time query checking (SQLX_OFFLINE=true, sqlx prepare) is feasible for the log storage schema. Document: setup steps, CI integration, maintenance burden when schema changes, comparison to runtime-only checking. Artifact: docs/sqlx_offline.md. No production code changes.\n\nAcceptance: document covers setup, CI integration, trade-offs; concludes with a recommendation (adopt or defer); no code changes required by this issue",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:45:33Z",
+  "updated_at": "2026-05-01T04:54:58Z",
+  "closed_at": "2026-04-20T04:41:24Z",
+  "notes": "Research findings (2026-04-19):\n\nCurrent state: All three crates (core, reader, transit) use runtime sqlx::query(), sqlx::query_scalar(), and sqlx::query_as() exclusively. No compile-time query! macros are used anywhere. No .sqlx/ offline cache directory exists. No .env or DATABASE_URL configuration is present in the workspace.\n\nSqlx usage breakdown:\n- crates/core: msgid_map.rs (4 query sites), group_log/sqlite_storage.rs (9 query sites) -- separate SQLite schema for group log and message-ID mapping\n- crates/reader: store/overview.rs (2 query sites), store/article_numbers.rs (5 query sites) -- separate SQLite schema for article numbers and overview index\n- crates/transit: not yet implemented (src directory exists but no sqlx usage found)\n\nCompile-time query! requirements: DATABASE_URL env var must point to a live SQLite database with all migrations applied at build time. With three crates having separate schemas, this means three separate databases, three separate DATABASE_URL configs, or a combined schema database -- none of which is straightforward. The sqlx offline cache (.sqlx/) approach would require running sqlx prepare per crate after every schema migration, and checking in the generated metadata. CI would need to set up databases before cargo build runs.\n\nTradeoffs:\n- Benefits of query!: column type errors caught at compile time; IDE autocomplete; .get(0) mismatches caught before runtime\n- Costs: DATABASE_URL complexity per crate; sqlx prepare step in dev workflow; migration discipline required before adding any query; early-stage schemas change frequently\n- Current runtime approach: working, all tests pass, explicit column indices/types are readable\n\nRecommendation: Keep runtime sqlx::query() for now. Revisit when schema is stable (post-v1 milestone) and CI infrastructure is mature enough to maintain per-crate databases.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9233c63e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:45:33"
+    },
+    {
+      "depends_on_id": "stoa-ca890f11",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:49:17"
+    }
+  ]
+}

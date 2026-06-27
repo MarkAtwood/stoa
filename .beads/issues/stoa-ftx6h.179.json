@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "be05705065a51feef1271a627c7d27eb1bcdb428eb6b710af181264bad3e9a00",
+  "created_at": "2026-05-03T13:10:05Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: deprecated API calls produce compiler warnings, and the replacement API (DateTime::from_timestamp_millis) is more semantically correct for millisecond timestamps. What: gc_report.rs ms_to_datetime calls chrono::DateTime::from_timestamp(ms / 1000, 0) which is deprecated in chrono 0.4.31+. Use DateTime::from_timestamp_millis(ms) instead, which avoids the manual division and handles leap seconds correctly.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.179",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "gc_report ms_to_datetime uses deprecated DateTime::from_timestamp",
+  "updated_at": "2026-05-03T13:10:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:10:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "fbc59644-a11a-5261-8408-564982da04b8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T17:56:09Z",
+  "compaction_level": 0,
+  "content_hash": "38d55022fad29fc0281971d2a30a406fa075fe322ea1d5c9abeb092184e6fe08",
+  "created_at": "2026-05-01T15:21:58Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: remote_pin_worker.rs submit_pending() receives RemotePinError::Unauthorized from the pinning service. It marks the individual job as 'failed' (is_fatal=true) and logs a warning, but the worker loop continues sweeping and submitting other pending jobs to the same service on the next poll cycle. Bad behavior: every subsequent article submitted to a service with an invalid API key will be attempted, fail with 401, be marked failed, and generate a warning log \u2014 indefinitely. The operator gets no clear signal to rotate the key, and the error storm fills logs.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.85",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "remote_pin_worker: Unauthorized error on submit does not stop future submissions for that service",
+  "updated_at": "2026-05-01T17:56:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:21:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "1dd8be3a-0b9d-5a1b-aacd-a7d848a81c6e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-fbdb43c6",
+  "title": "articles table insert failure leaves IPFS block GC-invisible",
+  "description": "transit/src/peering/pipeline.rs:243-254: the articles table INSERT (step 3.5) uses INSERT OR IGNORE, which is correct for duplicate CIDs. But the surrounding error handling logs a warning and continues on DB failure: if IPFS write (step 1), msgid_map insert (step 2), and log appends (step 3) all succeed, but the articles table INSERT fails due to a transient DB error, the article exists in IPFS, msgid_map, and the group log, but is invisible to GC. The block stays in IPFS indefinitely because select_gc_candidates only queries the articles table. No recovery path exists \u2014 operator must notice the tracing::warn and manually reconcile. Fix: treat articles table insert failure as a hard pipeline error (return Err), or add a startup GC reconciliation pass that re-inserts missing articles table rows by scanning the group log.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T21:40:57Z",
+  "updated_at": "2026-05-01T04:54:33Z",
+  "closed_at": "2026-04-21T22:47:20Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e38f5cd8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 14:40:56"
+    }
+  ]
+}

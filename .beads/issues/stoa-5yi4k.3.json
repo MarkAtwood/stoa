@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "REQUIRETLS inbound propagation is a larger change tracked by stoa-2xeks.24 (still open). The review confirms the gap. Deferring fix to that issue rather than implementing here.",
+  "closed_at": "2026-05-02T21:19:38Z",
+  "compaction_level": 0,
+  "content_hash": "dc69e45fb4079ccb238f7e3695b0ac8bfc1020a28e74876a99de861c53f32136",
+  "created_at": "2026-05-02T21:17:14Z",
+  "created_by": "Mark Atwood",
+  "description": "session.rs MAIL FROM handler validates has_requiretls_param() and rejects if \\!is_tls, but the require_tls flag is never stored in SessionState::Mail or SessionState::Rcpt. At DATA time the relay envelope is built without require_tls=true. RFC 8689 \u00a72: any forwarding MTA MUST propagate REQUIRETLS on onward delivery. As-is a submitting client's REQUIRETLS is silently dropped. Open stoa-2xeks.24 tracks the wiring task.",
+  "ephemeral": 0,
+  "id": "stoa-5yi4k.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "REQUIRETLS from inbound MAIL FROM not propagated to relay envelope",
+  "updated_at": "2026-05-02T21:19:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:17:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-5yi4k",
+      "id": "15a4be9d-e325-53e4-8563-09d6f97f95f8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

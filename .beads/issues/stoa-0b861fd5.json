@@ -1,0 +1,38 @@
+{
+  "id": "stoa-0b861fd5",
+  "title": "b1bc.6: Build DkimSigner at startup in smtp/main.rs",
+  "description": "What: After Config is loaded in crates/smtp/src/main.rs, decode the DKIM key bytes and construct an Option<Arc<DkimSigner>> to pass to both queue constructors.\n\nAlgorithm:\n1. After the config.delivery.smtp_relay_peers secretx resolution block (line ~158), add:\n   let dkim_signer: Option<Arc<mail_auth::dkim::DkimSigner>> = if let Some(ref dcfg) = config.delivery.dkim {\n       use base64::Engine as _;\n       use zeroize::Zeroize as _;\n       let seed = match base64::engine::general_purpose::STANDARD.decode(&dcfg.key_seed_b64) {\n           Ok(b) => b,\n           Err(e) => { eprintln!(\"error: dkim key_seed_b64: invalid base64: {e}\"); std::process::exit(1); }\n       };\n       if seed.len() != 32 { eprintln!(\"error: dkim key_seed_b64: must decode to 32 bytes\"); std::process::exit(1); }\n       let pubkey = match base64::engine::general_purpose::STANDARD.decode(&dcfg.public_key_b64) {\n           Ok(b) => b,\n           Err(e) => { eprintln!(\"error: dkim public_key_b64: invalid base64: {e}\"); std::process::exit(1); }\n       };\n       if pubkey.len() != 32 { eprintln!(\"error: dkim public_key_b64: must decode to 32 bytes\"); std::process::exit(1); }\n       let ed_key = mail_auth::dkim::Ed25519Key::from_seed_and_public_key(&seed, &pubkey);\n       let mut seed = seed; seed.zeroize();\n       let signer = mail_auth::dkim::DkimSigner::from_key(ed_key)\n           .domain(&dcfg.domain)\n           .selector(&dcfg.selector)\n           .headers([\"From\", \"To\", \"Subject\", \"Date\", \"Message-ID\", \"MIME-Version\"])\n           .canonicalization(mail_auth::dkim::Canonicalization::Relaxed, mail_auth::dkim::Canonicalization::Relaxed);\n       info!(domain=%dcfg.domain, selector=%dcfg.selector, \"DKIM signing enabled\");\n       Some(Arc::new(signer))\n   } else {\n       info!(\"DKIM signing disabled (no dkim config)\");\n       None\n   };\n2. Pass dkim_signer.clone() to NntpQueue::new() (after this bead, NntpQueue::new accepts it \u2014 b1bc.4).\n3. Pass dkim_signer to SmtpRelayQueue::new() (after b1bc.5).\n\nDefensive programming:\n- Zeroize seed bytes immediately after key construction (step 1 includes this).\n- ERROR messages for invalid base64/wrong length must NOT include the actual seed content.\n- eprintln + exit(1) pattern matches rest of main.rs error handling.\n- Log only domain+selector (never seed_b64 or public_key_b64).\n\nTests: Integration \u2014 start with valid config and DKIM config set; verify server starts and info log shows DKIM enabled.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T22:51:19Z",
+  "updated_at": "2026-05-01T04:55:21Z",
+  "closed_at": "2026-04-30T23:02:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-15b2769f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 15:51:18"
+    },
+    {
+      "depends_on_id": "stoa-3a109745",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 15:52:17"
+    },
+    {
+      "depends_on_id": "stoa-624b384a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 15:52:15"
+    },
+    {
+      "depends_on_id": "stoa-afed91ad",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 15:52:19"
+    }
+  ]
+}

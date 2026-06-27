@@ -1,0 +1,20 @@
+{
+  "id": "stoa-d78fa7c5",
+  "title": "queue: drain_once Err(_) on env read silently falls back without warning on non-NotFound errors",
+  "description": "Line 219 queue.rs: Err(_) arm for .env read failure falls back to default injection source for ALL error kinds, including PermissionDenied. Only ErrorKind::NotFound should silently default (expected for legacy files). Other errors should warn! before falling back. Current code: 'Err(_) => stoa_core::default_injection_source()'. Should be: Err(e) if NotFound \u2192 default; Err(e) \u2192 warn! + default.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:29:22Z",
+  "updated_at": "2026-05-01T04:52:10Z",
+  "closed_at": "2026-05-01T02:32:01Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3fb034ab",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 19:29:22"
+    }
+  ]
+}

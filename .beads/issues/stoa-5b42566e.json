@@ -1,0 +1,21 @@
+{
+  "id": "stoa-5b42566e",
+  "title": "DkimSigner type repeated 6+ times; needs type alias",
+  "description": "Option<Arc<mail_auth::dkim::DkimSigner<mail_auth::common::crypto::Ed25519Key, mail_auth::dkim::Done>>> appears in struct fields and fn signatures across queue.rs, relay_queue.rs, main.rs at least 6 times. No type alias. If the signer type changes (e.g. algorithm upgrade), every site drifts independently. A type alias type DkimSignerArc = Arc<DkimSigner<Ed25519Key, Done>> in config.rs reduces all sites to Option<DkimSignerArc>.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:59:34Z",
+  "updated_at": "2026-05-01T04:52:10Z",
+  "closed_at": "2026-05-01T03:02:56Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3c6890ad",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 19:59:34"
+    }
+  ]
+}

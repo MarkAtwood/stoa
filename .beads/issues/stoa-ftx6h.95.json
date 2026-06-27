@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "842bf42842e1c37fffcaea6ace81b749392b8460cf5d44696edada3d619aa029",
+  "created_at": "2026-05-03T13:05:55Z",
+  "created_by": "Mark Atwood",
+  "description": "In session.rs, run_session contains the entire RFC 5321 session state machine as one function: command parsing, AUTH handling, STARTTLS stub, MAIL/RCPT/DATA processing, Sieve dispatch, header injection, and QUIT \u2014 all in one 700+ line async fn. This makes the control flow hard to follow, the function impossible to unit-test in isolation, and any change to one command risks accidentally touching another. Fix: extract each major command handler (handle_ehlo, handle_auth, handle_mail, handle_data, etc.) into separate functions, with run_session acting as a thin dispatcher.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.95",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "smtp: run_session is a 700-line monolithic match loop",
+  "updated_at": "2026-05-03T13:05:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "1da4ddca-1037-5ccb-8e7c-a869533bf76a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

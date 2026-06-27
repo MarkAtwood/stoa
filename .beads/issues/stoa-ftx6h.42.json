@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T13:30:30Z",
+  "compaction_level": 0,
+  "content_hash": "48a82b800968ff7f127c160186dc24fea5cdc757a20529ede55aed6b80469e17",
+  "created_at": "2026-05-03T13:04:27Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this issue exists: state/version.rs bump_state() executes INSERT ON CONFLICT DO UPDATE to increment the state counter, then a separate SELECT to read the new value. Under concurrent writers these are two independent transactions: another writer can increment again between the INSERT and the SELECT, causing bump_state() to return a state value it did not create. JMAP RFC 8620 \u00a76.3 requires that every method call that changes state returns the exact new state it produced.\n\nWhat needs to be done: Use a single statement with RETURNING (SQLite \u22653.35) to atomically increment and return the new value: UPDATE state_versions SET version = version + 1 WHERE ... RETURNING version. This eliminates the race window and guarantees the returned state string matches what was written.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.42",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "bump_state: two-query pattern has TOCTOU race under concurrent writes",
+  "updated_at": "2026-05-03T13:30:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:04:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "f524d707-a5b3-58e1-ab93-5010d5c46a04",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-50bac1b9",
+  "title": "OVER/XOVER materialises full result Vec before sending",
+  "description": "O(N) ALLOCATION \u2014 query_range (overview.rs:138) fetches up to MAX_OVER_RESULTS (10 000) OverviewRow structs into a Vec, maps them to OverviewRecord (another Vec), then over_response (over.rs:29) maps those to formatted Strings (a third Vec), all before a single byte hits the wire. For a 10k-article OVER response this creates ~3 large allocations. Fix: stream rows directly from the SQLite cursor into a write buffer using fetch() instead of fetch_all(), eliminating the intermediate Vec materialisation.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:09:25Z",
+  "updated_at": "2026-05-01T04:56:05Z",
+  "closed_at": "2026-04-27T16:32:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:09:24"
+    }
+  ]
+}

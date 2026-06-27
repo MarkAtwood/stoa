@@ -1,0 +1,32 @@
+{
+  "id": "stoa-70a82188",
+  "title": "Wire verify_did_sig into POST pipeline",
+  "description": "What: After operator signing in run_post_pipeline(), if X-Usenet-IPFS-DID-Sig header is present, call verify_did_sig() and store the result when inserting into the overview table.\n\nAlgorithm:\n1. In crates/reader/src/session/lifecycle.rs, after the sign_article() call (operator signing), add:\n   let did_sig_result = if has_did_sig(&header_bytes) {\n       match extract_did_sig(&header_bytes) {\n           Some(val) => {\n               match verify_did_sig(&article_bytes, &val) {\n                   Ok(valid) => Some(valid),\n                   Err(e) => {\n                       tracing::warn!(msgid = %msg_id, error = %e, 'DID sig verification error');\n                       None  // treat as absent on error\n                   }\n               }\n           }\n           None => None,\n       }\n   } else {\n       None\n   };\n2. Pass did_sig_result: Option<bool> down to the overview insertion call.\n   Update extract_overview() return type or add did_sig_valid field to OverviewRecord before insert.\n   Specifically: after building the OverviewRecord, set rec.did_sig_valid = did_sig_result before calling overview_store.insert(rec).\n3. Ensure verification happens on article_bytes BEFORE the operator sig header is inserted (sign_article inserts its header; DID sig verification should use pre-operator-sig bytes OR post \u2014 since DID sig author signed before the operator sig was added, the DID sig verification must strip BOTH the DID sig header AND the operator sig header).\n\nWait \u2014 important: DID sig is over original article (no operator sig yet). Operator sig is added by the server. So:\n- author sends: article + X-Usenet-IPFS-DID-Sig header (no operator sig)\n- server adds: X-Usenet-IPFS-Sig (operator sig)\n- server must verify DID sig BEFORE or by stripping both sig headers\n\nThe safest approach: perform DID sig verification BEFORE sign_article() is called, using the original incoming article_bytes (before operator sig is added). This matches the author's signing context exactly.\n\nREVISED Algorithm:\n1. Before sign_article() call, extract header bytes (already done earlier in pipeline)\n2. If has_did_sig(&header_bytes): call extract_did_sig(&header_bytes) to get header value, call verify_did_sig(&original_article_bytes, &header_value)\n3. Store did_sig_result\n4. Continue with sign_article() as before\n5. Pass did_sig_result to OverviewStore::insert()\n\nDefensive programming:\n- Verification errors are warnings, not fatal \u2014 article is still accepted\n- Do not log the signature bytes\n- Did not change the acceptance/rejection logic \u2014 operator sig is the trust anchor\n- Use tracing::warn! not println! for errors",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T04:06:31Z",
+  "updated_at": "2026-05-01T05:00:51Z",
+  "closed_at": "2026-04-23T04:32:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3d3e9ae7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:07:08"
+    },
+    {
+      "depends_on_id": "stoa-75cffbbf",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:07:08"
+    },
+    {
+      "depends_on_id": "stoa-c06fa970",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:06:30"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-a6cbd038",
+  "title": "Migrate TLS private key loading to secretx URIs",
+  "description": "Why: TLS key paths in TlsConfig across transit, reader, mail, and smtp are bare filesystem paths. Accepting secretx: URIs would allow TLS private keys to be stored in AWS Secrets Manager or other backends, which is useful for automated certificate rotation. What to do: Change key_path fields in each TlsConfig to accept either a bare path or a secretx: URI. At TLS setup time, if the value is a secretx: URI, resolve it via secretx::from_uri().get().await and pass the resulting bytes to rustls's load_private_key_from_memory(). Bare paths continue to use the existing file-read path. Note: PKCS#11 for TLS is typically handled at the TLS library level and is out of scope here \u2014 this only covers secret retrieval, not offloading TLS signing to an HSM.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-26T20:45:25Z",
+  "updated_at": "2026-05-01T04:51:29Z",
+  "closed_at": "2026-04-26T21:47:01Z",
+  "notes": "Part of epic stoa-6c0f1855 (Integrate crate-secretsx). Blocked on stoa-f0b9ff15 (workspace wiring). Lower priority (P3) \u2014 only needed if secrets-manager-sourced TLS keys are a goal.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-f0b9ff15",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 13:45:32"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "stoa-021f0869",
+  "title": "nntp: Path: header not updated on article transit (son-of-1036 violation)",
+  "description": "Why: RFC 1036 / son-of-1036 requires each transit node to prepend its own hostname to the Path: header when forwarding an article. The NNTP reader and transit session handlers never read or modify the Path: header. Without this, loop detection (duplicate Path: entry check) is impossible and the article path is invisible to downstream peers.\\n\\nWhat: In the transit IHAVE/TAKETHIS ingestion path, before storing the article:\\n  1. Parse the existing Path: header value (or create it if absent).\\n  2. Check whether config.hostname already appears \u2014 if so, reject as a loop.\\n  3. Prepend config.hostname to the Path: value and rewrite the header.\\nThe reader POST path should also prepend the reader's hostname when injecting an article.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T01:52:36Z",
+  "updated_at": "2026-05-01T05:00:35Z",
+  "closed_at": "2026-04-22T21:05:37Z"
+}

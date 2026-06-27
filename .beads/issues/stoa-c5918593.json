@@ -1,0 +1,21 @@
+{
+  "id": "stoa-c5918593",
+  "title": "DECISION: empty name rejected by GroupFilter.accepts() as defensive guard",
+  "description": "GroupFilter::accepts() immediately returns false for an empty name string, regardless of patterns. This is documented as a defensive measure because empty group names are invalid in NNTP. Even with a permissive '*' pattern, an empty name is rejected. The test groupfilter_empty_name_always_false verifies this. Without this guard, a bug that passes an empty string as a group name could result in an empty-named group-log entry, which is structurally invalid and hard to diagnose.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T00:33:33Z",
+  "updated_at": "2026-05-01T05:00:00Z",
+  "closed_at": "2026-04-27T16:36:28Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-dc77c90c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 17:33:33"
+    }
+  ]
+}

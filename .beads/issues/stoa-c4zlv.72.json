@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T19:08:22Z",
+  "compaction_level": 0,
+  "content_hash": "84f95c335de5f20ebe66d05ccba9d16dfbdb67c2c59a6674ee1d984f237b55ae",
+  "created_at": "2026-05-01T15:21:19Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: block_cache.rs evict_for() performs one COUNT/SUM query to find how many bytes to reclaim, then queries each LRU entry individually in a loop. Bad behavior: for large eviction runs (e.g. 10,000 entries to evict), this is 10,001 sequential SQLite queries instead of one DELETE with ORDER BY. On a large cache this causes multi-second pauses in the cache eviction path, blocking concurrent IPFS write operations.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.72",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "block_cache evict_for does O(n) sequential per-entry queries for large eviction runs",
+  "updated_at": "2026-05-01T19:08:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:21:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "8ab939e7-ff21-5813-9cc4-781394f5f7e8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

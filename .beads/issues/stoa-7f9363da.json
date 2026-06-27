@@ -1,0 +1,27 @@
+{
+  "id": "stoa-7f9363da",
+  "title": "mail: Email/set create (POST via JMAP)",
+  "description": "Implement Email/set create in crates/mail/src/email/set.rs: accept a JMAP EmailSubmission-like Email object (mailboxIds \u2192 Newsgroups header, from, subject, textBody), construct a valid RFC 5322 article, run through the core POST pipeline (sign with operator key, write to IPFS, append to group log, publish to gossipsub). Return created Email object with id=CID on success, setError on failure.\\n\\nWhy: compose-and-send is a core JMAP capability; reusing the core POST pipeline avoids duplicating signing and storage logic.\\n\\nAcceptance: Email/set create for comp.test produces a CID, which Email/get then returns with the correct subject.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T03:39:10Z",
+  "updated_at": "2026-05-01T05:00:46Z",
+  "closed_at": "2026-04-21T04:08:43Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-a797343d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 20:40:54"
+    },
+    {
+      "depends_on_id": "stoa-fb535c0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 20:40:55"
+    }
+  ]
+}

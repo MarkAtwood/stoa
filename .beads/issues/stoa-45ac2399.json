@@ -1,0 +1,33 @@
+{
+  "id": "stoa-45ac2399",
+  "title": "f120.5: SmtpRelayQueue \u2014 filesystem-backed queue with health-aware drain loop",
+  "description": "Implement SmtpRelayQueue \u2014 a durable outbound queue for SMTP relay delivery, modeled after NntpQueue (crates/smtp/src/queue.rs).\n\n**What:** Arc<SmtpRelayQueue> with enqueue() and start_drain() \u2014 drain picks next healthy peer via PeerHealthState, calls deliver_via_relay(), marks peer up/down on result.\n\n**Algorithm:**\n1. Create crates/smtp/src/relay_queue.rs\n2. struct SmtpRelayQueue { queue_dir: PathBuf, notify: Arc<tokio::sync::Notify>, health: Arc<Mutex<PeerHealthState>>, peers: Vec<SmtpRelayPeerConfig> }\n3. fn new(queue_dir, peers, down_backoff) -> io::Result<Arc<Self>>: create queue_dir with std::fs::create_dir_all, build PeerHealthState, wrap in Arc\n4. async fn enqueue(&self, article_bytes: &[u8], mail_from: &str, rcpt_to: &[&str]) -> io::Result<()>:\n   a. Encode envelope + article as JSON lines: first line = json envelope {mail_from, rcpt_to}, rest = article bytes (store as hex or use separate .env and .msg files like NntpQueue)\n   b. Actually simpler: write two files atomically: queue_dir/{uuid}.env (JSON) and queue_dir/{uuid}.msg (raw bytes). First write .msg to .tmp then rename to .msg, then write .env\n   c. notify.notify_one()\n5. fn start_drain(self: Arc<Self>, retry_interval: Duration):\n   a. tokio::spawn(async move { loop { drain_once(&self).await; sleep(retry_interval).await; notify.notified().await; } })\n   b. Actually: use Notify + interval like NntpQueue \u2014 notified OR interval wakeup\n6. async fn drain_once(&self):\n   a. Glob queue_dir for *.env files, sort by name (FIFO order)\n   b. For each .env file: read envelope JSON, load .msg file, call try_deliver_one()\n   c. fn try_deliver_one(&self, env_path, msg_path): select_peer() \u2014 if None, warn and skip; call deliver_via_relay(); on Ok: delete both files, mark_up; on Err(Transient/Io): mark_down, leave files for retry; on Err(Permanent/AuthFailed/ProtocolError): mark_down, move to dead/ subdirectory to prevent infinite retry of undeliverable message\n\n**Defensive programming rules:**\n- Atomic file writes: write to .tmp then rename (like NntpQueue)\n- Dead-letter subdirectory prevents infinite retry of permanently-failed messages\n- If no peers configured, enqueue is no-op (silently drop; caller can log)\n- No unwrap() on file I/O operations\n\n**Tests:**\n- Test: enqueue() creates .env and .msg files in queue_dir (oracle: file system state)\n- Test: drain_once() with mock deliver fn that succeeds \u2014 files are deleted after delivery\n- Test: drain_once() with mock deliver fn that returns Transient \u2014 files remain for retry\n- Test: drain_once() with mock deliver fn that returns Permanent \u2014 files moved to dead/\n- Test: no peers configured \u2014 enqueue returns Ok, no files written (no-op)\n\n**Acceptance:**\n- cargo test -p usenet-ipfs-smtp passes\n- cargo clippy -p usenet-ipfs-smtp -- -D warnings passes\n- Transient/permanent routing test output in cargo test",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T18:31:55Z",
+  "updated_at": "2026-05-01T04:56:36Z",
+  "closed_at": "2026-04-23T18:47:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-39147a6a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 11:32:46"
+    },
+    {
+      "depends_on_id": "stoa-4363da51",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 11:32:45"
+    },
+    {
+      "depends_on_id": "stoa-d8edbbe6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 11:31:55"
+    }
+  ]
+}

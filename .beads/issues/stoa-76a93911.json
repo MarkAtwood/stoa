@@ -1,0 +1,19 @@
+{
+  "id": "stoa-76a93911",
+  "title": "decision: count_received_headers hop-count loop detection is reasonable",
+  "description": "session.rs count_received_headers scans the raw message bytes for existing Received: headers before adding one, and rejects the message if the count exceeds max_received (default 25). This is the standard RFC 5321 \u00a76.3 loop detection mechanism. The implementation is correct. No issue needed.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:42:45Z",
+  "updated_at": "2026-05-01T04:58:16Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:42:44"
+    }
+  ]
+}

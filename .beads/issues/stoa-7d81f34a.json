@@ -1,0 +1,20 @@
+{
+  "id": "stoa-7d81f34a",
+  "title": "SEC1: no operator docs for DKIM Ed25519 key generation",
+  "description": "There is no documentation explaining how to generate a valid Ed25519 DKIM keypair for the config fields key_seed_b64 / public_key_b64. An operator hitting this for the first time will not know the key format (raw 32-byte seed base64, not PEM) and will get cryptic startup errors. A short note in README, CLAUDE.md, or a DKIM.md file explaining the key generation steps (e.g. using openssl or ed25519-dalek CLI) would prevent repeated support burden.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:24:12Z",
+  "updated_at": "2026-05-01T04:52:48Z",
+  "closed_at": "2026-04-30T23:24:50Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0b13a613",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:24:12"
+    }
+  ]
+}

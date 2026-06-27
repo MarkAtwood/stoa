@@ -1,0 +1,13 @@
+{
+  "id": "stoa-36f405ad",
+  "title": "jmap: implement JMAP upload endpoint for article submission",
+  "description": "Why: RFC 8620 \u00a77.1 defines a binary upload endpoint (POST /jmap/upload/{accountId}/) that returns a blob ID. In usenet-ipfs this would accept raw RFC 5322 article bytes, run them through the POST pipeline (sign, write to IPFS, update group log), and return the resulting CID as the blobId. This makes article submission available over JMAP in addition to NNTP POST. The upload endpoint URL is already advertised in the session resource. What: (1) Implement POST /jmap/upload/{accountId}/ handler. Accept application/octet-stream or message/rfc822 body. Parse as RFC 5322 article. Validate headers (Newsgroups, Subject, From, Message-ID). Run through write_article_to_ipfs() from crates/reader/src/post/ipfs_write.rs. Return {accountId, blobId: <CID>, type: message/rfc822, size: <bytes>}. (2) Wire the route in server.rs. Error responses: 400 for invalid article, 413 for oversized, 503 if IPFS not configured.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T14:26:04Z",
+  "updated_at": "2026-05-01T04:56:44Z",
+  "closed_at": "2026-04-28T11:17:23Z"
+}

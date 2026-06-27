@@ -1,0 +1,21 @@
+{
+  "id": "stoa-90e32d8d",
+  "title": "NNTP reader: per-session failure rate limiter on AUTHINFO",
+  "description": "reader/session/lifecycle.rs:275-304: no limit on failed AUTHINFO attempts per session. Fix: add a per-session failure counter. After 5 consecutive failures, close the connection with 400 (no explanation). Reset on success. Do not add delays \u2014 bcrypt already adds ~100ms per attempt at the configured cost factor; delays on top of that are not necessary and complicate the implementation. The counter lives in session state, no shared mutable state needed.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T18:44:57Z",
+  "updated_at": "2026-05-01T04:58:54Z",
+  "closed_at": "2026-04-21T19:23:50Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-31947539",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 11:44:57"
+    }
+  ]
+}

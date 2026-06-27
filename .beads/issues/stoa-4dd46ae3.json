@@ -1,0 +1,21 @@
+{
+  "id": "stoa-4dd46ae3",
+  "title": "reader panics if system clock is before Unix epoch",
+  "description": "reader/post/validate_headers.rs calls SystemTime::now().duration_since(UNIX_EPOCH).expect('system clock before epoch'). Any system with a broken/pre-1970 clock crashes the reader process on the first POST. Should return 441 Internal Fault instead of panicking.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T13:08:19Z",
+  "updated_at": "2026-05-01T04:55:51Z",
+  "closed_at": "2026-04-22T13:35:31Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-b770251a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 06:08:18"
+    }
+  ]
+}

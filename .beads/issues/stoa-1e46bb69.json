@@ -1,0 +1,13 @@
+{
+  "id": "stoa-1e46bb69",
+  "title": "reader/credentials: dummy hash uses global DEFAULT_COST timing oracle",
+  "description": "CredentialStore::check() in crates/reader/src/store/credentials.rs uses a global OnceLock<String> DUMMY_HASH at bcrypt::DEFAULT_COST. When production credentials are stored at a different cost factor, the timing for unknown-username lookups differs from known-username lookups, leaking the username set via timing oracle. The auth crate (crates/auth/src/store.rs) had this exact bug and was fixed last session with a per-instance dummy_hash field computed via parse_bcrypt_cost/make_dummy_hash. Apply the same fix to the reader's CredentialStore.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T20:40:26Z",
+  "updated_at": "2026-05-01T04:53:54Z",
+  "closed_at": "2026-04-24T20:53:20Z"
+}

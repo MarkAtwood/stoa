@@ -1,0 +1,20 @@
+{
+  "id": "stoa-c836f8dc",
+  "title": "Start admin HTTP endpoint from transit main",
+  "description": "Start the admin HTTP server (admin.rs) from main.rs. Serve /metrics (Prometheus), /audit, /peers. Wire shutdown signal to graceful HTTP server stop. Why: operators cannot observe the running daemon without the metrics and audit endpoints.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T00:13:52Z",
+  "updated_at": "2026-05-01T04:59:45Z",
+  "closed_at": "2026-04-21T02:42:55Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e861c46f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:14:13"
+    }
+  ]
+}

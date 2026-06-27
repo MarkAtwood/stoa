@@ -1,0 +1,21 @@
+{
+  "id": "stoa-3e9499d1",
+  "title": "assign_number uses two round-trips per article under write lock",
+  "description": "O(1) but HIGH CONTENTION \u2014 assign_number (article_numbers.rs:46) opens a write transaction then executes SELECT \u2026 MAX + INSERT as two separate queries. SQLite serialises all writers, so at ingest rates >~100 msg/s this becomes the primary bottleneck. Fix: replace with INSERT OR IGNORE \u2026 RETURNING or a single INSERT \u2026 SELECT MAX+1 \u2026 WHERE NOT EXISTS to eliminate the explicit SELECT round-trip inside the transaction.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:09:09Z",
+  "updated_at": "2026-05-01T04:56:06Z",
+  "closed_at": "2026-04-27T16:32:56Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:09:08"
+    }
+  ]
+}

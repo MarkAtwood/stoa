@@ -1,0 +1,21 @@
+{
+  "id": "stoa-53e41c25",
+  "title": "usenet-ipfs-reader: wire live data sources",
+  "description": "The reader's RFC 3977 protocol harness is complete but commands return empty/stub data. This epic wires the real rust-ipfs block store, group_log queries, overview index population, and a credential file into the running reader. Outcome: a newsreader client (slrn, Thunderbird) can GROUP, ARTICLE, OVER against real data posted through the reader's POST command. Why: until data sources are wired, the reader passes protocol tests but cannot serve real content.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T00:15:16Z",
+  "updated_at": "2026-05-01T04:59:21Z",
+  "closed_at": "2026-04-21T01:20:26Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9513813d",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:17:42"
+    }
+  ]
+}

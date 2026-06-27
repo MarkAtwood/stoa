@@ -1,0 +1,20 @@
+{
+  "id": "stoa-c14d5509",
+  "title": "SEARCH TEXT key passes unsanitized user input to Tantivy query parser",
+  "description": "In lifecycle.rs handle_nntp_search(), SearchKey::Text produces: query_str = value.to_owned() \u2014 the raw value string with NO call to escape_tantivy_query(). Every other SearchKey (Subject, From, Body) wraps the value in a field:\"...\" phrase with escaping applied. Text silently passes attacker-controlled input directly to Tantivy's query parser, which can interpret operators like +, -, AND, OR, (, ), field: etc. A malicious client can craft queries that escape the intended newsgroup scope filter if search_in_group applies a newsgroup constraint using field-based query composition, or cause a Tantivy parse error surfaced as a 451. In the worst case (depending on how search_in_group composes queries) it enables query injection across newsgroup boundaries.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:58:24Z",
+  "updated_at": "2026-05-01T05:00:12Z",
+  "closed_at": "2026-04-27T06:47:58Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-650091d3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 22:58:24"
+    }
+  ]
+}

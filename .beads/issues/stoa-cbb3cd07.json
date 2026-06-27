@@ -1,0 +1,20 @@
+{
+  "id": "stoa-cbb3cd07",
+  "title": "smtp: ID scheme undocumented at architecture level",
+  "description": "The smtp:{row_id} JMAP ID is a synthetic SQLite row reference documented only in one doc comment. A maintainer seeing these IDs in logs will not know they are local-only, invalidated by row deletion or vacuum, and must not be compared to CID IDs. Add a module-level comment in email/get.rs explaining the two ID spaces and lifecycle guarantees.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:01:18Z",
+  "updated_at": "2026-05-01T04:59:37Z",
+  "closed_at": "2026-04-30T05:28:21Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-14057691",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:01:18"
+    }
+  ]
+}

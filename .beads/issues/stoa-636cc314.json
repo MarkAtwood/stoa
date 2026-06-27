@@ -1,0 +1,19 @@
+{
+  "id": "stoa-636cc314",
+  "title": "ChangeLogStore::record_created issues one INSERT per item in a loop",
+  "description": "state/change_log.rs record_created() issues one INSERT per item in a loop. N creates means N sequential DB round-trips. Fix: use a multi-row INSERT with QueryBuilder as already done in provision.rs.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:41:01Z",
+  "updated_at": "2026-05-01T04:55:08Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:41:00"
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "acceptance_criteria": "cargo test -p stoa-transit -- parse_rnews_ passes; all 6 test cases green; clippy clean",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T02:57:13Z",
+  "compaction_level": 0,
+  "content_hash": "c5f6b56bcdcec79684a5369f9fef39484a5bbaff34837e4d23cc8a6116f6d8c1",
+  "created_at": "2026-05-04T02:48:02Z",
+  "created_by": "Mark Atwood",
+  "description": "What: Implement parse_rnews_batch() \u2014 parse a #! rnews batch (possibly compressed) into a Vec of raw article byte vectors.\nFile: crates/transit/src/import/rnews.rs\nAlgorithm:\npub fn parse_rnews_batch(input: &[u8]) -> Result<Vec<Vec<u8>>, RnewsError>:\n1. Check first 12 bytes for compression markers:\n   - b\"#! gunbatch\" -> call decompress_gunbatch(&input[12..]) (skip the header line including \\n), then call parse_rnews_batch recursively on the decompressed bytes\n     Wait \u2014 the header line is b\"#! gunbatch\\n\" = 12 bytes. Skip to byte 12 for the gzip payload.\n   - b\"#! cunbatch\" -> call decompress_cunbatch(&input[12..]), propagate error or recurse\n   - Otherwise: proceed with plain #! rnews parsing\n2. Nested compression check: use a depth parameter (default 0); if depth > 0 and a #! g/cunbatch is found, return Err(MalformedBatch(\"nested compression not supported\"))\n3. Plain parsing loop:\n   a. pos = 0\n   b. Loop:\n      - Find the end of the next line: scan for \\n starting at pos\n      - If no \\n found and pos < input.len(): return Err(MalformedBatch(\"unexpected EOF in header line\"))\n      - Extract line bytes (without \\n)\n      - If line starts with b\"#! rnews \": parse byte count as u64 from &line[9..]\n        - If parse fails: Err(MalformedBatch(\"invalid byte count: {line}\"))\n        - If count > MAX_ARTICLE_BYTES as u64: Err(MalformedBatch(\"article exceeds MAX_ARTICLE_BYTES\"))\n        - let article_start = pos;  let article_end = article_start + count as usize;\n        - If article_end > input.len(): Err(MalformedBatch(\"truncated: declared {count} bytes but only {} remain\"))\n        - Push input[article_start..article_end].to_vec() to results\n        - articles.len() check: if articles.len() > MAX_BATCH_ARTICLES: Err(BatchTooLarge { count: articles.len(), limit: MAX_BATCH_ARTICLES })\n        - pos = article_end\n      - If pos >= input.len(): break\n   c. Return Ok(articles)\n\nImplementation detail: The #! gunbatch / #! cunbatch check must look at the FIRST LINE only. Check if input starts with b\"#! gunbatch\\n\" (12 bytes) or b\"#! cunbatch\\n\" (12 bytes). Use starts_with for this check.\n\nDefensive rules:\n- All byte count arithmetic uses checked ops or explicit bounds checks before any slice indexing\n- Never unwrap \u2014 all parse failures return RnewsError\n- article_start and article_end must both be <= input.len() before slicing\n- The inner recursive call for compressed batches passes depth+1\n\nTests (in same file, #[cfg(test)]):\n- parse_batch_two_articles:\n  Oracle: hand-computed bytes of two known articles\n  Input: construct b\"#! rnews 163\\nFrom: alice@example.com\\n...163 bytes...#! rnews 161\\n...161 bytes...\"\n  Assert: result has 2 articles; first article bytes == known article 1; second == known article 2\n- parse_batch_empty_input: parse_rnews_batch(b\"\") == Ok(vec![])\n- parse_batch_count_cap: 1001 articles of 1 byte each \u2192 Err(BatchTooLarge { count: 1001, limit: 1000 })\n- parse_batch_malformed_no_count: b\"#! rnews\\n\" \u2192 Err(MalformedBatch(_))\n- parse_batch_truncated: declare n=100 but only 50 bytes follow \u2192 Err(MalformedBatch(_))\n- parse_batch_count_too_large: #! rnews with count > MAX_ARTICLE_BYTES \u2192 Err(MalformedBatch(_))",
+  "ephemeral": 0,
+  "id": "stoa-9qqyc.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "parse_rnews_batch: #! rnews batch format parser",
+  "updated_at": "2026-06-26T20:26:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T19:48:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-9qqyc",
+      "id": "5b7a11e4-cc11-51c4-bca1-7ceb17a05feb",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-03T19:48:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-9qqyc.2",
+      "id": "6faabd9c-5561-5b04-a167-e4f6f44a21e4",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-03T19:48:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-9qqyc.5",
+      "id": "f2db0c2d-fb15-530d-a6cb-c77f6cacb970",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

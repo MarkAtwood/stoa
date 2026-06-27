@@ -1,0 +1,21 @@
+{
+  "id": "stoa-44e35691",
+  "title": "two parallel CredentialStore impls must be kept in sync forever",
+  "description": "stoa_auth::store::CredentialStore (crates/auth/src/store.rs) and crates/reader/src/store/credentials.rs are structurally identical implementations with identical methods (from_credentials, from_content, from_file, merge_from_content, merge_from_file, check). This diff added the same from_content/merge_from_content to both. Any future method addition, bug fix, or behavior change must be applied to both \u2014 a well-intentioned contributor will update one and not the other. Reader should be refactored to use stoa_auth::CredentialStore directly.",
+  "status": "deferred",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-26T21:55:57Z",
+  "updated_at": "2026-05-01T04:53:48Z",
+  "notes": "Fix requires also consolidating reader::config::UserCredential with stoa_auth::UserCredential \u2014 a broader config unification refactor. Both types are structurally identical but Rust treats them as different. Defer until config types are unified.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-1490b957",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 14:55:57"
+    }
+  ]
+}

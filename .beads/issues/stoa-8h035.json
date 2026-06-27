@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "ae2b8d62557630015b85e37fce92d520fdd0130ef227a0e020cb033a31b1f7eb",
+  "created_at": "2026-06-13T06:36:12Z",
+  "created_by": "Mark Atwood",
+  "description": "EmailSubmission/get, /changes, /query, /queryChanges, /set are all registered but return unknownMethod. Without EmailSubmission/set, clients cannot compose and send mail through JMAP \u2014 stoa is read-and-store only. This is the largest functional gap. RFC 8621 sections 7.1-7.5.",
+  "ephemeral": 0,
+  "id": "stoa-8h035",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Implement EmailSubmission/* methods (all 5)",
+  "updated_at": "2026-06-13T06:36:12Z"
+}

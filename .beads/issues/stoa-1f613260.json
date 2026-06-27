@@ -1,0 +1,20 @@
+{
+  "id": "stoa-1f613260",
+  "title": "Test vectors missing Python/cryptography version pin",
+  "description": "The test vector generation comment in did_verify.rs (lines 155-169) documents the seed, algorithm, and Python library name but omits the exact version of the cryptography package used. Ed25519 key derivation from a raw seed is deterministic and standardized, so in practice any modern version of pyca/cryptography will reproduce the same vectors. However, a future maintainer tasked with extending the test suite or adding a new vector will not know which version was actually used. If pyca/cryptography ever changes its from_private_bytes semantics (unlikely but possible in a major release), the regeneration instructions would silently produce different values. The fix is to add the cryptography version (e.g., 42.x) to the comment. Low probability, but the cost of fixing is trivial and the diagnosis cost if it ever bites is high.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T04:59:57Z",
+  "updated_at": "2026-05-01T04:54:20Z",
+  "closed_at": "2026-04-23T05:59:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-062e13cb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-22 21:59:56"
+    }
+  ]
+}

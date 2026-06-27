@@ -1,0 +1,12 @@
+{
+  "id": "stoa-ab8b3aa6",
+  "title": "Fix blacklist predicate = 0 in admin and CLI",
+  "description": "admin.rs:419,458 and cli/ops.rs:24 use blacklisted_until IS NULL OR blacklisted_until = 0 to find non-blacklisted peers. The correct check (used in peer_registry.rs and blacklist.rs) is blacklisted_until IS NULL OR blacklisted_until <= now_ms. The = 0 variant incorrectly includes peers with active future blacklist timestamps in active-peer lists.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T16:11:27Z",
+  "updated_at": "2026-05-01T04:54:23Z",
+  "closed_at": "2026-04-22T18:40:41Z"
+}

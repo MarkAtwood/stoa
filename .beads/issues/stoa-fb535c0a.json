@@ -1,0 +1,21 @@
+{
+  "id": "stoa-fb535c0a",
+  "title": "mail: JMAP method dispatch (POST /jmap/api)",
+  "description": "Implement POST /jmap/api in crates/mail/src/jmap/dispatch.rs: parse Request, iterate methodCalls, route each Invocation to a registered method handler by name, collect responses into Response. Return 400 for unparseable JSON (notJSON error), 200 with methodResponse errors for unknown methods (unknownMethod). Handler registration uses a HashMap<&str, BoxedHandler>.\\n\\nWhy: the dispatch layer is the backbone; all method implementations are registered here.\\n\\nAcceptance: a request with an unknown method name returns {type: urn:ietf:params:jmap:error:unknownMethod} in the response.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T03:38:18Z",
+  "updated_at": "2026-05-01T05:00:20Z",
+  "closed_at": "2026-04-21T03:55:57Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-d6bc144f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 20:40:35"
+    }
+  ]
+}

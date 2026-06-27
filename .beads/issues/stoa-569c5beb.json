@@ -1,0 +1,20 @@
+{
+  "id": "stoa-569c5beb",
+  "title": "jmap_api_handler: serde_json::to_value(response).unwrap() panics on serialize error",
+  "description": "server.rs jmap_api_handler ends with Json(serde_json::to_value(response).unwrap()). If serialization fails, this panics in the axum handler task. Should use unwrap_or_else or return a 500.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:58:28Z",
+  "updated_at": "2026-05-01T04:51:48Z",
+  "closed_at": "2026-04-27T06:44:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-18ecb995",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 22:58:28"
+    }
+  ]
+}

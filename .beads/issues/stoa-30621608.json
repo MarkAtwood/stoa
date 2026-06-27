@@ -1,0 +1,20 @@
+{
+  "id": "stoa-30621608",
+  "title": "decision: DID sig verification strips header from article bytes before verifying",
+  "description": "In post/did_verify.rs, verify_did_sig strips the X-Stoa-DID-Sig header from article_bytes before verifying, reproducing what the author signed. The test verify_did_sig_strips_header_before_verifying confirms this. The byte-level strip_did_sig_header correctly handles non-UTF-8 body bytes (regression test present). Design is correct.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:29:44Z",
+  "updated_at": "2026-05-01T04:58:45Z",
+  "closed_at": "2026-04-28T20:11:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:29:43"
+    }
+  ]
+}

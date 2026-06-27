@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "22cf8ac26bf22df092e5413edf68c86beeae511668ce22c504b59e6df6bdb9bc",
+  "created_at": "2026-05-02T15:56:35Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why this issue exists\n\nStoa-mail allows users to set passwords with no minimum length or complexity requirements. NIST SP 800-63B \u00a75.1.1 requires: \u22658 characters minimum (15 for privileged accounts), no mandatory complexity rules, and optionally checking against known-breached password lists.\n\n## What needs to be done\n\n- Add password validation at the password-change and account-creation endpoints in stoa-mail.\n- Enforce minimum length: 8 characters for regular users, 15 for admin/privileged accounts.\n- Do NOT enforce complexity rules (NIST explicitly discourages them as they reduce entropy without improving security).\n- Optionally: integrate HIBP (Have I Been Pwned) k-anonymity API to reject passwords found in breach corpora. Gate behind a config flag (enabled by default in production mode).\n- Return a clear error message on rejection: `400 Bad Request` with `description: \"Password must be at least 8 characters\"`.\n- Write tests: 7-char password rejected, 8-char accepted, known-breached password rejected (if HIBP enabled).\n\n## Acceptance criteria\n\n- Passwords shorter than 8 chars rejected at change/create endpoints\n- Admin account creation requires \u226515 chars\n- Error message does not reveal implementation details beyond length requirement\n- HIBP check is config-gated and off by default (to avoid external dependency in CI)\n\n## Design notes\n\nRegulatory refs: NIST SP 800-63B \u00a75.1.1. No bcrypt/argon2 changes needed \u2014 this is purely input validation before hashing. bcrypt max input length (72 bytes) is a separate consideration; document the truncation behaviour.",
+  "ephemeral": 0,
+  "id": "stoa-8zi79",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Password policy: minimum length and breach check",
+  "updated_at": "2026-05-02T15:56:35Z"
+}

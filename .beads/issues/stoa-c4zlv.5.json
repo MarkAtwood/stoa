@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T16:21:37Z",
+  "compaction_level": 0,
+  "content_hash": "6a0a68f5b9455972c26739b2305ff3794089a8b6e56844be10468407c1488bb9",
+  "created_at": "2026-05-01T15:17:25Z",
+  "created_by": "Mark Atwood",
+  "description": "In server.rs route_method Mailbox/set, bump_state is called before delegating to handle_mailbox_set, so the state is always incremented regardless of whether the operation succeeded or any subscriptions actually changed. RFC 8620 \u00a75.3 requires that oldState and newState differ only when a write actually occurred. A client doing Mailbox/get with sinceState=N will incorrectly receive a state mismatch on the next Mailbox/changes call if an operation returned notCreated for all entries, because newState > oldState even though nothing changed.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mailbox/set state bumped unconditionally even when no group subscription changes",
+  "updated_at": "2026-05-01T16:21:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:17:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "6f96cfda-3173-57b4-842f-b9629de21cec",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

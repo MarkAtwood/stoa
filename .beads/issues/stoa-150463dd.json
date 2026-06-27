@@ -1,0 +1,26 @@
+{
+  "id": "stoa-150463dd",
+  "title": "Peer block fetch: XCID responder \u2014 serve blocks on demand",
+  "description": "Implement XCID handler on the transit server side: look up CID in local block store, return 224 + block bytes + dot terminator if found, 430 if not. Blocked on: stoa-74b450b1.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:39:02Z",
+  "updated_at": "2026-05-01T04:56:27Z",
+  "closed_at": "2026-04-23T22:27:49Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-74b450b1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:39:14"
+    },
+    {
+      "depends_on_id": "stoa-ba00cbee",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 12:59:52"
+    }
+  ]
+}

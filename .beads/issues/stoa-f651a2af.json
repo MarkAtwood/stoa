@@ -1,0 +1,19 @@
+{
+  "id": "stoa-f651a2af",
+  "title": "feat(imap): RFC 6154 special-use flags in LIST and SELECT",
+  "description": "IMAP clients identify special folders by the \\\\Inbox, \\\\Sent, \\\\Drafts, \\\\Trash, \\\\Junk, \\\\Archive flags returned in LIST responses (RFC 6154) and optionally in SELECT. Without these, clients fall back to name-matching heuristics that are unreliable.\n\nWhat needs to be done:\n1. Advertise SPECIAL-USE in IMAP CAPABILITIES.\n2. Return the appropriate \\\\SpecialUse flag in LIST responses for the 6 provisioned special folders.\n3. Return \\\\HasNoChildren on leaf mailboxes (INBOX, Sent, etc.); \\\\HasChildren on News/ and List/.\n4. Return \\\\Noselect on News/ and List/ parent containers if they contain no messages directly.\n5. Add e2e tests: IMAP LIST response for INBOX includes \\\\Inbox flag; LIST for News/ includes \\\\HasChildren.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T03:54:09Z",
+  "updated_at": "2026-05-01T04:52:21Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3f84734e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 20:54:08"
+    }
+  ]
+}

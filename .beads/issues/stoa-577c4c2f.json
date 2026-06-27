@@ -1,0 +1,21 @@
+{
+  "id": "stoa-577c4c2f",
+  "title": "aubi: add stoa-auth to workspace members",
+  "description": "## What\nAdd crates/auth to the workspace members list in the root Cargo.toml.\n\n## Why\nstoa-auth exists on disk and is depended on by 5 crates but is NOT listed in [workspace.members]. This means cargo test --workspace and cargo clippy --workspace silently skip it. This is a pre-existing bug.\n\n## Algorithm\n1. Read /home/mark/PROJECT/stoa/Cargo.toml \u2014 find the [workspace] members array.\n2. Add 'crates/auth' to the members list (alphabetically between crates/ctl and crates/core, or at the end of the crates/ group).\n3. Run: cargo build --workspace 2>&1; echo EXIT:$?\n4. Run: cargo test --workspace -p stoa-auth 2>&1 | tail -10\n\n## Defensive rules\n- Do not change any other Cargo.toml field.\n- If adding auth breaks workspace build due to a transitive dep conflict, report immediately \u2014 do not paper over.\n\n## Acceptance\ncargo build --workspace clean; stoa-auth appears in cargo metadata workspace members",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T16:18:55Z",
+  "updated_at": "2026-05-01T04:52:22Z",
+  "closed_at": "2026-04-30T16:24:49Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-526bc4c6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 09:18:54"
+    }
+  ]
+}

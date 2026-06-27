@@ -1,0 +1,21 @@
+{
+  "id": "stoa-ff67f4a0",
+  "title": "Benchmark ARTICLE fetch latency under 10 concurrent readers",
+  "description": "Write a benchmark that opens 10 concurrent NNTP sessions to a running reader, each fetching 1000 articles by message-ID in a loop. Measures p50/p99/p999 latency per ARTICLE command. Artifact: reader/benches/article_fetch.rs.\n\nAcceptance criteria:\n- benchmark handles 10 concurrent connections\n- p50/p99/p999 latency reported\n- result establishes baseline for read-path optimization",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:47:39Z",
+  "updated_at": "2026-05-01T04:57:56Z",
+  "closed_at": "2026-04-20T12:56:10Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-8424e73e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:47:38"
+    }
+  ]
+}

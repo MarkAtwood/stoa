@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T16:21:21Z",
+  "compaction_level": 0,
+  "content_hash": "dac1601d7de06a8b7d6f950535e25271e96e21ed66a0e3f3cefab5d2550b113b",
+  "created_at": "2026-05-01T15:22:17Z",
+  "created_by": "Mark Atwood",
+  "description": "In session.rs, during two-step SASL PLAIN authentication, when the client sends '*' to cancel the exchange (RFC 4954 \u00a74), the code passes '*' to verify_sasl_plain which fails base64 decoding and returns None. This increments auth_failures and sends 535 Authentication credentials invalid instead of 501 as required by RFC 4954 \u00a74.\n\nRFC 4954 \u00a74 states: 'If the client wishes to cancel the authentication exchange, it issues a line with a single \"*\". If the server receives such a response, it MUST reject the AUTH command by sending a 501 reply.'\n\nTrigger: send EHLO, AUTH PLAIN (two-step), then respond with '*' to the 334 challenge. The server increments auth_failures. Three such cancels cause a forced disconnect.\n\nFix: check the response string before passing to base64 decoding; if it equals '*' (after trimming CRLF), send '501 5.7.0 Authentication exchange cancelled' and continue the loop without incrementing auth_failures.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.88",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "smtp: AUTH PLAIN cancel (*) treated as failed credentials",
+  "updated_at": "2026-05-01T16:21:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:22:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "042e3dbd-8514-5d8e-8d86-7520f2742819",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "a0fe7f2d1d1237f4bf70a8c5a1727a68903b024a5c8897ba96cb48f4e5f267c5",
+  "created_at": "2026-05-03T13:07:29Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\nstore/overview.rs::extract_overview() uses String::from_utf8_lossy(header_bytes) to convert headers for parsing. Legacy Usenet articles with Latin-1 encoded Subject or From headers (e.g. encoded with ISO-8859-1) will have non-UTF-8 bytes replaced with U+FFFD, corrupting the stored overview subject and from fields.\\n\\nThe did_passthrough.rs and other modules correctly refuse non-UTF-8 input. Overview should either handle it correctly (by percent-encoding or omitting corrupted fields) or document explicitly that non-UTF-8 headers are accepted with lossy conversion.\\n\\n## Acceptance Criteria\\n\\nDocument the lossy conversion as intentional, with a comment explaining why it is acceptable for overview display (non-security-critical, display only). OR convert to strict from_utf8 with fallback to empty string.",
+  "ephemeral": 0,
+  "id": "stoa-tavry",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "overview::extract_overview: from_utf8_lossy may corrupt header values with non-UTF-8",
+  "updated_at": "2026-05-03T13:07:29Z"
+}

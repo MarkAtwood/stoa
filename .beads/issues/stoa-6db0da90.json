@@ -1,0 +1,20 @@
+{
+  "id": "stoa-6db0da90",
+  "title": "Silent operator config override: max_command_size clamp has no warning log",
+  "description": "mod.rs lines 155-160 clamp options.max_command_size upward to max_literal_size + 1 when the operator has configured max_command_size_bytes below max_literal_bytes. The comment explains the library invariant but the code silently overrides the operator's configured value with no log warning. An operator who sets max_command_size_bytes=4096 and max_literal_bytes=8192 in config will silently get max_command_size=8193 instead of 4096 with no indication this happened. Low severity (the override is safe and keeps the server running) but a maintainer diagnosing unexpected behaviour will not find the discrepancy from logs alone. Fix: add a tracing::warn\\! when the clamp fires, naming both the configured value and the effective value used.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:25:45Z",
+  "updated_at": "2026-05-01T04:58:40Z",
+  "closed_at": "2026-04-30T02:52:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9d37d25b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:25:45"
+    }
+  ]
+}

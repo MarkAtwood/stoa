@@ -1,0 +1,13 @@
+{
+  "id": "stoa-f956b0f5",
+  "title": "Review round 5: full project re-scan",
+  "description": "Fifth review pass after fixing: R1 P1s (signing, rate limiter, STAT, transit pipeline, percent_decode, HLC cast), R2 P0s (7 bugs), R2 P1s (admin percent_decode, peering auth deadlock, STAT msgid), R3 P1 (hlc_timestamp negative guard), R4 P1 (did_verify non-UTF-8). Look for any remaining correctness, security, and API conformance issues.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T04:28:33Z",
+  "updated_at": "2026-05-01T04:53:38Z",
+  "closed_at": "2026-04-27T04:39:24Z"
+}

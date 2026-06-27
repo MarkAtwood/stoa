@@ -1,0 +1,20 @@
+{
+  "id": "stoa-8da6bf14",
+  "title": "Transit ingestion drain task self-holds sender Arc preventing clean close",
+  "description": "The ingestion drain task (crates/transit/src/main.rs line 648-738) captures ingestion_sender_drain = Arc::clone(&ingestion_sender) and holds it for the task's lifetime. The drain is implemented as 'while let Some(article) = ingestion_receiver.recv().await'. ingestion_receiver.recv() returns None only when all mpsc::Sender clones are dropped, which happens only when all Arc<IngestionSender> ref counts reach zero. But the drain task itself holds an Arc<IngestionSender> and never drops it before the loop exits. The loop can only exit when recv() returns None, which requires the Arc to be dropped first. This is a deadlock by self-reference: the drain task cannot exit naturally. In practice the shutdown at line 924 drops the main-scope Arc (ingestion_sender) but the drain task's Arc keeps the channel open, so ingestion_receiver.recv() blocks indefinitely. The timeout fires and the process exits with exit code 1 every time, even on a clean shutdown. The clean-drain log path (line 931-933) is unreachable. Fix: remove ingestion_sender_drain from the drain task; use a separate atomic counter or pass depth through a shared metrics ref not tied to a Sender Arc.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-24T05:26:58Z",
+  "updated_at": "2026-05-01T04:56:29Z",
+  "closed_at": "2026-04-24T05:46:01Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ebc6ad28",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 22:26:58"
+    }
+  ]
+}

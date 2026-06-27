@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "c3b40841e7fa0ae85263b7138e39f2fbe9931abaf9929f3cc5ed5dc8ecd54866",
+  "created_at": "2026-05-03T13:09:08Z",
+  "created_by": "Mark Atwood",
+  "description": "Why: a full-table scan of pinned_cids for every GC candidate batch degrades GC performance as the pin set grows. What: gc_candidates.rs builds a query SELECT ... FROM articles WHERE cid NOT IN (SELECT cid FROM pinned_cids ...). If pinned_cids.cid is not indexed, SQLite performs a full scan of pinned_cids for each row in articles. The migration that creates pinned_cids should add an explicit index on cid, or the NOT IN should be rewritten as a LEFT JOIN / IS NULL pattern which the query planner can optimize more reliably.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.170",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "gc_candidates NOT IN subquery lacks explicit index on pinned_cids.cid",
+  "updated_at": "2026-05-03T13:09:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:09:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "1754c9e9-3859-5c59-9985-81a8f4de0dcb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

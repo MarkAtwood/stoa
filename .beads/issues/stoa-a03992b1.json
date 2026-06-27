@@ -1,0 +1,13 @@
+{
+  "id": "stoa-a03992b1",
+  "title": "Review round 4: targeted deep dive on remaining gaps",
+  "description": "Fourth review pass. Rounds 1-3 have cleared all P0/P1 bugs. This round: (1) targeted review of areas agents skimmed \u2014 DID passthrough, LMDB unsafe block, SMTP relay error handling; (2) review of P2 items to assess if any escalate to P1.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T04:12:49Z",
+  "updated_at": "2026-05-01T04:52:13Z",
+  "closed_at": "2026-04-27T14:39:28Z"
+}

@@ -1,0 +1,26 @@
+{
+  "id": "stoa-d37f960e",
+  "title": "Graceful shutdown: hard timeout and exit codes",
+  "description": "After connection drain begins, start a configurable timer (default 30s). If sessions still open at timeout, forcibly close them. Exit code 0 on clean drain, non-zero if hard timeout fired. Blocked on: stoa-639f91d7.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:40:45Z",
+  "updated_at": "2026-05-01T04:54:15Z",
+  "closed_at": "2026-04-24T05:17:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3218a013",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 12:59:58"
+    },
+    {
+      "depends_on_id": "stoa-639f91d7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 10:42:30"
+    }
+  ]
+}

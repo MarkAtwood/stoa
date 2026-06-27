@@ -1,0 +1,23 @@
+{
+  "close_reason": "False positive: main.rs line 297 wires the returned SdkLoggerProvider to OpenTelemetryTracingBridge.",
+  "closed_at": "2026-05-03T13:07:43Z",
+  "compaction_level": 0,
+  "content_hash": "d7f6caf70dd04cb207b69cdecc5b86828b92bf647ef023c2b750a1fa6a462f93",
+  "created_at": "2026-05-03T13:07:37Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why This Exists\\n\\ntelemetry.rs::init_telemetry() returns (OtelGuard, Option<SdkLoggerProvider>). The guard holds a clone of the logger_provider, and the returned Option is described as needing to be passed to OpenTelemetryTracingBridge. If the caller does not wire the bridge (i.e. ignores the Option<SdkLoggerProvider>), the OtelGuard's logger_provider shuts down correctly but log records are never exported.\\n\\nThe function signature and doc comment describe this requirement but do not enforce it at the type level. If main.rs ignores the second return value, OTLP log export silently does not work.\\n\\n## Acceptance Criteria\\n\\nAudit main.rs to confirm the returned SdkLoggerProvider is wired to the tracing bridge. Add a #[must_use] attribute to the second return type, or wrap it in a type that panics if dropped without being used.",
+  "ephemeral": 0,
+  "id": "stoa-vw382",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "telemetry.rs: OtelGuard.logger_provider is Some but log bridge is not wired",
+  "updated_at": "2026-05-03T13:07:43Z"
+}

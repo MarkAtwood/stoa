@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Implemented: migration 0015 drops unused mta_sts_cache table; domain validation extended with #?[] guards + 4 new tests. Committed 694a088.",
+  "closed_at": "2026-05-02T23:44:05Z",
+  "compaction_level": 0,
+  "content_hash": "4e70036f5e8dbe3c8fb77ba8f8760b59ef3f1bce7731edc86a68e68012179aa3",
+  "created_at": "2026-05-02T23:07:59Z",
+  "created_by": "Mark Atwood",
+  "description": "The migration creates a mta_sts_cache Postgres table but relay_client.rs uses an in-memory HashMap-based MtaStsEnforcer cache. No sqlx reads or writes touch this table. Future contributors will waste time finding the 'real' persistence layer. Either delete the migration and table, or document explicitly that the in-memory cache replaced the DB-based design and the migration is intentionally retained for forward-compat.",
+  "ephemeral": 0,
+  "id": "stoa-wfcj7.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "crates/mail/migrations_pg/0014_mta_sts_cache.sql creates table that nothing reads or writes",
+  "updated_at": "2026-05-02T23:44:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T16:07:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-wfcj7",
+      "id": "cc3e6a8c-8e28-5322-b91d-da6fc97d7852",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

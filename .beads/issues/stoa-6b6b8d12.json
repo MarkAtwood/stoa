@@ -1,0 +1,20 @@
+{
+  "id": "stoa-6b6b8d12",
+  "title": "decision: git_store write_blob .lock().unwrap() is correct for Mutex",
+  "description": "In post/git_store.rs, write_blob and read_blob call repo.lock().unwrap() inside spawn_blocking closures. Mutex::lock() returns Err only if another thread panicked while holding the lock (poisoned). In spawn_blocking, a panic aborts that blocking task; the JoinError propagates up as an IpfsWriteError. The unwrap on lock is therefore correct: if the mutex is poisoned something has already gone wrong and propagating the panic is the right response.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:29:59Z",
+  "updated_at": "2026-05-01T04:58:44Z",
+  "closed_at": "2026-04-28T20:12:06Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:29:58"
+    }
+  ]
+}

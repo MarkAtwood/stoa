@@ -1,0 +1,13 @@
+{
+  "id": "stoa-ce2be0c7",
+  "title": "Peer health dashboard via admin endpoint",
+  "description": "Extend the /admin/peers endpoint with enough detail for operators to diagnose peering problems without grepping logs.\n\nWhy this issue exists:\nThe current /admin/peers endpoint returns a list of peer addresses. It does not show whether peers are reachable, when they last exchanged articles, how many articles have been exchanged, or whether reconciliation is succeeding. Operators diagnosing a peering problem currently have to grep structured logs.\n\nScope:\nExtend GET /admin/peers response to include per-peer:\n- address: configured address\n- connected: bool (TCP connection currently open)\n- last_seen: ISO8601 timestamp of last successful message exchange\n- last_reconcile: ISO8601 timestamp of last gossip reconcile attempt\n- reconcile_ok: bool (last reconcile completed without errors)\n- articles_sent: counter (articles sent to this peer since daemon start)\n- articles_received: counter (articles received from this peer since daemon start)\n- groups_shared: list of group names both peers subscribe to\n\nAdd GET /admin/peers/<address>/ping \u2014 attempts a TCP connect and returns latency in ms. Used for manual liveness checks from the CLI.\n\nAcceptance criteria:\n- GET /admin/peers returns the extended fields for each configured peer\n- connected=false for a peer whose TCP connection is down\n- last_reconcile and reconcile_ok update after each gossip reconcile cycle\n- ctl peers (from the admin CLI epic) displays the extended fields in a table",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:17:38Z",
+  "updated_at": "2026-05-01T04:51:46Z",
+  "closed_at": "2026-04-28T08:16:33Z"
+}

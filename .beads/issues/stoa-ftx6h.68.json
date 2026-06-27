@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "9e6e0c0c848ace49030af172d9e32716f917b8e7a845b114298ec5788ef3f74c",
+  "created_at": "2026-05-03T13:05:11Z",
+  "created_by": "Mark Atwood",
+  "description": "In x_sig.rs, SIG_HEADER is declared pub(crate) with #[allow(dead_code)] and annotated 'available for external use (e.g. test harnesses that construct signed articles)'. If no production code uses it, the allow(dead_code) attribute and the pub(crate) visibility serve only to suppress the compiler warning for a symbol that is only referenced in the test module. Either make it #[cfg(test)] pub(crate) or actually use it from production code. The current state is a contradiction: the doc says 'external use' but allow(dead_code) says the compiler disagrees.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.68",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "verify: x_sig SIG_HEADER constant has allow(dead_code) \u2014 pub(crate) but only used in tests",
+  "updated_at": "2026-05-03T13:05:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "1d63af67-4317-576f-8918-f018c1fa2fbe",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

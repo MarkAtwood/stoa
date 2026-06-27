@@ -1,0 +1,13 @@
+{
+  "id": "stoa-b8a59a34",
+  "title": "JMAP API: no HTTP body size limit at transport layer",
+  "description": "mail/src/server.rs build_router advertises maxSizeRequest: 10MB but does not enforce it via axum body limits. A client can stream an unbounded body to /jmap/api. Fix: add axum::extract::DefaultBodyLimit::max(10*1024*1024) to the router.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T08:02:10Z",
+  "updated_at": "2026-05-01T05:00:34Z",
+  "closed_at": "2026-04-27T14:53:35Z"
+}

@@ -1,0 +1,19 @@
+{
+  "id": "stoa-87dac70b",
+  "title": "DkimSigner construction duplicated verbatim in smtp/main.rs and reader/server_stores.rs",
+  "description": "The ~20 lines that decode key_seed_b64, decode public_key_b64, call Ed25519Key::from_seed_and_public_key, zeroize seed, call DkimSigner::from_key().domain().selector().headers(), and return Arc::new(signer) are copy-pasted identically in smtp/src/main.rs (lines 199-231) and reader/src/store/server_stores.rs (lines 386-418). A free function build_dkim_signer(dcfg: &DkimConfig) -> Result<Arc<...>, String> in smtp/src/config.rs or a new smtp/src/dkim.rs would eliminate the duplication. The suggested rewrite: pub fn build_dkim_signer(dcfg: &DkimConfig) -> Result<Arc<DkimSignerArc>, String> { ... } called from both sites.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:12:30Z",
+  "updated_at": "2026-05-01T04:58:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5be7a2c5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:12:30"
+    }
+  ]
+}

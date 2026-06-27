@@ -1,0 +1,12 @@
+{
+  "id": "stoa-fcb33fef",
+  "title": "fix(mail): log DB errors on token verify instead of silent 401",
+  "description": "mail/src/server.rs auth middleware catches Err(e) from token_store.verify in the same wildcard arm as Ok(None), silently returning 401 with no log. Operators see auth failures with no indication that the DB is broken. Fix: separate Ok(None) and Err(e) arms; log tracing::error! on DB failure.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T05:38:45Z",
+  "updated_at": "2026-05-01T04:53:37Z",
+  "closed_at": "2026-04-27T05:45:23Z"
+}

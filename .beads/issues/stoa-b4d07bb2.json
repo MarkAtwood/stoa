@@ -1,0 +1,13 @@
+{
+  "id": "stoa-b4d07bb2",
+  "title": "Backpressure on ingest pipeline",
+  "description": "Return a clean error to senders when the write pipeline is saturated rather than queuing articles unboundedly and exhausting memory.\n\nWhy this issue exists:\nA fast peer or a flood of POST commands can fill the in-memory staging buffer (the write-ahead staging introduced in the transit WAL epic) faster than Kubo can drain it. Without backpressure, the process grows without bound until OOM. Senders need a clear signal to back off and retry.\n\nScope:\n- Add a configurable high-water mark to the ingest staging buffer (default: 1000 pending articles or 256 MB, whichever is hit first)\n- When the high-water mark is exceeded:\n  - IHAVE/TAKETHIS: respond 436 (Retry later) per RFC 4644\n  - POST: respond 400 with 'server busy, retry later'\n- Emit a structured log event and increment a Prometheus counter when backpressure is applied\n- Add [ingest] max_pending_articles and max_pending_bytes config fields\n- Backpressure is released automatically as the drain catches up; no manual intervention required\n\nAcceptance criteria:\n- Sending 2000 articles faster than Kubo can write them triggers 436 responses after the high-water mark\n- Prometheus metric ingest_backpressure_total increments on each rejected article\n- After Kubo catches up, new articles are accepted again without restart\n- Memory usage stays bounded under flood conditions",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:16:23Z",
+  "updated_at": "2026-05-01T04:51:45Z",
+  "closed_at": "2026-04-27T22:52:42Z"
+}

@@ -1,0 +1,21 @@
+{
+  "id": "stoa-4689f518",
+  "title": "SMTP config.validate() missing bcrypt hash check \u2014 from_credentials panics instead of clean error",
+  "description": "smtp::Config::validate() does not check auth.users passwords with looks_like_bcrypt_hash. smtp::server.rs calls CredentialStore::from_credentials(&config.auth.users) which panics if any password is not a valid bcrypt hash. Reader and IMAP both added the check to their validate() (commits 4fa767e, 7eee338). SMTP was missed. Trigger: operator sets plaintext password in SMTP [auth.users]. Actual behavior: process panics at startup with a Rust panic message instead of a ConfigError::Validation with a helpful operator-facing message. The from_credentials doc precondition says 'The standard startup path in each service binary calls Config::validate() before constructing a CredentialStore' \u2014 this is false for SMTP.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T19:05:26Z",
+  "updated_at": "2026-05-01T04:51:36Z",
+  "closed_at": "2026-04-30T19:12:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-cdbe09c1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 12:05:26"
+    }
+  ]
+}

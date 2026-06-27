@@ -1,0 +1,22 @@
+{
+  "id": "stoa-0bed9adf",
+  "title": "Transit pipeline: sig verified against pre-Path bytes but stored under post-Path CID",
+  "description": "TRIGGER: Any article received via IHAVE/TAKETHIS on the transit peering path. BEHAVIOR: In transit/src/peering/pipeline.rs, the pipeline (1) snapshots original_bytes, (2) prepends a Path header hop to produce modified_bytes, (3) writes modified_bytes to IPFS producing a CID, (4) verifies the X-Stoa-Sig signature against original_bytes, then records the verification result keyed by that CID. The CID refers to the modified bytes. Any external party that fetches the block by CID and attempts to verify X-Stoa-Sig will compare the signature against bytes that include the extra Path hop the original signer never saw \u2014 verification always fails. The verification database entry records 'CID X is verified' but CID X cannot be independently verified.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T01:13:08Z",
+  "updated_at": "2026-05-01T04:57:23Z",
+  "closed_at": "2026-04-27T18:41:32Z",
+  "notes": "Research shows X-Stoa-Sig is local-only provenance tracking, not independently verifiable from IPFS by design. The CID (of modified bytes) is a consistent DB key for the pre-computed verification result; no code path re-verifies from IPFS. Fix: add comment to pipeline.rs clarifying the design intent.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ce3c28fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 18:13:08"
+    }
+  ]
+}

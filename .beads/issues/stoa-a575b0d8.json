@@ -1,0 +1,19 @@
+{
+  "id": "stoa-a575b0d8",
+  "title": "HLC skew check uses subtraction to avoid overflow on near-u64::MAX timestamps",
+  "description": "hlc.rs clock_skew check uses subtraction (remote_ms - wall_ms > max_skew) rather than addition (remote_ms > wall_ms + max_skew) to avoid integer overflow when wall_ms is near u64::MAX. The regression test with u64::MAX - 1 confirms this. Most codebases get this wrong by using the overflow-prone form.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:39:19Z",
+  "updated_at": "2026-05-01T04:58:18Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:39:19"
+    }
+  ]
+}

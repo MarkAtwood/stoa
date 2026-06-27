@@ -1,0 +1,21 @@
+{
+  "id": "stoa-9d47a214",
+  "title": "Sieve RFC 5228 filter engine",
+  "description": "Sieve mail filtering per RFC 5228. Step 0: evaluate sieve-rs crate (stalwartlabs/sieve-rs on crates.io). It is a full Sieve implementation in Rust published by the Stalwart Mail Server project. If RFC 5228 core plus the required extensions (see below) are implemented and the crate is actively maintained, adopt it as a dependency \u2014 do not reimplement. If not suitable, implement crates/sieve/ from scratch.\n\nRequired RFC 5228 core: tests (address, allof, anyof, envelope, exists, false, header, not, size, true), actions (fileinto, keep, discard, reject), control structures (if/elsif/else, require, stop).\n\nRequired extensions: RFC 5229 variables, RFC 5231 relational (gt/lt/ge/le/eq/ne comparators), RFC 5260 date and index, RFC 5233 subaddress (user+detail@host).\n\nNot required (receive-only, no outbound): redirect (RFC 5228 \u00a74.4), vacation (RFC 5230), notify (RFC 5435), enotify (RFC 5436).\n\nIf building from scratch: test oracle is RFC 5228 Appendix A examples plus the Cyrus Sieve test suite (open source, independent implementation). Never use the implementation as its own oracle. Parser: PEG grammar or hand-written recursive descent. Evaluator: walk AST against message envelope and headers. The fileinto action produces a mailbox path string; actual mailbox creation is handled by the delivery epic.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T04:52:40Z",
+  "updated_at": "2026-05-01T04:57:44Z",
+  "closed_at": "2026-04-21T05:13:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-03347379",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 21:52:40"
+    }
+  ]
+}

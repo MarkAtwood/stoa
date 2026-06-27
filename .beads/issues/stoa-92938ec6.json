@@ -1,0 +1,20 @@
+{
+  "id": "stoa-92938ec6",
+  "title": "sieve: RFC 5228 evaluator core",
+  "description": "Implement crates/sieve/src/eval.rs. Public struct Evaluator. Public trait MessageContext: provides fn headers(&self, name: &str) -> Vec<&str>; fn envelope_from(&self) -> &str; fn envelope_to(&self) -> &str; fn body_size(&self) -> u64. Evaluate SieveScript against a &dyn MessageContext, producing Vec<SieveAction> (enum: Keep, Discard, FileInto(String), Reject(String)). Walk commands top to bottom. If command: evaluate test, if true execute then-block, else try elsif chain, else execute else_block. Stop: return immediately with current action list (implicit Keep if no fileinto/discard/reject was produced). Require: check declared extensions set; if extension not known to the evaluator, return EvalError::UndeclaredExtension. Tests: headertest(:is), headertest(:contains), headertest(:matches) with glob wildcards (* = zero-or-more chars, ? = single char per RFC 5228 \u00a72.7.3), address test (:all, :localpart, :domain), allof/anyof/not, size:over/size:under, exists, if/elsif/else branching, stop terminates, implicit keep when no action. Oracle: Dovecot Pigeonhole test suite test cases for these conditions.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T05:00:40Z",
+  "updated_at": "2026-05-01T04:57:43Z",
+  "closed_at": "2026-04-21T05:06:25Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-9d47a214",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 22:00:40"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "stoa-da4c51f7",
+  "title": "TLS certificate expiry alerting",
+  "description": "Emit metrics and log warnings when configured TLS certificates are approaching expiry, so operators are alerted before clients start seeing certificate errors.\n\nWhy this issue exists:\nTLS certificate expiry is a silent, predictable outage. The daemon loads certs at startup but never checks them again. An operator who set up a cert and forgot about it will wake up to broken clients.\n\nScope:\n- At startup, read the NotAfter field from each configured TLS certificate (reader, transit, mail, smtp)\n- Emit a structured log event at WARN if expiry is within 30 days: event=cert_expiry_warning, path, days_remaining, expires_at\n- Emit at ERROR if expiry is within 7 days\n- Expose a Prometheus gauge tls_cert_expiry_seconds{path=...} with the Unix timestamp of each cert's expiry\n- Re-check expiry on config reload (SIGHUP / POST /admin/reload)\n- Checking is read-only: the daemon never fetches or renews certs (that is certbot/ACM's job)\n\nAcceptance criteria:\n- A cert expiring in 15 days produces a WARN log event at startup and on each reload\n- tls_cert_expiry_seconds gauge is present in /metrics for each configured cert\n- A cert expiring in 3 days produces an ERROR log event\n- No alert is emitted for certs with more than 30 days remaining",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:17:04Z",
+  "updated_at": "2026-05-01T04:51:45Z",
+  "closed_at": "2026-04-27T22:19:17Z"
+}

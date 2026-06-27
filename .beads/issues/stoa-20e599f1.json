@@ -1,0 +1,21 @@
+{
+  "id": "stoa-20e599f1",
+  "title": "auth/oidc: validate_jwt returns last provider error losing earlier errors",
+  "description": "crates/auth/src/oidc.rs OidcStore::validate_jwt() \u2014 iterates providers and on failure records only the last error in last_err. If provider 1 fails with Http(network error) and provider 2 fails with InvalidToken(signature), the caller receives only the InvalidToken from provider 2, masking the network error from provider 1. Operators debugging a multi-provider setup will not see all errors. A Vec<OidcError> of all failures would give operators the full picture; alternatively, log each failure at debug level as it occurs.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:28:31Z",
+  "updated_at": "2026-05-01T04:53:12Z",
+  "closed_at": "2026-04-28T17:49:48Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:28:31"
+    }
+  ]
+}

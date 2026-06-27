@@ -1,0 +1,20 @@
+{
+  "id": "stoa-330ca656",
+  "title": "dispatch.rs check_credentials dead code uses plain string equality",
+  "description": "reader/src/session/dispatch.rs: check_credentials() performs u.password == password (plain string equality, not constant-time). This function is never called in production \u2014 the AUTHINFO PASS path in lifecycle.rs goes directly to CredentialStore::check() which correctly uses bcrypt. But the function exists and someone will read it, assume it represents the auth model, and not realize the bcrypt path is the real one. Fix: delete check_credentials() entirely. If needed as a dev-mode stub, add a comment explaining that it is never called in production.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T22:01:32Z",
+  "updated_at": "2026-05-01T04:55:31Z",
+  "closed_at": "2026-04-22T22:53:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-e38f5cd8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 15:01:31"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "compaction_level": 0,
+  "content_hash": "720f6645038472e30a74e9dfdaae4c5f3f9ebd51ab99886ac8281066ca168ae6",
+  "created_at": "2026-05-01T19:34:45Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why\n\nThe current soft-cap implementation in FsBlockStore calls dir_bytes_used() \u2014 an O(n) readdir + stat scan \u2014 before every put when max_bytes is set. This is filesystem-specific and gets slow at scale (100k+ blocks).\n\n## What\n\nMove quota accounting into a SQLite row (backend_quota table: backend_id, total_bytes). The IpfsBlockStore trait already abstracts storage; quota tracking should live above it, not inside each implementation.\n\nHot path becomes O(1): check row, write block, increment row.\n\n## Design\n\n- Add backend_quota table: (backend_id TEXT PK, total_bytes INTEGER)\n- On startup: scan the actual backend once to reconcile the row (pays O(n) cost once, not per-write)\n- On put: check row against cap, write block, increment row\n- On delete: decrement row\n- Accept soft-cap semantics: a crash between write and row update leaves a small undercount, which is fine\n\n## Acceptance\n\n- FsBlockStore no longer calls dir_bytes_used() on the hot write path\n- Quota check works identically for fs, LMDB, S3, and any future backend\n- Startup reconciliation resets the row to the true byte count",
+  "ephemeral": 0,
+  "id": "stoa-5xn8j",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "dir_bytes_used() is in crates/reader/src/post/fs_store.rs. The same pattern would apply to crates/transit/src/peering/fs_store.rs.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Track block store quota in SQLite row, not per-backend scan",
+  "updated_at": "2026-05-01T19:34:45Z"
+}

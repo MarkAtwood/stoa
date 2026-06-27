@@ -1,0 +1,21 @@
+{
+  "id": "stoa-a1831888",
+  "title": "wildmat: extract to core crate",
+  "description": "## What\nMove wildmat_match() and matches_wildmat() from crates/reader/src/session/commands/list.rs to crates/core/src/wildmat.rs; update reader to import from core. Pure refactor \u2014 no semantic change.\n\n## Algorithm\n1. Read crates/reader/src/session/commands/list.rs to copy exact wildmat_match(text: &[u8], pattern: &[u8]) -> bool and matches_wildmat(name: &str, pattern: &str) -> bool\n2. Create crates/core/src/wildmat.rs with those two functions; wildmat_match stays private (pub(crate)), matches_wildmat is pub\n3. Add 'pub mod wildmat;' to crates/core/src/lib.rs\n4. In crates/reader/src/session/commands/list.rs: remove local definitions, add 'use stoa_core::wildmat::matches_wildmat;'\n5. Run cargo test -p stoa-core -p stoa-reader to verify no regressions\n\n## Defensive programming rules\n- Pure refactor: copy bytes exactly, do not modify logic\n- Do not add or change any behavior\n- Confirm all existing list.rs wildmat tests still pass after move\n- No unwrap() \u2014 function has no error paths\n\n## Agent team\nStandard: Agent R (read list.rs + core/lib.rs), Agent I (copy + rewire), Agent V (cargo test -p stoa-reader -p stoa-core + clippy)\n\n## Tests\nNo new tests. Existing tests in reader for matches_wildmat serve as correctness oracle.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-26T23:23:43Z",
+  "updated_at": "2026-05-01T04:52:00Z",
+  "closed_at": "2026-04-26T23:42:06Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-efbe068a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 16:23:43"
+    }
+  ]
+}

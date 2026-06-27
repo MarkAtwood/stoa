@@ -1,0 +1,32 @@
+{
+  "id": "stoa-c0b7a31e",
+  "title": "Use secretsx crate for all secret retrieval",
+  "description": "Replace all direct secret loading (signing key from file, credentials from env/file) with the secretsx crate once it exists and is published on crates.io.\\n\\nWhy this issue exists:\\nToday the operator signing key is loaded by hand in server_stores.rs (load_or_generate_signing_key), credentials are loaded from bcrypt files, and there is no abstraction over where secrets come from. For AWS Marketplace deployments, secrets should come from Secrets Manager or KMS. secretsx provides a URI-driven backend-agnostic abstraction that makes this a config change rather than a code change.\\n\\nScope:\\n- Replace load_or_generate_signing_key with a SecretStore::from_uri call; URI configured in [operator] section\\n- Replace credential file loading with SecretStore-backed retrieval where the backend is a URI\\n- Wire AwsKmsBackend as the SigningBackend for production deployments (key never leaves KMS)\\n- Update all four daemon configs (transit, reader, mail, smtp) to accept secret URIs\\n- Update RUNBOOK.md with Secrets Manager and KMS setup steps for AWS Marketplace deployments\\n\\nOut of scope:\\n- Writing secretsx itself (separate project, see SPEC-crate-secretsx.md)\\n- Migrating existing bcrypt credential stores to a secrets manager (operator's choice)\\n\\nAcceptance criteria:\\n- Operator signing key can be configured as secretsx://aws-sm/... or secretsx://aws-kms/... or secretsx://file/... with no code changes\\n- All secret URIs default to secretsx://file/... or secretsx://env/... so existing deployments are unaffected\\n- No secret bytes appear in logs or tracing spans\\n- Integration tests pass with secretsx://file// and secretsx://env/ backends",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T16:55:51Z",
+  "updated_at": "2026-05-01T04:51:26Z",
+  "closed_at": "2026-04-26T21:15:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3116875c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 09:56:00"
+    },
+    {
+      "depends_on_id": "stoa-31d0c78a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 09:55:59"
+    },
+    {
+      "depends_on_id": "stoa-f0b9ff15",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 13:46:49"
+    }
+  ]
+}

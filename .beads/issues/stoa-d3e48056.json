@@ -1,0 +1,21 @@
+{
+  "id": "stoa-d3e48056",
+  "title": "NNTP reader session has no idle timeout \u2014 resource exhaustion under load",
+  "description": "The SMTP session wraps every read_command_line call in tokio::time::timeout(command_timeout_secs). The NNTP reader's reader.read_line() call has no timeout \u2014 a client that connects and then idles holds a TCP fd, a tokio task, and a SessionContext allocation indefinitely. Scenario: 100 slow-loris connections idle after greeting, preventing legitimate readers from connecting once max_connections is hit (if enforced). SMTP already solved this with the existing config field; NNTP should apply the same pattern using the limits.command_timeout_secs equivalent.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T14:06:28Z",
+  "updated_at": "2026-05-01T04:54:45Z",
+  "closed_at": "2026-04-21T14:46:22Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ad28b4f3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 07:06:27"
+    }
+  ]
+}

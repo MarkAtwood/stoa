@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "4752b7a02ecd46dcdfb79373b47409e328a49d2855fe5893c62453026b68e4e5",
+  "created_at": "2026-05-03T13:07:51Z",
+  "created_by": "Mark Atwood",
+  "description": "tests/crdt_properties.rs documents the decision to use proptest for CRDT properties (commutativity, idempotency, convergence). The comment explicitly states that hand-crafted tests cannot explore the state space and that proptest has historically caught CRDT edge cases. The 1000-case commutativity test and 200-case convergence-after-partition test are appropriate coverage levels. The test comment forbidding replacement with example-based tests is correct and should be maintained.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.155",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "DECISION: proptest for CRDT commutativity and convergence is mandatory and correct",
+  "updated_at": "2026-05-03T13:07:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:07:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "0f590fa3-e1f2-5c17-8aa4-1b054e641ab4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

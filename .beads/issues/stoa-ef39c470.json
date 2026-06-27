@@ -1,0 +1,20 @@
+{
+  "id": "stoa-ef39c470",
+  "title": "SessionContext and SelectedGroup missing Debug derive",
+  "description": "In session/context.rs, SessionContext and SelectedGroup have no #[derive(Debug)]. Lack of Debug prevents using {:?} in log/trace calls or assert messages, and forces any struct that contains them to manually implement Debug.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:28:18Z",
+  "updated_at": "2026-05-01T04:54:08Z",
+  "closed_at": "2026-04-28T21:59:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-5aa74b0a",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-28 09:28:17"
+    }
+  ]
+}

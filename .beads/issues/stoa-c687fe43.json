@@ -1,0 +1,12 @@
+{
+  "id": "stoa-c687fe43",
+  "title": "suck_pull and mbox duplicate NNTP response_code parser",
+  "description": "crates/transit/src/import/suck_pull.rs, import/ihave_push.rs, and import/mbox.rs each define a private 3-digit NNTP response code parser (parse_response_code / response_code / mbox_response_code). These are structurally identical functions. Extract one canonical function to stoa_core or an import utility module and delete the duplicates.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-28T16:27:17Z",
+  "updated_at": "2026-05-01T04:58:37Z",
+  "closed_at": "2026-04-28T21:23:08Z"
+}

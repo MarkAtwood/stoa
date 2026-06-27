@@ -1,0 +1,27 @@
+{
+  "id": "stoa-88563941",
+  "title": "Implement IHAVE bulk import tool (push mode)",
+  "description": "Implement a CLI tool (or transit subcommand) that reads articles from a directory or stdin and sends them to a running transit daemon via IHAVE/TAKETHIS. Supports batch mode: send N articles in parallel. Reports progress: articles sent, articles rejected (duplicate/malformed), elapsed time. Artifact: transit/src/import/ihave_push.rs and a CLI entry point.\n\nAcceptance:\n- Successfully imports a 1000-article corpus in a single run\n- Duplicate articles (already known Message-ID) are counted and skipped without error\n- Malformed articles (missing mandatory header) are logged with filename and skipped\n- Final report: total sent, accepted, rejected, duplicates\n- --parallel N flag controls concurrency (default 4)",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:13:41Z",
+  "updated_at": "2026-05-01T04:58:14Z",
+  "closed_at": "2026-04-20T06:56:26Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-8fe9296c",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:20:12"
+    },
+    {
+      "depends_on_id": "stoa-a684e7df",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:13:41"
+    }
+  ]
+}

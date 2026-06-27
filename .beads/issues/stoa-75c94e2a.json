@@ -1,0 +1,20 @@
+{
+  "id": "stoa-75c94e2a",
+  "title": "SEC2: no efficiency issues in peer_whitelist",
+  "description": "Reviewed crates/smtp/Cargo.toml, crates/smtp/src/config.rs, and crates/smtp/src/session.rs for epic stoa-1d9d418c (manual peer whitelist).\n\nNo measurable efficiency issues found.\n\nSpecific checks performed:\n\n1. peer_whitelist scan (session.rs:191-194): config.peer_whitelist.iter().any(...) is called once per connection at session setup, not in the per-command loop. O(n) over n=0-10 entries; trivially fast and structurally correct.\n\n2. IpNet::contains (session.rs:194): O(1) bitmask comparison per ipnet crate implementation. No concern.\n\n3. Allocations in hot path: zero. client_ip is an IpAddr (Copy), IpNet values are borrowed from the Arc<Config>. The whitelist check allocates nothing.\n\n4. peer_addr parsed once (session.rs:171-185): SocketAddr parse is done once into client_ip; that value is reused for both the whitelist check and the later verify_inbound call. No redundant parsing.\n\n5. connection_whitelisted dead write (session.rs:198): The bool is computed and then suppressed with let _ = .... The compiler elides the pure computation at opt level. The tracing::info! at line 196 does execute on whitelisted connections, but that is a connection-setup path and acceptable. The comment explains this is placeholder until greylisting (stoa-ef702cf6) consumes the flag.\n\n6. T1-T8 test helpers (config.rs:790-811): whitelist_check re-parses CIDR strings on each call. Acceptable for a test helper; production code holds pre-parsed Vec<IpNet>. No production efficiency concern.\n\nAll checks pass. Implementation is clean for the stated scale (0-10 whitelist entries, connection-granularity check).",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:47:23Z",
+  "updated_at": "2026-05-01T04:58:50Z",
+  "closed_at": "2026-04-30T15:57:57Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-6b4887c1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:47:22"
+    }
+  ]
+}

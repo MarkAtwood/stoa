@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "8bb03de2d8351579bffbd273e122e3ce8ce3c89158329793802bbbb9fae1c22d",
+  "created_at": "2026-05-03T13:05:17Z",
+  "created_by": "Mark Atwood",
+  "description": "In store.rs unit tests, store_with_alice() and merge tests construct CredentialStore directly via struct literal (CredentialStore { entries, dummy_hash }). This requires that the private fields entries and dummy_hash are accessible within the same module (they are, because tests are in the same file). But it couples the test to the internal representation. A constructor like CredentialStore::new_with_entries_for_test(entries) or reusing from_credentials would be cleaner and more resilient to field renames.",
+  "ephemeral": 0,
+  "id": "stoa-ftx6h.71",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "auth: CredentialStore entries and dummy_hash fields are pub(crate) in unit tests via struct literal construction",
+  "updated_at": "2026-05-03T13:05:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:05:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-ftx6h",
+      "id": "6358f532-91aa-595b-ae04-7d3e2cd0b0ca",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

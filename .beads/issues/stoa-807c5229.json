@@ -1,0 +1,19 @@
+{
+  "id": "stoa-807c5229",
+  "title": "Add module-level explanation of single-user global Sieve architecture",
+  "description": "The codebase uses a single global Sieve script (_global key) for all inbound mail. Supporting documentation exists in scattered function comments but is not collected in a central, discoverable location. When someone needs to understand the Sieve delivery path or why per-user scripts are not supported, they have to infer the design from context. Add a module-level doc comment to crates/smtp/src/session.rs or crates/smtp/src/sieve_admin.rs (or both) that explains: (1) this is a single-user system, (2) all SMTP mail is processed by one global Sieve script, (3) the global script key is '_global', (4) where the script is loaded from and how it's cached.",
+  "status": "open",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T07:06:31Z",
+  "updated_at": "2026-05-01T04:54:16Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-17ee367f",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 00:06:31"
+    }
+  ]
+}

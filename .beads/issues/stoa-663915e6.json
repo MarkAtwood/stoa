@@ -1,0 +1,19 @@
+{
+  "id": "stoa-663915e6",
+  "title": "ihave_push: new TCP connection per article \u2014 O(N) handshakes for bulk import",
+  "description": "ihave_push.rs: send_ihave() opens a new TcpStream for every article, reads greeting, sends IHAVE, sends body, reads response, and drops the stream. For 100k articles this is 100k TCP handshakes. Reusing one connection per worker chunk would reduce this to config.parallel connections total.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:44:18Z",
+  "updated_at": "2026-05-01T04:58:16Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-0c0017ef",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:44:18"
+    }
+  ]
+}

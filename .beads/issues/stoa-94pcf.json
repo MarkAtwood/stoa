@@ -1,0 +1,32 @@
+{
+  "compaction_level": 0,
+  "content_hash": "196429da434120592bc8b57e92c4c9a33fea47c7ee6df11f3b74879bd1310573",
+  "created_at": "2026-05-01T19:52:10Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why\n\nWhen using the Maildir backend, notmuch can index the article store. This issue wires notmuch's tag and search capabilities into stoa's JMAP layer, replacing or supplementing the Tantivy full-text search index and the UserFlagsStore with notmuch's Xapian index.\n\nResult: JMAP Email/query text filters and keyword filters are answered by notmuch queries. JMAP keyword changes (mark seen, flag, etc.) are written back to notmuch tags. Users get a single source of truth for tags that both stoa and their notmuch MUA see.\n\n## What\n\n### Keyword sync (JMAP keywords \u2194 notmuch tags)\n\nDefined mapping:\n- `$seen` \u2194 notmuch tag absent (notmuch convention: unread = tag:unread present; seen = tag:unread absent)\n- `$answered` \u2194 notmuch tag `replied`\n- `$flagged` \u2194 notmuch tag `flagged`\n- `$draft` \u2194 notmuch tag `draft`\n- All other JMAP keywords \u2194 notmuch tags of the same name\n\nMaildir flags in the filename (:2,RS suffix) are kept in sync with notmuch tags for MUA compatibility.\n\nOn JMAP `Email/set` keyword update: call `notmuch tag` (via subprocess or notmuch library) to apply the delta.\nOn read: call `notmuch search --output=tags` for the message to populate JMAP keywords.\n\n### Search integration (JMAP Email/query \u2194 notmuch query)\n\nMap JMAP EmailFilterCondition fields to notmuch query syntax:\n- `text` \u2192 bare notmuch term search\n- `from` \u2192 `from:value`\n- `to` \u2192 `to:value`\n- `subject` \u2192 `subject:value`\n- `hasKeyword` \u2192 `tag:value`\n- `notKeyword` \u2192 `not tag:value`\n- `before` / `after` \u2192 `date:..value` / `date:value..`\n- `inMailbox` \u2192 `folder:groupname`\n\nUnmapped filter conditions fall back to the existing Tantivy index or return empty results with a flag indicating partial results.\n\n### notmuch invocation\n\nOption A: subprocess (`notmuch search`, `notmuch tag`, `notmuch new`) \u2014 simple, adds notmuch as a runtime dependency.\nOption B: notmuch C library via FFI \u2014 faster, no subprocess overhead, more complex.\n\nStart with Option A (subprocess). Gate behind a `notmuch` Cargo feature.\n\n## Dependencies\n\nRequires stoa-hgfmg (Maildir block store backend) \u2014 notmuch integration only makes sense when articles are stored as Maildir files.\n\n## Acceptance\n\n- JMAP Email/query with text filter is answered by notmuch search\n- JMAP Email/set keyword update is reflected in notmuch tags and vice versa\n- notmuch new run after article ingest makes articles visible to notmuch MUAs\n- Feature is gated behind a notmuch Cargo feature flag\n- Integration tests run only when notmuch binary is present on PATH",
+  "ephemeral": 0,
+  "id": "stoa-94pcf",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "The notmuch unread convention (unread tag present = unseen) is the inverse of JMAP $seen. This is the most likely source of bugs \u2014 test it explicitly.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Notmuch tag and search integration",
+  "updated_at": "2026-06-26T20:26:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T12:52:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-hgfmg",
+      "id": "03746fe5-53b6-5f62-a61b-13d30d9d5ab0",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

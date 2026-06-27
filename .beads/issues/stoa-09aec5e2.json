@@ -1,0 +1,13 @@
+{
+  "id": "stoa-09aec5e2",
+  "title": "Retention enforcement reporting",
+  "description": "Emit a structured report after each GC run showing what was deleted, when, and why \u2014 so operators have proof that retention policies are being enforced and can audit storage reclamation.\n\nWhy this issue exists:\nThe GC runs on a cron schedule and currently logs a single summary line. Operators subject to retention obligations (legal hold, GDPR deletion requests, data lifecycle policies) need a durable, structured record of what was actually deleted. 'Trust me, the GC ran' is not sufficient for compliance.\n\nScope:\n- After each GC run, write a structured retention report to a configurable path (default: /var/log/usenet-ipfs/gc-reports/YYYYMMDDTHHMMSSZ.json)\n- Report fields: run_id (UUID), started_at, completed_at, policy (the GC policy that ran), groups_scanned, articles_evaluated, articles_deleted, bytes_reclaimed, errors (list of CIDs that failed to unpin with reason)\n- Also emit a single structured log event at INFO summarizing the run: event=gc_complete with the same top-level counts\n- Expose Prometheus counters: gc_runs_total, gc_articles_deleted_total, gc_bytes_reclaimed_total\n- Report files are never deleted by the daemon \u2014 retention of the reports themselves is the operator's responsibility\n- Add GET /admin/gc/last-run to the admin endpoint returning the most recent report as JSON\n\nAcceptance criteria:\n- After a GC run that deletes articles, a report file exists at the configured path with valid JSON\n- The report lists each deleted article's CID and the policy rule that matched\n- GET /admin/gc/last-run returns the same data as the most recent report file\n- gc_articles_deleted_total in /metrics increments by the correct count after a GC run\n- A GC run that deletes nothing still writes a report (with articles_deleted: 0)",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T17:18:03Z",
+  "updated_at": "2026-05-01T04:56:49Z",
+  "closed_at": "2026-04-28T11:56:08Z"
+}

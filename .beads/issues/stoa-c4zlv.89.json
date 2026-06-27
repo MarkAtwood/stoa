@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already validated in config.rs lines 914-919 (DECISION rbe3.26)",
+  "closed_at": "2026-05-01T17:52:15Z",
+  "compaction_level": 0,
+  "content_hash": "d4bafecdc229ec58f1b1ab6d82283471b69d3c7580d4b2cba90ea404bf856bd7",
+  "created_at": "2026-05-01T15:22:17Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: config.rs ExternalPinServiceConfig endpoint field is documented 'Must use HTTPS' but the validate() function does not enforce this. An operator can configure endpoint = 'http://...' and the daemon will start, silently sending bearer tokens over plaintext HTTP to the remote pinning service. Bad behavior: API keys are transmitted unencrypted, enabling credential theft by any network observer on the path between the daemon and the pinning service.",
+  "ephemeral": 0,
+  "id": "stoa-c4zlv.89",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "config.rs does not validate external pinning service endpoint requires HTTPS",
+  "updated_at": "2026-05-01T17:52:15Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:22:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "stoa-c4zlv",
+      "id": "42008988-069d-5908-b8be-02d5614accb2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "id": "stoa-3a0b935e",
+  "title": "RFC 3977 conformance: LIST ACTIVE, GROUP, ARTICLE, HEAD, BODY, STAT",
+  "description": "Seed the reader with a known corpus of 50 articles across 3 groups. Test: LIST ACTIVE (verify all 3 groups, correct high/low), GROUP (verify article count), ARTICLE by number and by message-ID, HEAD, BODY, STAT. Verify response codes and payload correctness. Artifact: tests/conformance/fetch_commands.py.\n\nAcceptance criteria:\n- LIST ACTIVE lists all 3 seeded groups with correct high/low\n- ARTICLE <n> returns article body matching seeded content\n- ARTICLE <msgid> works globally (no group context required)\n- HEAD returns only headers; BODY returns only body (no headers)\n- STAT returns 223 without body\n- All response codes match RFC 3977 tables",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-20T00:15:54Z",
+  "updated_at": "2026-05-01T04:58:10Z",
+  "closed_at": "2026-04-20T13:22:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-55db6c35",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:15:54"
+    },
+    {
+      "depends_on_id": "stoa-62c550fb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:54:14"
+    },
+    {
+      "depends_on_id": "stoa-f43fd193",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-19 17:16:44"
+    }
+  ]
+}

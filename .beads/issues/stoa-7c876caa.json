@@ -1,0 +1,45 @@
+{
+  "id": "stoa-7c876caa",
+  "title": "Wire overview.insert() into POST pipeline after group log append",
+  "description": "What: After append_to_groups() returns article number assignments, insert overview records for each group.\nAlgorithm:\n1. In crates/reader/src/session/lifecycle.rs, in run_post_pipeline():\n   a. After the append_to_groups() call (which now returns assignments):\n      let (header_bytes, body_bytes) = split_article(article_bytes);\n      let mut base_record = extract_overview(&header_bytes, &body_bytes);\n      for (group_name, article_number) in &assignments {\n          let record = OverviewRecord { article_number: *article_number, ..base_record.clone() };\n          if let Err(e) = stores.overview_store.insert(group_name, &record).await {\n              warn!(\"overview insert failed for {group_name}: {e}\");\n              // non-fatal: overview index corruption is recoverable; POST still succeeded\n          }\n      }\n2. Import extract_overview from store::overview\n3. Add test: POST an article -> query overview_store.query_range() -> article appears\nDefensive: overview failure is non-fatal (warn, continue); never abort POST due to overview error.\nAcceptance: integration test post_then_over_returns_article passes; cargo test clean.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T00:33:49Z",
+  "updated_at": "2026-05-01T04:59:17Z",
+  "closed_at": "2026-04-21T01:09:28Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3ddde5e8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:26"
+    },
+    {
+      "depends_on_id": "stoa-4ac4f8b8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:26"
+    },
+    {
+      "depends_on_id": "stoa-53e41c25",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:33:48"
+    },
+    {
+      "depends_on_id": "stoa-fbfbc97b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:27"
+    },
+    {
+      "depends_on_id": "stoa-ffb311ed",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 17:34:27"
+    }
+  ]
+}

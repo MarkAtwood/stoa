@@ -1,0 +1,21 @@
+{
+  "id": "stoa-33a032ee",
+  "title": "imap DB migration: uid_validity and imap_flags tables",
+  "description": "Create crates/imap/migrations/20260423000001_imap_state.sql. Tables: (1) CREATE TABLE IF NOT EXISTS imap_uid_validity (group_name TEXT NOT NULL PRIMARY KEY, uidvalidity INTEGER NOT NULL DEFAULT 1, next_uid INTEGER NOT NULL DEFAULT 1); -- UIDVALIDITY is a stable u32 per mailbox; next_uid is the next UID to assign (monotonically increasing). (2) CREATE TABLE IF NOT EXISTS imap_flags (user_id TEXT NOT NULL, group_name TEXT NOT NULL, cid TEXT NOT NULL, flags TEXT NOT NULL DEFAULT '', PRIMARY KEY (user_id, group_name, cid)); -- flags is a space-separated list of IMAP flag names (\\Seen, \\Flagged, \\Answered, \\Deleted, \\Draft, plus user keywords). CREATE INDEX IF NOT EXISTS idx_imap_flags_user_group ON imap_flags (user_id, group_name);. Create crates/imap/src/migrations.rs with pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> using sqlx::migrate\\!('./migrations').",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-23T07:16:38Z",
+  "updated_at": "2026-05-01T04:56:24Z",
+  "closed_at": "2026-04-23T07:24:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3741bca1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-23 00:16:37"
+    }
+  ]
+}

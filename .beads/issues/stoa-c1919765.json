@@ -1,0 +1,19 @@
+{
+  "id": "stoa-c1919765",
+  "title": "ConfigError: use thiserror instead of manual Display+Error impl",
+  "description": "reader/config.rs and imap/config.rs both define a ConfigError enum that manually impl Display and std::error::Error by hand. The project already uses thiserror (see stoa_auth::CredentialStoreError). Manual impls are maintenance burden with no benefit \u2014 #[derive(thiserror::Error)] + #[error(...)] attributes would produce identical behaviour with less code and consistent style. Callers who match on ConfigError variants are unaffected; the change is mechanical.",
+  "status": "deferred",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T18:34:18Z",
+  "updated_at": "2026-05-01T04:52:57Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-ff000988",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 11:34:18"
+    }
+  ]
+}

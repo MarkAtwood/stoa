@@ -1,0 +1,13 @@
+{
+  "id": "stoa-4b6cd949",
+  "title": "verify/store: identity=None binds NULL to NOT NULL column, silently drops failed verifications",
+  "description": "## Bug\n\nIn VerificationStore::record_verifications(), ArticleVerification.identity is Option<String>. When identity is None (Fail, NoKey, ParseError results), the query binds None as SQL NULL. The article_verifications column is 'identity TEXT NOT NULL DEFAULT ''' \u2014 NOT NULL with empty-string default.\n\nSQLite rejects the explicit NULL for a NOT NULL column, so the INSERT fails. The error is logged as a warning and silently dropped. Result: Fail, NoKey, and ParseError verification results are never persisted.\n\nImpact: articles with forged/malformed signatures show no X-Stoa-Verified header instead of 'X-Stoa-Verified: fail'.\n\n## Fix\nIn record_verifications: use v.identity.as_deref().unwrap_or(\"\") to store empty string for None.\nIn get_verifications: convert Some(\"\") back to None when reading back.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T18:47:37Z",
+  "updated_at": "2026-05-01T04:53:26Z",
+  "closed_at": "2026-04-27T18:49:15Z"
+}

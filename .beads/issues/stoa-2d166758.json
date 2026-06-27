@@ -1,0 +1,21 @@
+{
+  "id": "stoa-2d166758",
+  "title": "imap/session/mailbox.rs: iterative DP glob matcher prevents ReDoS",
+  "description": "glob_bytes uses a two-row DP table, not recursive backtracking. This is O(m*n) with a 1KB combined length cap that bounds worst-case work to ~256KB operations per LIST command. A future contributor might suggest replacing it with a simpler recursive glob or using the glob crate \u2014 both would reintroduce exponential blowup from adversarial patterns like %%%%%%%%...%. The current implementation is correct for IMAP LIST semantics (% does not cross '.') and is DoS-safe.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-27T06:00:57Z",
+  "updated_at": "2026-05-01T04:51:30Z",
+  "closed_at": "2026-04-27T16:58:59Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-18ecb995",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-26 23:00:57"
+    }
+  ]
+}

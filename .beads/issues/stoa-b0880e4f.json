@@ -1,0 +1,21 @@
+{
+  "id": "stoa-b0880e4f",
+  "title": "crates/smtp: workspace skeleton + Cargo.toml",
+  "description": "Create crates/smtp/ binary crate. Add to workspace Cargo.toml. Cargo.toml deps: tokio full, tracing 0.1, tracing-subscriber 0.3 (env-filter+json), serde 1 (derive), toml 0.8, rustls 0.23 (std+tls12), rustls-pemfile 2, tokio-rustls 0.26, mail-auth 0.8, mail-parser 0.11, usenet-ipfs-sieve (path). Stub src/main.rs (prints 'usenet-ipfs-smtp' and exits) and src/lib.rs (empty pub mod config; pub mod session; pub mod server; pub mod queue;). cargo check must pass.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-21T05:19:09Z",
+  "updated_at": "2026-05-01T04:57:40Z",
+  "closed_at": "2026-04-21T05:22:01Z",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-2aaf1187",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-20 22:19:09"
+    }
+  ]
+}

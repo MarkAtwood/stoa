@@ -1,0 +1,21 @@
+{
+  "id": "stoa-03982e15",
+  "title": "imap: X-USENET-IPFS-VERIFY command for operator signature verification",
+  "description": "Why: The NNTP reader exposes XVERIFY <message-id> <expected-cid> [SIG] to let clients confirm a message's CID and operator Ed25519 signature. The IMAP OBJECTID extension (stoa-89c2165e) already surfaces the CID as EMAILID, so CID lookup is covered. Signature verification has no natural home in standard IMAP and needs a custom command.\\n\\nWhat:\\n1. Implement X-USENET-IPFS-VERIFY as a custom IMAP command (RFC 3501 \u00a76 allows X-prefixed commands). Syntax:\\n     X-USENET-IPFS-VERIFY <uid> [CID <expected-cid>] [SIG]\\n   Response codes (mirroring NNTP XVERIFY):\\n     - OK VERIFIED: CID matches and (if SIG requested) signature valid\\n     - NO [CIDMISMATCH]: CID does not match expected\\n     - NO [SIGFAIL]: signature verification failed\\n     - NO [NOTFOUND]: UID not found\\n2. Advertise X-USENET-IPFS-VERIFY in CAPABILITY so clients can detect support.\\n3. Also return X-USENET-IPFS-CID and X-USENET-IPFS-SIG as FETCH data items (alongside the standard article headers), so clients that do a FETCH BODY[HEADER] get the usenet-ipfs metadata in the normal header block without a separate command.\\n\\nStandard IMAP clients that do not send X-USENET-IPFS-VERIFY and do not request the custom FETCH items are completely unaffected.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-22T02:04:10Z",
+  "updated_at": "2026-05-01T04:59:06Z",
+  "closed_at": "2026-04-23T14:03:36Z",
+  "notes": "RESOLVED via JMAP: The blob download (GET /jmap/download/{accountId}/{CID}/{name}) already returns the full article bytes including X-Usenet-IPFS-Sig header. Additionally, stoa-f8d13298 implements exposing the signature as x-usenet-ipfs-sig in Email/get responses. The IMAP X-command path remains blocked. Superseded by 3am for the JMAP path.",
+  "dependencies": [
+    {
+      "depends_on_id": "stoa-3741bca1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-21 19:04:12"
+    }
+  ]
+}
