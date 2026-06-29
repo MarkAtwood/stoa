@@ -15,19 +15,19 @@
       "depends_on_id": "stoa-3287c8c4",
       "dep_type": "parent_child",
       "created_by": "Mark Atwood",
-      "created_at": "2026-04-19 17:16:36"
+      "created_at": "2026-04-19T17:16:36Z"
     },
     {
       "depends_on_id": "stoa-4e48b549",
       "dep_type": "parent_child",
       "created_by": "Mark Atwood",
-      "created_at": "2026-04-19 17:16:52"
+      "created_at": "2026-04-19T17:16:52Z"
     },
     {
       "depends_on_id": "stoa-c8fc03b1",
       "dep_type": "parent_child",
       "created_by": "Mark Atwood",
-      "created_at": "2026-04-19 17:16:49"
+      "created_at": "2026-04-19T17:16:49Z"
     }
   ]
 }

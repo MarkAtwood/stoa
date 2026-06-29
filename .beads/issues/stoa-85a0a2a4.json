@@ -13,13 +13,13 @@
       "depends_on_id": "stoa-5c9f1a38",
       "dep_type": "parent_child",
       "created_by": "Mark Atwood",
-      "created_at": "2026-04-23 09:12:28"
+      "created_at": "2026-04-23T09:12:28Z"
     },
     {
       "depends_on_id": "stoa-b37a7fd4",
       "dep_type": "parent_child",
       "created_by": "Mark Atwood",
-      "created_at": "2026-04-23 09:12:29"
+      "created_at": "2026-04-23T09:12:29Z"
     }
   ]
 }
